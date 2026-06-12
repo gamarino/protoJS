@@ -13493,8 +13493,32 @@ const proto::ProtoObject* runBytecode(proto::ProtoContext* pContext,
                     }
                 }
 
-                // If result is an object, return it; otherwise return the newly created object (spec 9.2.2).
-                bool resultIsObject = result && result != PROTO_NONE && !result->isInteger(pContext) && !result->isDouble(pContext) && !result->asString(pContext) && result != PROTO_TRUE && result != PROTO_FALSE;
+                // ECMA-262 §10.2.1.3 [[Construct]] step 8.c: if the
+                // constructor body returns a value whose Type is not
+                // Object, the constructed object IS the receiver
+                // (newObj) — the return value is discarded.
+                // Pre-fix the JS-visible undefined and null sentinels
+                // slipped past the type filter: !PROTO_NONE accepted
+                // them, !isInteger/Double/String/Bool didn't catch
+                // them (they're tagged objects with no primitive
+                // marker), so an explicit `return undefined` from
+                // the ctor body propagated up as the construction
+                // result.  Caller saw undefined where the spec
+                // demanded the freshly-constructed receiver
+                // (built-ins/Function/S15.3.5_A3_T{1,2}, the
+                // wider Sputnik ctor-result suite).  Exclude both
+                // sentinels and Symbol-tagged primitives (§6.1.5)
+                // before treating result as an Object.
+                bool resultIsObject = result && result != PROTO_NONE
+                    && result != t_undefinedSentinel && result != t_nullSentinel
+                    && !result->isInteger(pContext) && !result->isDouble(pContext)
+                    && !result->asString(pContext)
+                    && result != PROTO_TRUE && result != PROTO_FALSE;
+                if (resultIsObject) {
+                    const proto::ProtoString* isSymK = JSSymbols::isSymbol(pContext);
+                    if (isSymK && result->getAttribute(pContext, isSymK, true) == PROTO_TRUE)
+                        resultIsObject = false;
+                }
                 const proto::ProtoObject* finalCtorThis = resultIsObject ? result : newObj;
 
                 // super() field-init follow-up: if this OP_call_constructor
