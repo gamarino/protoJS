@@ -4255,8 +4255,34 @@ static const proto::ProtoObject* objectLookupGetter(
     const proto::ProtoObject* gko = ctx->fromUTF8String(gkStr.c_str());
     const proto::ProtoString* gk = gko ? gko->asString(ctx) : nullptr;
     if (!gk) return getUndefinedSentinel();
+    // §B.2.2.4 step 4 walks the chain via [[GetOwnProperty]] /
+    // [[GetPrototypeOf]] internal methods — both of which dispatch
+    // through the Proxy traps when the current step is a Proxy.
+    // Pre-fix the walk read __get_<key>__ / dataKey directly and
+    // bypassed the proxy handler, so a getOwnPropertyDescriptor /
+    // getPrototypeOf trap that threw (test262 lookup-{own,proto}-
+    // {get,proto}-err.js) was silently ignored.
+    const proto::ProtoObject* getKo = ctx->fromUTF8String("get");
+    const proto::ProtoString* getK = getKo ? getKo->asString(ctx) : nullptr;
     const proto::ProtoObject* curr = self;
-    while (curr && curr != PROTO_NONE) {
+    while (curr && curr != PROTO_NONE && curr != getNullSentinel()) {
+        if (isProxy(ctx, curr)) {
+            const proto::ProtoObject* desc =
+                proxyDispatchGetOwnPropertyDescriptor(ctx, curr, dataKey);
+            if (hasCallException()) return PROTO_NONE;
+            if (desc && desc != PROTO_NONE) {
+                if (getK) {
+                    const proto::ProtoObject* g = desc->getAttribute(ctx, getK, false);
+                    if (g && g != PROTO_NONE) return g;
+                }
+                return getUndefinedSentinel();
+            }
+            const proto::ProtoObject* nx =
+                proxyDispatchGetPrototypeOf(ctx, curr);
+            if (hasCallException()) return PROTO_NONE;
+            curr = nx;
+            continue;
+        }
         if (curr->hasOwnAttribute(ctx, gk) == PROTO_TRUE) {
             const proto::ProtoObject* getter = curr->getAttribute(ctx, gk, false);
             if (getter && getter != PROTO_NONE) return getter;
@@ -4267,7 +4293,17 @@ static const proto::ProtoObject* objectLookupGetter(
         if (curr->hasOwnAttribute(ctx, dataKey) == PROTO_TRUE) {
             return getUndefinedSentinel();
         }
-        curr = curr->getFirstParent(ctx);
+        // §B.2.2.4 step 4.c: advance via [[GetPrototypeOf]], not the
+        // raw C++ parent.  The JS prototype-override map (set by
+        // Object.create / Object.setPrototypeOf) supersedes the
+        // C++ parent — pre-fix the walk took the wrong branch when
+        // an intermediate Proxy was reached through Object.create.
+        const proto::ProtoObject* nx = nullptr;
+        auto it = t_jsProtoMap.find(curr);
+        if (it != t_jsProtoMap.end()) nx = it->second;
+        else                          nx = curr->getPrototype(ctx);
+        if (!nx || nx == PROTO_NONE || nx == getNullSentinel()) break;
+        curr = nx;
     }
     return getUndefinedSentinel();
 }
@@ -4301,8 +4337,28 @@ static const proto::ProtoObject* objectLookupSetter(
     const proto::ProtoObject* sko = ctx->fromUTF8String(skStr.c_str());
     const proto::ProtoString* sk = sko ? sko->asString(ctx) : nullptr;
     if (!sk) return getUndefinedSentinel();
+    // §B.2.2.5 step 4 — same Proxy-aware walk shape as __lookupGetter__,
+    // but extract desc.set instead of desc.get.
+    const proto::ProtoString* setK = JSSymbols::set(ctx);
     const proto::ProtoObject* curr = self;
-    while (curr && curr != PROTO_NONE) {
+    while (curr && curr != PROTO_NONE && curr != getNullSentinel()) {
+        if (isProxy(ctx, curr)) {
+            const proto::ProtoObject* desc =
+                proxyDispatchGetOwnPropertyDescriptor(ctx, curr, dataKey);
+            if (hasCallException()) return PROTO_NONE;
+            if (desc && desc != PROTO_NONE) {
+                if (setK) {
+                    const proto::ProtoObject* s = desc->getAttribute(ctx, setK, false);
+                    if (s && s != PROTO_NONE) return s;
+                }
+                return getUndefinedSentinel();
+            }
+            const proto::ProtoObject* nx =
+                proxyDispatchGetPrototypeOf(ctx, curr);
+            if (hasCallException()) return PROTO_NONE;
+            curr = nx;
+            continue;
+        }
         if (curr->hasOwnAttribute(ctx, sk) == PROTO_TRUE) {
             const proto::ProtoObject* setter = curr->getAttribute(ctx, sk, false);
             if (setter && setter != PROTO_NONE) return setter;
@@ -4311,7 +4367,16 @@ static const proto::ProtoObject* objectLookupSetter(
         if (curr->hasOwnAttribute(ctx, dataKey) == PROTO_TRUE) {
             return getUndefinedSentinel();
         }
-        curr = curr->getFirstParent(ctx);
+        // §B.2.2.5 step 4.c — same as __lookupGetter__: prefer the
+        // JS prototype override when present, otherwise the protoCore
+        // parent.  Pre-fix used getFirstParent which missed the
+        // Object.create / Object.setPrototypeOf rebind.
+        const proto::ProtoObject* nx = nullptr;
+        auto it = t_jsProtoMap.find(curr);
+        if (it != t_jsProtoMap.end()) nx = it->second;
+        else                          nx = curr->getPrototype(ctx);
+        if (!nx || nx == PROTO_NONE || nx == getNullSentinel()) break;
+        curr = nx;
     }
     return getUndefinedSentinel();
 }
