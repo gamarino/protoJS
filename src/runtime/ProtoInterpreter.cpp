@@ -8660,6 +8660,25 @@ const proto::ProtoObject* runBytecode(proto::ProtoContext* pContext,
                 stackPop(pContext);
                 const proto::ProtoString* key = resolveAtom(mod, pContext, atomIndex);
                 if (!key || !obj) { DISPATCH(); }
+                // §10.1.9 OrdinarySet on a primitive receiver: in strict
+                // mode every set fails with TypeError. Symbol primitives
+                // are object-tagged with __is_symbol__ — auto-boxing
+                // looks up Symbol.prototype.foo but the set never
+                // materialises on the ephemeral wrapper, so the spec
+                // mandates a strict-mode throw (test262 Symbol/auto-
+                // boxing-strict.js, Symbol/prototype/toString-default-
+                // attributes-strict.js).
+                if (module && module->isStrict) {
+                    const proto::ProtoString* isSymK =
+                        protojs::JSSymbols::isSymbol(pContext);
+                    if (isSymK
+                        && obj->getAttribute(pContext, isSymK, false) == PROTO_TRUE) {
+                        pending_exception = makeError(pContext, "TypeError",
+                            "Cannot assign property to a Symbol", pGlobalRoot);
+                        has_pending_exception = true;
+                        DISPATCH();
+                    }
+                }
 
                 // Proxy receiver → dispatch to handler.set; ignore the
                 // returned boolean (OP_put_field does not push anything).
@@ -10197,6 +10216,21 @@ const proto::ProtoObject* runBytecode(proto::ProtoContext* pContext,
                     pending_exception = makeError(pContext, "TypeError", "Cannot set property on null/undefined", pGlobalRoot);
                     has_pending_exception = true;
                     DISPATCH();
+                }
+
+                // Symbol primitive receiver in strict mode — see
+                // OP_put_field for the rationale (auto-boxing fails to
+                // materialise; spec mandates TypeError under strict).
+                if (module && module->isStrict) {
+                    const proto::ProtoString* isSymK =
+                        protojs::JSSymbols::isSymbol(pContext);
+                    if (isSymK
+                        && obj->getAttribute(pContext, isSymK, false) == PROTO_TRUE) {
+                        pending_exception = makeError(pContext, "TypeError",
+                            "Cannot assign property to a Symbol", pGlobalRoot);
+                        has_pending_exception = true;
+                        DISPATCH();
+                    }
                 }
 
                 // Proxy receiver via bracket access — dispatch to
