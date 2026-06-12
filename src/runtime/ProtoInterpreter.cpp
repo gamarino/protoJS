@@ -15350,6 +15350,28 @@ const proto::ProtoObject* runBytecode(proto::ProtoContext* pContext,
                                 if (v && v != PROTO_NONE) {  // skip holes
                                     std::string s = std::to_string(i);
                                     if (!fiSeen.count(s)) {
+                                        // §14.7.5.6 EnumerateObjectProperties:
+                                        // respect __pd_<i>__ enumerable bit
+                                        // (0x4) on array indices too. Pre-fix
+                                        // for-in over an array iterated every
+                                        // dense slot regardless of the slot's
+                                        // enumerability — test262
+                                        // Object/defineProperties/15.2.3.7-6-a-198.js.
+                                        std::string pds = "__pd_" + s + "__";
+                                        const proto::ProtoObject* pdko =
+                                            pContext->fromUTF8String(pds.c_str());
+                                        const proto::ProtoString* pdkk =
+                                            pdko ? pdko->asString(pContext) : nullptr;
+                                        if (pdkk
+                                            && fiObj->hasOwnAttribute(pContext, pdkk) == PROTO_TRUE) {
+                                            const proto::ProtoObject* pdv =
+                                                fiObj->getAttribute(pContext, pdkk, false);
+                                            if (pdv && pdv->isInteger(pContext)
+                                                && !((uint8_t)pdv->asLong(pContext) & 0x4)) {
+                                                fiSeen.insert(s);
+                                                continue;
+                                            }
+                                        }
                                         fiSeen.insert(s);
                                         addFiKey(s);
                                     }
