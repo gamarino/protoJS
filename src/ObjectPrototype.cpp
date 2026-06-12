@@ -2952,9 +2952,26 @@ static const proto::ProtoObject* objectDefineProperty(
                     ? target->getAttribute(ctx, lenK, false) : nullptr;
                 long long curLen = (lenV && lenV != PROTO_NONE && lenV->isInteger(ctx))
                     ? lenV->asLong(ctx) : 0;
-                if (iv + 1 > curLen)
+                if (iv + 1 > curLen) {
+                    // §10.4.2.4 step 4.b: extending an Array's length via
+                    // an indexed define when length is non-writable must
+                    // throw TypeError. Pre-fix the auto-bump silently
+                    // mutated arr.length and accepted the new index
+                    // (test262 Object/defineProperty/15.2.3.6-4-188.js,
+                    // 189.js).
+                    const proto::ProtoObject* pdlV =
+                        target->getAttribute(ctx,
+                            JSSymbols::pdLength(ctx), false);
+                    if (pdlV && pdlV->isInteger(ctx)
+                        && !(pdlV->asLong(ctx) & 0x1)) {
+                        signalNativeException(makeNativeError(ctx, "TypeError",
+                            "Cannot extend Array.length when length is "
+                            "non-writable"));
+                        return PROTO_NONE;
+                    }
                     target = target->setAttribute(ctx, lenK,
                         ctx->fromInteger(iv + 1));
+                }
             }
         }
     }

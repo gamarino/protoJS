@@ -10321,6 +10321,35 @@ const proto::ProtoObject* runBytecode(proto::ProtoContext* pContext,
                         }
                     }
                 }
+                // Per-index __pd_<i>__ writable probe — honour
+                // Object.defineProperty(arr, "0", {writable: false}).
+                // Pre-fix the fast path wrote directly to __elements__
+                // and verifyProperty's isWritable probe reported true
+                // (test262 Object/defineProperty/15.2.3.6-4-190.js).
+                if (idxFast >= 0) {
+                    std::string idxKs = std::to_string(idxFast);
+                    std::string pds = "__pd_" + idxKs + "__";
+                    const proto::ProtoObject* pdo =
+                        pContext->fromUTF8String(pds.c_str());
+                    const proto::ProtoString* pdsk =
+                        pdo ? pdo->asString(pContext) : nullptr;
+                    if (pdsk
+                        && obj->hasOwnAttribute(pContext, pdsk) == PROTO_TRUE) {
+                        const proto::ProtoObject* pdv =
+                            obj->getAttribute(pContext, pdsk, false);
+                        if (pdv && pdv->isInteger(pContext)
+                            && !(pdv->asLong(pContext) & 0x1)) {
+                            if (module && module->isStrict) {
+                                pending_exception = makeError(pContext,
+                                    "TypeError",
+                                    "Cannot assign to non-writable array index",
+                                    pGlobalRoot);
+                                has_pending_exception = true;
+                            }
+                            DISPATCH();
+                        }
+                    }
+                }
                 if (idxFast >= 0 &&
                     arrayTryFastSet(pContext, obj, static_cast<unsigned long>(idxFast), value)) {
                     newObj = obj;
