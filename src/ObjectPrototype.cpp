@@ -762,6 +762,29 @@ static const proto::ProtoObject* objectAssign(
             }
             continue;
         }
+        // §22.1.4.1 — if the target is a String wrapper, any index
+        // < the wrapped string's length collides with a non-writable
+        // own char slot. Pre-fix the array-source fast path here
+        // silently overwrote those slots (test262
+        // Object/assign/assignment-to-readonly-property-of-target-
+        // must-throw-a-typeerror-exception.js).
+        {
+            const proto::ProtoString* pvKey =
+                JSSymbols::primitiveValue(ctx);
+            const proto::ProtoObject* pv = pvKey
+                ? target->getAttribute(ctx, pvKey, false) : nullptr;
+            if (pv && pv != PROTO_NONE && pv->isString(ctx)) {
+                const proto::ProtoList* srcElsProbe = getArrayElements(ctx, src);
+                const proto::ProtoString* ps = pv->asString(ctx);
+                if (srcElsProbe && srcElsProbe->getSize(ctx) > 0
+                    && ps && ps->getSize(ctx) > 0) {
+                    signalNativeException(makeNativeError(ctx, "TypeError",
+                        "Cannot assign to read only property on a "
+                        "String wrapper"));
+                    return PROTO_NONE;
+                }
+            }
+        }
         // If src is an array, copy __elements__ first so that
         // numeric-index iteration sees the data.  Skip holes — §20.1.2.1
         // step 4.c.ii only copies own enumerable properties, and array
@@ -872,6 +895,40 @@ static const proto::ProtoObject* objectAssign(
                         signalNativeException(makeNativeError(ctx, "TypeError",
                             "Cannot add property to non-extensible object"));
                         return PROTO_NONE;
+                    }
+                }
+                // §22.1.4.1 — String wrapper char-index data slot is
+                // non-writable. `Object.assign("a", [1])` wraps the
+                // primitive then assigns "0" which collides with the
+                // existing char slot. Pre-fix the write went through
+                // and silently overwrote the char (test262
+                // Object/assign/assignment-to-readonly-property-of-
+                // target-must-throw-a-typeerror-exception.js).
+                {
+                    const proto::ProtoString* pvKey =
+                        JSSymbols::primitiveValue(ctx);
+                    const proto::ProtoObject* pv = pvKey
+                        ? target->getAttribute(ctx, pvKey, false) : nullptr;
+                    if (pv && pv != PROTO_NONE && pv->isString(ctx)
+                        && !tk.empty()) {
+                        char* end = nullptr;
+                        long long iv = std::strtoll(tk.c_str(), &end, 10);
+                        if (end && *end == '\0' && iv >= 0
+                            && std::to_string(iv) == tk) {
+                            const proto::ProtoString* ps = pv->asString(ctx);
+                            if (ps && (size_t)iv < ps->getSize(ctx)) {
+                                signalNativeException(makeNativeError(ctx, "TypeError",
+                                    "Cannot assign to read only property "
+                                    "on a String wrapper"));
+                                return PROTO_NONE;
+                            }
+                        }
+                        if (tk == "length") {
+                            signalNativeException(makeNativeError(ctx, "TypeError",
+                                "Cannot assign to read only property "
+                                "'length' on a String wrapper"));
+                            return PROTO_NONE;
+                        }
                     }
                 }
                 // §10.1.9.3 OrdinarySetWithOwnDescriptor: when the
