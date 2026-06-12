@@ -14078,10 +14078,15 @@ const proto::ProtoObject* runBytecode(proto::ProtoContext* pContext,
                                 pContext->fromInteger(0x3LL));
                         }
                     }
-                    // Resolve function metadata from the root module's flat nestedFunctions
-                    // list where all functions reside with globally unique IDs.
+                    // Resolve function metadata.  Prefer the currently
+                    // executing module — see the matching note in
+                    // OP_fclosure (32-bit immediate variant) for why
+                    // the root-only lookup misses sub-eval closures.
                     const ProtoBytecodeModule* nm8Ptr = nullptr;
-                    if (fnBcId8 >= 0 && t_rootModule &&
+                    if (fnBcId8 >= 0 && module &&
+                            static_cast<size_t>(fnBcId8) < module->nestedFunctions.size())
+                        nm8Ptr = &module->nestedFunctions[static_cast<size_t>(fnBcId8)];
+                    else if (fnBcId8 >= 0 && t_rootModule &&
                             static_cast<size_t>(fnBcId8) < t_rootModule->nestedFunctions.size())
                         nm8Ptr = &t_rootModule->nestedFunctions[static_cast<size_t>(fnBcId8)];
                     if (nm8Ptr) {
@@ -14237,9 +14242,20 @@ const proto::ProtoObject* runBytecode(proto::ProtoContext* pContext,
                                 pContext->fromInteger(0x3LL));
                         }
                     }
-                    // Resolve function metadata from the root module's flat nestedFunctions list.
+                    // Resolve function metadata.  Prefer the currently
+                    // executing module's nestedFunctions list — the sub-eval
+                    // path used by the Function constructor enters
+                    // runBytecode with its own module while t_rootModule
+                    // still points at the outer caller's module, so a
+                    // root-only lookup misses every closure produced
+                    // by `new Function(...)`.  Fall back to the root
+                    // module to preserve behaviour for ordinary nested
+                    // OP_fclosure sites where bytecode IDs live there.
                     const ProtoBytecodeModule* nm2Ptr = nullptr;
-                    if (fnBcId2 >= 0 && t_rootModule &&
+                    if (fnBcId2 >= 0 && module &&
+                            static_cast<size_t>(fnBcId2) < module->nestedFunctions.size())
+                        nm2Ptr = &module->nestedFunctions[static_cast<size_t>(fnBcId2)];
+                    else if (fnBcId2 >= 0 && t_rootModule &&
                             static_cast<size_t>(fnBcId2) < t_rootModule->nestedFunctions.size())
                         nm2Ptr = &t_rootModule->nestedFunctions[static_cast<size_t>(fnBcId2)];
                     
