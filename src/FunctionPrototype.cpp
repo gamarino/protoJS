@@ -1118,6 +1118,14 @@ void ensureFunctionPrototype(proto::ProtoContext* ctx,
                     objProto->getAttribute(ctx, nk, false);
                 if (wrapper && wrapper != PROTO_NONE) {
                     wrapper->addParent(ctx, fp);
+                    // \xc2\xa717: built-in function values have [[Prototype]] =
+                    // %Function.prototype%.  addParent leaves the original
+                    // objectPrototype as parents[0] so getPrototypeOf
+                    // returned Object.prototype.  Install a JS-proto
+                    // override so the JS-visible [[Prototype]] reads as
+                    // Function.prototype (built-ins/Object/prototype/
+                    // isPrototypeOf/builtin.js asserts the identity).
+                    setJSProtoOverride(ctx, wrapper, fp);
                 }
             }
         }
