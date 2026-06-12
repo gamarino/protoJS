@@ -387,6 +387,164 @@ For official ECMAScript compliance status and roadmap, see **[docs/TEST262_STATU
 
 ### Test262 Conformance
 
+**Round 42 — 2026-06-12** (8 commits, autonomous follow-up to R41) —
+broad spec-coercion + Proxy-walk cleanup across Function, Object,
+String, Set / Map / WeakMap.  The 10-family table moves to
+**8 527 / 9 514 (89.62 %)** — +34 tests, +0.36 pp — with zero
+regressions.  No single family carries the round; the gains spread
+across **Function (404 → 421, +17, 79.4 → 82.7 %)**, **Object
+(3 036 → 3 045, +9, 89.0 → 89.3 %)**, **String (1 118 → 1 121, +3,
+91.4 → 91.7 %)**, **WeakMap (131 → 134, +3, 92.9 → 95.0 %)**, plus
++1 each on Map and Set.
+
+This round picked off the ambient bugs that crossed many test262
+families through a shared coercion / dispatch helper:
+
+  * **§20.2.3.5 Function.prototype.toString — Proxy unwrap + bound
+    name omission.**  Pre-fix the receiver check rejected a Proxy
+    whose target is callable ("toString requires a callable") and
+    embedded a bound function's `.name` ("bound foo", with a space)
+    verbatim into the NativeFunction template — invalid against the
+    `function IdentifierName_opt ( … ) { [ native code ] }` grammar
+    the test262 nativeFunctionMatcher regex enforces.  Replaced the
+    inline checks with `fnIsCallable` + a `while (isProxy) … walk
+    to target`; when `.name` isn't a valid ASCII identifier (space,
+    empty, leading digit, punctuation), emit `function () { [native
+    code] }` instead.  Affects Function/prototype/toString/{bound-
+    function, proxy-arrow-function, proxy-async-function, proxy-
+    bound-function, …}.js.
+
+  * **§10.2.1.2 OrdinaryCallBindThis step 5.b — ToObject(thisArg)
+    for non-strict bytecode callees.**  Function.prototype.{call,
+    apply} forwarded a primitive thisArg verbatim in both strict
+    and non-strict callees because the strict-mode flag wasn't
+    surfaced on closures.  Stamped `__is_strict__` directly on
+    every closure at `OP_fclosure` / `OP_fclosure8` (mirrors the
+    pre-existing `__is_async__` stamp) and added a
+    `bindThisIfNonStrict` helper that boxes primitive thisArg via
+    the matching wrapper prototype (Number / String / Boolean)
+    when the closure is non-strict and not arrow.  Sputnik A5_T1/
+    T2/T3 on both apply and call (6 tests).
+
+  * **§B.2.2.4 / §B.2.2.5 Object.prototype.__lookup{Getter,
+    Setter}__ — Proxy-aware chain walk.**  The §B.2.2 walk reads
+    [[GetOwnProperty]] + [[GetPrototypeOf]], both of which dispatch
+    through their respective Proxy traps.  Pre-fix the loops
+    probed `__get_<key>__` / `__set_<key>__` + dataKey sidecars
+    directly and advanced via raw `getFirstParent`, missing both
+    the proxy gOPD trap and the JS-side `t_jsProtoMap` rebinds
+    (Object.setPrototypeOf).  Rewrote both walks to dispatch
+    through `proxyDispatchGetOwnPropertyDescriptor` when the
+    current step is a Proxy and to consult the override map before
+    falling back to the protoCore parent.  Closes the lookup-
+    own-{get,proto}-err.js pair on each (4 tests).  The proto-
+    {get,proto}-err variants remain — they need "Proxy as
+    [[Prototype]]" plumbing through protoCore's get-field walk.
+
+  * **§B.2.2.1 Object.prototype.__proto__ — accessor traps,
+    Symbol reject, non-extensible guard.**  Four cumulative gaps
+    on the paired getter / setter: (a) getter never dispatched
+    the Proxy `getPrototypeOf` trap; (b) setter accepted a
+    Symbol primitive ("`__is_symbol__`-tagged Object") as a valid
+    prototype and silently rebound; (c) setter never enforced
+    §10.1.2.1 step 2 (non-extensible target rejecting different
+    prototype); (d) setter never dispatched the Proxy
+    `setPrototypeOf` trap — `O.__proto__ = V` on a Proxy goes
+    through OP_put_field's no-`set`-trap path which fell through
+    to raw `setAttribute` instead of the inherited accessor.
+    Special-cased the `__proto__` key in `proxyDispatchSet`'s
+    no-trap branch to route to `proxyDispatchSetPrototypeOf` on
+    the receiver, matching the OrdinarySet+inherited-accessor
+    semantics for this load-bearing case.  All four __proto__
+    tests now pass (4 tests).
+
+  * **§7.3.10 GetMethod — null and undefined are equivalent at
+    the WKS dispatch sites.**  String.prototype.{match, matchAll,
+    split} and the wider Symbol-method dispatch shape only rejected
+    `undefined` / `PROTO_NONE` before invoking the trap — a `null`
+    `regexp[Symbol.match]` ran into "is not a function" instead of
+    falling through to the default RegExpCreate path the spec
+    mandates.  Four call sites updated to also reject
+    `getNullSentinel()`, including stringMatchAll's accessor-side-
+    car probe and data-slot probe — matters most there because the
+    receiver's null shadow must defer to RegExp.prototype's
+    inherited matcher via the wider fall-through (2 tests).
+
+  * **§24.x.1.1 — {Map, Set, WeakMap} constructor probes adder
+    via GetMethod.**  The spec runs `Get(self, "set" | "add")`
+    BEFORE iteration; GetMethod fires accessor getters and
+    propagates abrupt completions.  Pre-fix the three constructors
+    read the data slot only, so a throwing `get add` / `get set`
+    surfaced PROTO_NONE and the constructor raised its own
+    "is not callable" TypeError, masking the user-defined throw.
+    Three sites updated to probe `__get_add__` / `__get_set__`
+    sidecars FIRST and propagate any abrupt before falling back
+    to the data slot.  Affects the matching set-get-add /
+    get-set-method-failure tests and Map / WeakMap getOrInsert-
+    Computed/does-not-evaluate-callbackfn-if-key-present.js
+    (5 tests).
+
+  * **§20.2.1.1.1 CreateDynamicFunction step 8/16 — Function
+    constructor surfaces SyntaxError on parse failure.**
+    `evalIsolatedToProto` drained QuickJS's parse exception
+    silently and returned `PROTO_NONE`; the Function ctor handler
+    bubbled that up as `undefined`, so `new Function("!@#$")` and
+    `new Function({})` (`{}.toString() = "[object Object]"`)
+    silently produced undefined instead of the spec-mandated
+    throw.  Stamp the QuickJS error message into a SyntaxError
+    native exception via `signalNativeException` before bailing.
+    Closes 11 tests under built-ins/Function/{15.3.2.1-*-{s,gs},
+    S15.3.2.1_A1_{T8,T13}, S15.3.2.1_A3_{T6,T9,T10},
+    StrictFunction_reservedwords_with, private-identifiers-not-
+    empty}.
+
+  * **§20.1.3.3 Object.prototype.isPrototypeOf — proxy-aware walk.**
+    Same shape as the __lookup{Getter,Setter}__ fix: V.[[Get-
+    PrototypeOf]] dispatches the trap on a Proxy step, and the
+    advance must consult t_jsProtoMap before the C++ parent.
+    Closes arg-is-proxy.js (1 test).
+
+  * **§7.1.1 OrdinaryToPrimitive step 4.b.iii — accept any non-
+    Object primitive return from `toString`.**  StringPrototype's
+    `objToStr` only treated an exact ProtoString as a hit; a
+    `toString` that returned `42` / `true` / `null` / `undefined`
+    fell through to valueOf and then to a "Cannot convert object
+    to primitive value" TypeError, even though the primitive
+    return value was valid.  Extended the branch to handle
+    integer / double / float / boolean / null / undefined and
+    coerce each to its canonical ToString form.  Visible in the
+    sweep on `concat/S15.5.4.6_A1_T10.js`; lifts the rest of the
+    ambient coercion cliff under the String.prototype methods
+    that flow through objToStr (replace, search, split, match
+    etc.).
+
+10-family roll-up — every gain accounted for; zero regressions:
+
+| Family | This run | R41 baseline | Δ |
+|--------|---------:|-------------:|--:|
+| `built-ins/Function` | **421 / 509** (82.7 %) | 404 / 509 (79.4 %) | **+17** (+3.3 pp) |
+| `built-ins/Object` | **3 045 / 3 411** (89.3 %) | 3 036 / 3 411 (89.0 %) | **+9** |
+| `built-ins/Array` | 2 871 / 3 081 (93.2 %) | 2 871 / 3 081 | 0 |
+| `built-ins/String` | **1 121 / 1 223** (91.7 %) | 1 118 / 1 223 (91.4 %) | **+3** |
+| `built-ins/Symbol` | 69 / 98 (70.4 %) | 69 / 98 | 0 |
+| `built-ins/Map` | **193 / 204** (94.6 %) | 192 / 204 (94.1 %) | **+1** |
+| `built-ins/Set` | **367 / 383** (95.8 %) | 366 / 383 (95.6 %) | **+1** |
+| `built-ins/Proxy` | 164 / 311 (52.7 %) | 164 / 311 | 0 |
+| `built-ins/Reflect` | 142 / 153 (92.8 %) | 142 / 153 | 0 |
+| `built-ins/WeakMap` | **134 / 141** (95.0 %) | 131 / 141 (92.9 %) | **+3** (+2.1 pp) |
+| **TOTAL** | **8 527 / 9 514** (**89.62 %**) | 8 493 / 9 514 (89.27 %) | **+34** (+0.36 pp) |
+
+Off-table family — Iterator held; R42 focused on the 10-family:
+
+| Family | This run | R41 baseline | Δ |
+|--------|---------:|-------------:|--:|
+| `built-ins/Iterator` | 367 / 510 (72.0 %) | 367 / 510 | 0 |
+
+Cumulative R37 → R42 (111 commits): 87.20 % → 89.62 % on the 10-fam
+table — +241 tests in six focused rounds.
+
+---
+
 **Round 41 — 2026-06-12** (15 commits, autonomous follow-up to R40) —
 ground-up rebuild of the Proxy trap surface.  The 10-family table
 moves to **8 493 / 9 514 (89.27 %)** — +75 tests, +0.79 pp — driven
