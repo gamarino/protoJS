@@ -14,6 +14,7 @@
 #include <string>
 #include <unordered_set>
 #include <unordered_map>
+#include <set>
 #include <vector>
 #include <cmath>
 
@@ -153,16 +154,35 @@ static void collectOwnKeys(
     // in own-property enumeration).  Pre-fix Object.keys([10,20,30])
     // returned [] because the elements live in __elements__, not as
     // own attributes — the SparseList iterator below misses them.
+    // ECMA-262 §7.3.20 OrdinaryOwnPropertyKeys: integer-indexed keys
+    // come first in ascending numeric order, then non-numeric string
+    // keys in insertion order, then symbol keys.  An Array's indexed
+    // properties may live in EITHER the native __elements__ list
+    // (dense run, set by the array literal) OR as sparse-keyed own
+    // attributes (set by `arr[1000] = x` / Object.defineProperty when
+    // the index sits beyond the dense run, or when a descriptor sidecar
+    // is attached).  Pre-fix the dense walk and the sparse-attribute
+    // walk both ran, leading to (a) duplicate entries for indices that
+    // were promoted to sparse attrs after defineProperty mirrored the
+    // value back into __elements__ and (b) wrong relative order when
+    // sparse attrs were enumerated in tree order between dense indices
+    // (built-ins/Object/keys/15.2.3.14-5-13.js expected
+    // ["0","2","4","10000"], we produced ["0","2","4","10000",...]).
+    //
+    // Collect the union of candidate index keys here, defer their
+    // emission until after the attribute walk identifies the non-index
+    // string keys.  The attribute callback also flips arrayIndexKey to
+    // true so the cb itself does NOT emit those numeric keys (avoids
+    // the duplicate).
+    std::vector<unsigned long> arrayIndices;
     if (isArr) {
         const proto::ProtoList* elsList = getArrayElements(ctx, obj);
         if (elsList) {
             unsigned long n = elsList->getSize(ctx);
             for (unsigned long i = 0; i < n; ++i) {
                 const proto::ProtoObject* v = elsList->getAt(ctx, static_cast<int>(i));
-                if (v && v != PROTO_NONE) {  // skip sparse holes
-                    keys.push_back(std::to_string(i));
-                    if (vals) vals->push_back(v);
-                }
+                if (v && v != PROTO_NONE)
+                    arrayIndices.push_back(i);
             }
         }
     }
@@ -197,18 +217,26 @@ static void collectOwnKeys(
     // for AVL form, the internal iterator is reused inside a CS but
     // the advance() public API's per-step implAsObject wrapper
     // allocation is gone.
+    // arrayIndexSet — every canonical-integer-string key seen across
+    // either __elements__ or the sparse own-attribute walk lands here;
+    // the post-walk emission step iterates this set in ascending order
+    // and probes __pd_<idx>__ / __get_<idx>__ for the live descriptor.
+    std::set<unsigned long> arrayIndexSet(arrayIndices.begin(), arrayIndices.end());
+
     struct CollectState {
         proto::ProtoContext* ctx;
         const proto::ProtoObject* obj;
         std::vector<std::string>* keys;
         std::vector<const proto::ProtoObject*>* vals;
+        std::set<unsigned long>* arrayIndexSet;
         const proto::ProtoString* lenSymbol;
         bool isArr;
         bool includeNonEnumerable;
         bool mightHaveNonWritable;
         bool mightHaveAccessors;
         bool aborted;
-    } state{ctx, obj, &keys, vals, lenSymbol, isArr,
+    } state{ctx, obj, &keys, vals, isArr ? &arrayIndexSet : nullptr,
+            lenSymbol, isArr,
             includeNonEnumerable, mightHaveNonWritable,
             mightHaveAccessors, false};
     auto cb = [](proto::ProtoContext* cbCtx, void* selfV,
@@ -244,6 +272,23 @@ static void collectOwnKeys(
             && !s->includeNonEnumerable) return;
         std::string kstr;
         propKey->toUTF8String(cbCtx, kstr);
+        // For Array exotics, fold canonical-integer-string keys
+        // into arrayIndexSet (the post-walk emitter visits the
+        // numeric union of __elements__ + sparse own attrs in
+        // ascending numeric order, per §7.3.20 step 2.b — pre-fix
+        // the in-line emit produced duplicates against the
+        // __elements__ pre-walk and broke numeric ordering when
+        // a sparse index like "10000" interleaved with low indices).
+        if (s->isArr && s->arrayIndexSet && !kstr.empty()
+            && kstr[0] >= '0' && kstr[0] <= '9') {
+            char* iend = nullptr;
+            unsigned long long iv = std::strtoull(kstr.c_str(), &iend, 10);
+            if (iend && *iend == '\0' && iv < 0xFFFFFFFFULL
+                && std::to_string(iv) == kstr) {
+                s->arrayIndexSet->insert(static_cast<unsigned long>(iv));
+                return;
+            }
+        }
         // §7.3.23 EnumerableOwnProperties: re-check enumerable at
         // each step on the LIVE descriptor — a previously-invoked
         // getter may have flipped this key's enumerable bit.  Pre-
@@ -294,6 +339,68 @@ static void collectOwnKeys(
     };
     own->processElements(ctx, &state,
         static_cast<void(*)(proto::ProtoContext*, void*, unsigned long, const proto::ProtoObject*)>(cb));
+
+    // Post-walk emission of array indices in ascending numeric order
+    // (§7.3.20 OrdinaryOwnPropertyKeys step 2.b).  Probe each candidate
+    // index against the live descriptor (enumerable bit, accessor) the
+    // same way the cb does for string keys.
+    if (isArr && !arrayIndexSet.empty()) {
+        std::vector<std::string> nonIdxKeys;
+        std::vector<const proto::ProtoObject*> nonIdxVals;
+        nonIdxKeys.swap(keys);
+        if (vals) nonIdxVals.swap(*vals);
+
+        const proto::ProtoList* elsList = getArrayElements(ctx, obj);
+        unsigned long elsLen = elsList ? elsList->getSize(ctx) : 0;
+        for (unsigned long idx : arrayIndexSet) {
+            std::string kstr = std::to_string(idx);
+            const proto::ProtoObject* ko = ctx->fromUTF8String(kstr.c_str());
+            const proto::ProtoString* propKey = ko ? ko->asString(ctx) : nullptr;
+            if (!includeNonEnumerable) {
+                std::string pdKeyStr = "__pd_" + kstr + "__";
+                const proto::ProtoObject* pko = ctx->fromUTF8String(pdKeyStr.c_str());
+                const proto::ProtoString* pdk = pko ? pko->asString(ctx) : nullptr;
+                if (pdk) {
+                    const proto::ProtoObject* pdv = obj->getAttribute(ctx, pdk, false);
+                    if (pdv && pdv != PROTO_NONE && pdv->isInteger(ctx)) {
+                        uint8_t bits = static_cast<uint8_t>(pdv->asLong(ctx));
+                        if (!(bits & 0x4)) continue; // not enumerable
+                    }
+                }
+            }
+            keys.push_back(kstr);
+            if (vals) {
+                const proto::ProtoObject* getter = nullptr;
+                if (mightHaveAccessors) {
+                    std::string gkStr = "__get_" + kstr + "__";
+                    const proto::ProtoObject* gko = ctx->fromUTF8String(gkStr.c_str());
+                    const proto::ProtoString* gk = gko ? gko->asString(ctx) : nullptr;
+                    getter = (gk && obj->hasOwnAttribute(ctx, gk) == PROTO_TRUE)
+                        ? obj->getAttribute(ctx, gk, false) : nullptr;
+                }
+                if (getter && getter != PROTO_NONE && getter != getUndefinedSentinel()) {
+                    const proto::ProtoList* noArgs = ctx->newList();
+                    const proto::ProtoObject* gres = callJSFunction(ctx, getter, obj, noArgs);
+                    if (hasCallException()) {
+                        vals->push_back(PROTO_NONE);
+                        return;
+                    }
+                    vals->push_back(gres ? gres : PROTO_NONE);
+                } else {
+                    const proto::ProtoObject* v = nullptr;
+                    if (elsList && idx < elsLen)
+                        v = elsList->getAt(ctx, static_cast<int>(idx));
+                    if ((!v || v == PROTO_NONE) && propKey)
+                        v = obj->getAttribute(ctx, propKey, false);
+                    vals->push_back(v ? v : PROTO_NONE);
+                }
+            }
+        }
+        for (auto& k : nonIdxKeys) keys.push_back(std::move(k));
+        if (vals) {
+            for (auto v : nonIdxVals) vals->push_back(v);
+        }
+    }
 }
 
 // ---------------------------------------------------------------------------
