@@ -253,7 +253,27 @@ static std::string objToStr(proto::ProtoContext* ctx, const proto::ProtoObject* 
                     }
                 }
             }
-            if (tsFn && tsFn != PROTO_NONE) {
+            // §7.1.1 OrdinaryToPrimitive step 5.a.ii skips a method
+            // that is not callable (e.g. {toString: null}). Pre-fix
+            // we tried to call null and the call surfaced a synthetic
+            // TypeError, so the spec-required fallthrough to valueOf
+            // never happened (test262
+            // String/prototype/indexOf/searchstring-tostring-wrapped-
+            // values.js with `{valueOf: …, toString: null}`).
+            auto isMethodCallable = [&](const proto::ProtoObject* fn) -> bool {
+                if (!fn || fn == PROTO_NONE
+                    || fn == getUndefinedSentinel() || fn == getNullSentinel())
+                    return false;
+                if (fn->isMethod(ctx)) return true;
+                const proto::ProtoString* bcKey = JSSymbols::bytecodeId(ctx);
+                if (bcKey && fn->hasAttribute(ctx, bcKey) == PROTO_TRUE) return true;
+                const proto::ProtoString* nfKey = JSSymbols::nativeFn(ctx);
+                if (nfKey && fn->hasAttribute(ctx, nfKey) == PROTO_TRUE) return true;
+                const proto::ProtoString* bfKey = JSSymbols::boundFn(ctx);
+                if (bfKey && fn->hasAttribute(ctx, bfKey) == PROTO_TRUE) return true;
+                return false;
+            };
+            if (isMethodCallable(tsFn)) {
                 const proto::ProtoObject* result = nullptr;
                 if (tsFn->isMethod(ctx)) {
                     proto::ProtoMethod nativeFn = tsFn->asMethod(ctx);
@@ -334,7 +354,21 @@ static std::string objToStr(proto::ProtoContext* ctx, const proto::ProtoObject* 
                     }
                 }
             }
-            if (voFn && voFn != PROTO_NONE) {
+            // Same callable check as toString above.
+            auto voCallable = [&](const proto::ProtoObject* fn) -> bool {
+                if (!fn || fn == PROTO_NONE
+                    || fn == getUndefinedSentinel() || fn == getNullSentinel())
+                    return false;
+                if (fn->isMethod(ctx)) return true;
+                const proto::ProtoString* bcKey = JSSymbols::bytecodeId(ctx);
+                if (bcKey && fn->hasAttribute(ctx, bcKey) == PROTO_TRUE) return true;
+                const proto::ProtoString* nfKey = JSSymbols::nativeFn(ctx);
+                if (nfKey && fn->hasAttribute(ctx, nfKey) == PROTO_TRUE) return true;
+                const proto::ProtoString* bfKey = JSSymbols::boundFn(ctx);
+                if (bfKey && fn->hasAttribute(ctx, bfKey) == PROTO_TRUE) return true;
+                return false;
+            };
+            if (voCallable(voFn)) {
                 const proto::ProtoObject* result = nullptr;
                 if (voFn->isMethod(ctx)) {
                     proto::ProtoMethod nativeFn = voFn->asMethod(ctx);
@@ -343,11 +377,22 @@ static std::string objToStr(proto::ProtoContext* ctx, const proto::ProtoObject* 
                     result = callJSFunction(ctx, voFn, obj, ctx->newList());
                 }
                 if (hasCallException()) return "";
-                if (result && result != PROTO_NONE) {
-                    const proto::ProtoString* rs = result->asString(ctx);
-                    if (rs) { rs->toUTF8String(ctx, r); return r; }
-                    if (result->isInteger(ctx)) return std::to_string(result->asLong(ctx));
-                    if (result->isBoolean(ctx)) return result->asBoolean(ctx) ? "true" : "false";
+                // §7.1.1 OrdinaryToPrimitive step 5.a.iii — accept any
+                // primitive return (string, number, boolean, null,
+                // undefined). Pre-fix the valueOf branch only honoured
+                // string/integer/boolean and fell through to the
+                // TypeError fallback for valueOf returning undefined /
+                // null / double (test262
+                // String/prototype/indexOf/searchstring-tostring-
+                // wrapped-values.js with `valueOf: () => undefined`).
+                if (result == getUndefinedSentinel() || result == PROTO_NONE || !result) return "undefined";
+                if (result == getNullSentinel()) return "null";
+                const proto::ProtoString* rs = result->asString(ctx);
+                if (rs) { rs->toUTF8String(ctx, r); return r; }
+                if (result->isInteger(ctx)) return std::to_string(result->asLong(ctx));
+                if (result->isBoolean(ctx)) return result->asBoolean(ctx) ? "true" : "false";
+                if (result->isDouble(ctx) || result->isFloat(ctx)) {
+                    return objToStr(ctx, result);
                 }
             }
         }
