@@ -4967,16 +4967,32 @@ static const proto::ProtoObject* arrayIsArray(
     if (!args || args->getSize(ctx) == 0) return PROTO_FALSE;
     const proto::ProtoObject* val = args->getAt(ctx, 0);
     if (!val || val == PROTO_NONE) return PROTO_FALSE;
-    // §7.2.2 IsArray: follow Proxy target chains (step 3.a).
+    // §7.2.2 IsArray: follow Proxy target chains (step 3).
     const proto::ProtoString* isArrayKey = JSSymbols::isArray(ctx);
     const proto::ProtoObject* tko = ctx->fromUTF8String("__proxy_target__");
     const proto::ProtoString* tk = tko ? tko->asString(ctx) : nullptr;
+    const proto::ProtoObject* hko = ctx->fromUTF8String("__proxy_handler__");
+    const proto::ProtoString* hk = hko ? hko->asString(ctx) : nullptr;
     int hops = 0;
     while (val && val != PROTO_NONE && hops < 16) {
         if (isArrayKey && val->hasOwnAttribute(ctx, isArrayKey) == PROTO_TRUE)
             return PROTO_TRUE;
         if (!tk || val->hasOwnAttribute(ctx, tk) != PROTO_TRUE) break;
-        val = val->getAttribute(ctx, tk, false);
+        // \xc2\xa77.2.2 step 3.a: revoked proxy ([[ProxyHandler]] is null)
+        // throws TypeError BEFORE the target hop.  The revoke function
+        // sets both target and handler to PROTO_NONE; detect that state
+        // and surface the spec TypeError instead of falling through to
+        // PROTO_FALSE.  Pre-fix Array.isArray(revoked) silently
+        // returned false (built-ins/Array/isArray/proxy-revoked.js).
+        const proto::ProtoObject* nextTarget = val->getAttribute(ctx, tk, false);
+        if (nextTarget == PROTO_NONE
+            || (hk && val->hasOwnAttribute(ctx, hk) == PROTO_TRUE
+                && val->getAttribute(ctx, hk, false) == PROTO_NONE)) {
+            signalNativeException(makeNativeError(ctx, "TypeError",
+                "Cannot perform 'isArray' on a proxy that has been revoked"));
+            return PROTO_NONE;
+        }
+        val = nextTarget;
         hops++;
     }
     return PROTO_FALSE;
