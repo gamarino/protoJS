@@ -2545,6 +2545,16 @@ static const proto::ProtoObject* objectDefineProperty(
                             // Store the partial-progress length first.
                             target = target->setAttribute(ctx, k,
                                 ctx->fromInteger(stopAt));
+                            // §10.4.2.4 step 16.j — when the redefine
+                            // also requests writable:false, the bit flip
+                            // takes effect EVEN when the truncation
+                            // failed mid-way (test262
+                            // Object/defineProperties/15.2.3.7-6-a-164.js).
+                            if (hasWritable && !descBoolField("writable", true)) {
+                                long long flipped = existingBits & ~0x1LL;
+                                if (pdk) target = target->setAttribute(ctx, pdk,
+                                    ctx->fromInteger(flipped));
+                            }
                             signalNativeException(makeNativeError(ctx, "TypeError",
                                 "Cannot redefine Array.length below a "
                                 "non-configurable indexed element"));
