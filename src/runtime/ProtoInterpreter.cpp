@@ -9939,6 +9939,44 @@ const proto::ProtoObject* runBytecode(proto::ProtoContext* pContext,
                         if (!val || val == PROTO_NONE) {
                             val = resolveFieldOOP(pContext, obj, key);
                         }
+                        // [[Get]] chain walk dispatching a Proxy ancestor.
+                        // When obj inherits from a Proxy via Object.create,
+                        // the regular resolveFieldOOP walk reaches the
+                        // Proxy's sidecars (__proxy_target__/handler) but
+                        // never crosses into the wrapped target. Dispatch
+                        // the Proxy's [[Get]] trap with the original
+                        // receiver so test262
+                        // Proxy/get/trap-is-undefined-target-is-proxy.js's
+                        // `Object.create(plainObjectProxy)[0]` returns 1.
+                        if ((!val || val == PROTO_NONE) && key) {
+                            const proto::ProtoObject* cursor =
+                                protojs::getJSProtoOverride(obj);
+                            if (!cursor) cursor = obj->getPrototype(pContext);
+                            int guard = 32;
+                            while (guard-- > 0 && cursor && cursor != PROTO_NONE
+                                && cursor != t_nullSentinel) {
+                                if (protojs::isProxy(pContext, cursor)) {
+                                    const proto::ProtoObject* v =
+                                        protojs::proxyDispatchGet(
+                                            pContext, cursor, key, obj);
+                                    REFRESH_INTERP_STATE();
+                                    if (t_hasCallException) {
+                                        pending_exception     = t_callException;
+                                        has_pending_exception = true;
+                                        t_hasCallException    = false;
+                                        t_callException       = nullptr;
+                                    } else if (v && v != PROTO_NONE) {
+                                        val = v;
+                                    }
+                                    break;
+                                }
+                                const proto::ProtoObject* next =
+                                    protojs::getJSProtoOverride(cursor);
+                                if (!next) next = cursor->getPrototype(pContext);
+                                if (!next || next == cursor) break;
+                                cursor = next;
+                            }
+                        }
                     }
                 }
                 pAutomaticLocals[currentStackBase + _PF().stackTop++] = (val && val != PROTO_NONE ? val : PROTO_NONE);
@@ -11463,6 +11501,42 @@ const proto::ProtoObject* runBytecode(proto::ProtoContext* pContext,
                 if (has_pending_exception) DISPATCH();
                 if (!len_val || len_val == PROTO_NONE) {
                     len_val = (obj && lk) ? obj->getAttribute(pContext, lk, true) : PROTO_NONE;
+                }
+                // [[Get]] chain walk for length: when `obj` itself isn't
+                // a Proxy but its parent chain contains one, the regular
+                // getAttribute walk stops at the Proxy's own attribute
+                // layer (the proxy sidecars) and misses target.length.
+                // Dispatch the Proxy's [[Get]] trap with the original
+                // receiver so test262
+                // Proxy/get/trap-is-missing-target-is-proxy.js's
+                // `Object.create(functionProxy).length` returns 1.
+                if (obj && (!len_val || len_val == PROTO_NONE) && lk) {
+                    const proto::ProtoObject* cursor =
+                        protojs::getJSProtoOverride(obj);
+                    if (!cursor) cursor = obj->getPrototype(pContext);
+                    int guard = 32;
+                    while (guard-- > 0 && cursor && cursor != PROTO_NONE
+                        && cursor != t_nullSentinel) {
+                        if (protojs::isProxy(pContext, cursor)) {
+                            const proto::ProtoObject* v =
+                                protojs::proxyDispatchGet(pContext, cursor, lk, obj);
+                            REFRESH_INTERP_STATE();
+                            if (t_hasCallException) {
+                                pending_exception     = t_callException;
+                                has_pending_exception = true;
+                                t_hasCallException    = false;
+                                t_callException       = nullptr;
+                            } else if (v && v != PROTO_NONE) {
+                                len_val = v;
+                            }
+                            break;
+                        }
+                        const proto::ProtoObject* next =
+                            protojs::getJSProtoOverride(cursor);
+                        if (!next) next = cursor->getPrototype(pContext);
+                        if (!next || next == cursor) break;
+                        cursor = next;
+                    }
                 }
                 pAutomaticLocals[currentStackBase + _PF().stackTop++] = (len_val ? len_val : PROTO_NONE);
                 DISPATCH();
