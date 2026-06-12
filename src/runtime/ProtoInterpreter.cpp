@@ -8769,7 +8769,16 @@ const proto::ProtoObject* runBytecode(proto::ProtoContext* pContext,
                         && obj->hasOwnAttribute(pContext, key) != PROTO_TRUE) {
                         // Also check accessor sidecars before rejecting —
                         // a non-extensible target with an installed setter
-                        // for `key` still accepts writes.
+                        // for `key` still accepts writes.  Probe the
+                        // chain too: inherited accessors (notably the
+                        // __proto__ setter on Object.prototype) MUST
+                        // route through their setter rather than be
+                        // silently rejected by the non-extensible gate.
+                        // Pre-fix `Object.preventExtensions(o); o.__proto__
+                        // = {}` silently no-op'd in sloppy mode (no
+                        // TypeError, no rebind) because the chain-walking
+                        // setter probe was missing
+                        // (Object/prototype/__proto__/set-non-extensible).
                         bool hasAccessor = false;
                         std::string ks; key->toUTF8String(pContext, ks);
                         std::string sks = "__set_" + ks + "__";
@@ -8778,7 +8787,8 @@ const proto::ProtoObject* runBytecode(proto::ProtoContext* pContext,
                         const proto::ProtoString* sksk =
                             sko ? sko->asString(pContext) : nullptr;
                         if (sksk
-                            && obj->hasOwnAttribute(pContext, sksk) == PROTO_TRUE) {
+                            && obj->getAttribute(pContext, sksk, true) != nullptr
+                            && obj->getAttribute(pContext, sksk, true) != PROTO_NONE) {
                             hasAccessor = true;
                         }
                         if (!hasAccessor) {
