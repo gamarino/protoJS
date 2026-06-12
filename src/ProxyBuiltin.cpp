@@ -62,7 +62,26 @@ static const proto::ProtoObject* lookupTrap(
     const proto::ProtoObject* nameObj = ctx->fromUTF8String(trapName);
     const proto::ProtoString* name = nameObj ? nameObj->asString(ctx) : nullptr;
     if (!name) return nullptr;
-    const proto::ProtoObject* trap = handler->getAttribute(ctx, name, true);
+    // §7.3.10 GetMethod calls Get(handler, trapName) — which fires
+    // accessor getters.  Probe the `__get_<trapName>__` accessor
+    // sidecar first so a throwing `get setPrototypeOf()` propagates
+    // via hasCallException (test262 setPrototypeOf/return-abrupt-
+    // from-get-trap.js).
+    const proto::ProtoObject* trap = nullptr;
+    {
+        std::string gks = std::string("__get_") + trapName + "__";
+        const proto::ProtoObject* gko = ctx->fromUTF8String(gks.c_str());
+        const proto::ProtoString* gk = gko ? gko->asString(ctx) : nullptr;
+        if (gk) {
+            const proto::ProtoObject* getter = handler->getAttribute(ctx, gk, true);
+            if (getter && getter != PROTO_NONE) {
+                trap = callJSFunction(ctx, getter, handler, ctx->newList());
+                if (hasCallException()) return nullptr;
+            }
+        }
+    }
+    if (!trap || trap == PROTO_NONE)
+        trap = handler->getAttribute(ctx, name, true);
     // §7.3.10 GetMethod step 3-5: null / undefined → return undefined
     // (no trap dispatch).  Absent → likewise.  Present but non-callable
     // → TypeError.  Pre-fix the non-callable path returned nullptr
