@@ -730,7 +730,28 @@ static const proto::ProtoObject* objectAssign(
             for (size_t i = 0; i < n; ++i) {
                 const proto::ProtoObject* keyObj = els->getAt(ctx, i);
                 if (!keyObj || keyObj == PROTO_NONE) continue;
-                const proto::ProtoString* propKey = keyObj->asString(ctx);
+                // Symbol-tagged keys come through ownKeys' trap result;
+                // route through __symbol_str_key__ so the proxy gOPD /
+                // get dispatch sees the same ProtoString identity the
+                // storage uses (built-ins/Object/assign/strings-and-
+                // symbol-order-proxy.js: ownKeys returns [Symbol(),
+                // 'foo', '0'] and the trap should fire for each).
+                const proto::ProtoString* propKey = nullptr;
+                {
+                    const proto::ProtoString* isSymK = JSSymbols::isSymbol(ctx);
+                    if (isSymK
+                        && keyObj->getAttribute(ctx, isSymK, true) == PROTO_TRUE) {
+                        const proto::ProtoObject* ssko = ctx->fromUTF8String("__symbol_str_key__");
+                        const proto::ProtoString* sskK = ssko ? ssko->asString(ctx) : nullptr;
+                        if (sskK) {
+                            const proto::ProtoObject* skey =
+                                keyObj->getAttribute(ctx, sskK, true);
+                            if (skey && skey != PROTO_NONE && skey->isString(ctx))
+                                propKey = skey->asString(ctx);
+                        }
+                    }
+                }
+                if (!propKey) propKey = keyObj->asString(ctx);
                 if (!propKey) continue;
                 const proto::ProtoObject* desc =
                     proxyDispatchGetOwnPropertyDescriptor(ctx, src, propKey);
