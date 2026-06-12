@@ -2947,14 +2947,29 @@ static const proto::ProtoObject* arrayConcat(
         // 200x concat hot loop.
         const proto::ProtoString* spreadKey = JSSymbols::isConcatSpreadable(ctx);
         if (spreadKey) {
-            const proto::ProtoObject* sv = obj->getAttribute(ctx, spreadKey, true);
+            // \xc2\xa723.1.3.1.1 step 2: Get(O, @@isConcatSpreadable).  For a
+            // Proxy receiver the Get dispatches the proxy's get trap,
+            // which may revoke the proxy as a side effect or throw.
+            // Pre-fix the probe used raw getAttribute which never fired
+            // the trap, so a get-revokes-self proxy slipped through
+            // (built-ins/Array/prototype/concat/is-concat-spreadable-
+            // is-array-proxy-revoked.js).  Route through proxyDispatchGet
+            // when the receiver is a Proxy so spec semantics hold.
+            const proto::ProtoObject* sv = nullptr;
+            if (isProxy(ctx, obj)) {
+                sv = proxyDispatchGet(ctx, obj, spreadKey, obj);
+                if (hasCallException()) return false;
+            } else {
+                sv = obj->getAttribute(ctx, spreadKey, true);
+            }
             // Object.defineProperty(o, Symbol.isConcatSpreadable, {get:...})
             // stores the undefinedSentinel placeholder under the property
             // key and the actual getter under __get_Symbol.isConcatSpreadable__.
             // Pre-fix the accessor went undetected so the throwing getter
             // never fired and ToBoolean defaulted to false. Invoke the
             // getter when the placeholder fires (or when no data is found).
-            if (!sv || sv == PROTO_NONE || sv == getUndefinedSentinel()) {
+            if ((!sv || sv == PROTO_NONE || sv == getUndefinedSentinel())
+                && !isProxy(ctx, obj)) {
                 const proto::ProtoString* gks = JSSymbols::getIsConcatSpreadable(ctx);
                 if (gks) {
                     const proto::ProtoObject* getter = obj->getAttribute(ctx, gks, true);
