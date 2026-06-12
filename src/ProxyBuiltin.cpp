@@ -691,6 +691,19 @@ const proto::ProtoObject* proxyDispatchHas(proto::ProtoContext* ctx,
                 const proto::ProtoObject* v = protojs::arrayTryFastGet(ctx, target, idx);
                 if (v && v != PROTO_NONE) return PROTO_TRUE;
             }
+            // §22.1.4.1 String-exotic wrapper char-index fallback —
+            // `new String("str")` exposes "0","1","2" as own data
+            // slots driven by __primitive_value__, not by an
+            // __elements__ list. Pre-fix `Reflect.has(new
+            // Proxy(new String("str"), {}), "0")` returned false
+            // (test262 Proxy/has/trap-is-null-target-is-proxy.js).
+            const proto::ProtoString* pvKey = JSSymbols::primitiveValue(ctx);
+            const proto::ProtoObject* pv = pvKey
+                ? target->getAttribute(ctx, pvKey, false) : nullptr;
+            if (pv && pv != PROTO_NONE && pv->isString(ctx)) {
+                const proto::ProtoString* ps = pv->asString(ctx);
+                if (ps && idx < ps->getSize(ctx)) return PROTO_TRUE;
+            }
         }
     }
     return PROTO_FALSE;
