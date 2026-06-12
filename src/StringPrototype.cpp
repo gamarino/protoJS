@@ -210,11 +210,28 @@ static std::string objToStr(proto::ProtoContext* ctx, const proto::ProtoObject* 
                 hintArgs = hintArgs->appendLast(ctx, ctx->fromUTF8String("string"));
                 const proto::ProtoObject* prim = callJSFunction(ctx, tpFn, obj, hintArgs);
                 if (hasCallException()) return "";
+                // \xc2\xa76.1: seven primitive types — Undefined, Null, Boolean,
+                // String, Number, BigInt, Symbol.  Pre-fix the isPrim
+                // check excluded the latter two (Symbol-tagged objects
+                // and BigInt-tagged objects), so a @@toPrimitive that
+                // returned a BigInt threw 'returned a non-primitive'
+                // instead of ToString-coercing it
+                // (built-ins/String/prototype/indexOf/searchstring-
+                // tostring-bigint pinned the BigInt case).
                 bool isPrim = !prim || prim == PROTO_NONE
                     || prim == getUndefinedSentinel() || prim == getNullSentinel()
                     || prim->isInteger(ctx) || prim->isDouble(ctx)
                     || prim->isFloat(ctx)   || prim->isBoolean(ctx)
                     || prim->isString(ctx);
+                if (!isPrim && prim) {
+                    const proto::ProtoString* isSymK = protojs::JSSymbols::isSymbol(ctx);
+                    if (isSymK && prim->getAttribute(ctx, isSymK, true) == PROTO_TRUE)
+                        isPrim = true;
+                    const proto::ProtoObject* bigKo = ctx->fromUTF8String("__is_bigint__");
+                    const proto::ProtoString* bigK = bigKo ? bigKo->asString(ctx) : nullptr;
+                    if (!isPrim && bigK && prim->getAttribute(ctx, bigK, true) == PROTO_TRUE)
+                        isPrim = true;
+                }
                 if (!isPrim) {
                     signalNativeException(makeNativeError(ctx, "TypeError",
                         "Symbol.toPrimitive returned a non-primitive"));
@@ -311,9 +328,9 @@ static std::string objToStr(proto::ProtoContext* ctx, const proto::ProtoObject* 
                     // §7.1.1 OrdinaryToPrimitive step 4.b.iii: any
                     // non-Object return value from toString is
                     // accepted as a primitive (string, number,
-                    // boolean, null, undefined, symbol).  Pre-fix
-                    // only an exact ProtoString was treated as a
-                    // hit, so a toString that returned `42` /
+                    // boolean, null, undefined, symbol, bigint).
+                    // Pre-fix only an exact ProtoString was treated as
+                    // a hit, so a toString that returned `42` /
                     // `true` / `null` fell through to valueOf and
                     // then to the "Cannot convert object to
                     // primitive value" TypeError, even though the
@@ -336,6 +353,28 @@ static std::string objToStr(proto::ProtoContext* ctx, const proto::ProtoObject* 
                         std::snprintf(buf, sizeof(buf), "%.15g",
                                       result->asDouble(ctx));
                         return std::string(buf);
+                    }
+                    // §7.1.17 ToString on a BigInt is the decimal
+                    // representation of the value (BigInt::toString(10)).
+                    // Pre-fix the toString-returning-BigInt case fell
+                    // through to the 'try valueOf' branch and surfaced
+                    // 'Cannot convert object to primitive value'
+                    // (built-ins/String/prototype/indexOf/searchstring-
+                    // tostring-bigint).
+                    const proto::ProtoObject* bigKo = ctx->fromUTF8String("__is_bigint__");
+                    const proto::ProtoString* bigK = bigKo ? bigKo->asString(ctx) : nullptr;
+                    if (bigK && result->getAttribute(ctx, bigK, true) == PROTO_TRUE) {
+                        const proto::ProtoObject* bvKo = ctx->fromUTF8String("__bigint_value__");
+                        const proto::ProtoString* bvK = bvKo ? bvKo->asString(ctx) : nullptr;
+                        if (bvK) {
+                            const proto::ProtoObject* bv = result->getAttribute(ctx, bvK, true);
+                            if (bv && bv->isString(ctx)) {
+                                std::string s; bv->asString(ctx)->toUTF8String(ctx, s);
+                                return s;
+                            }
+                            if (bv && bv->isInteger(ctx))
+                                return std::to_string(bv->asLong(ctx));
+                        }
                     }
                 }
             }
@@ -405,6 +444,24 @@ static std::string objToStr(proto::ProtoContext* ctx, const proto::ProtoObject* 
                 if (result->isBoolean(ctx)) return result->asBoolean(ctx) ? "true" : "false";
                 if (result->isDouble(ctx) || result->isFloat(ctx)) {
                     return objToStr(ctx, result);
+                }
+                // BigInt return value — \xc2\xa77.1.17 ToString step 9 yields
+                // the decimal representation.  Same shape as the
+                // toString branch above.
+                const proto::ProtoObject* bigKo = ctx->fromUTF8String("__is_bigint__");
+                const proto::ProtoString* bigK = bigKo ? bigKo->asString(ctx) : nullptr;
+                if (bigK && result->getAttribute(ctx, bigK, true) == PROTO_TRUE) {
+                    const proto::ProtoObject* bvKo = ctx->fromUTF8String("__bigint_value__");
+                    const proto::ProtoString* bvK = bvKo ? bvKo->asString(ctx) : nullptr;
+                    if (bvK) {
+                        const proto::ProtoObject* bv = result->getAttribute(ctx, bvK, true);
+                        if (bv && bv->isString(ctx)) {
+                            std::string s; bv->asString(ctx)->toUTF8String(ctx, s);
+                            return s;
+                        }
+                        if (bv && bv->isInteger(ctx))
+                            return std::to_string(bv->asLong(ctx));
+                    }
                 }
             }
         }
