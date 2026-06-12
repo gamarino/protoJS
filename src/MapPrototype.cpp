@@ -2249,7 +2249,15 @@ static const proto::ProtoObject* weakMapConstruct(
                         pair = valKs ? stepRes->getAttribute(ctx, valKs, true) : PROTO_NONE;
                     }
                     if (hasCallException()) { closeIter(); return PROTO_NONE; }
+                    bool isSymPair = false;
+                    {
+                        const proto::ProtoString* symK = JSSymbols::isSymbol(ctx);
+                        if (symK && pair && pair != PROTO_NONE
+                            && pair->getAttribute(ctx, symK, true) == PROTO_TRUE)
+                            isSymPair = true;
+                    }
                     if (!pair || pair == PROTO_NONE
+                        || isSymPair
                         || pair->isInteger(ctx) || pair->isDouble(ctx)
                         || pair->isFloat(ctx)   || pair->isString(ctx)
                         || pair->isBoolean(ctx)
