@@ -387,6 +387,155 @@ For official ECMAScript compliance status and roadmap, see **[docs/TEST262_STATU
 
 ### Test262 Conformance
 
+**Round 49 — 2026-06-12** (20 commits, autonomous follow-up to R48) —
+prototype chain plumbing across built-in constructors (Date / RegExp /
+Promise [[Prototype]] === Function.prototype), String-wrapper chain walk
+through Object.prototype, and a cluster of Proxy-aware fixes
+(Object.defineProperties dispatch, IsArray / IsConcatSpreadable
+revoked-Proxy guards, the R48 accessor-undefined-getter regression
+closed).  The 10-family table moves to **8 967 / 9 514 (94.25 %)**
+— +40 tests, +0.42 pp, zero regressions.  Net gains: Object
+**3 313 → 3 336** (+23, +0.67 pp); Array **2 885 → 2 891** (+6);
+String **1 134 → 1 140** (+6); Function **421 → 423** (+2);
+Symbol **71 → 72** (+1); Proxy **243 → 245** (+2); the rest held.
+
+The round closes three clusters that had been driving the bulk
+of the remaining failures:
+
+  1. **String-wrapper attribute resolution.**  resolveFieldOOP's
+     t_jsProtoMap fallback only consulted the receiver's direct
+     override entry — for \`new String('abc').hasOwnProperty('0')\`
+     the receiver itself had no override but its C++ parent
+     (String.prototype) had one that mapped to Object.prototype.
+     The walk stopped at String.prototype, missing every
+     Object.prototype-only method (hasOwnProperty, isPrototypeOf,
+     propertyIsEnumerable, …).  The same shape applied to Array
+     wrappers and any built-in whose prototype chain was wired via
+     setJSProtoOverride.  Fix walks the C++ parent chain in step
+     with the override probe so each successive level participates.
+     Knock-on benefit: Object/preventExtensions/15.2.3.10-3-*
+     String-wrapper tests, several Object/keys/15.2.3.14-*
+     for-in-equivalence tests, and the String/numeric-properties
+     enumerable check now resolve correctly.
+
+  2. **Built-in constructor [[Prototype]] === Function.prototype.**
+     §20.4.3 / §22.2.3 / §27.2.3: Date / RegExp / Promise
+     constructors must inherit from Function.prototype so
+     Object.getPrototypeOf(Date) === Function.prototype and
+     Date.call / apply / bind resolve uniformly.  All three were
+     built via ctx->newObject(true) with no parent and reported
+     objectPrototype as the JS-visible [[Prototype]].  A prior
+     setParents experiment had broken hasOwnProperty resolution
+     because the chain walker couldn't follow the override back
+     to Object.prototype's own methods — the R49 resolveFieldOOP
+     fix above dissolved that constraint, so addParent(method
+     Prototype) + setJSProtoOverride now route both attribute
+     lookups and getPrototypeOf the same way.
+
+  3. **Proxy-aware Object.defineProperties + revoked-Proxy guards.**
+     defineProperties walked propsObj's raw protoCore getOwnAttributes
+     SparseList and never dispatched the Proxy ownKeys / gOPD traps;
+     the proxy-no-ownkeys-returned-keys-order pin tested exactly
+     that path.  arrayConcat had no revoked-Proxy guards at the
+     entry point or per-arg IsConcatSpreadable probe, so
+     create-revoked-proxy and is-concat-spreadable-proxy-revoked
+     silently produced empty / single-element results instead of
+     the spec TypeError.
+
+Plus the smaller fixes that aren't worth their own paragraph:
+
+  * **probeOwnDescriptor — undefined-sentinel getter / setter is 'no
+    accessor function'.**  Closes the R48 Proxy regression directly:
+    Object.defineProperty(target, k, {get: undefined, ...}) now
+    correctly fails the Proxy [[Get]] / [[Set]] invariant check at
+    §10.5.8 / §10.5.9 step 9.c when the trap returns non-undefined
+    / truthy for a non-configurable accessor with undefined [[Get]] /
+    [[Set]].
+
+  * **OP_put_field / OP_put_array_el — 'length' writable bit gate
+    extends to String wrappers.**  §22.1.4: String-wrapper length is
+    {writable:false, enumerable:false, configurable:false}.  The
+    Array-only gate now probes __pd_length__ for any 'length' put,
+    so str.length = X and str['length'] = X reject identically with
+    arr.length = X.
+
+  * **L_OP_call_constructor — sub-module closure lookup via
+    __closure_module__.**  Mirrors the L_OP_call fix from R48: new
+    Function(body) returns a real constructor; \`new Function('this.y
+    = 5')()\` now binds y instead of raising 'is not a constructor'.
+
+  * **L_OP_call_constructor — return-type filter excludes undefined /
+    null sentinels and Symbols.**  §10.2.1.3 step 8.c: non-Object
+    returns are discarded; the receiver is used.  Pre-fix \`function
+    F() { this.y = 5; return undefined; }; new F()\` returned
+    undefined instead of {y: 5}.
+
+  * **objectCtorFn — Object(sym) boxes Symbol primitives via
+    Symbol.prototype.**  Wrapper distinct from sym itself with
+    typeof === 'object'; Symbol.keyFor rejects the wrapper per
+    §20.4.2.5 step 1.
+
+  * **OP_put_field / OP_put_array_el — sloppy-mode Symbol-primitive
+    sets are silent no-ops.**  Strict mode throws (already correct);
+    sloppy mode previously fell through to setAttribute(sym, …) and
+    grew an own property on the primitive itself.
+
+  * **OP_put_field non-extensible gate — probe inherited setter via
+    chain walk.**  \`Object.preventExtensions(o); o.__proto__ = {}\`
+    now invokes Object.prototype.__proto__'s setter (which surfaces
+    the spec TypeError on a non-extensible target with a different
+    requested proto).
+
+  * **objectDefineProperty descriptor type filter — BigInt
+    rejection.**  §6.1.5 + §7.1.13: BigInts are primitives and
+    rejected as descriptors.  Symbols were already filtered; the
+    BigInt arm was missing.
+
+  * **OP_get_array_el — propagate toString(index) abrupt at the
+    read site.**  arr[obj] where obj's valueOf / toString return
+    objects no longer prints undefined AND THEN fires the catch
+    block on the next dispatch.
+
+  * **Array.isArray — TypeError on revoked Proxy per §7.2.2
+    step 3.a.**
+
+  * **String wrapper — propertyIsEnumerable + for-in synthesise
+    char indices.**  Mirrors the existing
+    getOwnPropertyDescriptor + Object.keys synth so the three
+    probes (descriptor / propertyIsEnumerable / for-in) agree.
+
+  * **Arguments object — Symbol.toStringTag descriptor 0x2
+    (writable: false, enumerable: false, configurable: true).**
+    Adds the missing __pd_<key>__ sidecar so defineProperties
+    iterating an arguments-object properties argument no longer
+    dispatches with the WKS value as a descriptor.
+
+  * **Object.defineProperties — OWN-only probe for accessor
+    sidecar.**  When child has OWN data 'prop' but proto has
+    inherited accessor 'prop', the OWN slot wins (was: inherited
+    accessor masked it).
+
+  * **Array.prototype.findLast / findLastIndex — probe length
+    accessor getter via __get_length__.**  A throwing length getter
+    now surfaces its abrupt instead of being silently replaced by
+    a 'callback is not a function' TypeError.
+
+10-family roll-up:
+
+| Family | This run | R48 baseline | Δ |
+|--------|---------:|-------------:|--:|
+| `built-ins/Function` | **423 / 509** (83.1 %) | 421 / 509 (82.7 %) | **+2** |
+| `built-ins/Object` | **3 336 / 3 411** (97.8 %) | 3 313 / 3 411 (97.1 %) | **+23** (+0.7 pp) |
+| `built-ins/Array` | **2 891 / 3 081** (93.8 %) | 2 885 / 3 081 | **+6** |
+| `built-ins/String` | **1 140 / 1 223** (93.2 %) | 1 134 / 1 223 (92.7 %) | **+6** |
+| `built-ins/Symbol` | **72 / 98** (73.5 %) | 71 / 98 (72.4 %) | **+1** |
+| `built-ins/Map` | 200 / 204 (98.0 %) | 200 / 204 | 0 |
+| `built-ins/Set` | 378 / 383 (98.7 %) | 378 / 383 | 0 |
+| `built-ins/Proxy` | **245 / 311** (78.8 %) | 243 / 311 (78.1 %) | **+2** |
+| `built-ins/Reflect` | 142 / 153 (92.8 %) | 142 / 153 | 0 |
+| `built-ins/WeakMap` | 140 / 141 (99.3 %) | 140 / 141 | 0 |
+| **TOTAL** | **8 967 / 9 514** (**94.25 %**) | 8 927 / 9 514 (93.83 %) | **+40** (+0.42 pp) |
+
 **Round 48 — 2026-06-12** (20 commits, autonomous follow-up to R47) —
 runtime correctness cleanups across the OP dispatch surface
 (undefined sentinel propagation, closure-metadata module resolution,
