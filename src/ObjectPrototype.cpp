@@ -1839,6 +1839,21 @@ static const proto::ProtoObject* objectSetPrototypeOf(
             }
         }
     }
+    // §19.1.3 Object.prototype's [[Prototype]] is immutable (null) per
+    // SetImmutablePrototype. Any attempt to set it to anything other
+    // than null must throw TypeError. Pre-fix Object.setPrototypeOf
+    // accepted a non-null prototype on Object.prototype itself
+    // (test262 Object/prototype/setPrototypeOf-with-non-circular-
+    // values.js, -__proto__.js).
+    {
+        JSContextWrapper* w = JSContextWrapper::current();
+        if (w && obj == w->getJSObjectPrototype()
+            && proto != getNullSentinel()) {
+            signalNativeException(makeNativeError(ctx, "TypeError",
+                "Object.prototype has an immutable [[Prototype]]"));
+            return PROTO_NONE;
+        }
+    }
     // §10.1.2.1 SetImmutablePrototype-style check: non-extensible
     // objects can only accept a SetPrototypeOf when proto matches the
     // current prototype (no-op). Anything else throws TypeError.

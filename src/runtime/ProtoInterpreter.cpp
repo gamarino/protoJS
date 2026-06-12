@@ -1753,6 +1753,17 @@ static const proto::ProtoObject* reflectSetPrototypeOf(
         // prototype change unless the new proto matches the current.
         // Reflect.setPrototypeOf returns false here per its spec
         // surface (vs. Object.setPrototypeOf which throws TypeError).
+        // §19.1.3 — Object.prototype's [[Prototype]] is immutable;
+        // any non-null requested proto returns false (test262
+        // Object/prototype/setPrototypeOf-with-non-circular-values.js
+        // covers the Reflect surface).
+        {
+            protojs::JSContextWrapper* w = protojs::JSContextWrapper::current();
+            if (w && target == w->getJSObjectPrototype()
+                && proto != getNullSentinel()) {
+                return PROTO_FALSE;
+            }
+        }
         {
             protojs::JSContextWrapper* w = protojs::JSContextWrapper::current();
             if (w && target->hasParent(ctx, w->getNonExtensibleMarker())) {
