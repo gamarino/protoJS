@@ -995,6 +995,63 @@ static const proto::ProtoObject* objectAssign(
                     }
                 }
             }
+            // \xc2\xa710.4.2 Array exotic objects: writes to canonical
+            // numeric index keys must update __elements__ (the dense
+            // storage Array reads from), not just the string-keyed
+            // attribute layer.  Pre-fix Object.assign onto an Array
+            // target with a numeric source key wrote to the sparse
+            // attribute slot; subsequent arr[i] reads still saw the
+            // stale __elements__ entry (built-ins/Object/assign/
+            // target-Array.js: target = [7,8,9]; Object.assign(target,
+            // {1:2, length:2}) was expected to truncate to [1,2] but
+            // remained [7,8,9].
+            {
+                const proto::ProtoString* isArrK = JSSymbols::isArray(ctx);
+                bool tgtIsArr = isArrK
+                    && target->getAttribute(ctx, isArrK, true) == PROTO_TRUE;
+                std::string ks; propKey->toUTF8String(ctx, ks);
+                if (tgtIsArr && !ks.empty() && ks[0] >= '0' && ks[0] <= '9') {
+                    bool numeric = true;
+                    if (ks[0] == '0' && ks.size() > 1) numeric = false;
+                    for (char c : ks) if (c < '0' || c > '9') { numeric = false; break; }
+                    if (numeric) {
+                        try {
+                            unsigned long idx = std::stoul(ks);
+                            if (idx < 0xFFFFFFFFu) {
+                                protojs::arrayTryFastSet(ctx, target, idx,
+                                    effective ? effective : PROTO_NONE);
+                                continue;
+                            }
+                        } catch (...) {}
+                    }
+                }
+                // Array length write: truncate __elements__ accordingly.
+                if (tgtIsArr && ks == "length"
+                    && effective && effective != PROTO_NONE
+                    && (effective->isInteger(ctx) || effective->isDouble(ctx)
+                        || effective->isFloat(ctx))) {
+                    double dlen = effective->isInteger(ctx)
+                        ? (double)effective->asLong(ctx)
+                        : effective->asDouble(ctx);
+                    long long ilen = (long long)dlen;
+                    if (!std::isnan(dlen) && !std::isinf(dlen)
+                        && (double)ilen == dlen
+                        && ilen >= 0 && ilen <= 0xFFFFFFFFLL) {
+                        const proto::ProtoList* els =
+                            protojs::getArrayElements(ctx, target);
+                        if (els) {
+                            const proto::ProtoList* trimmed = els;
+                            long long curSz = els->getSize(ctx);
+                            while (trimmed->getSize(ctx) > ilen)
+                                trimmed = trimmed->removeAt(ctx, trimmed->getSize(ctx) - 1);
+                            while (trimmed->getSize(ctx) < ilen)
+                                trimmed = trimmed->appendLast(ctx, PROTO_NONE);
+                            if (trimmed != els || curSz != ilen)
+                                protojs::setArrayElements(ctx, target, trimmed);
+                        }
+                    }
+                }
+            }
             target = target->setAttribute(ctx, propKey,
                 effective ? effective : PROTO_NONE);
         }
