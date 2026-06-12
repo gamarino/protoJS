@@ -12236,10 +12236,23 @@ const proto::ProtoObject* runBytecode(proto::ProtoContext* pContext,
                             ? trapNameObj->asString(pContext) : nullptr;
                         const proto::ProtoObject* trap = trapName
                             ? pHandler->getAttribute(pContext, trapName, true) : nullptr;
-                        bool trapCallable = trap && trap != PROTO_NONE &&
-                            (trap->isMethod(pContext) ||
-                             (JSSymbols::bytecodeId(pContext) && trap->hasAttribute(pContext, JSSymbols::bytecodeId(pContext)) == PROTO_TRUE) ||
-                             (JSSymbols::nativeFn(pContext) && trap->hasAttribute(pContext, JSSymbols::nativeFn(pContext)) == PROTO_TRUE));
+                        // §7.3.10 GetMethod step 4: present but non-callable
+                        // → TypeError.  null / undefined coerce to undefined
+                        // and fall through to the no-trap forward path.
+                        bool trapPresent = trap && trap != PROTO_NONE
+                            && trap != t_undefinedSentinel && trap != t_nullSentinel;
+                        bool trapCallable = trapPresent && (
+                            trap->isMethod(pContext) ||
+                            (JSSymbols::bytecodeId(pContext) && trap->hasAttribute(pContext, JSSymbols::bytecodeId(pContext)) == PROTO_TRUE) ||
+                            (JSSymbols::nativeFn(pContext) && trap->hasAttribute(pContext, JSSymbols::nativeFn(pContext)) == PROTO_TRUE));
+                        if (trapPresent && !trapCallable) {
+                            pending_exception = makeError(pContext, "TypeError",
+                                "Proxy handler's 'construct' trap is not callable", pGlobalRoot);
+                            has_pending_exception = true;
+                            for (uint32_t i = 0; i < argc + 2; i++) stackPop(pContext);
+                            stackPush(pContext, PROTO_NONE);
+                            DISPATCH();
+                        }
                         if (trapCallable) {
                             // §28.2.4.13 step 8: trap(target, argArray, newTarget).
                             // argArray must be a real JS Array — pre-fix
@@ -12879,10 +12892,21 @@ const proto::ProtoObject* runBytecode(proto::ProtoContext* pContext,
                             ? trapNameObj->asString(pContext) : nullptr;
                         const proto::ProtoObject* trap = trapName
                             ? pHandler->getAttribute(pContext, trapName, true) : nullptr;
-                        bool trapCallable = trap && trap != PROTO_NONE &&
-                            (trap->isMethod(pContext) ||
-                             (JSSymbols::bytecodeId(pContext) && trap->hasAttribute(pContext, JSSymbols::bytecodeId(pContext)) == PROTO_TRUE) ||
-                             (JSSymbols::nativeFn(pContext) && trap->hasAttribute(pContext, JSSymbols::nativeFn(pContext)) == PROTO_TRUE));
+                        // §7.3.10 GetMethod step 4: present but non-callable → TypeError.
+                        bool trapPresent = trap && trap != PROTO_NONE
+                            && trap != t_undefinedSentinel && trap != t_nullSentinel;
+                        bool trapCallable = trapPresent && (
+                            trap->isMethod(pContext) ||
+                            (JSSymbols::bytecodeId(pContext) && trap->hasAttribute(pContext, JSSymbols::bytecodeId(pContext)) == PROTO_TRUE) ||
+                            (JSSymbols::nativeFn(pContext) && trap->hasAttribute(pContext, JSSymbols::nativeFn(pContext)) == PROTO_TRUE));
+                        if (trapPresent && !trapCallable) {
+                            pending_exception = makeError(pContext, "TypeError",
+                                "Proxy handler's 'apply' trap is not callable", pGlobalRoot);
+                            has_pending_exception = true;
+                            for (uint32_t i = 0; i < argc + 1; i++) stackPop(pContext);
+                            stackPush(pContext, PROTO_NONE);
+                            DISPATCH();
+                        }
                         if (trapCallable) {
                             // Build a JS Array argArray (real array, not a
                             // bare ProtoList wrapper) so the user handler

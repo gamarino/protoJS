@@ -878,22 +878,32 @@ const proto::ProtoObject* proxyDispatchSetPrototypeOf(
     // [[IsExtensible]](target).  If extensible, return true.  If
     // non-extensible, target.[[GetPrototypeOf]]() must SameValue V.
     JSContextWrapper* w = JSContextWrapper::current();
+    // §10.5.2 step 10: IsExtensible(target) — for a Proxy target,
+    // dispatches the isExtensible trap; an abrupt must propagate.
+    // For nested proxies we walk to the deepest non-Proxy underlying
+    // object and check ITS NonExtensibleMarker so the test262
+    // setPrototypeOf/return-abrupt-from-target-getprototypeof.js path
+    // (where Object.preventExtensions(target) set the marker on the
+    // inner ProxyTarget) correctly sees non-extensible.
     bool targetNonExt = false;
-    if (target && w && w->getNonExtensibleMarker()
-        && target->hasParent(ctx, w->getNonExtensibleMarker()))
-        targetNonExt = true;
-    // §10.5.2 step 10: call IsExtensible — for a Proxy target, this
-    // dispatches the isExtensible trap; an abrupt completion there
-    // must propagate (test262 setPrototypeOf/return-abrupt-from-
-    // isextensible-target).
-    if (isProxy(ctx, target)) {
-        const proto::ProtoObject* iext = lookupTrap(ctx, proxyHandler(ctx, target), "isExtensible");
-        if (iext) {
-            const proto::ProtoList* iea = ctx->newList();
-            iea = iea->appendLast(ctx, proxyTarget(ctx, target));
-            (void)callJSFunction(ctx, iext, proxyHandler(ctx, target), iea);
-            if (hasCallException()) return PROTO_NONE;
+    {
+        const proto::ProtoObject* probe = target;
+        while (isProxy(ctx, probe)) {
+            const proto::ProtoObject* iext =
+                lookupTrap(ctx, proxyHandler(ctx, probe), "isExtensible");
+            if (iext) {
+                const proto::ProtoList* iea = ctx->newList();
+                iea = iea->appendLast(ctx, proxyTarget(ctx, probe));
+                (void)callJSFunction(ctx, iext, proxyHandler(ctx, probe), iea);
+                if (hasCallException()) return PROTO_NONE;
+            }
+            const proto::ProtoObject* inner = proxyTarget(ctx, probe);
+            if (!inner) return PROTO_FALSE;
+            probe = inner;
         }
+        if (probe && w && w->getNonExtensibleMarker()
+            && probe->hasParent(ctx, w->getNonExtensibleMarker()))
+            targetNonExt = true;
     }
     if (!targetNonExt) return PROTO_TRUE;
     // §10.5.2 step 12: target.[[GetPrototypeOf]]() — may abrupt.
@@ -1087,9 +1097,21 @@ const proto::ProtoObject* proxyDispatchGetOwnPropertyDescriptor(
             }
             return PROTO_NONE;
         }
-        // Must be an Object — primitives reject with TypeError.
+        // §10.5.5 step 7 — Must be an Object or Undefined.  Primitives
+        // (number, string, boolean, symbol) all reject.  Pre-fix the
+        // Symbol case slipped past the rejector because Symbol
+        // primitives are Object-tagged with `__is_symbol__` and
+        // asString returns nullptr for them.
+        bool resIsSymbol = false;
+        {
+            const proto::ProtoString* isSymK = JSSymbols::isSymbol(ctx);
+            if (isSymK && res && res != PROTO_NONE
+                && res->getAttribute(ctx, isSymK, true) == PROTO_TRUE)
+                resIsSymbol = true;
+        }
         if (res->isInteger(ctx) || res->isDouble(ctx) || res->isFloat(ctx)
-            || res->isBoolean(ctx) || res->isString(ctx)) {
+            || res->isBoolean(ctx) || res->isString(ctx)
+            || resIsSymbol) {
             signalNativeException(makeNativeError(ctx, "TypeError",
                 "'getOwnPropertyDescriptor' on proxy: trap returned non-Object"));
             return PROTO_NONE;
@@ -1111,15 +1133,24 @@ const proto::ProtoObject* proxyDispatchGetOwnPropertyDescriptor(
             // when targetDesc is present and non-configurable, the trap
             // result must (a) also be non-configurable, and (b) for a
             // non-writable data targetDesc, also be non-writable.
+            // Helper: read a boolean slot from the trap result.
+            auto readBool = [&](const char* name) -> int {
+                // -1 = absent / undefined, 0 = false, 1 = true.
+                const proto::ProtoObject* ko = ctx->fromUTF8String(name);
+                const proto::ProtoString* ks = ko ? ko->asString(ctx) : nullptr;
+                if (!ks) return -1;
+                const proto::ProtoObject* v = res->getAttribute(ctx, ks, true);
+                if (!v || v == PROTO_NONE
+                    || v == getUndefinedSentinel() || v == getNullSentinel()) return -1;
+                if (v == PROTO_TRUE) return 1;
+                if (v == PROTO_FALSE) return 0;
+                if (v->isBoolean(ctx)) return v->asBoolean(ctx) ? 1 : 0;
+                if (v->isInteger(ctx)) return v->asLong(ctx) != 0 ? 1 : 0;
+                return 1;  // any other value → truthy
+            };
+            int resConfigBit = readBool("configurable");
+            bool resConfig = resConfigBit != 0;
             if (odPre.present && !odPre.configurable) {
-                const proto::ProtoObject* cko = ctx->fromUTF8String("configurable");
-                const proto::ProtoString* cks = cko ? cko->asString(ctx) : nullptr;
-                bool resConfig = true;
-                if (cks) {
-                    const proto::ProtoObject* cv = res->getAttribute(ctx, cks, true);
-                    if (cv == PROTO_FALSE) resConfig = false;
-                    else if (cv && cv->isBoolean(ctx)) resConfig = cv->asBoolean(ctx);
-                }
                 if (resConfig) {
                     signalNativeException(makeNativeError(ctx, "TypeError",
                         "'getOwnPropertyDescriptor' on proxy: trap reported "
@@ -1127,20 +1158,38 @@ const proto::ProtoObject* proxyDispatchGetOwnPropertyDescriptor(
                     return PROTO_NONE;
                 }
                 if (!odPre.isAccessor && !odPre.writable) {
-                    const proto::ProtoObject* wko = ctx->fromUTF8String("writable");
-                    const proto::ProtoString* wks = wko ? wko->asString(ctx) : nullptr;
-                    bool resWritable = true;
-                    if (wks) {
-                        const proto::ProtoObject* wv = res->getAttribute(ctx, wks, true);
-                        if (wv == PROTO_FALSE) resWritable = false;
-                        else if (wv && wv->isBoolean(ctx)) resWritable = wv->asBoolean(ctx);
-                    }
-                    if (resWritable) {
+                    int resWritableBit = readBool("writable");
+                    if (resWritableBit != 0) {
                         signalNativeException(makeNativeError(ctx, "TypeError",
                             "'getOwnPropertyDescriptor' on proxy: trap reported "
                             "writable for a non-configurable non-writable own property"));
                         return PROTO_NONE;
                     }
+                }
+            }
+            // §10.5.5 step 21 reverse — when target's descriptor IS
+            // configurable but the trap result says non-configurable,
+            // the trap is attempting to tighten configurability
+            // illegally.  Pre-fix only the target-non-configurable
+            // direction was checked (test262 resultdesc-is-not-
+            // configurable-targetdesc-is-configurable.js).
+            if (odPre.present && odPre.configurable && resConfigBit == 0) {
+                signalNativeException(makeNativeError(ctx, "TypeError",
+                    "'getOwnPropertyDescriptor' on proxy: trap reported "
+                    "non-configurable for a configurable own property"));
+                return PROTO_NONE;
+            }
+            // §10.5.5 step 21 — data target with writable=true should
+            // not be tightened by the trap to writable=false + non-
+            // configurable (resultdesc-is-not-configurable-not-
+            // writable-targetdesc-is-writable.js).
+            if (odPre.present && !odPre.isAccessor && odPre.writable) {
+                int resWritableBit = readBool("writable");
+                if (resWritableBit == 0 && resConfigBit == 0) {
+                    signalNativeException(makeNativeError(ctx, "TypeError",
+                        "'getOwnPropertyDescriptor' on proxy: trap reported "
+                        "non-configurable non-writable for a writable own property"));
+                    return PROTO_NONE;
                 }
             }
         }
