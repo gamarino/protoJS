@@ -1033,16 +1033,35 @@ const proto::ProtoObject* proxyDispatchOwnKeys(
         }
     }
     // §10.5.11 step 19 — when target is non-extensible, the trap
-    // result must not contain any keys not present on target.
+    // result must not contain any keys not present on target.  Applies
+    // to both String- and Symbol-keyed entries (Symbol keys are
+    // namespaced 'Y:' in the dedup set; the R50 Symbol-keys feature
+    // stores them on target under @@sym# attribute names, so probe
+    // each via the symbol's __symbol_str_key__ identity).  Pre-fix
+    // the loop only inspected 'S:' string keys, so the test's
+    // \`ownKeys -> [symbol]\` arm slipped through the invariant check
+    // (built-ins/Object/getOwnPropertyNames/proxy-invariant-not-
+    // extensible-extra-symbol-key.js).
     if (targetNonExt) {
-        for (const auto& sk : seenKeys) {
-            if (sk.size() < 2) continue;
-            if (sk[0] != 'S') continue;
-            std::string ks = sk.substr(2);
-            const proto::ProtoObject* ko = ctx->fromUTF8String(ks.c_str());
-            const proto::ProtoString* kss = ko ? ko->asString(ctx) : nullptr;
-            if (!kss) continue;
-            if (target->hasOwnAttribute(ctx, kss) != PROTO_TRUE) {
+        for (long long i = 0; i < outEls->getSize(ctx); ++i) {
+            const proto::ProtoObject* kv = outEls->getAt(ctx, static_cast<size_t>(i));
+            if (!kv || kv == PROTO_NONE) continue;
+            const proto::ProtoString* probeKey = nullptr;
+            const proto::ProtoString* isSymK = JSSymbols::isSymbol(ctx);
+            if (isSymK && kv->getAttribute(ctx, isSymK, true) == PROTO_TRUE) {
+                const proto::ProtoObject* ssko = ctx->fromUTF8String("__symbol_str_key__");
+                const proto::ProtoString* sskK = ssko ? ssko->asString(ctx) : nullptr;
+                if (sskK) {
+                    const proto::ProtoObject* keyStr =
+                        kv->getAttribute(ctx, sskK, true);
+                    if (keyStr && keyStr != PROTO_NONE && keyStr->isString(ctx))
+                        probeKey = keyStr->asString(ctx);
+                }
+            } else if (kv->isString(ctx)) {
+                probeKey = kv->asString(ctx);
+            }
+            if (!probeKey) continue;
+            if (target->hasOwnAttribute(ctx, probeKey) != PROTO_TRUE) {
                 signalNativeException(makeNativeError(ctx, "TypeError",
                     "'ownKeys' on proxy: trap result contains a key not "
                     "present on the non-extensible target"));
