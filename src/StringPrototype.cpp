@@ -910,6 +910,13 @@ const proto::ProtoObject* stringSlice(
             long long start = 0, end = len;
             if (args && args->getSize(ctx) >= 1) {
                 start = getIntArg(ctx, args, 0, 0);
+                // §22.1.3.18 slice step 4: ToIntegerOrInfinity on `start`
+                // precedes the coercion of `end`. Pre-fix getIntArg
+                // swallowed abrupt completions and returned the default,
+                // so an abrupt valueOf on `start` lost to a later abrupt
+                // on `end` (test262
+                // String/prototype/slice/S15.5.4.13_A1_T11.js).
+                if (hasCallException()) return PROTO_NONE;
                 if (start < 0) start = std::max(len + start, 0LL);
                 else           start = std::min(start, len);
             }
@@ -918,6 +925,7 @@ const proto::ProtoObject* stringSlice(
                 // §22.1.3.18 slice: when end is undefined, default to len.
                 if (ea && ea != PROTO_NONE && ea != getUndefinedSentinel()) {
                     end = getIntArg(ctx, args, 1, len);
+                    if (hasCallException()) return PROTO_NONE;
                     if (end < 0) end = std::max(len + end, 0LL);
                     else         end = std::min(end, len);
                 }
@@ -936,6 +944,7 @@ const proto::ProtoObject* stringSlice(
 
     if (args && args->getSize(ctx) >= 1) {
         start = getIntArg(ctx, args, 0, 0);
+        if (hasCallException()) return PROTO_NONE;
         if (start < 0) start = std::max(len + start, 0LL);
         else           start = std::min(start, len);
     }
@@ -943,6 +952,7 @@ const proto::ProtoObject* stringSlice(
         const proto::ProtoObject* ea = args->getAt(ctx, 1);
         if (ea && ea != PROTO_NONE) {
             end = getIntArg(ctx, args, 1, len);
+            if (hasCallException()) return PROTO_NONE;
             if (end < 0) end = std::max(len + end, 0LL);
             else         end = std::min(end, len);
         }
@@ -967,6 +977,7 @@ const proto::ProtoObject* stringSubstring(
             long long start = 0, end = len;
             if (args && args->getSize(ctx) >= 1) {
                 start = getIntArg(ctx, args, 0, 0);
+                if (hasCallException()) return PROTO_NONE;
                 start = std::max(0LL, std::min(start, len));
             }
             if (args && args->getSize(ctx) >= 2) {
@@ -977,6 +988,7 @@ const proto::ProtoObject* stringSubstring(
                 // empty substring (S15.5.4.15_A1_T7 et al).
                 if (ea && ea != PROTO_NONE && ea != getUndefinedSentinel()) {
                     end = getIntArg(ctx, args, 1, len);
+                    if (hasCallException()) return PROTO_NONE;
                     end = std::max(0LL, std::min(end, len));
                 }
             }
@@ -995,12 +1007,14 @@ const proto::ProtoObject* stringSubstring(
 
     if (args && args->getSize(ctx) >= 1) {
         start = getIntArg(ctx, args, 0, 0);   // NaN → 0
+        if (hasCallException()) return PROTO_NONE;
         start = std::max(0LL, std::min(start, len));
     }
     if (args && args->getSize(ctx) >= 2) {
         const proto::ProtoObject* ea = args->getAt(ctx, 1);
         if (ea && ea != PROTO_NONE) {
             end = getIntArg(ctx, args, 1, len);
+            if (hasCallException()) return PROTO_NONE;
             end = std::max(0LL, std::min(end, len));
         }
     }
