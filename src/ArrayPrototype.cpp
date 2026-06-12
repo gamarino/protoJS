@@ -3703,16 +3703,46 @@ static const proto::ProtoObject* arrayFindLast(
     // §23.1.3.10: LengthOfArrayLike precedes IsCallable.
     // Non-allocating iteration methods (forEach / some / every /
     // find* / reduce*) must NOT throw RangeError on a >2^32 length —
-    // the spec clamps via ToLength and iterates, and most tests
-    // short-circuit at index 0. arrayThrowIfLenOverflow stays applied
-    // only to methods that ArraySpeciesCreate a new Array of size len
-    // (map / filter / slice / splice / concat / flatMap / etc.).
-    unsigned long len = arrLen(ctx, self);
+    // the spec clamps via ToLength (max 2^53-1) and iterates;
+    // most tests short-circuit at the first matching index.
+    // arrLen() clamps at 2^32-1 to keep the dense ProtoList fast path
+    // sound; findLast and findLastIndex iterate from len-1 down and
+    // tests expect ToLength's full 2^53-1 ceiling (test262
+    // Array/prototype/findLast/maximum-index.js,
+    // findLastIndex/maximum-index.js). Read the raw length and apply
+    // ToLength locally without the arrLen ceiling.
+    long long len = 0;
+    {
+        const proto::ProtoString* lenK = JSSymbols::length(ctx);
+        const proto::ProtoObject* lenV = lenK
+            ? self->getAttribute(ctx, lenK, true) : nullptr;
+        if (lenV && lenV != PROTO_NONE) {
+            double d = 0.0;
+            bool gotNum = false;
+            if (lenV->isInteger(ctx)) {
+                d = (double)lenV->asLong(ctx); gotNum = true;
+            } else if (lenV->isDouble(ctx) || lenV->isFloat(ctx)) {
+                d = lenV->asDouble(ctx); gotNum = true;
+            } else {
+                const proto::ProtoObject* nv = jsToNumber(ctx, lenV);
+                if (hasCallException()) return PROTO_NONE;
+                if (nv && (nv->isInteger(ctx) || nv->isDouble(ctx) || nv->isFloat(ctx))) {
+                    d = nv->isInteger(ctx) ? (double)nv->asLong(ctx) : nv->asDouble(ctx);
+                    gotNum = true;
+                }
+            }
+            if (gotNum && !std::isnan(d)) {
+                if (d < 0) d = 0;
+                else if (d > 9007199254740991.0) d = 9007199254740991.0;
+                len = (long long)d;
+            }
+        }
+    }
     if (hasCallException()) return PROTO_NONE;
     const proto::ProtoObject* fn      = getCallbackArg(ctx, args, 0);
     const proto::ProtoObject* thisArg = getCallbackArg(ctx, args, 1);
     if (arrayThrowIfCallbackNotCallable(ctx, fn, "Array.prototype.findLast")) return PROTO_NONE;
-    for (long long i = (long long)len - 1; i >= 0; i--) {
+    for (long long i = len - 1; i >= 0; i--) {
         const proto::ProtoObject* elem = arrGet(ctx, self, (unsigned long)i);
         if (hasCallException()) return PROTO_NONE;
         const proto::ProtoObject* res  =
@@ -3734,19 +3764,38 @@ static const proto::ProtoObject* arrayFindLastIndex(
     const proto::ProtoSparseList*)
 {
     if (arrayThrowIfNullUndefined(ctx, self)) return PROTO_NONE;
-    // §23.1.3.11: LengthOfArrayLike precedes IsCallable.
-    // Non-allocating iteration methods (forEach / some / every /
-    // find* / reduce*) must NOT throw RangeError on a >2^32 length —
-    // the spec clamps via ToLength and iterates, and most tests
-    // short-circuit at index 0. arrayThrowIfLenOverflow stays applied
-    // only to methods that ArraySpeciesCreate a new Array of size len
-    // (map / filter / slice / splice / concat / flatMap / etc.).
-    unsigned long len = arrLen(ctx, self);
+    // §23.1.3.11: see Array.prototype.findLast for the ToLength
+    // rationale. Apply the full 2^53-1 ceiling locally.
+    long long len = 0;
+    {
+        const proto::ProtoString* lenK = JSSymbols::length(ctx);
+        const proto::ProtoObject* lenV = lenK
+            ? self->getAttribute(ctx, lenK, true) : nullptr;
+        if (lenV && lenV != PROTO_NONE) {
+            double d = 0.0;
+            bool gotNum = false;
+            if (lenV->isInteger(ctx)) { d = (double)lenV->asLong(ctx); gotNum = true; }
+            else if (lenV->isDouble(ctx) || lenV->isFloat(ctx)) { d = lenV->asDouble(ctx); gotNum = true; }
+            else {
+                const proto::ProtoObject* nv = jsToNumber(ctx, lenV);
+                if (hasCallException()) return PROTO_NONE;
+                if (nv && (nv->isInteger(ctx) || nv->isDouble(ctx) || nv->isFloat(ctx))) {
+                    d = nv->isInteger(ctx) ? (double)nv->asLong(ctx) : nv->asDouble(ctx);
+                    gotNum = true;
+                }
+            }
+            if (gotNum && !std::isnan(d)) {
+                if (d < 0) d = 0;
+                else if (d > 9007199254740991.0) d = 9007199254740991.0;
+                len = (long long)d;
+            }
+        }
+    }
     if (hasCallException()) return PROTO_NONE;
     const proto::ProtoObject* fn      = getCallbackArg(ctx, args, 0);
     const proto::ProtoObject* thisArg = getCallbackArg(ctx, args, 1);
     if (arrayThrowIfCallbackNotCallable(ctx, fn, "Array.prototype.findLastIndex")) return PROTO_NONE;
-    for (long long i = (long long)len - 1; i >= 0; i--) {
+    for (long long i = len - 1; i >= 0; i--) {
         const proto::ProtoObject* elem = arrGet(ctx, self, (unsigned long)i);
         if (hasCallException()) return PROTO_NONE;
         const proto::ProtoObject* res  =
