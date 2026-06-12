@@ -387,6 +387,163 @@ For official ECMAScript compliance status and roadmap, see **[docs/TEST262_STATU
 
 ### Test262 Conformance
 
+**Round 43 — 2026-06-12** (9 commits, autonomous follow-up to R42) —
+broad Proxy-receiver + accessor-getter dispatch landing across
+Array, Map / Set / WeakMap, Object, and String.  The 10-family
+table moves to **8 572 / 9 514 (90.10 %)** — +45 tests, +0.48 pp,
+zero regressions — crossing the 90 % threshold for the first time.
+Gains are again ambient (no single family carries the round):
+**Object (3 045 → 3 056, +11)**, **Set (367 → 378, +11, 95.8 →
+98.7 %)**, **Map (193 → 200, +7, 94.6 → 98.0 %)**, **WeakMap
+(134 → 140, +6, 95.0 → 99.3 %)**, **Array (2 871 → 2 877, +6)**,
+**String (1 121 → 1 125, +4)**.
+
+This round closed two cross-cutting infrastructure gaps that had
+been silently truncating every helper that walked a Proxy receiver
+or an accessor-defined property:
+
+  * **§24.x.1.1 AddEntriesFromIterable — {Map, Set, WeakMap}
+    constructor @@iterator dispatch.**  Pre-fix the three
+    constructors used a `.length + indexed-attribute` fast-path
+    only.  An iterable that exposed @@iterator without `.length`
+    silently produced an empty container, and the spec-mandated
+    iterator-close-on-abrupt path never ran.  Implemented the
+    proper §24.x.1.1 step 9 walk:
+    GetMethod(iterable, @@iterator) → iterator.next() loop reading
+    `done` / `value` via `__get_done__` / `__get_value__`
+    accessor sidecars, with each entry's 0 / 1 indices probed via
+    `__get_0__` / `__get_1__`.  On any abrupt (throwing next, non-
+    Object item, abrupt entry-getter, adder throw), a closeIter
+    helper saves the pending exception, fires
+    iterator.return(undefined), discards any throw from .return,
+    and re-signals the original — §7.4.10 IfAbruptCloseIterator.
+    Same shape on all three; WeakMap also rejects Symbol items
+    (the existing isolated check was string / number / bool only,
+    so a Symbol next-item ran into an infinite loop the items-
+    are-not-object close test pinned).  +14 tests across Map /
+    Set / WeakMap.
+
+  * **§24.2.1.2 GetSetRecord captures Has / Keys; Set.prototype
+    set-methods reuse them.**  Pre-fix each of the seven set
+    methods (union, intersection, difference, symmetric-
+    Difference, isSubsetOf, isSupersetOf, isDisjointFrom) read
+    `other.has` / `other.keys` via getAttribute inside its
+    iteration loop — the data-slot probe missed class-style
+    Set-likes whose .has / .keys are accessors, so the set
+    operation produced the wrong answer (PROTO_NONE → bool false).
+    Refactored `getSetRecord` to outparam the resolved hasFn /
+    keysFn; callers thread them through setLikeHas /
+    iterateSetLikeKeys via a precomputed-fn parameter.
+    iterateSetLikeKeys also fires `__get_next__` / `__get_done__`
+    / `__get_value__` accessor sidecars per §7.4.{2,3,4}, and
+    iterateSetLikeKeys closes the iterator on the emit() short-
+    circuit per §7.4.10.  isSubsetOf adds the §24.2.4.6 step 3
+    short-circuit (this.size > other.size → false) so the
+    expected eager-bail path doesn't fire keys().  +9 tests
+    (set-like-class-order × 6, set-like-iter-return × 2,
+    set-get-add-method-failure + matching getOrInsertComputed
+    × 1 already in R42, plus difference / intersection /
+    symmetricDifference / union ordering follow-ons).
+
+  * **§19.1.2.1 Object.assign — Proxy source dispatches [[Own-
+    PropertyKeys]] + [[GetOwnProperty]] + [[Get]].**  Pre-fix
+    Object.assign iterated the protoCore own-attribute store
+    directly via getOwnAttributes; a source Proxy with ownKeys
+    / getOwnPropertyDescriptor / get traps silently bypassed
+    all three.  Added a per-source Proxy fast-path that dispatches
+    proxyDispatchOwnKeys (forwarding to the target's own
+    attributes when no trap is present so the per-key gOPD trap
+    can still fire), proxyDispatchGetOwnPropertyDescriptor
+    (filtering on the desc's enumerable flag), then
+    proxyDispatchGet to read the value before setAttribute on
+    target.  +3 tests under Object/assign/source-own-prop-
+    {error, desc-missing, keys-error}.
+
+  * **§20.1.2.6 Object.fromEntries — accessor getters on
+    entry / done / value, plus string-wrapper entries.**  Three
+    cumulative gaps on the iterator walk path: (a) entry[0] /
+    entry[1] reads ignored the `__get_<i>__` accessor sidecar
+    so a throwing entry getter never raised; (b) IteratorComplete
+    / IteratorValue read the data slot for `done` / `value` so a
+    throwing `get done()` / `get value()` was swallowed; (c) a
+    String wrapper entry (`Object('ab')`) produces own keys
+    "0"/"1" mapping to 'a'/'b' per §22.1.4 but readEl pre-fix
+    returned PROTO_NONE.  Added accessor probes on all three
+    paths and a `__primitive_value__` fallback that codepoint-
+    walks the underlying ProtoString.  +6 tests.
+
+  * **§7.3.23 EnumerableOwnProperties — re-check enumerable on
+    LIVE descriptor each step.**  Pre-fix collectOwnKeys gated the
+    per-key `__pd_<key>__` probe on a one-shot mightHaveNonWritable
+    hint sampled BEFORE iteration began.  When a getter invoked
+    while iterating an earlier key flipped a LATER key's
+    enumerable bit, the iteration-time probe was skipped and the
+    now-non-enumerable key still emerged in the result.  Removed
+    the hint gate from the iteration-time check (writers' fast-
+    path still uses it).  +2 tests (Object/{values, entries}/
+    getter-making-future-key-nonenumerable.js).
+
+  * **§7.2.8 IsRegExp accessor + position clamp.**  String.proto-
+    type.{startsWith, endsWith, includes} pre-fix probed
+    `searchString[@@match]` via the data slot; an accessor
+    installed via Object.defineProperty(obj, Symbol.match,
+    {get: throws}) never raised.  Routed through the
+    `__get_Symbol.match__` accessor sidecar, added the §7.2.8
+    step 4 ToBoolean(matcher) coercion the pre-fix truthy check
+    was missing, and made callers consult hasCallException
+    after isRegExp returns.  Same commit clamps the §22.1.3.18
+    step 12 `pos = min(max(pos, 0), len)` upper bound so
+    `'abc'.startsWith('', Infinity)` returns true (LLONG_MAX +
+    0 > 3 was tripping the bounds check).  +3 tests + 1 regression
+    saved by the bounds-clamp.
+
+  * **Array.prototype.* on a Proxy receiver.**  The load-bearing
+    item.  Every Array.prototype.* method (map, filter, slice,
+    splice, concat, …) called via `Array.prototype.X.call(proxy,
+    …)` pre-fix saw length=0, no own indices, and silently
+    returned an empty / unchanged result; a revoked proxy
+    receiver also failed to throw.  Reason: arrLen, arrHasProperty,
+    and arrGet (the three accessors every Array.prototype.X helper
+    calls) read protoCore storage directly — `__array_elements__`,
+    the length attribute, indexed-key attribute — none of which
+    dispatch the Proxy traps.  Added an `isProxy(receiver)` short-
+    circuit at the top of each that routes through
+    proxyDispatchGet (for length / indexed key) and
+    proxyDispatchHas (for HasProperty), with `__array_elements__`
+    fast-path inside `defaultGet` / `proxyDispatchHas` no-trap
+    branches so a forwarding-to-target proxy still sees the
+    dense indices.  Closes 6 of the 10-family Array failures and
+    a much larger cluster across `built-ins/Array/prototype/`
+    helpers that aren't in the table.
+
+10-family roll-up — gains spread across 6 families, zero regressions:
+
+| Family | This run | R42 baseline | Δ |
+|--------|---------:|-------------:|--:|
+| `built-ins/Function` | 421 / 509 (82.7 %) | 421 / 509 | 0 |
+| `built-ins/Object` | **3 056 / 3 411** (89.6 %) | 3 045 / 3 411 (89.3 %) | **+11** |
+| `built-ins/Array` | **2 877 / 3 081** (93.4 %) | 2 871 / 3 081 (93.2 %) | **+6** |
+| `built-ins/String` | **1 125 / 1 223** (92.0 %) | 1 121 / 1 223 (91.7 %) | **+4** |
+| `built-ins/Symbol` | 69 / 98 (70.4 %) | 69 / 98 | 0 |
+| `built-ins/Map` | **200 / 204** (98.0 %) | 193 / 204 (94.6 %) | **+7** (+3.4 pp) |
+| `built-ins/Set` | **378 / 383** (98.7 %) | 367 / 383 (95.8 %) | **+11** (+2.9 pp) |
+| `built-ins/Proxy` | 164 / 311 (52.7 %) | 164 / 311 | 0 |
+| `built-ins/Reflect` | 142 / 153 (92.8 %) | 142 / 153 | 0 |
+| `built-ins/WeakMap` | **140 / 141** (99.3 %) | 134 / 141 (95.0 %) | **+6** (+4.3 pp) |
+| **TOTAL** | **8 572 / 9 514** (**90.10 %**) | 8 527 / 9 514 (89.62 %) | **+45** (+0.48 pp) |
+
+Off-table family — Iterator held; R43 focused on the 10-family:
+
+| Family | This run | R42 baseline | Δ |
+|--------|---------:|-------------:|--:|
+| `built-ins/Iterator` | 367 / 510 (72.0 %) | 367 / 510 | 0 |
+
+Cumulative R37 → R43 (121 commits): 87.20 % → 90.10 % on the 10-fam
+table — +286 tests in seven focused rounds.  Map / Set / WeakMap
+all now ≥ 98 %.
+
+---
+
 **Round 42 — 2026-06-12** (8 commits, autonomous follow-up to R41) —
 broad spec-coercion + Proxy-walk cleanup across Function, Object,
 String, Set / Map / WeakMap.  The 10-family table moves to
