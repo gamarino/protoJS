@@ -3787,6 +3787,37 @@ static const proto::ProtoObject* objectGetOwnPropertyDescriptors(
         const proto::ProtoString* kk = ctx->fromUTF8String(k.c_str())->asString(ctx);
         if (kk) result = result->setAttribute(ctx, kk, desc);
     }
+
+    // \xc2\xa720.1.2.11 step 2 iterates ALL own keys, including symbol-keyed
+    // entries.  collectOwnKeys filters \`@@sym#<addr>\` internal keys
+    // (so Object.keys / values / entries don't surface them), so iterate
+    // those separately here — the descriptor must include the symbol's
+    // own data slot keyed by the @@sym# string identity.  Pre-fix
+    // gOPDs returned only string-keyed descriptors and the symbol-
+    // keyed assertions in built-ins/Object/getOwnPropertyDescriptors/
+    // symbols-included.js failed.
+    {
+        const proto::ProtoSparseList* own = target->getOwnAttributes(ctx);
+        const proto::ProtoSparseListIterator* it = own ? own->getIterator(ctx) : nullptr;
+        while (it && it->hasNext(ctx)) {
+            unsigned long rawKey = it->nextKey(ctx);
+            it = const_cast<proto::ProtoSparseListIterator*>(it)->advance(ctx);
+            const proto::ProtoString* keyStr =
+                reinterpret_cast<const proto::ProtoString*>(rawKey);
+            if (!keyStr) continue;
+            std::string ks; keyStr->toUTF8String(ctx, ks);
+            if (!(ks.size() >= 6 && ks[0]=='@' && ks[1]=='@'
+                  && ks[2]=='s' && ks[3]=='y' && ks[4]=='m' && ks[5]=='#'))
+                continue;
+            const proto::ProtoList* keyArgs = ctx->newList();
+            keyArgs = keyArgs->appendLast(ctx, target);
+            keyArgs = keyArgs->appendLast(ctx, ctx->fromUTF8String(ks.c_str()));
+            const proto::ProtoObject* desc =
+                objectGetOwnPropertyDescriptor(ctx, nullptr, nullptr, keyArgs, nullptr);
+            if (!desc || desc == PROTO_NONE) continue;
+            result = result->setAttribute(ctx, keyStr, desc);
+        }
+    }
     return result;
 }
 
