@@ -79,20 +79,41 @@ static const proto::ProtoObject* resolveFieldOOP(proto::ProtoContext* ctx, const
     } else {
         res = behavior->getField(ctx, obj, key);
     }
-    // Extend the chain via t_jsProtoMap when the protoCore walk did not find
-    // the attribute. Object.setPrototypeOf / OP_define_class register
-    // [[Prototype]] overrides here that the protoCore parent walk cannot see.
-    // Bounded loop avoids cycles.
+    // Extend the chain via t_jsProtoMap when the protoCore walk did not
+    // find the attribute.  Object.setPrototypeOf / OP_define_class register
+    // [[Prototype]] overrides here that the protoCore parent walk cannot
+    // see.  Also walk forward from each successive override so that
+    // intermediate JS-visible prototypes whose C++ parent chain does not
+    // include Object.prototype (e.g. String.prototype / Array.prototype
+    // built off protoCore's stringPrototype / arrayPrototype) still
+    // route lookups onto Object.prototype's own attributes.  Pre-fix the
+    // fallback only consulted obj's direct t_jsProtoMap entry; for a
+    // \`new String('abc')\` receiver the direct entry was absent so the
+    // walk stopped at String.prototype (toString / valueOf resolve) and
+    // never reached Object.prototype's hasOwnProperty / isPrototypeOf /
+    // propertyIsEnumerable (memory note: 't_jsProtoMap vs setParents'
+    // gap).  Bounded loop avoids cycles.
     if (!res || res == PROTO_NONE) {
         const proto::ProtoObject* cur = obj;
         for (int depth = 0; depth < 100; ++depth) {
             const proto::ProtoObject* override =
                 protojs::getJSProtoOverride(cur);
-            if (!override || override == PROTO_NONE) break;
-            if (override == t_nullSentinel) break;
-            res = override->getAttribute(ctx, key, true);
-            if (res && res != PROTO_NONE) return res;
-            cur = override;
+            if (override && override != PROTO_NONE
+                && override != t_nullSentinel) {
+                res = override->getAttribute(ctx, key, true);
+                if (res && res != PROTO_NONE) return res;
+                cur = override;
+                continue;
+            }
+            // No override on cur — advance one step up the C++ chain so
+            // the next iteration can probe its override.  This is the
+            // missing piece: when cur is the obj's parent (e.g.
+            // String.prototype), its t_jsProtoMap entry maps to
+            // Object.prototype but the previous code never reached this
+            // probe.  getPrototype() returns the C++ parent.
+            const proto::ProtoObject* parent = cur->getPrototype(ctx);
+            if (!parent || parent == PROTO_NONE || parent == cur) break;
+            cur = parent;
         }
     }
     return res;
