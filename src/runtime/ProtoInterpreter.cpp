@@ -8865,28 +8865,31 @@ const proto::ProtoObject* runBytecode(proto::ProtoContext* pContext,
                         const proto::ProtoString* isArrK = JSSymbols::isArray(pContext);
                         const proto::ProtoObject* isArrV = isArrK
                             ? obj->getAttribute(pContext, isArrK, true) : PROTO_NONE;
-                        if (isArrV == PROTO_TRUE) {
-                            // Honour __pd_length__ writable bit per
-                            // §10.4.2.4 step 4. Pre-fix every
-                            // arr.length = X overwrote a writable:false
-                            // length set via Object.defineProperty
-                            // (test262 Object/defineProperty/15.2.3.6-
-                            // 4-124.js, …).  Strict mode raises
-                            // TypeError; sloppy mode silently no-ops.
-                            const proto::ProtoObject* pdlVal =
-                                obj->getAttribute(pContext,
-                                    JSSymbols::pdLength(pContext), false);
-                            if (pdlVal && pdlVal->isInteger(pContext)
-                                && !(pdlVal->asLong(pContext) & 0x1)) {
-                                if (module && module->isStrict) {
-                                    pending_exception = makeError(pContext,
-                                        "TypeError",
-                                        "Cannot assign to non-writable Array.length",
-                                        pGlobalRoot);
-                                    has_pending_exception = true;
-                                }
-                                DISPATCH();
+                        // ECMA-262 §22.1.4 String wrapper: own length is
+                        // {writable:false, enumerable:false, configurable:
+                        // false}.  Pre-fix the writable-bit gate fired
+                        // only on Arrays — String wrappers carry the same
+                        // __pd_length__ = 0 sidecar (line 13427) but the
+                        // put silently overwrote str.length anyway
+                        // (built-ins/String/length.js's
+                        // verifyProperty(str, 'length', {writable:false,
+                        // …}) probe pinned the divergence).  Probe the
+                        // bit for any "length" put: writable:0 → reject.
+                        const proto::ProtoObject* pdlVal =
+                            obj->getAttribute(pContext,
+                                JSSymbols::pdLength(pContext), false);
+                        if (pdlVal && pdlVal->isInteger(pContext)
+                            && !(pdlVal->asLong(pContext) & 0x1)) {
+                            if (module && module->isStrict) {
+                                pending_exception = makeError(pContext,
+                                    "TypeError",
+                                    isArrV == PROTO_TRUE
+                                        ? "Cannot assign to non-writable Array.length"
+                                        : "Cannot assign to read-only property 'length'",
+                                    pGlobalRoot);
+                                has_pending_exception = true;
                             }
+                            DISPATCH();
                         }
                         if (isArrV == PROTO_TRUE && val && val != PROTO_NONE) {
                             // Coerce the new value to number via ToNumber
@@ -10644,21 +10647,31 @@ const proto::ProtoObject* runBytecode(proto::ProtoContext* pContext,
                                     JSSymbols::isArray(pContext);
                                 const proto::ProtoObject* isArrV = isArrK
                                     ? obj->getAttribute(pContext, isArrK, true) : nullptr;
-                                if (isArrV == PROTO_TRUE) {
-                                    const proto::ProtoObject* pdlVal =
-                                        obj->getAttribute(pContext,
-                                            JSSymbols::pdLength(pContext), false);
-                                    if (pdlVal && pdlVal->isInteger(pContext)
-                                        && !(pdlVal->asLong(pContext) & 0x1)) {
-                                        if (module && module->isStrict) {
-                                            pending_exception = makeError(pContext,
-                                                "TypeError",
-                                                "Cannot assign to non-writable Array.length",
-                                                pGlobalRoot);
-                                            has_pending_exception = true;
-                                        }
-                                        DISPATCH();
+                                // §22.1.4 String wrapper: own length is
+                                // {writable:false, …}. Probe __pd_length__
+                                // for any 'length' bracket-put — Arrays
+                                // and String wrappers both rely on the
+                                // same sidecar.  Pre-fix str['length']=v
+                                // bypassed the dotted-access fix added
+                                // alongside this (OP_put_field) and
+                                // verifyProperty's isWritable probe saw
+                                // the write succeed (built-ins/String/
+                                // length.js).
+                                const proto::ProtoObject* pdlVal =
+                                    obj->getAttribute(pContext,
+                                        JSSymbols::pdLength(pContext), false);
+                                if (pdlVal && pdlVal->isInteger(pContext)
+                                    && !(pdlVal->asLong(pContext) & 0x1)) {
+                                    if (module && module->isStrict) {
+                                        pending_exception = makeError(pContext,
+                                            "TypeError",
+                                            isArrV == PROTO_TRUE
+                                                ? "Cannot assign to non-writable Array.length"
+                                                : "Cannot assign to read-only property 'length'",
+                                            pGlobalRoot);
+                                        has_pending_exception = true;
                                     }
+                                    DISPATCH();
                                 }
                             }
                         }
