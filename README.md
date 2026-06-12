@@ -387,6 +387,123 @@ For official ECMAScript compliance status and roadmap, see **[docs/TEST262_STATU
 
 ### Test262 Conformance
 
+**Round 45 — 2026-06-12** (7 commits, autonomous follow-up to R44) —
+deeper Proxy + [[Set]] / [[Get]] chain walk pass.  The 10-family
+table moves to **8 630 / 9 514 (90.71 %)** — +17 tests, +0.18 pp,
+zero regressions — driven entirely by `built-ins/Proxy` going from
+**203 / 311 (65.3 %) → 220 / 311 (70.7 %)** (+17, +5.5 pp).  Every
+other family unchanged.
+
+This round picked up the higher-order Proxy semantics that depend
+on chain composition: [[Set]] / [[Get]] through a Proxy ancestor,
+the GetMethod step's accessor-firing on the handler, the proper
+ordinary-[[Delete]] non-configurable check on the fall-through,
+and the exception-propagation wiring at the trap-dispatch sites.
+
+  * **§10.1.9.2 OrdinarySetWithOwnDescriptor on Proxy [[Set]] +
+    prototype chain dispatch on OP_put_field.**  Pre-fix
+    OP_put_field went straight to its own write path on the
+    receiver, bypassing every Proxy ancestor — `Object.create(new
+    Proxy(t, {set}))[prop] = v` never fired the set trap.  Added
+    a chain walk after the own-attribute miss that dispatches the
+    first Proxy ancestor's set trap with `receiver = obj` (the
+    original receiver).  proxyDispatchSet's no-trap fallback now
+    implements the spec §10.1.9.2 OrdinarySetWithOwnDescriptor:
+    accessor-on-target → invoke setter with `this = Receiver`;
+    data ownDesc → CreateDataProperty on Receiver (which routes
+    to the proxy's defineProperty trap when Receiver is itself a
+    Proxy); non-writable data → return false.  +2 tests.
+
+  * **§10.1.8.1 OrdinaryGet step 6 on OP_get_field — prototype
+    chain dispatch.**  Same shape as OP_put_field: after the
+    data-slot / accessor probe falls back to PROTO_NONE, walk via
+    [[GetPrototypeOf]] (preferring getJSProtoOverride, falling
+    back to the C++ parent) and on a Proxy ancestor dispatch its
+    get trap with the original receiver.  +1 test.
+
+  * **§10.5.4 [[PreventExtensions]] + §10.5.10 [[Delete]] —
+    ToBoolean + OrdinaryDelete invariants.**  Reflect.prevent-
+    Extensions's inlined Proxy branch used a broken truthy check
+    (integer 0 treated as truthy); replaced with §10.5.4 step 6
+    ToBoolean + a chain walk.  Object.preventExtensions's truthy
+    path was missing the §10.5.4 step 8 invariant: trap returning
+    truthy but target still extensible → TypeError.
+    proxyDispatchDelete's no-trap fallback raw-setAttribute'd the
+    target with PROTO_NONE; added the §10.1.10 non-configurable
+    own-descriptor check (return false) and switched the actual
+    removal to pass nullptr so protoCore routes to implRemoveAt
+    (truly removing the entry instead of leaving a present-but-
+    valueless slot).  +4 tests.
+
+  * **§10.5.11 [[OwnPropertyKeys]] — Object.keys' Proxy fast-
+    path routed through canonical dispatch.**  Pre-fix the
+    inlined ownKeys-trap call skipped every spec invariant.
+    Replaced with proxyDispatchOwnKeys + per-key gOPD enumerable
+    filter.  proxyDispatchOwnKeys gained the §7.3.18 step 2
+    Type-is-Object check (rejects null / undefined / number /
+    string / boolean / symbol trap results) and the §10.5.11
+    step 9 duplicate-entries check via an unordered_set.  +10
+    tests (rolled forward from R44 path-share, surfaces here).
+
+  * **§10.5.7 / §10.5.13 [[Call]] / [[Construct]] — non-callable
+    trap, Symbol reject, exception propagation.**  GetMethod step
+    4 requires a present-but-non-callable trap to raise TypeError;
+    OP_call / OP_call_method / OP_call_constructor pre-fix
+    collapsed "present but non-callable" with "absent" and
+    forwarded silently.  proxyDispatchGetOwnPropertyDescriptor's
+    non-Object trap-result check missed Symbol primitives.  The
+    construct trap-result check missed null / undefined sentinels
+    AND Symbol.  And critically, when a trap threw, the
+    interpreter's `if (hasCallException()) DISPATCH();` left the
+    exception in the call-exception slot — the next instruction
+    ran, the try block completed apparently normally, then a
+    later dispatch surfaced the exception.  All three sites now
+    drain t_hasCallException into pending_exception so the
+    surrounding try-catch sees the throw at the right point.
+    +5 tests.
+
+  * **§10.5.2 [[SetPrototypeOf]] step 10-13 + lookupTrap
+    accessor.**  proxyDispatchSetPrototypeOf gained the full
+    §10.5.2 step 10-13 sequence: IsExtensible(target) — including
+    walking nested proxies firing each handler's isExtensible
+    trap with abrupt propagation; step 11 extensible → return
+    true; step 12 target.[[GetPrototypeOf]]; step 13 SameValue
+    V vs targetProto on non-extensible target.  lookupTrap also
+    now fires `__get_<trapName>__` accessor sidecars per §7.3.10
+    so a handler whose trap slot is an accessor with a throwing
+    getter propagates the abrupt.  proxyDispatchGetPrototypeOf
+    no-trap fallback consults getJSProtoOverride before falling
+    back to getPrototype so Object.create(null) targets surface
+    the JS-side null override.  +5 tests.
+
+10-family roll-up — Proxy carries the round; everything else held:
+
+| Family | This run | R44 baseline | Δ |
+|--------|---------:|-------------:|--:|
+| `built-ins/Function` | 421 / 509 (82.7 %) | 421 / 509 | 0 |
+| `built-ins/Object` | 3 058 / 3 411 (89.7 %) | 3 058 / 3 411 | 0 |
+| `built-ins/Array` | 2 877 / 3 081 (93.4 %) | 2 877 / 3 081 | 0 |
+| `built-ins/String` | 1 125 / 1 223 (92.0 %) | 1 125 / 1 223 | 0 |
+| `built-ins/Symbol` | 69 / 98 (70.4 %) | 69 / 98 | 0 |
+| `built-ins/Map` | 200 / 204 (98.0 %) | 200 / 204 | 0 |
+| `built-ins/Set` | 378 / 383 (98.7 %) | 378 / 383 | 0 |
+| `built-ins/Proxy` | **220 / 311** (70.7 %) | 203 / 311 (65.3 %) | **+17** (+5.5 pp) |
+| `built-ins/Reflect` | 142 / 153 (92.8 %) | 142 / 153 | 0 |
+| `built-ins/WeakMap` | 140 / 141 (99.3 %) | 140 / 141 | 0 |
+| **TOTAL** | **8 630 / 9 514** (**90.71 %**) | 8 613 / 9 514 (90.53 %) | **+17** (+0.18 pp) |
+
+Off-table family — Iterator held; R45 focused on Proxy:
+
+| Family | This run | R44 baseline | Δ |
+|--------|---------:|-------------:|--:|
+| `built-ins/Iterator` | 367 / 510 (72.0 %) | 367 / 510 | 0 |
+
+Cumulative R37 → R45 (137 commits): 87.20 % → 90.71 % on the 10-fam
+table — +344 tests across nine rounds.  Map / Set / WeakMap all
+≥ 98 %; Proxy crossed 70 %.
+
+---
+
 **Round 44 — 2026-06-12** (9 commits, autonomous follow-up to R43) —
 Proxy-trap invariant pass.  The 10-family table moves to
 **8 613 / 9 514 (90.53 %)** — +41 tests, +0.43 pp, zero regressions
