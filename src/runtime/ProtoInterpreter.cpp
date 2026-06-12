@@ -1156,7 +1156,18 @@ static const proto::ProtoObject* reflectOwnKeys(
         const proto::ProtoObject* r = protojs::proxyDispatchOwnKeys(ctx, target);
         if (hasCallException()) return PROTO_NONE;
         if (r) return r;
-        target = protojs::proxyTarget(ctx, target);
+        // No trap anywhere in the proxy chain — unwrap until we reach
+        // a concrete (non-Proxy) target. Pre-fix the unwrap only stepped
+        // once, so Reflect.ownKeys(new Proxy(new Proxy(str, {}), {}))
+        // returned the inner Proxy's sidecars instead of the string
+        // wrapper's keys (test262
+        // Proxy/ownKeys/trap-is-missing-target-is-proxy.js).
+        int guard = 16;
+        while (guard-- > 0 && protojs::isProxy(ctx, target)) {
+            const proto::ProtoObject* next = protojs::proxyTarget(ctx, target);
+            if (!next || next == target) break;
+            target = next;
+        }
         if (!target) return PROTO_NONE;
     }
 
@@ -1190,18 +1201,54 @@ static const proto::ProtoObject* reflectOwnKeys(
             if (v && v != PROTO_NONE) idxKeys.push_back(static_cast<uint32_t>(i));
         }
     }
+    // §22.1.4 String-exotic objects — `new String("abc")` exposes the
+    // per-codepoint indexed properties "0","1",… as own data slots.
+    // Pre-fix Reflect.ownKeys(new String("str")) returned ["length"]
+    // because the wrapper had no __elements__ list (test262
+    // Proxy/ownKeys/trap-is-missing-target-is-proxy.js wraps a
+    // String in two proxies, expecting the chars to surface).
+    bool targetIsStringWrapper = false;
+    {
+        const proto::ProtoString* pvKey = JSSymbols::primitiveValue(ctx);
+        if (pvKey) {
+            const proto::ProtoObject* pv = target->getAttribute(ctx, pvKey, false);
+            if (pv && pv != PROTO_NONE && pv->isString(ctx)) {
+                if (const proto::ProtoString* ps = pv->asString(ctx)) {
+                    long long sz = (long long)ps->getSize(ctx);
+                    for (long long i = 0; i < sz; ++i)
+                        idxKeys.push_back(static_cast<uint32_t>(i));
+                    targetIsStringWrapper = true;
+                }
+            }
+        }
+    }
+    // Symbol-typed entries must be emitted as the original Symbol
+    // primitive object (NOT as the "Symbol(desc)" string form), so
+    // SameValue comparisons in callers like
+    // assert.compareArray(Reflect.ownKeys(s), […, sym]) match by
+    // identity. Pre-fix reflectOwnKeys pushed the string form of every
+    // key, including Symbols, so compareArray failed identity
+    // (test262 Proxy/ownKeys/trap-is-missing-target-is-proxy.js).
+    std::vector<const proto::ProtoObject*> symKeys;
     const proto::ProtoSparseList* own = target->getOwnAttributes(ctx);
     const proto::ProtoSparseListIterator* it = own ? own->getIterator(ctx) : nullptr;
+    const proto::ProtoString* isSymKR = JSSymbols::isSymbol(ctx);
     while (it && it->hasNext(ctx)) {
         unsigned long rawKey = it->nextKey(ctx);
         it = const_cast<proto::ProtoSparseListIterator*>(it)->advance(ctx);
         const proto::ProtoString* propKey =
             reinterpret_cast<const proto::ProtoString*>(rawKey);
         if (!propKey) continue;
+        const proto::ProtoObject* keyObj = propKey->asObject(ctx);
+        if (isSymKR && keyObj && keyObj != PROTO_NONE
+            && keyObj->getAttribute(ctx, isSymKR, false) == PROTO_TRUE) {
+            symKeys.push_back(keyObj);
+            continue;
+        }
         std::string ks;
         propKey->toUTF8String(ctx, ks);
         if (ks.compare(0, 2, "__") == 0) continue;
-        if (ks == "length" && targetIsArr) continue;  // emitted at end
+        if (ks == "length" && (targetIsArr || targetIsStringWrapper)) continue;  // emitted at end
         bool isNumeric = !ks.empty() &&
             std::all_of(ks.begin(), ks.end(),
                 [](unsigned char c){ return c >= '0' && c <= '9'; });
@@ -1218,11 +1265,24 @@ static const proto::ProtoObject* reflectOwnKeys(
     std::sort(idxKeys.begin(), idxKeys.end());
     for (uint32_t i : idxKeys)
         els = els->appendLast(ctx, ctx->fromUTF8String(std::to_string(i).c_str()));
+    // §22.1.4.1 String-wrapper exotic: "length" sits between the
+    // codepoint indices and any other own string keys (including
+    // Symbol-typed entries, which are emitted last by the sparse
+    // iterator path). Pre-fix length was appended at the very end,
+    // pushing Symbols ahead of it (test262
+    // Proxy/ownKeys/trap-is-missing-target-is-proxy.js).
+    if (targetIsStringWrapper) {
+        els = els->appendLast(ctx, ctx->fromUTF8String("length"));
+    }
     for (const auto& s : strKeys)
         els = els->appendLast(ctx, ctx->fromUTF8String(s.c_str()));
     if (targetIsArr) {
         els = els->appendLast(ctx, ctx->fromUTF8String("length"));
     }
+    // Symbol-typed keys come last per §10.1.11 step 5
+    // (OrdinaryOwnPropertyKeys).
+    for (const proto::ProtoObject* sk : symKeys)
+        els = els->appendLast(ctx, sk);
 
     protojs::setArrayElements(ctx, result, els);
     const proto::ProtoString* lenKey = JSSymbols::length(ctx);

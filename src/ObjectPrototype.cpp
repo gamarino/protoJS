@@ -365,9 +365,16 @@ static const proto::ProtoObject* objectKeys(
             return result;
         }
         // No ownKeys trap → fall through to default own-attr walk
-        // on the unwrapped target.
-        const proto::ProtoObject* unwrapped = protojs::proxyTarget(ctx, obj);
-        if (unwrapped) obj = unwrapped;
+        // on the unwrapped concrete target. Loop until we leave the
+        // proxy chain; a single unwrap is not enough when the
+        // immediate target is itself a Proxy (test262
+        // Proxy/ownKeys/trap-is-null-target-is-proxy.js).
+        int guard = 16;
+        while (guard-- > 0 && protojs::isProxy(ctx, obj)) {
+            const proto::ProtoObject* next = protojs::proxyTarget(ctx, obj);
+            if (!next || next == obj) break;
+            obj = next;
+        }
     }
 
     std::vector<std::string> keys;
@@ -441,8 +448,17 @@ static const proto::ProtoObject* objectValues(
         }
         // No ownKeys trap → unwrap target and fall through to normal
         // enumeration so a trap-less Proxy behaves like its target.
-        const proto::ProtoObject* unwrapped = proxyTarget(ctx, obj);
-        if (unwrapped) obj = unwrapped;
+        {
+            // Loop-unwrap nested Proxies until we reach a concrete
+            // target — a single unwrap leaves the immediate target as
+            // still a Proxy (whose own attribute layer is just sidecars).
+            int _g = 16;
+            while (_g-- > 0 && isProxy(ctx, obj)) {
+                const proto::ProtoObject* _n = proxyTarget(ctx, obj);
+                if (!_n || _n == obj) break;
+                obj = _n;
+            }
+        }
     }
 
     std::vector<std::string> keys;
@@ -524,8 +540,17 @@ static const proto::ProtoObject* objectEntries(
             if (isArrKey2) result = result->setAttribute(ctx, isArrKey2, PROTO_TRUE);
             return result;
         }
-        const proto::ProtoObject* unwrapped = proxyTarget(ctx, obj);
-        if (unwrapped) obj = unwrapped;
+        {
+            // Loop-unwrap nested Proxies until we reach a concrete
+            // target — a single unwrap leaves the immediate target as
+            // still a Proxy (whose own attribute layer is just sidecars).
+            int _g = 16;
+            while (_g-- > 0 && isProxy(ctx, obj)) {
+                const proto::ProtoObject* _n = proxyTarget(ctx, obj);
+                if (!_n || _n == obj) break;
+                obj = _n;
+            }
+        }
     }
 
     std::vector<std::string> keys;
@@ -1642,8 +1667,17 @@ static const proto::ProtoObject* objectGetOwnPropertyNames(
             return arr;
         }
         // No trap — fall through to default keys.
-        const proto::ProtoObject* unwrapped = proxyTarget(ctx, obj);
-        if (unwrapped) obj = unwrapped;
+        {
+            // Loop-unwrap nested Proxies until we reach a concrete
+            // target — a single unwrap leaves the immediate target as
+            // still a Proxy (whose own attribute layer is just sidecars).
+            int _g = 16;
+            while (_g-- > 0 && isProxy(ctx, obj)) {
+                const proto::ProtoObject* _n = proxyTarget(ctx, obj);
+                if (!_n || _n == obj) break;
+                obj = _n;
+            }
+        }
     }
 
     // Pass includeNonEnumerable=true to collect all own string properties.
@@ -1775,8 +1809,17 @@ static const proto::ProtoObject* objectSetPrototypeOf(
             return PROTO_NONE;
         }
         // r == nullptr → no trap, fall through onto the proxy target.
-        const proto::ProtoObject* unwrapped = proxyTarget(ctx, obj);
-        if (unwrapped) obj = unwrapped;
+        {
+            // Loop-unwrap nested Proxies until we reach a concrete
+            // target — a single unwrap leaves the immediate target as
+            // still a Proxy (whose own attribute layer is just sidecars).
+            int _g = 16;
+            while (_g-- > 0 && isProxy(ctx, obj)) {
+                const proto::ProtoObject* _n = proxyTarget(ctx, obj);
+                if (!_n || _n == obj) break;
+                obj = _n;
+            }
+        }
     }
     // §10.1.2.1 SetImmutablePrototype-style check: non-extensible
     // objects can only accept a SetPrototypeOf when proto matches the
