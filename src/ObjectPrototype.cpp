@@ -5785,6 +5785,20 @@ void ensureObjectConstructor(proto::ProtoContext* ctx,
         // (the spec-required identity check). Pre-fix the boxed
         // wrapper inherited Object.prototype directly, so `.valueOf()`
         // returned the object itself and `.constructor` was Object.
+        // §6.1.5: Symbols are primitives.  Object(sym) MUST produce a
+        // Symbol wrapper distinct from sym itself — the wrapped object's
+        // [[SymbolData]] is sym, but the wrapper's Type is Object so
+        // \`typeof Object(sym) === \"object\"\` and the wrapper does NOT
+        // round-trip through Symbol.keyFor (\xc2\xa720.4.2.5 step 1 throws).
+        // Pre-fix Symbol fell through to the bottom \`return val\` arm so
+        // Object(Symbol(\"s\")) returned the Symbol primitive itself,
+        // \`typeof\` reported \"symbol\", and Symbol.keyFor accepted it
+        // (built-ins/Symbol/keyFor/arg-non-symbol.js's wrapped-Symbol
+        // arm pinned the divergence).  Wrap explicitly via the
+        // primitive-value protocol used by the other primitives.
+        const proto::ProtoString* isSymK = JSSymbols::isSymbol(ctx);
+        bool valIsSymbol = isSymK && val
+            && val->getAttribute(ctx, isSymK, true) == PROTO_TRUE;
         const proto::ProtoObject* wrapProto = nullptr;
         if (ctx->space) {
             if (val == PROTO_TRUE || val == PROTO_FALSE || val->isBoolean(ctx))
@@ -5794,11 +5808,43 @@ void ensureObjectConstructor(proto::ProtoContext* ctx,
             else if (val->isString(ctx))
                 wrapProto = ctx->space->stringPrototype;
         }
+        // Symbol primitives: Object(sym) must produce a Symbol wrapper
+        // whose Type is Object so \`typeof Object(sym) === "object"\`
+        // and Symbol.keyFor rejects it.  ProtoSpace doesn't expose a
+        // symbolPrototype field, so build the wrapper off the live
+        // Symbol.prototype resolved through the global object — the
+        // same path the Symbol constructor uses internally.
+        const proto::ProtoObject* symProtoLocal = nullptr;
+        if (valIsSymbol) {
+            JSContextWrapper* w = JSContextWrapper::current();
+            const proto::ProtoObject* g = w ? w->getNativeGlobal() : nullptr;
+            const proto::ProtoString* symKey = ctx->fromUTF8String("Symbol")
+                ? ctx->fromUTF8String("Symbol")->asString(ctx) : nullptr;
+            const proto::ProtoObject* symCtor = (g && symKey)
+                ? g->getAttribute(ctx, symKey, false) : nullptr;
+            if (symCtor && symCtor != PROTO_NONE) {
+                const proto::ProtoString* pk = JSSymbols::prototype(ctx);
+                if (pk) symProtoLocal = symCtor->getAttribute(ctx, pk, false);
+            }
+        }
         if (wrapProto && wrapProto != PROTO_NONE) {
             const proto::ProtoObject* boxed = wrapProto->newChild(ctx, true);
             if (boxed) {
                 const proto::ProtoString* pvKey = JSSymbols::primitiveValue(ctx);
                 if (pvKey) boxed = boxed->setAttribute(ctx, pvKey, val);
+                return boxed;
+            }
+        }
+        if (valIsSymbol && symProtoLocal && symProtoLocal != PROTO_NONE) {
+            const proto::ProtoObject* boxed = symProtoLocal->newChild(ctx, true);
+            if (boxed) {
+                const proto::ProtoString* pvKey = JSSymbols::primitiveValue(ctx);
+                if (pvKey) boxed = boxed->setAttribute(ctx, pvKey, val);
+                // Symbol wrappers must NOT report Type Symbol — clear
+                // the marker on the wrapper so typeof returns "object"
+                // and Symbol.keyFor's Type(sym) check rejects the
+                // wrapper at \xc2\xa720.4.2.5 step 1.
+                if (isSymK) boxed = boxed->setAttribute(ctx, isSymK, PROTO_FALSE);
                 return boxed;
             }
         }
