@@ -7955,17 +7955,36 @@ const proto::ProtoObject* runBytecode(proto::ProtoContext* pContext,
                 // For OP_get_var (not OP_get_var_undef): if the variable is completely absent
                 // (rawVal==nullptr means not in global, slot also empty), throw ReferenceError.
                 // OP_get_var_undef is the safe variant used by typeof and optional chaining.
-                if (opcode == OP_get_var && !rawVal && (!val || val == PROTO_NONE)) {
-                    std::string msg;
-                    if (static_cast<size_t>(idx) < module->closureVarNames.size() &&
-                        !module->closureVarNames[idx].empty()) {
-                        msg = module->closureVarNames[idx] + " is not defined";
-                    } else {
-                        msg = "is not defined";
+                // Pre-fix the `!rawVal` check never fired because protoCore's
+                // getAttribute returns PROTO_NONE for absent attributes (not
+                // nullptr), so reading any undeclared global silently produced
+                // undefined instead of throwing. test262
+                // Array/prototype/{map,forEach,…}/15.4.4.X-4-2.js pinned this
+                // (the spec wants ReferenceError BEFORE the IsCallable check
+                // surfaces TypeError). Probe hasAttribute to distinguish
+                // "missing" from "set-to-undefined".
+                if (opcode == OP_get_var && (!val || val == PROTO_NONE)) {
+                    bool present = false;
+                    if (liveGlobal && liveGlobal != PROTO_NONE
+                        && closureSymbols
+                        && static_cast<size_t>(idx) < closureSymbols->getSize(pContext)) {
+                        const proto::ProtoString* k2 =
+                            closureSymbols->getAt(pContext, static_cast<int>(idx))->asString(pContext);
+                        if (k2 && liveGlobal->hasAttribute(pContext, k2) == PROTO_TRUE)
+                            present = true;
                     }
-                    pending_exception = makeError(pContext, "ReferenceError", msg.c_str(), pGlobalRoot);
-                    has_pending_exception = true;
-                    DISPATCH();
+                    if (!present) {
+                        std::string msg;
+                        if (static_cast<size_t>(idx) < module->closureVarNames.size() &&
+                            !module->closureVarNames[idx].empty()) {
+                            msg = module->closureVarNames[idx] + " is not defined";
+                        } else {
+                            msg = "is not defined";
+                        }
+                        pending_exception = makeError(pContext, "ReferenceError", msg.c_str(), pGlobalRoot);
+                        has_pending_exception = true;
+                        DISPATCH();
+                    }
                 }
                 stackPush(pContext, val && val != PROTO_NONE ? val : PROTO_NONE);
                 DISPATCH();
