@@ -11717,6 +11717,35 @@ const proto::ProtoObject* runBytecode(proto::ProtoContext* pContext,
                 stackPop(pContext);
                 const proto::ProtoObject* keyObj = toString(pContext, keyVal);
                 const proto::ProtoString* key = keyObj ? keyObj->asString(pContext) : nullptr;
+                // §10.5.10 [[Delete]] on a Proxy dispatches the
+                // deleteProperty trap.  Pre-fix OP_delete walked the
+                // raw protoCore attribute layer, so a Proxy with a
+                // deleteProperty trap silently fell through; a
+                // revoked-proxy receiver also failed to throw.
+                if (obj && obj != PROTO_NONE && key
+                    && protojs::isProxy(pContext, obj)) {
+                    const proto::ProtoObject* r =
+                        protojs::proxyDispatchDelete(pContext, obj, key);
+                    REFRESH_INTERP_STATE();
+                    if (t_hasCallException) {
+                        pending_exception     = t_callException;
+                        has_pending_exception = true;
+                        t_hasCallException    = false;
+                        t_callException       = nullptr;
+                        DISPATCH();
+                    }
+                    if (has_pending_exception) DISPATCH();
+                    // §13.5.1.2 step 5.a: strict mode + falsy result
+                    // → throw TypeError.
+                    if (r != PROTO_TRUE && module && module->isStrict) {
+                        pending_exception = makeError(pContext, "TypeError",
+                            "Proxy deleteProperty returned false", pGlobalRoot);
+                        has_pending_exception = true;
+                        DISPATCH();
+                    }
+                    stackPush(pContext, r == PROTO_TRUE ? PROTO_TRUE : PROTO_FALSE);
+                    DISPATCH();
+                }
                 if (obj && obj != PROTO_NONE && key) {
                     // ECMAScript 10.1.10: if the property is non-configurable,
                     // delete returns false in non-strict mode and must NOT remove
