@@ -245,6 +245,28 @@ static bool iterateSetLikeKeys(proto::ProtoContext* ctx,
     if (!nextKs) return true;
     const proto::ProtoString* valueKs = JSSymbols::value(ctx);
     const proto::ProtoString* doneKs  = JSSymbols::done(ctx);
+    // §7.4.10 IfAbruptCloseIterator: when emit() short-circuits the
+    // walk (a disjoint match for isDisjointFrom, a missing element
+    // for isSubsetOf, etc.), call iterator.return(undefined) so the
+    // set-like can release any resources the iterator held.  Pre-fix
+    // the early-out path just returned false and never closed the
+    // iterator (test262 set-like-iter-return.js cases on
+    // isDisjointFrom / isSubsetOf / isSupersetOf).
+    auto closeIter = [&]() {
+        const proto::ProtoObject* savedEx = consumeCallException();
+        const proto::ProtoObject* rKo = ctx->fromUTF8String("return");
+        const proto::ProtoString* rKs = rKo ? rKo->asString(ctx) : nullptr;
+        if (rKs) {
+            const proto::ProtoObject* retFn = iter->getAttribute(ctx, rKs, true);
+            if (retFn && retFn != PROTO_NONE
+                && retFn != getUndefinedSentinel()
+                && retFn != getNullSentinel()) {
+                callJSFunction(ctx, retFn, iter, ctx->newList());
+                (void)consumeCallException();
+            }
+        }
+        if (savedEx) signalNativeException(savedEx);
+    };
     for (int safety = 0; safety < 1000000; ++safety) {
         const proto::ProtoObject* nextFn = iter->getAttribute(ctx, nextKs, true);
         if (!nextFn || nextFn == PROTO_NONE) break;
@@ -261,7 +283,10 @@ static bool iterateSetLikeKeys(proto::ProtoContext* ctx,
         // Without this, difference/intersection/etc. treat the set-like
         // key "-0" as distinct from the receiver's stored "+0".
         if (val) val = normalizeSetVal(ctx, val);
-        if (!emit(val ? val : PROTO_NONE)) return false;
+        if (!emit(val ? val : PROTO_NONE)) {
+            closeIter();
+            return false;
+        }
     }
     return true;
 }
