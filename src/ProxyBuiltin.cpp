@@ -1216,6 +1216,18 @@ const proto::ProtoObject* proxyDispatchDefineProperty(
                 "a non-configurable non-writable property writable"));
             return PROTO_FALSE;
         }
+        // §6.2.5.6 step 16.c.i — when targetDesc is a non-configurable
+        // but writable data descriptor and Desc requests writable:false,
+        // raise TypeError (test262
+        // Proxy/defineProperty/targetdesc-not-configurable-writable-
+        // desc-not-writable.js).
+        if (od.present && !od.configurable && !od.isAccessor
+            && od.writable && descHasWritable && !descWritable) {
+            signalNativeException(makeNativeError(ctx, "TypeError",
+                "'defineProperty' on proxy: trap returned truthy making "
+                "a non-configurable writable property non-writable"));
+            return PROTO_FALSE;
+        }
         // §10.5.6 step 20.b: settingConfigFalse on a configurable
         // targetDesc → TypeError.
         if (od.present && od.configurable
@@ -1224,6 +1236,29 @@ const proto::ProtoObject* proxyDispatchDefineProperty(
                 "'defineProperty' on proxy: trap returned truthy making "
                 "a configurable property non-configurable when target has it as configurable"));
             return PROTO_FALSE;
+        }
+        // §6.2.5.6 IsCompatiblePropertyDescriptor (Validate-and-Apply) —
+        // when targetDesc is non-configurable, non-writable, and a data
+        // descriptor, Desc.value must SameValue targetDesc.value (or be
+        // omitted). Pre-fix only the flag-flips were checked; a
+        // value-change against a frozen target slot slipped through
+        // (test262 Proxy/defineProperty/targetdesc-not-compatible-
+        // descriptor.js).
+        if (od.present && !od.configurable && !od.isAccessor
+            && !od.writable && descriptor && descriptor != PROTO_NONE) {
+            const proto::ProtoObject* vko = ctx->fromUTF8String("value");
+            const proto::ProtoString* vks = vko ? vko->asString(ctx) : nullptr;
+            if (vks && descriptor->hasAttribute(ctx, vks) == PROTO_TRUE) {
+                const proto::ProtoObject* dv =
+                    descriptor->getAttribute(ctx, vks, false);
+                if (!sameValue(ctx, dv, od.value)) {
+                    signalNativeException(makeNativeError(ctx, "TypeError",
+                        "'defineProperty' on proxy: trap returned truthy "
+                        "with a different value for a non-configurable, "
+                        "non-writable own data property"));
+                    return PROTO_FALSE;
+                }
+            }
         }
     }
     return truthy ? PROTO_TRUE : PROTO_FALSE;
