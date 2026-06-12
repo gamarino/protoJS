@@ -2294,12 +2294,38 @@ static const proto::ProtoObject* arrayLastIndexOf(
     const proto::ProtoSparseList*)
 {
     if (arrayThrowIfNullUndefined(ctx, self)) return PROTO_NONE;
-    // lastIndexOf iterates DOWN from len-1, so a 4 billion-element
-    // sparse object spins inside the slow path before reaching idx 0.
-    // Keep the RangeError gate here (callers can still use length up
-    // to 2^32-1, just not Infinity).
-    if (arrayThrowIfLenOverflow(ctx, self, "Array.prototype.lastIndexOf")) return PROTO_NONE;
-    long long len = static_cast<long long>(arrLen(ctx, self));
+    // §23.1.3.16 LengthOfArrayLike → ToLength which clamps to
+    // [0, 2^53-1]. Pre-fix lastIndexOf gated on
+    // arrayThrowIfLenOverflow (RangeError above 2^32-1), but the
+    // spec doesn't require that — lastIndexOf is non-allocating and
+    // the iteration usually short-circuits at the highest matching
+    // index (test262 Array/prototype/lastIndexOf/15.4.4.15-3-28.js
+    // passes length = 2^32 and expects index 2^32-1).
+    long long len = 0;
+    {
+        const proto::ProtoString* lenK = JSSymbols::length(ctx);
+        const proto::ProtoObject* lenV = lenK
+            ? self->getAttribute(ctx, lenK, true) : nullptr;
+        if (lenV && lenV != PROTO_NONE) {
+            double d = 0.0;
+            bool gotNum = false;
+            if (lenV->isInteger(ctx)) { d = (double)lenV->asLong(ctx); gotNum = true; }
+            else if (lenV->isDouble(ctx) || lenV->isFloat(ctx)) { d = lenV->asDouble(ctx); gotNum = true; }
+            else {
+                const proto::ProtoObject* nv = jsToNumber(ctx, lenV);
+                if (hasCallException()) return PROTO_NONE;
+                if (nv && (nv->isInteger(ctx) || nv->isDouble(ctx) || nv->isFloat(ctx))) {
+                    d = nv->isInteger(ctx) ? (double)nv->asLong(ctx) : nv->asDouble(ctx);
+                    gotNum = true;
+                }
+            }
+            if (gotNum && !std::isnan(d)) {
+                if (d < 0) d = 0;
+                else if (d > 9007199254740991.0) d = 9007199254740991.0;
+                len = (long long)d;
+            }
+        }
+    }
     // §23.1.3.16 step 3: empty receiver returns -1 BEFORE ToInteger.
     if (len == 0) return ctx->fromInteger(-1LL);
     // §23.1.3.16: searchElement defaults to undefined when no argument
