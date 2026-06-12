@@ -387,6 +387,162 @@ For official ECMAScript compliance status and roadmap, see **[docs/TEST262_STATU
 
 ### Test262 Conformance
 
+**Round 48 — 2026-06-12** (20 commits, autonomous follow-up to R47) —
+runtime correctness cleanups across the OP dispatch surface
+(undefined sentinel propagation, closure-metadata module resolution,
+non-callable receiver throw uniformity), plus String coercion fidelity
+(NUL preservation through trim, abrupt propagation in slice /
+substring / localeCompare, full ToString fallback) and a handful of
+spec-tightening fixes on Array index bookkeeping and Object accessor
+descriptors.  The 10-family table moves to **8 927 / 9 514
+(93.83 %)** — +23 tests, +0.24 pp.  Net gains: Object **3 296 /
+3 411 (96.63 %) → 3 313 / 3 411 (97.13 %)** (+17, +0.50 pp);
+String **1 125 / 1 223 (92.0 %) → 1 134 / 1 223 (92.7 %)** (+9).
+Two Proxy regressions surfaced as a side-effect of the
+Object.defineProperty accessor-with-undefined-getter fix
+(01a9384f5) — the descriptor is now spec-correct (accessor slot
+with [[Get]]=undefined) but the Proxy [[Get]] / [[Set]] invariant
+checks at §10.5.8 / §10.5.9 step 9.c don't yet detect the
+"target has accessor with undefined getter, configurable:false"
+case.  A follow-up will close that gap.
+
+Three commits in this round were sized larger than a single
+descriptor or method:
+
+  1. **OP_fclosure / OP_fclosure8 — current-module lookup before
+     root.**  Both closure-creation opcodes resolved the underlying
+     ProtoBytecodeModule entry exclusively through t_rootModule's
+     flat nestedFunctions list.  The Function constructor's
+     evalIsolatedToProto path runs a fresh sub-module whose
+     runBytecode enters with t_rootModule still pointing at the
+     outer caller's module (ModuleScope only initialises
+     t_rootModule on first entry), so every fnBcId emitted by the
+     sub-module either missed the lookup outright or hit an
+     unrelated entry.  The body that stamps name, length, source,
+     isStrict, isAsync, captured cells was skipped on every
+     `new Function(...)` result — `f.length === 0`, `f.name === ""`,
+     `f.toString() === "function () { [native code] }"`.  Fix
+     mirrors the established pattern at callJSFunction (lines
+     5520-5524) and the bind / class lookups: prefer the currently
+     executing module, fall back to t_rootModule for ordinary
+     nested OP_fclosure sites.
+
+  2. **L_OP_call_method — uniform TypeError for non-callable
+     receivers.**  L_OP_call's fallback throws TypeError when the
+     receiver is non-null but unrecognised as callable;
+     L_OP_call_method's mirror arm pushed PROTO_NONE and let the
+     call silently complete with undefined.  QuickJS picks
+     OP_call_method for member-access call expressions
+     (`Object.prototype()`, `f.prototype()`, `obj.somePlain()`),
+     so the divergence only leaked when the receiver was looked up
+     via property access — never on bare-name calls (where the
+     same `is not a function` throw fires).  Sputnik
+     built-ins/Object/prototype/S15.2.4_A3 pins the case;
+     collapsing the two-branch fallback into the same
+     makeError + has_pending_exception pattern brings the
+     opcodes into agreement.
+
+  3. **coercePropNameToKey — Symbol short-circuit on
+     toString / valueOf.**  ECMA-262 §7.1.1.1 OrdinaryToPrimitive
+     returns the first result that is not an Object; Symbols
+     qualify per §6.1.5.  The exoticToPrim (Symbol.toPrimitive)
+     arm already handled this — the fallthrough toString and
+     valueOf arms only matched String / Number / Boolean / null /
+     undefined and treated a Symbol return as "still an object"
+     so the coercer kept iterating.  built-ins/Object/hasOwn/
+     symbol_property_toString installs a throwing valueOf as the
+     witness; pre-fix the throw fired even though toString
+     already returned the primitive Symbol.  Apply the same
+     `__is_symbol__` short-circuit used in the exoticToPrim
+     arm to both fallthrough branches.
+
+Plus the smaller fixes that aren't worth their own paragraph:
+
+  * **OP_undefined — push the JS-visible undefined sentinel.**
+    Pre-fix it pushed PROTO_NONE, which leaks through equality
+    against `void 0` and any subsequent attribute lookup that
+    treats PROTO_NONE as "absent".
+
+  * **OP_get_var ReferenceError on undeclared global read.**
+    Bare-name read of an undeclared global silently returned
+    undefined.  Use closureVarIsDeclared (JS_CLOSURE_GLOBAL_DECL = 4)
+    to distinguish `var x;` hoisted-but-uninitialised (returns
+    undefined) from `x` never declared (throws).
+
+  * **runtime toString — fall through to valueOf when toString
+    returns non-primitive, then throw TypeError on the final
+    fallback.**  Pre-fix the implementation returned
+    "[object Object]" when both methods returned objects,
+    silencing the spec-mandated TypeError.
+
+  * **Object.setPrototypeOf — reject Symbol primitives.**
+    §6.1.5: Symbol values are primitives, not Objects; rejecting
+    them on the proto argument is required by §10.1.2 step 2.
+
+  * **Object.defineProperty accessor — preserve undefined
+    getter/setter as accessor slot.**  Pre-fix `gVal = getter ?
+    getter : getUndefinedSentinel()` stored nullptr when getter
+    was undefined, collapsing the accessor to a data property.
+    (This is the fix that surfaced the Proxy invariant gap
+    noted above.)
+
+  * **Object.defineProperty Array index mirror — cap pad-and-
+    append at threshold + skip non-array-index keys.**  Pre-fix
+    `Object.defineProperty(arr, 4294967297, {value:100})`
+    triggered an OOM-kill via unbounded sparse pad.  Cap at
+    kSparseFallbackThreshold and skip keys ≥ 2^32-1.
+
+  * **Array.prototype.lastIndexOf / findLast / findLastIndex —
+    apply ToLength's 2^53-1 ceiling.**  Pre-fix the implementations
+    used arrLen() which clamps at 2^32-1; for these reverse-walk
+    methods the spec requires the full ToLength ceiling.
+
+  * **String.prototype.slice / substring — propagate
+    ToIntegerOrInfinity abrupts.**  Pre-fix the helper swallowed
+    abrupts from a throwing valueOf in the integer-coercion
+    path; the wrapper silently produced an empty slice.
+
+  * **String.prototype.localeCompare — ToString(undefined) →
+    "undefined".**  Missing argument now coerces to "undefined"
+    per §22.1.3.10 step 4, matching V8 / SpiderMonkey.
+
+  * **String.prototype.trim / trimStart / trimEnd — preserve
+    NUL bytes.**  The result construction was going through a
+    string builder that truncated at the first NUL; route
+    through ProtoString::fromUTF8Buffer to keep embedded NULs.
+
+  * **objToStr (the runtime ToString helper) — skip non-callable
+    toString / valueOf and accept all primitives from valueOf;
+    throw TypeError when Symbol.toPrimitive is present but
+    non-callable.**  These match §7.1.1 OrdinaryToPrimitive
+    callability gates that the helper had silently elided.
+
+  * **OP_put_field Array.length coercion — propagate jsToNumber
+    TypeError.**  Pre-fix the helper swallowed the abrupt from
+    a throwing valueOf so `arr.length = {valueOf: throw}` set
+    length to 0 instead of throwing.
+
+  * **OP_for_in_start Array branch — honour __pd_<idx>__
+    enumerable bit on dense slots.**  Dense __elements__ entries
+    bypassed the enumerable-bit probe; for-in enumerated indices
+    that had been marked enumerable:false via defineProperty.
+
+10-family roll-up:
+
+| Family | This run | R47 baseline | Δ |
+|--------|---------:|-------------:|--:|
+| `built-ins/Function` | 421 / 509 (82.7 %) | 421 / 509 | 0 |
+| `built-ins/Object` | **3 313 / 3 411** (97.1 %) | 3 296 / 3 411 (96.6 %) | **+17** (+0.5 pp) |
+| `built-ins/Array` | 2 885 / 3 081 (93.6 %) | 2 886 / 3 081 | −1 (transient) |
+| `built-ins/String` | **1 134 / 1 223** (92.7 %) | 1 125 / 1 223 (92.0 %) | **+9** (+0.7 pp) |
+| `built-ins/Symbol` | 71 / 98 (72.4 %) | 71 / 98 | 0 |
+| `built-ins/Map` | 200 / 204 (98.0 %) | 200 / 204 | 0 |
+| `built-ins/Set` | 378 / 383 (98.7 %) | 378 / 383 | 0 |
+| `built-ins/Proxy` | 243 / 311 (78.1 %) | 245 / 311 (78.8 %) | −2 (accessor invariant) |
+| `built-ins/Reflect` | 142 / 153 (92.8 %) | 142 / 153 | 0 |
+| `built-ins/WeakMap` | 140 / 141 (99.3 %) | 140 / 141 | 0 |
+| **TOTAL** | **8 927 / 9 514** (**93.83 %**) | 8 904 / 9 514 (93.59 %) | **+23** (+0.24 pp) |
+
 **Round 47 — 2026-06-12** (20 commits, autonomous follow-up to R46) —
 Object.defineProperty Array semantics + non-extensible enforcement
 + String-wrapper exotic-slot fidelity.  The 10-family table moves to
