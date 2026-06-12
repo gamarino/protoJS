@@ -8471,6 +8471,42 @@ const proto::ProtoObject* runBytecode(proto::ProtoContext* pContext,
                     val = resolveFieldOOP(pContext, obj, name);
                 }
                 REFRESH_INTERP_STATE();
+                if (has_pending_exception) DISPATCH();
+                // §10.1.8.1 OrdinaryGet step 6 — recurse into [[Proto]]
+                // chain via [[Get]] with the original Receiver.  A
+                // Proxy ancestor must dispatch its get trap with
+                // `receiver = obj` (the original receiver, NOT the
+                // proxy).  Pre-fix the chain walk inside resolveFieldOOP
+                // skipped trap dispatch on Proxy ancestors, so
+                // `Object.create(proxy).attr` couldn't reach the
+                // proxy's get trap (test262 Proxy/get/trap-is-
+                // undefined-receiver.js and trap-is-null-target-is-
+                // proxy.js).  Walk for absent / undefined data slot.
+                if ((!val || val == PROTO_NONE || val == t_undefinedSentinel)
+                    && name && obj && obj != PROTO_NONE
+                    && obj->hasOwnAttribute(pContext, name) != PROTO_TRUE) {
+                    auto advance = [&](const proto::ProtoObject* o) -> const proto::ProtoObject* {
+                        const proto::ProtoObject* over = protojs::getJSProtoOverride(o);
+                        if (over) return over;
+                        return o->getPrototype(pContext);
+                    };
+                    const proto::ProtoObject* cur = advance(obj);
+                    while (cur && cur != PROTO_NONE && cur != t_nullSentinel) {
+                        if (protojs::isProxy(pContext, cur)) {
+                            val = protojs::proxyDispatchGet(pContext, cur, name, obj);
+                            REFRESH_INTERP_STATE();
+                            if (t_hasCallException) {
+                                pending_exception     = t_callException;
+                                has_pending_exception = true;
+                                t_hasCallException    = false;
+                                t_callException       = nullptr;
+                                DISPATCH();
+                            }
+                            break;
+                        }
+                        cur = advance(cur);
+                    }
+                }
 
                 if (has_pending_exception) DISPATCH();
                 pAutomaticLocals[currentStackBase + _PF().stackTop++] = (val) ? (val) : PROTO_NONE;
