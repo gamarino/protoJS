@@ -12168,12 +12168,12 @@ const proto::ProtoObject* runBytecode(proto::ProtoContext* pContext,
                 const proto::ProtoObject* func = stackAt(pContext, argc + 1);
                 const proto::ProtoObject* newTarget = stackAt(pContext, argc);
 
-                // Proxy constructor target — dispatch through handler's
-                // construct trap (§28.2.4.13).  When the trap is absent,
-                // fall through to constructing the underlying target.
-                // The stack reshuffling and bound-function unwrap below
-                // operate on the resolved target.
-                if (protojs::isProxy(pContext, func)) {
+                // §10.5.13 [[Construct]] on a Proxy — dispatch the
+                // handler.construct trap when present (and callable);
+                // otherwise unwrap and loop.  Mirrors the callJSFunction
+                // apply-chain walk so a `new Proxy(inner, {construct:
+                // null})` invocation reaches inner's construct trap.
+                while (protojs::isProxy(pContext, func)) {
                     const proto::ProtoObject* pTarget = protojs::proxyTarget(pContext, func);
                     if (!pTarget) {
                         pending_exception = makeError(pContext, "TypeError",
@@ -12221,11 +12221,26 @@ const proto::ProtoObject* runBytecode(proto::ProtoContext* pContext,
                             for (uint32_t i = 0; i < argc + 2; i++) stackPop(pContext);
                             const proto::ProtoObject* res = callJSFunction(pContext, trap, pHandler, trapArgs);
                             if (hasCallException()) DISPATCH();
-                            // §28.2.4.13 step 11: result must be an object.
+                            // §10.5.13 step 9 — trap result must be an
+                            // Object: null / undefined / boolean / number
+                            // / string / Symbol all reject.  Pre-fix the
+                            // check missed null/undefined sentinels and
+                            // Symbol primitives (carried as Objects with
+                            // `__is_symbol__` marker, asString=nullptr).
+                            bool resIsSymbol = false;
+                            {
+                                const proto::ProtoString* isSymK = JSSymbols::isSymbol(pContext);
+                                if (isSymK && res && res != PROTO_NONE
+                                    && res->getAttribute(pContext, isSymK, true) == PROTO_TRUE)
+                                    resIsSymbol = true;
+                            }
                             if (!res || res == PROTO_NONE
+                                || res == t_nullSentinel
+                                || res == t_undefinedSentinel
                                 || res->isInteger(pContext) || res->isDouble(pContext)
                                 || res->isFloat(pContext) || res->isBoolean(pContext)
-                                || res->asString(pContext)) {
+                                || res->isString(pContext)
+                                || resIsSymbol) {
                                 pending_exception = makeError(pContext, "TypeError",
                                     "'construct' trap returned non-object", pGlobalRoot);
                                 has_pending_exception = true;
