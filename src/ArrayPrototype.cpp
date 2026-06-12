@@ -3591,6 +3591,9 @@ static const proto::ProtoObject* arrayCreateDataPropertyOrThrow(
         && obj->getAttribute(ctx, isArrKey, true) == PROTO_TRUE;
     const proto::ProtoObject* updated = obj;
     if (isRealArr) {
+        // Write through __elements__ AND the sparse-list attribute
+        // (used by getOwnPropertyDescriptor to read the value back).
+        // Both must agree so descriptor probes see the FRESH data.
         const proto::ProtoList* els = getArrayElements(ctx, obj);
         if (!els) {
             const proto::ProtoList* empty = ctx->newList();
@@ -3610,15 +3613,26 @@ static const proto::ProtoObject* arrayCreateDataPropertyOrThrow(
                 out = out->setAt(ctx, static_cast<int>(idx), val ? val : PROTO_NONE);
             }
             setArrayElements(ctx, obj, out);
-            const proto::ProtoString* lenKey = JSSymbols::length(ctx);
-            if (lenKey) {
-                long long curLen = 0;
-                const proto::ProtoObject* lv = obj->getAttribute(ctx, lenKey, false);
-                if (lv && lv->isInteger(ctx)) curLen = lv->asLong(ctx);
-                long long need = static_cast<long long>(idx) + 1;
-                if (need > curLen)
-                    updated = obj->setAttribute(ctx, lenKey, ctx->fromInteger(need));
-            }
+        }
+        // Mirror into the sparse-list own attribute so
+        // Object.getOwnPropertyDescriptor reads the fresh value (the
+        // species-create + non-writable existing test cases pin this:
+        // a pre-existing own data slot at idx with writable:false must
+        // be REDEFINED to writable:true by CreateDataProperty —
+        // updating __elements__ alone left the stale data in the
+        // descriptor path).
+        const proto::ProtoString* indexKey =
+            JSSymbols::indexKey(ctx, static_cast<uint32_t>(idx));
+        if (indexKey)
+            updated = obj->setAttribute(ctx, indexKey, val ? val : PROTO_NONE);
+        const proto::ProtoString* lenKey = JSSymbols::length(ctx);
+        if (lenKey) {
+            long long curLen = 0;
+            const proto::ProtoObject* lv = updated->getAttribute(ctx, lenKey, false);
+            if (lv && lv->isInteger(ctx)) curLen = lv->asLong(ctx);
+            long long need = static_cast<long long>(idx) + 1;
+            if (need > curLen)
+                updated = updated->setAttribute(ctx, lenKey, ctx->fromInteger(need));
         }
     } else {
         updated = arrSet(ctx, obj, idx, val);
