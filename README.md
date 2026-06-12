@@ -387,6 +387,158 @@ For official ECMAScript compliance status and roadmap, see **[docs/TEST262_STATU
 
 ### Test262 Conformance
 
+**Round 47 — 2026-06-12** (20 commits, autonomous follow-up to R46) —
+Object.defineProperty Array semantics + non-extensible enforcement
++ String-wrapper exotic-slot fidelity.  The 10-family table moves to
+**8 904 / 9 514 (93.59 %)** — +241 tests, +2.53 pp, zero regressions.
+Built-ins/Object goes from **3 064 / 3 411 (89.83 %)** → **3 296 /
+3 411 (96.63 %)** (+232, +6.80 pp); Array contributes (+9); every
+other family unchanged.
+
+The round closed three clusters that had been driving most of the
+remaining Object failures:
+
+  1. **Array exotic [[DefineOwnProperty]]** — the value-only redefine
+     fast path on a writable-but-non-configurable slot (the canonical
+     Array `length` descriptor) early-returned BEFORE the truncation
+     + non-configurable-invariant code in objectDefineProperty.
+     defineProperty(arr, "length", {value: …}) updated the stored
+     length but left `__elements__` at its old size; the spec
+     §10.4.2.4 step 16.b incremental delete with partial-progress
+     length on TypeError was missing; the length-non-writable
+     extension reject was hoisted to the function header to run
+     BEFORE the __elements__ mirror's setArrayElements auto-bump
+     could mask it; Array-index value writes now mirror into
+     __elements__; accessor setters at Array indices fire instead
+     of writing through to __elements__.
+  2. **Non-extensible enforcement on writes and defines** —
+     OP_put_field, OP_put_array_el, and Object.defineProperty all
+     gained the §10.1.9.2 / §10.1.6.3 "add property to a
+     non-extensible receiver" rejection (strict-mode TypeError on
+     the put opcodes; unconditional on defineProperty), respecting
+     installed setter sidecars as the only carve-out.
+  3. **String-wrapper exotic-slot fidelity** — `new String("abc")`
+     now reads char indices via OP_get_array_el's
+     __primitive_value__ fast path, hasOwnProperty recognises
+     them as own properties, Object.assign refuses to overwrite
+     them (per §22.1.4.1's non-writable contract), and the
+     Proxy gOPD data-path emits the real `enumerable` bit instead
+     of hard-coding true.
+
+Plus the smaller §10.4.2.4 invariants (length writable bit on
+put_field / put_array_el, ToUint32 substitution in the descriptor,
+__pd_<i>__ writable probe on the put_array_el fast path), the
+Array iteration method RangeError suppression for non-allocating
+walks, RegExp.prototype non-enumerable method install, RegExp
+instance non-enumerable own slots, Object.prototype's immutable
+[[Prototype]] gate, and the Proxy gOPD owndescriptor enumerable
+field.
+
+  * **§10.4.2.4 ArraySetLength step 16.b — incremental delete with
+    partial-progress on TypeError.**  When shrinking via
+    defineProperty(arr, "length", {value: smaller}), walk
+    i = oldLen-1 down to newLen and delete each index. On the first
+    failure (non-configurable own descriptor), stop, set length to
+    i+1, then throw TypeError. Pre-fix the truncation pre-checked
+    the entire range, threw before any deletion, and skipped the
+    spec-mandated partial-progress length.  +many tests across
+    Object/defineProperty/15.2.3.6-4-{116,117,168,169,170,…} and
+    Object/defineProperties/15.2.3.7-6-a-{164,…}.
+
+  * **Array length truncation + writable-bit application via the
+    early-return path.**  objectDefineProperty's value-only
+    redefine path returned BEFORE the canonical "kstr == length"
+    truncation block, so every `Object.defineProperty(arr,
+    "length", {value: smaller})` left __elements__ stale.  Inline
+    the truncation + the partial-progress writable:false bit flip
+    (step 16.j) into the early-return so the canonical Array length
+    descriptor (writable: true, configurable: false) now truncates
+    correctly.
+
+  * **Length-non-writable indexed extension — eager reject.**
+    defineProperty(arr, idx, {…}) with idx >= length on an Array
+    whose length is non-writable must throw TypeError BEFORE any
+    mutation per §10.4.2.4 step 4.b.  Hoist the probe to the
+    function header so the per-property mutations (sparse own
+    attr, __elements__ mirror) don't trigger setArrayElements's
+    auto-bump first.
+
+  * **OP_put_field + OP_put_array_el honour __pd_length__ writable
+    bit.**  `arr.length = X` and `arr['length'] = X` silently
+    overwrote a writable:false length set via Object.defineProperty.
+    Probe the bit before the value-coercion path.
+
+  * **Array-index value writes mirror to __elements__ + accessor
+    setter dispatch on Array indices.**  defineProperty(arr, "0",
+    {value: X}) stored X only in the sparse own-attribute layer,
+    so `arr[0]` read the stale __elements__ entry. Mirror via
+    setAt and pad-and-append for the auto-bump case; OP_put_array_el
+    also probes __set_<i>__ before the fast path so installed
+    setters fire instead of writing through.
+
+  * **§10.1.9.2 step 2.c — non-extensible receiver add rejection.**
+    OP_put_field, OP_put_array_el (string-key branch), and
+    Object.defineProperty all gained the spec-mandated reject for
+    adds to non-extensible receivers, with __set_<key>__ as the
+    only carve-out so installed setters still fire.
+
+  * **String-wrapper char-index fast path on OP_get_array_el.**
+    `new String("abc")[i]` returned undefined because the existing
+    string-fast-path only matched primitive ProtoStrings.  Added a
+    parallel synth via __primitive_value__ so the wrapper's char
+    slots resolve.
+
+  * **Object.prototype.hasOwnProperty String-wrapper fallback.**
+    §22.1.4.1 exposes "0".."length-1" + "length" on a String
+    wrapper as own data slots via __primitive_value__, not as own
+    attributes.  Probe at the tail of objectHasOwnProperty.
+
+  * **Object.assign rejects String-wrapper char-index target slot.**
+    The spec contracts of §22.1.4.1 + §7.3.4 Set(O, P, V, Throw=true)
+    together mean Object.assign("a", [1]) must raise TypeError.
+    Both the array-source fast path and the sparse-iter slow path
+    now probe __primitive_value__ before writing.
+
+  * **proxyDispatchGetOwnPropertyDescriptor data-path emits real
+    enumerable bit.**  The fallback descriptor builder hard-coded
+    `enumerable: true`; extended OwnDescriptor with the bit and
+    threaded it through both accessor and data branches.
+
+  * **Array iteration methods drop RangeError on >2^32 length for
+    non-allocating walks.**  forEach / some / every / find* /
+    reduce* clamp via ToLength and iterate; the
+    arrayThrowIfLenOverflow check belongs only on the methods that
+    ArraySpeciesCreate(O, len).  +many Array/prototype/{some,every,
+    forEach,find*,reduce*}/15.4.4.X tests.
+
+  * **RegExp.prototype method install + RegExp ctor data slots
+    are non-enumerable.**  Both reg() lambdas now stamp
+    __pd_<name>__ = 0x3 (writable + configurable, enumerable
+    cleared) so Object.getOwnPropertyDescriptor(RegExp.prototype,
+    "exec") reports enumerable:false and `for (var k in new
+    RegExp())` no longer yields `lastIndex`.
+
+  * **§19.1.3 Object.prototype has an immutable [[Prototype]].**
+    Object.setPrototypeOf throws TypeError, Reflect.setPrototypeOf
+    returns false; the probe runs before the non-extensible check.
+
+10-family roll-up — Object carries the round; Array contributes the
+remaining +9; the rest held:
+
+| Family | This run | R46 baseline | Δ |
+|--------|---------:|-------------:|--:|
+| `built-ins/Function` | 421 / 509 (82.7 %) | 421 / 509 | 0 |
+| `built-ins/Object` | **3 296 / 3 411** (96.6 %) | 3 064 / 3 411 (89.8 %) | **+232** (+6.8 pp) |
+| `built-ins/Array` | 2 886 / 3 081 (93.7 %) | 2 877 / 3 081 | **+9** |
+| `built-ins/String` | 1 125 / 1 223 (92.0 %) | 1 125 / 1 223 | 0 |
+| `built-ins/Symbol` | 71 / 98 (72.4 %) | 71 / 98 | 0 |
+| `built-ins/Map` | 200 / 204 (98.0 %) | 200 / 204 | 0 |
+| `built-ins/Set` | 378 / 383 (98.7 %) | 378 / 383 | 0 |
+| `built-ins/Proxy` | 245 / 311 (78.8 %) | 245 / 311 | 0 |
+| `built-ins/Reflect` | 142 / 153 (92.8 %) | 142 / 153 | 0 |
+| `built-ins/WeakMap` | 140 / 141 (99.3 %) | 140 / 141 | 0 |
+| **TOTAL** | **8 904 / 9 514** (**93.59 %**) | 8 663 / 9 514 (91.06 %) | **+241** (+2.53 pp) |
+
 **Round 46 — 2026-06-12** (20 commits, autonomous follow-up to R45) —
 Proxy nested-target unwrap + remaining §10.5 invariants pass.  The
 10-family table moves to **8 663 / 9 514 (91.06 %)** — +33 tests,
