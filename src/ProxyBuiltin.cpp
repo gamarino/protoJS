@@ -830,8 +830,17 @@ const proto::ProtoObject* proxyDispatchGetPrototypeOf(
         }
         return r;
     }
-    // No trap — forward.
+    // No trap — forward.  When target is itself a Proxy, recurse;
+    // otherwise consult getJSProtoOverride (Object.create(null) /
+    // Object.setPrototypeOf rebinds) before falling back to the C++
+    // parent — pre-fix getPrototype on an Object.create(null)
+    // receiver returned the protoCore default parent (Object.prototype),
+    // which contradicts the JS-side null override and broke every
+    // gPO-chained `null prototype` test (Proxy/getPrototypeOf/trap-
+    // is-null-target-is-proxy.js).
     if (isProxy(ctx, target)) return proxyDispatchGetPrototypeOf(ctx, target);
+    const proto::ProtoObject* over = getJSProtoOverride(target);
+    if (over) return over;
     const proto::ProtoObject* p = target->getPrototype(ctx);
     return (p && p != PROTO_NONE) ? p : getNullSentinel();
 }
