@@ -478,42 +478,32 @@ static const proto::ProtoObject* fnToString(
     // A callable is: a raw native method, a JS closure (has __bytecode_id__),
     // a wrapNativeFunction wrapper (has __native_fn__), or a bound function
     // (has __bound_fn__).
-    bool isCallable = false;
-    if (self && self != PROTO_NONE) {
-        if (self->isMethod(ctx)) {
-            isCallable = true;
-        } else {
-            // JS closure: has __bytecode_id__ integer attribute.
-            const proto::ProtoString* bcKey = JSSymbols::bytecodeId(ctx);
-            if (bcKey) {
-                const proto::ProtoObject* bcVal = self->getAttribute(ctx, bcKey, false);
-                if (bcVal && bcVal != PROTO_NONE && bcVal->isInteger(ctx))
-                    isCallable = true;
-            }
-            // wrapNativeFunction wrapper: has __native_fn__ method attribute.
-            if (!isCallable) {
-                const proto::ProtoString* nfKey = JSSymbols::nativeFn(ctx);
-                if (nfKey) {
-                    const proto::ProtoObject* nfVal = self->getAttribute(ctx, nfKey, false);
-                    if (nfVal && nfVal != PROTO_NONE && nfVal->isMethod(ctx))
-                        isCallable = true;
-                }
-            }
-            // Bound function: has __bound_fn__ attribute.
-            if (!isCallable) {
-                const proto::ProtoString* bfKey = JSSymbols::boundFn(ctx);
-                if (bfKey) {
-                    const proto::ProtoObject* bfVal = self->getAttribute(ctx, bfKey, false);
-                    if (bfVal && bfVal != PROTO_NONE)
-                        isCallable = true;
-                }
-            }
-        }
-    }
-    if (!isCallable) {
+    // §20.2.3.5: receiver must be callable. fnIsCallable already
+    // covers JS closures, native wrappers, bound functions, the
+    // built-in constructors carrying their *_ctor markers, and a
+    // Proxy whose target chain terminates on a callable.  Re-use it
+    // so Function.prototype.toString stays consistent with .call /
+    // .apply / .bind on what counts as callable.
+    if (!fnIsCallable(ctx, self)) {
         signalNativeException(makeNativeError(ctx, "TypeError",
             "Function.prototype.toString requires a callable"));
         return PROTO_NONE;
+    }
+    // §20.2.3.5 step 2: if the receiver is a Proxy, walk the target
+    // chain and answer toString of the underlying callable (the spec
+    // says "function whose [[ProxyTarget]] is callable"; toString is
+    // not a trap on the Proxy handler, so we forward to the target
+    // verbatim).  This matches every other engine's behaviour for
+    // proxy-{arrow, async, async-generator, bound, class, function-
+    // expression, generator, method-definition} tests.
+    while (isProxy(ctx, self)) {
+        const proto::ProtoObject* t = proxyTarget(ctx, self);
+        if (!t) {
+            signalNativeException(makeNativeError(ctx, "TypeError",
+                "Function.prototype.toString called on revoked Proxy"));
+            return PROTO_NONE;
+        }
+        self = t;
     }
 
     // ECMA-262 §20.2.3.5: for user-defined functions, return the
@@ -544,8 +534,33 @@ static const proto::ProtoObject* fnToString(
             nameVal->asString(ctx)->toUTF8String(ctx, fnName);
         }
     }
-
-    std::string result = "function " + fnName + "() { [native code] }";
+    // NativeFunction grammar (§20.2.3.5 production):
+    //     function IdentifierName_opt ( FormalParameters ) { [ native code ] }
+    // `IdentifierName` excludes spaces and most punctuation, so a
+    // bound function's spec-mandated name ("bound foo") embedded
+    // verbatim would produce invalid source.  When the name is
+    // unrepresentable as an IdentifierName (empty, contains a space,
+    // or starts with a digit / non-identifier character), omit it —
+    // engines uniformly emit "function () { [native code] }" for
+    // bound functions and revoked / unnamed natives.
+    auto nameIsIdent = [](const std::string& s) -> bool {
+        if (s.empty()) return false;
+        for (char c : s) {
+            bool ok = (c == '_' || c == '$' ||
+                       (c >= 'A' && c <= 'Z') ||
+                       (c >= 'a' && c <= 'z') ||
+                       (c >= '0' && c <= '9'));
+            if (!ok) return false;
+        }
+        char c0 = s[0];
+        if (c0 >= '0' && c0 <= '9') return false;
+        return true;
+    };
+    std::string result;
+    if (nameIsIdent(fnName))
+        result = "function " + fnName + "() { [native code] }";
+    else
+        result = "function () { [native code] }";
     return ctx->fromUTF8String(result.c_str());
 }
 
