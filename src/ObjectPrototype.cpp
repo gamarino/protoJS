@@ -1532,8 +1532,15 @@ static const proto::ProtoObject* objectPreventExtensions(
             }
             return obj;
         }
-        // No trap → recurse into target.
-        obj = target ? target : obj;
+        // No trap → forward to target.[[PreventExtensions]]().
+        // Recurse via objectPreventExtensions so a nested Proxy's
+        // trap (or a deeper concrete target's actual extensibility
+        // state) propagates correctly. A flat unwrap-loop would skip
+        // intermediate traps and silently accept the call (test262
+        // Proxy/preventExtensions/trap-is-missing-target-is-proxy.js).
+        const proto::ProtoList* recurseArgs = ctx->newList();
+        recurseArgs = recurseArgs->appendLast(ctx, target ? target : obj);
+        return objectPreventExtensions(ctx, nullptr, nullptr, recurseArgs, nullptr);
     }
 
     JSContextWrapper* wrapper = JSContextWrapper::current();
@@ -1610,7 +1617,18 @@ static const proto::ProtoObject* objectIsExtensible(
             }
             return truthy ? PROTO_TRUE : PROTO_FALSE;
         }
-        obj = target;  // no trap → recurse onto target
+        // No trap → unwrap through every nested Proxy until we reach
+        // the concrete target. Pre-fix `obj = target` was a single
+        // unwrap, so a Proxy wrapping a Proxy of a non-extensible
+        // RegExp reported true (test262
+        // Proxy/isExtensible/trap-is-missing-target-is-proxy.js).
+        int g = 16;
+        obj = target;
+        while (g-- > 0 && isProxy(ctx, obj)) {
+            const proto::ProtoObject* n = proxyTarget(ctx, obj);
+            if (!n || n == obj) break;
+            obj = n;
+        }
     }
 
     JSContextWrapper* wrapper = JSContextWrapper::current();
