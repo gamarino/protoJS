@@ -9,6 +9,7 @@
 #include "debugging/IntegratedDebugger.h"
 #include "JSPrototypes.h"
 #include "TypeBridge.h"
+#include "runtime/ProtoInterpreter.h"
 #include "BigIntPrototype.h"
 #include "JSSymbols.h"
 #include "runtime/ProtoCompileOnly.h"
@@ -508,11 +509,21 @@ const proto::ProtoObject* JSContextWrapper::evalIsolatedToProto(
     void* bytecode = protojs::compileToBytecodeWithFlags(
         ctx, code.c_str(), code.size(), filename.c_str(), compileFlags, nullptr);
     if (!bytecode) {
-        // Compile failed; drain the exception so it doesn't bleed into
-        // the caller's runtime state. The caller (Function ctor handler)
-        // surfaces this as a generic failure path.
+        // Compile failed — surface a SyntaxError so `new Function("!@#")`
+        // throws at construction time per §20.2.1.1.1 step 8 / 16.  Pre-
+        // fix the QuickJS exception was drained silently and we returned
+        // PROTO_NONE, which the caller bubbled up as undefined and silently
+        // succeeded (test262 Function/S15.3.2.1_A1_T8/T13 + the wider
+        // Function-constructor-error suite).
         JSValue exc = JS_GetException(ctx);
+        std::string msg = "Invalid Function constructor input";
+        if (!JS_IsUndefined(exc) && !JS_IsNull(exc)) {
+            const char* m = JS_ToCString(ctx, exc);
+            if (m) { msg = m; JS_FreeCString(ctx, m); }
+        }
         JS_FreeValue(ctx, exc);
+        protojs::signalNativeException(
+            protojs::makeNativeError(&frameCtx, "SyntaxError", msg.c_str()));
         return PROTO_NONE;
     }
 

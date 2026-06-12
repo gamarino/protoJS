@@ -4416,11 +4416,27 @@ static const proto::ProtoObject* objectIsPrototypeOf(
         return PROTO_NONE;
     }
 
-    // Walk the prototype chain of arg
-    const proto::ProtoObject* curr = arg->getFirstParent(ctx);
-    while (curr && curr != PROTO_NONE) {
+    // §20.1.3.3 step 3 walks the chain via V.[[GetPrototypeOf]]; for
+    // a Proxy step that's the handler.getPrototypeOf trap.  Pre-fix
+    // we walked the raw C++ parent chain and missed:
+    //   - Proxy receivers (the trap never fired; arg-is-proxy test).
+    //   - JS-side [[Prototype]] overrides set by Object.setPrototypeOf
+    //     (rebinds live in t_jsProtoMap, not the C++ chain).
+    auto advance = [&](const proto::ProtoObject* o) -> const proto::ProtoObject* {
+        if (isProxy(ctx, o)) {
+            const proto::ProtoObject* nx = proxyDispatchGetPrototypeOf(ctx, o);
+            if (hasCallException()) return nullptr;
+            return nx;
+        }
+        auto it = t_jsProtoMap.find(o);
+        if (it != t_jsProtoMap.end()) return it->second;
+        return o->getPrototype(ctx);
+    };
+    const proto::ProtoObject* curr = advance(arg);
+    while (curr && curr != PROTO_NONE && curr != getNullSentinel()) {
         if (curr == self) return PROTO_TRUE;
-        curr = curr->getFirstParent(ctx);
+        curr = advance(curr);
+        if (hasCallException()) return PROTO_NONE;
     }
     return PROTO_FALSE;
 }
