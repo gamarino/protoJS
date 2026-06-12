@@ -759,6 +759,40 @@ const proto::ProtoObject* proxyDispatchDelete(proto::ProtoContext* ctx,
     if (propKey) {
         OwnDescriptor od = probeOwnDescriptor(ctx, target, propKey);
         if (od.present && !od.configurable) return PROTO_FALSE;
+        // §10.4.2 — Array exotic [[Delete]] on an index key writes
+        // PROTO_NONE into __elements__[idx] (the "hole" sentinel).
+        // Pre-fix `delete proxy[0]` on a Proxy(Array) forwarded
+        // straight to setAttribute("0", nullptr), which leaves the
+        // element in place because array indices don't live as own
+        // attributes (test262
+        // Proxy/deleteProperty/trap-is-undefined-target-is-proxy.js).
+        {
+            const proto::ProtoString* isArrK = JSSymbols::isArray(ctx);
+            const proto::ProtoObject* isArrV = isArrK
+                ? target->getAttribute(ctx, isArrK, true) : nullptr;
+            std::string kstr;
+            propKey->toUTF8String(ctx, kstr);
+            if (isArrV == PROTO_TRUE && !kstr.empty()) {
+                char* end = nullptr;
+                long long ix = std::strtoll(kstr.c_str(), &end, 10);
+                if (end && *end == '\0' && ix >= 0
+                    && std::to_string(ix) == kstr) {
+                    const proto::ProtoList* els = getArrayElements(ctx, target);
+                    if (els && ix < (long long)els->getSize(ctx)) {
+                        // setAt the slot to PROTO_NONE matches the
+                        // array-prototype delete semantics; the slot is
+                        // still indexed by length but reads as undefined.
+                        auto* mEls = const_cast<proto::ProtoList*>(els);
+                        const proto::ProtoList* newEls =
+                            mEls->setAt(ctx, (size_t)ix, PROTO_NONE);
+                        if (newEls) setArrayElements(ctx, target, newEls);
+                    }
+                    return PROTO_TRUE;
+                }
+                // Array length is non-configurable; return false.
+                if (kstr == "length") return PROTO_FALSE;
+            }
+        }
         // Pass nullptr (not PROTO_NONE) so protoCore's setAttribute
         // routes to implRemoveAt — actually removing the entry from
         // the own-attribute sparse list.  Pre-fix PROTO_NONE was
@@ -766,6 +800,25 @@ const proto::ProtoObject* proxyDispatchDelete(proto::ProtoContext* ctx,
         // hasOwnProperty still returned true and the inherited
         // hasAttribute walk continued reporting the property.
         const_cast<proto::ProtoObject*>(target)->setAttribute(ctx, propKey, nullptr);
+        // Accessor descriptors live in __get_<k>__ / __set_<k>__
+        // sidecars rather than under the propKey itself. Pre-fix
+        // `delete proxy.foo` on a `{ get foo(){} }` target chain
+        // left the getter sidecar intact, so the property survived
+        // hasOwnProperty (test262
+        // Proxy/deleteProperty/trap-is-missing-target-is-proxy.js).
+        // Also drop the __pd_<k>__ descriptor-bits sidecar so the
+        // verifyProperty harness's subsequent isWritable / isConfigurable
+        // probes see a clean slot.
+        std::string kstr;
+        propKey->toUTF8String(ctx, kstr);
+        for (const char* prefix : {"__get_", "__set_", "__pd_"}) {
+            std::string sk = std::string(prefix) + kstr + "__";
+            const proto::ProtoObject* sko = ctx->fromUTF8String(sk.c_str());
+            const proto::ProtoString* sks = sko ? sko->asString(ctx) : nullptr;
+            if (sks && target->hasOwnAttribute(ctx, sks) == PROTO_TRUE) {
+                const_cast<proto::ProtoObject*>(target)->setAttribute(ctx, sks, nullptr);
+            }
+        }
     }
     return PROTO_TRUE;
 }
