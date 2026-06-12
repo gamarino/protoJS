@@ -11706,6 +11706,39 @@ const proto::ProtoObject* runBytecode(proto::ProtoContext* pContext,
                         }
                     }
                 }
+                // §10.1.7.1 OrdinaryHasProperty step 5: when not found
+                // on own attrs, recurse into the [[Prototype]] chain
+                // via [[HasProperty]].  A Proxy ancestor must dispatch
+                // its `has` trap; the protoCore parent walk that
+                // hasAttribute uses skips trap dispatch entirely.
+                // Pre-fix `'attr' in Object.create(new Proxy({}, {has}))`
+                // returned false without ever firing the trap (test262
+                // Proxy/has/call-{in-prototype,object-create}.js).
+                if (hasResult != PROTO_TRUE && key) {
+                    auto advance = [&](const proto::ProtoObject* o) -> const proto::ProtoObject* {
+                        const proto::ProtoObject* over = protojs::getJSProtoOverride(o);
+                        if (over) return over;
+                        return o->getPrototype(pContext);
+                    };
+                    const proto::ProtoObject* cur = advance(obj);
+                    while (cur && cur != PROTO_NONE && cur != t_nullSentinel) {
+                        if (protojs::isProxy(pContext, cur)) {
+                            const proto::ProtoObject* r =
+                                protojs::proxyDispatchHas(pContext, cur, key);
+                            REFRESH_INTERP_STATE();
+                            if (t_hasCallException) {
+                                pending_exception     = t_callException;
+                                has_pending_exception = true;
+                                t_hasCallException    = false;
+                                t_callException       = nullptr;
+                                DISPATCH();
+                            }
+                            stackPush(pContext, r == PROTO_TRUE ? PROTO_TRUE : PROTO_FALSE);
+                            DISPATCH();
+                        }
+                        cur = advance(cur);
+                    }
+                }
                 stackPush(pContext, hasResult == PROTO_TRUE ? PROTO_TRUE : PROTO_FALSE);
                 DISPATCH();
             }
