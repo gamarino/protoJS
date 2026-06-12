@@ -1343,6 +1343,20 @@ static size_t trimOneCharBackwards(const std::string& s, size_t hi) {
     return hi; // no trim
 }
 
+// Helper: build a ProtoString from a possibly-NUL-embedded buffer.
+// fromUTF8String truncates at the first '\0' byte, which drops
+// content past an embedded U+0000 in trim results (test262
+// String/prototype/trim/15.5.4.20-2-45.js, -49.js).
+static const proto::ProtoObject* fromStdString(proto::ProtoContext* ctx,
+                                                 const std::string& bytes) {
+    uint8_t remainder[4];
+    uint8_t remCount = 0;
+    const proto::ProtoString* ps = proto::ProtoString::fromUTF8Buffer(
+        ctx, reinterpret_cast<const uint8_t*>(bytes.data()), bytes.size(),
+        nullptr, 0, remainder, &remCount);
+    return ps ? ps->asObject(ctx) : ctx->fromUTF8String("");
+}
+
 const proto::ProtoObject* stringTrim(
     proto::ProtoContext* ctx, const proto::ProtoObject* self,
     const proto::ParentLink*, const proto::ProtoList*, const proto::ProtoSparseList*)
@@ -1360,7 +1374,7 @@ const proto::ProtoObject* stringTrim(
         if (newHi == hi) break;
         hi = newHi;
     }
-    return ctx->fromUTF8String(s.substr(lo, hi - lo).c_str());
+    return fromStdString(ctx, s.substr(lo, hi - lo));
 }
 
 const proto::ProtoObject* stringTrimStart(
@@ -1375,7 +1389,7 @@ const proto::ProtoObject* stringTrimStart(
         if (w == 0) break;
         lo += w;
     }
-    return ctx->fromUTF8String(s.substr(lo).c_str());
+    return fromStdString(ctx, s.substr(lo));
 }
 
 const proto::ProtoObject* stringTrimEnd(
@@ -1390,7 +1404,7 @@ const proto::ProtoObject* stringTrimEnd(
         if (newHi == hi) break;
         hi = newHi;
     }
-    return ctx->fromUTF8String(s.substr(0, hi).c_str());
+    return fromStdString(ctx, s.substr(0, hi));
 }
 
 const proto::ProtoObject* stringStartsWith(
