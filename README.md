@@ -387,6 +387,130 @@ For official ECMAScript compliance status and roadmap, see **[docs/TEST262_STATU
 
 ### Test262 Conformance
 
+**Round 50 — 2026-06-12** (20 commits, autonomous follow-up to R49) —
+Symbol-keyed property storage (R50's headline feature), Proxy
+integrity-level dispatch (Object.seal / freeze fire the defineProperty
+trap per key), and CreateDataProperty bypass of inherited [[Set]].
+The 10-family table moves to **9 010 / 9 514 (94.70 %)** — +43 tests,
++0.45 pp.  Net gains: Object **3 336 → 3 363** (+27, +0.79 pp);
+Array **2 891 → 2 895** (+4); String **1 140 → 1 141** (+1);
+Proxy **245 → 249** (+4); Reflect **142 → 149** (+7); the rest held.
+Zero regressions.
+
+The round closes three architectural gaps that were blocking entire
+clusters of failures:
+
+  1. **Per-instance Symbol attribute-key identity.**  Every Symbol()
+     now stashes a unique \`@@sym#<addr>\` ProtoString at
+     __symbol_str_key__ (createSymbol-interned for SymbolTable
+     canonicalisation).  The put / get / hasOwn / in / delete /
+     coerce paths all route through this stash so attribute storage
+     by identity round-trips: \`obj[sym] = 1; Object.hasOwn(obj, sym)\`
+     now returns true; \`var o = {[sym]: 1}; o[sym]\` reads 1;
+     \`sym in obj\` is true; \`delete obj[sym]\` honours the descriptor
+     bits.  A thread-local registry maps \`@@sym#\` strings back to
+     Symbol values for getOwnPropertySymbols / Reflect.ownKeys.
+     Closes the symbol_property cluster (hasOwn / hasOwnProperty /
+     propertyIsEnumerable / defineProperty / freeze / seal /
+     getOwnPropertyDescriptor variants) and the Reflect.has /
+     Reflect.get / Reflect.set / Reflect.deleteProperty Symbol
+     tests.  Object.assign and defineProperties also iterate
+     symbol-keyed source entries.
+
+  2. **Proxy SetIntegrityLevel dispatch.**  Object.seal and
+     Object.freeze on a Proxy receiver now invoke the
+     defineProperty trap per key with the spec-correct partial
+     descriptor (\`{configurable: false}\` for seal;
+     \`{writable: false, configurable: false}\` for data freeze;
+     \`{configurable: false}\` for accessor freeze).  When the
+     handler has no ownKeys trap, the implementation falls back to
+     the unwrapped target's own attributes (filtered to skip
+     internal __*__ keys but allowing \`@@sym#\` symbol-identity
+     keys through).  The Object.getOwnPropertyDescriptors dispatch
+     was likewise extended in R50 to fire the ownKeys / gOPD
+     traps in the same shape.
+
+  3. **CreateDataProperty bypasses inherited [[Set]].**
+     arrayCreateDataPropertyOrThrow now writes directly through
+     __elements__ AND the sparse-list own attribute (so descriptor
+     probes see the fresh data), skipping the chain-walking
+     inherited-setter probe in arrSet.  Without this, an inherited
+     accessor on Array.prototype['0'] silently absorbed the result-
+     array write, and filter / map / slice / flat / splice returned
+     empty arrays when the receiver had any inherited indexed
+     setter.
+
+Plus the smaller fixes that aren't worth their own paragraph:
+
+  * **arrayConcat isSpreadable + Array.prototype.copyWithin —
+    route through proxyDispatchGet / proxyDispatchDelete.**
+    Concat fires the get trap when probing @@isConcatSpreadable
+    (the trap may revoke the proxy as a side effect); copyWithin
+    routes the DeletePropertyOrThrow step through the proxy's
+    deleteProperty trap.
+
+  * **Object.assign — Array target writes mirror into __elements__
+    + truncate on length write.**  \`Object.assign([7,8,9], {1:2,
+    length:2})\` now produces [7, 2] with length 2 (was: [7,8,9]
+    with length 2 — sparse attribute write didn't update
+    __elements__).
+
+  * **OP_define_array_el — Symbol-keyed object literal computed
+    keys.**  \`{[sym]: v}\` now stores under the same per-instance
+    __symbol_str_key__ that obj[sym] = v uses elsewhere; pre-fix
+    the literal path used asString and stored under a distinct
+    ProtoString identity.
+
+  * **objToStr — accept BigInt + Symbol primitives from
+    @@toPrimitive / toString / valueOf.**  §6.1's seven primitive
+    types — BigInt and Symbol were missing from the 'is primitive'
+    check, so a BigInt-returning @@toPrimitive threw 'non-
+    primitive' and BigInt-returning toString / valueOf bottomed
+    out at 'Cannot convert object to primitive value'.  Now
+    extracts __bigint_value__ for the ToString result.
+
+  * **String.prototype.match — probe @@match accessor getter via
+    __get_Symbol.match__.**  \`Object.defineProperty(obj,
+    Symbol.match, {get: throws})\` now surfaces the abrupt at
+    \`''.match(obj)\` per §22.1.3.13 + §7.3.10 GetMethod.
+
+  * **Proxy trap arg — Symbol identity for @@sym# keys.**  All
+    six trap dispatch sites translate \`@@sym#<addr>\` back to the
+    originating Symbol value via the registry, so trap handlers
+    that pattern-match via \`switch (key) { case sym: ... }\`
+    receive the actual Symbol identity instead of the internal
+    string.
+
+  * **Object.getOwnPropertyDescriptors / Object.assign /
+    Object.defineProperties — iterate symbol-keyed entries.**
+    Three enumeration surfaces now surface \`@@sym#\` keys to the
+    consumer (gOPDs returns descriptors keyed by Symbol; assign
+    copies symbol-keyed entries to target; defineProperties
+    dispatches the defineProperty trap per symbol-key on a
+    Proxy source's fallback walk).
+
+  * **Object.seal / freeze on plain objects — \`@@sym#\` keys
+    participate in the descriptor-bit clear loop.**  Pre-fix
+    seal / freeze clipped configurable / writable on string-
+    keyed properties only; symbol-keyed properties slipped past
+    the isInternalKey filter.
+
+10-family roll-up:
+
+| Family | This run | R49 baseline | Δ |
+|--------|---------:|-------------:|--:|
+| `built-ins/Function` | 423 / 509 (83.1 %) | 423 / 509 | 0 |
+| `built-ins/Object` | **3 363 / 3 411** (98.6 %) | 3 336 / 3 411 (97.8 %) | **+27** (+0.79 pp) |
+| `built-ins/Array` | **2 895 / 3 081** (94.0 %) | 2 891 / 3 081 (93.8 %) | **+4** |
+| `built-ins/String` | **1 141 / 1 223** (93.3 %) | 1 140 / 1 223 (93.2 %) | **+1** |
+| `built-ins/Symbol` | 72 / 98 (73.5 %) | 72 / 98 | 0 |
+| `built-ins/Map` | 200 / 204 (98.0 %) | 200 / 204 | 0 |
+| `built-ins/Set` | 378 / 383 (98.7 %) | 378 / 383 | 0 |
+| `built-ins/Proxy` | **249 / 311** (80.1 %) | 245 / 311 (78.8 %) | **+4** |
+| `built-ins/Reflect` | **149 / 153** (97.4 %) | 142 / 153 (92.8 %) | **+7** (+4.6 pp) |
+| `built-ins/WeakMap` | 140 / 141 (99.3 %) | 140 / 141 | 0 |
+| **TOTAL** | **9 010 / 9 514** (**94.70 %**) | 8 967 / 9 514 (94.25 %) | **+43** (+0.45 pp) |
+
 **Round 49 — 2026-06-12** (20 commits, autonomous follow-up to R48) —
 prototype chain plumbing across built-in constructors (Date / RegExp /
 Promise [[Prototype]] === Function.prototype), String-wrapper chain walk
