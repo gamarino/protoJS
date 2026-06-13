@@ -900,6 +900,30 @@ void ensureFunctionPrototype(proto::ProtoContext* ctx,
         if (fpms) fp = fp->setAttribute(ctx, fpms, PROTO_TRUE);
     }
 
+    // §20.2.3 Function.prototype is itself an anonymous built-in
+    // function — typeof Function.prototype === "function", calling
+    // Function.prototype(...args) accepts any arguments and returns
+    // undefined.  Pre-fix `typeof Function.prototype` reported
+    // "object" and `Function.prototype()` raised
+    // "is not a function" (built-ins/Function/prototype/S15.3.3.1_A1
+    // / S15.3.4_A2_T1..T3 / Sputnik S15.3.4_A1).  Install
+    // __native_fn__ pointing at a no-op that returns undefined; the
+    // OP_call dispatch and the callJSFunction native path both honour
+    // __native_fn__ before the bytecode / __construct__ probes.
+    {
+        const proto::ProtoString* nfk = JSSymbols::nativeFn(ctx);
+        if (nfk) {
+            static const proto::ProtoMethod fpNoopFn = [](
+                proto::ProtoContext*, const proto::ProtoObject*,
+                const proto::ParentLink*, const proto::ProtoList*,
+                const proto::ProtoSparseList*) -> const proto::ProtoObject* {
+                return PROTO_NONE;
+            };
+            const proto::ProtoObject* nm = ctx->fromMethod(nullptr, fpNoopFn);
+            if (nm) fp = fp->setAttribute(ctx, nfk, nm);
+        }
+    }
+
     // §20.2.3: Function.prototype carries length === 0 and name === ""
     // with the standard built-in descriptor 0x2 (configurable,
     // non-writable, non-enumerable).
