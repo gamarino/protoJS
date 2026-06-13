@@ -2294,15 +2294,28 @@ static const proto::ProtoObject* arrayLastIndexOf(
     const proto::ProtoSparseList*)
 {
     if (arrayThrowIfNullUndefined(ctx, self)) return PROTO_NONE;
-    // §23.1.3.16 LengthOfArrayLike → ToLength which clamps to
-    // [0, 2^53-1]. Pre-fix lastIndexOf gated on
-    // arrayThrowIfLenOverflow (RangeError above 2^32-1), but the
-    // spec doesn't require that — lastIndexOf is non-allocating and
-    // the iteration usually short-circuits at the highest matching
-    // index (test262 Array/prototype/lastIndexOf/15.4.4.15-3-28.js
-    // passes length = 2^32 and expects index 2^32-1).
     long long len = 0;
-    {
+    // §23.1.3.16 → LengthOfArrayLike on a primitive string uses the
+    // UTF-16 code-unit count (via String exotic .length).
+    // Pre-fix the length probe via getAttribute("length") on a
+    // primitive string returned nothing — the primitive carries no
+    // attribute storage — and lastIndexOf bailed at the len==0 fast
+    // exit with -1 (built-ins/Array/prototype/lastIndexOf/15.4.4.15-
+    // 1-7.js: Array.prototype.lastIndexOf.call("abc", "c") expected 2).
+    if (self && self->isString(ctx)) {
+        const proto::ProtoString* ps = self->asString(ctx);
+        if (ps) {
+            std::string sv;
+            ps->toUTF8String(ctx, sv);
+            for (size_t bi = 0; bi < sv.size(); ) {
+                unsigned char c = static_cast<unsigned char>(sv[bi]);
+                size_t cl = (c < 0x80) ? 1 : (c < 0xE0) ? 2 : (c < 0xF0) ? 3 : 4;
+                if (bi + cl > sv.size()) break;
+                len += (cl == 4) ? 2 : 1;
+                bi += cl;
+            }
+        }
+    } else {
         const proto::ProtoString* lenK = JSSymbols::length(ctx);
         const proto::ProtoObject* lenV = lenK
             ? self->getAttribute(ctx, lenK, true) : nullptr;
@@ -2417,12 +2430,7 @@ static const proto::ProtoObject* arrayLastIndexOf(
         if (needleIsUndefined &&
             !arrHasProperty(ctx, self, static_cast<unsigned long>(i))) continue;
         const proto::ProtoObject* elem = arrGet(ctx, self, static_cast<unsigned long>(i));
-        // §23.1.3.18 step 7.a Get(O, Pk) is the abrupt-completion site
-        // — an accessor at the current index must terminate iteration
-        // (built-ins/Array/prototype/lastIndexOf/15.4.4.15-8-b-i-31
-        // probes that the earlier index 1 getter must NEVER fire when
-        // index 2's getter threw).  Pre-fix the loop swallowed the
-        // throw and kept descending.
+        // §23.1.3.18 step 7.a Get(O, Pk) is the abrupt-completion site.
         if (hasCallException()) return PROTO_NONE;
         if (strictEquals(ctx, elem, needle))
             return ctx->fromInteger(i);
