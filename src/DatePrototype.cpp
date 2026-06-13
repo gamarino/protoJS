@@ -177,11 +177,33 @@ static const proto::ProtoObject* jsToPrimitive(proto::ProtoContext* ctx,
                                                const char* hint) {
     if (!ctx) return PROTO_NONE;
     if (isPrimValue(ctx, v)) return v;
-    // Step 2: GetMethod(v, @@toPrimitive).
-    const proto::ProtoObject* tpKo = ctx->fromUTF8String("Symbol.toPrimitive");
-    const proto::ProtoString* tpKs = tpKo ? tpKo->asString(ctx) : nullptr;
-    const proto::ProtoObject* tpFn = tpKs
-        ? v->getAttribute(ctx, tpKs, true) : nullptr;
+    // Step 2: GetMethod(v, @@toPrimitive).  §7.3.10 GetMethod uses
+    // [[Get]] which fires accessor getters; any abrupt completion
+    // from the getter must propagate.  Pre-fix the probe used a plain
+    // getAttribute and dropped the data slot of the accessor (always
+    // undefined), so `Object.defineProperty(o, @@toPrimitive,
+    // {get: throws X})` never triggered X (built-ins/Date/value-get-
+    // symbol-to-prim-err.js + value-to-primitive-get-meth-err.js).
+    // Probe the __get_Symbol.toPrimitive__ sidecar first so the
+    // throwing accessor's abrupt surfaces via hasCallException.
+    const proto::ProtoObject* tpFn = nullptr;
+    {
+        const proto::ProtoObject* gko =
+            ctx->fromUTF8String("__get_Symbol.toPrimitive__");
+        const proto::ProtoString* gks = gko ? gko->asString(ctx) : nullptr;
+        if (gks) {
+            const proto::ProtoObject* getter = v->getAttribute(ctx, gks, true);
+            if (getter && getter != PROTO_NONE) {
+                tpFn = callJSFunction(ctx, getter, v, ctx->newList());
+                if (hasCallException()) return PROTO_NONE;
+            }
+        }
+    }
+    if (!tpFn || tpFn == PROTO_NONE) {
+        const proto::ProtoObject* tpKo = ctx->fromUTF8String("Symbol.toPrimitive");
+        const proto::ProtoString* tpKs = tpKo ? tpKo->asString(ctx) : nullptr;
+        tpFn = tpKs ? v->getAttribute(ctx, tpKs, true) : nullptr;
+    }
     if (tpFn && tpFn != PROTO_NONE && tpFn != getUndefinedSentinel()
         && tpFn != getNullSentinel()) {
         if (!isCallableValue(ctx, tpFn)) {
@@ -672,6 +694,36 @@ static const proto::ProtoObject* dateCtorCall(proto::ProtoContext* ctx,
             // since hint defaults to "number" for non-Date receivers).
             const proto::ProtoObject* prim = jsToPrimitive(ctx, v, "default");
             if (hasCallException()) return PROTO_NONE;
+            // §7.1.4 step 3: a Symbol primitive cannot be converted to
+            // a Number or parsed as a date string — ToNumber raises
+            // TypeError, ToString raises TypeError.  Pre-fix the
+            // well-known "Symbol.X" form passed the `prim->isString`
+            // check and the receiver fell into parseDateString which
+            // silently produced NaN (built-ins/Date/value-symbol-to-
+            // prim-return-prim.js's third arm asserts the spec
+            // TypeError on `new Date({ [@@toPrimitive]() { return
+            // Symbol.toPrimitive; } })`).
+            {
+                bool isSym = false;
+                const proto::ProtoString* symMk = JSSymbols::isSymbol(ctx);
+                if (symMk && prim && prim != PROTO_NONE
+                    && prim->getAttribute(ctx, symMk, true) == PROTO_TRUE)
+                    isSym = true;
+                if (!isSym && prim && prim->asString(ctx)) {
+                    // Well-known Symbol primitives are stored as bare
+                    // "Symbol.X" / "Symbol(...)" ProtoStrings (no marker).
+                    std::string sv;
+                    prim->asString(ctx)->toUTF8String(ctx, sv);
+                    if (sv.compare(0, 7, "Symbol.") == 0
+                        || sv.compare(0, 7, "Symbol(") == 0)
+                        isSym = true;
+                }
+                if (isSym) {
+                    signalNativeException(makeNativeError(ctx, "TypeError",
+                        "Cannot convert a Symbol value to a number"));
+                    return PROTO_NONE;
+                }
+            }
             if (prim && prim->isString(ctx)) {
                 std::string s;
                 prim->asString(ctx)->toUTF8String(ctx, s);
