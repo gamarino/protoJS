@@ -14622,6 +14622,29 @@ const proto::ProtoObject* runBytecode(proto::ProtoContext* pContext,
                                 }
                             }
                             for (uint32_t i = 0; i <= argc; i++) stackPop(pContext);
+                            // String(arg) invokes ToString which fires
+                            // arg.toString().  When that throws (e.g.
+                            // {toString: Function.prototype.toString} —
+                            // toString rejects the non-callable receiver
+                            // with TypeError), the t_hasCallException
+                            // bookkeeping must lift into the bytecode
+                            // pending_exception so the surrounding try
+                            // / assert.throws catches it.  Pre-fix the
+                            // throw silently survived past stackPush and
+                            // surfaced as a top-level "Exception in eval"
+                            // after the call site returned (built-ins/
+                            // Function/prototype/toString/S15.3.4.2_A16
+                            // and the same shape on the String ctor
+                            // family).
+                            if (t_hasCallException) {
+                                pending_exception     = t_callException;
+                                has_pending_exception = true;
+                                t_hasCallException    = false;
+                                t_callException       = nullptr;
+                                if (is_tail_call) return PROTO_NONE;
+                                stackPush(pContext, PROTO_NONE);
+                                DISPATCH();
+                            }
                             if (is_tail_call) return s;
                             stackPush(pContext, s);
                         } else {
