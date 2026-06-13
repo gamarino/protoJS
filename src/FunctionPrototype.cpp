@@ -477,35 +477,65 @@ static const proto::ProtoObject* fnHasInstance(
         ? self->getAttribute(ctx, boundKey, false) : nullptr;
     if (boundTarget && boundTarget != PROTO_NONE) self = boundTarget;
 
-    // Spec step 4: P = Get(this, "prototype").
+    // Spec step 4: P = Get(this, "prototype").  §7.3.2 Get fires
+    // accessor getters and propagates their abrupt completion.  Pre-
+    // fix the probe used getAttribute directly which reads the empty
+    // data slot under an accessor descriptor — so
+    // Object.defineProperty(f, 'prototype', {get: throws X})
+    // surfaced our "non-object prototype" TypeError instead of the
+    // user's X (built-ins/Function/prototype/Symbol.hasInstance/
+    // this-val-poisoned-prototype.js).  Probe the __get_prototype__
+    // sidecar first so the accessor abrupt propagates verbatim.
     const proto::ProtoString* protoKey = JSSymbols::prototype(ctx);
     if (!protoKey) return PROTO_FALSE;
-    const proto::ProtoObject* P = self->getAttribute(ctx, protoKey, false);
+    const proto::ProtoObject* P = nullptr;
+    {
+        const proto::ProtoObject* gko = ctx->fromUTF8String("__get_prototype__");
+        const proto::ProtoString* gk = gko ? gko->asString(ctx) : nullptr;
+        if (gk) {
+            const proto::ProtoObject* getter = self->getAttribute(ctx, gk, true);
+            if (getter && getter != PROTO_NONE) {
+                P = callJSFunction(ctx, getter, self, ctx->newList());
+                if (hasCallException()) return PROTO_NONE;
+            }
+        }
+    }
+    if (!P || P == PROTO_NONE)
+        P = self->getAttribute(ctx, protoKey, false);
     if (!P || P == PROTO_NONE
         || P == getUndefinedSentinel() || P == getNullSentinel()) {
         signalNativeException(makeNativeError(ctx, "TypeError",
             "Function has non-object prototype in instanceof check"));
         return PROTO_NONE;
     }
+    bool pIsSymbol = false;
+    {
+        const proto::ProtoString* isSymK = JSSymbols::isSymbol(ctx);
+        if (isSymK && P->getAttribute(ctx, isSymK, true) == PROTO_TRUE)
+            pIsSymbol = true;
+    }
     if (P->isInteger(ctx) || P->isDouble(ctx) || P->isFloat(ctx)
-        || P == PROTO_TRUE || P == PROTO_FALSE || P->isString(ctx)) {
+        || P == PROTO_TRUE || P == PROTO_FALSE || P->isString(ctx)
+        || pIsSymbol) {
         signalNativeException(makeNativeError(ctx, "TypeError",
             "Function has non-object prototype in instanceof check"));
         return PROTO_NONE;
     }
 
-    // Spec step 6: walk V's prototype chain looking for P.
+    // Spec step 6: walk V's prototype chain looking for P.  When `cur`
+    // is a Proxy, the chain step must dispatch through its
+    // [[GetPrototypeOf]] trap (§10.5.1).  Pre-fix the walk read the
+    // protoCore parent directly, so a Proxy whose getPrototypeOf trap
+    // throws fell through to the parent and the spec-required abrupt
+    // never surfaced (built-ins/Function/prototype/Symbol.hasInstance/
+    // value-get-prototype-of-err.js).
     const proto::ProtoObject* cur = V;
     for (int hops = 0; hops < 1024; ++hops) {
-        // Follow JS-level [[Prototype]] via the override map first, then
-        // the protoCore parent chain.
         const proto::ProtoObject* next = nullptr;
-        // Re-use objectGetPrototypeOf semantics inline.
-        {
-            const proto::ProtoList* singleArg = ctx->newList();
-            singleArg = singleArg->appendLast(ctx, cur);
-            // Direct call: we know objectGetPrototypeOf is defined nearby,
-            // but it has internal linkage.  Use getJSProtoOverride directly.
+        if (protojs::isProxy(ctx, cur)) {
+            next = protojs::proxyDispatchGetPrototypeOf(ctx, cur);
+            if (hasCallException()) return PROTO_NONE;
+        } else {
             next = protojs::getJSProtoOverride(cur);
             if (!next) next = cur->getPrototype(ctx);
         }
