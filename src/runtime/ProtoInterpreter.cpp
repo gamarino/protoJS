@@ -16729,6 +16729,61 @@ const proto::ProtoObject* callJSFunction(
         }
     }
 
+    // Array constructor: identified by the __array_ctor__ marker.  The
+    // OP_call inline path handles Array(n) / Array(...items) without a
+    // __native_fn__ slot — it just allocates an Array.prototype-rooted
+    // child and stuffs __elements__.  callJSFunction had no equivalent,
+    // so `Array.call(null, 42)` and `Array.bind(null)(42)` fell through
+    // to the final `return PROTO_NONE` (built-ins/Function/prototype/
+    // bind/15.3.4.5-2-8 expected an Array of length 42; we returned
+    // undefined and the subsequent `a.prop = ...` raised "Cannot set
+    // property on null/undefined").  Mirror the inline logic — single
+    // numeric arg is a length, anything else fills __elements__.
+    {
+        const proto::ProtoString* arrCtorK = JSSymbols::arrayCtor(ctx);
+        if (arrCtorK && fn->getAttribute(ctx, arrCtorK, false) == PROTO_TRUE) {
+            int callArgc = args ? args->getSize(ctx) : 0;
+            const proto::ProtoString* protK = JSSymbols::prototype(ctx);
+            const proto::ProtoObject* prot = protK
+                ? fn->getAttribute(ctx, protK, false) : nullptr;
+            const proto::ProtoObject* arr = (prot && prot != PROTO_NONE)
+                ? prot->newChild(ctx, true) : ctx->newObject(true);
+            const proto::ProtoString* isArrKey = JSSymbols::isArray(ctx);
+            if (isArrKey) arr = arr->setAttribute(ctx, isArrKey, PROTO_TRUE);
+            long long arrLength = static_cast<long long>(callArgc);
+            if (callArgc == 1) {
+                const proto::ProtoObject* a0 = args->getAt(ctx, 0);
+                if (a0 && (a0->isInteger(ctx) || a0->isDouble(ctx) || a0->isFloat(ctx))) {
+                    double dlen = a0->isInteger(ctx)
+                        ? static_cast<double>(a0->asLong(ctx))
+                        : a0->asDouble(ctx);
+                    long long ilen = static_cast<long long>(dlen);
+                    if (std::isnan(dlen) || std::isinf(dlen)
+                        || static_cast<double>(ilen) != dlen
+                        || ilen < 0 || ilen > 4294967295LL) {
+                        signalNativeException(makeNativeError(ctx, "RangeError",
+                            "Invalid array length"));
+                        return PROTO_NONE;
+                    }
+                    arrLength = ilen;
+                } else {
+                    const proto::ProtoList* els = ctx->newList();
+                    els = els->appendLast(ctx, a0 ? a0 : PROTO_NONE);
+                    protojs::setArrayElements(ctx, arr, els);
+                }
+            } else if (callArgc > 1) {
+                proto::ProtoContext::CriticalSection arrCs(ctx);
+                const proto::ProtoList* els = ctx->newList();
+                for (int i = 0; i < callArgc; ++i)
+                    els = els->appendLast(ctx, args->getAt(ctx, i));
+                protojs::setArrayElements(ctx, arr, els);
+            }
+            const proto::ProtoString* lenK = JSSymbols::length(ctx);
+            if (lenK) arr = arr->setAttribute(ctx, lenK, ctx->fromInteger(arrLength));
+            return arr;
+        }
+    }
+
     // String constructor: takes a different route from Number/Boolean
     // — there is no __construct__ method; the OP_call inline path
     // detects __string_ctor__ and runs ToString directly.  Mirror that
