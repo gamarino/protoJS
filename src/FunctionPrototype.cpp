@@ -636,9 +636,25 @@ static const proto::ProtoObject* fnToString(
         if (c0 >= '0' && c0 <= '9') return false;
         return true;
     };
+    // Built-in Symbol-keyed methods (RegExp.prototype[Symbol.match]
+    // etc.) carry names like "Symbol.match" — the IdentifierName
+    // production rejects them.  The spec NativeFunction grammar
+    // (§20.2.3.5 / nativeFunctionMatcher.js harness) allows a
+    // ComputedPropertyName syntax (`[ Expression ]`), so wrap the
+    // dotted-Symbol form in brackets.  Pre-fix toString fell through
+    // to the anonymous template and the test262 matcher rejected the
+    // result (built-ins/Function/prototype/toString/symbol-named-
+    // builtins.js).  Symbol-key form is the only non-ident shape
+    // we recognise here; arbitrary punctuation still maps to the
+    // anonymous template.
+    auto isSymbolKeyName = [](const std::string& s) -> bool {
+        return s.size() > 7 && s.compare(0, 7, "Symbol.") == 0;
+    };
     std::string result;
     if (nameIsIdent(fnName))
         result = "function " + fnName + "() { [native code] }";
+    else if (isSymbolKeyName(fnName))
+        result = "function [" + fnName + "]() { [native code] }";
     else
         result = "function () { [native code] }";
     return ctx->fromUTF8String(result.c_str());

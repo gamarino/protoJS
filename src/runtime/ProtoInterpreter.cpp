@@ -12921,12 +12921,16 @@ const proto::ProtoObject* runBytecode(proto::ProtoContext* pContext,
                     func = pTarget;
                     pAutomaticLocals[currentStackBase + _PF().stackTop - (argc + 2)] = pTarget;
                 }
-                // Unwrap native function wrapper: if func has __native_fn__, use the
-                // raw method it contains. This allows .length and .name to be stored
-                // on wrapper objects while still dispatching to the ProtoMethod.
+                // Unwrap native function wrapper: if func has OWN __native_fn__,
+                // use the raw method it contains. This allows .length and .name
+                // to be stored on wrapper objects while still dispatching to
+                // the ProtoMethod.  Own-only — inherited __native_fn__ would
+                // hijack bound functions and class-built-from-fp instances
+                // through Function.prototype's no-op slot.
                 {
                     const proto::ProtoString* nfKey2 = JSSymbols::nativeFn(pContext);
-                    if (nfKey2 && func && func != PROTO_NONE && !func->isMethod(pContext)) {
+                    if (nfKey2 && func && func != PROTO_NONE && !func->isMethod(pContext)
+                        && func->hasOwnAttribute(pContext, nfKey2) == PROTO_TRUE) {
                         const proto::ProtoObject* rawMethod2 = func->getAttribute(pContext, nfKey2, false);
                         if (rawMethod2 && rawMethod2 != PROTO_NONE && rawMethod2->isMethod(pContext))
                             func = rawMethod2;
@@ -13952,10 +13956,17 @@ const proto::ProtoObject* runBytecode(proto::ProtoContext* pContext,
                 //    for non-JS receivers (no __bytecode_id__).  Wrapper
                 //    objects (e.g. installNonEnumerableMethod-built array
                 //    methods) carry __native_fn__ but no __bytecode_id__,
-                //    so this branch covers them.
+                //    so this branch covers them.  Own-only: every wrapped
+                //    native carries its OWN __native_fn__, so an inherited
+                //    one is the wrong unwrap.  Inheriting from
+                //    Function.prototype (which now carries a no-op
+                //    __native_fn__ so `Function.prototype()` returns
+                //    undefined) would otherwise hijack every bound /
+                //    classes-built-from-fp call.
                 if (bcId < 0) {
                     const proto::ProtoString* nfKey2 = JSSymbols::nativeFn(pContext);
-                    if (nfKey2 && func && func != PROTO_NONE && !func->isMethod(pContext)) {
+                    if (nfKey2 && func && func != PROTO_NONE && !func->isMethod(pContext)
+                        && func->hasOwnAttribute(pContext, nfKey2) == PROTO_TRUE) {
                         const proto::ProtoObject* rawMethod2 = func->getAttribute(pContext, nfKey2, false);
                         if (rawMethod2 && rawMethod2 != PROTO_NONE && rawMethod2->isMethod(pContext))
                             func = rawMethod2;
@@ -16614,10 +16625,23 @@ const proto::ProtoObject* callJSFunction(
 
     const proto::ProtoObject** globalRoot = t_currentGlobalRoot;
 
-    // Unwrap native function wrapper (__native_fn__).
+    // Unwrap native function wrapper (__native_fn__).  Use own-only
+    // lookup: every wrapped native carries its OWN __native_fn__ slot
+    // at construction time, so an inherited slot is never the right
+    // unwrap.  Pre-fix the probe walked the prototype chain, so once
+    // Function.prototype itself got a __native_fn__ (the no-op
+    // installed so `Function.prototype()` returns undefined), every
+    // descendant — bound functions, classes built from
+    // Function.prototype.newChild — picked up the no-op and bind /
+    // call routed through it instead of the real target.  Example:
+    // Function.prototype.call.bind(Object.prototype.hasOwnProperty)
+    // returned undefined for every receiver because the bound object
+    // inherits __native_fn__ from Function.prototype and the chain
+    // walk hit the no-op before the bound-fn dispatch (built-ins/
+    // Function/prototype/S15.3.3.1_A3 et al).
     if (!fn->isMethod(ctx)) {
         const proto::ProtoString* nfKey2 = JSSymbols::nativeFn(ctx);
-        if (nfKey2) {
+        if (nfKey2 && fn->hasOwnAttribute(ctx, nfKey2) == PROTO_TRUE) {
             const proto::ProtoObject* rawMethod2 = fn->getAttribute(ctx, nfKey2, false);
             if (rawMethod2 && rawMethod2 != PROTO_NONE && rawMethod2->isMethod(ctx))
                 fn = rawMethod2;
