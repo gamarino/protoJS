@@ -412,14 +412,21 @@ const proto::ProtoObject* regexpConstructor(
 
     if (args && args->getSize(ctx) > 0) {
         const proto::ProtoObject* p = args->getAt(ctx, 0);
-        if (p && p != PROTO_NONE) {
+        // §22.2.3.1 RegExp(pattern, flags): if pattern is undefined,
+        // let P be "" (NOT ToString(undefined) = "undefined").  Same
+        // for flags.  Pre-fix the check rejected only nullptr /
+        // PROTO_NONE, so `RegExp(undefined)` and `new RegExp(undefined)`
+        // ended up with pattern source "undefined" instead of empty
+        // (built-ins/String/prototype/match/S15.5.4.10_A1_T6.js
+        // chained `RegExp(undefined)` against an unset variable).
+        if (p && p != PROTO_NONE && p != getUndefinedSentinel()) {
             pattern = objToStr(ctx, p);
         }
     }
 
     if (args && args->getSize(ctx) > 1) {
         const proto::ProtoObject* f = args->getAt(ctx, 1);
-        if (f && f != PROTO_NONE) {
+        if (f && f != PROTO_NONE && f != getUndefinedSentinel()) {
             flags_str = objToStr(ctx, f);
         }
     }

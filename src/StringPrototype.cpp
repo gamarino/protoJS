@@ -1951,6 +1951,18 @@ const proto::ProtoObject* stringMatch(
         els = els->appendLast(ctx, ctx->fromUTF8String(""));
         setArrayElements(ctx, result, els);
         if (lenKey) result = result->setAttribute(ctx, lenKey, ctx->fromInteger(1LL));
+        // §22.2.7.3 RegExpBuiltinExec step 23: the match record
+        // populates .index and .input.  Pre-fix the empty-pattern arm
+        // (pattern undefined / null / "") returned the [""] array but
+        // omitted .index / .input, so `"x".match(undefined).index`
+        // was undefined instead of 0
+        // (built-ins/String/prototype/match/S15.5.4.10_A1_T6.js +
+        // T7 + T8 chain `.index` / `.input` after match(undef)).
+        const proto::ProtoString* ixK = JSSymbols::index(ctx);
+        if (ixK) result = result->setAttribute(ctx, ixK, ctx->fromInteger(0LL));
+        const proto::ProtoString* inK = JSSymbols::input(ctx);
+        if (inK) result = result->setAttribute(ctx, inK,
+            ctx->fromUTF8String(s.c_str()));
         return result;
     }
     size_t pos = s.find(pat);

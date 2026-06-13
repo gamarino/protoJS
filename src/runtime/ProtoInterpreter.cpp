@@ -14479,6 +14479,43 @@ const proto::ProtoObject* runBytecode(proto::ProtoContext* pContext,
                         const proto::ProtoString* errCtorAttr = JSSymbols::errorCtor(pContext);
                         const proto::ProtoString* arrayCtorAttr = JSSymbols::arrayCtor(pContext);
                         const proto::ProtoString* strCtorAttr = JSSymbols::stringCtor(pContext);
+                        const proto::ProtoString* reCtorAttr = JSSymbols::regexpCtor(pContext);
+                        // §22.2.3.1 RegExp called without `new` is
+                        // identical to `new RegExp(...)` for non-RegExp
+                        // patterns; pre-fix the plain-call path had no
+                        // regexpCtor branch and `RegExp()` / `RegExp(x)`
+                        // raised "is not a function" (built-ins/String/
+                        // prototype/match/S15.5.4.10_A1_T6.js relies on
+                        // `RegExp(undefined).exec(...)`).  Dispatch
+                        // before the err/array/string arms below.
+                        if (reCtorAttr && func && func != PROTO_NONE
+                            && func->getAttribute(pContext, reCtorAttr, false) == PROTO_TRUE) {
+                            const proto::ProtoList* argsList = pContext->newList();
+                            for (uint32_t i = 0; i < argc; i++)
+                                argsList = argsList->appendLast(pContext,
+                                    stackAt(pContext, argc - 1 - i));
+                            for (uint32_t i = 0; i <= argc; i++) stackPop(pContext);
+                            const proto::ProtoString* pk = JSSymbols::prototype(pContext);
+                            const proto::ProtoObject* prot = pk
+                                ? func->getAttribute(pContext, pk, false) : nullptr;
+                            const proto::ProtoObject* newObj = (prot && prot != PROTO_NONE)
+                                ? prot->newChild(pContext, true)
+                                : pContext->newObject(true);
+                            const proto::ProtoObject* r =
+                                regexpConstructor(pContext, newObj, nullptr, argsList, nullptr);
+                            if (t_hasCallException) {
+                                pending_exception = t_callException;
+                                has_pending_exception = true;
+                                t_hasCallException = false;
+                                t_callException = nullptr;
+                                if (is_tail_call) return PROTO_NONE;
+                                stackPush(pContext, PROTO_NONE);
+                                DISPATCH();
+                            }
+                            if (is_tail_call) return r ? r : newObj;
+                            stackPush(pContext, r ? r : newObj);
+                            DISPATCH();
+                        }
 
                         // getAttribute returns nullptr when a key is absent and PROTO_NONE when
                         // explicitly set to undefined. Check for both to avoid false matches.
