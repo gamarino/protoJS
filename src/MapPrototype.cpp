@@ -743,6 +743,24 @@ static const proto::ProtoObject* mapGetOrInsertComputed(
     const proto::ProtoObject* defVal = callJSFunction(ctx, callbackFn, PROTO_NONE, cbArgs);
     if (hasCallException()) return PROTO_NONE;
     if (!defVal) defVal = PROTO_NONE;
+    // §Map.prototype.getOrInsertComputed step 6 → step 7: after callback
+    // returns, walk MapData looking for the key.  If the callback
+    // already inserted an entry under the same key (via map.set / .add /
+    // recursive upsert) the OVERWRITE branch fires — set the existing
+    // record's value to defVal and return it.  Pre-fix mapInsertEntry
+    // blindly appended a second record, leaving the callback-inserted
+    // value at the start (earlier slot) so map.get(key) surfaced the
+    // stale insert rather than defVal (built-ins/Map/prototype/
+    // getOrInsertComputed/overwrites-mutation-from-callbackfn.js).
+    unsigned long callbackIdx = 0;
+    if (mapFind(ctx, self, key, callbackIdx)) {
+        const proto::ProtoSparseList* vl = getMapList(ctx, self, "__map_vals__");
+        if (vl) {
+            setMapListInPlace(ctx, self, "__map_vals__",
+                vl->setAt(ctx, callbackIdx, defVal));
+        }
+        return defVal;
+    }
     mapInsertEntry(ctx, self, key, defVal);
     return defVal;
 }
