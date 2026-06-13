@@ -5170,16 +5170,47 @@ const proto::ProtoObject* runBytecode(proto::ProtoContext* pContext,
                                     // Symbol receiver (incl. null / number) so
                                     // Object.getOwnPropertyDescriptor(Symbol.
                                     // prototype, 'description').get.call(null)
-                                    // succeeded silently.
+                                    // succeeded silently.  thisSymbolValue per
+                                    // §20.4.3.4 also accepts a Symbol wrapper
+                                    // (carries primitive in __primitive_value__)
+                                    // AND the well-known Symbol form (a bare
+                                    // "Symbol.X" ProtoString) — the latter
+                                    // is how protoJS encodes the canonical
+                                    // well-knowns to keep them usable as
+                                    // attribute keys; without this clause
+                                    // Symbol.iterator.description threw.
                                     const proto::ProtoString* symMk = JSSymbols::isSymbol(gctx);
-                                    if (!gself || gself == PROTO_NONE
-                                        || gself == getUndefinedSentinel()
-                                        || gself == getNullSentinel()
-                                        || !symMk
-                                        || gself->getAttribute(gctx, symMk, true) != PROTO_TRUE) {
+                                    bool isPrim = symMk && gself
+                                        && gself->getAttribute(gctx, symMk, true) == PROTO_TRUE;
+                                    bool isWellKnownStr = false;
+                                    if (!isPrim && gself && gself->asString(gctx)) {
+                                        std::string sv;
+                                        gself->asString(gctx)->toUTF8String(gctx, sv);
+                                        if (sv.compare(0, 7, "Symbol.") == 0
+                                            || sv.compare(0, 7, "Symbol(") == 0)
+                                            isWellKnownStr = true;
+                                    }
+                                    if (!isPrim && !isWellKnownStr) {
+                                        const proto::ProtoString* pvK = JSSymbols::primitiveValue(gctx);
+                                        const proto::ProtoObject* pv = pvK && gself
+                                            ? gself->getAttribute(gctx, pvK, true) : nullptr;
+                                        if (pv && pv != PROTO_NONE && symMk
+                                            && pv->getAttribute(gctx, symMk, true) == PROTO_TRUE) {
+                                            gself = pv;
+                                            isPrim = true;
+                                        }
+                                    }
+                                    if (!isPrim && !isWellKnownStr) {
                                         signalNativeException(makeNativeError(gctx, "TypeError",
                                             "Symbol.prototype.description requires that 'this' be a Symbol"));
                                         return PROTO_NONE;
+                                    }
+                                    if (isWellKnownStr) {
+                                        // Well-known Symbol "Symbol.X" → desc "Symbol.X".
+                                        // Strip the leading "Symbol." so
+                                        // Symbol.iterator.description === "Symbol.iterator"
+                                        // (matches V8 / spec behavior).
+                                        return gself;
                                     }
                                     const proto::ProtoObject* dko = gctx->fromUTF8String("__symbol_desc__");
                                     const proto::ProtoString* dk = dko ? dko->asString(gctx) : nullptr;
@@ -5237,16 +5268,16 @@ const proto::ProtoObject* runBytecode(proto::ProtoContext* pContext,
                                                      const proto::ProtoSparseList*) -> const proto::ProtoObject* {
                                     if (!gctx || !gself) return PROTO_NONE;
                                     const proto::ProtoString* symMk = JSSymbols::isSymbol(gctx);
-                                    // §20.4.3.4 step 1 → §20.4.2.1
-                                    // thisSymbolValue: accept either a
-                                    // raw symbol primitive (__is_symbol__)
-                                    // or a Symbol object whose
-                                    // [[SymbolData]] (= __primitive_value__)
-                                    // holds the symbol.  Unwrap so the
-                                    // descriptor probe below sees the
-                                    // primitive's own __symbol_desc__.
                                     bool isPrim = symMk && gself->getAttribute(gctx, symMk, true) == PROTO_TRUE;
-                                    if (!isPrim) {
+                                    bool isWellKnownStr = false;
+                                    std::string wkStr;
+                                    if (!isPrim && gself->asString(gctx)) {
+                                        gself->asString(gctx)->toUTF8String(gctx, wkStr);
+                                        if (wkStr.compare(0, 7, "Symbol.") == 0
+                                            || wkStr.compare(0, 7, "Symbol(") == 0)
+                                            isWellKnownStr = true;
+                                    }
+                                    if (!isPrim && !isWellKnownStr) {
                                         const proto::ProtoString* pvK = JSSymbols::primitiveValue(gctx);
                                         const proto::ProtoObject* pv = pvK ? gself->getAttribute(gctx, pvK, true) : nullptr;
                                         if (pv && pv != PROTO_NONE && symMk &&
@@ -5255,10 +5286,20 @@ const proto::ProtoObject* runBytecode(proto::ProtoContext* pContext,
                                             isPrim = true;
                                         }
                                     }
-                                    if (!isPrim) {
+                                    if (!isPrim && !isWellKnownStr) {
                                         signalNativeException(makeNativeError(gctx, "TypeError",
                                             "Symbol.prototype.toString requires that 'this' be a Symbol"));
                                         return PROTO_NONE;
+                                    }
+                                    if (isWellKnownStr) {
+                                        // Well-known Symbol: "Symbol.X" -> "Symbol(Symbol.X)".
+                                        // Symbol(Symbol.X) form: a user Symbol stored
+                                        // with literal "Symbol(Symbol.X)" is already a
+                                        // toString output; leave it.
+                                        if (wkStr.compare(0, 7, "Symbol(") == 0)
+                                            return gself;
+                                        std::string out = "Symbol(" + wkStr + ")";
+                                        return gctx->fromUTF8String(out.c_str());
                                     }
                                     const proto::ProtoObject* dko = gctx->fromUTF8String("__symbol_desc__");
                                     const proto::ProtoString* dk = dko ? dko->asString(gctx) : nullptr;
@@ -5283,7 +5324,15 @@ const proto::ProtoObject* runBytecode(proto::ProtoContext* pContext,
                                     if (!gctx || !gself) return PROTO_NONE;
                                     const proto::ProtoString* symMk = JSSymbols::isSymbol(gctx);
                                     bool isPrim = symMk && gself->getAttribute(gctx, symMk, true) == PROTO_TRUE;
-                                    if (!isPrim) {
+                                    bool isWellKnownStr = false;
+                                    if (!isPrim && gself->asString(gctx)) {
+                                        std::string sv;
+                                        gself->asString(gctx)->toUTF8String(gctx, sv);
+                                        if (sv.compare(0, 7, "Symbol.") == 0
+                                            || sv.compare(0, 7, "Symbol(") == 0)
+                                            isWellKnownStr = true;
+                                    }
+                                    if (!isPrim && !isWellKnownStr) {
                                         const proto::ProtoString* pvK = JSSymbols::primitiveValue(gctx);
                                         const proto::ProtoObject* pv = pvK ? gself->getAttribute(gctx, pvK, true) : nullptr;
                                         if (pv && pv != PROTO_NONE && symMk &&
@@ -5291,7 +5340,7 @@ const proto::ProtoObject* runBytecode(proto::ProtoContext* pContext,
                                             return pv;
                                         }
                                     }
-                                    if (!isPrim) {
+                                    if (!isPrim && !isWellKnownStr) {
                                         signalNativeException(makeNativeError(gctx, "TypeError",
                                             "Symbol.prototype.valueOf requires that 'this' be a Symbol"));
                                         return PROTO_NONE;
@@ -8819,6 +8868,49 @@ const proto::ProtoObject* runBytecode(proto::ProtoContext* pContext,
                 }
 
                 if (has_pending_exception) DISPATCH();
+                // §10.4 ToObject(symbol) lookup fallback: a Symbol primitive
+                // receiver (well-known Symbol stored as a "Symbol.X"
+                // ProtoString, OR a user Symbol marked __is_symbol__) must
+                // resolve attribute reads through Symbol.prototype.  The
+                // chain walk above visits ProtoString/Object.prototype
+                // for the canonical "Symbol.X" strings — neither carries
+                // the per-spec @@toPrimitive / toString / valueOf, so
+                // `Symbol.toPrimitive[Symbol.toPrimitive]` was undefined.
+                // Walk Symbol.prototype explicitly when the receiver
+                // looks like a Symbol primitive and no value surfaced.
+                if ((!val || val == PROTO_NONE || val == t_undefinedSentinel)
+                    && name && obj && obj != PROTO_NONE) {
+                    bool isSymbolReceiver = false;
+                    if (obj->asString(pContext)) {
+                        std::string sv;
+                        obj->asString(pContext)->toUTF8String(pContext, sv);
+                        if (sv.compare(0, 7, "Symbol.") == 0
+                            || sv.compare(0, 7, "Symbol(") == 0)
+                            isSymbolReceiver = true;
+                    }
+                    if (!isSymbolReceiver) {
+                        const proto::ProtoString* symMk = JSSymbols::isSymbol(pContext);
+                        if (symMk && obj->getAttribute(pContext, symMk, true) == PROTO_TRUE)
+                            isSymbolReceiver = true;
+                    }
+                    if (isSymbolReceiver) {
+                        REFRESH_GLOBAL_OBJ();
+                        const proto::ProtoString* sCtorK =
+                            globalObj && globalObj != PROTO_NONE
+                            ? pContext->fromUTF8String("Symbol")->asString(pContext) : nullptr;
+                        const proto::ProtoObject* sCtor = sCtorK && globalObj
+                            ? globalObj->getAttribute(pContext, sCtorK, false) : nullptr;
+                        const proto::ProtoString* protoK = JSSymbols::prototype(pContext);
+                        const proto::ProtoObject* sProto = sCtor && protoK
+                            ? sCtor->getAttribute(pContext, protoK, false) : nullptr;
+                        if (sProto && sProto != PROTO_NONE) {
+                            const proto::ProtoObject* sv =
+                                sProto->getAttribute(pContext, name, true);
+                            if (sv && sv != PROTO_NONE) val = sv;
+                        }
+                    }
+                }
+                if (has_pending_exception) DISPATCH();
                 pAutomaticLocals[currentStackBase + _PF().stackTop++] = (val) ? (val) : PROTO_NONE;
                 DISPATCH();
             }
@@ -10534,6 +10626,46 @@ const proto::ProtoObject* runBytecode(proto::ProtoContext* pContext,
                                 cursor = next;
                             }
                         }
+                        // ToObject(symbol) fallback: a Symbol primitive
+                        // receiver routes attribute access through
+                        // Symbol.prototype.  Pre-fix the well-known
+                        // "Symbol.X" ProtoString receivers walked only
+                        // ProtoString / Object.prototype chains, missing
+                        // @@toPrimitive / toString / valueOf installed on
+                        // Symbol.prototype (built-ins/Symbol/prototype/
+                        // Symbol.toPrimitive/this-val-symbol.js).
+                        if ((!val || val == PROTO_NONE || val == t_undefinedSentinel)
+                            && key) {
+                            bool isSymbolReceiver = false;
+                            if (obj->asString(pContext)) {
+                                std::string sv;
+                                obj->asString(pContext)->toUTF8String(pContext, sv);
+                                if (sv.compare(0, 7, "Symbol.") == 0
+                                    || sv.compare(0, 7, "Symbol(") == 0)
+                                    isSymbolReceiver = true;
+                            }
+                            if (!isSymbolReceiver) {
+                                const proto::ProtoString* symMk = JSSymbols::isSymbol(pContext);
+                                if (symMk && obj->getAttribute(pContext, symMk, true) == PROTO_TRUE)
+                                    isSymbolReceiver = true;
+                            }
+                            if (isSymbolReceiver) {
+                                REFRESH_GLOBAL_OBJ();
+                                const proto::ProtoString* sCtorK =
+                                    globalObj && globalObj != PROTO_NONE
+                                    ? pContext->fromUTF8String("Symbol")->asString(pContext) : nullptr;
+                                const proto::ProtoObject* sCtor = sCtorK && globalObj
+                                    ? globalObj->getAttribute(pContext, sCtorK, false) : nullptr;
+                                const proto::ProtoString* protoK = JSSymbols::prototype(pContext);
+                                const proto::ProtoObject* sProto = sCtor && protoK
+                                    ? sCtor->getAttribute(pContext, protoK, false) : nullptr;
+                                if (sProto && sProto != PROTO_NONE) {
+                                    const proto::ProtoObject* sv =
+                                        sProto->getAttribute(pContext, key, true);
+                                    if (sv && sv != PROTO_NONE) val = sv;
+                                }
+                            }
+                        }
                     }
                 }
                 pAutomaticLocals[currentStackBase + _PF().stackTop++] = (val && val != PROTO_NONE ? val : PROTO_NONE);
@@ -10587,6 +10719,38 @@ const proto::ProtoObject* runBytecode(proto::ProtoContext* pContext,
                         const proto::ProtoObject* gval = invokeGetterIfPresent(obj, keyStrGAE2);
                         if (has_pending_exception) DISPATCH();
                         if (gval && gval != PROTO_NONE) val = gval;
+                    }
+                    // ToObject(symbol) chain fallback — see OP_get_array_el.
+                    if ((!val || val == PROTO_NONE || val == t_undefinedSentinel) && key) {
+                        bool isSymbolReceiver = false;
+                        if (obj->asString(pContext)) {
+                            std::string sv;
+                            obj->asString(pContext)->toUTF8String(pContext, sv);
+                            if (sv.compare(0, 7, "Symbol.") == 0
+                                || sv.compare(0, 7, "Symbol(") == 0)
+                                isSymbolReceiver = true;
+                        }
+                        if (!isSymbolReceiver) {
+                            const proto::ProtoString* symMk = JSSymbols::isSymbol(pContext);
+                            if (symMk && obj->getAttribute(pContext, symMk, true) == PROTO_TRUE)
+                                isSymbolReceiver = true;
+                        }
+                        if (isSymbolReceiver) {
+                            REFRESH_GLOBAL_OBJ();
+                            const proto::ProtoString* sCtorK =
+                                globalObj && globalObj != PROTO_NONE
+                                ? pContext->fromUTF8String("Symbol")->asString(pContext) : nullptr;
+                            const proto::ProtoObject* sCtor = sCtorK && globalObj
+                                ? globalObj->getAttribute(pContext, sCtorK, false) : nullptr;
+                            const proto::ProtoString* protoK = JSSymbols::prototype(pContext);
+                            const proto::ProtoObject* sProto = sCtor && protoK
+                                ? sCtor->getAttribute(pContext, protoK, false) : nullptr;
+                            if (sProto && sProto != PROTO_NONE) {
+                                const proto::ProtoObject* sv =
+                                    sProto->getAttribute(pContext, key, true);
+                                if (sv && sv != PROTO_NONE) val = sv;
+                            }
+                        }
                     }
                 }
                 // Spec: pop 2 (obj, prop) push 2 (obj, value).  Net 0:
