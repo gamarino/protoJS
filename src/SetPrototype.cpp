@@ -1425,12 +1425,25 @@ static const proto::ProtoObject* setIsSubsetOf(
     if (static_cast<double>(thisSize) > otherSize) return PROTO_FALSE;
     const proto::ProtoSparseList* order = getSetOrder(ctx, self);
     if (!order) return PROTO_TRUE;
-    const proto::ProtoSparseListIterator* it = order->getIterator(ctx);
-    while (it && it->hasNext(ctx)) {
-        const proto::ProtoObject* v = it->nextValue(ctx);
-        it = const_cast<proto::ProtoSparseListIterator*>(it)->advance(ctx);
+    // §24.2.4.6 step 6: snapshot the receiver's keys before invoking
+    // other.has — see setIsDisjointFrom for the evil set-like rationale
+    // (built-ins/Set/prototype/isSubsetOf/set-like-class-mutation.js).
+    const proto::ProtoList* snapshot = ctx->newList();
+    {
+        const proto::ProtoSparseListIterator* it = order->getIterator(ctx);
+        while (it && it->hasNext(ctx)) {
+            const proto::ProtoObject* v = it->nextValue(ctx);
+            it = const_cast<proto::ProtoSparseListIterator*>(it)->advance(ctx);
+            snapshot = snapshot->appendLast(ctx, v ? v : PROTO_NONE);
+        }
+    }
+    unsigned long n = snapshot->getSize(ctx);
+    for (unsigned long i = 0; i < n; ++i) {
+        const proto::ProtoObject* v = snapshot->getAt(ctx, static_cast<int>(i));
         if (!v) v = PROTO_NONE;
+        if (!setContains(ctx, self, v)) continue; // skip deleted entries
         if (!setLikeHas(ctx, other, v, hasFn)) return PROTO_FALSE;
+        if (hasCallException()) return PROTO_NONE;
     }
     return PROTO_TRUE;
 }
@@ -1477,12 +1490,34 @@ static const proto::ProtoObject* setIsDisjointFrom(
     if (!order) return PROTO_TRUE;
     long thisSize = getSetSize(ctx, self);
     if (static_cast<double>(thisSize) <= otherSize) {
-        const proto::ProtoSparseListIterator* it = order->getIterator(ctx);
-        while (it && it->hasNext(ctx)) {
-            const proto::ProtoObject* v = it->nextValue(ctx);
-            it = const_cast<proto::ProtoSparseListIterator*>(it)->advance(ctx);
+        // §24.2.4.4 step 6: snapshot this's keys BEFORE invoking the
+        // other set-like's has().  An "evil" set-like can mutate the
+        // receiver inside has() (delete-then-reinsert) and a live
+        // iterator would visit the post-mutation entries — diverging
+        // from the spec's "iterate the captured snapshot" semantics
+        // (built-ins/Set/prototype/isDisjointFrom/set-like-class-
+        // mutation.js).  Take a fresh ProtoList copy of order's
+        // values, then walk that.
+        const proto::ProtoList* snapshot = ctx->newList();
+        {
+            const proto::ProtoSparseListIterator* it = order->getIterator(ctx);
+            while (it && it->hasNext(ctx)) {
+                const proto::ProtoObject* v = it->nextValue(ctx);
+                it = const_cast<proto::ProtoSparseListIterator*>(it)->advance(ctx);
+                snapshot = snapshot->appendLast(ctx, v ? v : PROTO_NONE);
+            }
+        }
+        unsigned long n = snapshot->getSize(ctx);
+        for (unsigned long i = 0; i < n; ++i) {
+            const proto::ProtoObject* v = snapshot->getAt(ctx, static_cast<int>(i));
             if (!v) v = PROTO_NONE;
+            // §24.2.4.4 step 6.b — re-check membership on the live
+            // receiver before consulting other.has().  A delete during
+            // earlier iterations removes the entry; we must skip it
+            // even though the snapshot still carries it.
+            if (!setContains(ctx, self, v)) continue;
             if (setLikeHas(ctx, other, v, hasFn)) return PROTO_FALSE;
+            if (hasCallException()) return PROTO_NONE;
         }
         return PROTO_TRUE;
     }
