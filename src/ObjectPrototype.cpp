@@ -6715,8 +6715,23 @@ void ensureObjectConstructor(proto::ProtoContext* ctx,
         const proto::ProtoString* isSymK = JSSymbols::isSymbol(ctx);
         bool valIsSymbol = isSymK && val
             && val->getAttribute(ctx, isSymK, true) == PROTO_TRUE;
+        // Well-known Symbol primitives are stored as bare "Symbol.X"
+        // ProtoStrings (no __is_symbol__ marker) so they remain usable
+        // as attribute keys.  Object(wellKnown) must still box them as
+        // a Symbol wrapper, not a String wrapper.  Pre-fix
+        // Object(Symbol.iterator) inherited String.prototype and
+        // `Object(Symbol.toPrimitive)[Symbol.toPrimitive]()` raised
+        // "is not a function" (built-ins/Symbol/prototype/
+        // Symbol.toPrimitive/this-val-obj-symbol-wrapper.js).
+        if (!valIsSymbol && val && val->asString(ctx)) {
+            std::string sv;
+            val->asString(ctx)->toUTF8String(ctx, sv);
+            if (sv.compare(0, 7, "Symbol.") == 0
+                || sv.compare(0, 7, "Symbol(") == 0)
+                valIsSymbol = true;
+        }
         const proto::ProtoObject* wrapProto = nullptr;
-        if (ctx->space) {
+        if (ctx->space && !valIsSymbol) {
             if (val == PROTO_TRUE || val == PROTO_FALSE || val->isBoolean(ctx))
                 wrapProto = ctx->space->booleanPrototype;
             else if (val->isInteger(ctx) || val->isDouble(ctx) || val->isFloat(ctx))

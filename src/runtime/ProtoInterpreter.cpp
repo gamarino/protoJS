@@ -5203,10 +5203,24 @@ const proto::ProtoObject* runBytecode(proto::ProtoContext* pContext,
                                         const proto::ProtoString* pvK = JSSymbols::primitiveValue(gctx);
                                         const proto::ProtoObject* pv = pvK && gself
                                             ? gself->getAttribute(gctx, pvK, true) : nullptr;
-                                        if (pv && pv != PROTO_NONE && symMk
-                                            && pv->getAttribute(gctx, symMk, true) == PROTO_TRUE) {
-                                            gself = pv;
-                                            isPrim = true;
+                                        if (pv && pv != PROTO_NONE) {
+                                            bool pvIsSym = symMk
+                                                && pv->getAttribute(gctx, symMk, true) == PROTO_TRUE;
+                                            bool pvIsWK = false;
+                                            if (!pvIsSym && pv->asString(gctx)) {
+                                                std::string sv2;
+                                                pv->asString(gctx)->toUTF8String(gctx, sv2);
+                                                if (sv2.compare(0, 7, "Symbol.") == 0
+                                                    || sv2.compare(0, 7, "Symbol(") == 0)
+                                                    pvIsWK = true;
+                                            }
+                                            if (pvIsSym) {
+                                                gself = pv;
+                                                isPrim = true;
+                                            } else if (pvIsWK) {
+                                                gself = pv;
+                                                isWellKnownStr = true;
+                                            }
                                         }
                                     }
                                     if (!isPrim && !isWellKnownStr) {
@@ -5289,10 +5303,26 @@ const proto::ProtoObject* runBytecode(proto::ProtoContext* pContext,
                                     if (!isPrim && !isWellKnownStr) {
                                         const proto::ProtoString* pvK = JSSymbols::primitiveValue(gctx);
                                         const proto::ProtoObject* pv = pvK ? gself->getAttribute(gctx, pvK, true) : nullptr;
-                                        if (pv && pv != PROTO_NONE && symMk &&
-                                            pv->getAttribute(gctx, symMk, true) == PROTO_TRUE) {
-                                            gself = pv;
-                                            isPrim = true;
+                                        if (pv && pv != PROTO_NONE) {
+                                            bool pvIsSym = symMk
+                                                && pv->getAttribute(gctx, symMk, true) == PROTO_TRUE;
+                                            bool pvIsWK = false;
+                                            if (!pvIsSym && pv->asString(gctx)) {
+                                                std::string sv2;
+                                                pv->asString(gctx)->toUTF8String(gctx, sv2);
+                                                if (sv2.compare(0, 7, "Symbol.") == 0
+                                                    || sv2.compare(0, 7, "Symbol(") == 0) {
+                                                    pvIsWK = true;
+                                                    wkStr = sv2;
+                                                }
+                                            }
+                                            if (pvIsSym) {
+                                                gself = pv;
+                                                isPrim = true;
+                                            } else if (pvIsWK) {
+                                                gself = pv;
+                                                isWellKnownStr = true;
+                                            }
                                         }
                                     }
                                     if (!isPrim && !isWellKnownStr) {
@@ -5344,9 +5374,17 @@ const proto::ProtoObject* runBytecode(proto::ProtoContext* pContext,
                                     if (!isPrim && !isWellKnownStr) {
                                         const proto::ProtoString* pvK = JSSymbols::primitiveValue(gctx);
                                         const proto::ProtoObject* pv = pvK ? gself->getAttribute(gctx, pvK, true) : nullptr;
-                                        if (pv && pv != PROTO_NONE && symMk &&
-                                            pv->getAttribute(gctx, symMk, true) == PROTO_TRUE) {
-                                            return pv;
+                                        if (pv && pv != PROTO_NONE) {
+                                            bool pvIsSym = symMk
+                                                && pv->getAttribute(gctx, symMk, true) == PROTO_TRUE;
+                                            if (!pvIsSym && pv->asString(gctx)) {
+                                                std::string sv;
+                                                pv->asString(gctx)->toUTF8String(gctx, sv);
+                                                if (sv.compare(0, 7, "Symbol.") == 0
+                                                    || sv.compare(0, 7, "Symbol(") == 0)
+                                                    pvIsSym = true;
+                                            }
+                                            if (pvIsSym) return pv;
                                         }
                                     }
                                     if (!isPrim && !isWellKnownStr) {
