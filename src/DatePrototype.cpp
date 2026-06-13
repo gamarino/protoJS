@@ -2266,6 +2266,14 @@ void ensureDateConstructor(proto::ProtoContext* ctx,
                             : nullptr;
                     // 0x2 = {writable:false, enumerable:false, configurable:true}.
                     if (pdk) proto = proto->setAttribute(ctx, pdk, ctx->fromInteger(0x2LL));
+                    // Hot-path hint: without __has_nonwritable_props__
+                    // the writable:false sidecar is ignored on the
+                    // resolvePutFieldOOP path, so
+                    // `Date.prototype[Symbol.toPrimitive] = X` silently
+                    // mutated the slot (built-ins/Date/prototype/
+                    // Symbol.toPrimitive/prop-desc.js).
+                    const proto::ProtoString* hnwK = JSSymbols::hasNonWritableProps(ctx);
+                    if (hnwK) proto = proto->setAttribute(ctx, hnwK, PROTO_TRUE);
                 }
             }
         }
