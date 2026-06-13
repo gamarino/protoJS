@@ -892,9 +892,40 @@ static const proto::ProtoObject* promiseConstructor(
     // Push cell key onto stack so resolve/reject find it.
     t_activeCellKeyStack.push_back(keyBuf);
 
-    // Build resolve and reject functions.
-    const proto::ProtoObject* resolveFn = ctx->fromMethod(nullptr, promiseResolveNative);
-    const proto::ProtoObject* rejectFn  = ctx->fromMethod(nullptr, promiseRejectNative);
+    // §27.2.4.1 CreateResolvingFunctions: spec mandates the resolve
+    // and reject functions delivered to the executor have length=1
+    // and name="".  Pre-fix the raw ProtoMethods carried no .length
+    // attribute, so the spec-shape check
+    // (built-ins/Promise/exec-args.js asserts resolve.length === 1)
+    // failed.  Wrap each raw method in a Function.prototype-rooted
+    // shell that carries the spec descriptor sidecars.
+    auto wrapResolverFn = [&](proto::ProtoMethod fn) -> const proto::ProtoObject* {
+        const proto::ProtoObject* fp = ctx->space
+            ? ctx->space->methodPrototype : nullptr;
+        const proto::ProtoObject* wrap = (fp && fp != PROTO_NONE)
+            ? fp->newChild(ctx, true) : ctx->newObject(true);
+        if (!wrap) return ctx->fromMethod(nullptr, fn);
+        const proto::ProtoString* nfk = JSSymbols::nativeFn(ctx);
+        if (nfk) wrap = wrap->setAttribute(ctx, nfk,
+            ctx->fromMethod(nullptr, fn));
+        const proto::ProtoString* lenK = JSSymbols::length(ctx);
+        if (lenK) {
+            wrap = wrap->setAttribute(ctx, lenK, ctx->fromInteger(1LL));
+            const proto::ProtoString* pdlk = JSSymbols::pdLength(ctx);
+            if (pdlk) wrap = wrap->setAttribute(ctx, pdlk, ctx->fromInteger(0x2LL));
+        }
+        const proto::ProtoString* nmK = JSSymbols::name(ctx);
+        if (nmK) {
+            wrap = wrap->setAttribute(ctx, nmK, ctx->fromUTF8String(""));
+            const proto::ProtoString* pdnk = JSSymbols::pdName(ctx);
+            if (pdnk) wrap = wrap->setAttribute(ctx, pdnk, ctx->fromInteger(0x2LL));
+        }
+        const proto::ProtoString* hnwK = JSSymbols::hasNonWritableProps(ctx);
+        if (hnwK) wrap = wrap->setAttribute(ctx, hnwK, PROTO_TRUE);
+        return wrap;
+    };
+    const proto::ProtoObject* resolveFn = wrapResolverFn(promiseResolveNative);
+    const proto::ProtoObject* rejectFn  = wrapResolverFn(promiseRejectNative);
 
     // Call executor(resolve, reject) synchronously.
     if (executor && executor != PROTO_NONE) {
