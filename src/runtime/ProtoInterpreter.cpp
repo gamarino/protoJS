@@ -14155,6 +14155,46 @@ const proto::ProtoObject* runBytecode(proto::ProtoContext* pContext,
                         for (uint32_t i = 0; i <= argc; i++) stackPop(pContext);
                         const proto::ProtoObject* res = callJSFunction(pContext, target, bThis ? bThis : PROTO_NONE, merged);
                         REFRESH_INTERP_STATE();
+                        // Bound-function dispatch swallowed callee
+                        // exceptions pre-fix: t_hasCallException was
+                        // never lifted to pending_exception, so
+                        // baz() { return boundFoo(); } continued past
+                        // the call expression with `res = undefined`
+                        // and the throw surfaced as a top-level
+                        // "Exception in eval" after baz returned —
+                        // breaking every try/catch wrapping a bound
+                        // call (built-ins/Function/prototype/bind/
+                        // S15.3.4.5_A1 / A2 and apply / call tests
+                        // that probe `bar.caller`).  Tail-call leaves
+                        // t_hasCallException set so the outer
+                        // runBytecode → callJSFunction loop sees it;
+                        // non-tail paths lift it to pending_exception
+                        // so the local handle_exception_label fires.
+                        if (t_hasCallException) {
+                            if (is_tail_call) {
+                                // Tail-return path: propagate via
+                                // *outException so the calling
+                                // runBytecode loop sees a non-null
+                                // childEx and lifts it to its own
+                                // pending_exception.  Leaving the
+                                // exception in t_hasCallException
+                                // would survive only if every
+                                // intermediate frame happened to
+                                // read it before clearing — fragile
+                                // and broken when a non-tail OP_call
+                                // sits between us and the catch.
+                                if (outException) *outException = t_callException;
+                                t_hasCallException = false;
+                                t_callException    = nullptr;
+                                return PROTO_NONE;
+                            }
+                            pending_exception     = t_callException;
+                            has_pending_exception = true;
+                            t_hasCallException    = false;
+                            t_callException       = nullptr;
+                            stackPush(pContext, PROTO_NONE);
+                            DISPATCH();
+                        }
                         if (is_tail_call) return res;
                         stackPush(pContext, res);
                     } else {
