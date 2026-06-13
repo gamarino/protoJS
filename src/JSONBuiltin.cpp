@@ -1442,6 +1442,21 @@ static const proto::ProtoObject* jsonRawJSON(proto::ProtoContext* ctx,
         return PROTO_NONE;
     }
     const proto::ProtoObject* v = args->getAt(ctx, 0);
+    // §25.5.2.5 step 1: ToString(text) — Symbol primitives throw
+    // TypeError per §7.1.17 ToString step 2 BEFORE the SyntaxError
+    // checks for invalid JSON shape. Pre-fix jsonRawJSON walked the
+    // primitive-type cascade and dropped Symbols into the final
+    // "unsupported value" SyntaxError branch (built-ins/JSON/rawJSON/
+    // invalid-JSON-text.js expected TypeError on Symbol).
+    {
+        const proto::ProtoString* symMk = JSSymbols::isSymbol(ctx);
+        if (symMk && v && v != PROTO_NONE
+            && v->getAttribute(ctx, symMk, true) == PROTO_TRUE) {
+            signalNativeException(makeNativeError(ctx, "TypeError",
+                "Cannot convert a Symbol value to a string"));
+            return PROTO_NONE;
+        }
+    }
     // ToString first (spec accepts coercible primitives).
     std::string text;
     if (!v || v == PROTO_NONE || v == getUndefinedSentinel()) {
@@ -1485,6 +1500,27 @@ static const proto::ProtoObject* jsonRawJSON(proto::ProtoContext* ctx,
         signalNativeException(makeNativeError(ctx, "SyntaxError",
             "JSON.rawJSON: unsupported value"));
         return PROTO_NONE;
+    }
+    // §25.5.2.5 step 2: SyntaxError on empty string OR when the first
+    // or last code unit is U+0009 (TAB), U+000A (LF), U+000D (CR), or
+    // U+0020 (SPACE).  Pre-fix these slipped through to JSON.parse
+    // which is permissive about leading / trailing whitespace, so
+    // JSON.rawJSON(" 123") silently succeeded
+    // (built-ins/JSON/rawJSON/illegal-empty-and-start-end-chars.js).
+    if (text.empty()) {
+        signalNativeException(makeNativeError(ctx, "SyntaxError",
+            "JSON.rawJSON: text is empty string"));
+        return PROTO_NONE;
+    }
+    {
+        auto isJSONWS = [](char c) -> bool {
+            return c == '\t' || c == '\n' || c == '\r' || c == ' ';
+        };
+        if (isJSONWS(text.front()) || isJSONWS(text.back())) {
+            signalNativeException(makeNativeError(ctx, "SyntaxError",
+                "JSON.rawJSON: text has leading or trailing whitespace"));
+            return PROTO_NONE;
+        }
     }
     // Validate text via the existing JSON.parse; throw SyntaxError if it
     // refuses (matches the spec's parse-then-emit gate).
