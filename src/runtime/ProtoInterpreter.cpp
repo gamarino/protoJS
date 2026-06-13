@@ -5152,6 +5152,15 @@ const proto::ProtoObject* runBytecode(proto::ProtoContext* pContext,
                                 const proto::ProtoString* pdk = pdo ? pdo->asString(pContext) : nullptr;
                                 if (pdk) symProto = symProto->setAttribute(pContext, pdk,
                                     pContext->fromInteger(0x2LL));
+                                // Hot-path hint: without
+                                // __has_nonwritable_props__ the descriptor
+                                // sidecar's writable:false bit was ignored
+                                // and `Symbol.prototype[@@toStringTag] = X`
+                                // silently mutated the slot (built-ins/
+                                // Symbol/prototype/Symbol.toStringTag.js and
+                                // Symbol.toPrimitive/prop-desc.js).
+                                const proto::ProtoString* hnwK = JSSymbols::hasNonWritableProps(pContext);
+                                if (hnwK) symProto = symProto->setAttribute(pContext, hnwK, PROTO_TRUE);
                             }
                             // §20.4.3.2 get Symbol.prototype.description —
                             // return this.__symbol_desc__.  Install as
