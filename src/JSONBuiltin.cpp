@@ -547,6 +547,16 @@ void stringifyRecursive(proto::ProtoContext* ctx,
                     } else if (key.size() > 7 && key.compare(0, 6, "__set_") == 0
                         && key.compare(key.size() - 2, 2, "__") == 0) {
                         pushKey(key.substr(6, key.size() - 8));
+                    } else if (key.size() >= 6 && key.compare(0, 6, "@@sym#") == 0) {
+                        // §25.5.2 SerializeJSONObject step 5.a iterates
+                        // OWN string-keyed properties; Symbol-keyed
+                        // entries are not visited.  protoJS encodes
+                        // Symbol-keyed properties under the canonical
+                        // "@@sym#<addr>" attribute name (R50 storage
+                        // shape).  Pre-fix the key passed the leading
+                        // underscore filter and JSON.stringify({[s]:1})
+                        // emitted the raw '@@sym#0x...' (built-ins/
+                        // JSON/stringify/value-symbol.js).
                     } else if (key[0] != '_') {
                         pushKey(key);
                     }
