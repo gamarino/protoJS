@@ -1234,6 +1234,20 @@ const proto::ProtoObject* JSONBuiltin::parse(proto::ProtoContext* ctx,
     std::string text = "undefined";
     if (args && args->getSize(ctx) > 0) {
         const proto::ProtoObject* textObj = args->getAt(ctx, 0);
+        // §25.5.1 step 1 → §7.1.17 ToString: a Symbol primitive
+        // raises TypeError BEFORE the JSON parse runs.  Pre-fix the
+        // Symbol cascaded through the object-toString fallback and
+        // surfaced as a SyntaxError on the parser side (built-ins/
+        // JSON/parse/text-non-string-primitive.js).
+        {
+            const proto::ProtoString* symMk = JSSymbols::isSymbol(ctx);
+            if (symMk && textObj && textObj != PROTO_NONE
+                && textObj->getAttribute(ctx, symMk, true) == PROTO_TRUE) {
+                signalNativeException(makeNativeError(ctx, "TypeError",
+                    "Cannot convert a Symbol value to a string"));
+                return PROTO_NONE;
+            }
+        }
         if (!textObj || textObj == PROTO_NONE || textObj == getUndefinedSentinel()) {
             text = "undefined";
         } else if (textObj == getNullSentinel()) {
