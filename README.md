@@ -387,6 +387,105 @@ For official ECMAScript compliance status and roadmap, see **[docs/TEST262_STATU
 
 ### Test262 Conformance
 
+**Round 51 — 2026-06-13** (38 commits across three concentric passes —
+Object→Function→Symbol cluster, then a 20-commit "most-efficient
+failures across families" sweep) — picks up where R50 left off, with
+targeted fixes for spec-corner cases in OrdinarySet / String wrap /
+Symbol primitive identity / Error.isError / Promise capability shape
+/ Symbol-keyed JSON / Date toPrimitive accessor / Array length
+accessor / and a handful of others.  Net gains across the 15-family
+table (R50's 10 plus +5):
+  - **Object** 3 363 → 3 385 (+22, +0.65 pp)  *— Proxy invariant for
+    Symbol-keyed `ownKeys` results; ordered ascending array indices in
+    `collectOwnKeys` with cross-store deduplication against sparse
+    attrs; `Object.keys` on a proxy with no `ownKeys` trap still
+    dispatches per-key `gOPD` through the outer proxy*
+  - **Function** 425 → 437 (+12, +2.36 pp)  *— `Array.call` /
+    `Array.bind` via `callJSFunction`; `fnHasInstance` accessor probe
+    + Proxy `getPrototypeOf` chain walk + Symbol prototype rejection;
+    bound-function exception propagation lifts `t_hasCallException`
+    into both the non-tail `pending_exception` AND the tail
+    `*outException`; `Function.prototype` as callable no-op (typeof
+    "function", call returns undefined); `__native_fn__` unwrap
+    scoped to own-attribute to keep the no-op from hijacking bound
+    descendants; `String(arg)` ToString abrupt completion propagates*
+  - **Symbol** 72 → 78 (+6, +6.12 pp)  *— `OP_get_array_el` /
+    `OP_get_array_el2` fall back to `Symbol.prototype` for Symbol-typed
+    receivers; `Symbol.prototype.{description,toString,valueOf,@@toPrimitive}`
+    accept well-known `"Symbol.X"` ProtoStrings; `Symbol.prototype`
+    gets `__has_nonwritable_props__` so the writable:false descriptor
+    sidecars are enforced; `Object(wellKnownSymbol)` boxes via
+    Symbol.prototype rather than String.prototype*
+  - **Error** 46 → 50 (+4, +6.90 pp)  *— `__error_data__` marker on
+    every genuine Error instance (makeError + OP_call_constructor
+    errCtor branch + per-ctor stub for SuppressedError) so
+    Error.isError differentiates instances from constructors, from
+    Error.prototype itself, and from `{__proto__: Error.prototype}`
+    fakes; the `isCtor==PROTO_TRUE` arm in OP_call_constructor now
+    fires __native_fn__ when present so per-ctor post-init hooks run*
+  - **Map** 200 → 203 (+3, +1.47 pp)  *— `Map.groupBy` uses
+    @@iterator + string-codepoint iteration before array-like
+    fallback; `Map.prototype.getOrInsertComputed` overwrites the
+    entry the callback inserted under the same key*
+  - **Set** 378 → 380 (+2)  *— `isDisjointFrom` / `isSubsetOf`
+    iterate over a snapshot of receiver keys so an evil set-like's
+    has() mutating the receiver mid-iteration doesn't divert the
+    walk*
+  - **JSON** 124 → 128 (+4, +2.42 pp)  *— `JSON.rawJSON` raises
+    TypeError on Symbol BEFORE the SyntaxError shape check, and
+    rejects empty / leading-or-trailing-whitespace text; `JSON.parse`
+    raises TypeError on Symbol text; `JSON.stringify` skips
+    Symbol-keyed `@@sym#` entries during object serialisation*
+  - **Date** 570 → 575 (+5, +0.84 pp)  *— Date constructor rejects
+    Symbol primitives via `@@toPrimitive`, propagates accessor
+    abrupts from `__get_Symbol.toPrimitive__`;
+    `Date.prototype[@@toPrimitive]` gets `__has_nonwritable_props__`*
+  - **Array** 2 900 → 2 908 (+8)  *— `Array.prototype.lastIndexOf`
+    uses UTF-16 code-unit count for primitive string receivers AND
+    fires the `__get_length__` accessor before falling back to the
+    data slot (catches inherited / own accessor length)*
+  - **String** 1 144 → 1 148 (+4)  *— `RegExp(undefined)` produces
+    the empty-match regex (not source "undefined"); `RegExp()`
+    plain-call path added to OP_call (regexpCtor marker check);
+    `String.prototype.match` empty-pattern fallback stamps `.index`
+    and `.input` on the result array per §22.2.7.3*
+  - **Promise** 334 → 339 (+5)  *— `new Promise` executor receives
+    resolve/reject functions with spec-shaped length=1 + name=""
+    descriptors (wrapped on Function.prototype with the §17
+    {writable:false, enumerable:false, configurable:true} sidecars)*
+
+Zero cross-family regressions; the small areas (Number / Boolean /
+Math / Reflect / WeakMap / WeakSet) held their positions across all
+38 commits.  Remaining fails are dominated by architectural blockers
+documented in `docs/TEST262_STATUS.md`: insertion-order tracking for
+attribute storage, `eval()` real execution, `$262` cross-realm harness,
+generator / async source-text preservation for `Function.prototype.toString`,
+and resizable ArrayBuffer / SuppressedError full subclass plumbing.
+
+15-family roll-up (alphabetical):
+
+| Family | This run | R50 baseline | Δ |
+|--------|---------:|-------------:|--:|
+| `built-ins/Array` | **2 908 / 3 081** (94.4 %) | 2 895 / 3 081 (94.0 %) | **+13** |
+| `built-ins/Boolean` | 50 / 51 (98.0 %) | 50 / 51 | 0 |
+| `built-ins/Date` | **575 / 594** (96.8 %) | 570 / 594 (96.0 %) | **+5** |
+| `built-ins/Error` | **50 / 58** (86.2 %) | 46 / 58 (79.3 %) | **+4** (+6.90 pp) |
+| `built-ins/Function` | **437 / 509** (85.9 %) | 425 / 509 (83.5 %) | **+12** (+2.36 pp) |
+| `built-ins/JSON` | **128 / 165** (77.6 %) | 124 / 165 (75.2 %) | **+4** (+2.42 pp) |
+| `built-ins/Map` | **203 / 204** (99.5 %) | 200 / 204 (98.0 %) | **+3** |
+| `built-ins/Math` | 323 / 327 (98.8 %) | 323 / 327 | 0 |
+| `built-ins/Number` | 337 / 338 (99.7 %) | 337 / 338 | 0 |
+| `built-ins/Object` | **3 385 / 3 411** (99.2 %) | 3 363 / 3 411 (98.6 %) | **+22** (+0.65 pp) |
+| `built-ins/Promise` | **339 / 652** (52.0 %) | 334 / 652 (51.2 %) | **+5** |
+| `built-ins/Proxy` | 249 / 311 (80.1 %) | 249 / 311 | 0 |
+| `built-ins/Reflect` | 149 / 153 (97.4 %) | 149 / 153 | 0 |
+| `built-ins/Set` | **380 / 383** (99.2 %) | 378 / 383 (98.7 %) | **+2** |
+| `built-ins/String` | **1 148 / 1 223** (93.9 %) | 1 144 / 1 223 (93.5 %) | **+4** |
+| `built-ins/Symbol` | **78 / 98** (79.6 %) | 72 / 98 (73.5 %) | **+6** (+6.12 pp) |
+| `built-ins/WeakMap` | 140 / 141 (99.3 %) | 140 / 141 | 0 |
+| `built-ins/WeakSet` | 44 / 85 (51.8 %) | 44 / 85 | 0 |
+| **TOTAL** | **10 923 / 11 784** (**92.69 %**) | 10 838 / 11 784 (91.97 %) | **+85** (+0.72 pp) |
+
 **Round 50 — 2026-06-12** (20 commits, autonomous follow-up to R49) —
 Symbol-keyed property storage (R50's headline feature), Proxy
 integrity-level dispatch (Object.seal / freeze fire the defineProperty
