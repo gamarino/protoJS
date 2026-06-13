@@ -841,25 +841,132 @@ static const proto::ProtoObject* mapGroupBy(
         setMapSizeInPlace(ctx, result, 0L);
     }
 
-    // Iterate the iterable using array-like length+index protocol.
+    // Build the iteration list.  §24.1.2.1 + §7.4.2 GetIteratorFromMethod:
+    // honour @@iterator first, then fall back to string codepoint
+    // iteration, then array-like length+index.  Pre-fix Map.groupBy only
+    // walked the length+index path, so strings indexed UTF-16 code
+    // units (splitting 4-byte emojis into surrogate halves) and any
+    // user-defined iterable that wasn't array-like fell through to
+    // an empty Map (built-ins/Map/groupBy/{string, iterator-next-throws}).
     if (iterable == PROTO_NONE) return result;
-    const proto::ProtoString* lenKs = JSSymbols::length(ctx);
-    if (!lenKs) return result;
-    const proto::ProtoObject* lenObj = iterable->getAttribute(ctx, lenKs, true);
-    if (!lenObj || lenObj == PROTO_NONE || !lenObj->isInteger(ctx)) return result;
-    long len = lenObj->asLong(ctx);
 
-    for (long i = 0; i < len; i++) {
-        // Real arrays keep data in __elements__; legacy plain-objects
-        // use indexed string attributes. Probe both. Pre-fix the
-        // getAttribute-only path always failed on real arrays and
-        // groupBy collected three nulls per group.
-        const proto::ProtoObject* elem =
-            arrayTryFastGet(ctx, iterable, static_cast<unsigned long>(i));
-        if (!elem) {
-            const proto::ProtoString* ik = JSSymbols::indexKey(ctx, static_cast<uint32_t>(i));
-            elem = ik ? iterable->getAttribute(ctx, ik, true) : nullptr;
+    const proto::ProtoList* items = nullptr;
+    bool isCallableFn = [&](const proto::ProtoObject* fn) -> bool {
+        if (!fn || fn == PROTO_NONE
+            || fn == getUndefinedSentinel() || fn == getNullSentinel())
+            return false;
+        if (fn->isMethod(ctx)) return true;
+        const proto::ProtoString* bcK = JSSymbols::bytecodeId(ctx);
+        if (bcK && fn->hasAttribute(ctx, bcK) == PROTO_TRUE) return true;
+        const proto::ProtoString* nfK = JSSymbols::nativeFn(ctx);
+        if (nfK && fn->hasAttribute(ctx, nfK) == PROTO_TRUE) return true;
+        const proto::ProtoString* bfK = JSSymbols::boundFn(ctx);
+        if (bfK && fn->hasAttribute(ctx, bfK) == PROTO_TRUE) return true;
+        return false;
+    }(nullptr);
+    (void)isCallableFn; // silence unused
+    auto isCallable = [&](const proto::ProtoObject* fn) -> bool {
+        if (!fn || fn == PROTO_NONE
+            || fn == getUndefinedSentinel() || fn == getNullSentinel())
+            return false;
+        if (fn->isMethod(ctx)) return true;
+        const proto::ProtoString* bcK = JSSymbols::bytecodeId(ctx);
+        if (bcK && fn->hasAttribute(ctx, bcK) == PROTO_TRUE) return true;
+        const proto::ProtoString* nfK = JSSymbols::nativeFn(ctx);
+        if (nfK && fn->hasAttribute(ctx, nfK) == PROTO_TRUE) return true;
+        const proto::ProtoString* bfK = JSSymbols::boundFn(ctx);
+        if (bfK && fn->hasAttribute(ctx, bfK) == PROTO_TRUE) return true;
+        return false;
+    };
+
+    // 1. @@iterator protocol (covers Sets, Maps, user iterators, and
+    //    explicit String iteration via String.prototype[@@iterator]).
+    {
+        const proto::ProtoString* itK = JSSymbols::symbolIterator(ctx);
+        const proto::ProtoObject* itFn = itK
+            ? iterable->getAttribute(ctx, itK, true) : nullptr;
+        if (isCallable(itFn)) {
+            const proto::ProtoObject* iterObj =
+                callJSFunction(ctx, itFn, iterable, ctx->newList());
+            if (hasCallException()) return PROTO_NONE;
+            if (iterObj && iterObj != PROTO_NONE) {
+                const proto::ProtoString* nextK =
+                    ctx->fromUTF8String("next")
+                        ? ctx->fromUTF8String("next")->asString(ctx) : nullptr;
+                const proto::ProtoString* doneK =
+                    ctx->fromUTF8String("done")
+                        ? ctx->fromUTF8String("done")->asString(ctx) : nullptr;
+                const proto::ProtoString* valueK =
+                    ctx->fromUTF8String("value")
+                        ? ctx->fromUTF8String("value")->asString(ctx) : nullptr;
+                const proto::ProtoList* built = ctx->newList();
+                int guard = 0x100000;
+                while (guard-- > 0) {
+                    const proto::ProtoObject* nextFn = nextK
+                        ? iterObj->getAttribute(ctx, nextK, true) : nullptr;
+                    if (!isCallable(nextFn)) {
+                        signalNativeException(makeNativeError(ctx, "TypeError",
+                            "Map.groupBy: iterator next is not callable"));
+                        return PROTO_NONE;
+                    }
+                    const proto::ProtoObject* step =
+                        callJSFunction(ctx, nextFn, iterObj, ctx->newList());
+                    if (hasCallException()) return PROTO_NONE;
+                    if (!step || step == PROTO_NONE) break;
+                    const proto::ProtoObject* doneVal = doneK
+                        ? step->getAttribute(ctx, doneK, true) : nullptr;
+                    bool done = doneVal == PROTO_TRUE
+                        || (doneVal && doneVal->isBoolean(ctx)
+                            && doneVal->asBoolean(ctx));
+                    if (done) break;
+                    const proto::ProtoObject* val = valueK
+                        ? step->getAttribute(ctx, valueK, true) : nullptr;
+                    built = built->appendLast(ctx, val ? val : PROTO_NONE);
+                }
+                items = built;
+            }
         }
+    }
+
+    // 2. String iteration by codepoint when no @@iterator surfaced.
+    if (!items && iterable->isString(ctx)) {
+        std::string s;
+        iterable->asString(ctx)->toUTF8String(ctx, s);
+        const proto::ProtoList* built = ctx->newList();
+        for (size_t i = 0; i < s.size(); ) {
+            unsigned char c = static_cast<unsigned char>(s[i]);
+            size_t cl = (c < 0x80) ? 1 : (c < 0xE0) ? 2 : (c < 0xF0) ? 3 : 4;
+            if (i + cl > s.size()) break;
+            std::string ch = s.substr(i, cl);
+            built = built->appendLast(ctx, ctx->fromUTF8String(ch.c_str()));
+            i += cl;
+        }
+        items = built;
+    }
+
+    // 3. Array-like length+index fallback (legacy plain-object iterables).
+    if (!items) {
+        const proto::ProtoString* lenKs = JSSymbols::length(ctx);
+        if (!lenKs) return result;
+        const proto::ProtoObject* lenObj = iterable->getAttribute(ctx, lenKs, true);
+        if (!lenObj || lenObj == PROTO_NONE || !lenObj->isInteger(ctx)) return result;
+        long len = lenObj->asLong(ctx);
+        const proto::ProtoList* built = ctx->newList();
+        for (long i = 0; i < len; i++) {
+            const proto::ProtoObject* elem =
+                arrayTryFastGet(ctx, iterable, static_cast<unsigned long>(i));
+            if (!elem) {
+                const proto::ProtoString* ik = JSSymbols::indexKey(ctx, static_cast<uint32_t>(i));
+                elem = ik ? iterable->getAttribute(ctx, ik, true) : nullptr;
+            }
+            built = built->appendLast(ctx, elem ? elem : PROTO_NONE);
+        }
+        items = built;
+    }
+
+    long len = items ? static_cast<long>(items->getSize(ctx)) : 0;
+    for (long i = 0; i < len; i++) {
+        const proto::ProtoObject* elem = items->getAt(ctx, static_cast<int>(i));
         if (!elem) elem = PROTO_NONE;
 
         // Call keyFn(element, index).
