@@ -2317,8 +2317,29 @@ static const proto::ProtoObject* arrayLastIndexOf(
         }
     } else {
         const proto::ProtoString* lenK = JSSymbols::length(ctx);
-        const proto::ProtoObject* lenV = lenK
-            ? self->getAttribute(ctx, lenK, true) : nullptr;
+        // §7.3.2 Get fires accessor getters; pre-fix lastIndexOf used
+        // a plain getAttribute("length") which reads the empty data
+        // slot under an accessor descriptor — so
+        // `Object.defineProperty(obj, "length", {get: () => 2})` was
+        // treated as len=0 and lastIndexOf returned -1
+        // (built-ins/Array/prototype/lastIndexOf/15.4.4.15-2-7.js +
+        // family).  Probe the __get_length__ sidecar first.
+        const proto::ProtoObject* lenV = nullptr;
+        {
+            const proto::ProtoObject* gko =
+                ctx->fromUTF8String("__get_length__");
+            const proto::ProtoString* gks = gko ? gko->asString(ctx) : nullptr;
+            if (gks) {
+                const proto::ProtoObject* getter =
+                    self->getAttribute(ctx, gks, true);
+                if (getter && getter != PROTO_NONE) {
+                    lenV = callJSFunction(ctx, getter, self, ctx->newList());
+                    if (hasCallException()) return PROTO_NONE;
+                }
+            }
+        }
+        if (!lenV || lenV == PROTO_NONE)
+            lenV = lenK ? self->getAttribute(ctx, lenK, true) : nullptr;
         if (lenV && lenV != PROTO_NONE) {
             double d = 0.0;
             bool gotNum = false;
