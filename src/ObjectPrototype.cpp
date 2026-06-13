@@ -481,17 +481,55 @@ static const proto::ProtoObject* objectKeys(
             if (isArrKey2) result = result->setAttribute(ctx, isArrKey2, PROTO_TRUE);
             return result;
         }
-        // No ownKeys trap → fall through to default own-attr walk
-        // on the unwrapped concrete target. Loop until we leave the
-        // proxy chain; a single unwrap is not enough when the
-        // immediate target is itself a Proxy (test262
-        // Proxy/ownKeys/trap-is-null-target-is-proxy.js).
-        int guard = 16;
-        while (guard-- > 0 && protojs::isProxy(ctx, obj)) {
-            const proto::ProtoObject* next = protojs::proxyTarget(ctx, obj);
-            if (!next || next == obj) break;
-            obj = next;
+        // No ownKeys trap → §10.5.11 step 7 falls back to
+        // target.[[OwnPropertyKeys]](), but the per-key
+        // [[GetOwnProperty]] iteration that EnumerableOwnPropertyNames
+        // performs in step 4 STILL goes through the outer proxy's gOPD
+        // trap.  Pre-fix this branch unwrapped the proxy and read
+        // descriptors directly off the concrete target, swallowing the
+        // gOPD-trap observable accesses (built-ins/Object/keys/
+        // property-traps-order-with-proxied-array.js expected
+        // [ownKeys, getOwnPropertyDescriptor]; we only logged the first
+        // because proxyDispatchOwnKeys raised the get(handler,'ownKeys')
+        // probe but the subsequent per-key dispatch missed the proxy).
+        const proto::ProtoObject* outerProxy = obj;
+        const proto::ProtoObject* unwrapped = obj;
+        {
+            int guard = 16;
+            while (guard-- > 0 && protojs::isProxy(ctx, unwrapped)) {
+                const proto::ProtoObject* next = protojs::proxyTarget(ctx, unwrapped);
+                if (!next || next == unwrapped) break;
+                unwrapped = next;
+            }
         }
+        std::vector<std::string> targetKeys;
+        collectOwnKeys(ctx, unwrapped, targetKeys, nullptr, /*includeNonEnumerable=*/true);
+        const proto::ProtoObject* result = createNewArray(ctx, nullptr);
+        const proto::ProtoString* lenKey = JSSymbols::length(ctx);
+        const proto::ProtoString* isArrKey2 = JSSymbols::isArray(ctx);
+        const proto::ProtoList* elsList = ctx->newList();
+        unsigned long count = 0;
+        for (const std::string& ks : targetKeys) {
+            const proto::ProtoObject* ko = ctx->fromUTF8String(ks.c_str());
+            const proto::ProtoString* kStr = ko ? ko->asString(ctx) : nullptr;
+            if (!kStr) continue;
+            const proto::ProtoObject* desc =
+                protojs::proxyDispatchGetOwnPropertyDescriptor(ctx, outerProxy, kStr);
+            if (hasCallException()) return PROTO_NONE;
+            if (!desc || desc == PROTO_NONE) continue;
+            const proto::ProtoObject* eko = ctx->fromUTF8String("enumerable");
+            const proto::ProtoString* eks = eko ? eko->asString(ctx) : nullptr;
+            if (eks) {
+                const proto::ProtoObject* ev = desc->getAttribute(ctx, eks, false);
+                if (ev != PROTO_TRUE) continue;
+            }
+            elsList = elsList->appendLast(ctx, ko);
+            count++;
+        }
+        setArrayElements(ctx, result, elsList);
+        if (lenKey) result = result->setAttribute(ctx, lenKey, ctx->fromInteger(count));
+        if (isArrKey2) result = result->setAttribute(ctx, isArrKey2, PROTO_TRUE);
+        return result;
     }
 
     std::vector<std::string> keys;
