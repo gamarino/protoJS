@@ -3688,28 +3688,15 @@ static const proto::ProtoObject* errorIsError(
         return PROTO_FALSE;
     if (v == getNullSentinel() || v == getUndefinedSentinel())
         return PROTO_FALSE;
-    // Walk parent chain looking for an entry whose `name` matches a
-    // known Error type — this matches the spec's "has an Error internal
-    // slot" check via the prototype chain that all Error.* constructors
-    // share.
-    const proto::ProtoString* nameKey = JSSymbols::name(context);
-    if (!nameKey) return PROTO_FALSE;
-    static const char* kErrorNames[] = {
-        "Error", "EvalError", "RangeError", "ReferenceError",
-        "SyntaxError", "TypeError", "URIError", "AggregateError", nullptr
-    };
-    const proto::ProtoObject* cur = v;
-    for (int depth = 0; cur && cur != PROTO_NONE && depth < 100; ++depth) {
-        const proto::ProtoObject* nv = cur->getAttribute(context, nameKey, false);
-        if (nv && nv != PROTO_NONE && nv->isString(context)) {
-            std::string nameStr;
-            nv->asString(context)->toUTF8String(context, nameStr);
-            for (int i = 0; kErrorNames[i]; ++i) {
-                if (nameStr == kErrorNames[i]) return PROTO_TRUE;
-            }
-        }
-        cur = cur->getFirstParent(context);
-    }
+    // §20.5.2.1 step 3: return true iff v has the [[ErrorData]] internal
+    // slot.  Probe the __error_data__ marker stamped by makeError /
+    // OP_call_constructor errCtor branch on every genuine Error
+    // instance.  Use hasOwnAttribute (not hasAttribute) so a fake
+    // `{__proto__: Error.prototype}` does not see an inherited marker.
+    const proto::ProtoObject* edk = context->fromUTF8String("__error_data__");
+    const proto::ProtoString* edK = edk ? edk->asString(context) : nullptr;
+    if (edK && v->hasOwnAttribute(context, edK) == PROTO_TRUE)
+        return PROTO_TRUE;
     return PROTO_FALSE;
 }
 
@@ -4068,6 +4055,17 @@ static const proto::ProtoObject* makeError(proto::ProtoContext* ctx,
         err = err->setAttribute(ctx, msgKey, ctx->fromUTF8String(message));
         const proto::ProtoString* pdk = JSSymbols::pdMessage(ctx);
         if (pdk && err) err = err->setAttribute(ctx, pdk, ctx->fromInteger(0x3LL));
+    }
+    // §20.5.6.1 [[ErrorData]] internal slot — stamp __error_data__ so
+    // Error.isError can distinguish genuine instances.  Pre-fix
+    // errorIsError walked the prototype chain looking for a name match,
+    // which falsely returned true for the Error constructor itself,
+    // for Error.prototype, and for any object pretending to inherit
+    // (`{__proto__: Error.prototype}` with a `name` slot).
+    if (err) {
+        const proto::ProtoObject* edk = ctx->fromUTF8String("__error_data__");
+        const proto::ProtoString* edK = edk ? edk->asString(ctx) : nullptr;
+        if (edK) err = err->setAttribute(ctx, edK, PROTO_TRUE);
     }
     (void)name; // name flows through the prototype chain only.
     return err ? err : PROTO_NONE;
@@ -4804,7 +4802,30 @@ const proto::ProtoObject* runBytecode(proto::ProtoContext* pContext,
                     if (pdk) stub = stub->setAttribute(pContext, pdk, pContext->fromInteger(0x0LL));
                 }
                 if (nfKey3) {
-                    const proto::ProtoObject* rawM = pContext->fromMethod(nullptr, unimplementedCtorStub);
+                    // SuppressedError extends Error per §27.4: instances
+                    // must carry the [[ErrorData]] internal slot so
+                    // Error.isError(new SuppressedError()) === true.
+                    // The shared unimplementedCtorStub does not know
+                    // its host ctor, so install a SuppressedError-
+                    // specific stub that stamps __error_data__ on the
+                    // self/new-instance argument.
+                    static const proto::ProtoMethod suppressedErrorStub = [](
+                        proto::ProtoContext* sctx,
+                        const proto::ProtoObject* sself,
+                        const proto::ParentLink*,
+                        const proto::ProtoList*,
+                        const proto::ProtoSparseList*) -> const proto::ProtoObject* {
+                        if (sctx && sself && sself != PROTO_NONE) {
+                            const proto::ProtoObject* edk = sctx->fromUTF8String("__error_data__");
+                            const proto::ProtoString* edK = edk ? edk->asString(sctx) : nullptr;
+                            if (edK)
+                                return sself->setAttribute(sctx, edK, PROTO_TRUE);
+                        }
+                        return sself;
+                    };
+                    bool isSuppressed = std::string(ctorName) == "SuppressedError";
+                    const proto::ProtoObject* rawM = pContext->fromMethod(nullptr,
+                        isSuppressed ? suppressedErrorStub : unimplementedCtorStub);
                     if (rawM) stub = stub->setAttribute(pContext, nfKey3, rawM);
                 }
                 // §10.3 IsConstructor: built-in constructor stubs must
@@ -6023,13 +6044,6 @@ const proto::ProtoObject* runBytecode(proto::ProtoContext* pContext,
             const proto::ProtoObject* obj,
             const std::string& keyStr) -> const proto::ProtoObject* {
         if (!obj || obj == PROTO_NONE || obj == t_nullSentinel) return PROTO_NONE;
-        // Per-prototype hint: if no accessor descriptor exists anywhere
-        // reachable from obj, skip the __get_<key>__ probe entirely.
-        // The flag is stamped by Object.defineProperty (accessor branch)
-        // and by every native getter install site on built-in prototypes
-        // (Map.prototype.size, Set.prototype.size, etc.).  When the flag
-        // is absent or PROTO_FALSE the slow rope-construction is pure
-        // overhead — plain {} obj[k] reads see this on every access.
         {
             const proto::ProtoString* hapKey = JSSymbols::hasAccessorProps(pContext);
             if (hapKey) {
@@ -7249,6 +7263,16 @@ const proto::ProtoObject* runBytecode(proto::ProtoContext* pContext,
                                     if (pdk && newObj)
                                         newObj = newObj->setAttribute(pContext, pdk, pContext->fromInteger(0x3LL));
                                 }
+                            }
+                            // §20.5.6.1 [[ErrorData]] internal slot — stamp
+                            // __error_data__ so Error.isError(instance) can
+                            // distinguish real instances from fake errors
+                            // (objects with __proto__: Error.prototype) and
+                            // from the Error constructor itself.
+                            {
+                                const proto::ProtoObject* edk = pContext->fromUTF8String("__error_data__");
+                                const proto::ProtoString* edK = edk ? edk->asString(pContext) : nullptr;
+                                if (edK) newObj = newObj->setAttribute(pContext, edK, PROTO_TRUE);
                             }
                             ret = newObj;
                         } else if (reAttr == PROTO_TRUE) {
@@ -13986,9 +14010,41 @@ const proto::ProtoObject* runBytecode(proto::ProtoContext* pContext,
                                 DISPATCH();
                             }
                         } else if (isCtor == PROTO_TRUE) {
-                            // Explicitly marked as constructor (e.g. Array).
-                            // If no specialized logic above matched (Array matches errAttr etc.), just return newObj.
+                            // Explicitly marked as constructor (e.g. Array,
+                            // the stubbed Stage-3/4 ctors).  Pre-fix this
+                            // branch always returned newObj WITHOUT firing
+                            // the stub's __native_fn__, so SuppressedError's
+                            // per-ctor stub never ran and instances missed
+                            // the __error_data__ stamp (Error/isError/
+                            // errors.js).  Probe __native_fn__ once and
+                            // invoke it with newObj as `this` so per-ctor
+                            // post-init logic (currently SuppressedError's
+                            // marker stamp; future error-subtype stubs can
+                            // hook the same path) sees the new instance.
                             result = newObj;
+                            const proto::ProtoString* nfK2 = JSSymbols::nativeFn(pContext);
+                            const proto::ProtoObject* nfM = (nfK2 && func)
+                                ? func->getOwnAttributeDirect(pContext, nfK2) : nullptr;
+                            if (nfM && nfM != PROTO_NONE && nfM->isMethod(pContext)) {
+                                proto::ProtoMethod nfFn = nfM->asMethod(pContext);
+                                if (nfFn) {
+                                    const proto::ProtoObject* nfRes =
+                                        nfFn(pContext, newObj, nullptr, argsList, nullptr);
+                                    if (t_hasCallException) {
+                                        pending_exception = t_callException;
+                                        has_pending_exception = true;
+                                        t_hasCallException = false;
+                                        t_callException = nullptr;
+                                        DISPATCH();
+                                    }
+                                    // If the stub returned an updated
+                                    // snapshot of newObj (mutable
+                                    // setAttribute identity rotation),
+                                    // adopt it; otherwise keep newObj.
+                                    if (nfRes && nfRes != PROTO_NONE)
+                                        result = nfRes;
+                                }
+                            }
                         } else {
                             // Not a constructor! Throw TypeError.
                             pending_exception = makeError(pContext, "TypeError", "function is not a constructor", pGlobalRoot);
