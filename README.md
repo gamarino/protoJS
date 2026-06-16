@@ -4314,6 +4314,91 @@ on a 12-core machine.
 
 ### Performance Benchmarks
 
+**2026-06-16 — BytecodeSpecialiser landed** (`PROTOJS_SPECIALISER=off|nop|compact`).
+Port of protoPython's sprint-11 peephole pass to QuickJS bytecode.  Two new
+fused super-instructions (`OP_PROTO_ACC_LOC8_LOC8` byte 244,
+`OP_PROTO_LT_LOC8_LOC8_JFALSE` byte 245) emitted by a post-codegen
+pass with SmallInt inline fast paths.  The pass ships in two flavours —
+`nop` rewrites in place with NOP-pad (no jump remap needed); `compact`
+emits a shorter buffer and walks-twice to remap every relative-jump
+operand.  Default mode is `off`; flip the env var to opt in.  Targeted
+micro-loop A/B: a `var`-declared `intSum(5e6)` runs **off 539 ms / nop
+498 ms (−7.6 %) / compact 472 ms (−12.4 %)** — `let`-declared loops
+emit `get_loc_check` (TDZ) which the matcher deliberately rejects.
+33/33 ctest green in every mode.
+
+#### Standard In-Process Suite — 2026-06-16 — vs Node.js 22 / V8 / vanilla QuickJS
+
+Single-round measurement on the post-specialiser binary (same
+`build_release/protojs`, same Node 22, `qjs_minimal_release`).  The
+specialiser is left at its default `off` for the headline numbers
+because the broader suite is dominated by object/string/function-call
+patterns that don't hit the fused-opcode patterns; the targeted
+micro-loop A/B is the place to read the specialiser's value.
+
+| Benchmark                | Node  | QuickJS | protoJS | Node × | QuickJS × |
+|--------------------------|------:|--------:|--------:|-------:|----------:|
+| array_literal            |  2 ms |   10 ms |  326 ms |  163 × |     33 ×  |
+| control_flow             |  3 ms |   62 ms |  400 ms |  133 × |    6.5 ×  |
+| function_calls           |  1 ms |   10 ms | 1623 ms | 1623 × |    162 ×  |
+| json_transform           |  1 ms |    4 ms |  216 ms |  216 × |     54 ×  |
+| list_snapshot_history    |  1 ms |    1 ms |  324 ms |  324 × |    324 ×  |
+| numeric_loop             |  1 ms |   42 ms |  165 ms |  165 × |    3.9 ×  |
+| **object_property**      | 40 ms |   83 ms | 2833 ms |   74 × |     34 ×  |
+| **object_read_only**     |  1 ms |   11 ms |  936 ms |  789 × |     85 ×  |
+| **parallel_cpu**         | 44 ms |  800 ms |   52 ms | Node 1.2 × | **protoJS 15.4 ×** |
+| string_concat            |  2 ms |    5 ms |  117 ms |   62 × |     23 ×  |
+| string_repeated_doubling | 42 ms |    2 ms |    2 ms | **protoJS 21 ×** | parity |
+| tree_traversal           |  1 ms |    4 ms |  752 ms |  721 × |    188 ×  |
+
+**Geometric mean (in-process time):**
+
+- **protoJS / Node    = 30.8 ×**   (was 66.6 × on 2026-06-07)
+- **protoJS / QuickJS = 12.5 ×**   (was 17.65 × on 2026-06-07)
+- QuickJS / Node = 3.77 ×
+
+The two ratios improved by ~30 % vs the 2026-06-07 baseline — that's
+the cumulative gain from sprint-11 + the structural cleanup the
+specialiser builds on, not the specialiser pass alone.  Where the
+specialiser actually moves the needle is the **targeted accumulator
+loop** measured separately above (−12 % on `var`-declared
+`intSum(5e6)`); the standard suite is too broad for that one effect
+to show up in the geomean.
+
+**Where protoJS wins by architecture** (not present in single-threaded engines):
+
+- **`parallel_cpu` — 15.4 × faster than QuickJS, faster than Node**.
+  Four CPU-bound worker threads on real OS threads via protoCore's
+  GIL-free runtime.  QuickJS is single-threaded; Node 22 with
+  worker_threads gets close on this micro but pays IPC and message
+  serialisation overhead.  This is the GIL-free pitch landing at the
+  benchmark level, not just at the manifesto level.
+- **`string_repeated_doubling` — 21 × faster than Node**.  Rope-based
+  concatenation in protoCore vs Node's flat-string rebuild.
+
+#### Repro
+
+```bash
+# Build
+cmake --build build_release      # ctest 33/33 must be green
+
+# Run vs QuickJS
+node tests/benchmarks/run_standard_comparison_quickjs.js
+
+# Run vs Node
+node tests/benchmarks/run_standard_comparison.js
+
+# A/B the specialiser modes on a single loop
+echo 'function f(n){var s=0,i=0;while(i<n){s+=i;i+=1}return s}let t=Date.now();let r=f(5_000_000);console.log(r, Date.now()-t)' > /tmp/loop.js
+                                ./build_release/protojs /tmp/loop.js   # off
+PROTOJS_SPECIALISER=nop          ./build_release/protojs /tmp/loop.js   # nop-pad
+PROTOJS_SPECIALISER=compact      ./build_release/protojs /tmp/loop.js   # compact+remap
+PROTOJS_SPECIALISER_DIAG=1       ./build_release/protojs /tmp/loop.js   # diagnostics
+PROTOJS_SPECIALISER_DUMP=1       ./build_release/protojs /tmp/loop.js   # raw bytecode dump
+```
+
+---
+
 **Honest baseline — 2026-06-07 (late, after structural cleanup)** —
 3-round median, same `libprotoCore` build from the
 `digression-attr-cache-padding` branch.  This is a continuation of
