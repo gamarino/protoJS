@@ -4327,48 +4327,86 @@ micro-loop A/B: a `var`-declared `intSum(5e6)` runs **off 539 ms / nop
 emit `get_loc_check` (TDZ) which the matcher deliberately rejects.
 33/33 ctest green in every mode.
 
-#### Standard In-Process Suite — 2026-06-16 — vs Node.js 22 / V8 / vanilla QuickJS
+#### Standard In-Process Suite — 2026-06-16 (late) — vs Node.js 22 / V8 / vanilla QuickJS
 
-Single-round measurement on the post-specialiser binary (same
-`build_release/protojs`, same Node 22, `qjs_minimal_release`).  The
-specialiser is left at its default `off` for the headline numbers
-because the broader suite is dominated by object/string/function-call
-patterns that don't hit the fused-opcode patterns; the targeted
-micro-loop A/B is the place to read the specialiser's value.
+Post-specialiser + post-string-audit binary (same `build_release/protojs`,
+same Node 22.17.0, `qjs_minimal_release`).  Specialiser left at its
+default `off` for the headline geomeans because the broad suite is
+dominated by object/string/function-call patterns that don't hit the
+fused-opcode patterns; the targeted micro-loop A/B (`var`-declared
+`intSum(5e6)`, **−12 %** in `compact` mode) is the place to read the
+specialiser's value.
 
 | Benchmark                | Node  | QuickJS | protoJS | Node × | QuickJS × |
 |--------------------------|------:|--------:|--------:|-------:|----------:|
-| array_literal            |  2 ms |    9 ms |  554 ms |  277 × |     62 ×  |
-| control_flow             |  3 ms |   85 ms |  501 ms |  167 × |    5.9 ×  |
-| **function_calls**       |  1 ms |   17 ms |**574 ms**| 574 ×  | **34 ×** (was 162 ×) |
-| json_transform           |  1 ms |    7 ms |  356 ms |  356 × |     51 ×  |
-| list_snapshot_history    |  1 ms |    2 ms |  504 ms |  504 × |    252 ×  |
-| numeric_loop             |  1 ms |   68 ms |  230 ms |  230 × |    3.4 ×  |
-| **object_property**      | 40 ms |   99 ms | 3330 ms |   83 × |     34 ×  |
-| **object_read_only**     |  1 ms |    7 ms |  925 ms |  925 × |    132 ×  |
-| **parallel_cpu**         | 44 ms | 1007 ms |   52 ms | Node 1.2 × | **protoJS 19.4 ×** |
-| string_concat            |  2 ms |    6 ms |  142 ms |   71 × |     24 ×  |
-| string_repeated_doubling | 42 ms |    2 ms |    2 ms | **protoJS 21 ×** | parity |
-| tree_traversal           |  1 ms |    5 ms |  441 ms |  441 × |     88 ×  |
+| array_literal            |  ~1 ms |    6 ms |  275 ms |  >270 × |    46 × |
+| control_flow             |  ~3 ms |   54 ms |  295 ms |   ~100 ×|   5.5 × |
+| **function_calls**       |    1 ms|   10 ms |  285 ms |   403 × |  **28.5 ×** (was 162 ×) |
+| json_transform           |    1 ms|    4 ms |  199 ms |   307 × |    50 × |
+| json_transform_small     |    0 ms|    1 ms |   19 ms |     —   |    19 × |
+| json_transform_tiny      |    0 ms|    0 ms |   10 ms |     —   |    20 × |
+| list_snapshot_history    |    0 ms|    1 ms |  304 ms |   866 × |   304 × |
+| numeric_loop             |    1 ms|   39 ms |  174 ms |   220 × |   4.5 × |
+| **object_property**      |   41 ms|   84 ms | 2828 ms |    91 × |    34 × |
+| **object_read_only**     |    1 ms|    6 ms |  781 ms |   826 × |   130 × |
+| **parallel_cpu**         |   42 ms|  976 ms |   52 ms | Node 1.2 × | **protoJS 18.8 ×** |
+| string_concat            |    2 ms|    8 ms |  144 ms |    64 × |    18 × |
+| string_insert_middle     |    1 ms|    0 ms |    1 ms |   parity| 2 × |
+| string_processing        |    0 ms|    0 ms |   12 ms |    16 × |   24 × |
+| string_repeated_doubling |   49 ms|    2 ms |    2 ms | **protoJS 24.5 ×** | parity |
+| tree_traversal           |    1 ms|    4 ms |  473 ms |   384 × |   118 × |
 
 **Geometric mean (in-process time):**
 
-- **protoJS / QuickJS = 13.7 ×**   (was 17.65 × on 2026-06-07)
+- **protoJS / QuickJS = 12.79 ×**   (was 17.65 × on 2026-06-07 — `−27 %`)
+- **protoJS / Node    = 34.93 ×**   (was 66.6  × on 2026-06-07 — `−48 %`)
 - QuickJS / Node = 3.77 ×
 
-**Big single-bench win this cycle: `function_calls` 162× → 34×
-(−79 %)** — the dominant outlier on the previous baseline.  L_OP_call's
-class-constructor-without-new check (`__is_class_ctor__` attribute
-probe) was building a fresh ProtoString from the C literal every
-JS-to-JS call.  Each `fromUTF8String("__is_class_ctor__")` walk
-allocated ~98 protoCore cells (rope build) → 1.4 GB RSS / 0.98 s
-sys-time / 348 K page faults on the 200 K-call benchmark.  Fix:
-intern the key through `JSSymbols::isClassCtor`.  Diagnostic recipe
-preserved in memory `feedback_protojs_uninterned_attribute_key_in_hot_path`.
+#### What moved this cycle
 
-  Wall (200K empty calls)   1.78 s  →  0.13 s   (−93 %)
-  System time               0.98 s  →  0.02 s   (−98 %)
-  Maximum RSS               1.4 GB  →  24 MB    (−98 %)
+1. **`function_calls` 162× → 28.5× QuickJS** — the single dominant
+   outlier.  `L_OP_call`'s class-constructor-without-`new` check was
+   building a fresh `ProtoString` from the literal `"__is_class_ctor__"`
+   on every JS-to-JS call.  Each build allocated **~98 protoCore cells**
+   (the rope structure that backs the string) → 1.4 GB RSS / 0.98 s
+   sys-time / 348 K page faults on a 200 K-call benchmark.  Fix
+   (commit `1ff62b95`): intern the key through `JSSymbols::isClassCtor`,
+   bringing the per-call cost from ~98 cells to zero after the first
+   call.
+
+   ```
+   Wall (200K empty calls)   1.78 s  →  0.13 s   (−93 %)
+   System time               0.98 s  →  0.02 s   (−98 %)
+   Maximum RSS               1.4 GB  →  24 MB    (−98 %)
+   ```
+
+2. **String audit (commit `8305218d`)** — codebase sweep of
+   `fromUTF8String("<literal>")` calls.  764 sites across `src/`,
+   114 in `src/runtime/ProtoInterpreter.cpp` alone.  Eight sites in
+   the dispatch loop where a `JSSymbols::` accessor already existed
+   were replaced (defensive cleanup — these did not fire per-call
+   the way `__is_class_ctor__` did, but would have been the next
+   allocation-storm if a future opcode change pulled them onto the
+   hot path).  Top 30 remaining literals documented in the audit
+   memory `project_protojs_string_audit_jun2026.md`; roadmap for
+   the iterator-protocol (`return`), descriptor-field (`enumerable`/
+   `configurable`/`writable`), and Symbol-global cleanups noted there.
+
+3. **Sprint-11 BytecodeSpecialiser (commit `13b2c278`)** — the
+   `nop`/`compact` peephole pass that gave the **−12 %** on the
+   `var`-loop micro.  Default `off`; doesn't move the broad-suite
+   geomean.
+
+#### What protoJS still wins by architecture
+
+- **`parallel_cpu` 18.8× faster than QuickJS, faster than Node.**
+  Four CPU-bound worker threads on real OS threads via protoCore's
+  GIL-free runtime.  QuickJS is single-threaded; Node 22's
+  `worker_threads` get close on this micro but pay IPC and message
+  serialisation overhead.  The GIL-free pitch landing at the
+  benchmark level, not just at the manifesto level.
+- **`string_repeated_doubling` 24.5× faster than Node.**
+  Rope-based concatenation in protoCore vs Node's flat-string rebuild.
 
 The two ratios improved by ~30 % vs the 2026-06-07 baseline — that's
 the cumulative gain from sprint-11 + the structural cleanup the
