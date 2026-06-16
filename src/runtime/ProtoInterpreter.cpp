@@ -5844,6 +5844,26 @@ const proto::ProtoObject* runBytecode(proto::ProtoContext* pContext,
         }
     }
 
+    // Module-scope split: top-level module bindings live in a small child
+    // mutable whose parent is the built-in/stdlib root.  Reads chain-walk
+    // to the parent for built-ins (Math, Array, Object, ...).  Writes only
+    // grow the small module tree (~5 attrs), avoiding the O(log N=200)
+    // AVL path-copy that previously cost ~12 cells per `state = …` write
+    // on a top-level let.  Only the ROOT module triggers the split — nested
+    // bytecode invocations (function bodies) inherit the moduleScope via
+    // pGlobalRoot and must skip re-splitting to avoid O(calls²) work.
+    if (module == t_rootModule && pGlobalRoot && *pGlobalRoot) {
+        static const proto::ProtoString* s_scopedKey =
+            proto::ProtoString::createSymbol(pContext, "__module_scoped__");
+        if (s_scopedKey && (*pGlobalRoot)->hasOwnAttribute(pContext, s_scopedKey) != PROTO_TRUE) {
+            const proto::ProtoObject* moduleScope = (*pGlobalRoot)->newChild(pContext, true);
+            if (moduleScope) {
+                moduleScope = moduleScope->setAttribute(pContext, s_scopedKey, PROTO_TRUE);
+                *pGlobalRoot = moduleScope;
+            }
+        }
+    }
+
     /* Invoke a method stored as a bytecode or native function on thisVal with no arguments.
      * If the method throws, sets pending_exception / has_pending_exception and returns PROTO_NONE.
      * Returns PROTO_NONE (without setting exception) when fn is null or unresolvable. */
