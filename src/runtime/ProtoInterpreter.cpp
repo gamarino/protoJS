@@ -599,36 +599,24 @@ inline void populateClosureCellsFromInstance(proto::ProtoContext* childCtx,
                                               const ProtoBytecodeModule& nf) {
     if (!childCtx || !fnInst || fnInst == PROTO_NONE) return;
     if (nf.closureVarNames.empty()) return;
-    const proto::ProtoString* ccKey = capturedCellsKey(childCtx);
-    if (!ccKey) return;
-    const proto::ProtoObject* cellsAttr = fnInst->getAttribute(childCtx, ccKey, false);
-    const proto::ProtoSparseList* cells = (cellsAttr && cellsAttr != PROTO_NONE)
-        ? cellsAttr->asSparseList(childCtx) : nullptr;
     const unsigned argC = nf.argCount();
     const unsigned varC = nf.varCount();
+    // Chain-walk model: each closure var was published by OP_fclosure on
+    // the outer's frameObj under its source-level name.  The fnInst has
+    // that frameObj as a parent (added in fclosure), so a regular
+    // getAttribute chain walk reaches the cell without a __captured_cells__
+    // sidecar.  The protoCore AttributeCache memoises the lookup, so the
+    // first invocation pays a walk + populates the cache; later
+    // invocations of the same fnInst (e.g. a callback used in a tight
+    // loop) hit it in O(1).
     for (size_t i = 0; i < nf.closureVarNames.size(); ++i) {
-        const proto::ProtoObject* cell = cells
-            ? cells->getAt(childCtx, static_cast<unsigned long>(i)) : nullptr;
-        // FALLBACK via chain walk: when __captured_cells__ has nothing
-        // for this slot (PROTO_NONE) — for example because the inner
-        // fn was constructed BEFORE the outer's local was promoted to
-        // a cell (the closure-read-only bug pattern: QuickJS hoists
-        // function inner before `let x = …`, so fclosure captured a
-        // freshly-allocated cell but the subsequent set_loc_uninitialized
-        // overwrote the slot) — look the name up via the prototype
-        // chain of the function-object itself.  The outer frameObj is a
-        // parent of fnInst (set in fclosure), and any cell we published
-        // there in Fase 3 becomes visible here as a regular chain walk.
-        if (!cell || cell == PROTO_NONE) {
-            const std::string& cvNm = nf.closureVarNames[i];
-            if (!cvNm.empty()) {
-                const proto::ProtoString* nmKey =
-                    proto::ProtoString::createSymbol(childCtx, cvNm.c_str());
-                if (nmKey) {
-                    cell = fnInst->getAttribute(childCtx, nmKey, /*chain*/ true);
-                }
-            }
-        }
+        const std::string& cvNm = nf.closureVarNames[i];
+        if (cvNm.empty()) continue;
+        const proto::ProtoString* nmKey =
+            proto::ProtoString::createSymbol(childCtx, cvNm.c_str());
+        if (!nmKey) continue;
+        const proto::ProtoObject* cell =
+            fnInst->getAttribute(childCtx, nmKey, /*chain*/ true);
         if (!cell || cell == PROTO_NONE) continue;
         setSlot(childCtx, argC + varC + static_cast<unsigned>(i), cell);
     }
@@ -15453,13 +15441,15 @@ const proto::ProtoObject* runBytecode(proto::ProtoContext* pContext,
                                     fnInst = fnInst->setAttribute(pContext, stK, srcVal);
                             }
                         }
-                        // Closure var capture: store cells (or raw values
-                        // for global captures) on the function instance via
-                        // `__captured_cells__`.  See OP_fclosure for the
-                        // detailed semantics — this is the same logic for
-                        // the 8-bit immediate variant.
+                        // Closure var capture (chain-walk model): see
+                        // OP_fclosure for the detailed semantics.  Same
+                        // model here — promote LOCAL/ARG to cell, take
+                        // REF as-is, publish on outer's frameObj under
+                        // the source-level name.  No __captured_cells__
+                        // SparseList — the inner fn reaches each cell via
+                        // its prototype-chain walk through outerFrameObj.
                         if (!nm8.closureVarNames.empty()) {
-                            const proto::ProtoSparseList* cells = pContext->newSparseList();
+                            const proto::ProtoObject* outerFrameForPublish = t_currentFrameObj;
                             for (size_t cvi = 0; cvi < nm8.closureVarNames.size(); ++cvi) {
                                 int cvType = (cvi < nm8.closureVarTypes.size())
                                     ? nm8.closureVarTypes[cvi] : -1;
@@ -15490,13 +15480,18 @@ const proto::ProtoObject* runBytecode(proto::ProtoContext* pContext,
                                 } else {
                                     captured = PROTO_NONE;
                                 }
-                                cells = cells->setAt(pContext, static_cast<unsigned long>(cvi),
-                                                      captured ? captured : PROTO_NONE);
+                                if (outerFrameForPublish && captured && captured != PROTO_NONE &&
+                                    (cvType == 0 || cvType == 1 || cvType == 2)) {
+                                    const std::string& cvNm = nm8.closureVarNames[cvi];
+                                    if (!cvNm.empty()) {
+                                        const proto::ProtoString* nmKey =
+                                            proto::ProtoString::createSymbol(pContext, cvNm.c_str());
+                                        if (nmKey) {
+                                            outerFrameForPublish->setAttribute(pContext, nmKey, captured);
+                                        }
+                                    }
+                                }
                             }
-                            const proto::ProtoString* ccKey = capturedCellsKey(pContext);
-                            if (ccKey)
-                                fnInst = fnInst->setAttribute(pContext, ccKey,
-                                    cells->asObject(pContext));
                         }
                     }
                     stackPush(pContext, fnInst);
@@ -15642,20 +15637,15 @@ const proto::ProtoObject* runBytecode(proto::ProtoContext* pContext,
                                     fnInst2 = fnInst2->setAttribute(pContext, stK, srcVal);
                             }
                         }
-                        // Closure var capture: store cells (or raw values for
-                        // global captures) on the function instance via the
-                        // `__captured_cells__` SparseList.  When fnInst2 is
-                        // later called, runBytecode reads the SparseList and
-                        // populates the callee's closure-var slots with the
-                        // SAME cell pointers — so reads/writes from inside
-                        // the inner function go through the cell shared with
-                        // its capturing scope.
+                        // Closure var capture (chain-walk model): promote
+                        // each LOCAL/ARG to a cell, leave REF cells as-is,
+                        // and publish the cell on the outer's frameObj
+                        // under its source-level name.  The inner fn — now
+                        // a chain-walk child of outer's frameObj via the
+                        // addParent above — finds each cell through
+                        // protoCore's regular getAttribute chain walk,
+                        // replacing the legacy __captured_cells__ sidecar.
                         if (!nm2.closureVarNames.empty()) {
-                            const proto::ProtoSparseList* cells = pContext->newSparseList();
-                            // outerFrameForCapture was materialised above —
-                            // the inner fn already has it as a parent so any
-                            // cell we publish here becomes reachable via the
-                            // chain walk of inner's future frames.
                             const proto::ProtoObject* outerFrameForPublish = t_currentFrameObj;
                             for (size_t cvi2 = 0; cvi2 < nm2.closureVarNames.size(); ++cvi2) {
                                 int cvType2 = (cvi2 < nm2.closureVarTypes.size())
@@ -15722,14 +15712,13 @@ const proto::ProtoObject* runBytecode(proto::ProtoContext* pContext,
                                     // explicitly.
                                     captured = PROTO_NONE;
                                 }
-                                cells = cells->setAt(pContext, static_cast<unsigned long>(cvi2),
-                                                      captured ? captured : PROTO_NONE);
                                 // Publish the cell on the outer's frameObj
                                 // under the source-level name so the inner
-                                // fn can find it via chain walk on its own
+                                // fn finds it via chain walk on its own
                                 // frameObj (which has outerFrameObj as a
-                                // parent).  Only LOCAL / ARG / REF — GLOBAL
-                                // is already reachable via moduleScope.
+                                // parent).  LOCAL / ARG / REF only —
+                                // GLOBAL is already reachable via
+                                // moduleScope which is also a parent.
                                 if (outerFrameForPublish && captured && captured != PROTO_NONE &&
                                     (cvType2 == 0 || cvType2 == 1 || cvType2 == 2)) {
                                     const std::string& cvNm = nm2.closureVarNames[cvi2];
@@ -15742,10 +15731,6 @@ const proto::ProtoObject* runBytecode(proto::ProtoContext* pContext,
                                     }
                                 }
                             }
-                            const proto::ProtoString* ccKey = capturedCellsKey(pContext);
-                            if (ccKey)
-                                fnInst2 = fnInst2->setAttribute(pContext, ccKey,
-                                    cells->asObject(pContext));
                         }
                     }
                     stackPush(pContext, fnInst2);
