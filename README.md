@@ -4326,7 +4326,7 @@ The model the user codified — "definir un método o clase es agregarle
 un atributo al módulo que es un objeto que deriva del mismo módulo; se
 resuelve todo automáticamente" — is now what the interpreter does.
 
-Pipeline of the five commits (chronological):
+Pipeline of the six commits (chronological):
 
 1. `e1e4cb82b` — **module-scope split**: top-level user bindings live
    in a small mutable whose parent is the stdlib/built-ins root.
@@ -4348,6 +4348,10 @@ Pipeline of the five commits (chronological):
    cell is published on the outer's `frameObj` under its source
    name; `populateClosureCellsFromInstance` resolves it via the
    regular `getAttribute(name, chain=true)` walk.
+6. `9f45980ad` — **arrayPush skips the per-push length writeback**:
+   OP_get_length synthesises `arr.length` from `__elements__.size()`
+   for dense arrays.  Saves one SparseList rebuild and one
+   AttributeCache invalidation per push (array_literal: -18%).
 
 #### Standard In-Process Suite — current reading — vs Node.js 22 / V8 / vanilla QuickJS
 
@@ -4359,39 +4363,44 @@ contamination.
 
 | Benchmark                | Node  | QuickJS | protoJS | × Node | × QuickJS |
 |--------------------------|------:|--------:|--------:|-------:|----------:|
-| array_literal            |  2 ms |    7 ms |  287 ms |   144× |     41×   |
-| control_flow             |  6 ms |   52 ms |  215 ms |    36× |    4.1×   |
-| **function_calls**       |  1 ms |   11 ms |  223 ms |   223× |  **20×**  |
-| json_transform           |  1 ms |    3 ms |  158 ms |   158× |     53×   |
-| json_transform_small     |  0 ms |    0 ms |    8 ms |  parity|   parity  |
-| json_transform_tiny      |  0 ms |    0 ms |    9 ms |  parity|   parity  |
-| list_snapshot_history    |  0 ms |    1 ms |   27 ms |    54× |     27×   |
-| **numeric_loop**         |  1 ms |   40 ms |   77 ms |    77× | **1.9×**  |
-| **object_property**      | 39 ms |   81 ms |  636 ms |    16× |   **7.8×**|
-| **object_read_only**     |  1 ms |    6 ms |   87 ms |    87× |  **14.5×**|
-| object_write_only        | 14 ms |   66 ms | 2022 ms |   144× |     31×   |
+| **array_literal**        |  3 ms |    7 ms |  241 ms |    80× |  **34×**  |
+| control_flow             |  5 ms |   52 ms |  220 ms |    44× |    4.2×   |
+| **function_calls**       |  1 ms |   12 ms |  224 ms |   224× |  **19×**  |
+| json_transform           |  1 ms |    4 ms |  155 ms |   155× |     39×   |
+| json_transform_small     |  0 ms |    0 ms |   15 ms |  parity|   parity  |
+| json_transform_tiny      |  0 ms |    0 ms |   10 ms |  parity|   parity  |
+| list_snapshot_history    |  0 ms |    2 ms |   30 ms |  parity|     15×   |
+| numeric_loop             |  1 ms |   50 ms |   97 ms |    97× |    1.9×   |
+| **object_property**      | 39 ms |   83 ms |  633 ms |    16× |   **7.6×**|
+| **object_read_only**     |  1 ms |    7 ms |   84 ms |    84× |   **12×** |
+| object_write_only        | 14 ms |   68 ms | 2036 ms |   145× |     30×   |
 | **parallel_cpu**         | 41 ms |  804 ms |   52 ms | Node 1.3× | **protoJS 15×** |
-| string_concat            |  1 ms |    6 ms |  122 ms |   122× |     20×   |
+| string_concat            |  1 ms |    5 ms |  120 ms |   120× |     24×   |
 | string_concat_large_ch.  |  0 ms |    0 ms |    0 ms |  parity|   parity  |
 | string_insert_middle     |  0 ms |    0 ms |    1 ms |  parity|   parity  |
 | string_processing        |  0 ms |    0 ms |    8 ms |  parity|   parity  |
-| string_repeated_doubling | 42 ms |    1 ms |    1 ms | **protoJS 42×** | parity |
-| **tree_traversal**       |  1 ms |    4 ms |  174 ms |   174× |  **44×**  |
+| string_repeated_doubling | 44 ms |    1 ms |    1 ms | **protoJS 44×** | parity |
+| **tree_traversal**       |  1 ms |    4 ms |  176 ms |   176× |  **44×**  |
 
 **Geometric mean (in-process time, 11 single-thread benches):**
 
-- **protoJS / QuickJS = 16.7 ×**
-- **protoJS / Node    = 90.4 ×**
+- **protoJS / QuickJS = 15.0 ×**
+- **protoJS / Node    = 93.3 ×**
 
 **Headline single-bench wins from this cycle (vs. the pre-cycle 2026-06-16 baseline):**
 
-- `function_calls`: 27.5× QuickJS → **20×** (−27%) — module-scope split
+- `function_calls`: 27.5× QuickJS → **19×** (−31%) — module-scope split
   collapsed the `put_var` cost on `state = work(state)` from ~12
-  cells/op to ~6.
+  cells/op to ~6, and the chain-walk closure model skipped the
+  __captured_cells__ SparseList rebuild on every fclosure.
+- `array_literal`: 47× QuickJS → **34×** (−28%) — arrayPush's per-push
+  `length` writeback (a second SparseList rebuild + cache
+  invalidation) is gone, replaced by `OP_get_length`'s dense-array
+  fast path that synthesises length from __elements__.size().
 - `tree_traversal`: 71× QuickJS → **44×** (−38%) — closures-as-chain
   removed a per-call SparseList rebuild and let AttributeCache memoise
   every closure variable lookup.
-- `object_read_only`: stable at ~14× QuickJS (was already brought
+- `object_read_only`: stable at ~12× QuickJS (was already brought
   down from 63× earlier the same day via the accessor-gate fix).
 
 #### Where protoJS wins by architecture
