@@ -8867,8 +8867,18 @@ const proto::ProtoObject* runBytecode(proto::ProtoContext* pContext,
                 if (pc + 2 > len) return PROTO_NONE;
                 uint16_t locIndex = get_u16(buf + pc);
                 pc += 2;
-                if (locIndex < varCount && (argCount + locIndex) < (argCount + varCount))
-                    setSlot(pContext, argCount + locIndex, tdzSentinel);
+                if (locIndex < varCount && (argCount + locIndex) < (argCount + varCount)) {
+                    // If the slot was already promoted to a closure cell
+                    // (by an earlier OP_fclosure capturing this local —
+                    // common pattern when QuickJS hoists `function inner`
+                    // before the `let x` it captures), write the TDZ
+                    // sentinel THROUGH the cell.  Plain setSlot would
+                    // overwrite the cell pointer, leaving the inner fn
+                    // with a stale cell that still holds PROTO_NONE.
+                    const proto::ProtoObject* slotVal = getSlot(pContext, argCount + locIndex);
+                    if (isCell(pContext, slotVal)) writeCell(pContext, slotVal, tdzSentinel);
+                    else setSlot(pContext, argCount + locIndex, tdzSentinel);
+                }
                 DISPATCH();
             }
             L_OP_get_loc_check: {
@@ -8893,8 +8903,12 @@ const proto::ProtoObject* runBytecode(proto::ProtoContext* pContext,
                 pc += 2;
                 const proto::ProtoObject* val = stackTop(pContext);
                 stackPop(pContext);
-                if (locIndex < varCount && (argCount + locIndex) < (argCount + varCount))
-                    setSlot(pContext, argCount + locIndex, val);
+                if (locIndex < varCount && (argCount + locIndex) < (argCount + varCount)) {
+                    // Respect closure cells — see L_OP_set_loc_uninitialized.
+                    const proto::ProtoObject* slotVal = getSlot(pContext, argCount + locIndex);
+                    if (isCell(pContext, slotVal)) writeCell(pContext, slotVal, val);
+                    else setSlot(pContext, argCount + locIndex, val);
+                }
                 DISPATCH();
             }
             L_OP_set_loc_check: {
@@ -8902,8 +8916,11 @@ const proto::ProtoObject* runBytecode(proto::ProtoContext* pContext,
                 uint16_t locIndex = get_u16(buf + pc);
                 pc += 2;
                 const proto::ProtoObject* val = stackTop(pContext);
-                if (locIndex < varCount && (argCount + locIndex) < (argCount + varCount))
-                    setSlot(pContext, argCount + locIndex, val);
+                if (locIndex < varCount && (argCount + locIndex) < (argCount + varCount)) {
+                    const proto::ProtoObject* slotVal = getSlot(pContext, argCount + locIndex);
+                    if (isCell(pContext, slotVal)) writeCell(pContext, slotVal, val);
+                    else setSlot(pContext, argCount + locIndex, val);
+                }
                 DISPATCH();
             }
             L_OP_put_loc_check_init: {
