@@ -15260,6 +15260,11 @@ const proto::ProtoObject* runBytecode(proto::ProtoContext* pContext,
                     const proto::ProtoObject* fnInst = (fp8 && fp8 != PROTO_NONE)
                         ? fp8->newChild(pContext, true)
                         : pContext->newObject(true);
+                    // Append the moduleScope as a second parent — see
+                    // L_OP_fclosure for rationale.
+                    if (gr8 && *gr8 && *gr8 != fp8) {
+                        fnInst = fnInst->addParent(pContext, *gr8);
+                    }
                     fnInst = fnInst->setAttribute(pContext, JSSymbols::bytecodeId(pContext),
                         pContext->fromInteger(static_cast<long long>(fnBcId8)));
                     // fn.prototype inherits Object.prototype (see L_OP_fclosure for rationale).
@@ -15415,6 +15420,15 @@ const proto::ProtoObject* runBytecode(proto::ProtoContext* pContext,
                     const proto::ProtoObject* fnInst2 = (fp2 && fp2 != PROTO_NONE)
                         ? fp2->newChild(pContext, true)
                         : pContext->newObject(true);
+                    // Lexical scope chain: append the moduleScope as a
+                    // second parent so the function-object's own chain
+                    // walk reaches top-level bindings (state, work, …)
+                    // without going through pGlobalRoot.  Order matters:
+                    // Function.prototype stays head, so getPrototypeOf(f)
+                    // / instanceof / f.call|bind|apply are unaffected.
+                    if (gr2 && *gr2 && *gr2 != fp2) {
+                        fnInst2 = fnInst2->addParent(pContext, *gr2);
+                    }
                     fnInst2 = fnInst2->setAttribute(pContext, JSSymbols::bytecodeId(pContext),
                         pContext->fromInteger(static_cast<long long>(fnBcId2)));
                     // fn.prototype must inherit Object.prototype so instances
