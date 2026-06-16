@@ -126,15 +126,29 @@ static const proto::ProtoObject* resolvePutFieldOOP(proto::ProtoContext* ctx, co
     // __has_accessor_props__ on any object reachable through the
     // prototype chain (target itself OR an ancestor), at least one
     // accessor descriptor exists somewhere and we must walk to find it.
-    // When the flag is absent the entire setter/getter sidecar probe
-    // can be skipped — no fromUTF8String, no chain walk, no per-call
-    // rope allocations.  protoCore's per-thread attribute cache makes
-    // this one-shot hasAttribute test effectively free after the first
-    // call on a given chain.
+    // PERF: split the gate into OWN vs chain-walk just like
+    // L_OP_get_array_el (commit `0b0f57ae`).  Object.prototype's
+    // `__proto__` accessor sets the flag globally, so a chain-walk
+    // check returns true for every plain object and the rope builds
+    // for `__set_<key>__` / `__get_<key>__` fire on every put.  The
+    // OWN check is the right gate: only receivers that have stamped
+    // their own accessor descriptor pay the rope build for the OWN
+    // accessor branch.
     const proto::ProtoString* hapKey = JSSymbols::hasAccessorProps(ctx);
-    const bool maybeHasAccessor = hapKey
-        && (obj->hasAttribute(ctx, hapKey) == PROTO_TRUE)
-        && (obj->getAttribute(ctx, hapKey, true) == PROTO_TRUE);
+    const bool ownMayHaveAccessor = hapKey
+        && obj->hasOwnAttribute(ctx, hapKey) == PROTO_TRUE
+        && obj->getAttribute(ctx, hapKey, false) == PROTO_TRUE;
+
+    // Cheap own-data short-circuit: by far the most common case
+    // (`obj[key] = v` where obj already has own k) — no rope builds,
+    // no chain walk, jump straight to the OOP store path below.  When
+    // own data exists AND the receiver carries no own getter/setter
+    // for that key, the spec just overwrites the data slot.
+    const bool ownHasData = obj->hasOwnAttribute(ctx, key) == PROTO_TRUE;
+    const bool needAccessorWalk = ownMayHaveAccessor
+        || (!ownHasData
+            && hapKey
+            && obj->getAttribute(ctx, hapKey, true) == PROTO_TRUE);
 
     // Accessor setter support: check for __set_<key>__ / __get_<key>__
     // sidecar along the chain. Pre-fix the walk only stopped when the
@@ -145,7 +159,7 @@ static const proto::ProtoObject* resolvePutFieldOOP(proto::ProtoContext* ctx, co
     std::string keyStr;
     const proto::ProtoString* sk = nullptr;
     const proto::ProtoString* gk = nullptr;
-    if (maybeHasAccessor) {
+    if (needAccessorWalk) {
         key->toUTF8String(ctx, keyStr);
         std::string skStr = "__set_" + keyStr + "__";
         std::string gkStr = "__get_" + keyStr + "__";
