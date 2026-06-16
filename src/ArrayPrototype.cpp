@@ -908,8 +908,7 @@ static std::string elemToString(proto::ProtoContext* ctx,
     // {valueOf:()=>'+', toString:()=>'*'}) joined with '[object Object]'
     // instead of '*' (built-ins/Array/prototype/join/S15.4.4.5_A3.1_T2).
     {
-        const proto::ProtoString* tsKey =
-            ctx->fromUTF8String("toString") ? ctx->fromUTF8String("toString")->asString(ctx) : nullptr;
+        const proto::ProtoString* tsKey = JSSymbols::toString(ctx);
         if (tsKey) {
             const proto::ProtoObject* tsFn = val->getAttribute(ctx, tsKey, true);
             if (tsFn && tsFn != PROTO_NONE) {
@@ -939,8 +938,7 @@ static std::string elemToString(proto::ProtoContext* ctx,
                 }
                 // §7.1.1 step 5 fallback: try valueOf when toString
                 // returned a non-primitive (or wasn't callable).
-                const proto::ProtoString* voK =
-                    ctx->fromUTF8String("valueOf") ? ctx->fromUTF8String("valueOf")->asString(ctx) : nullptr;
+                const proto::ProtoString* voK = JSSymbols::valueOf(ctx);
                 bool voCallableSeen = false;
                 if (voK) {
                     const proto::ProtoObject* voFn = val->getAttribute(ctx, voK, true);
@@ -1178,7 +1176,7 @@ static const proto::ProtoObject* arraySpeciesCreate(
     // probes in slice / concat / splice never saw a throw
     // (built-ins/Array/prototype/slice/target-array-non-extensible,
     // target-array-with-non-configurable-property).
-    const proto::ProtoString* constructKey = ctx->fromUTF8String("__construct__")->asString(ctx);
+    const proto::ProtoString* constructKey = JSSymbols::construct(ctx);
     const proto::ProtoObject* constructFn = (constructKey && C) ? C->getAttribute(ctx, constructKey, false) : nullptr;
     bool hasNativeCtor = constructFn && constructFn != PROTO_NONE
         && constructFn->isMethod(ctx);
@@ -4388,8 +4386,7 @@ static std::string sortKey(proto::ProtoContext* ctx,
                            const proto::ProtoObject* val) {
     if (!val || val == PROTO_NONE) return "";
     // Look up and invoke toString() — works for both native methods and JS closures.
-    const proto::ProtoString* tsKey = ctx->fromUTF8String("toString")
-        ? ctx->fromUTF8String("toString")->asString(ctx) : nullptr;
+    const proto::ProtoString* tsKey = JSSymbols::toString(ctx);
     if (tsKey) {
         const proto::ProtoObject* tsFn = val->getAttribute(ctx, tsKey, true);
         if (tsFn && tsFn != PROTO_NONE) {
@@ -5868,7 +5865,7 @@ void ensureArrayPrototype(proto::ProtoContext* ctx,
         { "values",         arrayValues,        0 },
     };
     for (auto& m : methods) {
-        const proto::ProtoString* key = ctx->fromUTF8String(m.name)->asString(ctx);
+        const proto::ProtoString* key = proto::ProtoString::createSymbol(ctx, m.name);
         if (key) {
             const proto::ProtoObject* fn = wrapNativeFunction(ctx, m.fn, m.name, m.length, globalRoot);
             if (fn && fn != PROTO_NONE) {
@@ -5926,8 +5923,7 @@ void ensureArrayPrototype(proto::ProtoContext* ctx,
                 nullptr
             };
             for (int i = 0; kUnscopables[i]; ++i) {
-                const proto::ProtoString* k = ctx->fromUTF8String(kUnscopables[i])
-                    ? ctx->fromUTF8String(kUnscopables[i])->asString(ctx) : nullptr;
+                const proto::ProtoString* k = proto::ProtoString::createSymbol(ctx, kUnscopables[i]);
                 if (k) unsObj = unsObj->setAttribute(ctx, k, PROTO_TRUE);
             }
             const proto::ProtoObject* uko = ctx->fromUTF8String("Symbol.unscopables");
@@ -5983,7 +5979,7 @@ void ensureArrayPrototype(proto::ProtoContext* ctx,
     if (markerKey) ctor = ctor->setAttribute(ctx, markerKey, PROTO_TRUE);
 
     // Explicitly mark as a constructor for OP_call_constructor.
-    const proto::ProtoString* isCtorKey = ctx->fromUTF8String("__is_constructor__")->asString(ctx);
+    const proto::ProtoString* isCtorKey = JSSymbols::isConstructor(ctx);
     if (isCtorKey) ctor = ctor->setAttribute(ctx, isCtorKey, PROTO_TRUE);
 
     // §23.1.2.2: Array.prototype is non-writable, non-enumerable,
@@ -6025,7 +6021,7 @@ void ensureArrayPrototype(proto::ProtoContext* ctx,
         { "of",        arrayOf,        0 },
     };
     for (auto& s : statics) {
-        const proto::ProtoString* key = ctx->fromUTF8String(s.name)->asString(ctx);
+        const proto::ProtoString* key = proto::ProtoString::createSymbol(ctx, s.name);
         if (key) {
             const proto::ProtoObject* fn = wrapNativeFunction(ctx, s.fn, s.name, s.length, globalRoot);
             if (fn && fn != PROTO_NONE) {
@@ -6033,7 +6029,7 @@ void ensureArrayPrototype(proto::ProtoContext* ctx,
                 // Set descriptor: {writable: true, enumerable: false, configurable: true}
                 // bits: 0=1 (w), 1=1 (c), 2=0 (e) -> 0x3
                 std::string pdKeyStr = "__pd_" + std::string(s.name) + "__";
-                const proto::ProtoString* pdk = ctx->fromUTF8String(pdKeyStr.c_str())->asString(ctx);
+                const proto::ProtoString* pdk = proto::ProtoString::createSymbol(ctx, pdKeyStr);
                 if (pdk) ctor = ctor->setAttribute(ctx, pdk, ctx->fromInteger(0x3));
             }
         }
@@ -6080,8 +6076,7 @@ void ensureArrayPrototype(proto::ProtoContext* ctx,
                 // wrappers (Math, Boolean, Number, ...).
                 const proto::ProtoString* hnwG = JSSymbols::hasNonWritableProps(ctx);
                 if (hnwG) getter = getter->setAttribute(ctx, hnwG, PROTO_TRUE);
-                const proto::ProtoString* gksSym =
-                    ctx->fromUTF8String("__get_Symbol.species__")->asString(ctx);
+                const proto::ProtoString* gksSym = JSSymbols::getSymbolSpecies(ctx);
                 if (gksSym) ctor = ctor->setAttribute(ctx, gksSym, getter);
                 // Descriptor for the species property on Array:
                 // accessor with {enumerable:false, configurable:true} → 0x2.
@@ -6112,12 +6107,12 @@ void ensureArrayPrototype(proto::ProtoContext* ctx,
     {
         const proto::ProtoString* symIterKey = JSSymbols::symbolIterator(ctx);
         if (symIterKey) {
-            const proto::ProtoString* valuesKey = ctx->fromUTF8String("values")->asString(ctx);
+            const proto::ProtoString* valuesKey = JSSymbols::values(ctx);
             const proto::ProtoObject* valuesFn = valuesKey
                 ? proto->getAttribute(ctx, valuesKey, false) : nullptr;
             if (valuesFn && valuesFn != PROTO_NONE) {
                 proto = proto->setAttribute(ctx, symIterKey, valuesFn);
-                const proto::ProtoString* pdk = ctx->fromUTF8String("__pd_Symbol.iterator__")->asString(ctx);
+                const proto::ProtoString* pdk = JSSymbols::pdSymbolIterator(ctx);
                 if (pdk) proto = proto->setAttribute(ctx, pdk, ctx->fromInteger(0x3LL));
             }
         }

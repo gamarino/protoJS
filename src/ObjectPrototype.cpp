@@ -584,7 +584,7 @@ static const proto::ProtoObject* objectValues(
                     proxyDispatchGetOwnPropertyDescriptor(ctx, obj, kStr);
                 if (hasCallException()) return PROTO_NONE;
                 if (!desc || desc == PROTO_NONE) continue;
-                const proto::ProtoString* enumK = ctx->fromUTF8String("enumerable")->asString(ctx);
+                const proto::ProtoString* enumK = JSSymbols::enumerable(ctx);
                 const proto::ProtoObject* ev = enumK ? desc->getAttribute(ctx, enumK, true) : nullptr;
                 if (ev != PROTO_TRUE) continue;
                 const proto::ProtoObject* val =
@@ -673,7 +673,7 @@ static const proto::ProtoObject* objectEntries(
                     proxyDispatchGetOwnPropertyDescriptor(ctx, obj, kStr);
                 if (hasCallException()) return PROTO_NONE;
                 if (!desc || desc == PROTO_NONE) continue;
-                const proto::ProtoString* enumK = ctx->fromUTF8String("enumerable")->asString(ctx);
+                const proto::ProtoString* enumK = JSSymbols::enumerable(ctx);
                 const proto::ProtoObject* ev = enumK ? desc->getAttribute(ctx, enumK, true) : nullptr;
                 if (ev != PROTO_TRUE) continue;
                 const proto::ProtoObject* val =
@@ -1572,10 +1572,8 @@ static const proto::ProtoObject* objectFreeze(
         }
         const proto::ProtoList* els = keysArr ? getArrayElements(ctx, keysArr) : nullptr;
         size_t kn = els ? els->getSize(ctx) : defaultKeys.size();
-        const proto::ProtoString* confK = ctx->fromUTF8String("configurable")
-            ? ctx->fromUTF8String("configurable")->asString(ctx) : nullptr;
-        const proto::ProtoString* writK = ctx->fromUTF8String("writable")
-            ? ctx->fromUTF8String("writable")->asString(ctx) : nullptr;
+        const proto::ProtoString* confK = JSSymbols::configurable(ctx);
+        const proto::ProtoString* writK = JSSymbols::writable(ctx);
         for (size_t i = 0; i < kn; ++i) {
             const proto::ProtoObject* kObj = els
                 ? els->getAt(ctx, i)
@@ -1595,10 +1593,8 @@ static const proto::ProtoObject* objectFreeze(
             if (curDesc && curDesc != PROTO_NONE
                 && curDesc != getUndefinedSentinel()
                 && curDesc != getNullSentinel()) {
-                const proto::ProtoString* getK = ctx->fromUTF8String("get")
-                    ? ctx->fromUTF8String("get")->asString(ctx) : nullptr;
-                const proto::ProtoString* setK = ctx->fromUTF8String("set")
-                    ? ctx->fromUTF8String("set")->asString(ctx) : nullptr;
+                const proto::ProtoString* getK = JSSymbols::get(ctx);
+                const proto::ProtoString* setK = JSSymbols::set(ctx);
                 if ((getK && curDesc->hasAttribute(ctx, getK) == PROTO_TRUE)
                     || (setK && curDesc->hasAttribute(ctx, setK) == PROTO_TRUE))
                     isAccessor = true;
@@ -1907,8 +1903,7 @@ static const proto::ProtoObject* objectSeal(
         size_t kn = els ? els->getSize(ctx) : defaultKeys.size();
         // Build a {configurable: false} descriptor object.
         const proto::ProtoObject* sealDesc = ctx->newObject(true);
-        const proto::ProtoString* confK = ctx->fromUTF8String("configurable")
-            ? ctx->fromUTF8String("configurable")->asString(ctx) : nullptr;
+        const proto::ProtoString* confK = JSSymbols::configurable(ctx);
         if (confK) sealDesc = sealDesc->setAttribute(ctx, confK, PROTO_FALSE);
         for (size_t i = 0; i < kn; ++i) {
             const proto::ProtoObject* kObj = els
@@ -2711,7 +2706,7 @@ static const proto::ProtoString* coercePropNameToKey(
 
         // 2. Try valueOf()
         if (!prim && !hasCallException()) {
-            const proto::ProtoString* voKey = ctx->fromUTF8String("valueOf")->asString(ctx);
+            const proto::ProtoString* voKey = JSSymbols::valueOf(ctx);
             const proto::ProtoObject* voFn = resolveCoercer(voKey, "__get_valueOf__");
             if (hasCallException()) return nullptr;
             if (isCallable(voFn)) {
@@ -2868,8 +2863,7 @@ static const proto::ProtoObject* objectDefineProperty(
         // built-ins/Object/defineProperties/property-description-must-
         // be-an-object-not-bigint.js (and the matching defineProperty
         // sibling) pin the exact shape.
-        const proto::ProtoString* bigK = ctx->fromUTF8String("__is_bigint__")
-            ? ctx->fromUTF8String("__is_bigint__")->asString(ctx) : nullptr;
+        const proto::ProtoString* bigK = JSSymbols::isBigIntKey(ctx);
         if (bigK && desc->getAttribute(ctx, bigK, true) == PROTO_TRUE) {
             signalNativeException(makeNativeError(ctx, "TypeError",
                 "Property description must be an object"));
@@ -3420,11 +3414,11 @@ static const proto::ProtoObject* objectDefineProperty(
         
         std::string nstr = name;
         std::string gkStr = "__get_" + nstr + "__";
-        const proto::ProtoString* gk = ctx->fromUTF8String(gkStr.c_str())->asString(ctx);
+        const proto::ProtoString* gk = proto::ProtoString::createSymbol(ctx, gkStr);
         if (gk && desc->hasAttribute(ctx, gk) == PROTO_TRUE) return true;
         
         std::string skStr = "__set_" + nstr + "__";
-        const proto::ProtoString* sk = ctx->fromUTF8String(skStr.c_str())->asString(ctx);
+        const proto::ProtoString* sk = proto::ProtoString::createSymbol(ctx, skStr);
         if (sk && desc->hasAttribute(ctx, sk) == PROTO_TRUE) return true;
         
         return false;
@@ -3548,7 +3542,7 @@ static const proto::ProtoObject* objectDefineProperty(
         // on a getter-only re-define. Built-ins/Object/defineProperty/
         // 15.2.3.6-4-{107,109,112} caught this.
         std::string gkStr = "__get_" + kstr + "__";
-        const proto::ProtoString* gk = ctx->fromUTF8String(gkStr.c_str())->asString(ctx);
+        const proto::ProtoString* gk = proto::ProtoString::createSymbol(ctx, gkStr);
         if (gk && hasGet) {
             // §6.2.5.1 ToPropertyDescriptor — when "get" is present in
             // the descriptor (even as undefined), the result is an
@@ -3562,7 +3556,7 @@ static const proto::ProtoObject* objectDefineProperty(
             target = target->setAttribute(ctx, gk, gVal);
         }
         std::string skStr = "__set_" + kstr + "__";
-        const proto::ProtoString* sk = ctx->fromUTF8String(skStr.c_str())->asString(ctx);
+        const proto::ProtoString* sk = proto::ProtoString::createSymbol(ctx, skStr);
         if (sk && hasSet) {
             const proto::ProtoObject* sVal = setter ? setter : getUndefinedSentinel();
             target = target->setAttribute(ctx, sk, sVal);
@@ -3681,10 +3675,10 @@ static const proto::ProtoObject* objectDefineProperty(
 
             // Remove accessor sidecars if transitioning to data property.
             std::string gkStr = "__get_" + kstr + "__";
-            const proto::ProtoString* gk = ctx->fromUTF8String(gkStr.c_str())->asString(ctx);
+            const proto::ProtoString* gk = proto::ProtoString::createSymbol(ctx, gkStr);
             if (gk) target = target->setAttribute(ctx, gk, nullptr);
             std::string skStr = "__set_" + kstr + "__";
-            const proto::ProtoString* sk = ctx->fromUTF8String(skStr.c_str())->asString(ctx);
+            const proto::ProtoString* sk = proto::ProtoString::createSymbol(ctx, skStr);
             if (sk) target = target->setAttribute(ctx, sk, nullptr);
         }
     }
@@ -3910,7 +3904,7 @@ static const proto::ProtoObject* objectGetOwnPropertyDescriptor(
         const proto::ProtoObject* op = w ? w->getJSObjectPrototype() : nullptr;
         auto mk = [&](){ return op ? op->newChild(ctx, true) : ctx->newObject(true); };
         auto setKV = [&](const proto::ProtoObject*& r, const char* name, const proto::ProtoObject* v){
-            const proto::ProtoString* ks = ctx->fromUTF8String(name)->asString(ctx);
+            const proto::ProtoString* ks = proto::ProtoString::createSymbol(ctx, name);
             if (ks) r = r->setAttribute(ctx, ks, v ? v : getUndefinedSentinel());
         };
         if (kstr2 == "length") {
@@ -3954,7 +3948,7 @@ static const proto::ProtoObject* objectGetOwnPropertyDescriptor(
 
     // Helper: build result descriptor object.
     auto setAttr = [&](const proto::ProtoObject*& r, const char* name, const proto::ProtoObject* v) {
-        const proto::ProtoString* ks = ctx->fromUTF8String(name)->asString(ctx);
+        const proto::ProtoString* ks = proto::ProtoString::createSymbol(ctx, name);
         if (ks) r = r->setAttribute(ctx, ks, (v && v != PROTO_NONE) ? v : getUndefinedSentinel());
     };
 
@@ -3963,17 +3957,17 @@ static const proto::ProtoObject* objectGetOwnPropertyDescriptor(
 
     // 1. Check accessor sidecars first.
     std::string gkStr = "__get_" + kstr + "__";
-    const proto::ProtoString* gk = ctx->fromUTF8String(gkStr.c_str())->asString(ctx);
+    const proto::ProtoString* gk = proto::ProtoString::createSymbol(ctx, gkStr);
     bool hasG = gk && (target->hasOwnAttribute(ctx, gk) == PROTO_TRUE);
     const proto::ProtoObject* gv = hasG ? target->getAttribute(ctx, gk, false) : nullptr;
 
     std::string skStr = "__set_" + kstr + "__";
-    const proto::ProtoString* sk = ctx->fromUTF8String(skStr.c_str())->asString(ctx);
+    const proto::ProtoString* sk = proto::ProtoString::createSymbol(ctx, skStr);
     bool hasS = sk && (target->hasOwnAttribute(ctx, sk) == PROTO_TRUE);
     const proto::ProtoObject* sv = hasS ? target->getAttribute(ctx, sk, false) : nullptr;
 
     std::string pdKeyStr = "__pd_" + kstr + "__";
-    const proto::ProtoString* pdk = ctx->fromUTF8String(pdKeyStr.c_str())->asString(ctx);
+    const proto::ProtoString* pdk = proto::ProtoString::createSymbol(ctx, pdKeyStr);
     bool hasPd = pdk && (target->hasOwnAttribute(ctx, pdk) == PROTO_TRUE);
     const proto::ProtoObject* bitsObj = hasPd ? target->getAttribute(ctx, pdk, false) : nullptr;
 
@@ -4266,7 +4260,7 @@ static const proto::ProtoObject* objectGetOwnPropertyDescriptors(
         const proto::ProtoObject* desc =
             objectGetOwnPropertyDescriptor(ctx, nullptr, nullptr, keyArgs, nullptr);
         if (!desc || desc == PROTO_NONE) continue;
-        const proto::ProtoString* kk = ctx->fromUTF8String(k.c_str())->asString(ctx);
+        const proto::ProtoString* kk = proto::ProtoString::createSymbol(ctx, k);
         if (kk) result = result->setAttribute(ctx, kk, desc);
     }
 
@@ -4419,8 +4413,7 @@ static const proto::ProtoObject* objectDefineProperties(
                 || desc == getUndefinedSentinel() || desc == getNullSentinel())
                 continue;
             // Skip non-enumerable per \xc2\xa719.1.2.3 step 5.b.iii.
-            const proto::ProtoString* enumK = ctx->fromUTF8String("enumerable")
-                ? ctx->fromUTF8String("enumerable")->asString(ctx) : nullptr;
+            const proto::ProtoString* enumK = JSSymbols::enumerable(ctx);
             if (enumK) {
                 const proto::ProtoObject* ev = desc->getAttribute(ctx, enumK, true);
                 if (ev != PROTO_TRUE && (!ev || !ev->isBoolean(ctx) || !ev->asBoolean(ctx)))
@@ -4663,8 +4656,7 @@ static const proto::ProtoObject* objectFromEntries(
         const proto::ProtoString* nextKey  = JSSymbols::next(ctx);
         const proto::ProtoString* doneKey  = JSSymbols::done(ctx);
         const proto::ProtoString* valueKey = JSSymbols::value(ctx);
-        const proto::ProtoString* returnKey = ctx->fromUTF8String("return")
-            ? ctx->fromUTF8String("return")->asString(ctx) : nullptr;
+        const proto::ProtoString* returnKey = JSSymbols::returnSym(ctx);
         const proto::ProtoObject* nextFn = iter->getAttribute(ctx, nextKey, true);
         // §7.4.2 GetIteratorFromMethod step 7 / §7.4.6 IteratorStep:
         // when the iterator's `next` slot is not callable, abrupt-
@@ -4787,7 +4779,7 @@ static const proto::ProtoObject* objectFromEntries(
             keyStr = std::to_string(keyObj->asLong(ctx));
         }
         if (keyStr.empty()) continue;
-        const proto::ProtoString* entryKey = ctx->fromUTF8String(keyStr.c_str())->asString(ctx);
+        const proto::ProtoString* entryKey = proto::ProtoString::createSymbol(ctx, keyStr);
         if (entryKey) result = result->setAttribute(ctx, entryKey, valObj);
     }
     return result;
@@ -4920,15 +4912,9 @@ static const proto::ProtoObject* objectGroupBy(
                 callJSFunction(ctx, itFn, items, ctx->newList());
             if (hasCallException()) return PROTO_NONE;
             if (iterObj && iterObj != PROTO_NONE) {
-                const proto::ProtoString* nextK =
-                    ctx->fromUTF8String("next")
-                        ? ctx->fromUTF8String("next")->asString(ctx) : nullptr;
-                const proto::ProtoString* doneK =
-                    ctx->fromUTF8String("done")
-                        ? ctx->fromUTF8String("done")->asString(ctx) : nullptr;
-                const proto::ProtoString* valueK =
-                    ctx->fromUTF8String("value")
-                        ? ctx->fromUTF8String("value")->asString(ctx) : nullptr;
+                const proto::ProtoString* nextK = JSSymbols::next(ctx);
+                const proto::ProtoString* doneK = JSSymbols::done(ctx);
+                const proto::ProtoString* valueK = JSSymbols::value(ctx);
                 const proto::ProtoList* built = ctx->newList();
                 int guard = 0x100000;
                 while (guard-- > 0) {
@@ -5421,7 +5407,7 @@ static const proto::ProtoObject* objectToString(
             }
         }
         if (!funcBuiltinTag) {
-            const proto::ProtoString* icKey = ctx->fromUTF8String("__is_constructor__")->asString(ctx);
+            const proto::ProtoString* icKey = JSSymbols::isConstructor(ctx);
             if (icKey) {
                 const proto::ProtoObject* icVal = self->getAttribute(ctx, icKey, false);
                 if (icVal == PROTO_TRUE)
@@ -5562,8 +5548,7 @@ static const proto::ProtoObject* objectToString(
             std::string keyName;
             key->toUTF8String(ctx, keyName);
             std::string gkStr = "__get_" + keyName + "__";
-            const proto::ProtoString* gk =
-                ctx->fromUTF8String(gkStr.c_str())->asString(ctx);
+            const proto::ProtoString* gk = proto::ProtoString::createSymbol(ctx, gkStr);
             if (gk) {
                 const proto::ProtoObject* getter = self->getAttribute(ctx, gk, true);
                 if (getter && getter != PROTO_NONE) {
@@ -6213,8 +6198,8 @@ void reinstallObjectProtoAccessor(proto::ProtoContext* ctx) {
         if (hnwK) wrap = wrap->setAttribute(ctx, hnwK, PROTO_TRUE);
         return wrap;
     };
-    const proto::ProtoString* getK = ctx->fromUTF8String("__get___proto____")->asString(ctx);
-    const proto::ProtoString* setK = ctx->fromUTF8String("__set___proto____")->asString(ctx);
+    const proto::ProtoString* getK = JSSymbols::getProto(ctx);
+    const proto::ProtoString* setK = JSSymbols::setProto(ctx);
     if (getK) base = base->setAttribute(ctx, getK,
         wrapAccessor(protojs::protoAccessorGetter, "get __proto__"));
     if (setK) base = base->setAttribute(ctx, setK,
@@ -6230,8 +6215,7 @@ const proto::ProtoObject* installObjectInstanceMethods(
     // Register a built-in method and mark it as {writable:true, configurable:true,
     // enumerable:false} per ECMAScript — bits 0x3 (0x1=writable, 0x2=configurable).
     auto reg = [&](const char* name, proto::ProtoMethod fn) {
-        const proto::ProtoString* key =
-            ctx->fromUTF8String(name) ? ctx->fromUTF8String(name)->asString(ctx) : nullptr;
+        const proto::ProtoString* key = proto::ProtoString::createSymbol(ctx, name);
         if (key) {
             base = base->setAttribute(ctx, key, ctx->fromMethod(nullptr, fn));
             std::string pdKeyStr = std::string("__pd_") + name + "__";
@@ -6479,7 +6463,7 @@ void ensureObjectConstructor(proto::ProtoContext* ctx,
     if (!ctor) return;
 
     auto reg = [&](const char* name, proto::ProtoMethod fn, long long length = 1) {
-        const proto::ProtoString* key = ctx->fromUTF8String(name)->asString(ctx);
+        const proto::ProtoString* key = proto::ProtoString::createSymbol(ctx, name);
         if (key) {
             const proto::ProtoObject* wrapped = wrapNativeFunction(ctx, fn, name, length, globalRoot);
             if (wrapped && wrapped != PROTO_NONE) {
@@ -6493,8 +6477,7 @@ void ensureObjectConstructor(proto::ProtoContext* ctx,
                 // enumerate as own properties of the Object constructor
                 // (and visible in for-in / Object.keys(Object)).
                 std::string pdStr = std::string("__pd_") + name + "__";
-                const proto::ProtoString* pdk =
-                    ctx->fromUTF8String(pdStr.c_str())->asString(ctx);
+                const proto::ProtoString* pdk = proto::ProtoString::createSymbol(ctx, pdStr);
                 if (pdk) ctor = ctor->setAttribute(ctx, pdk, ctx->fromInteger(0x3LL));
             }
         }
@@ -6611,14 +6594,13 @@ void ensureObjectConstructor(proto::ProtoContext* ctx,
         return PROTO_FALSE;
     };
     {
-        const proto::ProtoString* key = ctx->fromUTF8String("is")->asString(ctx);
+        const proto::ProtoString* key = JSSymbols::is(ctx);
         if (key) {
             const proto::ProtoObject* wrapped = wrapNativeFunction(ctx, objectIsFn, "is", 2, globalRoot);
             if (wrapped && wrapped != PROTO_NONE) {
                 ctor = ctor->setAttribute(ctx, key, wrapped);
                 // §17 descriptor 0x3 — same as the `reg` lambda.
-                const proto::ProtoString* pdk =
-                    ctx->fromUTF8String("__pd_is__")->asString(ctx);
+                const proto::ProtoString* pdk = JSSymbols::pdIs(ctx);
                 if (pdk) ctor = ctor->setAttribute(ctx, pdk, ctx->fromInteger(0x3LL));
             }
         }
@@ -6631,8 +6613,7 @@ void ensureObjectConstructor(proto::ProtoContext* ctx,
         // enumerable:false, configurable:false} → bits 0x0. Pre-fix
         // no sidecar so the default 0x7 (full enumerable) leaked it
         // into Object.keys(Object).
-        const proto::ProtoString* pdk =
-            ctx->fromUTF8String("__pd_prototype__")->asString(ctx);
+        const proto::ProtoString* pdk = JSSymbols::pdPrototype(ctx);
         if (pdk) ctor = ctor->setAttribute(ctx, pdk, ctx->fromInteger(0x0LL));
     }
     const proto::ProtoString* nameKey = JSSymbols::name(ctx);
@@ -6651,7 +6632,7 @@ void ensureObjectConstructor(proto::ProtoContext* ctx,
     }
 
     // Explicitly mark as a constructor for OP_call_constructor.
-    const proto::ProtoString* isCtorKey = ctx->fromUTF8String("__is_constructor__")->asString(ctx);
+    const proto::ProtoString* isCtorKey = JSSymbols::isConstructor(ctx);
     if (isCtorKey) ctor = ctor->setAttribute(ctx, isCtorKey, PROTO_TRUE);
 
     // Mark as callable so OP_typeof / OP_typeof_is_function return "function".
@@ -6749,8 +6730,7 @@ void ensureObjectConstructor(proto::ProtoContext* ctx,
         if (valIsSymbol) {
             JSContextWrapper* w = JSContextWrapper::current();
             const proto::ProtoObject* g = w ? w->getNativeGlobal() : nullptr;
-            const proto::ProtoString* symKey = ctx->fromUTF8String("Symbol")
-                ? ctx->fromUTF8String("Symbol")->asString(ctx) : nullptr;
+            const proto::ProtoString* symKey = JSSymbols::Symbol(ctx);
             const proto::ProtoObject* symCtor = (g && symKey)
                 ? g->getAttribute(ctx, symKey, false) : nullptr;
             if (symCtor && symCtor != PROTO_NONE) {
@@ -6788,8 +6768,7 @@ void ensureObjectConstructor(proto::ProtoContext* ctx,
         return val;
     };
     const proto::ProtoObject* ctorMethodObj = ctx->fromMethod(nullptr, objectCtorFn);
-    const proto::ProtoString* constructKey =
-        ctx->fromUTF8String("__construct__") ? ctx->fromUTF8String("__construct__")->asString(ctx) : nullptr;
+    const proto::ProtoString* constructKey = JSSymbols::construct(ctx);
     if (constructKey && ctorMethodObj)
         ctor = ctor->setAttribute(ctx, constructKey, ctorMethodObj);
 

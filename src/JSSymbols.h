@@ -73,6 +73,8 @@ const proto::ProtoString* hasIndices(proto::ProtoContext* ctx);     // "hasIndic
 const proto::ProtoString* indices(proto::ProtoContext* ctx);        // "indices"
 const proto::ProtoString* isConcatSpreadable(proto::ProtoContext* ctx); // "Symbol.isConcatSpreadable"
 const proto::ProtoString* getIsConcatSpreadable(proto::ProtoContext* ctx); // "__get_Symbol.isConcatSpreadable__"
+const proto::ProtoString* getSymbolSpecies(proto::ProtoContext* ctx); // "__get_Symbol.species__"
+const proto::ProtoString* pdSymbolIterator(proto::ProtoContext* ctx); // "__pd_Symbol.iterator__"
 
 // ---- Internal implementation keys (__ prefix stripped) ------------------
 const proto::ProtoString* arrayCtor(proto::ProtoContext* ctx);      // "__array_ctor__"
@@ -223,6 +225,17 @@ const proto::ProtoString* copyWithin(proto::ProtoContext* ctx);     // "copyWith
 const proto::ProtoString* subarray(proto::ProtoContext* ctx);       // "subarray"
 const proto::ProtoString* at(proto::ProtoContext* ctx);             // "at"
 const proto::ProtoString* set(proto::ProtoContext* ctx);            // "set"
+const proto::ProtoString* get(proto::ProtoContext* ctx);            // "get"
+const proto::ProtoString* enumerable(proto::ProtoContext* ctx);     // "enumerable"
+const proto::ProtoString* configurable(proto::ProtoContext* ctx);   // "configurable"
+const proto::ProtoString* writable(proto::ProtoContext* ctx);       // "writable"
+const proto::ProtoString* returnSym(proto::ProtoContext* ctx);      // "return" (named -Sym since `return` is a keyword)
+const proto::ProtoString* is(proto::ProtoContext* ctx);             // "is"
+const proto::ProtoString* Symbol(proto::ProtoContext* ctx);         // "Symbol"
+const proto::ProtoString* getProto(proto::ProtoContext* ctx);       // "__get___proto____"
+const proto::ProtoString* setProto(proto::ProtoContext* ctx);       // "__set___proto____"
+const proto::ProtoString* pdIs(proto::ProtoContext* ctx);           // "__pd_is__"
+const proto::ProtoString* isBigIntKey(proto::ProtoContext* ctx);    // "__is_bigint__"
 const proto::ProtoString* reduce(proto::ProtoContext* ctx);         // "reduce"
 const proto::ProtoString* reduceRight(proto::ProtoContext* ctx);    // "reduceRight"
 const proto::ProtoString* from(proto::ProtoContext* ctx);           // "from"
