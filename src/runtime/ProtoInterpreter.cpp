@@ -7786,10 +7786,7 @@ const proto::ProtoObject* runBytecode(proto::ProtoContext* pContext,
                     // and invoking it without `new` must throw TypeError.
                     // OP_call reads this flag to enforce the spec — function
                     // declarations stay callable as before.
-                    const proto::ProtoString* isClassKey =
-                        pContext->fromUTF8String("__is_class_ctor__")
-                            ? pContext->fromUTF8String("__is_class_ctor__")->asString(pContext)
-                            : nullptr;
+                    const proto::ProtoString* isClassKey = JSSymbols::isClassCtor(pContext);
                     if (isClassKey) ctor = ctor->setAttribute(pContext, isClassKey, PROTO_TRUE);
 
                     // For derived classes, store the parent class on the ctor
@@ -14382,10 +14379,15 @@ const proto::ProtoObject* runBytecode(proto::ProtoContext* pContext,
                 // Invoking them without `new` (i.e., via OP_call rather
                 // than OP_call_constructor) is an error.
                 if (func && func != PROTO_NONE) {
-                    const proto::ProtoObject* iccko =
-                        pContext->fromUTF8String("__is_class_ctor__");
-                    const proto::ProtoString* icck =
-                        iccko ? iccko->asString(pContext) : nullptr;
+                    // PERF: use the interned JSSymbols accessor instead of
+                    // building a fresh ProtoString every call.  Pre-fix
+                    // this site allocated ~98 protoCore cells per JS-to-JS
+                    // call (1.4 GB RSS / 6 KB per call on a 200 K-call
+                    // empty-function benchmark) because fromUTF8String
+                    // built a new rope every dispatch.  Interned key →
+                    // AttributeCache hit → zero cells per call after the
+                    // first.
+                    const proto::ProtoString* icck = JSSymbols::isClassCtor(pContext);
                     if (icck && func->getAttribute(pContext, icck, false) == PROTO_TRUE) {
                         pending_exception = makeError(pContext, "TypeError",
                             "Class constructor cannot be invoked without 'new'",

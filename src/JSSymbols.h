@@ -107,6 +107,7 @@ const proto::ProtoString* isStrict(proto::ProtoContext* ctx);       // "__is_str
 const proto::ProtoString* isArrow(proto::ProtoContext* ctx);        // "__is_arrow__"
 const proto::ProtoString* isAsync(proto::ProtoContext* ctx);        // "__is_async__"
 const proto::ProtoString* isGenerator(proto::ProtoContext* ctx);    // "__is_generator__"
+const proto::ProtoString* isClassCtor(proto::ProtoContext* ctx);    // "__is_class_ctor__"
 const proto::ProtoString* constantPool(proto::ProtoContext* ctx);   // "__cpool__"
 const proto::ProtoString* closureSymbols(proto::ProtoContext* ctx); // "__closure_symbols__"
 const proto::ProtoString* parameterNames(proto::ProtoContext* ctx); // "__parameter_names__"
