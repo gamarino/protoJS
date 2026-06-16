@@ -4336,28 +4336,28 @@ report wall-clock to avoid startup-cost contamination.
 
 | Benchmark                | Node  | QuickJS | protoJS | × Node | × QuickJS |
 |--------------------------|------:|--------:|--------:|-------:|----------:|
-| array_literal            |  1 ms |   13 ms |  406 ms |   406× |     31×  |
-| control_flow             |  3 ms |   93 ms |  497 ms |   166× |    5.3×  |
-| function_calls           |  1 ms |   12 ms |  307 ms |   308× |     26×  |
-| json_transform           |  1 ms |    4 ms |  211 ms |   220× |     53×  |
-| json_transform_small     |  0 ms |    0 ms |   20 ms |     —  |     40×  |
-| json_transform_tiny      |  0 ms |    0 ms |   12 ms |     —  |     24×  |
-| list_snapshot_history    |  0 ms |    1 ms |  327 ms |   646× |    327×  |
-| numeric_loop             |  1 ms |   41 ms |  203 ms |   181× |    5.0×  |
-| **object_property**      | 38 ms |   85 ms |  781 ms |    20× |   **9.2×** |
-| **object_read_only**     |  1 ms |    6 ms |  442 ms |   429× |   **74×**  |
-| **parallel_cpu**         | 42 ms |  938 ms |   52 ms | Node 1.2× | **protoJS 18×** |
-| string_concat            |  1 ms |    7 ms |  149 ms |   128× |     21×  |
+| array_literal            |  1 ms |    6 ms |  305 ms |   305× |     51×  |
+| control_flow             |  3 ms |   55 ms |  339 ms |   113× |    6.2×  |
+| function_calls           |  1 ms |   11 ms |  294 ms |   294× |     27×  |
+| json_transform           |  1 ms |    4 ms |  197 ms |   197× |     49×  |
+| json_transform_small     |  0 ms |    0 ms |   17 ms |     —  |     34×  |
+| json_transform_tiny      |  0 ms |    0 ms |   10 ms |     —  |     20×  |
+| **list_snapshot_history** | 0 ms |    1 ms |   27 ms |    54× |    **27×**  |
+| numeric_loop             |  1 ms |   40 ms |  183 ms |   182× |    4.6×  |
+| **object_property**      | 40 ms |   78 ms |  700 ms |    17× |   **9.0×** |
+| **object_read_only**     |  1 ms |    6 ms |  403 ms |   427× |     67×  |
+| **parallel_cpu**         | 44 ms |  978 ms |   52 ms | Node 1.2× | **protoJS 19×** |
+| string_concat            |  1 ms |    7 ms |  119 ms |   118× |     17×  |
 | string_concat_large_ch.  |  0 ms |    0 ms |    0 ms |   parity| parity   |
 | string_insert_middle     |  0 ms |    0 ms |    1 ms |   parity|  2×      |
-| string_processing        |  0 ms |    1 ms |   14 ms |    16× |     14×  |
-| string_repeated_doubling | 44 ms |    2 ms |    3 ms | **protoJS 15×** | parity |
-| tree_traversal           |  0 ms |    4 ms |  498 ms |   722× |    125×  |
+| string_processing        |  0 ms |    0 ms |    8 ms |    —   |     16×  |
+| string_repeated_doubling | 40 ms |    1 ms |    2 ms | **protoJS 20×** |  2×    |
+| tree_traversal           |  1 ms |    4 ms |  360 ms |   355× |     90×  |
 
 **Geometric mean (in-process time):**
 
-- **protoJS / QuickJS = 12.12 ×**
-- **protoJS / Node    = 33.56 ×**
+- **protoJS / QuickJS = 10.05 ×**
+- **protoJS / Node    = 26.47 ×**
 - QuickJS / Node = 3.77 ×
 
 #### Where protoJS wins by architecture
@@ -4398,25 +4398,37 @@ Recent fixes target exactly this signature:
 
 - `L_OP_call`'s `__is_class_ctor__` probe used a per-call
   `fromUTF8String` that built a fresh ProtoString rope; interned via
-  `JSSymbols::isClassCtor`, dropping `function_calls` from 1.4 GB
-  RSS / 348 K faults to 24 MB / 4.7 K.
+  `JSSymbols::isClassCtor`.  `function_calls`: 1.4 GB RSS / 348 K
+  faults  →  24 MB / 4.7 K.
 - `L_OP_get_array_el`, `resolvePutFieldOOP`, and
   `invokeGetterIfPresentFast` each built `__get_<key>__` /
-  `__set_<key>__` rope strings on every property access.  Gated
-  behind a two-tier `__has_accessor_props__` check (OWN before
-  chain-walk, since Object.prototype's `__proto__` accessor sets
-  the chain flag globally) — own-data short-circuit eliminates
-  the rope build for every plain-data property read.
-  `object_property` 12 GB RSS → 1.4 GB, `object_read_only`
+  `__set_<key>__` rope strings on every property access.  Two-tier
+  `__has_accessor_props__` check (OWN before chain-walk, since
+  Object.prototype's `__proto__` accessor sets the chain flag
+  globally).  `object_property` 12 GB → 1.4 GB; `object_read_only`
   3.4 GB → 1.6 GB.
+- `resolvePutFieldOOP`'s length-truncation post-check identity-matched
+  `JSSymbols::length` instead of `toUTF8String + std::string ==`;
+  `OP_define_field`'s isNumericKey decision cached per-thread by
+  key pointer.  Tree-shaped object construction got cheaper.
+- `Array.prototype.concat` native fast path was disabled on every
+  call by the same Object.prototype chain-walk taint, AND its empty-
+  dst-list precondition was failing because arraySpeciesCreate
+  pre-sized the result list.  Fix both:
+  `list_snapshot_history` 327× QuickJS → 27× (12× speedup); RSS
+  1.4 GB → 155 MB.
 - `ProtoString::isInlineString()` exposed as public protoCore API
   so `ensureInterned` can pointer-identity-match short ASCII keys
   without the `toUTF8String` + `createSymbol` round-trip.
 
-The remaining outliers (`list_snapshot_history` 327×,
-`tree_traversal` 125×, `string_concat` 21×) all show the same
-allocation-storm signature in the diagnostic recipe, just rooted in
-a different opcode handler; same audit method, same fix shape.
+The remaining outliers in the table (`tree_traversal` 90×,
+`string_concat` 17×) are dominated by inherent rope / object-
+construction allocation patterns rather than uninterned-string
+storm.  `string_concat`'s `s += 'x'` profile shows 50 %+ of CPU in
+`StringInternalNode` rope operations — the rope build is the
+benchmark, not an accidental cost.  Further wins here need
+protoCore-side work (batched setAttributes, mutable string
+builder), not embedder cleanups.
 
 #### Specialiser micro-result
 
