@@ -246,7 +246,21 @@ static const proto::ProtoObject* resolvePutFieldOOP(proto::ProtoContext* ctx, co
     // also drop every own property whose key is a uint32 ≥ newLen.
     // Pre-fix `arr[4294967294] = v; arr.length = 2` left the sparse
     // entry behind because the writer only updated the data slot.
-    if (res) {
+    //
+    // PERF: identity-match against the interned `length` symbol
+    // (JSSymbols::length) instead of toUTF8String + std::string ==.
+    // Pre-fix this site ran a rope walk + std::string build on EVERY
+    // successful setAttribute, including `node.val = …`, `node.left
+    // = …`, etc.  On tree_traversal (~80 K object creations × 3
+    // properties each = 240 K putField calls) that allocated the
+    // result string of the toUTF8String on the heap per call.  Now
+    // a pointer compare against the canonical `length` symbol
+    // short-circuits the whole block in 1 ns when the key is
+    // anything else.  The keyStr build still fires if the key IS
+    // length (rare on user code) and on the slow non-extensible
+    // / accessor branches above.
+    const proto::ProtoString* lengthSym = JSSymbols::length(ctx);
+    if (res && key == lengthSym) {
         if (keyStr.empty()) key->toUTF8String(ctx, keyStr);
         if (keyStr == "length") {
             const proto::ProtoString* isArrK = JSSymbols::isArray(ctx);
@@ -9483,12 +9497,31 @@ const proto::ProtoObject* runBytecode(proto::ProtoContext* pContext,
                         // has a .length property, update .length when idx+1 > currentLength.
                         // This fixes array literals with >32 elements: QuickJS emits
                         // OP_array_from for the first 32 elements, then OP_define_field for rest.
-                        std::string keyStr;
-                        key->toUTF8String(pContext, keyStr);
-                        const bool isNumericKey = !keyStr.empty() &&
-                            std::all_of(keyStr.begin(), keyStr.end(),
-                                        [](unsigned char c){ return c >= '0' && c <= '9'; });
+                        //
+                        // PERF: keys come from the bytecode constant pool —
+                        // process-perpetual interned symbols, so a per-thread
+                        // pointer-keyed cache of `isNumericKey` has effectively
+                        // 100% hit rate after warmup.  Pre-fix this site did a
+                        // full toUTF8String rope walk + std::all_of per call,
+                        // which fired for EVERY object-literal property
+                        // (~80 K objects × 3 props = 240 K calls on
+                        // tree_traversal).
+                        static thread_local std::unordered_map<const proto::ProtoString*, bool> s_isNumericCache;
+                        bool isNumericKey;
+                        auto it = s_isNumericCache.find(key);
+                        if (it != s_isNumericCache.end()) {
+                            isNumericKey = it->second;
+                        } else {
+                            std::string keyStr;
+                            key->toUTF8String(pContext, keyStr);
+                            isNumericKey = !keyStr.empty() &&
+                                std::all_of(keyStr.begin(), keyStr.end(),
+                                            [](unsigned char c){ return c >= '0' && c <= '9'; });
+                            s_isNumericCache[key] = isNumericKey;
+                        }
                         if (isNumericKey) {
+                            std::string keyStr;
+                            key->toUTF8String(pContext, keyStr);
                             // Only bump .length when the receiver is
                             // actually an Array — plain objects must
                             // not gain a .length sidecar just because
