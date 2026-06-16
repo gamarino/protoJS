@@ -1327,12 +1327,14 @@ static const proto::ProtoObject* reflectOwnKeys(
     // pushing Symbols ahead of it (test262
     // Proxy/ownKeys/trap-is-missing-target-is-proxy.js).
     if (targetIsStringWrapper) {
-        els = els->appendLast(ctx, ctx->fromUTF8String("length"));
+        const proto::ProtoString* lenKey = JSSymbols::length(ctx);
+        els = els->appendLast(ctx, lenKey ? lenKey->asObject(ctx) : ctx->fromUTF8String("length"));
     }
     for (const auto& s : strKeys)
         els = els->appendLast(ctx, ctx->fromUTF8String(s.c_str()));
     if (targetIsArr) {
-        els = els->appendLast(ctx, ctx->fromUTF8String("length"));
+        const proto::ProtoString* lenKey = JSSymbols::length(ctx);
+        els = els->appendLast(ctx, lenKey ? lenKey->asObject(ctx) : ctx->fromUTF8String("length"));
     }
     // Symbol-typed keys come last per §10.1.11 step 5
     // (OrdinaryOwnPropertyKeys).
@@ -3941,8 +3943,7 @@ static void ensureBuiltinErrorConstructors(proto::ProtoContext* ctx,
         // the property was fully enumerable so `for (k in Error)`
         // listed "prototype" and propertyIsEnumerable returned true.
         {
-            const proto::ProtoObject* pdpo = ctx->fromUTF8String("__pd_prototype__");
-            const proto::ProtoString* pdpk = pdpo ? pdpo->asString(ctx) : nullptr;
+            const proto::ProtoString* pdpk = JSSymbols::pdPrototype(ctx);
             if (pdpk) ctor = ctor->setAttribute(ctx, pdpk, ctx->fromInteger(0x0LL));
         }
         // Set prototype.constructor = ctor so `e.constructor === TypeError` identity checks pass.
@@ -4797,8 +4798,7 @@ const proto::ProtoObject* runBytecode(proto::ProtoContext* pContext,
                     // pre-fix defaulted to fully writable / configurable
                     // (built-ins/Object/getOwnPropertyDescriptor/
                     // 15.2.3.3-4-210 covers Date.prototype).
-                    const proto::ProtoObject* pdo = pContext->fromUTF8String("__pd_prototype__");
-                    const proto::ProtoString* pdk = pdo ? pdo->asString(pContext) : nullptr;
+                    const proto::ProtoString* pdk = JSSymbols::pdPrototype(pContext);
                     if (pdk) stub = stub->setAttribute(pContext, pdk, pContext->fromInteger(0x0LL));
                 }
                 if (nfKey3) {
@@ -5499,9 +5499,7 @@ const proto::ProtoObject* runBytecode(proto::ProtoContext* pContext,
                             // configurable:false} → bits 0x0.  Pre-fix the
                             // slot defaulted to fully writable / configurable
                             // (built-ins/Symbol/prototype-attribute).
-                            const proto::ProtoObject* pdpo =
-                                pContext->fromUTF8String("__pd_prototype__");
-                            const proto::ProtoString* pdpk = pdpo ? pdpo->asString(pContext) : nullptr;
+                            const proto::ProtoString* pdpk = JSSymbols::pdPrototype(pContext);
                             if (pdpk) symbolCtor = symbolCtor->setAttribute(pContext, pdpk,
                                 pContext->fromInteger(0x0LL));
                         }
@@ -7761,8 +7759,7 @@ const proto::ProtoObject* runBytecode(proto::ProtoContext* pContext,
                     if (pkey) ctor = ctor->setAttribute(pContext, pkey, proto);
                     // ctor.prototype is {writable:false, enumerable:false, configurable:false} → 0x0.
                     {
-                        const proto::ProtoObject* pdo = pContext->fromUTF8String("__pd_prototype__");
-                        const proto::ProtoString* pdk = pdo ? pdo->asString(pContext) : nullptr;
+                        const proto::ProtoString* pdk = JSSymbols::pdPrototype(pContext);
                         if (pdk) ctor = ctor->setAttribute(pContext, pdk, pContext->fromInteger(0x0LL));
                     }
 
@@ -7775,10 +7772,7 @@ const proto::ProtoObject* runBytecode(proto::ProtoContext* pContext,
                     }
 
                     // Mark as a constructor so OP_call_constructor accepts it.
-                    const proto::ProtoString* isCtorKey =
-                        pContext->fromUTF8String("__is_constructor__")
-                            ? pContext->fromUTF8String("__is_constructor__")->asString(pContext)
-                            : nullptr;
+                    const proto::ProtoString* isCtorKey = JSSymbols::isConstructor(pContext);
                     if (isCtorKey) ctor = ctor->setAttribute(pContext, isCtorKey, PROTO_TRUE);
 
                     // ECMA-262 §10.2.1 [[Call]] step 2 marker: every class
