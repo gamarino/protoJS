@@ -326,6 +326,19 @@ static const proto::ProtoObject* resolvePutElementOOP(proto::ProtoContext* ctx, 
 static const proto::ProtoString* ensureInterned(proto::ProtoContext* ctx, const proto::ProtoString* s) {
     if (!s) return nullptr;
     if (s->isSymbol()) return s;
+    // Inline strings (≤ INLINE_STRING_MAX_BYTES of pure ASCII packed
+    // into the tagged pointer itself) are pointer-identity unique by
+    // construction — the same content always packs into the same
+    // tagged value regardless of how it was created, and createSymbol
+    // takes the same inline fast path for short ASCII anyway and
+    // returns the SAME inline pointer.  Bypassing the toUTF8String +
+    // createSymbol round-trip for inline inputs is a measured win on
+    // every object-keyed bench: object_read_only's hot
+    // `obj[keys[i%100]]` access (with 2-3-char "k##" keys, all inline)
+    // pre-fix paid the equivalent of one rope-build + intern-table
+    // probe per access; afterwards it short-circuits at this `if` and
+    // returns `s` directly.
+    if (s->isInlineString()) return s;
 
     // Routing through createSymbol every call: protoCore's SymbolTable
     // already deduplicates by content via a 64-shard concurrent
@@ -10630,13 +10643,57 @@ const proto::ProtoObject* runBytecode(proto::ProtoContext* pContext,
                         // getter still wins over the (sentinel) data slot
                         // — the original "accessor takes precedence" case
                         // for Object.defineProperty redefines.
+                        //
+                        // PERF: gate the accessor-sidecar lookup on the
+                        // `__has_accessor_props__` flag the same way the
+                        // numeric-index path above does (line 10494).
+                        // Pre-fix the handler built a fresh `__get_<key>__`
+                        // ProtoString via `toUTF8String` + std::string
+                        // concat + `fromUTF8String` on EVERY string-keyed
+                        // property read — 12-char rope build per access,
+                        // ~100 cells per `obj[key]` even when `obj` had
+                        // zero accessor descriptors.  object_read_only's
+                        // hot `obj[keys[i%100]]` loop allocated 3.4 GB
+                        // RSS / 856 K page faults for 500 K reads from
+                        // this site alone.  When the gate is false, skip
+                        // the rope build entirely and go straight to the
+                        // data-property path.
+                        // Two-tier accessor gate: probe OWN
+                        // `__has_accessor_props__` for the OWN accessor
+                        // sidecar branch, and the chain-walking variant
+                        // for the inherited-accessor branch.  Pre-fix
+                        // the handler built a fresh `__get_<key>__`
+                        // ProtoString unconditionally on every string
+                        // lookup — and the chain-walk check returned true
+                        // for every object because Object.prototype's
+                        // `__proto__` accessor sets the flag globally.
+                        // Result: 12-char rope build + intern probe per
+                        // `obj[key]`, ~100 cells / access, 3.4 GB RSS
+                        // on the 500 K-read object_read_only bench even
+                        // though no user accessor existed.  Now the OWN
+                        // probe gate fires only on receivers that have
+                        // their own getters; the chain probe gate only
+                        // fires when the data lookup misses (rare on a
+                        // populated object).
+                        const proto::ProtoString* hapKey = JSSymbols::hasAccessorProps(pContext);
+                        const bool ownMayHaveAccessor = hapKey
+                            && obj->hasOwnAttribute(pContext, hapKey) == PROTO_TRUE
+                            && obj->getAttribute(pContext, hapKey, false) == PROTO_TRUE;
+
                         std::string keyStrGAE;
-                        key->toUTF8String(pContext, keyStrGAE);
-                        std::string gkStrGAE = "__get_" + keyStrGAE + "__";
-                        const proto::ProtoObject* gkObj = pContext->fromUTF8String(gkStrGAE.c_str());
-                        const proto::ProtoString* gkStrKey = gkObj ? gkObj->asString(pContext) : nullptr;
-                        bool ownAccessor = gkStrKey
-                            && obj->hasOwnAttribute(pContext, gkStrKey) == PROTO_TRUE;
+                        std::string gkStrGAE;
+                        const proto::ProtoString* gkStrKey = nullptr;
+                        bool ownAccessor = false;
+
+                        if (ownMayHaveAccessor) {
+                            key->toUTF8String(pContext, keyStrGAE);
+                            gkStrGAE = "__get_" + keyStrGAE + "__";
+                            const proto::ProtoObject* gkObj = pContext->fromUTF8String(gkStrGAE.c_str());
+                            gkStrKey = gkObj ? gkObj->asString(pContext) : nullptr;
+                            ownAccessor = gkStrKey
+                                && obj->hasOwnAttribute(pContext, gkStrKey) == PROTO_TRUE;
+                        }
+
                         if (ownAccessor) {
                             // Invoke the own getter directly.
                             const proto::ProtoObject* gval =
@@ -10648,12 +10705,27 @@ const proto::ProtoObject* runBytecode(proto::ProtoContext* pContext,
                             // the prototype chain.
                             val = obj->getAttribute(pContext, key, false);
                         } else {
-                            // Not own — walk inherited accessor, then
-                            // inherited data via resolveFieldOOP.
-                            const proto::ProtoObject* gval =
-                                invokeGetterIfPresent(obj, keyStrGAE);
-                            if (has_pending_exception) DISPATCH();
-                            if (gval && gval != PROTO_NONE) val = gval;
+                            // Not own — only NOW pay the inherited-
+                            // accessor lookup, and only when the chain
+                            // actually carries any accessor.  The chain
+                            // gate (`hasAttribute(...,true)`) returns
+                            // true via Object.prototype on every plain
+                            // object, so the rope build for
+                            // `__get_<key>__` happens even when no real
+                            // accessor will match — that's unfortunate
+                            // but only on the cold "no own data" path.
+                            const proto::ProtoObject* chainHap = hapKey
+                                ? obj->getAttribute(pContext, hapKey, true) : nullptr;
+                            if (chainHap == PROTO_TRUE) {
+                                if (keyStrGAE.empty()) {
+                                    key->toUTF8String(pContext, keyStrGAE);
+                                    gkStrGAE = "__get_" + keyStrGAE + "__";
+                                }
+                                const proto::ProtoObject* gval =
+                                    invokeGetterIfPresent(obj, keyStrGAE);
+                                if (has_pending_exception) DISPATCH();
+                                if (gval && gval != PROTO_NONE) val = gval;
+                            }
                         }
                         if (!val || val == PROTO_NONE) {
                             val = resolveFieldOOP(pContext, obj, key);
