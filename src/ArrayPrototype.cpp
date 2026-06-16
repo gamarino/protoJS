@@ -2250,9 +2250,19 @@ static const proto::ProtoObject* arrayIndexOf(
     if (!needleIsUndefined) {
         const proto::ProtoString* hisKey = JSSymbols::hasIndexedSetters(ctx);
         const proto::ProtoString* hapKey = JSSymbols::hasAccessorProps(ctx);
+        // PERF: own-only flag check.  The previous chain-walking variant
+        // returned true on every plain array because Object.prototype's
+        // `__proto__` accessor stamps `__has_accessor_props__` on the
+        // global object prototype — the native fast path then fell
+        // through to the O(N) per-item slow path for EVERY concat /
+        // slice / splice / map / filter call.  The flag is meaningful
+        // only when the receiver ITSELF carries an own accessor or
+        // indexed-setter descriptor; an inherited accessor on
+        // Object.prototype cannot intercept numeric-index writes into
+        // a fresh array.
         auto flagSet = [&](const proto::ProtoObject* obj, const proto::ProtoString* k) {
-            return obj && k && (obj->hasAttribute(ctx, k) == PROTO_TRUE)
-                            && (obj->getAttribute(ctx, k, true) == PROTO_TRUE);
+            return obj && k && obj->hasOwnAttribute(ctx, k) == PROTO_TRUE
+                            && obj->getAttribute(ctx, k, false) == PROTO_TRUE;
         };
         if (!flagSet(self, hisKey) && !flagSet(self, hapKey)) {
             const proto::ProtoList* list = nativeArrayList(ctx, self);
@@ -2425,9 +2435,19 @@ static const proto::ProtoObject* arrayLastIndexOf(
     if (!needleIsUndefined) {
         const proto::ProtoString* hisKey = JSSymbols::hasIndexedSetters(ctx);
         const proto::ProtoString* hapKey = JSSymbols::hasAccessorProps(ctx);
+        // PERF: own-only flag check.  The previous chain-walking variant
+        // returned true on every plain array because Object.prototype's
+        // `__proto__` accessor stamps `__has_accessor_props__` on the
+        // global object prototype — the native fast path then fell
+        // through to the O(N) per-item slow path for EVERY concat /
+        // slice / splice / map / filter call.  The flag is meaningful
+        // only when the receiver ITSELF carries an own accessor or
+        // indexed-setter descriptor; an inherited accessor on
+        // Object.prototype cannot intercept numeric-index writes into
+        // a fresh array.
         auto flagSet = [&](const proto::ProtoObject* obj, const proto::ProtoString* k) {
-            return obj && k && (obj->hasAttribute(ctx, k) == PROTO_TRUE)
-                            && (obj->getAttribute(ctx, k, true) == PROTO_TRUE);
+            return obj && k && obj->hasOwnAttribute(ctx, k) == PROTO_TRUE
+                            && obj->getAttribute(ctx, k, false) == PROTO_TRUE;
         };
         if (!flagSet(self, hisKey) && !flagSet(self, hapKey)) {
             const proto::ProtoList* list = nativeArrayList(ctx, self);
@@ -2527,9 +2547,19 @@ static const proto::ProtoObject* arrayIncludes(
     {
         const proto::ProtoString* hisKey = JSSymbols::hasIndexedSetters(ctx);
         const proto::ProtoString* hapKey = JSSymbols::hasAccessorProps(ctx);
+        // PERF: own-only flag check.  The previous chain-walking variant
+        // returned true on every plain array because Object.prototype's
+        // `__proto__` accessor stamps `__has_accessor_props__` on the
+        // global object prototype — the native fast path then fell
+        // through to the O(N) per-item slow path for EVERY concat /
+        // slice / splice / map / filter call.  The flag is meaningful
+        // only when the receiver ITSELF carries an own accessor or
+        // indexed-setter descriptor; an inherited accessor on
+        // Object.prototype cannot intercept numeric-index writes into
+        // a fresh array.
         auto flagSet = [&](const proto::ProtoObject* obj, const proto::ProtoString* k) {
-            return obj && k && (obj->hasAttribute(ctx, k) == PROTO_TRUE)
-                            && (obj->getAttribute(ctx, k, true) == PROTO_TRUE);
+            return obj && k && obj->hasOwnAttribute(ctx, k) == PROTO_TRUE
+                            && obj->getAttribute(ctx, k, false) == PROTO_TRUE;
         };
         if (!flagSet(self, hisKey) && !flagSet(self, hapKey)) {
             const proto::ProtoList* list = nativeArrayList(ctx, self);
@@ -3071,9 +3101,19 @@ static const proto::ProtoObject* arrayConcat(
     {
         const proto::ProtoString* hisKey = JSSymbols::hasIndexedSetters(ctx);
         const proto::ProtoString* hapKey = JSSymbols::hasAccessorProps(ctx);
+        // PERF: own-only flag check.  The previous chain-walking variant
+        // returned true on every plain array because Object.prototype's
+        // `__proto__` accessor stamps `__has_accessor_props__` on the
+        // global object prototype — the native fast path then fell
+        // through to the O(N) per-item slow path for EVERY concat /
+        // slice / splice / map / filter call.  The flag is meaningful
+        // only when the receiver ITSELF carries an own accessor or
+        // indexed-setter descriptor; an inherited accessor on
+        // Object.prototype cannot intercept numeric-index writes into
+        // a fresh array.
         auto flagSet = [&](const proto::ProtoObject* obj, const proto::ProtoString* k) {
-            return obj && k && (obj->hasAttribute(ctx, k) == PROTO_TRUE)
-                            && (obj->getAttribute(ctx, k, true) == PROTO_TRUE);
+            return obj && k && obj->hasOwnAttribute(ctx, k) == PROTO_TRUE
+                            && obj->getAttribute(ctx, k, false) == PROTO_TRUE;
         };
         auto cleanArray = [&](const proto::ProtoObject* obj, const proto::ProtoList** out) -> bool {
             if (!obj || obj == PROTO_NONE) { *out = nullptr; return false; }
@@ -3086,52 +3126,64 @@ static const proto::ProtoObject* arrayConcat(
             return true;
         };
         if (!flagSet(result, hisKey) && !flagSet(result, hapKey)) {
-            const proto::ProtoList* dstList = nativeArrayList(ctx, result);
-            if (dstList && dstList->getSize(ctx) == 0) {
-                bool ok = true;
-                // Self side
-                const proto::ProtoList* selfEls = nullptr;
-                bool selfSpread = isSpreadable(self);
+            // PERF: build into a fresh empty list rather than appending
+            // to whatever arraySpeciesCreate stashed under
+            // result.__elements__.  Pre-fix the gate required the dst
+            // list to be exactly empty, which arraySpeciesCreate
+            // satisfies for `new Array()` but NOT for the
+            // `new Array(totalLen)` shape arrayConcat lands at — the
+            // species call takes the computed totalLen so the
+            // pre-allocated list carries totalLen PROTO_NONE entries
+            // and the size check failed.  That dropped EVERY
+            // `arr.concat([i])` to the O(N) per-item slow path, which
+            // multiplied out to ~600 K wasted per-element
+            // setAttribute round-trips on list_snapshot_history's
+            // 200-call hot loop.  Build into ctx->newList() and
+            // replace result.__elements__ wholesale via
+            // setArrayElements at the end.
+            bool ok = true;
+            // Self side
+            const proto::ProtoList* selfEls = nullptr;
+            bool selfSpread = isSpreadable(self);
+            if (selfSpread) {
+                if (!cleanArray(self, &selfEls)) ok = false;
+            }
+            // Args side — quick pass that records (spread?, els) per arg.
+            std::vector<std::pair<bool, const proto::ProtoList*>> argPlan;
+            std::vector<const proto::ProtoObject*> argItem;
+            if (ok && args) {
+                unsigned long argc = static_cast<unsigned long>(args->getSize(ctx));
+                argPlan.reserve(argc); argItem.reserve(argc);
+                for (unsigned long ai = 0; ok && ai < argc; ai++) {
+                    const proto::ProtoObject* item = args->getAt(ctx, static_cast<int>(ai));
+                    argItem.push_back(item);
+                    bool spread = isSpreadable(item);
+                    // isSpreadable may have surfaced a revoked-Proxy
+                    // abrupt via signalNativeException; propagate.
+                    if (hasCallException()) return PROTO_NONE;
+                    const proto::ProtoList* els = nullptr;
+                    if (spread) {
+                        if (!cleanArray(item, &els)) { ok = false; break; }
+                    }
+                    argPlan.emplace_back(spread, els);
+                }
+            }
+            if (ok) {
+                const proto::ProtoList* out = ctx->newList();
                 if (selfSpread) {
-                    if (!cleanArray(self, &selfEls)) ok = false;
+                    if (selfEls) out = out->extend(ctx, selfEls);
+                } else if (self && self != PROTO_NONE) {
+                    out = out->appendLast(ctx, self);
                 }
-                // Args side — quick pass that records (spread?, els) per arg.
-                std::vector<std::pair<bool, const proto::ProtoList*>> argPlan;
-                std::vector<const proto::ProtoObject*> argItem;
-                if (ok && args) {
-                    unsigned long argc = static_cast<unsigned long>(args->getSize(ctx));
-                    argPlan.reserve(argc); argItem.reserve(argc);
-                    for (unsigned long ai = 0; ok && ai < argc; ai++) {
-                        const proto::ProtoObject* item = args->getAt(ctx, static_cast<int>(ai));
-                        argItem.push_back(item);
-                        bool spread = isSpreadable(item);
-                        // isSpreadable may have surfaced a revoked-Proxy
-                        // abrupt via signalNativeException; propagate.
-                        if (hasCallException()) return PROTO_NONE;
-                        const proto::ProtoList* els = nullptr;
-                        if (spread) {
-                            if (!cleanArray(item, &els)) { ok = false; break; }
-                        }
-                        argPlan.emplace_back(spread, els);
+                for (size_t i = 0; i < argPlan.size(); i++) {
+                    if (argPlan[i].first) {
+                        if (argPlan[i].second) out = out->extend(ctx, argPlan[i].second);
+                    } else {
+                        out = out->appendLast(ctx, argItem[i] ? argItem[i] : PROTO_NONE);
                     }
                 }
-                if (ok) {
-                    const proto::ProtoList* out = dstList;
-                    if (selfSpread) {
-                        if (selfEls) out = out->extend(ctx, selfEls);
-                    } else if (self && self != PROTO_NONE) {
-                        out = out->appendLast(ctx, self);
-                    }
-                    for (size_t i = 0; i < argPlan.size(); i++) {
-                        if (argPlan[i].first) {
-                            if (argPlan[i].second) out = out->extend(ctx, argPlan[i].second);
-                        } else {
-                            out = out->appendLast(ctx, argItem[i] ? argItem[i] : PROTO_NONE);
-                        }
-                    }
-                    setArrayElements(ctx, result, out);
-                    return result;
-                }
+                setArrayElements(ctx, result, out);
+                return result;
             }
         }
     }
@@ -4761,9 +4813,19 @@ static const proto::ProtoObject* arraySplice(
     {
         const proto::ProtoString* hisKey = JSSymbols::hasIndexedSetters(ctx);
         const proto::ProtoString* hapKey = JSSymbols::hasAccessorProps(ctx);
+        // PERF: own-only flag check.  The previous chain-walking variant
+        // returned true on every plain array because Object.prototype's
+        // `__proto__` accessor stamps `__has_accessor_props__` on the
+        // global object prototype — the native fast path then fell
+        // through to the O(N) per-item slow path for EVERY concat /
+        // slice / splice / map / filter call.  The flag is meaningful
+        // only when the receiver ITSELF carries an own accessor or
+        // indexed-setter descriptor; an inherited accessor on
+        // Object.prototype cannot intercept numeric-index writes into
+        // a fresh array.
         auto flagSet = [&](const proto::ProtoObject* obj, const proto::ProtoString* k) {
-            return obj && k && (obj->hasAttribute(ctx, k) == PROTO_TRUE)
-                            && (obj->getAttribute(ctx, k, true) == PROTO_TRUE);
+            return obj && k && obj->hasOwnAttribute(ctx, k) == PROTO_TRUE
+                            && obj->getAttribute(ctx, k, false) == PROTO_TRUE;
         };
         if (!flagSet(self, hisKey) && !flagSet(self, hapKey)
             && !flagSet(removed, hisKey) && !flagSet(removed, hapKey)) {
