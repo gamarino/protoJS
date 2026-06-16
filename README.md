@@ -4347,8 +4347,8 @@ specialiser's value.
 | json_transform_tiny      |    0 ms|    0 ms |   10 ms |     —   |    20 × |
 | list_snapshot_history    |    0 ms|    1 ms |  304 ms |   866 × |   304 × |
 | numeric_loop             |    1 ms|   39 ms |  174 ms |   220 × |   4.5 × |
-| **object_property**      |   41 ms|   84 ms | 2828 ms |    91 × |    34 × |
-| **object_read_only**     |    1 ms|    6 ms |  781 ms |   826 × |   130 × |
+| **object_property**      |   41 ms|   78 ms | 2100 ms |    51 × |    **27 ×** (was 34 ×) |
+| **object_read_only**     |    1 ms|    6 ms |  420 ms |   ~420 ×|   **70 ×** (was 130 ×) |
 | **parallel_cpu**         |   42 ms|  976 ms |   52 ms | Node 1.2 × | **protoJS 18.8 ×** |
 | string_concat            |    2 ms|    8 ms |  144 ms |    64 × |    18 × |
 | string_insert_middle     |    1 ms|    0 ms |    1 ms |   parity| 2 × |
@@ -4358,8 +4358,8 @@ specialiser's value.
 
 **Geometric mean (in-process time):**
 
-- **protoJS / QuickJS = 12.79 ×**   (was 17.65 × on 2026-06-07 — `−27 %`)
-- **protoJS / Node    = 34.93 ×**   (was 66.6  × on 2026-06-07 — `−48 %`)
+- **protoJS / QuickJS = 12.49 ×**   (was 17.65 × on 2026-06-07 — `−29 %`)
+- **protoJS / Node    = ~34 ×**     (was 66.6  × on 2026-06-07 — `−49 %`)
 - QuickJS / Node = 3.77 ×
 
 #### What moved this cycle
