@@ -4338,24 +4338,37 @@ micro-loop A/B is the place to read the specialiser's value.
 
 | Benchmark                | Node  | QuickJS | protoJS | Node × | QuickJS × |
 |--------------------------|------:|--------:|--------:|-------:|----------:|
-| array_literal            |  2 ms |   10 ms |  326 ms |  163 × |     33 ×  |
-| control_flow             |  3 ms |   62 ms |  400 ms |  133 × |    6.5 ×  |
-| function_calls           |  1 ms |   10 ms | 1623 ms | 1623 × |    162 ×  |
-| json_transform           |  1 ms |    4 ms |  216 ms |  216 × |     54 ×  |
-| list_snapshot_history    |  1 ms |    1 ms |  324 ms |  324 × |    324 ×  |
-| numeric_loop             |  1 ms |   42 ms |  165 ms |  165 × |    3.9 ×  |
-| **object_property**      | 40 ms |   83 ms | 2833 ms |   74 × |     34 ×  |
-| **object_read_only**     |  1 ms |   11 ms |  936 ms |  789 × |     85 ×  |
-| **parallel_cpu**         | 44 ms |  800 ms |   52 ms | Node 1.2 × | **protoJS 15.4 ×** |
-| string_concat            |  2 ms |    5 ms |  117 ms |   62 × |     23 ×  |
+| array_literal            |  2 ms |    9 ms |  554 ms |  277 × |     62 ×  |
+| control_flow             |  3 ms |   85 ms |  501 ms |  167 × |    5.9 ×  |
+| **function_calls**       |  1 ms |   17 ms |**574 ms**| 574 ×  | **34 ×** (was 162 ×) |
+| json_transform           |  1 ms |    7 ms |  356 ms |  356 × |     51 ×  |
+| list_snapshot_history    |  1 ms |    2 ms |  504 ms |  504 × |    252 ×  |
+| numeric_loop             |  1 ms |   68 ms |  230 ms |  230 × |    3.4 ×  |
+| **object_property**      | 40 ms |   99 ms | 3330 ms |   83 × |     34 ×  |
+| **object_read_only**     |  1 ms |    7 ms |  925 ms |  925 × |    132 ×  |
+| **parallel_cpu**         | 44 ms | 1007 ms |   52 ms | Node 1.2 × | **protoJS 19.4 ×** |
+| string_concat            |  2 ms |    6 ms |  142 ms |   71 × |     24 ×  |
 | string_repeated_doubling | 42 ms |    2 ms |    2 ms | **protoJS 21 ×** | parity |
-| tree_traversal           |  1 ms |    4 ms |  752 ms |  721 × |    188 ×  |
+| tree_traversal           |  1 ms |    5 ms |  441 ms |  441 × |     88 ×  |
 
 **Geometric mean (in-process time):**
 
-- **protoJS / Node    = 30.8 ×**   (was 66.6 × on 2026-06-07)
-- **protoJS / QuickJS = 12.5 ×**   (was 17.65 × on 2026-06-07)
+- **protoJS / QuickJS = 13.7 ×**   (was 17.65 × on 2026-06-07)
 - QuickJS / Node = 3.77 ×
+
+**Big single-bench win this cycle: `function_calls` 162× → 34×
+(−79 %)** — the dominant outlier on the previous baseline.  L_OP_call's
+class-constructor-without-new check (`__is_class_ctor__` attribute
+probe) was building a fresh ProtoString from the C literal every
+JS-to-JS call.  Each `fromUTF8String("__is_class_ctor__")` walk
+allocated ~98 protoCore cells (rope build) → 1.4 GB RSS / 0.98 s
+sys-time / 348 K page faults on the 200 K-call benchmark.  Fix:
+intern the key through `JSSymbols::isClassCtor`.  Diagnostic recipe
+preserved in memory `feedback_protojs_uninterned_attribute_key_in_hot_path`.
+
+  Wall (200K empty calls)   1.78 s  →  0.13 s   (−93 %)
+  System time               0.98 s  →  0.02 s   (−98 %)
+  Maximum RSS               1.4 GB  →  24 MB    (−98 %)
 
 The two ratios improved by ~30 % vs the 2026-06-07 baseline — that's
 the cumulative gain from sprint-11 + the structural cleanup the
