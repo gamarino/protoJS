@@ -36,8 +36,18 @@ constexpr uint8_t OP_PROTO_ACC_LOC8_LOC8 = 244;
 /// `pc + 7 + target`.  SmallInt fast path inlined.
 constexpr uint8_t OP_PROTO_LT_LOC8_LOC8_JFALSE = 245;
 
+/// `OP_PROTO_LT_LOC_VAR_JFALSE locIdx varIdx_u16 offset_s32` (8 bytes)
+/// Fuses the *closure-or-global* form of the loop test:
+///     get_loc_check locIdx ; get_var varIdx ; lt ; if_false[8] target
+/// `varIdx` is the closure-symbol / global-var index (u16, the format
+/// QuickJS emits for `OP_get_var`).  Stored offset is 32-bit signed
+/// even when the source used `if_false8` — widened at match time so
+/// the dispatched handler stays uniform.
+constexpr uint8_t OP_PROTO_LT_LOC_VAR_JFALSE = 246;
+
 constexpr int FUSED_ACC_LEN = 3;
 constexpr int FUSED_LT_JF_LEN = 7;
+constexpr int FUSED_LT_LOC_VAR_JF_LEN = 8;
 
 // ─────────────────────────────────────────────────────────────────
 // QuickJS opcode size table.  Hand-rolled from quickjs-opcode.h
@@ -79,6 +89,7 @@ const uint8_t* getOpcodeSizes() {
         // for the rationale).
         table[OP_PROTO_ACC_LOC8_LOC8]       = FUSED_ACC_LEN;
         table[OP_PROTO_LT_LOC8_LOC8_JFALSE] = FUSED_LT_JF_LEN;
+        table[OP_PROTO_LT_LOC_VAR_JFALSE]   = FUSED_LT_LOC_VAR_JF_LEN;
         return table;
     }();
     return sizes;
@@ -193,6 +204,59 @@ int matchAccPatternAddLoc(const uint8_t* buf, int pc, int len,
 // The boolean `outIsShortJf` distinguishes if_false8 (1-byte offset)
 // from if_false (4-byte offset) at the source — the compact rewriter
 // uses it to compute the original target pc correctly.
+// Pattern P3: `i < n` where `n` is closure / global (NOT a local).
+//   bytes: get_loc<a>; get_var <varIdx>; lt; if_false[8] T
+//   QuickJS emits OP_get_var (byte 0x38, 3-byte form: op + u16 varIdx)
+//   for module-level `let` / `const` / `var` declarations captured by
+//   inner functions — the `for (let i=0; i<INNER; i++)` shape with
+//   INNER as a top-level const.  We accept either the regular
+//   `OP_get_var` or the TDZ-tracked `OP_get_var_undef` source (the
+//   handler does the same TDZ check inline either way).
+//
+// Returns the matched-source byte span; outputs the loc index, the
+// 16-bit var-ref / closure index, the original if_false offset
+// (sign-extended to int32 when the source used if_false8), and a
+// flag for the short-jump form so the compact rewriter can recover
+// the original target pc.
+int matchLtLocVarJfPattern(const uint8_t* buf, int pc, int len,
+                            uint8_t& outLoc, uint16_t& outVarIdx,
+                            int32_t& outOriginalStored,
+                            bool& outIsShortJf) {
+    uint8_t loc;
+    int n1 = decodeGetLoc(buf, pc, len, loc);
+    if (!n1) return 0;
+    int varPos = pc + n1;
+    if (varPos + 3 > len) return 0;
+    uint8_t varOp = buf[varPos];
+    // Accept OP_get_var only; OP_get_var_check is rare and would need
+    // the runtime to surface a ReferenceError on a missing global —
+    // safer to leave it on the slow path.  OP_get_var0..3 short
+    // forms don't exist in QuickJS for var_refs at runtime, only at
+    // compile-time, so the 3-byte form is the only match.
+    if (varOp != OP_get_var) return 0;
+    uint16_t varIdx = (uint16_t)buf[varPos + 1] | ((uint16_t)buf[varPos + 2] << 8);
+    int afterVar = varPos + 3;
+    if (afterVar + 1 > len || buf[afterVar] != OP_lt) return 0;
+    int jfPos = afterVar + 1;
+    if (jfPos + 5 <= len && buf[jfPos] == OP_if_false) {
+        uint32_t u = (uint32_t)buf[jfPos + 1]
+                   | ((uint32_t)buf[jfPos + 2] << 8)
+                   | ((uint32_t)buf[jfPos + 3] << 16)
+                   | ((uint32_t)buf[jfPos + 4] << 24);
+        outOriginalStored = (int32_t)u;
+        outIsShortJf = false;
+        outLoc = loc; outVarIdx = varIdx;
+        return n1 + 3 + 1 + 5;
+    }
+    if (jfPos + 2 <= len && buf[jfPos] == OP_if_false8) {
+        outOriginalStored = (int32_t)(int8_t)buf[jfPos + 1];
+        outIsShortJf = true;
+        outLoc = loc; outVarIdx = varIdx;
+        return n1 + 3 + 1 + 2;
+    }
+    return 0;
+}
+
 int matchLtCmpJfPattern(const uint8_t* buf, int pc, int len,
                         uint8_t& outA, uint8_t& outB,
                         int32_t& outOriginalStored,
@@ -288,6 +352,36 @@ std::vector<uint8_t> specialiseNopPad(const uint8_t* buf, int len) {
         }
 
         // ── LT-JF pattern ──
+        // P3: loc < global-var (closure / module-level const).
+        // Matched FIRST because its source span overlaps with the
+        // loc-loc form's prefix (`get_loc` is common); if the second
+        // operand is a `get_var` we want this fused opcode, not a
+        // mis-match against P2.
+        {
+            uint8_t locA; uint16_t varB;
+            int32_t storedOffsetV; bool isShortJfV;
+            int spanV = matchLtLocVarJfPattern(out.data(), pc, len,
+                                                locA, varB,
+                                                storedOffsetV, isShortJfV);
+            if (spanV >= FUSED_LT_LOC_VAR_JF_LEN) {
+                hitsLtJf++;
+                int jfSize = isShortJfV ? 2 : 5;
+                int origIfFalsePc = pc + spanV - jfSize;
+                int32_t diff = (int32_t)(
+                    origIfFalsePc + 1 + storedOffsetV
+                    - (pc + FUSED_LT_LOC_VAR_JF_LEN));
+                out[pc + 0] = OP_PROTO_LT_LOC_VAR_JFALSE;
+                out[pc + 1] = locA;
+                out[pc + 2] = (uint8_t)(varB & 0xFF);
+                out[pc + 3] = (uint8_t)((varB >> 8) & 0xFF);
+                writeLE32(&out[pc + 4], diff);
+                for (int k = FUSED_LT_LOC_VAR_JF_LEN; k < spanV; ++k)
+                    out[pc + k] = OP_nop;
+                pc += spanV;
+                continue;
+            }
+        }
+
         uint8_t a, b;
         int32_t storedOffset;
         bool isShortJf;
@@ -391,6 +485,38 @@ std::vector<uint8_t> specialiseCompact(const uint8_t* buf, int len) {
             for (int k = 1; k < accSpan; ++k) remap[pc + k] = (int)out.size() - 3;
             pc += accSpan;
             continue;
+        }
+
+        // P3 (compact form): loc < var ; if_false[8] T
+        // Matched BEFORE the loc-loc form for the same reason as in
+        // the NOP-pad pass — the prefix overlap.
+        {
+            uint8_t locA; uint16_t varB;
+            int32_t storedOffsetV; bool isShortJfV;
+            int spanV = matchLtLocVarJfPattern(buf, pc, len,
+                                                locA, varB,
+                                                storedOffsetV, isShortJfV);
+            if (spanV >= FUSED_LT_LOC_VAR_JF_LEN) {
+                out.push_back(OP_PROTO_LT_LOC_VAR_JFALSE);
+                out.push_back(locA);
+                out.push_back((uint8_t)(varB & 0xFF));
+                out.push_back((uint8_t)((varB >> 8) & 0xFF));
+                const size_t off = out.size();
+                out.resize(off + 4);
+                // Pack storedOffset (low 24 bits, signed) + ltSpan
+                // (bits 24..30, 7 bits) + isShortJf (bit 31).  Same
+                // scheme as the loc-loc variant; Pass 2 dispatches on
+                // the opcode to pick the right unpacking.
+                uint32_t packed =
+                    ((uint32_t)(storedOffsetV & 0xFFFFFF))
+                    | (((uint32_t)(uint8_t)spanV & 0x7F) << 24)
+                    | (isShortJfV ? 0x80000000u : 0);
+                writeLE32(&out[off], (int32_t)packed);
+                for (int k = 1; k < spanV; ++k)
+                    remap[pc + k] = (int)out.size() - FUSED_LT_LOC_VAR_JF_LEN;
+                pc += spanV;
+                continue;
+            }
         }
 
         uint8_t a, b;
@@ -579,6 +705,27 @@ std::vector<uint8_t> specialiseCompact(const uint8_t* buf, int len) {
                 if (newTargetPc < 0) break;
                 int32_t newOffset = newTargetPc - (newPc + FUSED_LT_JF_LEN);
                 writeLE32(&out[newPc + 3], newOffset);
+                break;
+            }
+            case OP_PROTO_LT_LOC_VAR_JFALSE: {
+                // Same packed-blob unpack as the loc-loc variant
+                // above; only the fused-opcode length differs.  Offset
+                // bytes live at newPc + 4 (after op + loc + u16 var).
+                int origSrcPc = invRemap[newPc];
+                if (origSrcPc < 0) break;
+                uint32_t packed = (uint32_t)readLE32(&out[newPc + 4]);
+                int32_t storedOffset = (int32_t)(packed & 0xFFFFFF);
+                if (storedOffset & 0x800000) storedOffset |= ~0xFFFFFF;
+                int ltSpan = (int)((packed >> 24) & 0x7F);
+                bool isShortJf = (packed & 0x80000000u) != 0;
+                int jfSize = isShortJf ? 2 : 5;
+                int origIfFalsePc = origSrcPc + ltSpan - jfSize;
+                int origTargetPc = origIfFalsePc + 1 + storedOffset;
+                if (origTargetPc < 0 || origTargetPc > len) break;
+                int newTargetPc = remap[origTargetPc];
+                if (newTargetPc < 0) break;
+                int32_t newOffset = newTargetPc - (newPc + FUSED_LT_LOC_VAR_JF_LEN);
+                writeLE32(&out[newPc + 4], newOffset);
                 break;
             }
             default:

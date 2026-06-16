@@ -6286,6 +6286,7 @@ const proto::ProtoObject* runBytecode(proto::ProtoContext* pContext,
     // these bytes.
     dispatch_table[244 /*OP_PROTO_ACC_LOC8_LOC8*/]      = &&L_OP_proto_acc_loc8_loc8;
     dispatch_table[245 /*OP_PROTO_LT_LOC8_LOC8_JFALSE*/] = &&L_OP_proto_lt_loc8_loc8_jfalse;
+    dispatch_table[246 /*OP_PROTO_LT_LOC_VAR_JFALSE*/]   = &&L_OP_proto_lt_loc_var_jfalse;
     dispatch_table[OP_add] = &&L_OP_add;
     dispatch_table[OP_add_loc] = &&L_OP_add_loc;
     dispatch_table[OP_and] = &&L_OP_and;
@@ -12564,6 +12565,121 @@ const proto::ProtoObject* runBytecode(proto::ProtoContext* pContext,
                     if (isUndefForCmp(a) || isUndefForCmp(b)) {
                         // ECMA §7.2.13 step 3.b — NaN comparisons are false,
                         // and if_false takes the jump.
+                        pc += diff;
+                        DISPATCH();
+                    }
+                    auto numerifyBool = [&](const proto::ProtoObject* x) -> const proto::ProtoObject* {
+                        if (x == PROTO_TRUE)  return proto::makeSmallInt(1);
+                        if (x == PROTO_FALSE) return proto::makeSmallInt(0);
+                        if (x == t_nullSentinel) return proto::makeSmallInt(0);
+                        return x;
+                    };
+                    const proto::ProtoObject* na = numerifyBool(a);
+                    const proto::ProtoObject* nb = numerifyBool(b);
+                    if (proto::isSmallInt(na) && proto::isSmallInt(nb)) {
+                        ltResult = (proto::asSmallInt(na) < proto::asSmallInt(nb));
+                    } else {
+                        const proto::ProtoObject* pa = toPrimIfObject(na);
+                        REFRESH_INTERP_STATE();
+                        if (has_pending_exception) DISPATCH();
+                        const proto::ProtoObject* pb = toPrimIfObject(nb);
+                        REFRESH_INTERP_STATE();
+                        if (has_pending_exception) DISPATCH();
+                        int cmp = relCmpAfterPrim(pa, pb);
+                        ltResult = (cmp == -1);
+                    }
+                }
+
+                if (!ltResult) {
+                    pc += diff;
+                }
+                DISPATCH();
+            }
+
+            // ────────────────────────────────────────────────────────
+            // L_OP_proto_lt_loc_var_jfalse loc varIdx_u16 offset32
+            //   Fuses `get_loc[_check] loc; get_var varIdx; lt;
+            //   if_false[8] T` (the typical `for (let i = 0; i < INNER;
+            //   i++)` shape where INNER is a module-level const captured
+            //   into the closure-symbol list).  Same offset encoding
+            //   as L_OP_proto_lt_loc8_loc8_jfalse — diff is signed
+            //   32-bit relative to the end of our 8-byte instruction.
+            //
+            //   The var-side resolution mirrors L_OP_get_var: read the
+            //   key from closureSymbols[varIdx], then liveGlobal->
+            //   getAttribute(key, /*chain=*/false), falling back to
+            //   the dedicated closure-var slot at argCount + varCount
+            //   + varIdx when the global has no entry yet.  protoCore's
+            //   per-thread AttributeCache makes the global lookup a
+            //   single cache hit after the first call.  We do NOT
+            //   implement the OP_get_var TDZ "absent name throws
+            //   ReferenceError" branch — that path matters only for
+            //   `OP_get_var` on a non-declared name, which the
+            //   BytecodeSpecialiser's matcher refuses to fuse anyway
+            //   (lexical-or-not is recorded per closure-var, not on
+            //   the opcode itself, so we'd need the matcher to consult
+            //   the module's `closureVarIsLexical` table to be safe;
+            //   that's a follow-up).
+            // ────────────────────────────────────────────────────────
+            L_OP_proto_lt_loc_var_jfalse: {
+                if (pc + 7 > len) return PROTO_NONE;
+                uint8_t locIdx = buf[pc];
+                uint16_t varIdx = (uint16_t)buf[pc + 1] | ((uint16_t)buf[pc + 2] << 8);
+                int32_t diff = static_cast<int32_t>(get_u32(buf + pc + 3));
+                pc += 7;
+
+                // Local read with TDZ check (same shape as
+                // L_OP_proto_acc_loc8_loc8 / lt_loc8_loc8_jfalse).
+                const proto::ProtoObject* a = (locIdx < varCount)
+                    ? readCell(pContext, getSlot(pContext, argCount + locIdx)) : PROTO_NONE;
+                if (a == tdzSentinel) {
+                    pending_exception = makeError(pContext, "ReferenceError",
+                        "Cannot access before initialization", pGlobalRoot);
+                    has_pending_exception = true;
+                    DISPATCH();
+                }
+
+                // Var-ref read — mirrors L_OP_get_var's fast path.
+                const proto::ProtoObject* b = PROTO_NONE;
+                const proto::ProtoObject* liveGlobal =
+                    (pGlobalRoot && *pGlobalRoot) ? *pGlobalRoot : globalObj;
+                if (liveGlobal && liveGlobal != PROTO_NONE
+                    && closureSymbols
+                    && static_cast<size_t>(varIdx) < closureSymbols->getSize(pContext)) {
+                    const proto::ProtoString* key =
+                        closureSymbols->getAt(pContext, static_cast<int>(varIdx))
+                            ->asString(pContext);
+                    if (key) {
+                        const proto::ProtoObject* rv =
+                            liveGlobal->getAttribute(pContext, key, false);
+                        if (rv) b = rv;
+                    }
+                }
+                if ((!b || b == PROTO_NONE)
+                    && argCount + varCount + varIdx < (unsigned)len) {
+                    const proto::ProtoObject* sv =
+                        getSlot(pContext, argCount + varCount + varIdx);
+                    if (sv && sv != PROTO_NONE) b = sv;
+                }
+                if (b == tdzSentinel) {
+                    pending_exception = makeError(pContext, "ReferenceError",
+                        "Cannot access before initialization", pGlobalRoot);
+                    has_pending_exception = true;
+                    DISPATCH();
+                }
+
+                // SmallInt fast path identical to L_OP_lt; same slow-
+                // path skeleton too.
+                bool ltResult;
+                if (proto::isSmallInt(a) && proto::isSmallInt(b)) {
+                    ltResult = (proto::asSmallInt(a) < proto::asSmallInt(b));
+                } else {
+                    auto isUndefForCmp = [&](const proto::ProtoObject* x) {
+                        return !x || x == PROTO_NONE ||
+                               x == getUndefinedSentinel() ||
+                               (x && x->isNone(pContext));
+                    };
+                    if (isUndefForCmp(a) || isUndefForCmp(b)) {
                         pc += diff;
                         DISPATCH();
                     }

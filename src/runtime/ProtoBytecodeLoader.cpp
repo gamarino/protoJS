@@ -41,9 +41,11 @@ static const uint8_t* getOpSizes() {
         for (size_t i = 0; i < n; ++i) sizes[i] = qjs[i];
         // BytecodeSpecialiser fused opcodes — must stay in sync with
         // BytecodeSpecialiser.cpp (OP_PROTO_ACC_LOC8_LOC8 = 244 / 3 B,
-        // OP_PROTO_LT_LOC8_LOC8_JFALSE = 245 / 7 B).
+        // OP_PROTO_LT_LOC8_LOC8_JFALSE = 245 / 7 B,
+        // OP_PROTO_LT_LOC_VAR_JFALSE = 246 / 8 B).
         sizes[244] = 3;
         sizes[245] = 7;
+        sizes[246] = 8;
         inited = true;
     }
     return sizes;
