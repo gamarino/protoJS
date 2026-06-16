@@ -141,6 +141,7 @@ add_library(protojs_core STATIC
     src/runtime/ProtoBytecodeLoader.cpp
     src/runtime/ProtoInterpreter.cpp
     src/runtime/BehaviorRegistry.cpp
+    src/runtime/BytecodeSpecialiser.cpp
     # Native modules
     src/native/DynamicLibraryLoader.cpp
     src/native/NativeModuleWrapper.cpp

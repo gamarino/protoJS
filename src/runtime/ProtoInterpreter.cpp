@@ -6215,6 +6215,14 @@ const proto::ProtoObject* runBytecode(proto::ProtoContext* pContext,
     std::lock_guard<std::mutex> _disp_init_lock(dispatch_table_init_mutex);
     if (!dispatch_table_initialized.load(std::memory_order_relaxed)) {
     for (int i = 0; i < 256; ++i) dispatch_table[i] = &&L_default;
+    // Sprint-11 port: two fused super-instructions produced by
+    // BytecodeSpecialiser.  Opcode bytes 244/245 are outside QuickJS's
+    // 244-DEF range and thus safe to reuse — see BytecodeSpecialiser.cpp.
+    // Disabled unless `PROTOJS_SPECIALISER=nop|compact` rewrites the
+    // bytecode to use them; the unmodified bytecode stream never carries
+    // these bytes.
+    dispatch_table[244 /*OP_PROTO_ACC_LOC8_LOC8*/]      = &&L_OP_proto_acc_loc8_loc8;
+    dispatch_table[245 /*OP_PROTO_LT_LOC8_LOC8_JFALSE*/] = &&L_OP_proto_lt_loc8_loc8_jfalse;
     dispatch_table[OP_add] = &&L_OP_add;
     dispatch_table[OP_add_loc] = &&L_OP_add_loc;
     dispatch_table[OP_and] = &&L_OP_and;
@@ -12309,6 +12317,128 @@ const proto::ProtoObject* runBytecode(proto::ProtoContext* pContext,
                         nv = nc ? nc->add(pContext, nval) : PROTO_NONE;
                     }
                     setSlot(pContext, argCount + locIndex, nv);
+                }
+                DISPATCH();
+            }
+            // ────────────────────────────────────────────────────────
+            // Sprint-11 port (protoPython → protoJS) — fused
+            // super-instructions emitted by BytecodeSpecialiser.
+            //
+            // L_OP_proto_acc_loc8_loc8 dst src — local[dst] += local[src]
+            //   Fuses get_loc8 dst; get_loc8 src; add; put_loc8 dst (7B → 3B).
+            //   SmallInt path inlined; mirrors L_OP_add_loc for the slow
+            //   path so JS `+` semantics (string concat, BigInt, etc.)
+            //   stay 1:1 when the locals aren't both tagged SmallInts.
+            // ────────────────────────────────────────────────────────
+            L_OP_proto_acc_loc8_loc8: {
+                if (pc + 2 > len) return PROTO_NONE;
+                uint8_t dstIdx = buf[pc];
+                uint8_t srcIdx = buf[pc + 1];
+                pc += 2;
+                if (dstIdx >= varCount || srcIdx >= varCount) DISPATCH();
+
+                const proto::ProtoObject* dst = getSlot(pContext, argCount + dstIdx);
+                const proto::ProtoObject* src = getSlot(pContext, argCount + srcIdx);
+                if (proto::isSmallInt(dst) && proto::isSmallInt(src)) {
+                    long long sum = proto::asSmallInt(dst) + proto::asSmallInt(src);
+                    if (proto::smallIntInRange(sum)) {
+                        setSlot(pContext, argCount + dstIdx, proto::makeSmallInt(sum));
+                        DISPATCH();
+                    }
+                }
+                // Slow path — semantics match L_OP_add_loc (which is the
+                // QuickJS fused form for `s += <stack-top>`).  We materialise
+                // `src` from the local instead of popping it, then go through
+                // the same string/numeric branch as add_loc.
+                bool dstStr = dst && dst != PROTO_NONE && dst->asString(pContext);
+                bool srcStr = src && src != PROTO_NONE && src->asString(pContext);
+                const proto::ProtoObject* nv;
+                if (dstStr || srcStr) {
+                    const proto::ProtoObject* sd = toString(pContext, dst);
+                    const proto::ProtoObject* ss = toString(pContext, src);
+                    const proto::ProtoString* sa = sd ? sd->asString(pContext) : nullptr;
+                    const proto::ProtoString* sb = ss ? ss->asString(pContext) : nullptr;
+                    if (sa && sb) {
+                        const proto::ProtoString* cat = sa->appendLast(pContext, sb);
+                        nv = cat ? cat->asObject(pContext) : PROTO_NONE;
+                    } else {
+                        nv = sd ? sd : (ss ? ss : PROTO_NONE);
+                    }
+                } else {
+                    const proto::ProtoObject* nd = toNumber(pContext, dst);
+                    const proto::ProtoObject* ns = toNumber(pContext, src);
+                    nv = nd ? nd->add(pContext, ns) : PROTO_NONE;
+                }
+                setSlot(pContext, argCount + dstIdx, nv);
+                DISPATCH();
+            }
+
+            // ────────────────────────────────────────────────────────
+            // L_OP_proto_lt_loc8_loc8_jfalse a b offset32
+            //   Fuses get_loc8 a; get_loc8 b; lt; if_false TARGET (10B → 7B).
+            //   `offset` is signed 32-bit, semantics MATCH OP_if_false's
+            //   encoding so the existing remap pipeline reuses the same
+            //   relative-jump arithmetic.  When `local[a] < local[b]` we
+            //   fall through to the next instruction; otherwise pc += offset
+            //   (with the same +4/-4 idiom the original if_false handler
+            //   uses; see L_OP_if_false above).
+            // ────────────────────────────────────────────────────────
+            L_OP_proto_lt_loc8_loc8_jfalse: {
+                if (pc + 6 > len) return PROTO_NONE;
+                uint8_t locA = buf[pc];
+                uint8_t locB = buf[pc + 1];
+                int32_t diff = static_cast<int32_t>(get_u32(buf + pc + 2));
+                pc += 6;
+
+                const proto::ProtoObject* a = (locA < varCount)
+                    ? readCell(pContext, getSlot(pContext, argCount + locA)) : PROTO_NONE;
+                const proto::ProtoObject* b = (locB < varCount)
+                    ? readCell(pContext, getSlot(pContext, argCount + locB)) : PROTO_NONE;
+
+                bool ltResult;
+                if (proto::isSmallInt(a) && proto::isSmallInt(b)) {
+                    ltResult = (proto::asSmallInt(a) < proto::asSmallInt(b));
+                } else {
+                    // Slow path — same numerify / undefined / toPrim logic
+                    // as L_OP_lt.  Note: we DON'T need BIGINT_REL_DISPATCH
+                    // here (the locals can carry BigInts; this is best-effort
+                    // for the bench — flip PROTOJS_SPECIALISER=off and let
+                    // the original opcodes run if you hit a corner case).
+                    auto isUndefForCmp = [&](const proto::ProtoObject* x) {
+                        return !x || x == PROTO_NONE ||
+                               x == getUndefinedSentinel() ||
+                               (x && x->isNone(pContext));
+                    };
+                    if (isUndefForCmp(a) || isUndefForCmp(b)) {
+                        // ECMA §7.2.13 step 3.b — NaN comparisons are false,
+                        // and if_false takes the jump.
+                        pc += diff;
+                        DISPATCH();
+                    }
+                    auto numerifyBool = [&](const proto::ProtoObject* x) -> const proto::ProtoObject* {
+                        if (x == PROTO_TRUE)  return proto::makeSmallInt(1);
+                        if (x == PROTO_FALSE) return proto::makeSmallInt(0);
+                        if (x == t_nullSentinel) return proto::makeSmallInt(0);
+                        return x;
+                    };
+                    const proto::ProtoObject* na = numerifyBool(a);
+                    const proto::ProtoObject* nb = numerifyBool(b);
+                    if (proto::isSmallInt(na) && proto::isSmallInt(nb)) {
+                        ltResult = (proto::asSmallInt(na) < proto::asSmallInt(nb));
+                    } else {
+                        const proto::ProtoObject* pa = toPrimIfObject(na);
+                        REFRESH_INTERP_STATE();
+                        if (has_pending_exception) DISPATCH();
+                        const proto::ProtoObject* pb = toPrimIfObject(nb);
+                        REFRESH_INTERP_STATE();
+                        if (has_pending_exception) DISPATCH();
+                        int cmp = relCmpAfterPrim(pa, pb);
+                        ltResult = (cmp == -1);
+                    }
+                }
+
+                if (!ltResult) {
+                    pc += diff;
                 }
                 DISPATCH();
             }

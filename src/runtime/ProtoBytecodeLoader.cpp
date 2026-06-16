@@ -1,4 +1,5 @@
 #include "ProtoBytecodeModule.h"
+#include "BytecodeSpecialiser.h"
 #include "QuickJSBytecodeExport.h"
 #include "QuickJSOpcodeEnum.h"
 #include "../JSSymbols.h"
@@ -125,9 +126,20 @@ static bool loadBytecodeRecursive(JSContext* ctx,
     const uint8_t* buf = protojs_bytecode_buf(quickjsBytecode);
     int len = protojs_bytecode_len(quickjsBytecode);
     if (!buf || len <= 0) return false;
-    
-    // [NEW] Use ProtoByteBuffer for native storage.
-    out->pBytecode = pContext->newByteBuffer(reinterpret_cast<const char*>(buf), static_cast<unsigned long>(len));
+
+    // Sprint-11 port — run BytecodeSpecialiser over the freshly-extracted
+    // QuickJS bytecode.  Default mode is `Off` (pass-through identity);
+    // `PROTOJS_SPECIALISER=nop` rewrites in place with OP_nop padding;
+    // `PROTOJS_SPECIALISER=compact` emits a shorter buffer and remaps
+    // every relative-jump target through the translation table built
+    // during the pass.  See BytecodeSpecialiser.cpp for the rationale
+    // and the two implementations.  When the pass returns the input
+    // unchanged the resulting `specBuf` is a byte-identical copy, so
+    // the loader downstream paths see the same bytes either way.
+    std::vector<uint8_t> specBuf = specialise(buf, len, getSpecialiseMode());
+    out->pBytecode = pContext->newByteBuffer(
+        reinterpret_cast<const char*>(specBuf.data()),
+        static_cast<unsigned long>(specBuf.size()));
     
     out->argCount_ = protojs_bytecode_arg_count(quickjsBytecode);
     out->varCount_ = protojs_bytecode_var_count(quickjsBytecode);
