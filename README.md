@@ -4336,28 +4336,30 @@ report wall-clock to avoid startup-cost contamination.
 
 | Benchmark                | Node  | QuickJS | protoJS | × Node | × QuickJS |
 |--------------------------|------:|--------:|--------:|-------:|----------:|
-| array_literal            |  1 ms |    7 ms |  301 ms |   301× |     43×  |
-| control_flow             |  3 ms |   54 ms |  292 ms |    97× |    5.4×  |
-| function_calls           |  1 ms |   11 ms |  290 ms |   290× |     26×  |
-| json_transform           |  1 ms |    4 ms |  197 ms |   197× |     49×  |
-| json_transform_small     |  0 ms |    0 ms |   17 ms |     —  |     34×  |
-| json_transform_tiny      |  0 ms |    0 ms |    9 ms |     —  |     18×  |
-| list_snapshot_history    |  0 ms |    1 ms |   27 ms |    54× |     27×  |
-| **numeric_loop**         |  1 ms |   45 ms |   75 ms |    81× |   **1.7×**  |
-| **object_property**      | 48 ms |   83 ms |  730 ms |    15× |   **8.8×** |
-| **object_read_only**     |  1 ms |    7 ms |  444 ms |   466× |     63×  |
-| **parallel_cpu**         | 56 ms |  830 ms |   52 ms | **protoJS 1.1×** | **protoJS 16×** |
-| string_concat            |  1 ms |    5 ms |  123 ms |   138× |     25×  |
+| array_literal            |  1 ms |    8 ms |  332 ms |   332× |     42×  |
+| control_flow             |  3 ms |   66 ms |  277 ms |    92× |    4.2×  |
+| function_calls           |  1 ms |   13 ms |  335 ms |   335× |     26×  |
+| json_transform           |  1 ms |    5 ms |  198 ms |   198× |     40×  |
+| json_transform_small     |  0 ms |    0 ms |    7 ms |     —  |     14×  |
+| json_transform_tiny      |  0 ms |    0 ms |   11 ms |     —  |     22×  |
+| list_snapshot_history    |  0 ms |    1 ms |   30 ms |    60× |     30×  |
+| **numeric_loop**         |  1 ms |   47 ms |   86 ms |    86× |   **1.8×**  |
+| **object_property**      | 40 ms |   95 ms |  701 ms |    18× |   **7.4×** |
+| **object_read_only**     |  1 ms |    7 ms |  106 ms |   106× |   **15×** |
+| object_write_only        | 38 ms |   74 ms | 2157 ms |    57× |     29×  |
+| **parallel_cpu**         | 44 ms | 1019 ms |   52 ms | Node 1.2× | **protoJS 20×** |
+| string_concat            |  1 ms |    9 ms |  149 ms |   149× |     17×  |
 | string_concat_large_ch.  |  0 ms |    0 ms |    0 ms |   parity| parity   |
 | string_insert_middle     |  0 ms |    0 ms |    1 ms |   parity|  2×      |
 | string_processing        |  0 ms |    0 ms |   10 ms |     —  |     20×  |
-| **string_repeated_doubling** | 53 ms |    2 ms |    1 ms | **protoJS 53×** | **protoJS 2×** |
-| tree_traversal           |  0 ms |    4 ms |  356 ms |   818× |     89×  |
+| string_repeated_doubling | 49 ms |    2 ms |    2 ms | **protoJS 25×** | parity |
+| tree_traversal           |  1 ms |    5 ms |  489 ms |   489× |     98×  |
 
 **Geometric mean (in-process time):**
 
-- **protoJS / QuickJS = 8.65 ×**
-- **protoJS / Node    = 24.89 ×**
+- **protoJS / QuickJS = 8.26 ×**
+- **protoJS / Node    = 24 ×** (approx — Node values cluster around the
+  timer resolution on most benches; reported per-bench above)
 - QuickJS / Node = 3.77 ×
 
 #### Where protoJS wins by architecture
@@ -4400,13 +4402,15 @@ Recent fixes target exactly this signature:
   `fromUTF8String` that built a fresh ProtoString rope; interned via
   `JSSymbols::isClassCtor`.  `function_calls`: 1.4 GB RSS / 348 K
   faults  →  24 MB / 4.7 K.
-- `L_OP_get_array_el`, `resolvePutFieldOOP`, and
-  `invokeGetterIfPresentFast` each built `__get_<key>__` /
-  `__set_<key>__` rope strings on every property access.  Two-tier
-  `__has_accessor_props__` check (OWN before chain-walk, since
-  Object.prototype's `__proto__` accessor sets the chain flag
-  globally).  `object_property` 12 GB → 1.4 GB; `object_read_only`
-  3.4 GB → 1.6 GB.
+- `L_OP_get_array_el` (string-key AND numeric-index branches),
+  `resolvePutFieldOOP`, and `invokeGetterIfPresentFast` each built
+  `__get_<key>__` / `__set_<key>__` rope strings on every property
+  access.  Two-tier `__has_accessor_props__` check (OWN before
+  chain-walk, since Object.prototype's `__proto__` accessor sets the
+  chain flag globally).  `object_property` 12 GB → 1.4 GB;
+  `object_read_only` 3.4 GB → **24 MB** (numeric-index branch
+  fix landed in `347288441` — was still allocating ~49 cells per
+  `arr[idx]` after the string-key fix).
 - `resolvePutFieldOOP`'s length-truncation post-check identity-matched
   `JSSymbols::length` instead of `toUTF8String + std::string ==`;
   `OP_define_field`'s isNumericKey decision cached per-thread by
