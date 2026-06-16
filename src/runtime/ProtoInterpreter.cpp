@@ -366,18 +366,19 @@ static const proto::ProtoString* ensureInterned(proto::ProtoContext* ctx, const 
     // pre-fix paid the equivalent of one rope-build + intern-table
     // probe per access; afterwards it short-circuits at this `if` and
     // returns `s` directly.
-    // Inline strings — short ASCII content packed into the tagged pointer
-    // itself — are pointer-identity canonical by construction: the same
-    // content always packs into the same pointer regardless of how it
-    // was created.  Detect them via the existing public API:
-    // `ProtoString::asCell` returns nullptr for inline strings (they
-    // have no heap-allocated Cell backing them, see protoCore.h).
-    // Bypass the toUTF8String + createSymbol round-trip — createSymbol
-    // itself takes the same inline fast path and would return the same
-    // pointer anyway, so the work is wasted.
-    if (!s->asCell(ctx)) return s;
-
-    // Per-thread pointer-keyed cache for the rope-backed input case.
+    // Per-thread pointer-keyed cache, used for BOTH the inline and the
+    // rope-backed cases — the original logic returned inline strings
+    // directly under the (correct) observation that they are pointer-
+    // identity canonical by construction, but missed that
+    // `fromUTF8String("k0")` and `createSymbol("k0")` produce
+    // pointers with DIFFERENT tags (STRING vs SYMBOL).  protoCore's
+    // getAttribute does an unconditional `lookupByContent` on the
+    // STRING-tagged path even for inline strings, which on
+    // object_read_only's 500K-call hot loop costs ~3.6 % of CPU
+    // (every `obj[keys[i%100]]` runs `lookupByContent` once).  By
+    // routing the inline path through createSymbol and caching the
+    // result, every subsequent call returns the SYMBOL-tagged pointer
+    // directly and getAttribute skips lookupByContent entirely.
     // Rope strings (built by `'k' + i` style concat, or returned by
     // String.prototype methods) are NOT pointer-identity unique —
     // different ropes can carry the same content — so the
@@ -5869,11 +5870,13 @@ const proto::ProtoObject* runBytecode(proto::ProtoContext* pContext,
         for (size_t gi = 0; gi < module->closureVarNames.size(); ++gi) {
             bool isDeclared = (gi < module->closureVarIsDeclared.size()) && module->closureVarIsDeclared[gi];
             if (!isDeclared) continue;
-            const std::string& vname = module->closureVarNames[gi];
-            if (vname.empty()) continue;
-            const proto::ProtoString* vkey = (pContext->fromUTF8String(vname.c_str())
-                                              ? pContext->fromUTF8String(vname.c_str())->asString(pContext)
-                                              : nullptr);
+            // Use the pre-interned symbol stored in module->closureSymbols
+            // (loaded once via createSymbol) — see L_OP_put_var_ref's
+            // matching comment for the lookupByContent cost rationale.
+            const proto::ProtoString* vkey =
+                (module->closureSymbols && gi < module->closureSymbols->getSize(pContext))
+                    ? module->closureSymbols->getAt(pContext, static_cast<int>(gi))->asString(pContext)
+                    : nullptr;
             if (!vkey) continue;
             // Only set if key is COMPLETELY absent (getAttribute returns nullptr).
             const proto::ProtoObject* existing = (*pGlobalRoot)->getAttribute(pContext, vkey, false);
@@ -8574,15 +8577,21 @@ const proto::ProtoObject* runBytecode(proto::ProtoContext* pContext,
                      * OP_put_var_ref on these even though they live on
                      * the global object — keep the global publication
                      * so `typeof f` / cross-function reads find them. */
-                    if (pGlobalRoot && *pGlobalRoot &&
-                        static_cast<size_t>(refIndex) < module->closureVarNames.size()) {
-                        const std::string& name = module->closureVarNames[refIndex];
-                        if (!name.empty()) {
-                            const proto::ProtoString* key = pContext->fromUTF8String(name.c_str())
-                                ? pContext->fromUTF8String(name.c_str())->asString(pContext) : nullptr;
-                            if (key)
-                                *pGlobalRoot = (*pGlobalRoot)->setAttribute(pContext, key, val ? val : PROTO_NONE);
-                        }
+                    if (pGlobalRoot && *pGlobalRoot && closureSymbols &&
+                        static_cast<size_t>(refIndex) < closureSymbols->getSize(pContext)) {
+                        // Use the pre-interned symbol from the module loader
+                        // (closureSymbols stores `createSymbol(name)` per
+                        // closure var, populated once at bytecode load).
+                        // Reconstructing the rope via fromUTF8String here
+                        // would force protoCore.setAttribute to fall back
+                        // to SymbolTable::lookupByContent on every write,
+                        // costing ~3-4 % of CPU on benches that touch
+                        // top-level lexicals in a hot loop (object_read_only
+                        // baseline before this fix).
+                        const proto::ProtoString* key =
+                            closureSymbols->getAt(pContext, static_cast<int>(refIndex))->asString(pContext);
+                        if (key)
+                            *pGlobalRoot = (*pGlobalRoot)->setAttribute(pContext, key, val ? val : PROTO_NONE);
                     }
                 }
                 DISPATCH();
@@ -8612,15 +8621,21 @@ const proto::ProtoObject* runBytecode(proto::ProtoContext* pContext,
                     writeCell(pContext, slotVal, val);
                 } else {
                     setSlot(pContext, argCount + varCount + refIndex, val);
-                    if (pGlobalRoot && *pGlobalRoot &&
-                        static_cast<size_t>(refIndex) < module->closureVarNames.size()) {
-                        const std::string& name = module->closureVarNames[refIndex];
-                        if (!name.empty()) {
-                            const proto::ProtoString* key = pContext->fromUTF8String(name.c_str())
-                                ? pContext->fromUTF8String(name.c_str())->asString(pContext) : nullptr;
-                            if (key)
-                                *pGlobalRoot = (*pGlobalRoot)->setAttribute(pContext, key, val ? val : PROTO_NONE);
-                        }
+                    if (pGlobalRoot && *pGlobalRoot && closureSymbols &&
+                        static_cast<size_t>(refIndex) < closureSymbols->getSize(pContext)) {
+                        // Use the pre-interned symbol from the module loader
+                        // (closureSymbols stores `createSymbol(name)` per
+                        // closure var, populated once at bytecode load).
+                        // Reconstructing the rope via fromUTF8String here
+                        // would force protoCore.setAttribute to fall back
+                        // to SymbolTable::lookupByContent on every write,
+                        // costing ~3-4 % of CPU on benches that touch
+                        // top-level lexicals in a hot loop (object_read_only
+                        // baseline before this fix).
+                        const proto::ProtoString* key =
+                            closureSymbols->getAt(pContext, static_cast<int>(refIndex))->asString(pContext);
+                        if (key)
+                            *pGlobalRoot = (*pGlobalRoot)->setAttribute(pContext, key, val ? val : PROTO_NONE);
                     }
                 }
                 DISPATCH();
@@ -8674,15 +8689,21 @@ const proto::ProtoObject* runBytecode(proto::ProtoContext* pContext,
                     writeCell(pContext, slotVal, val);
                 } else {
                     setSlot(pContext, argCount + varCount + refIndex, val);
-                    if (pGlobalRoot && *pGlobalRoot &&
-                        static_cast<size_t>(refIndex) < module->closureVarNames.size()) {
-                        const std::string& name = module->closureVarNames[refIndex];
-                        if (!name.empty()) {
-                            const proto::ProtoString* key = pContext->fromUTF8String(name.c_str())
-                                ? pContext->fromUTF8String(name.c_str())->asString(pContext) : nullptr;
-                            if (key)
-                                *pGlobalRoot = (*pGlobalRoot)->setAttribute(pContext, key, val ? val : PROTO_NONE);
-                        }
+                    if (pGlobalRoot && *pGlobalRoot && closureSymbols &&
+                        static_cast<size_t>(refIndex) < closureSymbols->getSize(pContext)) {
+                        // Use the pre-interned symbol from the module loader
+                        // (closureSymbols stores `createSymbol(name)` per
+                        // closure var, populated once at bytecode load).
+                        // Reconstructing the rope via fromUTF8String here
+                        // would force protoCore.setAttribute to fall back
+                        // to SymbolTable::lookupByContent on every write,
+                        // costing ~3-4 % of CPU on benches that touch
+                        // top-level lexicals in a hot loop (object_read_only
+                        // baseline before this fix).
+                        const proto::ProtoString* key =
+                            closureSymbols->getAt(pContext, static_cast<int>(refIndex))->asString(pContext);
+                        if (key)
+                            *pGlobalRoot = (*pGlobalRoot)->setAttribute(pContext, key, val ? val : PROTO_NONE);
                     }
                 }
                 DISPATCH();
@@ -8710,15 +8731,21 @@ const proto::ProtoObject* runBytecode(proto::ProtoContext* pContext,
                     writeCell(pContext, slotVal, val);
                 } else {
                     setSlot(pContext, argCount + varCount + refIndex, val);
-                    if (pGlobalRoot && *pGlobalRoot &&
-                        static_cast<size_t>(refIndex) < module->closureVarNames.size()) {
-                        const std::string& name = module->closureVarNames[refIndex];
-                        if (!name.empty()) {
-                            const proto::ProtoString* key = pContext->fromUTF8String(name.c_str())
-                                ? pContext->fromUTF8String(name.c_str())->asString(pContext) : nullptr;
-                            if (key)
-                                *pGlobalRoot = (*pGlobalRoot)->setAttribute(pContext, key, val ? val : PROTO_NONE);
-                        }
+                    if (pGlobalRoot && *pGlobalRoot && closureSymbols &&
+                        static_cast<size_t>(refIndex) < closureSymbols->getSize(pContext)) {
+                        // Use the pre-interned symbol from the module loader
+                        // (closureSymbols stores `createSymbol(name)` per
+                        // closure var, populated once at bytecode load).
+                        // Reconstructing the rope via fromUTF8String here
+                        // would force protoCore.setAttribute to fall back
+                        // to SymbolTable::lookupByContent on every write,
+                        // costing ~3-4 % of CPU on benches that touch
+                        // top-level lexicals in a hot loop (object_read_only
+                        // baseline before this fix).
+                        const proto::ProtoString* key =
+                            closureSymbols->getAt(pContext, static_cast<int>(refIndex))->asString(pContext);
+                        if (key)
+                            *pGlobalRoot = (*pGlobalRoot)->setAttribute(pContext, key, val ? val : PROTO_NONE);
                     }
                 }
                 DISPATCH();
@@ -8755,15 +8782,21 @@ const proto::ProtoObject* runBytecode(proto::ProtoContext* pContext,
                     writeCell(pContext, slotVal, val);
                 } else {
                     setSlot(pContext, argCount + varCount + refIndex, val);
-                    if (pGlobalRoot && *pGlobalRoot &&
-                        static_cast<size_t>(refIndex) < module->closureVarNames.size()) {
-                        const std::string& name = module->closureVarNames[refIndex];
-                        if (!name.empty()) {
-                            const proto::ProtoString* key = pContext->fromUTF8String(name.c_str())
-                                ? pContext->fromUTF8String(name.c_str())->asString(pContext) : nullptr;
-                            if (key)
-                                *pGlobalRoot = (*pGlobalRoot)->setAttribute(pContext, key, val ? val : PROTO_NONE);
-                        }
+                    if (pGlobalRoot && *pGlobalRoot && closureSymbols &&
+                        static_cast<size_t>(refIndex) < closureSymbols->getSize(pContext)) {
+                        // Use the pre-interned symbol from the module loader
+                        // (closureSymbols stores `createSymbol(name)` per
+                        // closure var, populated once at bytecode load).
+                        // Reconstructing the rope via fromUTF8String here
+                        // would force protoCore.setAttribute to fall back
+                        // to SymbolTable::lookupByContent on every write,
+                        // costing ~3-4 % of CPU on benches that touch
+                        // top-level lexicals in a hot loop (object_read_only
+                        // baseline before this fix).
+                        const proto::ProtoString* key =
+                            closureSymbols->getAt(pContext, static_cast<int>(refIndex))->asString(pContext);
+                        if (key)
+                            *pGlobalRoot = (*pGlobalRoot)->setAttribute(pContext, key, val ? val : PROTO_NONE);
                     }
                 }
                 DISPATCH();
