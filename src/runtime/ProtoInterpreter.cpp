@@ -366,7 +366,16 @@ static const proto::ProtoString* ensureInterned(proto::ProtoContext* ctx, const 
     // pre-fix paid the equivalent of one rope-build + intern-table
     // probe per access; afterwards it short-circuits at this `if` and
     // returns `s` directly.
-    if (s->isInlineString()) return s;
+    // Inline strings — short ASCII content packed into the tagged pointer
+    // itself — are pointer-identity canonical by construction: the same
+    // content always packs into the same pointer regardless of how it
+    // was created.  Detect them via the existing public API:
+    // `ProtoString::asCell` returns nullptr for inline strings (they
+    // have no heap-allocated Cell backing them, see protoCore.h).
+    // Bypass the toUTF8String + createSymbol round-trip — createSymbol
+    // itself takes the same inline fast path and would return the same
+    // pointer anyway, so the work is wasted.
+    if (!s->asCell(ctx)) return s;
 
     // Routing through createSymbol every call: protoCore's SymbolTable
     // already deduplicates by content via a 64-shard concurrent
@@ -12464,6 +12473,17 @@ const proto::ProtoObject* runBytecode(proto::ProtoContext* pContext,
 
                 const proto::ProtoObject* dst = getSlot(pContext, argCount + dstIdx);
                 const proto::ProtoObject* src = getSlot(pContext, argCount + srcIdx);
+                // TDZ semantics for `let`/`const` locals: when the matcher
+                // accepted a `get_loc_check` / `put_loc_check` source the
+                // sentinel can still be live on the read.  Single
+                // pointer-compare on each side; passes unconditionally
+                // after the loop's first init, costs ~1 ns when it does.
+                if (dst == tdzSentinel || src == tdzSentinel) {
+                    pending_exception = makeError(pContext, "ReferenceError",
+                        "Cannot access before initialization", pGlobalRoot);
+                    has_pending_exception = true;
+                    DISPATCH();
+                }
                 if (proto::isSmallInt(dst) && proto::isSmallInt(src)) {
                     long long sum = proto::asSmallInt(dst) + proto::asSmallInt(src);
                     if (proto::smallIntInRange(sum)) {
@@ -12519,6 +12539,13 @@ const proto::ProtoObject* runBytecode(proto::ProtoContext* pContext,
                     ? readCell(pContext, getSlot(pContext, argCount + locA)) : PROTO_NONE;
                 const proto::ProtoObject* b = (locB < varCount)
                     ? readCell(pContext, getSlot(pContext, argCount + locB)) : PROTO_NONE;
+                // TDZ check — same rationale as L_OP_proto_acc_loc8_loc8.
+                if (a == tdzSentinel || b == tdzSentinel) {
+                    pending_exception = makeError(pContext, "ReferenceError",
+                        "Cannot access before initialization", pGlobalRoot);
+                    has_pending_exception = true;
+                    DISPATCH();
+                }
 
                 bool ltResult;
                 if (proto::isSmallInt(a) && proto::isSmallInt(b)) {

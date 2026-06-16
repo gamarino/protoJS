@@ -90,12 +90,14 @@ const uint8_t* getOpcodeSizes() {
 // ─────────────────────────────────────────────────────────────────
 
 // Helper: decode a "load local N" prefix.  QuickJS emits one of
-// {get_loc, get_loc8, get_loc0..get_loc3} depending on local index
-// and whether the var needs TDZ tracking (`let` uses _check forms,
-// which we deliberately do NOT fuse — the check has to fire on every
-// read until the var is initialised).  Returns the consumed byte
-// count (1, 2 or 3) and the resolved local index in `outIdx`; 0 on
-// "not a plain get_loc".
+// {get_loc, get_loc8, get_loc0..get_loc3, get_loc_check} depending on
+// local index and whether the var needs TDZ tracking.  `let` /
+// `const` declarations use the `_check` forms; we accept them too
+// because the fused handlers perform the TDZ check inline (a single
+// pointer compare per local) and fall back to the slow path on a
+// sentinel hit.  Skipping these would leave EVERY `for (let i=...)`
+// loop unspecialised — exactly the shape numeric_loop /
+// function_calls / and most user code emits.
 int decodeGetLoc(const uint8_t* buf, int pc, int len, uint8_t& outIdx) {
     if (pc >= len) return 0;
     uint8_t op = buf[pc];
@@ -107,7 +109,15 @@ int decodeGetLoc(const uint8_t* buf, int pc, int len, uint8_t& outIdx) {
     if (op == OP_get_loc && pc + 3 <= len) {
         uint16_t idx = (uint16_t)buf[pc + 1] | ((uint16_t)buf[pc + 2] << 8);
         if (idx <= 0xff) { outIdx = (uint8_t)idx; return 3; }
-        // wider local index — won't fit in our packed-byte fused opcode
+        return 0;
+    }
+    // TDZ-checked form `get_loc_check N` (3 bytes).  The fused
+    // handler runs the same TDZ sentinel compare so semantics stay
+    // identical; for steady-state loops the check resolves to a
+    // single cheap pointer compare after the first iteration.
+    if (op == OP_get_loc_check && pc + 3 <= len) {
+        uint16_t idx = (uint16_t)buf[pc + 1] | ((uint16_t)buf[pc + 2] << 8);
+        if (idx <= 0xff) { outIdx = (uint8_t)idx; return 3; }
         return 0;
     }
     return 0;
@@ -122,6 +132,12 @@ int decodePutLocSame(const uint8_t* buf, int pc, int len, uint8_t expected) {
     if (op == OP_put_loc3 && expected == 3) return 1;
     if (op == OP_put_loc8 && pc + 2 <= len && buf[pc + 1] == expected) return 2;
     if (op == OP_put_loc && pc + 3 <= len) {
+        uint16_t idx = (uint16_t)buf[pc + 1] | ((uint16_t)buf[pc + 2] << 8);
+        if (idx == expected) return 3;
+    }
+    // TDZ-checked form `put_loc_check N` (3 bytes); same rationale
+    // as the get_loc_check entry in decodeGetLoc above.
+    if (op == OP_put_loc_check && pc + 3 <= len) {
         uint16_t idx = (uint16_t)buf[pc + 1] | ((uint16_t)buf[pc + 2] << 8);
         if (idx == expected) return 3;
     }
@@ -584,7 +600,12 @@ std::vector<uint8_t> specialiseCompact(const uint8_t* buf, int len) {
 SpecialiseMode getSpecialiseMode() {
     static SpecialiseMode cached = []() {
         const char* v = std::getenv("PROTOJS_SPECIALISER");
-        if (!v || !v[0]) return SpecialiseMode::Off;
+        // Default is `compact` — the form that produces the biggest
+        // wins on TDZ-checked accumulator loops once `decodeGetLoc`
+        // accepts the `get_loc_check` / `put_loc_check` variants
+        // (commit landing this change).  Set PROTOJS_SPECIALISER=off
+        // to disable; `nop` for the alternate NOP-pad form.
+        if (!v || !v[0]) return SpecialiseMode::Compact;
         if (!std::strcmp(v, "off"))      return SpecialiseMode::Off;
         if (!std::strcmp(v, "nop"))      return SpecialiseMode::NopPad;
         if (!std::strcmp(v, "compact"))  return SpecialiseMode::Compact;

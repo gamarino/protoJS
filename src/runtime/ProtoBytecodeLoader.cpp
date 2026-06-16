@@ -16,7 +16,17 @@ namespace protojs {
  * def() opcodes are phase-1 temporaries and never appear in final bytecode.
  */
 static const uint8_t* getOpSizes() {
-    static const uint8_t sizes[] = {
+    // Full 256-entry table.  QuickJS DEF opcodes occupy bytes 0..OP_COUNT-1
+    // (244 entries); bytes 244..255 hold sizes for the BytecodeSpecialiser's
+    // fused super-instructions emitted at runtime.  Pre-fix, accessing
+    // sizes[244] read past the end of the QuickJS-derived array, which made
+    // `preResolveAllAtoms` (and any other consumer that walks the bytecode
+    // instruction-by-instruction) lose alignment after a fused opcode and
+    // miss every atom-carrying instruction that followed.
+    static uint8_t sizes[256] = {};
+    static bool inited = false;
+    if (!inited) {
+        static const uint8_t qjs[] = {
 #define FMT(f)
 #define DEF(id, size, n_pop, n_push, f) (uint8_t)(size),
 #define def(id, size, n_pop, n_push, f)
@@ -24,8 +34,18 @@ static const uint8_t* getOpSizes() {
 #undef def
 #undef DEF
 #undef FMT
-        0 /* sentinel */
-    };
+            0 /* sentinel */
+        };
+        const size_t qjs_count = (sizeof(qjs) / sizeof(qjs[0])) - 1;
+        const size_t n = qjs_count < 256 ? qjs_count : 256;
+        for (size_t i = 0; i < n; ++i) sizes[i] = qjs[i];
+        // BytecodeSpecialiser fused opcodes — must stay in sync with
+        // BytecodeSpecialiser.cpp (OP_PROTO_ACC_LOC8_LOC8 = 244 / 3 B,
+        // OP_PROTO_LT_LOC8_LOC8_JFALSE = 245 / 7 B).
+        sizes[244] = 3;
+        sizes[245] = 7;
+        inited = true;
+    }
     return sizes;
 }
 
@@ -87,8 +107,17 @@ static void preResolveAllAtoms(JSContext* ctx, ProtoBytecodeModule* mod,
                 if (kind == 0 || kind == 1) mod->usesArguments = true;
             }
         }
-        /* Advance by opcode size (includes opcode byte itself). */
-        uint8_t sz = (op <= static_cast<uint8_t>(maxOp)) ? sizes[op] : 0;
+        /* Advance by opcode size (includes opcode byte itself).  Bytes
+         * past OP_COUNT carry the BytecodeSpecialiser's fused
+         * super-instructions — getOpSizes() populates their sizes too,
+         * so trust the table for the full 256-entry range instead of
+         * stopping at maxOp.  Pre-fix this aborted the atom walk the
+         * moment a fused opcode appeared, so every get_field that
+         * followed missed its atom-to-symbol cache entry and the
+         * runtime crashed with `resolveAtom: atom N not in cache`
+         * the first time the bench called a method. */
+        (void)maxOp;
+        uint8_t sz = sizes[op];
         if (sz == 0) break; /* unknown opcode - stop */
         pc += sz;
     }
