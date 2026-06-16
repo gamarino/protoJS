@@ -377,6 +377,30 @@ static const proto::ProtoString* ensureInterned(proto::ProtoContext* ctx, const 
     // pointer anyway, so the work is wasted.
     if (!s->asCell(ctx)) return s;
 
+    // Per-thread pointer-keyed cache for the rope-backed input case.
+    // Rope strings (built by `'k' + i` style concat, or returned by
+    // String.prototype methods) are NOT pointer-identity unique —
+    // different ropes can carry the same content — so the
+    // toUTF8String + createSymbol round-trip below is the only way
+    // to get the canonical symbol on the first call.  But for any
+    // given live rope the result is invariant for as long as the rope
+    // is reachable; on object_read_only's 500K-call hot loop the
+    // SAME 100 rope pointers cycle through, so the cache lookup
+    // short-circuits every subsequent call with zero allocation.
+    //
+    // Cache safety: a rope freed by the GC and replaced at the same
+    // arena slot by a different-content rope would NOT corrupt this
+    // cache, because no caller can still hold the stale pointer — if
+    // they do, the rope wasn't reclaimed and the cache entry is
+    // still valid.  This is the assumption the existing
+    // t_getterSymCache / t_setterSymCache (line 6040) also rely on,
+    // and which the OP_define_field isNumericKey cache uses.
+    static thread_local std::unordered_map<const proto::ProtoString*, const proto::ProtoString*> s_internCache;
+    {
+        auto it = s_internCache.find(s);
+        if (it != s_internCache.end()) return it->second;
+    }
+
     // Routing through createSymbol every call: protoCore's SymbolTable
     // already deduplicates by content via a 64-shard concurrent
     // hash, so the per-thread pointer-keyed cache that used to live
@@ -401,7 +425,10 @@ static const proto::ProtoString* ensureInterned(proto::ProtoContext* ctx, const 
     // full bench suite, not just object benches.
     std::string utf8;
     s->toUTF8String(ctx, utf8);
-    return proto::ProtoString::createSymbol(ctx, utf8.c_str());
+    const proto::ProtoString* result =
+        proto::ProtoString::createSymbol(ctx, utf8.c_str());
+    s_internCache[s] = result;
+    return result;
 }
 
 static const proto::ProtoString* ensureInternedOOP(proto::ProtoContext* ctx, const proto::ProtoObject* obj) {
@@ -10575,16 +10602,31 @@ const proto::ProtoObject* runBytecode(proto::ProtoContext* pContext,
                 // through to the fast path so own __elements__ data
                 // wins.  Only walk the chain when neither own data
                 // nor own accessor is present.
+                // PERF: same two-tier accessor gate as the string-key
+                // branch below (commit 0b0f57ae) and the
+                // resolvePutFieldOOP / invokeGetterIfPresentFast
+                // sites (commits 9b6081a5 / f6b2fd00).  Pre-fix this
+                // numeric-index branch chain-walked
+                // `__has_accessor_props__` to gate the per-index
+                // `__get_<idx>__` rope build.  Object.prototype's
+                // `__proto__` accessor stamps the flag globally, so
+                // every `arr[idx]` paid for a ~12-char rope
+                // construction (49 protoCore cells per access on
+                // object_read_only's hot loop).  Split the gate: OWN
+                // flag for the OWN accessor probe (fires only on
+                // arrays with explicit own getters); chain probe only
+                // when own data lookup misses.
                 if (arrIdxFast >= 0) {
                     const proto::ProtoString* hapK = JSSymbols::hasAccessorProps(pContext);
-                    bool maybeHasAccessor = hapK
-                        && (obj->hasAttribute(pContext, hapK) == PROTO_TRUE)
-                        && (obj->getAttribute(pContext, hapK, true) == PROTO_TRUE);
-                    if (maybeHasAccessor) {
-                        std::string gkStr = "__get_" + std::to_string(arrIdxFast) + "__";
+                    const bool ownMayHaveAccessor = hapK
+                        && obj->hasOwnAttribute(pContext, hapK) == PROTO_TRUE
+                        && obj->getAttribute(pContext, hapK, false) == PROTO_TRUE;
+                    std::string gkStr;
+                    const proto::ProtoString* gks = nullptr;
+                    if (ownMayHaveAccessor) {
+                        gkStr = "__get_" + std::to_string(arrIdxFast) + "__";
                         const proto::ProtoObject* gko = pContext->fromUTF8String(gkStr.c_str());
-                        const proto::ProtoString* gks = gko ? gko->asString(pContext) : nullptr;
-                        // OWN-only probe first.
+                        gks = gko ? gko->asString(pContext) : nullptr;
                         if (gks && obj->hasOwnAttribute(pContext, gks) == PROTO_TRUE) {
                             const proto::ProtoObject* getter = obj->getAttribute(pContext, gks, false);
                             if (getter && getter != PROTO_NONE) {
@@ -10596,14 +10638,20 @@ const proto::ProtoObject* runBytecode(proto::ProtoContext* pContext,
                                 DISPATCH();
                             }
                         }
-                        // Chain-walk probe ONLY if the receiver has no
-                        // own data at that index (neither in
-                        // __elements__ nor as an indexed sidecar).
+                    }
+                    // Chain-walk accessor probe — only when we know own
+                    // data is absent.  Computing ownDenseHit /
+                    // ownSidecarHit unconditionally would also pay
+                    // per-call cost; instead defer the check (and the
+                    // rope build for the chain probe) until we know
+                    // the chain flag is true.
+                    if (hapK
+                        && obj->getAttribute(pContext, hapK, true) == PROTO_TRUE) {
                         const proto::ProtoList* ownEls = protojs::getArrayElements(pContext, obj);
-                        bool ownDenseHit = ownEls &&
-                            arrIdxFast < static_cast<long long>(ownEls->getSize(pContext)) &&
-                            ownEls->getAt(pContext, static_cast<int>(arrIdxFast)) &&
-                            ownEls->getAt(pContext, static_cast<int>(arrIdxFast)) != PROTO_NONE;
+                        const proto::ProtoObject* dv = ownEls && arrIdxFast < static_cast<long long>(ownEls->getSize(pContext))
+                            ? ownEls->getAt(pContext, static_cast<int>(arrIdxFast))
+                            : nullptr;
+                        const bool ownDenseHit = dv && dv != PROTO_NONE;
                         bool ownSidecarHit = false;
                         if (!ownDenseHit) {
                             const proto::ProtoString* ik =
@@ -10613,15 +10661,22 @@ const proto::ProtoObject* runBytecode(proto::ProtoContext* pContext,
                                 if (ov && ov != PROTO_NONE) ownSidecarHit = true;
                             }
                         }
-                        if (gks && !ownDenseHit && !ownSidecarHit) {
-                            const proto::ProtoObject* getter = obj->getAttribute(pContext, gks, true);
-                            if (getter && getter != PROTO_NONE) {
-                                const proto::ProtoObject* r =
-                                    callJSFunction(pContext, getter, obj, pContext->newList());
-                                REFRESH_INTERP_STATE();
-                                if (has_pending_exception) DISPATCH();
-                                pAutomaticLocals[currentStackBase + _PF().stackTop++] = r ? r : PROTO_NONE;
-                                DISPATCH();
+                        if (!ownDenseHit && !ownSidecarHit) {
+                            if (!gks) {
+                                if (gkStr.empty()) gkStr = "__get_" + std::to_string(arrIdxFast) + "__";
+                                const proto::ProtoObject* gko = pContext->fromUTF8String(gkStr.c_str());
+                                gks = gko ? gko->asString(pContext) : nullptr;
+                            }
+                            if (gks) {
+                                const proto::ProtoObject* getter = obj->getAttribute(pContext, gks, true);
+                                if (getter && getter != PROTO_NONE) {
+                                    const proto::ProtoObject* r =
+                                        callJSFunction(pContext, getter, obj, pContext->newList());
+                                    REFRESH_INTERP_STATE();
+                                    if (has_pending_exception) DISPATCH();
+                                    pAutomaticLocals[currentStackBase + _PF().stackTop++] = r ? r : PROTO_NONE;
+                                    DISPATCH();
+                                }
                             }
                         }
                     }
