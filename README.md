@@ -4336,28 +4336,28 @@ report wall-clock to avoid startup-cost contamination.
 
 | Benchmark                | Node  | QuickJS | protoJS | × Node | × QuickJS |
 |--------------------------|------:|--------:|--------:|-------:|----------:|
-| array_literal            |  1 ms |    6 ms |  305 ms |   305× |     51×  |
-| control_flow             |  3 ms |   55 ms |  339 ms |   113× |    6.2×  |
-| function_calls           |  1 ms |   11 ms |  294 ms |   294× |     27×  |
-| json_transform           |  1 ms |    4 ms |  197 ms |   197× |     49×  |
-| json_transform_small     |  0 ms |    0 ms |   17 ms |     —  |     34×  |
-| json_transform_tiny      |  0 ms |    0 ms |   10 ms |     —  |     20×  |
-| **list_snapshot_history** | 0 ms |    1 ms |   27 ms |    54× |    **27×**  |
-| numeric_loop             |  1 ms |   40 ms |  183 ms |   182× |    4.6×  |
-| **object_property**      | 40 ms |   78 ms |  700 ms |    17× |   **9.0×** |
-| **object_read_only**     |  1 ms |    6 ms |  403 ms |   427× |     67×  |
-| **parallel_cpu**         | 44 ms |  978 ms |   52 ms | Node 1.2× | **protoJS 19×** |
-| string_concat            |  1 ms |    7 ms |  119 ms |   118× |     17×  |
+| array_literal            |  1 ms |    6 ms |  290 ms |   290× |     48×  |
+| control_flow             |  3 ms |   55 ms |  295 ms |    98× |    5.4×  |
+| function_calls           |  1 ms |   11 ms |  291 ms |   291× |     26×  |
+| json_transform           |  1 ms |    4 ms |  192 ms |   192× |     48×  |
+| json_transform_small     |  0 ms |    0 ms |   16 ms |     —  |     32×  |
+| json_transform_tiny      |  0 ms |    0 ms |    9 ms |     —  |     18×  |
+| **list_snapshot_history** | 0 ms |    1 ms |   28 ms |    58× |    **28×**  |
+| **numeric_loop**         |  1 ms |   41 ms |  130 ms |   131× |   **3.2×**  |
+| **object_property**      | 39 ms |   82 ms |  717 ms |    19× |   **8.7×** |
+| **object_read_only**     |  1 ms |    6 ms |  435 ms |   477× |     72×  |
+| **parallel_cpu**         | 46 ms |  856 ms |   52 ms | Node 1.1× | **protoJS 16×** |
+| string_concat            |  1 ms |    5 ms |  133 ms |   135× |     27×  |
 | string_concat_large_ch.  |  0 ms |    0 ms |    0 ms |   parity| parity   |
 | string_insert_middle     |  0 ms |    0 ms |    1 ms |   parity|  2×      |
-| string_processing        |  0 ms |    0 ms |    8 ms |    —   |     16×  |
-| string_repeated_doubling | 40 ms |    1 ms |    2 ms | **protoJS 20×** |  2×    |
-| tree_traversal           |  1 ms |    4 ms |  360 ms |   355× |     90×  |
+| string_processing        |  0 ms |    1 ms |   13 ms |    —   |     13×  |
+| string_repeated_doubling | 49 ms |    3 ms |    3 ms | **protoJS 24×** |  parity |
+| tree_traversal           |  1 ms |    5 ms |  370 ms |   381× |     74×  |
 
 **Geometric mean (in-process time):**
 
-- **protoJS / QuickJS = 10.05 ×**
-- **protoJS / Node    = 26.47 ×**
+- **protoJS / QuickJS = 9.41 ×**
+- **protoJS / Node    = 25.14 ×**
 - QuickJS / Node = 3.77 ×
 
 #### Where protoJS wins by architecture
@@ -4421,8 +4421,15 @@ Recent fixes target exactly this signature:
   so `ensureInterned` can pointer-identity-match short ASCII keys
   without the `toUTF8String` + `createSymbol` round-trip.
 
-The remaining outliers in the table (`tree_traversal` 90×,
-`string_concat` 17×) are dominated by inherent rope / object-
+- The BytecodeSpecialiser (sprint-11 port from protoPython) now
+  fires on `let` / `const` loops too — `decodeGetLoc` /
+  `decodePutLocSame` accept the `_check` variants, and the fused
+  handlers inline a TDZ-sentinel pointer compare per operand.
+  `numeric_loop` 4.6× QuickJS → 3.2×.  Default mode is now
+  `compact`; `PROTOJS_SPECIALISER=off` to disable.
+
+The remaining outliers in the table (`tree_traversal` 74×,
+`string_concat` 27×) are dominated by inherent rope / object-
 construction allocation patterns rather than uninterned-string
 storm.  `string_concat`'s `s += 'x'` profile shows 50 %+ of CPU in
 `StringInternalNode` rope operations — the rope build is the
