@@ -523,6 +523,31 @@ inline const proto::ProtoObject* allocCell(proto::ProtoContext* ctx,
     return cell;
 }
 
+// Forward decls for the lazy frame-object materialiser below — actual
+// thread-locals are declared further down with the rest.
+extern thread_local const proto::ProtoObject* t_currentFrameObj;
+extern thread_local const proto::ProtoObject* t_activeFunc;
+
+// Lazy frame-object materialiser.  Returns the current call's frameObj,
+// allocating it on first use.  parents = [activeFunc, *pGlobalRoot] —
+// activeFunc lets callers reach the fn-object's own attributes (name,
+// length, prototype); *pGlobalRoot reaches top-level bindings + built-ins.
+// Once created the same object is reused for the rest of the call.
+inline const proto::ProtoObject* getOrCreateFrameObj(proto::ProtoContext* ctx,
+                                                     const proto::ProtoObject** pGlobalRoot) {
+    if (t_currentFrameObj) return t_currentFrameObj;
+    const proto::ProtoObject* frameObj = ctx->newObject(true);
+    if (!frameObj) return nullptr;
+    if (t_activeFunc && t_activeFunc != PROTO_NONE) {
+        frameObj = frameObj->addParent(ctx, t_activeFunc);
+    }
+    if (pGlobalRoot && *pGlobalRoot) {
+        frameObj = frameObj->addParent(ctx, *pGlobalRoot);
+    }
+    t_currentFrameObj = frameObj;
+    return frameObj;
+}
+
 inline bool isCell(proto::ProtoContext* ctx, const proto::ProtoObject* o) {
     if (!o || o == PROTO_NONE) return false;
     if (!t_cellMarker) return false;  // no cells exist yet on this thread
@@ -577,15 +602,34 @@ inline void populateClosureCellsFromInstance(proto::ProtoContext* childCtx,
     const proto::ProtoString* ccKey = capturedCellsKey(childCtx);
     if (!ccKey) return;
     const proto::ProtoObject* cellsAttr = fnInst->getAttribute(childCtx, ccKey, false);
-    if (!cellsAttr || cellsAttr == PROTO_NONE) return;
-    const proto::ProtoSparseList* cells = cellsAttr->asSparseList(childCtx);
-    if (!cells) return;
+    const proto::ProtoSparseList* cells = (cellsAttr && cellsAttr != PROTO_NONE)
+        ? cellsAttr->asSparseList(childCtx) : nullptr;
     const unsigned argC = nf.argCount();
     const unsigned varC = nf.varCount();
     for (size_t i = 0; i < nf.closureVarNames.size(); ++i) {
-        const proto::ProtoObject* cell = cells->getAt(childCtx, static_cast<unsigned long>(i));
-        if (!cell) continue;
-        if (cell == PROTO_NONE) continue;
+        const proto::ProtoObject* cell = cells
+            ? cells->getAt(childCtx, static_cast<unsigned long>(i)) : nullptr;
+        // FALLBACK via chain walk: when __captured_cells__ has nothing
+        // for this slot (PROTO_NONE) — for example because the inner
+        // fn was constructed BEFORE the outer's local was promoted to
+        // a cell (the closure-read-only bug pattern: QuickJS hoists
+        // function inner before `let x = …`, so fclosure captured a
+        // freshly-allocated cell but the subsequent set_loc_uninitialized
+        // overwrote the slot) — look the name up via the prototype
+        // chain of the function-object itself.  The outer frameObj is a
+        // parent of fnInst (set in fclosure), and any cell we published
+        // there in Fase 3 becomes visible here as a regular chain walk.
+        if (!cell || cell == PROTO_NONE) {
+            const std::string& cvNm = nf.closureVarNames[i];
+            if (!cvNm.empty()) {
+                const proto::ProtoString* nmKey =
+                    proto::ProtoString::createSymbol(childCtx, cvNm.c_str());
+                if (nmKey) {
+                    cell = fnInst->getAttribute(childCtx, nmKey, /*chain*/ true);
+                }
+            }
+        }
+        if (!cell || cell == PROTO_NONE) continue;
         setSlot(childCtx, argC + varC + static_cast<unsigned>(i), cell);
     }
 }
@@ -607,6 +651,13 @@ thread_local const ProtoBytecodeModule* t_rootModule = nullptr;
 // used by OP_special_object kind=THIS_FUNC and kind=NEW_TARGET so super(...)
 // in derived class ctors can resolve `this_active_func`.
 thread_local const proto::ProtoObject* t_activeFunc   = nullptr;
+// Frame-as-object: a mutable ProtoObject* representing the current call's
+// lexical environment.  Parents = [fn-object, moduleScope] (top-level frame
+// just has [moduleScope]).  Created on runBytecode entry, restored on exit.
+// Nested function calls reach the outer's frameObj by reading this value at
+// the moment fclosure runs, then pinning it as a parent of the inner-fn —
+// that turns __captured_cells__ into a normal protoCore chain walk.
+thread_local const proto::ProtoObject* t_currentFrameObj = nullptr;
 thread_local const proto::ProtoObject* t_activeNewTgt = nullptr;
 // Args list passed to the currently-running function — used by
 // OP_init_ctor in derived class default constructors to forward
@@ -5864,6 +5915,20 @@ const proto::ProtoObject* runBytecode(proto::ProtoContext* pContext,
         }
     }
 
+    // Frame-as-object (LAZY): we publish nullptr by default and only
+    // materialise a real ProtoObject* frame when something INSIDE the
+    // body actually needs it — typically OP_fclosure of a nested fn that
+    // captures locals.  Hot paths (numeric loops, simple call chains)
+    // never touch the frameObj, paying zero overhead.  The materialiser
+    // (getOrCreateFrameObj) installs parents = [activeFunc, moduleScope]
+    // when invoked.  RAII restore at exit.
+    const proto::ProtoObject* prevFrameObj = t_currentFrameObj;
+    t_currentFrameObj = nullptr;
+    struct FrameObjPopOnExit {
+        const proto::ProtoObject* prev;
+        ~FrameObjPopOnExit() { t_currentFrameObj = prev; }
+    } _frameObjPopOnExit{prevFrameObj};
+
     /* Invoke a method stored as a bytecode or native function on thisVal with no arguments.
      * If the method throws, sets pending_exception / has_pending_exception and returns PROTO_NONE.
      * Returns PROTO_NONE (without setting exception) when fn is null or unresolvable. */
@@ -8886,7 +8951,20 @@ const proto::ProtoObject* runBytecode(proto::ProtoContext* pContext,
                 uint16_t locIndex = get_u16(buf + pc);
                 pc += 2;
                 if (locIndex < varCount && (argCount + locIndex) < (argCount + varCount)) {
-                    const proto::ProtoObject* val = getSlot(pContext, argCount + locIndex);
+                    // Cell-aware: when fclosure has promoted this local to
+                    // a closure cell, the slot holds the cell pointer.
+                    // Without readCell the bytecode would push the cell
+                    // object itself as the value of `n` after `let n=0;
+                    // inc(); return n` — observable as `typeof n ===
+                    // "object"`.  Cell-aware sibling opcodes (get_loc /
+                    // get_loc0..3 / get_loc8) all use readCell; this one
+                    // was the missing TDZ-tracked variant.
+                    const proto::ProtoObject* slotVal = getSlot(pContext, argCount + locIndex);
+                    if (slotVal == tdzSentinel) {
+                        pending_exception = makeError(pContext, "ReferenceError", "Cannot access before initialization", pGlobalRoot); has_pending_exception = true;
+                        DISPATCH();
+                    }
+                    const proto::ProtoObject* val = readCell(pContext, slotVal);
                     if (val == tdzSentinel) {
                         pending_exception = makeError(pContext, "ReferenceError", "Cannot access before initialization", pGlobalRoot); has_pending_exception = true;
                         DISPATCH();
@@ -15277,8 +15355,14 @@ const proto::ProtoObject* runBytecode(proto::ProtoContext* pContext,
                     const proto::ProtoObject* fnInst = (fp8 && fp8 != PROTO_NONE)
                         ? fp8->newChild(pContext, true)
                         : pContext->newObject(true);
-                    // Append the moduleScope as a second parent — see
+                    // outer-frameObj + moduleScope as extra parents — see
                     // L_OP_fclosure for rationale.
+                    const proto::ProtoObject* outerFrameForCapture8 =
+                        getOrCreateFrameObj(pContext, gr8);
+                    if (outerFrameForCapture8 && outerFrameForCapture8 != fp8 &&
+                        (!gr8 || outerFrameForCapture8 != *gr8)) {
+                        fnInst = fnInst->addParent(pContext, outerFrameForCapture8);
+                    }
                     if (gr8 && *gr8 && *gr8 != fp8) {
                         fnInst = fnInst->addParent(pContext, *gr8);
                     }
@@ -15437,12 +15521,19 @@ const proto::ProtoObject* runBytecode(proto::ProtoContext* pContext,
                     const proto::ProtoObject* fnInst2 = (fp2 && fp2 != PROTO_NONE)
                         ? fp2->newChild(pContext, true)
                         : pContext->newObject(true);
-                    // Lexical scope chain: append the moduleScope as a
-                    // second parent so the function-object's own chain
-                    // walk reaches top-level bindings (state, work, …)
-                    // without going through pGlobalRoot.  Order matters:
-                    // Function.prototype stays head, so getPrototypeOf(f)
-                    // / instanceof / f.call|bind|apply are unaffected.
+                    // Lexical scope chain: parents = [Function.prototype,
+                    // outer-frameObj?, moduleScope].  outer-frameObj is
+                    // materialised lazily — only when fclosure runs at
+                    // least once (it always materialises the outer's
+                    // frameObj here so the inner can pin it).  Function.
+                    // prototype stays head, so getPrototypeOf(f) /
+                    // instanceof / f.call|bind|apply are unaffected.
+                    const proto::ProtoObject* outerFrameForCapture =
+                        getOrCreateFrameObj(pContext, gr2);
+                    if (outerFrameForCapture && outerFrameForCapture != fp2 &&
+                        (!gr2 || outerFrameForCapture != *gr2)) {
+                        fnInst2 = fnInst2->addParent(pContext, outerFrameForCapture);
+                    }
                     if (gr2 && *gr2 && *gr2 != fp2) {
                         fnInst2 = fnInst2->addParent(pContext, *gr2);
                     }
@@ -15561,6 +15652,11 @@ const proto::ProtoObject* runBytecode(proto::ProtoContext* pContext,
                         // its capturing scope.
                         if (!nm2.closureVarNames.empty()) {
                             const proto::ProtoSparseList* cells = pContext->newSparseList();
+                            // outerFrameForCapture was materialised above —
+                            // the inner fn already has it as a parent so any
+                            // cell we publish here becomes reachable via the
+                            // chain walk of inner's future frames.
+                            const proto::ProtoObject* outerFrameForPublish = t_currentFrameObj;
                             for (size_t cvi2 = 0; cvi2 < nm2.closureVarNames.size(); ++cvi2) {
                                 int cvType2 = (cvi2 < nm2.closureVarTypes.size())
                                     ? nm2.closureVarTypes[cvi2] : -1;
@@ -15628,6 +15724,23 @@ const proto::ProtoObject* runBytecode(proto::ProtoContext* pContext,
                                 }
                                 cells = cells->setAt(pContext, static_cast<unsigned long>(cvi2),
                                                       captured ? captured : PROTO_NONE);
+                                // Publish the cell on the outer's frameObj
+                                // under the source-level name so the inner
+                                // fn can find it via chain walk on its own
+                                // frameObj (which has outerFrameObj as a
+                                // parent).  Only LOCAL / ARG / REF — GLOBAL
+                                // is already reachable via moduleScope.
+                                if (outerFrameForPublish && captured && captured != PROTO_NONE &&
+                                    (cvType2 == 0 || cvType2 == 1 || cvType2 == 2)) {
+                                    const std::string& cvNm = nm2.closureVarNames[cvi2];
+                                    if (!cvNm.empty()) {
+                                        const proto::ProtoString* nmKey =
+                                            proto::ProtoString::createSymbol(pContext, cvNm.c_str());
+                                        if (nmKey) {
+                                            outerFrameForPublish->setAttribute(pContext, nmKey, captured);
+                                        }
+                                    }
+                                }
                             }
                             const proto::ProtoString* ccKey = capturedCellsKey(pContext);
                             if (ccKey)
