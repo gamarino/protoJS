@@ -6104,7 +6104,22 @@ const proto::ProtoObject* runBytecode(proto::ProtoContext* pContext,
             const proto::ProtoObject* obj,
             const proto::ProtoString* key) -> const proto::ProtoObject* {
         if (!obj || obj == PROTO_NONE || obj == t_nullSentinel || !key) return PROTO_NONE;
-        // Same hint-flag gate as the slow path — see invokeGetterIfPresent.
+        // Two-tier hint-flag gate (mirrors commits 0b0f57ae /
+        // 9b6081a5 on OP_get_array_el / resolvePutFieldOOP).
+        //
+        // The original gate did `obj->getAttribute(hapKey, chain=true)`
+        // which returns PROTO_TRUE on every plain object because
+        // Object.prototype's `__proto__` accessor stamps the flag
+        // globally.  Result: every `node.val` read on tree_traversal
+        // ran the chain walk below looking for an accessor that does
+        // not exist for the bench, and the per-call cost was paid for
+        // nothing.  The fix: short-circuit when the receiver has its
+        // OWN data attribute for the key (the data shadows any
+        // inherited accessor per §10.1.8 step 2, so the walk would
+        // return PROTO_NONE anyway), and only chain-probe when own
+        // data is absent.
+        const bool ownHasData = obj->hasOwnAttribute(pContext, key) == PROTO_TRUE;
+        if (ownHasData) return PROTO_NONE;
         {
             const proto::ProtoString* hapKey = JSSymbols::hasAccessorProps(pContext);
             if (hapKey) {
