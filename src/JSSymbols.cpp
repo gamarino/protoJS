@@ -139,6 +139,8 @@ DEFINE_SYMBOL(bigIntValue,      "__bigint_value__")
 DEFINE_SYMBOL(hasIndexedSetters,"__has_indexed_setters__")
 DEFINE_SYMBOL(hasAccessorProps, "__has_accessor_props__")
 DEFINE_SYMBOL(hasNonWritableProps,"__has_nonwritable_props__")
+DEFINE_SYMBOL(getLength,        "__get_length__")
+DEFINE_SYMBOL(setLength,        "__set_length__")
 
 // ---- TypedArray / ArrayBuffer / DataView internal keys ------------------
 DEFINE_SYMBOL(abData,        "__ab_data__")
@@ -376,6 +378,8 @@ std::string getNameFromHash(proto::ProtoContext* ctx, unsigned long hash) {
         REGISTER(hasIndexedSetters, "__has_indexed_setters__")
         REGISTER(hasAccessorProps, "__has_accessor_props__")
         REGISTER(hasNonWritableProps, "__has_nonwritable_props__")
+        REGISTER(getLength, "__get_length__")
+        REGISTER(setLength, "__set_length__")
         REGISTER(primitiveValue,"__primitive_value__")
         REGISTER(abData,        "__ab_data__")
         REGISTER(abDetached,    "__ab_detached__")

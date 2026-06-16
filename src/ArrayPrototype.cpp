@@ -212,8 +212,11 @@ static unsigned long arrLen(proto::ProtoContext* ctx,
     // data length=3 → child.length must use the getter).  Without this check,
     // getAttribute("length", true) would find the inherited data and return the wrong value.
     {
-        const proto::ProtoObject* gko = ctx->fromUTF8String("__get_length__");
-        const proto::ProtoString* gk  = gko ? gko->asString(ctx) : nullptr;
+        // Interned via JSSymbols — arrLen runs once per arrayPush and the
+        // pre-fix `fromUTF8String("__get_length__")` rope built 1 cell
+        // per call (3 across the function), driving SymbolTable::
+        // lookupByContent to 3 % of array_literal's CPU.
+        const proto::ProtoString* gk = JSSymbols::getLength(ctx);
         if (gk && arr->hasOwnAttribute(ctx, gk) == PROTO_TRUE) {
             const proto::ProtoObject* ownGetter = arr->getAttribute(ctx, gk, true);
             if (ownGetter && ownGetter != PROTO_NONE) {
@@ -283,10 +286,8 @@ static unsigned long arrLen(proto::ProtoContext* ctx,
     // (built-ins/Array/prototype/map/15.4.4.19-2-12 et al).
     bool ownSetterOnlyAccessor = false;
     {
-        const proto::ProtoObject* sko = ctx->fromUTF8String("__set_length__");
-        const proto::ProtoString* sk = sko ? sko->asString(ctx) : nullptr;
-        const proto::ProtoObject* gko = ctx->fromUTF8String("__get_length__");
-        const proto::ProtoString* gk = gko ? gko->asString(ctx) : nullptr;
+        const proto::ProtoString* sk = JSSymbols::setLength(ctx);
+        const proto::ProtoString* gk = JSSymbols::getLength(ctx);
         bool hasOwnSetter = sk && arr->hasOwnAttribute(ctx, sk) == PROTO_TRUE;
         bool hasOwnGetter = gk && arr->hasOwnAttribute(ctx, gk) == PROTO_TRUE;
         if (hasOwnSetter && !hasOwnGetter) ownSetterOnlyAccessor = true;
@@ -307,8 +308,7 @@ static unsigned long arrLen(proto::ProtoContext* ctx,
                                   || lenObj == PROTO_TRUE || lenObj == PROTO_FALSE);
     if (!lenIsUsable) {
         // Check for inherited length accessor getter: __get_length__
-        const proto::ProtoObject* gko = ctx->fromUTF8String("__get_length__");
-        const proto::ProtoString* gk  = gko ? gko->asString(ctx) : nullptr;
+        const proto::ProtoString* gk = JSSymbols::getLength(ctx);
         if (gk) {
             const proto::ProtoObject* getter = arr->getAttribute(ctx, gk, true);
             if (getter && getter != PROTO_NONE) {
@@ -1610,11 +1610,14 @@ static const proto::ProtoObject* arrayPush(
                 const proto::ProtoObject* item = args->getAt(ctx, static_cast<int>(i));
                 list = list->appendLast(ctx, item ? item : PROTO_NONE);
             }
-            // setArrayElements writes __elements__ AND length in one
-            // helper call.  The __pd_length__ writability probe ran at
-            // the top of arrayPush already, so the spec-mandated
-            // TypeError fires before we get here.
-            setArrayElements(ctx, self, list);
+            // Fast path: write ONLY __elements__.  OP_get_length has a
+            // dense-array fast path that synthesises length from
+            // __elements__.size(), so the per-push setAttribute on the
+            // `length` slot is redundant and the dominant cost on the
+            // array_literal bench (a second SparseList rebuild per push
+            // + a cache invalidation).  Save it.
+            const proto::ProtoString* ek = JSSymbols::arrayElements(ctx);
+            if (ek) self->setAttribute(ctx, ek, list->asObject(ctx));
             return ctx->fromInteger(static_cast<long long>(len + argc));
         }
 

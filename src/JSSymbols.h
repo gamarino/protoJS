@@ -155,6 +155,13 @@ const proto::ProtoString* bigIntValue(proto::ProtoContext* ctx);    // "__bigint
 // never do).
 const proto::ProtoString* hasIndexedSetters(proto::ProtoContext* ctx); // "__has_indexed_setters__"
 
+// Accessor sidecars for "length" — Array.prototype.* helpers probe these
+// on every native call (arrLen alone builds 3 ropes per invocation).
+// arrayPush invokes arrLen on every push, so a 100K-element loop spends
+// 300K rope allocations on these two keys.  Interned via JSSymbols.
+const proto::ProtoString* getLength(proto::ProtoContext* ctx);      // "__get_length__"
+const proto::ProtoString* setLength(proto::ProtoContext* ctx);      // "__set_length__"
+
 // Per-object hint flags for the OrdinarySet hot path (added 2026-06-07).
 // resolvePutFieldOOP runs on every `obj[key] = val` and used to
 // unconditionally construct "__set_<key>__"/"__get_<key>__"/"__pd_<key>__"

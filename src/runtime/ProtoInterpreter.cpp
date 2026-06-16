@@ -13004,6 +13004,32 @@ const proto::ProtoObject* runBytecode(proto::ProtoContext* pContext,
                 }
 
                 const proto::ProtoString* lk = JSSymbols::length(pContext);
+                // Dense-array fast path: when obj has an OWN __elements__
+                // (only real arrays do by construction) and no OWN length
+                // accessor, synthesise length from __elements__.size().
+                // This is what lets arrayPush's fast path skip the per-
+                // push setAttribute(length, …) writeback.
+                // Own-attribute checks only — chain-walk would taint via
+                // Object.prototype's __proto__ accessor (the same pattern
+                // the get_array_el / accessor_gate cycle already audited).
+                if (obj && obj != PROTO_NONE) {
+                    const proto::ProtoString* ek = JSSymbols::arrayElements(pContext);
+                    if (ek && obj->hasOwnAttribute(pContext, ek) == PROTO_TRUE) {
+                        const proto::ProtoString* glK = JSSymbols::getLength(pContext);
+                        bool hasOwnGetter =
+                            glK && obj->hasOwnAttribute(pContext, glK) == PROTO_TRUE;
+                        if (!hasOwnGetter) {
+                            const proto::ProtoList* els =
+                                protojs::getArrayElements(pContext, obj);
+                            if (els) {
+                                long long n = static_cast<long long>(els->getSize(pContext));
+                                pAutomaticLocals[currentStackBase + _PF().stackTop++] =
+                                    pContext->fromInteger(n);
+                                DISPATCH();
+                            }
+                        }
+                    }
+                }
                 // ECMA-262 §10.1.8 / §13.3.2.1: a user-defined
                 // `length` accessor (`Object.defineProperty(o, 'length',
                 // {get: …})`) must fire on every `o.length` read,
