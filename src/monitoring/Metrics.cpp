@@ -124,10 +124,10 @@ void Metrics::recordHistogram(proto::ProtoContext* pContext, const proto::ProtoS
     if (!statsObj) {
         // Create new HistogramStats object
         const proto::ProtoObject* newStats = pContext->newObject(true);
-        const proto::ProtoString* bucketsKey = proto::ProtoString::createSymbol(pContext, "buckets");
-        const proto::ProtoString* countsKey = proto::ProtoString::createSymbol(pContext, "counts");
-        const proto::ProtoString* sumKey = proto::ProtoString::createSymbol(pContext, "sum");
-        const proto::ProtoString* countKey = proto::ProtoString::createSymbol(pContext, "count");
+        const proto::ProtoString* bucketsKey = pContext->fromUTF8String("buckets")->asString(pContext);
+        const proto::ProtoString* countsKey = pContext->fromUTF8String("counts")->asString(pContext);
+        const proto::ProtoString* sumKey = pContext->fromUTF8String("sum")->asString(pContext);
+        const proto::ProtoString* countKey = pContext->fromUTF8String("count")->asString(pContext);
         
         const proto::ProtoList* defaultBuckets = getDefaultBuckets(pContext);
         const proto::ProtoList* emptyCounts = pContext->newList();
@@ -148,10 +148,10 @@ void Metrics::recordHistogram(proto::ProtoContext* pContext, const proto::ProtoS
     
     // Update histogram stats
     double val = value->asDouble(pContext);
-    const proto::ProtoString* sumKey = proto::ProtoString::createSymbol(pContext, "sum");
-    const proto::ProtoString* countKey = proto::ProtoString::createSymbol(pContext, "count");
-    const proto::ProtoString* countsKey = proto::ProtoString::createSymbol(pContext, "counts");
-    const proto::ProtoString* bucketsKey = proto::ProtoString::createSymbol(pContext, "buckets");
+    const proto::ProtoString* sumKey = pContext->fromUTF8String("sum")->asString(pContext);
+    const proto::ProtoString* countKey = pContext->fromUTF8String("count")->asString(pContext);
+    const proto::ProtoString* countsKey = pContext->fromUTF8String("counts")->asString(pContext);
+    const proto::ProtoString* bucketsKey = pContext->fromUTF8String("buckets")->asString(pContext);
     
     // Update sum
     const proto::ProtoObject* currentSumObj = statsObj->getAttribute(pContext, sumKey);
@@ -202,10 +202,10 @@ HistogramStats Metrics::getHistogram(proto::ProtoContext* pContext, const proto:
     if (storage->has(pContext, keyHash)) {
         const proto::ProtoObject* statsObj = storage->getAt(pContext, keyHash);
         if (statsObj && statsObj != PROTO_NONE) {
-            const proto::ProtoString* bucketsKey = proto::ProtoString::createSymbol(pContext, "buckets");
-            const proto::ProtoString* countsKey = proto::ProtoString::createSymbol(pContext, "counts");
-            const proto::ProtoString* sumKey = proto::ProtoString::createSymbol(pContext, "sum");
-            const proto::ProtoString* countKey = proto::ProtoString::createSymbol(pContext, "count");
+            const proto::ProtoString* bucketsKey = pContext->fromUTF8String("buckets")->asString(pContext);
+            const proto::ProtoString* countsKey = pContext->fromUTF8String("counts")->asString(pContext);
+            const proto::ProtoString* sumKey = pContext->fromUTF8String("sum")->asString(pContext);
+            const proto::ProtoString* countKey = pContext->fromUTF8String("count")->asString(pContext);
             
             const proto::ProtoObject* b = statsObj->getAttribute(pContext, bucketsKey);
             const proto::ProtoObject* c = statsObj->getAttribute(pContext, countsKey);
@@ -240,14 +240,14 @@ const proto::ProtoString* Metrics::exportJSON(proto::ProtoContext* pContext) {
     MetricsSnapshot snapshot = getSnapshot(pContext);
     
     // Build JSON string using protoCore string operations
-    const proto::ProtoString* json = proto::ProtoString::createSymbol(pContext, "{\"counters\":{");
+    const proto::ProtoString* json = pContext->fromUTF8String("{\"counters\":{")->asString(pContext);
     
     // Iterate over counters
     const proto::ProtoSparseListIterator* iter = snapshot.counters->getIterator(pContext);
     bool first = true;
     while (iter && iter->hasNext(pContext)) {
         if (!first) {
-            json = json->appendLast(pContext, proto::ProtoString::createSymbol(pContext, ","));
+            json = json->appendLast(pContext, pContext->fromUTF8String(",")->asString(pContext));
         }
         // Format as "key":value (simplified - would need key lookup)
         const proto::ProtoObject* value = iter->nextValue(pContext);
@@ -256,13 +256,13 @@ const proto::ProtoString* Metrics::exportJSON(proto::ProtoContext* pContext) {
             double d = value->asDouble(pContext);
             char buf[64];
             snprintf(buf, sizeof(buf), "%g", d);
-            json = json->appendLast(pContext, proto::ProtoString::createSymbol(pContext, buf));
+            json = json->appendLast(pContext, pContext->fromUTF8String(buf)->asString(pContext));
         }
         iter = const_cast<proto::ProtoSparseListIterator*>(iter)->advance(pContext);
         first = false;
     }
     
-    json = json->appendLast(pContext, proto::ProtoString::createSymbol(pContext, "}}"));
+    json = json->appendLast(pContext, pContext->fromUTF8String("}}")->asString(pContext));
     return json;
 }
 
@@ -278,13 +278,13 @@ const proto::ProtoString* Metrics::makeKey(proto::ProtoContext* pContext, const 
     }
     
     // Build key as: name{label1="value1",label2="value2"}
-    const proto::ProtoString* key = name->appendLast(pContext, proto::ProtoString::createSymbol(pContext, "{"));
+    const proto::ProtoString* key = name->appendLast(pContext, pContext->fromUTF8String("{")->asString(pContext));
     
     const proto::ProtoSparseListIterator* iter = labels->getIterator(pContext);
     bool first = true;
     while (iter && iter->hasNext(pContext)) {
         if (!first) {
-            key = key->appendLast(pContext, proto::ProtoString::createSymbol(pContext, ","));
+            key = key->appendLast(pContext, pContext->fromUTF8String(",")->asString(pContext));
         }
         // Format label (simplified - would need key lookup)
         const proto::ProtoObject* value = iter->nextValue(pContext);
@@ -295,7 +295,7 @@ const proto::ProtoString* Metrics::makeKey(proto::ProtoContext* pContext, const 
         first = false;
     }
     
-    key = key->appendLast(pContext, proto::ProtoString::createSymbol(pContext, "}"));
+    key = key->appendLast(pContext, pContext->fromUTF8String("}")->asString(pContext));
     return key;
 }
 

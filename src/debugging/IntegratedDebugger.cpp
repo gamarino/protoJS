@@ -128,11 +128,11 @@ const proto::ProtoObject* getCallStackImpl(
     for (const auto& f : IntegratedDebugger::callStack) {
         const proto::ProtoObject* frame = ctx->newObject(/*mutable=*/true);
         auto setStr = [&](const char* k, const std::string& v) {
-            const proto::ProtoString* sk = proto::ProtoString::createSymbol(ctx, k);
+            const proto::ProtoString* sk = ctx->fromUTF8String(k)->asString(ctx);
             if (sk) frame->setAttribute(ctx, sk, ctx->fromUTF8String(v.c_str()));
         };
         auto setLong = [&](const char* k, long long v) {
-            const proto::ProtoString* sk = proto::ProtoString::createSymbol(ctx, k);
+            const proto::ProtoString* sk = ctx->fromUTF8String(k)->asString(ctx);
             if (sk) frame->setAttribute(ctx, sk, ctx->fromInteger(v));
         };
         setStr("functionName", f.functionName);

@@ -102,10 +102,10 @@ JSValue ErrorHandler::createSystemError(JSContext* ctx, proto::ProtoContext* pCo
     // Build message using protoCore string operations
     const proto::ProtoString* message = syscall;
     if (path && path->getSize(pContext) > 0) {
-        message = message->appendLast(pContext, proto::ProtoString::createSymbol(pContext, " "));
+        message = message->appendLast(pContext, pContext->fromUTF8String(" ")->asString(pContext));
         message = message->appendLast(pContext, path);
     }
-    message = message->appendLast(pContext, proto::ProtoString::createSymbol(pContext, ": "));
+    message = message->appendLast(pContext, pContext->fromUTF8String(": ")->asString(pContext));
     const proto::ProtoString* errMsg = getSystemErrorMessage(pContext, errnoValue);
     message = message->appendLast(pContext, errMsg);
     
@@ -171,24 +171,24 @@ const proto::ProtoString* ErrorHandler::getStackTrace(JSContext* ctx, proto::Pro
 
 const proto::ProtoString* ErrorHandler::formatStackFrame(proto::ProtoContext* pContext, const proto::ProtoString* file, const proto::ProtoObject* line, const proto::ProtoString* function) {
     // Build stack frame using protoCore string operations
-    const proto::ProtoString* frame = proto::ProtoString::createSymbol(pContext, "    at ");
+    const proto::ProtoString* frame = pContext->fromUTF8String("    at ")->asString(pContext);
     
     if (function && function->getSize(pContext) > 0) {
         frame = frame->appendLast(pContext, function);
     } else {
-        frame = frame->appendLast(pContext, proto::ProtoString::createSymbol(pContext, "(anonymous)"));
+        frame = frame->appendLast(pContext, pContext->fromUTF8String("(anonymous)")->asString(pContext));
     }
     
-    frame = frame->appendLast(pContext, proto::ProtoString::createSymbol(pContext, " ("));
+    frame = frame->appendLast(pContext, pContext->fromUTF8String(" (")->asString(pContext));
     frame = frame->appendLast(pContext, file);
-    frame = frame->appendLast(pContext, proto::ProtoString::createSymbol(pContext, ":"));
+    frame = frame->appendLast(pContext, pContext->fromUTF8String(":")->asString(pContext));
     
     // Convert line to string
     long long lineValue = line->asLong(pContext);
     char lineBuf[32];
     snprintf(lineBuf, sizeof(lineBuf), "%lld", lineValue);
-    frame = frame->appendLast(pContext, proto::ProtoString::createSymbol(pContext, lineBuf));
-    frame = frame->appendLast(pContext, proto::ProtoString::createSymbol(pContext, ")"));
+    frame = frame->appendLast(pContext, pContext->fromUTF8String(lineBuf)->asString(pContext));
+    frame = frame->appendLast(pContext, pContext->fromUTF8String(")")->asString(pContext));
     
     return frame;
 }
@@ -198,18 +198,18 @@ ErrorType ErrorHandler::getErrorType(JSContext* ctx, proto::ProtoContext* pConte
     if (JS_IsString(nameVal)) {
         const char* nameStr = JS_ToCString(ctx, nameVal);
         // Convert to ProtoString for comparison
-        const proto::ProtoString* name = proto::ProtoString::createSymbol(pContext, nameStr);
+        const proto::ProtoString* name = pContext->fromUTF8String(nameStr)->asString(pContext);
         JS_FreeCString(ctx, nameStr);
         JS_FreeValue(ctx, nameVal);
         
         // Compare with error type names
-        const proto::ProtoString* systemError = proto::ProtoString::createSymbol(pContext, "SystemError");
-        const proto::ProtoString* typeError = proto::ProtoString::createSymbol(pContext, "TypeError");
-        const proto::ProtoString* rangeError = proto::ProtoString::createSymbol(pContext, "RangeError");
-        const proto::ProtoString* referenceError = proto::ProtoString::createSymbol(pContext, "ReferenceError");
-        const proto::ProtoString* syntaxError = proto::ProtoString::createSymbol(pContext, "SyntaxError");
-        const proto::ProtoString* moduleNotFoundError = proto::ProtoString::createSymbol(pContext, "ModuleNotFoundError");
-        const proto::ProtoString* networkError = proto::ProtoString::createSymbol(pContext, "NetworkError");
+        const proto::ProtoString* systemError = pContext->fromUTF8String("SystemError")->asString(pContext);
+        const proto::ProtoString* typeError = pContext->fromUTF8String("TypeError")->asString(pContext);
+        const proto::ProtoString* rangeError = pContext->fromUTF8String("RangeError")->asString(pContext);
+        const proto::ProtoString* referenceError = pContext->fromUTF8String("ReferenceError")->asString(pContext);
+        const proto::ProtoString* syntaxError = pContext->fromUTF8String("SyntaxError")->asString(pContext);
+        const proto::ProtoString* moduleNotFoundError = pContext->fromUTF8String("ModuleNotFoundError")->asString(pContext);
+        const proto::ProtoString* networkError = pContext->fromUTF8String("NetworkError")->asString(pContext);
         
         if (name->cmp_to_string(pContext, systemError) == 0) return ErrorType::SystemError;
         if (name->cmp_to_string(pContext, typeError) == 0) return ErrorType::TypeError;
@@ -229,7 +229,7 @@ const proto::ProtoString* ErrorHandler::getErrorMessage(JSContext* ctx, proto::P
     JSValue msgVal = JS_GetPropertyStr(ctx, error, "message");
     if (JS_IsString(msgVal)) {
         const char* msgStr = JS_ToCString(ctx, msgVal);
-        const proto::ProtoString* msg = proto::ProtoString::createSymbol(pContext, msgStr);
+        const proto::ProtoString* msg = pContext->fromUTF8String(msgStr)->asString(pContext);
         JS_FreeCString(ctx, msgStr);
         JS_FreeValue(ctx, msgVal);
         return msg;
@@ -254,7 +254,7 @@ const proto::ProtoString* ErrorHandler::getErrorStack(JSContext* ctx, proto::Pro
     JSValue stackVal = JS_GetPropertyStr(ctx, error, "stack");
     if (JS_IsString(stackVal)) {
         const char* stackStr = JS_ToCString(ctx, stackVal);
-        const proto::ProtoString* stack = proto::ProtoString::createSymbol(pContext, stackStr);
+        const proto::ProtoString* stack = pContext->fromUTF8String(stackStr)->asString(pContext);
         JS_FreeCString(ctx, stackStr);
         JS_FreeValue(ctx, stackVal);
         return stack;

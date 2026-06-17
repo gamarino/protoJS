@@ -900,7 +900,7 @@ void ensureNumberConstructor(proto::ProtoContext* ctx,
     // isInteger / isFinite / isSafeInteger / parseInt / parseFloat in
     // for-in over Number (built-ins/Number/<Name>/prop-desc.js).
     auto reg = [&](const char* name, proto::ProtoMethod fn, long long length = 1) {
-        const proto::ProtoString* key = proto::ProtoString::createSymbol(ctx, name);
+        const proto::ProtoString* key = ctx->fromUTF8String(name)->asString(ctx);
         if (key) {
             const proto::ProtoObject* wrapped = wrapNativeFunction(ctx, fn, name, length, globalRoot);
             if (wrapped && wrapped != PROTO_NONE) {
@@ -988,16 +988,16 @@ void ensureNumberConstructor(proto::ProtoContext* ctx,
     }
 
     // Explicitly mark as a constructor for OP_call_constructor.
-    const proto::ProtoString* isCtorKey = proto::ProtoString::createSymbol(ctx, "__is_constructor__");
+    const proto::ProtoString* isCtorKey = ctx->fromUTF8String("__is_constructor__")->asString(ctx);
     if (isCtorKey) ctor = ctor->setAttribute(ctx, isCtorKey, PROTO_TRUE);
 
     // __number_ctor__ marker for typeof/instanceof checks.
-    const proto::ProtoString* numCtorKey = proto::ProtoString::createSymbol(ctx, "__number_ctor__");
+    const proto::ProtoString* numCtorKey = ctx->fromUTF8String("__number_ctor__")->asString(ctx);
     if (numCtorKey) ctor = ctor->setAttribute(ctx, numCtorKey, PROTO_TRUE);
 
     // __construct__ native — invoked by OP_call_constructor for native constructors.
     // Must be stored as a raw method (isMethod() == true), not a wrapped function object.
-    const proto::ProtoString* ctorMethodKey = proto::ProtoString::createSymbol(ctx, "__construct__");
+    const proto::ProtoString* ctorMethodKey = ctx->fromUTF8String("__construct__")->asString(ctx);
     if (ctorMethodKey) {
         proto::ProtoObject* mCtor2 = const_cast<proto::ProtoObject*>(ctor);
         const proto::ProtoObject* ctorMethodObj = ctx->fromMethod(mCtor2, numberConstruct);

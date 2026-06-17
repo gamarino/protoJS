@@ -437,7 +437,7 @@ const proto::ProtoObject* TimingAPIs::dateConstructor(proto::ProtoContext* ctx,
     
     // If called with 'new', self is the new instance.
     if (self && self != PROTO_NONE && self != getUndefinedSentinel() && self != getNullSentinel()) {
-        const proto::ProtoString* gtKey = ctx->fromUTF8String("getTime") ? proto::ProtoString::createSymbol(ctx, "getTime") : nullptr;
+        const proto::ProtoString* gtKey = ctx->fromUTF8String("getTime") ? ctx->fromUTF8String("getTime")->asString(ctx) : nullptr;
         if (gtKey) {
             self = self->setAttribute(ctx, gtKey, ctx->fromMethod(nullptr, TimingAPIs::dateNow));
         }
@@ -600,12 +600,12 @@ void TimingAPIs::init(proto::ProtoContext* ctx, const proto::ProtoObject*& globa
     // benchmarks construct Date instances via `new Date()`, so callable-
     // constructor behaviour is intentionally not provided here.
     const proto::ProtoString* dateKey =
-        ctx->fromUTF8String("Date") ? proto::ProtoString::createSymbol(ctx, "Date") : nullptr;
+        ctx->fromUTF8String("Date") ? ctx->fromUTF8String("Date")->asString(ctx) : nullptr;
     if (dateKey) {
         const proto::ProtoObject* dateObj = ctx->newObject(true);
         if (dateObj) {
             const proto::ProtoString* nameKey =
-                ctx->fromUTF8String("name") ? proto::ProtoString::createSymbol(ctx, "name") : nullptr;
+                ctx->fromUTF8String("name") ? ctx->fromUTF8String("name")->asString(ctx) : nullptr;
             if (nameKey) {
                 dateObj = dateObj->setAttribute(ctx, nameKey,
                                                 ctx->fromUTF8String("Date"));
@@ -618,7 +618,7 @@ void TimingAPIs::init(proto::ProtoContext* ctx, const proto::ProtoObject*& globa
             // own property (built-ins/Date/length.js: "obj should have
             // an own property length").
             const proto::ProtoString* lenKeyDate =
-                ctx->fromUTF8String("length") ? proto::ProtoString::createSymbol(ctx, "length") : nullptr;
+                ctx->fromUTF8String("length") ? ctx->fromUTF8String("length")->asString(ctx) : nullptr;
             if (lenKeyDate) {
                 dateObj = dateObj->setAttribute(ctx, lenKeyDate, ctx->fromInteger(7LL));
                 const proto::ProtoString* pdlk = JSSymbols::pdLength(ctx);
@@ -635,7 +635,7 @@ void TimingAPIs::init(proto::ProtoContext* ctx, const proto::ProtoObject*& globa
                 if (hnw) dateObj = dateObj->setAttribute(ctx, hnw, PROTO_TRUE);
             }
             const proto::ProtoString* protoKey =
-                ctx->fromUTF8String("prototype") ? proto::ProtoString::createSymbol(ctx, "prototype") : nullptr;
+                ctx->fromUTF8String("prototype") ? ctx->fromUTF8String("prototype")->asString(ctx) : nullptr;
             if (protoKey) {
                 const proto::ProtoObject* dateProto = ctx->newObject(true);
                 if (dateProto) {
@@ -694,7 +694,7 @@ void TimingAPIs::init(proto::ProtoContext* ctx, const proto::ProtoObject*& globa
                 }
             }
             const proto::ProtoString* nowKey =
-                ctx->fromUTF8String("now") ? proto::ProtoString::createSymbol(ctx, "now") : nullptr;
+                ctx->fromUTF8String("now") ? ctx->fromUTF8String("now")->asString(ctx) : nullptr;
             if (nowKey) {
                 // Wrap with name/length so Date.now matches the spec
                 // §17 descriptor shape — raw ProtoMethod cells expose
@@ -755,7 +755,7 @@ void TimingAPIs::init(proto::ProtoContext* ctx, const proto::ProtoObject*& globa
                 return w;
             };
             const proto::ProtoString* parseKey =
-                ctx->fromUTF8String("parse") ? proto::ProtoString::createSymbol(ctx, "parse") : nullptr;
+                ctx->fromUTF8String("parse") ? ctx->fromUTF8String("parse")->asString(ctx) : nullptr;
             if (parseKey) {
                 const proto::ProtoObject* w = wrap("parse", TimingAPIs::dateParse, 1);
                 if (w) {
@@ -769,7 +769,7 @@ void TimingAPIs::init(proto::ProtoContext* ctx, const proto::ProtoObject*& globa
                 }
             }
             const proto::ProtoString* utcKey =
-                ctx->fromUTF8String("UTC") ? proto::ProtoString::createSymbol(ctx, "UTC") : nullptr;
+                ctx->fromUTF8String("UTC") ? ctx->fromUTF8String("UTC")->asString(ctx) : nullptr;
             if (utcKey) {
                 const proto::ProtoObject* w = wrap("UTC", TimingAPIs::dateUTC, 7);
                 if (w) {
@@ -788,7 +788,7 @@ void TimingAPIs::init(proto::ProtoContext* ctx, const proto::ProtoObject*& globa
             // object yet — that's separate work.
             const proto::ProtoString* nfKey =
                 ctx->fromUTF8String("__native_fn__")
-                    ? proto::ProtoString::createSymbol(ctx, "__native_fn__") : nullptr;
+                    ? ctx->fromUTF8String("__native_fn__")->asString(ctx) : nullptr;
             if (nfKey) {
                 const proto::ProtoObject* m =
                     ctx->fromMethod(nullptr, TimingAPIs::dateNow);

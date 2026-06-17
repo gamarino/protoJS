@@ -664,7 +664,7 @@ static const proto::ProtoObject* installMethod(proto::ProtoContext* ctx,
     if (hnw) w = w->setAttribute(ctx, hnw, PROTO_TRUE);
     const proto::ProtoString* methodKey =
         ctx->fromUTF8String(name)
-            ? proto::ProtoString::createSymbol(ctx, name)
+            ? ctx->fromUTF8String(name)->asString(ctx)
             : nullptr;
     if (methodKey) {
         const_cast<proto::ProtoObject*&>(proto) =
@@ -739,7 +739,7 @@ void ensureBigIntConstructor(proto::ProtoContext* ctx,
     if (!ctx || !globalRoot || !*globalRoot) return;
     const proto::ProtoString* keyBigInt =
         ctx->fromUTF8String("BigInt")
-            ? proto::ProtoString::createSymbol(ctx, "BigInt")
+            ? ctx->fromUTF8String("BigInt")->asString(ctx)
             : nullptr;
     if (!keyBigInt) return;
     // Note: an existing "BigInt" entry on the global root may be the

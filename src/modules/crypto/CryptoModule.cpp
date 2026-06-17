@@ -47,7 +47,7 @@ HashState* getHashState(proto::ProtoContext* ctx,
                          const proto::ProtoObject* self) {
     if (!ctx || !self) return nullptr;
     const proto::ProtoString* k =
-        proto::ProtoString::createSymbol(ctx, "__hash_ctx__");
+        ctx->fromUTF8String("__hash_ctx__")->asString(ctx);
     if (!k) return nullptr;
     const proto::ProtoObject* attr = self->getAttribute(ctx, k, false);
     if (!attr || attr == PROTO_NONE) return nullptr;
@@ -200,7 +200,7 @@ const proto::ProtoObject* createHash(
         ? hashProto->newChild(ctx, /*mutable=*/true)
         : ctx->newObject(/*mutable=*/true);
     const proto::ProtoString* k =
-        proto::ProtoString::createSymbol(ctx, "__hash_ctx__");
+        ctx->fromUTF8String("__hash_ctx__")->asString(ctx);
     if (k) inst->setAttribute(ctx, k, extPtr);
     return inst;
 }
@@ -244,7 +244,7 @@ CipherState* getCipherState(proto::ProtoContext* ctx,
                              const proto::ProtoObject* self) {
     if (!ctx || !self) return nullptr;
     const proto::ProtoString* k =
-        proto::ProtoString::createSymbol(ctx, "__cipher_ctx__");
+        ctx->fromUTF8String("__cipher_ctx__")->asString(ctx);
     if (!k) return nullptr;
     const proto::ProtoObject* attr = self->getAttribute(ctx, k, false);
     if (!attr || attr == PROTO_NONE) return nullptr;
@@ -363,7 +363,7 @@ const proto::ProtoObject* buildCipherInstance(
         ? cproto->newChild(ctx, /*mutable=*/true)
         : ctx->newObject(/*mutable=*/true);
     const proto::ProtoString* k =
-        proto::ProtoString::createSymbol(ctx, "__cipher_ctx__");
+        ctx->fromUTF8String("__cipher_ctx__")->asString(ctx);
     if (k) inst->setAttribute(ctx, k, extPtr);
     return inst;
 }
@@ -467,7 +467,7 @@ SignState* getSignState(proto::ProtoContext* ctx,
                         const proto::ProtoObject* self) {
     if (!ctx || !self) return nullptr;
     const proto::ProtoString* k =
-        proto::ProtoString::createSymbol(ctx, "__sign_ctx__");
+        ctx->fromUTF8String("__sign_ctx__")->asString(ctx);
     if (!k) return nullptr;
     const proto::ProtoObject* attr = self->getAttribute(ctx, k, false);
     if (!attr || attr == PROTO_NONE) return nullptr;
@@ -716,7 +716,7 @@ const proto::ProtoObject* buildSignInstance(
         ? sProto->newChild(ctx, /*mutable=*/true)
         : ctx->newObject(/*mutable=*/true);
     const proto::ProtoString* k =
-        proto::ProtoString::createSymbol(ctx, "__sign_ctx__");
+        ctx->fromUTF8String("__sign_ctx__")->asString(ctx);
     if (k) inst->setAttribute(ctx, k, extPtr);
     return inst;
 }
@@ -767,7 +767,7 @@ const proto::ProtoObject* generateKeyPairImpl(
         ? args->getAt(ctx, 1) : nullptr;
     if (optArg && optArg != PROTO_NONE) {
         const proto::ProtoString* mlKey =
-            proto::ProtoString::createSymbol(ctx, "modulusLength");
+            ctx->fromUTF8String("modulusLength")->asString(ctx);
         if (mlKey) {
             const proto::ProtoObject* mlVal =
                 optArg->getAttribute(ctx, mlKey, false);
@@ -821,9 +821,9 @@ const proto::ProtoObject* generateKeyPairImpl(
 
     const proto::ProtoObject* obj = ctx->newObject(/*mutable=*/true);
     const proto::ProtoString* pubK =
-        proto::ProtoString::createSymbol(ctx, "publicKey");
+        ctx->fromUTF8String("publicKey")->asString(ctx);
     const proto::ProtoString* privK =
-        proto::ProtoString::createSymbol(ctx, "privateKey");
+        ctx->fromUTF8String("privateKey")->asString(ctx);
     if (pubK)  obj->setAttribute(ctx, pubK,  ctx->fromUTF8String(pubPem.c_str()));
     if (privK) obj->setAttribute(ctx, privK, ctx->fromUTF8String(privPem.c_str()));
     return obj;

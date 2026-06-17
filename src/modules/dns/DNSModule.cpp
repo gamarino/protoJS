@@ -95,10 +95,10 @@ const proto::ProtoObject* syncLookup(proto::ProtoContext* ctx,
 
     const proto::ProtoObject* obj = ctx->newObject(/*mutable=*/true);
     const proto::ProtoString* addrKey =
-        proto::ProtoString::createSymbol(ctx, "address");
+        ctx->fromUTF8String("address")->asString(ctx);
     if (addrKey) obj->setAttribute(ctx, addrKey, ctx->fromUTF8String(ip));
     const proto::ProtoString* famKey =
-        proto::ProtoString::createSymbol(ctx, "family");
+        ctx->fromUTF8String("family")->asString(ctx);
     if (famKey) obj->setAttribute(ctx, famKey, ctx->fromInteger(fam));
     return obj;
 }
@@ -140,7 +140,7 @@ const proto::ProtoObject* dnsLookup(
                !a1->isInteger(ctx) && !a1->isMethod(ctx)) {
         // Options object: read .family.
         const proto::ProtoString* fk =
-            proto::ProtoString::createSymbol(ctx, "family");
+            ctx->fromUTF8String("family")->asString(ctx);
         if (fk) {
             const proto::ProtoObject* fv = a1->getAttribute(ctx, fk, false);
             if (fv && fv->isInteger(ctx)) family = static_cast<int>(fv->asLong(ctx));
@@ -289,8 +289,8 @@ const proto::ProtoObject* dnsLookupService(
                           host, sizeof(host), serv, sizeof(serv), 0);
     if (rc != 0) return PROTO_NONE;
     const proto::ProtoObject* obj = ctx->newObject(/*mutable=*/true);
-    const proto::ProtoString* hk = proto::ProtoString::createSymbol(ctx, "hostname");
-    const proto::ProtoString* sk = proto::ProtoString::createSymbol(ctx, "service");
+    const proto::ProtoString* hk = ctx->fromUTF8String("hostname")->asString(ctx);
+    const proto::ProtoString* sk = ctx->fromUTF8String("service")->asString(ctx);
     if (hk) obj->setAttribute(ctx, hk, ctx->fromUTF8String(host));
     if (sk) obj->setAttribute(ctx, sk, ctx->fromUTF8String(serv));
     return obj;

@@ -166,7 +166,7 @@ const proto::ProtoObject* clusterFork(
         ? proto->newChild(ctx, /*mutable=*/true)
         : ctx->newObject(/*mutable=*/true);
     worker->setAttribute(ctx,
-        proto::ProtoString::createSymbol(ctx, "id"),
+        ctx->fromUTF8String("id")->asString(ctx),
         ctx->fromInteger(workerId));
 
     pid_t pid = ::fork();

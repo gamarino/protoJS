@@ -61,9 +61,9 @@ const proto::ProtoObject* getProfileImpl(
     const proto::ProtoList* els = ctx->newList();
     for (const auto& e : Profiler::profileEntries) {
         const proto::ProtoObject* entry = ctx->newObject(/*mutable=*/true);
-        const proto::ProtoString* nk = proto::ProtoString::createSymbol(ctx, "name");
-        const proto::ProtoString* dk = proto::ProtoString::createSymbol(ctx, "duration");
-        const proto::ProtoString* mk = proto::ProtoString::createSymbol(ctx, "memoryDelta");
+        const proto::ProtoString* nk = ctx->fromUTF8String("name")->asString(ctx);
+        const proto::ProtoString* dk = ctx->fromUTF8String("duration")->asString(ctx);
+        const proto::ProtoString* mk = ctx->fromUTF8String("memoryDelta")->asString(ctx);
         if (nk) entry->setAttribute(ctx, nk, ctx->fromUTF8String(e.name.c_str()));
         if (dk) entry->setAttribute(ctx, dk, ctx->fromDouble(e.duration));
         if (mk) entry->setAttribute(ctx, mk, ctx->fromInteger(
@@ -71,8 +71,8 @@ const proto::ProtoObject* getProfileImpl(
         els = els->appendLast(ctx, entry);
     }
     setArrayElements(ctx, arr, els);
-    const proto::ProtoString* ek = proto::ProtoString::createSymbol(ctx, "entries");
-    const proto::ProtoString* pk = proto::ProtoString::createSymbol(ctx, "profiling");
+    const proto::ProtoString* ek = ctx->fromUTF8String("entries")->asString(ctx);
+    const proto::ProtoString* pk = ctx->fromUTF8String("profiling")->asString(ctx);
     if (ek) profile->setAttribute(ctx, ek, arr);
     if (pk) profile->setAttribute(ctx, pk,
         Profiler::profiling ? PROTO_TRUE : PROTO_FALSE);
@@ -87,7 +87,7 @@ const proto::ProtoObject* getMemoryProfileImpl(
     const proto::ProtoSparseList*) {
     if (!ctx) return PROTO_NONE;
     const proto::ProtoObject* profile = ctx->newObject(/*mutable=*/true);
-    const proto::ProtoString* ck = proto::ProtoString::createSymbol(ctx, "current");
+    const proto::ProtoString* ck = ctx->fromUTF8String("current")->asString(ctx);
     if (ck) profile->setAttribute(ctx, ck,
         ctx->fromInteger(static_cast<long long>(Profiler::getMemoryUsage())));
     if (!Profiler::profileEntries.empty()) {
@@ -97,8 +97,8 @@ const proto::ProtoObject* getMemoryProfileImpl(
             if (e.memoryBefore < minMem) minMem = e.memoryBefore;
             if (e.memoryAfter > maxMem)  maxMem = e.memoryAfter;
         }
-        const proto::ProtoString* nk = proto::ProtoString::createSymbol(ctx, "min");
-        const proto::ProtoString* xk = proto::ProtoString::createSymbol(ctx, "max");
+        const proto::ProtoString* nk = ctx->fromUTF8String("min")->asString(ctx);
+        const proto::ProtoString* xk = ctx->fromUTF8String("max")->asString(ctx);
         if (nk) profile->setAttribute(ctx, nk,
             ctx->fromInteger(static_cast<long long>(minMem)));
         if (xk) profile->setAttribute(ctx, xk,

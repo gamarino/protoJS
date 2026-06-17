@@ -130,7 +130,7 @@ const proto::ProtoObject* buildEnvObject(proto::ProtoContext* ctx) {
         std::string key = entry.substr(0, eq);
         std::string val = entry.substr(eq + 1);
         const proto::ProtoString* k =
-            proto::ProtoString::createSymbol(ctx, key);
+            ctx->fromUTF8String(key.c_str())->asString(ctx);
         if (k) env->setAttribute(ctx, k, ctx->fromUTF8String(val.c_str()));
     }
     return env;
@@ -158,13 +158,13 @@ const proto::ProtoObject* ProcessModule::init(
 
     // Data attributes.
     const proto::ProtoString* argvKey =
-        proto::ProtoString::createSymbol(ctx, "argv");
+        ctx->fromUTF8String("argv")->asString(ctx);
     if (argvKey) {
         processObj = processObj->setAttribute(
             ctx, argvKey, buildArgvArray(ctx, argc, argv));
     }
     const proto::ProtoString* envKey =
-        proto::ProtoString::createSymbol(ctx, "env");
+        ctx->fromUTF8String("env")->asString(ctx);
     if (envKey) {
         processObj = processObj->setAttribute(
             ctx, envKey, buildEnvObject(ctx));

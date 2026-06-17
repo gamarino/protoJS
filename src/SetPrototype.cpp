@@ -944,14 +944,14 @@ static const proto::ProtoObject* setConstruct(
                         return PROTO_NONE;
                     }
                     const proto::ProtoString* doneKs =
-                        proto::ProtoString::createSymbol(ctx, "done");
+                        ctx->fromUTF8String("done")->asString(ctx);
                     const proto::ProtoObject* doneV =
                         doneKs ? stepRes->getAttribute(ctx, doneKs, true) : PROTO_NONE;
                     bool done = doneV == PROTO_TRUE
                         || (doneV && doneV->isBoolean(ctx) && doneV->asBoolean(ctx));
                     if (done) break;
                     const proto::ProtoString* valKs =
-                        proto::ProtoString::createSymbol(ctx, "value");
+                        ctx->fromUTF8String("value")->asString(ctx);
                     const proto::ProtoObject* val = nullptr;
                     // §7.4.4 IteratorValue: fire `__get_value__` accessor
                     // so a throwing `get value` propagates.
@@ -1894,7 +1894,7 @@ void ensureSetConstructor(proto::ProtoContext* ctx,
                 const proto::ProtoString* hnwSp = JSSymbols::hasNonWritableProps(ctx);
                 if (hnwSp) getter = getter->setAttribute(ctx, hnwSp, PROTO_TRUE);
                 const proto::ProtoString* gksSym =
-                    proto::ProtoString::createSymbol(ctx, "__get_Symbol.species__");
+                    ctx->fromUTF8String("__get_Symbol.species__")->asString(ctx);
                 if (gksSym) ctor = ctor->setAttribute(ctx, gksSym, getter);
                 // §24.2.2.2 get Set[@@species] descriptor: accessor
                 // with {enumerable:false, configurable:true} → 0x2.

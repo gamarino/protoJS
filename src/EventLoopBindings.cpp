@@ -125,7 +125,7 @@ const proto::ProtoObject* EventLoopBindings::init(
     const proto::ProtoObject* fn = ctx->fromMethod(nullptr, setImmediateNative);
     if (!fn) return globalObj;
     const proto::ProtoString* name = ctx->fromUTF8String("setImmediate")
-        ? proto::ProtoString::createSymbol(ctx, "setImmediate")
+        ? ctx->fromUTF8String("setImmediate")->asString(ctx)
         : nullptr;
     if (!name) return globalObj;
     return globalObj->setAttribute(ctx, name, fn);

@@ -93,7 +93,7 @@ const proto::ProtoObject* VisualProfiler::init(
     const proto::ProtoObject* globalObj) {
     if (!ctx || !globalObj) return globalObj;
     const proto::ProtoString* profKey =
-        proto::ProtoString::createSymbol(ctx, "profiler");
+        ctx->fromUTF8String("profiler")->asString(ctx);
     if (!profKey) return globalObj;
     const proto::ProtoObject* profilerObj = globalObj->getAttribute(ctx, profKey, false);
     if (!profilerObj || profilerObj == PROTO_NONE) return globalObj;

@@ -57,7 +57,7 @@ JSValue ExecutionEngine::opGetProperty(JSContext* ctx, JSValue obj, JSAtom prop)
             // Get property from protoCore object
             const char* propName = JS_AtomToCString(ctx, prop);
             if (propName) {
-                const proto::ProtoString* propStr = proto::ProtoString::createSymbol(pContext, propName);
+                const proto::ProtoString* propStr = pContext->fromUTF8String(propName)->asString(pContext);
                 const proto::ProtoObject* attr = protoObj->getAttribute(pContext, propStr);
                 JS_FreeCString(ctx, propName);
                 
@@ -88,7 +88,7 @@ int ExecutionEngine::opSetProperty(JSContext* ctx, JSValue obj, JSAtom prop, JSV
             // Set property in protoCore object
             const char* propName = JS_AtomToCString(ctx, prop);
             if (propName) {
-                const proto::ProtoString* propStr = proto::ProtoString::createSymbol(pContext, propName);
+                const proto::ProtoString* propStr = pContext->fromUTF8String(propName)->asString(pContext);
                 const proto::ProtoObject* valObj = TypeBridge::fromJS(ctx, val, pContext);
                 
                 // Note: protoCore objects are immutable by default

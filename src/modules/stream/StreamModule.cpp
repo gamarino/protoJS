@@ -164,7 +164,7 @@ const proto::ProtoObject* buildClass(proto::ProtoContext* ctx,
     const proto::ProtoString* protoKey = JSSymbols::prototype(ctx);
     if (protoKey) ctor = ctor->setAttribute(ctx, protoKey, protoObj);
     const proto::ProtoString* ck =
-        proto::ProtoString::createSymbol(ctx, "__construct__");
+        ctx->fromUTF8String("__construct__")->asString(ctx);
     if (ck) ctor = ctor->setAttribute(ctx, ck,
         ctx->fromMethod(nullptr, commonConstructor));
     return ctor;
@@ -210,7 +210,7 @@ const proto::ProtoObject* StreamModule::init(
     if (!mod) return globalObj;
     auto setIfReady = [&](const char* k, const proto::ProtoObject* v) {
         if (!v) return;
-        const proto::ProtoString* sk = proto::ProtoString::createSymbol(ctx, k);
+        const proto::ProtoString* sk = ctx->fromUTF8String(k)->asString(ctx);
         if (sk) mod->setAttribute(ctx, sk, v);
     };
     setIfReady("Readable",     readable);

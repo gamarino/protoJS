@@ -3912,7 +3912,7 @@ static void ensureBuiltinErrorConstructors(proto::ProtoContext* ctx,
     // subtype-iteration step below can newChild on it.
     const proto::ProtoObject* errorCtorOut = nullptr;
     for (int i = 0; kNames[i]; ++i) {
-        const proto::ProtoString* ctorKey = (ctx->fromUTF8String(kNames[i]) ? proto::ProtoString::createSymbol(ctx, kNames[i]) : nullptr);
+        const proto::ProtoString* ctorKey = (ctx->fromUTF8String(kNames[i]) ? ctx->fromUTF8String(kNames[i])->asString(ctx) : nullptr);
         if (!ctorKey) continue;
         // Only register if not already present.
         const proto::ProtoObject* existing = (*globalRoot)->getAttribute(ctx, ctorKey, false);
@@ -4101,7 +4101,7 @@ static void ensureBuiltinErrorConstructors(proto::ProtoContext* ctx,
         // constructors (TypeError, RangeError, etc.) inherit nothing.
         if (isBaseError) {
             const proto::ProtoString* ieK =
-                ctx->fromUTF8String("isError") ? proto::ProtoString::createSymbol(ctx, "isError") : nullptr;
+                ctx->fromUTF8String("isError") ? ctx->fromUTF8String("isError")->asString(ctx) : nullptr;
             if (ieK) {
                 const proto::ProtoObject* fn = wrapNativeFunction(ctx, errorIsError, "isError", 1, globalRoot);
                 if (fn && fn != PROTO_NONE) {
@@ -4148,7 +4148,7 @@ static const proto::ProtoObject* makeError(proto::ProtoContext* ctx,
     // Try to get the prototype from the global so instanceof works.
     const proto::ProtoObject* base = nullptr;
     if (globalRoot && *globalRoot && name) {
-        const proto::ProtoString* ctorKey   = (ctx->fromUTF8String(name) ? proto::ProtoString::createSymbol(ctx, name) : nullptr);
+        const proto::ProtoString* ctorKey   = (ctx->fromUTF8String(name) ? ctx->fromUTF8String(name)->asString(ctx) : nullptr);
         const proto::ProtoString* protoKey  = JSSymbols::prototype(ctx);
         if (ctorKey && protoKey) {
             const proto::ProtoObject* ctor = (*globalRoot)->getAttribute(ctx, ctorKey, false);
@@ -4501,7 +4501,7 @@ const proto::ProtoObject* runBytecode(proto::ProtoContext* pContext,
         // (default params, destructured patterns) come back as undefined.
         if (t_genIterator) {
             const proto::ProtoString* sk = pContext->fromUTF8String(kGenSlots)
-                ? proto::ProtoString::createSymbol(pContext, kGenSlots) : nullptr;
+                ? pContext->fromUTF8String(kGenSlots)->asString(pContext) : nullptr;
             if (sk) {
                 const proto::ProtoObject* sv = t_genIterator->getAttribute(pContext, sk, false);
                 if (sv && sv != PROTO_NONE) {
@@ -4600,7 +4600,7 @@ const proto::ProtoObject* runBytecode(proto::ProtoContext* pContext,
         unsigned int initialStackTop = 0;
         if (pc != 0 && t_genIterator) {
             const proto::ProtoString* tk = pContext->fromUTF8String(kGenStackTop)
-                ? proto::ProtoString::createSymbol(pContext, kGenStackTop) : nullptr;
+                ? pContext->fromUTF8String(kGenStackTop)->asString(pContext) : nullptr;
             if (tk) {
                 const proto::ProtoObject* tv =
                     t_genIterator->getAttribute(pContext, tk, false);
@@ -4665,13 +4665,9 @@ const proto::ProtoObject* runBytecode(proto::ProtoContext* pContext,
                 getSlot(pContext, argCount + varCount + static_cast<unsigned>(i));
             if (existing && existing != PROTO_NONE) continue;
             if (!globalObjInit || globalObjInit == PROTO_NONE) continue;
-            // Use the pre-interned symbol stored in module->closureSymbols
-            // (loaded once via createSymbol).  See the matching comment in
-            // L_OP_put_var_ref for the lookupByContent cost rationale.
-            const proto::ProtoString* key =
-                (module->closureSymbols && i < module->closureSymbols->getSize(pContext))
-                    ? module->closureSymbols->getAt(pContext, static_cast<int>(i))->asString(pContext)
-                    : nullptr;
+            const proto::ProtoString* key = (pContext->fromUTF8String(module->closureVarNames[i].c_str())
+                ? pContext->fromUTF8String(module->closureVarNames[i].c_str())->asString(pContext)
+                : nullptr);
             if (key) {
                 const proto::ProtoObject* val = globalObjInit->getAttribute(pContext, key, false);
                 if (val && val != PROTO_NONE)
@@ -4793,7 +4789,7 @@ const proto::ProtoObject* runBytecode(proto::ProtoContext* pContext,
     // These are standard globals that must be visible as top-level variable lookups.
     if (pGlobalRoot && *pGlobalRoot) {
         auto ensureGlobalConst = [&](const char* name, const proto::ProtoObject* val) {
-            const proto::ProtoString* k = (pContext->fromUTF8String(name) ? proto::ProtoString::createSymbol(pContext, name) : nullptr);
+            const proto::ProtoString* k = (pContext->fromUTF8String(name) ? pContext->fromUTF8String(name)->asString(pContext) : nullptr);
             if (!k) return;
             const proto::ProtoObject* existing = (*pGlobalRoot)->getAttribute(pContext, k, false);
             if (!existing) // absent means not yet set
@@ -4851,7 +4847,7 @@ const proto::ProtoObject* runBytecode(proto::ProtoContext* pContext,
             for (int gi = 0; kUnimplementedCtors[gi].name; ++gi) {
                 const char* ctorName = kUnimplementedCtors[gi].name;
                 const long long ctorLen = kUnimplementedCtors[gi].length;
-                const proto::ProtoString* ck = (pContext->fromUTF8String(ctorName) ? proto::ProtoString::createSymbol(pContext, ctorName) : nullptr);
+                const proto::ProtoString* ck = (pContext->fromUTF8String(ctorName) ? pContext->fromUTF8String(ctorName)->asString(pContext) : nullptr);
                 if (!ck) continue;
                 const proto::ProtoObject* ex = (*pGlobalRoot)->getAttribute(pContext, ck, false);
                 if (ex && ex != PROTO_NONE) continue;
@@ -5019,7 +5015,7 @@ const proto::ProtoObject* runBytecode(proto::ProtoContext* pContext,
         {
             const proto::ProtoString* evalKey =
                 pContext->fromUTF8String("eval")
-                    ? proto::ProtoString::createSymbol(pContext, "eval") : nullptr;
+                    ? pContext->fromUTF8String("eval")->asString(pContext) : nullptr;
             const proto::ProtoObject* mpProto =
                 (pContext->space && pContext->space->methodPrototype)
                     ? pContext->space->methodPrototype : nullptr;
@@ -5178,7 +5174,7 @@ const proto::ProtoObject* runBytecode(proto::ProtoContext* pContext,
                 };
                 for (auto& m : rfMeth) {
                     const proto::ProtoString* k = pContext->fromUTF8String(m.name)
-                        ? proto::ProtoString::createSymbol(pContext, m.name) : nullptr;
+                        ? pContext->fromUTF8String(m.name)->asString(pContext) : nullptr;
                     if (k) {
                         const proto::ProtoObject* fn = wrapNativeFunction(pContext, m.fn, m.name, m.length, pGlobalRoot);
                         if (fn) {
@@ -5190,7 +5186,7 @@ const proto::ProtoObject* runBytecode(proto::ProtoContext* pContext,
                             // descriptors via getOwnPropertyDescriptor.
                             std::string pdStr = std::string("__pd_") + m.name + "__";
                             const proto::ProtoString* pdk =
-                                proto::ProtoString::createSymbol(pContext, pdStr);
+                                pContext->fromUTF8String(pdStr.c_str())->asString(pContext);
                             if (pdk) reflectStub = reflectStub->setAttribute(pContext, pdk, pContext->fromInteger(0x3LL));
                         }
                     }
@@ -5632,7 +5628,7 @@ const proto::ProtoObject* runBytecode(proto::ProtoContext* pContext,
                     // for-in over Symbol leaked the entries.
                     {
                         const proto::ProtoString* fk = pContext->fromUTF8String("for")
-                            ? proto::ProtoString::createSymbol(pContext, "for") : nullptr;
+                            ? pContext->fromUTF8String("for")->asString(pContext) : nullptr;
                         if (fk) {
                             const proto::ProtoObject* fn = wrapNativeFunction(pContext, symbolFor, "for", 1, pGlobalRoot);
                             if (fn) {
@@ -5644,7 +5640,7 @@ const proto::ProtoObject* runBytecode(proto::ProtoContext* pContext,
                             }
                         }
                         const proto::ProtoString* kfk = pContext->fromUTF8String("keyFor")
-                            ? proto::ProtoString::createSymbol(pContext, "keyFor") : nullptr;
+                            ? pContext->fromUTF8String("keyFor")->asString(pContext) : nullptr;
                         if (kfk) {
                             const proto::ProtoObject* fn = wrapNativeFunction(pContext, symbolKeyFor, "keyFor", 1, pGlobalRoot);
                             if (fn) {
@@ -5700,7 +5696,7 @@ const proto::ProtoObject* runBytecode(proto::ProtoContext* pContext,
                 for (int wi = 0; wks[wi].prop; ++wi) {
                     const proto::ProtoString* propKey =
                         pContext->fromUTF8String(wks[wi].prop)
-                            ? proto::ProtoString::createSymbol(pContext, wks[wi].prop) : nullptr;
+                            ? pContext->fromUTF8String(wks[wi].prop)->asString(pContext) : nullptr;
                     const proto::ProtoObject* keyVal =
                         pContext->fromUTF8String(wks[wi].key);
                     if (propKey && keyVal) {
@@ -5736,7 +5732,7 @@ const proto::ProtoObject* runBytecode(proto::ProtoContext* pContext,
         // neither, so test262's verifyPrimordialCallableProperty
         // fixtures fail when probing parseInt.length === 2 etc.
         auto ensureGlobalFn = [&](const char* name, proto::ProtoMethod fn, long long len) {
-            const proto::ProtoString* k = (pContext->fromUTF8String(name) ? proto::ProtoString::createSymbol(pContext, name) : nullptr);
+            const proto::ProtoString* k = (pContext->fromUTF8String(name) ? pContext->fromUTF8String(name)->asString(pContext) : nullptr);
             if (!k) return;
             const proto::ProtoObject* existing = (*pGlobalRoot)->getAttribute(pContext, k, false);
             if (existing && existing != PROTO_NONE) return;
@@ -6308,7 +6304,7 @@ const proto::ProtoObject* runBytecode(proto::ProtoContext* pContext,
             const proto::ProtoObject* newVal,
             bool isStrict) -> bool {
         if (!obj || obj == PROTO_NONE || obj == t_nullSentinel) return false;
-        const proto::ProtoString* key = proto::ProtoString::createSymbol(pContext, keyStr);
+        const proto::ProtoString* key = pContext->fromUTF8String(keyStr.c_str())->asString(pContext);
         if (!key) return false;
 
         const proto::ProtoObject* curr = obj;
@@ -8031,7 +8027,7 @@ const proto::ProtoObject* runBytecode(proto::ProtoContext* pContext,
                         if (globalObj && globalObj != PROTO_NONE) {
                             const proto::ProtoString* funcKey =
                                 pContext->fromUTF8String("Function")
-                                ? proto::ProtoString::createSymbol(pContext, "Function")
+                                ? pContext->fromUTF8String("Function")->asString(pContext)
                                 : nullptr;
                             const proto::ProtoObject* funcCtor = funcKey
                                 ? globalObj->getAttribute(pContext, funcKey, false) : nullptr;
@@ -9200,7 +9196,7 @@ const proto::ProtoObject* runBytecode(proto::ProtoContext* pContext,
                         REFRESH_GLOBAL_OBJ();
                         const proto::ProtoString* sCtorK =
                             globalObj && globalObj != PROTO_NONE
-                            ? proto::ProtoString::createSymbol(pContext, "Symbol") : nullptr;
+                            ? pContext->fromUTF8String("Symbol")->asString(pContext) : nullptr;
                         const proto::ProtoObject* sCtor = sCtorK && globalObj
                             ? globalObj->getAttribute(pContext, sCtorK, false) : nullptr;
                         const proto::ProtoString* protoK = JSSymbols::prototype(pContext);
@@ -11062,7 +11058,7 @@ const proto::ProtoObject* runBytecode(proto::ProtoContext* pContext,
                                 REFRESH_GLOBAL_OBJ();
                                 const proto::ProtoString* sCtorK =
                                     globalObj && globalObj != PROTO_NONE
-                                    ? proto::ProtoString::createSymbol(pContext, "Symbol") : nullptr;
+                                    ? pContext->fromUTF8String("Symbol")->asString(pContext) : nullptr;
                                 const proto::ProtoObject* sCtor = sCtorK && globalObj
                                     ? globalObj->getAttribute(pContext, sCtorK, false) : nullptr;
                                 const proto::ProtoString* protoK = JSSymbols::prototype(pContext);
@@ -11148,7 +11144,7 @@ const proto::ProtoObject* runBytecode(proto::ProtoContext* pContext,
                             REFRESH_GLOBAL_OBJ();
                             const proto::ProtoString* sCtorK =
                                 globalObj && globalObj != PROTO_NONE
-                                ? proto::ProtoString::createSymbol(pContext, "Symbol") : nullptr;
+                                ? pContext->fromUTF8String("Symbol")->asString(pContext) : nullptr;
                             const proto::ProtoObject* sCtor = sCtorK && globalObj
                                 ? globalObj->getAttribute(pContext, sCtorK, false) : nullptr;
                             const proto::ProtoString* protoK = JSSymbols::prototype(pContext);
@@ -17053,7 +17049,7 @@ const proto::ProtoObject* runBytecode(proto::ProtoContext* pContext,
                     if (slotList) {
                         const proto::ProtoString* sk =
                             pContext->fromUTF8String(kGenSlots)
-                                ? proto::ProtoString::createSymbol(pContext, kGenSlots)
+                                ? pContext->fromUTF8String(kGenSlots)->asString(pContext)
                                 : nullptr;
                         if (sk) iterObj = iterObj->setAttribute(
                             pContext, sk, slotList->asObject(pContext));

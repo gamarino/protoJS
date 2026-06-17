@@ -45,11 +45,11 @@ const proto::ProtoObject* snapshotToObject(proto::ProtoContext* ctx,
     if (!ctx) return PROTO_NONE;
     const proto::ProtoObject* obj = ctx->newObject(/*mutable=*/true);
     auto setLong = [&](const char* k, long long v) {
-        const proto::ProtoString* sk = proto::ProtoString::createSymbol(ctx, k);
+        const proto::ProtoString* sk = ctx->fromUTF8String(k)->asString(ctx);
         if (sk) obj->setAttribute(ctx, sk, ctx->fromInteger(v));
     };
     auto setObj = [&](const char* k, const proto::ProtoObject* v) {
-        const proto::ProtoString* sk = proto::ProtoString::createSymbol(ctx, k);
+        const proto::ProtoString* sk = ctx->fromUTF8String(k)->asString(ctx);
         if (sk) obj->setAttribute(ctx, sk, v);
     };
     setLong("timestamp", static_cast<long long>(s.timestamp));
@@ -58,7 +58,7 @@ const proto::ProtoObject* snapshotToObject(proto::ProtoContext* ctx,
     const proto::ProtoObject* counts = ctx->newObject(/*mutable=*/true);
     for (const auto& kv : s.objectCounts) {
         const proto::ProtoString* k =
-            proto::ProtoString::createSymbol(ctx, kv.first);
+            ctx->fromUTF8String(kv.first.c_str())->asString(ctx);
         if (k) counts->setAttribute(ctx, k, ctx->fromInteger(static_cast<long long>(kv.second)));
     }
     setObj("objectCounts", counts);
@@ -66,7 +66,7 @@ const proto::ProtoObject* snapshotToObject(proto::ProtoContext* ctx,
     const proto::ProtoObject* mem = ctx->newObject(/*mutable=*/true);
     for (const auto& kv : s.memoryUsage) {
         const proto::ProtoString* k =
-            proto::ProtoString::createSymbol(ctx, kv.first);
+            ctx->fromUTF8String(kv.first.c_str())->asString(ctx);
         if (k) mem->setAttribute(ctx, k, ctx->fromInteger(static_cast<long long>(kv.second)));
     }
     setObj("memoryUsage", mem);
@@ -102,11 +102,11 @@ const proto::ProtoObject* leakReportToObject(proto::ProtoContext* ctx,
     if (!ctx) return PROTO_NONE;
     const proto::ProtoObject* obj = ctx->newObject(/*mutable=*/true);
     auto setLong = [&](const char* k, long long v) {
-        const proto::ProtoString* sk = proto::ProtoString::createSymbol(ctx, k);
+        const proto::ProtoString* sk = ctx->fromUTF8String(k)->asString(ctx);
         if (sk) obj->setAttribute(ctx, sk, ctx->fromInteger(v));
     };
     auto setObj = [&](const char* k, const proto::ProtoObject* v) {
-        const proto::ProtoString* sk = proto::ProtoString::createSymbol(ctx, k);
+        const proto::ProtoString* sk = ctx->fromUTF8String(k)->asString(ctx);
         if (sk) obj->setAttribute(ctx, sk, v);
     };
     setLong("totalLeakedSize", static_cast<long long>(r.totalLeakedSize));
@@ -119,14 +119,14 @@ const proto::ProtoObject* leakReportToObject(proto::ProtoContext* ctx,
 
     const proto::ProtoObject* counts = ctx->newObject(/*mutable=*/true);
     for (const auto& kv : r.leakCounts) {
-        const proto::ProtoString* k = proto::ProtoString::createSymbol(ctx, kv.first);
+        const proto::ProtoString* k = ctx->fromUTF8String(kv.first.c_str())->asString(ctx);
         if (k) counts->setAttribute(ctx, k, ctx->fromInteger(static_cast<long long>(kv.second)));
     }
     setObj("leakCounts", counts);
 
     const proto::ProtoObject* sizes = ctx->newObject(/*mutable=*/true);
     for (const auto& kv : r.leakSizes) {
-        const proto::ProtoString* k = proto::ProtoString::createSymbol(ctx, kv.first);
+        const proto::ProtoString* k = ctx->fromUTF8String(kv.first.c_str())->asString(ctx);
         if (k) sizes->setAttribute(ctx, k, ctx->fromInteger(static_cast<long long>(kv.second)));
     }
     setObj("leakSizes", sizes);
@@ -222,7 +222,7 @@ const proto::ProtoObject* getMemoryUsageImpl(
     auto s = captureSnapshot(spaceForCtx(ctx));
     const proto::ProtoObject* usage = ctx->newObject(/*mutable=*/true);
     auto setLong = [&](const char* k, long long v) {
-        const proto::ProtoString* sk = proto::ProtoString::createSymbol(ctx, k);
+        const proto::ProtoString* sk = ctx->fromUTF8String(k)->asString(ctx);
         if (sk) usage->setAttribute(ctx, sk, ctx->fromInteger(v));
     };
     // Node.js-ish field names mapped to protoCore equivalents.

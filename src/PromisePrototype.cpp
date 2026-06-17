@@ -306,7 +306,7 @@ static const proto::ProtoObject* promiseCatch(
     thenArgs = thenArgs->appendLast(ctx, PROTO_NONE);
     thenArgs = thenArgs->appendLast(ctx, onRej);
     if (self && self != PROTO_NONE) {
-        const proto::ProtoString* thenK = proto::ProtoString::createSymbol(ctx, "then");
+        const proto::ProtoString* thenK = ctx->fromUTF8String("then")->asString(ctx);
         if (thenK) {
             const proto::ProtoObject* thenFn = self->getAttribute(ctx, thenK, true);
             // Prefer the user-visible "then" when it isn't our native one,
@@ -377,7 +377,7 @@ static const proto::ProtoObject* promiseFinally(
     // §27.2.5.3 step 7: ALWAYS go through Get(self, "then") so a
     // user-installed override on the receiver (even when the receiver
     // is a native Promise) fires per spec.
-    const proto::ProtoString* thenK = proto::ProtoString::createSymbol(ctx, "then");
+    const proto::ProtoString* thenK = ctx->fromUTF8String("then")->asString(ctx);
     const proto::ProtoObject* thenFn = thenK
         ? self->getAttribute(ctx, thenK, true) : PROTO_NONE;
     bool useUserThen = thenFn && thenFn != PROTO_NONE
@@ -1073,7 +1073,7 @@ void ensurePromiseConstructor(proto::ProtoContext* ctx,
                 const proto::ProtoString* hnwSp = JSSymbols::hasNonWritableProps(ctx);
                 if (hnwSp) getter = getter->setAttribute(ctx, hnwSp, PROTO_TRUE);
                 const proto::ProtoString* gksSym =
-                    proto::ProtoString::createSymbol(ctx, "__get_Symbol.species__");
+                    ctx->fromUTF8String("__get_Symbol.species__")->asString(ctx);
                 if (gksSym) ctor = ctor->setAttribute(ctx, gksSym, getter);
                 const proto::ProtoObject* pdo = ctx->fromUTF8String("__pd_Symbol.species__");
                 const proto::ProtoString* pdk = pdo ? pdo->asString(ctx) : nullptr;

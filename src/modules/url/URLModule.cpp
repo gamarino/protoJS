@@ -19,7 +19,7 @@ const proto::ProtoObject* urlToString(
         return ctx ? ctx->fromUTF8String("") : PROTO_NONE;
     }
     const proto::ProtoString* hrefKey =
-        proto::ProtoString::createSymbol(ctx, "href");
+        ctx->fromUTF8String("href")->asString(ctx);
     if (!hrefKey) return ctx->fromUTF8String("");
     const proto::ProtoObject* href = self->getAttribute(ctx, hrefKey, false);
     if (href && href != PROTO_NONE && href->isString(ctx)) return href;
@@ -42,7 +42,7 @@ const proto::ProtoObject* urlConstructor(
     if (!arg0 || !arg0->isString(ctx)) return PROTO_NONE;
     auto setStr = [&](const char* name, const proto::ProtoObject* val) {
         const proto::ProtoString* k =
-            proto::ProtoString::createSymbol(ctx, name);
+            ctx->fromUTF8String(name)->asString(ctx);
         if (k) self->setAttribute(ctx, k, val);
     };
     setStr("href",     arg0);
@@ -80,7 +80,7 @@ const proto::ProtoObject* URLModule::init(
     // actually runs urlConstructor.
     {
         const proto::ProtoString* ck =
-            proto::ProtoString::createSymbol(ctx, "__construct__");
+            ctx->fromUTF8String("__construct__")->asString(ctx);
         if (ck) urlCtor = urlCtor->setAttribute(ctx, ck,
             ctx->fromMethod(nullptr, urlConstructor));
     }
@@ -88,7 +88,7 @@ const proto::ProtoObject* URLModule::init(
     const proto::ProtoObject* mod = ctx->newObject(/*mutable=*/true);
     if (!mod) return globalObj;
     const proto::ProtoString* urlKey =
-        proto::ProtoString::createSymbol(ctx, "URL");
+        ctx->fromUTF8String("URL")->asString(ctx);
     if (urlKey) mod->setAttribute(ctx, urlKey, urlCtor);
 
     return ProtoNativeModule::registerOnGlobal(ctx, globalObj, "url", mod);

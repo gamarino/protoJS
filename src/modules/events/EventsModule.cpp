@@ -224,7 +224,7 @@ const proto::ProtoObject* EventsModule::init(
     // ProtoCore-native modules.
     {
         const proto::ProtoString* ck =
-            proto::ProtoString::createSymbol(ctx, "__construct__");
+            ctx->fromUTF8String("__construct__")->asString(ctx);
         if (ck) eeCtor = eeCtor->setAttribute(ctx, ck,
             ctx->fromMethod(nullptr, eeConstructor));
     }
@@ -233,7 +233,7 @@ const proto::ProtoObject* EventsModule::init(
     const proto::ProtoObject* mod = ctx->newObject(/*mutable=*/true);
     if (!mod) return globalObj;
     const proto::ProtoString* eeKey =
-        proto::ProtoString::createSymbol(ctx, "EventEmitter");
+        ctx->fromUTF8String("EventEmitter")->asString(ctx);
     if (eeKey) mod->setAttribute(ctx, eeKey, eeCtor);
 
     return ProtoNativeModule::registerOnGlobal(ctx, globalObj, "events", mod);

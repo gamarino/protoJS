@@ -68,7 +68,7 @@ bool optInt(proto::ProtoContext* ctx, const proto::ProtoObject* opts,
               const char* name, long long& out) {
     if (!ctx || !opts) return false;
     const proto::ProtoString* k =
-        proto::ProtoString::createSymbol(ctx, name);
+        ctx->fromUTF8String(name)->asString(ctx);
     if (!k) return false;
     const proto::ProtoObject* v = opts->getAttribute(ctx, k, false);
     if (!v || !v->isInteger(ctx)) return false;
@@ -79,7 +79,7 @@ bool optString(proto::ProtoContext* ctx, const proto::ProtoObject* opts,
                  const char* name, std::string& out) {
     if (!ctx || !opts) return false;
     const proto::ProtoString* k =
-        proto::ProtoString::createSymbol(ctx, name);
+        ctx->fromUTF8String(name)->asString(ctx);
     if (!k) return false;
     const proto::ProtoObject* v = opts->getAttribute(ctx, k, false);
     if (!v || !v->isString(ctx)) return false;
@@ -99,13 +99,13 @@ const proto::ProtoObject* makeEventEmitterInstance(
         const proto::ProtoObject* nativeGlobal) {
     if (!ctx || !nativeGlobal) return ctx ? ctx->newObject(true) : nullptr;
     const proto::ProtoString* eventsKey =
-        proto::ProtoString::createSymbol(ctx, "events");
+        ctx->fromUTF8String("events")->asString(ctx);
     if (!eventsKey) return ctx->newObject(true);
     const proto::ProtoObject* eventsMod =
         nativeGlobal->getAttribute(ctx, eventsKey, false);
     if (!eventsMod || eventsMod == PROTO_NONE) return ctx->newObject(true);
     const proto::ProtoString* eeKey =
-        proto::ProtoString::createSymbol(ctx, "EventEmitter");
+        ctx->fromUTF8String("EventEmitter")->asString(ctx);
     const proto::ProtoObject* eeCtor =
         eeKey ? eventsMod->getAttribute(ctx, eeKey, false) : nullptr;
     if (!eeCtor || eeCtor == PROTO_NONE) return ctx->newObject(true);
@@ -126,7 +126,7 @@ const proto::ProtoObject* invokeEEMethod(
         self->getAttribute(ctx, keyEvents(ctx), false);
     if (!ee || ee == PROTO_NONE) return PROTO_NONE;
     const proto::ProtoString* mk =
-        proto::ProtoString::createSymbol(ctx, methodName);
+        ctx->fromUTF8String(methodName)->asString(ctx);
     if (!mk) return PROTO_NONE;
     const proto::ProtoObject* fn = ee->getAttribute(ctx, mk, true);
     if (!fn || fn == PROTO_NONE) return PROTO_NONE;
@@ -145,7 +145,7 @@ void invokeEEMethodFromAsync(
         self->getAttribute(ctx, keyEvents(ctx), false);
     if (!ee || ee == PROTO_NONE) return;
     const proto::ProtoString* mk =
-        proto::ProtoString::createSymbol(ctx, methodName);
+        ctx->fromUTF8String(methodName)->asString(ctx);
     if (!mk) return;
     const proto::ProtoObject* fn = ee->getAttribute(ctx, mk, true);
     if (!fn || fn == PROTO_NONE) return;
@@ -278,7 +278,7 @@ std::vector<uint8_t> toBytes(proto::ProtoContext* ctx,
     }
     // Buffer instance: pull __byte_buffer__ as ProtoByteBuffer.
     const proto::ProtoString* bbKey =
-        proto::ProtoString::createSymbol(ctx, "__byte_buffer__");
+        ctx->fromUTF8String("__byte_buffer__")->asString(ctx);
     if (!bbKey) return out;
     const proto::ProtoObject* attr = val->getAttribute(ctx, bbKey, false);
     if (!attr || attr == PROTO_NONE) return out;
@@ -310,7 +310,7 @@ const proto::ProtoObject* makeBufferFromBytes(
     const proto::ProtoObject* g = w ? w->getNativeGlobal() : nullptr;
     if (!g) return bufObj;
     const proto::ProtoString* bk =
-        proto::ProtoString::createSymbol(ctx, "Buffer");
+        ctx->fromUTF8String("Buffer")->asString(ctx);
     const proto::ProtoObject* bCtor =
         bk ? g->getAttribute(ctx, bk, false) : nullptr;
     if (!bCtor) return bufObj;
@@ -320,10 +320,10 @@ const proto::ProtoObject* makeBufferFromBytes(
     if (!bProto || bProto == PROTO_NONE) return bufObj;
     const proto::ProtoObject* inst = bProto->newChild(ctx, true);
     inst->setAttribute(ctx,
-        proto::ProtoString::createSymbol(ctx, "__byte_buffer__"),
+        ctx->fromUTF8String("__byte_buffer__")->asString(ctx),
         bufObj);
     inst->setAttribute(ctx,
-        proto::ProtoString::createSymbol(ctx, "__is_buffer__"),
+        ctx->fromUTF8String("__is_buffer__")->asString(ctx),
         PROTO_TRUE);
     const proto::ProtoString* lk = JSSymbols::length(ctx);
     if (lk) inst->setAttribute(ctx, lk,
@@ -414,13 +414,13 @@ const proto::ProtoObject* socketAddressImpl(
     if (!s || !s->connected.load()) return PROTO_NONE;
     const proto::ProtoObject* obj = ctx->newObject(/*mutable=*/true);
     obj->setAttribute(ctx,
-        proto::ProtoString::createSymbol(ctx, "port"),
+        ctx->fromUTF8String("port")->asString(ctx),
         ctx->fromInteger(s->localPort));
     obj->setAttribute(ctx,
-        proto::ProtoString::createSymbol(ctx, "family"),
+        ctx->fromUTF8String("family")->asString(ctx),
         ctx->fromUTF8String("IPv4"));
     obj->setAttribute(ctx,
-        proto::ProtoString::createSymbol(ctx, "address"),
+        ctx->fromUTF8String("address")->asString(ctx),
         ctx->fromUTF8String(s->localAddress.c_str()));
     return obj;
 }
@@ -627,13 +627,13 @@ const proto::ProtoObject* serverAddressImpl(
     if (!s || !s->listening.load()) return PROTO_NONE;
     const proto::ProtoObject* obj = ctx->newObject(/*mutable=*/true);
     obj->setAttribute(ctx,
-        proto::ProtoString::createSymbol(ctx, "port"),
+        ctx->fromUTF8String("port")->asString(ctx),
         ctx->fromInteger(s->port));
     obj->setAttribute(ctx,
-        proto::ProtoString::createSymbol(ctx, "family"),
+        ctx->fromUTF8String("family")->asString(ctx),
         ctx->fromUTF8String("IPv4"));
     obj->setAttribute(ctx,
-        proto::ProtoString::createSymbol(ctx, "address"),
+        ctx->fromUTF8String("address")->asString(ctx),
         ctx->fromUTF8String(s->host.c_str()));
     return obj;
 }

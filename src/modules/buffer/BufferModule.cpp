@@ -152,7 +152,7 @@ const proto::ProtoObject* makeBufferInstance(
     const proto::ProtoString* lk = JSSymbols::length(ctx);
     if (lk) inst->setAttribute(ctx, lk, ctx->fromInteger(size));
     const proto::ProtoString* blk =
-        proto::ProtoString::createSymbol(ctx, "byteLength");
+        ctx->fromUTF8String("byteLength")->asString(ctx);
     if (blk) inst->setAttribute(ctx, blk, ctx->fromInteger(size));
     return inst;
 }
@@ -561,14 +561,14 @@ const proto::ProtoObject* BufferModule::init(
         bufferCtor = bufferCtor->setAttribute(ctx, protoKey, bufferProto);
     {
         const proto::ProtoString* ck =
-            proto::ProtoString::createSymbol(ctx, "__construct__");
+            ctx->fromUTF8String("__construct__")->asString(ctx);
         if (ck) bufferCtor = bufferCtor->setAttribute(ctx, ck,
             ctx->fromMethod(nullptr, bufferConstructor));
     }
     // Static factory methods on the constructor.
     auto installStatic = [&](const char* name, proto::ProtoMethod fn) {
         const proto::ProtoString* k =
-            proto::ProtoString::createSymbol(ctx, name);
+            ctx->fromUTF8String(name)->asString(ctx);
         if (!k) return;
         bufferCtor = bufferCtor->setAttribute(ctx, k,
             ctx->fromMethod(nullptr, fn));
@@ -582,7 +582,7 @@ const proto::ProtoObject* BufferModule::init(
     // top-level global rather than as a `buffer` module — this matches
     // both the original module's behaviour and Node's.)
     const proto::ProtoString* nameKey =
-        proto::ProtoString::createSymbol(ctx, "Buffer");
+        ctx->fromUTF8String("Buffer")->asString(ctx);
     if (!nameKey) return globalObj;
     return globalObj->setAttribute(ctx, nameKey, bufferCtor);
 }

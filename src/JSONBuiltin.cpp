@@ -581,7 +581,7 @@ void stringifyRecursive(proto::ProtoContext* ctx,
         bool first = true;
         for (const auto& key : iterKeys) {
             const proto::ProtoString* propKs =
-                proto::ProtoString::createSymbol(ctx, key);
+                ctx->fromUTF8String(key.c_str())->asString(ctx);
             const proto::ProtoObject* val = propKs
                 ? obj->getAttribute(ctx, propKs, true) : PROTO_NONE;
             // Accessor lookup: data attribute miss → check __get_<key>__
@@ -594,7 +594,7 @@ void stringifyRecursive(proto::ProtoContext* ctx,
             if (!val || val == PROTO_NONE || val == getUndefinedSentinel()) {
                 std::string gkStr = "__get_" + key + "__";
                 const proto::ProtoString* gks =
-                    proto::ProtoString::createSymbol(ctx, gkStr);
+                    ctx->fromUTF8String(gkStr.c_str())->asString(ctx);
                 if (gks) {
                     const proto::ProtoObject* getter = obj->getAttribute(ctx, gks, true);
                     if (getter && getter != PROTO_NONE) {
@@ -1108,7 +1108,7 @@ const proto::ProtoObject* JSONBuiltin::stringify(proto::ProtoContext* ctx,
         const proto::ProtoObject* holder = ctx->newObject(true);
         if (holder) {
             const proto::ProtoString* emptyKs =
-                proto::ProtoString::createSymbol(ctx, "");
+                ctx->fromUTF8String("")->asString(ctx);
             if (emptyKs) holder = holder->setAttribute(ctx, emptyKs, val);
         }
         const proto::ProtoObject* newVal =
