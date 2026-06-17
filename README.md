@@ -4447,21 +4447,24 @@ Adds an env-var gate that treats STRING-tagged `name` at
 `getAttribute` entry as definitely-absent — the embedder contract
 is "always pass an interned SYMBOL".  Net effect on the standard
 suite measured at **30-run trimmed mean (middle 14 of 30) on an
-unloaded system**: ratio 0.97, i.e. **−3 % geomean** with the flag
-on.  Heterogeneous bench by bench:
+unloaded system**: ratio 0.974, i.e. **−2.6 % geomean** with the
+flag on (11-bench single-thread set).  Heterogeneous bench by bench:
 
 | Bench                | OFF (ms) | ON (ms) | Δ     |
 |----------------------|---------:|--------:|------:|
 | **control_flow**     |    223   |   185   | **−17 %** |
 | object_read_only     |     81   |    75   |  −6 % |
-| array_literal        |    222   |   230   |  +4 % |
-| function_calls       |    193   |   199   |  +3 % |
 | string_concat        |    115   |   112   |  −3 % |
 | tree_traversal       |    160   |   155   |  −3 % |
+| **object_write_only**|   1828   |  1782   |  −3 % |
 | numeric_loop         |     77   |    75   |  −2 % |
+| array_literal        |    222   |   230   |  +4 % |
+| function_calls       |    193   |   199   |  +3 % |
 | object_property      |    576   |   582   |  +1 % |
 | json_transform       |    144   |   143   |    =  |
 | list_snapshot_hist.  |     18   |    18   |    =  |
+
+Geomean ratio (11 benches): **0.974 = −2.6 %** with flag on.
 
 Earlier reports claimed a bimodal distribution under the flag
 (object_read_only: 82–92 ms × 16 runs and 105–161 ms × 14 runs).
