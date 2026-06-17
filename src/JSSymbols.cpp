@@ -8,15 +8,22 @@ namespace protojs::JSSymbols {
 
 // Helper macro: define a lazy getter that interns "literal" on first call.
 // NOLINTNEXTLINE(cppcoreguidelines-macro-usage)
+/* Magic-static (C++11 thread-safe static initialisation) instead of
+ * std::call_once + lambda.  The std::call_once version compiled to a
+ * non-inlined function with a lambda capture and an atomic load every
+ * call; perf annotate on object_read_only's OP_get_array_el path
+ * showed `JSSymbols::hasAccessorProps` at ~0.8 % CPU on its own and
+ * the JSSymbols family adding up to ~3 %.
+ * The compiler can fully inline a function whose body is `static const
+ * Y v = expr; return v;` — the fast path after init is a single
+ * guard-byte test + load, optimised down to a couple of cycles.  Any
+ * valid ctx suffices: createSymbol interns at ProtoSpace level, so
+ * the result is globally unique regardless of which ctx wins the
+ * initialisation race. */
 #define DEFINE_SYMBOL(getter, literal)                                      \
     const proto::ProtoString* getter(proto::ProtoContext* ctx) {            \
-        static const proto::ProtoString* s_sym = nullptr;                   \
-        static std::once_flag s_flag;                                        \
-        /* Any valid ctx suffices: createSymbol interns at ProtoSpace level, \
-         * so the result is globally unique regardless of which ctx wins.  */ \
-        std::call_once(s_flag, [ctx]() {                                    \
-            s_sym = proto::ProtoString::createSymbol(ctx, literal);         \
-        });                                                                  \
+        static const proto::ProtoString* const s_sym =                      \
+            proto::ProtoString::createSymbol(ctx, literal);                 \
         return s_sym;                                                        \
     }
 
