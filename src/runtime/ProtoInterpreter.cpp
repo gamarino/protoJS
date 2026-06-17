@@ -2827,19 +2827,17 @@ struct InterpFrame {
 static thread_local std::vector<InterpFrame> t_interpFrames;
 
 // Debug flags — evaluated ONCE at first use, never on the hot path.
-static bool s_debugSlotsChecked = false;
-static bool s_debugSlots = false;
-static bool s_debugBindChecked = false;
-static bool s_debugBind = false;
+// Single-shot init at process start (C++ static-init order is
+// well-defined within a TU).  Pre-fix the lazy "init on first call"
+// version branched on `s_debugSlotsChecked` at every getSlot /
+// setSlot — 568 inlined sites × millions of calls per bench cost
+// ~3 % CPU on numeric_loop measured via perf.  Constant `getenv`
+// once, then a single bool load on the hot path.
+static const bool s_debugSlots = (std::getenv("PROTO_DEBUG_SLOTS") != nullptr);
+static const bool s_debugBind  = (std::getenv("PROTO_DEBUG_BIND")  != nullptr);
 
-static inline bool debugSlotsEnabled() {
-    if (!s_debugSlotsChecked) { s_debugSlots = !!getenv("PROTO_DEBUG_SLOTS"); s_debugSlotsChecked = true; }
-    return s_debugSlots;
-}
-static inline bool debugBindEnabled() {
-    if (!s_debugBindChecked) { s_debugBind = !!getenv("PROTO_DEBUG_BIND"); s_debugBindChecked = true; }
-    return s_debugBind;
-}
+[[gnu::always_inline]] static inline bool debugSlotsEnabled() { return s_debugSlots; }
+[[gnu::always_inline]] static inline bool debugBindEnabled()  { return s_debugBind;  }
 
 [[gnu::always_inline]] static inline InterpFrame* currentFrame(proto::ProtoContext* ctx) {
     if (t_interpFrames.empty()) return nullptr;
