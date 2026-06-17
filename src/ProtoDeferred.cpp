@@ -341,7 +341,7 @@ const proto::ProtoObject* deferredPrototypeObject(proto::ProtoContext* ctx) {
     if (!p) return nullptr;
     auto installMethod = [&](const char* name, proto::ProtoMethod fn) {
         const proto::ProtoString* k = ctx->fromUTF8String(name)
-            ? ctx->fromUTF8String(name)->asString(ctx) : nullptr;
+            ? proto::ProtoString::createSymbol(ctx, name) : nullptr;
         if (!k) return;
         const proto::ProtoObject* m = ctx->fromMethod(nullptr, fn);
         if (!m) return;
@@ -418,7 +418,7 @@ const proto::ProtoObject* ProtoDeferred::init(
     const proto::ProtoObject* ctor = ctx->fromMethod(nullptr, deferredConstruct);
     if (!ctor) return globalObj;
     const proto::ProtoString* name = ctx->fromUTF8String("Deferred")
-        ? ctx->fromUTF8String("Deferred")->asString(ctx) : nullptr;
+        ? proto::ProtoString::createSymbol(ctx, "Deferred") : nullptr;
     if (!name) return globalObj;
     return globalObj->setAttribute(ctx, name, ctor);
 }

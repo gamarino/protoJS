@@ -107,7 +107,7 @@ const proto::ProtoObject* typesIsDate(
     const proto::ProtoObject* a = arg0(ctx, args);
     if (!ctx || !a || a == PROTO_NONE) return PROTO_FALSE;
     const proto::ProtoString* gtKey =
-        ctx->fromUTF8String("getTime")->asString(ctx);
+        proto::ProtoString::createSymbol(ctx, "getTime");
     if (!gtKey) return PROTO_FALSE;
     const proto::ProtoObject* v = a->getAttribute(ctx, gtKey, false);
     if (!v || v == PROTO_NONE) return PROTO_FALSE;
@@ -229,7 +229,7 @@ const proto::ProtoObject* UtilModule::init(
     const proto::ProtoObject* mod =
         ProtoNativeModule::buildModule(ctx, utilEntries, 3);
     if (!mod) return globalObj;
-    const proto::ProtoString* tk = ctx->fromUTF8String("types")->asString(ctx);
+    const proto::ProtoString* tk = proto::ProtoString::createSymbol(ctx, "types");
     if (tk) mod = mod->setAttribute(ctx, tk, types);
 
     return ProtoNativeModule::registerOnGlobal(ctx, globalObj, "util", mod);

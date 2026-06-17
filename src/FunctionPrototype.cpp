@@ -254,7 +254,7 @@ static const proto::ProtoObject* fnApply(
             // threw was silently swallowed (test262 apply/get-length-abrupt).
             const proto::ProtoObject* lo = nullptr;
             const proto::ProtoString* gk =
-                ctx->fromUTF8String("__get_length__")->asString(ctx);
+                proto::ProtoString::createSymbol(ctx, "__get_length__");
             if (gk) {
                 const proto::ProtoObject* getter = argsArray->getAttribute(ctx, gk, true);
                 if (getter && getter != PROTO_NONE) {
@@ -280,7 +280,7 @@ static const proto::ProtoObject* fnApply(
             if (!av) {
                 std::string gks = "__get_" + std::to_string(i) + "__";
                 const proto::ProtoString* gk =
-                    ctx->fromUTF8String(gks.c_str())->asString(ctx);
+                    proto::ProtoString::createSymbol(ctx, gks);
                 if (gk) {
                     const proto::ProtoObject* getter = argsArray->getAttribute(ctx, gk, true);
                     if (getter && getter != PROTO_NONE) {
@@ -1208,7 +1208,7 @@ void ensureFunctionPrototype(proto::ProtoContext* ctx,
         // snapshot and lack .call/.apply/.bind.
         {
             const proto::ProtoString* symGKO = ctx->fromUTF8String("Symbol")
-                ? ctx->fromUTF8String("Symbol")->asString(ctx) : nullptr;
+                ? proto::ProtoString::createSymbol(ctx, "Symbol") : nullptr;
             const proto::ProtoObject* symCtor = (symGKO && globalRoot && *globalRoot)
                 ? (*globalRoot)->getAttribute(ctx, symGKO, false) : nullptr;
             if (symCtor && symCtor != PROTO_NONE) {
@@ -1247,7 +1247,7 @@ void ensureFunctionPrototype(proto::ProtoContext* ctx,
         // setJSProtoOverride aligns Object.getPrototypeOf(...) with
         // Function.prototype, which the spec / test262 check directly.
         const proto::ProtoString* jsonKey =
-            ctx->fromUTF8String("JSON") ? ctx->fromUTF8String("JSON")->asString(ctx) : nullptr;
+            ctx->fromUTF8String("JSON") ? proto::ProtoString::createSymbol(ctx, "JSON") : nullptr;
         if (jsonKey && globalRoot && *globalRoot) {
             const proto::ProtoObject* jsonNs =
                 (*globalRoot)->getAttribute(ctx, jsonKey, false);

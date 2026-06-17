@@ -84,7 +84,7 @@ const proto::ProtoObject* makeChildInstance(proto::ProtoContext* ctx,
     inst->setAttribute(ctx, pidKey(ctx),
         ctx->fromInteger(static_cast<long long>(pid)));
     inst->setAttribute(ctx,
-        ctx->fromUTF8String("pid")->asString(ctx),
+        proto::ProtoString::createSymbol(ctx, "pid"),
         ctx->fromInteger(static_cast<long long>(pid)));
     return inst;
 }

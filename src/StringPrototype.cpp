@@ -2236,12 +2236,12 @@ const proto::ProtoObject* stringReplaceAll(
         if (hasCallException()) return PROTO_NONE;
     }
     if (patternIsRegExp) {
-        const proto::ProtoString* flagsK = ctx->fromUTF8String("flags")->asString(ctx);
+        const proto::ProtoString* flagsK = proto::ProtoString::createSymbol(ctx, "flags");
         const proto::ProtoObject* flagsVal = nullptr;
         // accessor sidecar first — user RegExps and `class extends RegExp`
         // subclasses expose `.flags` through Object.defineProperty getters,
         // which the data-slot getAttribute below misses.
-        const proto::ProtoString* flagsGetK = ctx->fromUTF8String("__get_flags__")->asString(ctx);
+        const proto::ProtoString* flagsGetK = proto::ProtoString::createSymbol(ctx, "__get_flags__");
         if (flagsGetK) {
             const proto::ProtoObject* getter = pattern->getAttribute(ctx, flagsGetK, true);
             if (getter && getter != PROTO_NONE) {
@@ -3179,7 +3179,7 @@ void BuildStringPrototype(proto::ProtoSpace* space, proto::ProtoContext* ctx,
     //   length         — arity with descriptor {writable:false, enumerable:false, configurable:true}
     //   name           — method name with the same non-writable, configurable descriptor
     auto reg = [&](const char* name, proto::ProtoMethod fn, long long length) {
-        const proto::ProtoString* key = ctx->fromUTF8String(name)->asString(ctx);
+        const proto::ProtoString* key = proto::ProtoString::createSymbol(ctx, name);
         if (!key) return;
 
         // Build a wrapper object carrying __native_fn__, length, name.
@@ -3450,7 +3450,7 @@ void ensureStringConstructor(proto::ProtoContext* ctx,
     // descriptor sidecar and leaked through for-in over String
     // (built-ins/String/<Method>/prop-desc.js).
     auto regStatic = [&](const char* name, proto::ProtoMethod fn, long long length) {
-        const proto::ProtoString* key = ctx->fromUTF8String(name)->asString(ctx);
+        const proto::ProtoString* key = proto::ProtoString::createSymbol(ctx, name);
         if (key) {
             const proto::ProtoObject* mObj = wrapNativeFunction(ctx, fn, name, length, globalRoot);
             if (mObj && mObj != PROTO_NONE) {
@@ -3521,7 +3521,7 @@ void ensureStringConstructor(proto::ProtoContext* ctx,
     }
 
     // Explicitly mark as a constructor for OP_call_constructor.
-    const proto::ProtoString* isCtorKey = ctx->fromUTF8String("__is_constructor__")->asString(ctx);
+    const proto::ProtoString* isCtorKey = proto::ProtoString::createSymbol(ctx, "__is_constructor__");
     if (isCtorKey) ctor = ctor->setAttribute(ctx, isCtorKey, PROTO_TRUE);
 
     // Mark as the String constructor so OP_call can invoke it as a conversion function.

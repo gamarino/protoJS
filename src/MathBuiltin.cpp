@@ -460,7 +460,7 @@ void ensureMathObject(proto::ProtoContext* ctx,
     // raw ProtoMethod cell can't hold arbitrary attributes, so a thin
     // wrapper object inheriting Function.prototype is needed instead.
     auto reg = [&](const char* name, proto::ProtoMethod fn, long long length) {
-        const proto::ProtoString* key = ctx->fromUTF8String(name)->asString(ctx);
+        const proto::ProtoString* key = proto::ProtoString::createSymbol(ctx, name);
         if (!key) return;
         const proto::ProtoObject* wrapper = ctx->space->methodPrototype
             ? ctx->space->methodPrototype->newChild(ctx, true)
@@ -495,7 +495,7 @@ void ensureMathObject(proto::ProtoContext* ctx,
     };
 
     auto setConst = [&](const char* name, double val) {
-        const proto::ProtoString* key = ctx->fromUTF8String(name)->asString(ctx);
+        const proto::ProtoString* key = proto::ProtoString::createSymbol(ctx, name);
         if (!key) return;
         math = math->setAttribute(ctx, key, ctx->fromDouble(val));
         // Math constants are spec'd { writable:false, enumerable:false,

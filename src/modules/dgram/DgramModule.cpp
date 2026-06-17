@@ -224,11 +224,11 @@ const proto::ProtoObject* socketAddressImpl(
     inet_ntop(AF_INET, &sa.sin_addr, ip, sizeof(ip));
     const proto::ProtoObject* obj = ctx->newObject(/*mutable=*/true);
     auto setStr = [&](const char* k, const char* v) {
-        const proto::ProtoString* sk = ctx->fromUTF8String(k)->asString(ctx);
+        const proto::ProtoString* sk = proto::ProtoString::createSymbol(ctx, k);
         if (sk) obj->setAttribute(ctx, sk, ctx->fromUTF8String(v));
     };
     auto setI = [&](const char* k, long long v) {
-        const proto::ProtoString* sk = ctx->fromUTF8String(k)->asString(ctx);
+        const proto::ProtoString* sk = proto::ProtoString::createSymbol(ctx, k);
         if (sk) obj->setAttribute(ctx, sk, ctx->fromInteger(v));
     };
     setStr("address", ip);

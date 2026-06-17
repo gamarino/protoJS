@@ -48,11 +48,11 @@ const proto::ProtoObject* buildStatsObject(proto::ProtoContext* ctx,
                                             const struct stat& st) {
     const proto::ProtoObject* obj = ctx->newObject(/*mutable=*/true);
     auto setI = [&](const char* k, long long v) {
-        const proto::ProtoString* sk = ctx->fromUTF8String(k)->asString(ctx);
+        const proto::ProtoString* sk = proto::ProtoString::createSymbol(ctx, k);
         if (sk) obj->setAttribute(ctx, sk, ctx->fromInteger(v));
     };
     auto setB = [&](const char* k, bool v) {
-        const proto::ProtoString* sk = ctx->fromUTF8String(k)->asString(ctx);
+        const proto::ProtoString* sk = proto::ProtoString::createSymbol(ctx, k);
         if (sk) obj->setAttribute(ctx, sk, v ? PROTO_TRUE : PROTO_FALSE);
     };
     setI("size", static_cast<long long>(st.st_size));
@@ -180,7 +180,7 @@ const proto::ProtoObject* promisesMkdir(
     bool recursive = false;
     const proto::ProtoObject* opts = argAt(ctx, args, 1);
     if (opts && !opts->isNone(ctx)) {
-        const proto::ProtoString* rk = ctx->fromUTF8String("recursive")->asString(ctx);
+        const proto::ProtoString* rk = proto::ProtoString::createSymbol(ctx, "recursive");
         if (rk) {
             const proto::ProtoObject* rv = opts->getAttribute(ctx, rk, false);
             if (rv == PROTO_TRUE) recursive = true;
@@ -281,7 +281,7 @@ const proto::ProtoObject* mkdirSyncImpl(
     bool recursive = false;
     const proto::ProtoObject* opts = argAt(ctx, args, 1);
     if (opts && !opts->isNone(ctx)) {
-        const proto::ProtoString* rk = ctx->fromUTF8String("recursive")->asString(ctx);
+        const proto::ProtoString* rk = proto::ProtoString::createSymbol(ctx, "recursive");
         if (rk) {
             const proto::ProtoObject* rv = opts->getAttribute(ctx, rk, false);
             if (rv == PROTO_TRUE) recursive = true;
@@ -379,7 +379,7 @@ const proto::ProtoObject* createReadStreamImpl(
     std::string path;
     if (!argString(ctx, args, 0, path)) return PROTO_NONE;
     const proto::ProtoObject* obj = ctx->newObject(/*mutable=*/true);
-    const proto::ProtoString* k = ctx->fromUTF8String("_path")->asString(ctx);
+    const proto::ProtoString* k = proto::ProtoString::createSymbol(ctx, "_path");
     if (k) obj->setAttribute(ctx, k, ctx->fromUTF8String(path.c_str()));
     return obj;
 }
@@ -430,7 +430,7 @@ const proto::ProtoObject* FSModule::init(
         ProtoNativeModule::buildModule(ctx, fsEntries, 11);
     if (!mod) return globalObj;
     const proto::ProtoString* pk =
-        ctx->fromUTF8String("promises")->asString(ctx);
+        proto::ProtoString::createSymbol(ctx, "promises");
     if (pk) mod = mod->setAttribute(ctx, pk, promisesObj);
 
     return ProtoNativeModule::registerOnGlobal(ctx, globalObj, "fs", mod);

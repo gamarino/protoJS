@@ -1963,13 +1963,13 @@ static void registerProtoMethod(proto::ProtoContext* ctx,
                                 proto::ProtoMethod fn,
                                 long long length) {
     if (!proto || proto == PROTO_NONE) return;
-    const proto::ProtoString* k = ctx->fromUTF8String(name)->asString(ctx);
+    const proto::ProtoString* k = proto::ProtoString::createSymbol(ctx, name);
     if (!k) return;
     const proto::ProtoObject* w = makeMethodWrapper(ctx, name, fn, length);
     if (!w) return;
     proto = proto->setAttribute(ctx, k, w);
     std::string pdStr = std::string("__pd_") + name + "__";
-    const proto::ProtoString* pdk = ctx->fromUTF8String(pdStr.c_str())->asString(ctx);
+    const proto::ProtoString* pdk = proto::ProtoString::createSymbol(ctx, pdStr);
     if (pdk) proto = proto->setAttribute(ctx, pdk, ctx->fromInteger(0x3LL));
 }
 
@@ -2091,7 +2091,7 @@ void ensureDateConstructor(proto::ProtoContext* ctx,
     if (!ctx || !globalRoot || !*globalRoot) return;
 
     const proto::ProtoString* keyDate =
-        ctx->fromUTF8String("Date") ? ctx->fromUTF8String("Date")->asString(ctx) : nullptr;
+        ctx->fromUTF8String("Date") ? proto::ProtoString::createSymbol(ctx, "Date") : nullptr;
     if (!keyDate) return;
 
     const proto::ProtoObject* existing = (*globalRoot)->getAttribute(ctx, keyDate, false);
@@ -2135,7 +2135,7 @@ void ensureDateConstructor(proto::ProtoContext* ctx,
     {
         const proto::ProtoString* parseKey =
             ctx->fromUTF8String("parse")
-                ? ctx->fromUTF8String("parse")->asString(ctx) : nullptr;
+                ? proto::ProtoString::createSymbol(ctx, "parse") : nullptr;
         if (parseKey) {
             const proto::ProtoObject* parseFn =
                 makeMethodWrapper(ctx, "parse", dateParseNew, 1);
@@ -2149,7 +2149,7 @@ void ensureDateConstructor(proto::ProtoContext* ctx,
     {
         const proto::ProtoString* utcKey =
             ctx->fromUTF8String("UTC")
-                ? ctx->fromUTF8String("UTC")->asString(ctx) : nullptr;
+                ? proto::ProtoString::createSymbol(ctx, "UTC") : nullptr;
         if (utcKey) {
             const proto::ProtoObject* utcFn =
                 makeMethodWrapper(ctx, "UTC", dateUTCNew, 7);
@@ -2183,7 +2183,7 @@ void ensureDateConstructor(proto::ProtoContext* ctx,
 
     // Recover the prototype installed by the stub, or build a fresh one.
     const proto::ProtoString* protoKey =
-        ctx->fromUTF8String("prototype") ? ctx->fromUTF8String("prototype")->asString(ctx) : nullptr;
+        ctx->fromUTF8String("prototype") ? proto::ProtoString::createSymbol(ctx, "prototype") : nullptr;
     const proto::ProtoObject* proto = nullptr;
     if (protoKey) {
         proto = dateObj->getAttribute(ctx, protoKey, false);
@@ -2252,7 +2252,7 @@ void ensureDateConstructor(proto::ProtoContext* ctx,
         {
             const proto::ProtoString* keyTP =
                 ctx->fromUTF8String("Symbol.toPrimitive")
-                    ? ctx->fromUTF8String("Symbol.toPrimitive")->asString(ctx)
+                    ? proto::ProtoString::createSymbol(ctx, "Symbol.toPrimitive")
                     : nullptr;
             if (keyTP) {
                 const proto::ProtoObject* wrap =
@@ -2262,7 +2262,7 @@ void ensureDateConstructor(proto::ProtoContext* ctx,
                     proto = proto->setAttribute(ctx, keyTP, wrap);
                     const proto::ProtoString* pdk =
                         ctx->fromUTF8String("__pd_Symbol.toPrimitive__")
-                            ? ctx->fromUTF8String("__pd_Symbol.toPrimitive__")->asString(ctx)
+                            ? proto::ProtoString::createSymbol(ctx, "__pd_Symbol.toPrimitive__")
                             : nullptr;
                     // 0x2 = {writable:false, enumerable:false, configurable:true}.
                     if (pdk) proto = proto->setAttribute(ctx, pdk, ctx->fromInteger(0x2LL));

@@ -70,7 +70,7 @@ static const proto::ProtoObject* installScriptGlobals(
     if (!pCtx || !g) return g;
     auto setStr = [&](const char* name, const std::string& value) {
         const proto::ProtoString* k = pCtx->fromUTF8String(name)
-            ? pCtx->fromUTF8String(name)->asString(pCtx) : nullptr;
+            ? proto::ProtoString::createSymbol(pCtx, name) : nullptr;
         if (!k) return;
         g = g->setAttribute(pCtx, k, pCtx->fromUTF8String(value.c_str()));
     };
@@ -79,7 +79,7 @@ static const proto::ProtoObject* installScriptGlobals(
     setStr("__dirname",
            (lastSlash != std::string::npos) ? filename.substr(0, lastSlash) : ".");
     const proto::ProtoString* pjKey = pCtx->fromUTF8String("__protojs__")
-        ? pCtx->fromUTF8String("__protojs__")->asString(pCtx) : nullptr;
+        ? proto::ProtoString::createSymbol(pCtx, "__protojs__") : nullptr;
     if (pjKey) g = g->setAttribute(pCtx, pjKey, PROTO_TRUE);
     return g;
 }

@@ -910,13 +910,13 @@ static const proto::ProtoObject* mapGroupBy(
             if (iterObj && iterObj != PROTO_NONE) {
                 const proto::ProtoString* nextK =
                     ctx->fromUTF8String("next")
-                        ? ctx->fromUTF8String("next")->asString(ctx) : nullptr;
+                        ? proto::ProtoString::createSymbol(ctx, "next") : nullptr;
                 const proto::ProtoString* doneK =
                     ctx->fromUTF8String("done")
-                        ? ctx->fromUTF8String("done")->asString(ctx) : nullptr;
+                        ? proto::ProtoString::createSymbol(ctx, "done") : nullptr;
                 const proto::ProtoString* valueK =
                     ctx->fromUTF8String("value")
-                        ? ctx->fromUTF8String("value")->asString(ctx) : nullptr;
+                        ? proto::ProtoString::createSymbol(ctx, "value") : nullptr;
                 const proto::ProtoList* built = ctx->newList();
                 int guard = 0x100000;
                 while (guard-- > 0) {
@@ -1253,14 +1253,14 @@ static const proto::ProtoObject* mapConstruct(
                         return PROTO_NONE;
                     }
                     const proto::ProtoString* doneKs =
-                        ctx->fromUTF8String("done")->asString(ctx);
+                        proto::ProtoString::createSymbol(ctx, "done");
                     const proto::ProtoObject* doneV =
                         doneKs ? stepRes->getAttribute(ctx, doneKs, true) : PROTO_NONE;
                     bool done = doneV == PROTO_TRUE
                         || (doneV && doneV->isBoolean(ctx) && doneV->asBoolean(ctx));
                     if (done) break;
                     const proto::ProtoString* valKs =
-                        ctx->fromUTF8String("value")->asString(ctx);
+                        proto::ProtoString::createSymbol(ctx, "value");
                     const proto::ProtoObject* pair = nullptr;
                     // §7.4.4 IteratorValue: Get(step, "value") fires
                     // accessor getters; their abrupt completion must
@@ -1719,7 +1719,7 @@ void ensureMapConstructor(proto::ProtoContext* ctx,
                 const proto::ProtoString* hnwSp = JSSymbols::hasNonWritableProps(ctx);
                 if (hnwSp) getter = getter->setAttribute(ctx, hnwSp, PROTO_TRUE);
                 const proto::ProtoString* gksSym =
-                    ctx->fromUTF8String("__get_Symbol.species__")->asString(ctx);
+                    proto::ProtoString::createSymbol(ctx, "__get_Symbol.species__");
                 if (gksSym) ctor = ctor->setAttribute(ctx, gksSym, getter);
                 // §24.1.2.2 get Map[@@species] descriptor: accessor
                 // with {enumerable:false, configurable:true} → 0x2.
@@ -2224,7 +2224,7 @@ static const proto::ProtoObject* weakMapConstruct(
             // Honour user overrides on WeakMap.prototype.set so the spec's
             // "Get(_map_, 'set')" semantic flows through.
             const proto::ProtoString* sKs =
-                ctx->fromUTF8String("set")->asString(ctx);
+                proto::ProtoString::createSymbol(ctx, "set");
             const proto::ProtoObject* setterFn = PROTO_NONE;
             // §24.4.1.1 step 6 — accessor sidecar FIRST so a throwing
             // `get set()` propagates per GetMethod.
@@ -2347,14 +2347,14 @@ static const proto::ProtoObject* weakMapConstruct(
                         return PROTO_NONE;
                     }
                     const proto::ProtoString* doneKs =
-                        ctx->fromUTF8String("done")->asString(ctx);
+                        proto::ProtoString::createSymbol(ctx, "done");
                     const proto::ProtoObject* doneV =
                         doneKs ? stepRes->getAttribute(ctx, doneKs, true) : PROTO_NONE;
                     bool done = doneV == PROTO_TRUE
                         || (doneV && doneV->isBoolean(ctx) && doneV->asBoolean(ctx));
                     if (done) break;
                     const proto::ProtoString* valKs =
-                        ctx->fromUTF8String("value")->asString(ctx);
+                        proto::ProtoString::createSymbol(ctx, "value");
                     const proto::ProtoObject* pair = nullptr;
                     // §7.4.4 IteratorValue: Get(step, "value") fires
                     // accessor getters; their abrupt completion must

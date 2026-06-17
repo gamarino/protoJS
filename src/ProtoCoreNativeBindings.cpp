@@ -224,14 +224,14 @@ const proto::ProtoObject* ProtoCoreNativeBindings::init(
     const proto::ProtoObject* mod = ctx->newObject(/*mutable=*/true);
     if (!mod) return globalObj;
     const proto::ProtoString* name = ctx->fromUTF8String("runInThread")
-        ? ctx->fromUTF8String("runInThread")->asString(ctx) : nullptr;
+        ? proto::ProtoString::createSymbol(ctx, "runInThread") : nullptr;
     if (name) {
         const proto::ProtoObject* fn =
             ctx->fromMethod(nullptr, runInThreadNative);
         if (fn) mod->setAttribute(ctx, name, fn);
     }
     const proto::ProtoString* modName = ctx->fromUTF8String("protoCore")
-        ? ctx->fromUTF8String("protoCore")->asString(ctx) : nullptr;
+        ? proto::ProtoString::createSymbol(ctx, "protoCore") : nullptr;
     if (!modName) return globalObj;
     return globalObj->setAttribute(ctx, modName, mod);
 }

@@ -210,7 +210,7 @@ void ensureArrayBufferConstructor(proto::ProtoContext* ctx,
         { "slice",      ab_slice,          2 },
     };
     for (auto& m : methods) {
-        const proto::ProtoString* key = ctx->fromUTF8String(m.name)->asString(ctx);
+        const proto::ProtoString* key = proto::ProtoString::createSymbol(ctx, m.name);
         if (!key) continue;
         const proto::ProtoObject* fn = ctx->fromMethod(nullptr, m.fn);
         if (!fn || fn == PROTO_NONE) continue;
@@ -365,7 +365,7 @@ void ensureArrayBufferConstructor(proto::ProtoContext* ctx,
                     if (pdns) getter = getter->setAttribute(ctx, pdns, ctx->fromInteger(0x2LL));
                 }
                 const proto::ProtoString* gksSym =
-                    ctx->fromUTF8String("__get_Symbol.species__")->asString(ctx);
+                    proto::ProtoString::createSymbol(ctx, "__get_Symbol.species__");
                 if (gksSym) ctor = ctor->setAttribute(ctx, gksSym, getter);
                 const proto::ProtoObject* pdo = ctx->fromUTF8String("__pd_Symbol.species__");
                 const proto::ProtoString* pdk = pdo ? pdo->asString(ctx) : nullptr;

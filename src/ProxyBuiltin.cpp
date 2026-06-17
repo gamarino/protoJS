@@ -1856,11 +1856,11 @@ void installProxyAndReflect(proto::ProtoContext* ctx,
     {
         const proto::ProtoObject* revFn = installCallable(ctx, proxyRevocable, "revocable", 2);
         if (revFn) {
-            const proto::ProtoString* rk = ctx->fromUTF8String("revocable")->asString(ctx);
+            const proto::ProtoString* rk = proto::ProtoString::createSymbol(ctx, "revocable");
             if (rk) ctor = ctor->setAttribute(ctx, rk, revFn);
         }
     }
-    const proto::ProtoString* k = ctx->fromUTF8String("Proxy")->asString(ctx);
+    const proto::ProtoString* k = proto::ProtoString::createSymbol(ctx, "Proxy");
     if (k) *globalRoot = (*globalRoot)->setAttribute(ctx, k, ctor);
 }
 

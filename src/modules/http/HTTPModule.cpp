@@ -163,7 +163,7 @@ const proto::ProtoObject* makeHeadersObject(
     if (!obj) return PROTO_NONE;
     for (const auto& [k, v] : headers) {
         const proto::ProtoString* sk =
-            ctx->fromUTF8String(k.c_str())->asString(ctx);
+            proto::ProtoString::createSymbol(ctx, k);
         if (sk) obj->setAttribute(ctx, sk,
                                    ctx->fromUTF8String(v.c_str()));
     }
@@ -184,7 +184,7 @@ const proto::ProtoObject* incomingGetHeader(
         self->getAttribute(ctx, keyHeaders(ctx), false);
     if (!hdrs || hdrs == PROTO_NONE) return PROTO_NONE;
     const proto::ProtoString* nk =
-        ctx->fromUTF8String(name.c_str())->asString(ctx);
+        proto::ProtoString::createSymbol(ctx, name);
     if (!nk) return PROTO_NONE;
     const proto::ProtoObject* v = hdrs->getAttribute(ctx, nk, false);
     return (v && v != PROTO_NONE) ? v : PROTO_NONE;
@@ -415,10 +415,10 @@ void dispatchRequest(JSContextWrapper* wrapper,
         ctx->fromUTF8String(req.body.c_str()));
     // Public fields the original exposed.
     incoming->setAttribute(ctx,
-        ctx->fromUTF8String("method")->asString(ctx),
+        proto::ProtoString::createSymbol(ctx, "method"),
         ctx->fromUTF8String(req.method.c_str()));
     incoming->setAttribute(ctx,
-        ctx->fromUTF8String("url")->asString(ctx),
+        proto::ProtoString::createSymbol(ctx, "url"),
         ctx->fromUTF8String(req.url.c_str()));
 
     // Build ServerResponse
@@ -633,7 +633,7 @@ const proto::ProtoObject* clientResponseOnImpl(
         if (lisKey) self->setAttribute(ctx, lisKey, listeners);
     }
     const proto::ProtoString* ek =
-        ctx->fromUTF8String(eventName.c_str())->asString(ctx);
+        proto::ProtoString::createSymbol(ctx, eventName);
     if (ek) listeners->setAttribute(ctx, ek, handler);
     return self;
 }
@@ -675,7 +675,7 @@ void dispatchClientResponse(JSContextWrapper* wrapper,
         ? responseProto->newChild(ctx, /*mutable=*/true)
         : ctx->newObject(/*mutable=*/true);
 
-    const proto::ProtoString* scKey = ctx->fromUTF8String("statusCode")->asString(ctx);
+    const proto::ProtoString* scKey = proto::ProtoString::createSymbol(ctx, "statusCode");
     if (scKey) response->setAttribute(ctx, scKey, ctx->fromInteger(resp.statusCode));
 
     response->setAttribute(ctx, keyHeaders(ctx), makeHeadersObject(ctx, resp.headers));
@@ -700,7 +700,7 @@ void dispatchClientResponse(JSContextWrapper* wrapper,
     auto fireEvent = [&](const char* eventName, const proto::ProtoObject* arg) {
         if (!listeners || listeners == PROTO_NONE) return;
         const proto::ProtoString* ek =
-            ctx->fromUTF8String(eventName)->asString(ctx);
+            proto::ProtoString::createSymbol(ctx, eventName);
         if (!ek) return;
         const proto::ProtoObject* handler = listeners->getAttribute(ctx, ek, false);
         if (!handler || handler == PROTO_NONE) return;
@@ -939,7 +939,7 @@ const proto::ProtoObject* clientRequest(
 
     auto getStrOpt = [&](const char* field, const std::string& def) -> std::string {
         if (!opts || opts == PROTO_NONE) return def;
-        const proto::ProtoString* k = ctx->fromUTF8String(field)->asString(ctx);
+        const proto::ProtoString* k = proto::ProtoString::createSymbol(ctx, field);
         if (!k) return def;
         const proto::ProtoObject* v = opts->getAttribute(ctx, k, false);
         if (!v || v == PROTO_NONE || !v->isString(ctx)) return def;
@@ -947,7 +947,7 @@ const proto::ProtoObject* clientRequest(
     };
     auto getIntOpt = [&](const char* field, long long def) -> long long {
         if (!opts || opts == PROTO_NONE) return def;
-        const proto::ProtoString* k = ctx->fromUTF8String(field)->asString(ctx);
+        const proto::ProtoString* k = proto::ProtoString::createSymbol(ctx, field);
         if (!k) return def;
         const proto::ProtoObject* v = opts->getAttribute(ctx, k, false);
         if (!v || v == PROTO_NONE || !v->isInteger(ctx)) return def;

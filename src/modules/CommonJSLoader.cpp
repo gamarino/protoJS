@@ -63,7 +63,7 @@ const proto::ProtoObject* CommonJSLoader::init(
     if (!requireFn) return globalObj;
 
     const proto::ProtoString* resolveKey =
-        pCtx->fromUTF8String("resolve")->asString(pCtx);
+        proto::ProtoString::createSymbol(pCtx, "resolve");
     if (resolveKey) {
         const proto::ProtoObject* resolveFn =
             wrapNativeFunction(pCtx, requireResolveProtoMethod, "resolve",
@@ -71,7 +71,7 @@ const proto::ProtoObject* CommonJSLoader::init(
         if (resolveFn) requireFn = requireFn->setAttribute(pCtx, resolveKey, resolveFn);
     }
     const proto::ProtoString* cacheKey =
-        pCtx->fromUTF8String("cache")->asString(pCtx);
+        proto::ProtoString::createSymbol(pCtx, "cache");
     if (cacheKey) {
         requireFn = requireFn->setAttribute(pCtx, cacheKey,
             pCtx->newObject(/*mutable=*/true));

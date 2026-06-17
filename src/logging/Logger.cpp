@@ -30,7 +30,7 @@ void Logger::error(proto::ProtoContext* pContext, const proto::ProtoString* mess
 void Logger::setLevel(proto::ProtoContext* pContext, Level level) {
     std::lock_guard<std::mutex> lock(logMutex);
     const proto::ProtoSparseList* storage = getLevelStorage(pContext);
-    const proto::ProtoString* levelKey = pContext->fromUTF8String("level")->asString(pContext);
+    const proto::ProtoString* levelKey = proto::ProtoString::createSymbol(pContext, "level");
     unsigned long levelKeyHash = levelKey->getHash(pContext);
     storage = storage->setAt(pContext, levelKeyHash, pContext->fromInteger(static_cast<long long>(level)));
     setLevelStorage(pContext, storage);
@@ -44,7 +44,7 @@ void Logger::setOutput(std::ostream* output) {
 const proto::ProtoObject* Logger::getLevel(proto::ProtoContext* pContext) {
     std::lock_guard<std::mutex> lock(logMutex);
     const proto::ProtoSparseList* storage = getLevelStorage(pContext);
-    const proto::ProtoString* levelKey = pContext->fromUTF8String("level")->asString(pContext);
+    const proto::ProtoString* levelKey = proto::ProtoString::createSymbol(pContext, "level");
     unsigned long levelKeyHash = levelKey->getHash(pContext);
     
     if (storage->has(pContext, levelKeyHash)) {
@@ -112,17 +112,17 @@ const proto::ProtoString* Logger::formatJSON(proto::ProtoContext* pContext, Leve
     auto tm = *std::gmtime(&now);
     char timeBuf[64];
     std::strftime(timeBuf, sizeof(timeBuf), "%Y-%m-%dT%H:%M:%SZ", &tm);
-    const proto::ProtoString* timestamp = pContext->fromUTF8String(timeBuf)->asString(pContext);
+    const proto::ProtoString* timestamp = proto::ProtoString::createSymbol(pContext, timeBuf);
     
     // Build JSON: {"timestamp":"...","level":"...","message":"..."}
-    const proto::ProtoString* json = pContext->fromUTF8String("{")->asString(pContext);
-    json = json->appendLast(pContext, pContext->fromUTF8String("\"timestamp\":\"")->asString(pContext));
+    const proto::ProtoString* json = proto::ProtoString::createSymbol(pContext, "{");
+    json = json->appendLast(pContext, proto::ProtoString::createSymbol(pContext, "\"timestamp\":\""));
     json = json->appendLast(pContext, timestamp);
-    json = json->appendLast(pContext, pContext->fromUTF8String("\",\"level\":\"")->asString(pContext));
+    json = json->appendLast(pContext, proto::ProtoString::createSymbol(pContext, "\",\"level\":\""));
     json = json->appendLast(pContext, levelStr);
-    json = json->appendLast(pContext, pContext->fromUTF8String("\",\"message\":\"")->asString(pContext));
+    json = json->appendLast(pContext, proto::ProtoString::createSymbol(pContext, "\",\"message\":\""));
     json = json->appendLast(pContext, message);
-    json = json->appendLast(pContext, pContext->fromUTF8String("\"}")->asString(pContext));
+    json = json->appendLast(pContext, proto::ProtoString::createSymbol(pContext, "\"}"));
     
     return json;
 }
@@ -136,19 +136,19 @@ const proto::ProtoString* Logger::formatText(proto::ProtoContext* pContext, Leve
     auto tm = *std::localtime(&now);
     char timeBuf[64];
     std::strftime(timeBuf, sizeof(timeBuf), "%Y-%m-%d %H:%M:%S", &tm);
-    const proto::ProtoString* timestamp = pContext->fromUTF8String(timeBuf)->asString(pContext);
+    const proto::ProtoString* timestamp = proto::ProtoString::createSymbol(pContext, timeBuf);
     
     // Build: [timestamp] LEVEL message
-    const proto::ProtoString* formatted = pContext->fromUTF8String("[")->asString(pContext);
+    const proto::ProtoString* formatted = proto::ProtoString::createSymbol(pContext, "[");
     formatted = formatted->appendLast(pContext, timestamp);
-    formatted = formatted->appendLast(pContext, pContext->fromUTF8String("] ")->asString(pContext));
+    formatted = formatted->appendLast(pContext, proto::ProtoString::createSymbol(pContext, "] "));
     formatted = formatted->appendLast(pContext, levelStr);
-    formatted = formatted->appendLast(pContext, pContext->fromUTF8String(" ")->asString(pContext));
+    formatted = formatted->appendLast(pContext, proto::ProtoString::createSymbol(pContext, " "));
     formatted = formatted->appendLast(pContext, message);
     
     // Add context if provided
     if (context && context->getSize(pContext) > 0) {
-        formatted = formatted->appendLast(pContext, pContext->fromUTF8String(" ")->asString(pContext));
+        formatted = formatted->appendLast(pContext, proto::ProtoString::createSymbol(pContext, " "));
         // Iterate over context and append key=value pairs
         const proto::ProtoSparseListIterator* iter = context->getIterator(pContext);
         while (iter && iter->hasNext(pContext)) {
