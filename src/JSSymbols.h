@@ -163,6 +163,8 @@ const proto::ProtoString* hasIndexedSetters(proto::ProtoContext* ctx); // "__has
 // 300K rope allocations on these two keys.  Interned via JSSymbols.
 const proto::ProtoString* getLength(proto::ProtoContext* ctx);      // "__get_length__"
 const proto::ProtoString* setLength(proto::ProtoContext* ctx);      // "__set_length__"
+const proto::ProtoString* toJSON(proto::ProtoContext* ctx);         // "toJSON"
+const proto::ProtoString* getToJSON(proto::ProtoContext* ctx);      // "__get_toJSON__"
 
 // Per-object hint flags for the OrdinarySet hot path (added 2026-06-07).
 // resolvePutFieldOOP runs on every `obj[key] = val` and used to

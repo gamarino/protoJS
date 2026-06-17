@@ -150,6 +150,8 @@ DEFINE_SYMBOL(hasAccessorProps, "__has_accessor_props__")
 DEFINE_SYMBOL(hasNonWritableProps,"__has_nonwritable_props__")
 DEFINE_SYMBOL(getLength,        "__get_length__")
 DEFINE_SYMBOL(setLength,        "__set_length__")
+DEFINE_SYMBOL(toJSON,           "toJSON")
+DEFINE_SYMBOL(getToJSON,        "__get_toJSON__")
 
 // ---- TypedArray / ArrayBuffer / DataView internal keys ------------------
 DEFINE_SYMBOL(abData,        "__ab_data__")

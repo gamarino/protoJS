@@ -289,8 +289,16 @@ void stringifyRecursive(proto::ProtoContext* ctx,
     // recurse on themselves; primitive-only check above already
     // handled.
     {
-        const proto::ProtoObject* tjsObj = ctx->fromUTF8String("toJSON");
-        const proto::ProtoString* tjsKey = tjsObj ? tjsObj->asString(ctx) : nullptr;
+        // Pre-fix: every stringifyRecursive call built two rope strings
+        // ("toJSON" and "__get_toJSON__") via fromUTF8String + asString —
+        // each rope then forced protoCore's defensive
+        // SymbolTable::lookupByContent in getAttribute, plus the rope
+        // construction itself.  json_transform's stringify of a
+        // 1666-element summary array fires this loop 1666× per outer
+        // iteration × 5 iterations = 8K calls; nested object recursion
+        // multiplies by the per-object property count.  Interned via
+        // JSSymbols.
+        const proto::ProtoString* tjsKey = JSSymbols::toJSON(ctx);
         if (tjsKey) {
             const proto::ProtoObject* tjsFn = obj->getAttribute(ctx, tjsKey, true);
             // §6.2.5 Get(O, 'toJSON'): if 'toJSON' is an accessor
@@ -301,9 +309,7 @@ void stringifyRecursive(proto::ProtoContext* ctx,
             // had it invoked (value-bigint-tojson-receiver.js does
             // this on BigInt.prototype).
             {
-                std::string gkStr = "__get_toJSON__";
-                const proto::ProtoObject* gko = ctx->fromUTF8String(gkStr.c_str());
-                const proto::ProtoString* gk = gko ? gko->asString(ctx) : nullptr;
+                const proto::ProtoString* gk = JSSymbols::getToJSON(ctx);
                 if (gk) {
                     const proto::ProtoObject* getter = obj->getAttribute(ctx, gk, true);
                     if (getter && getter != PROTO_NONE) {
