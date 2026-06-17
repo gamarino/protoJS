@@ -4445,37 +4445,55 @@ contamination.
 
 Adds an env-var gate that treats STRING-tagged `name` at
 `getAttribute` entry as definitely-absent — the embedder contract
-is "always pass an interned SYMBOL".  An honest re-measurement at
-30 runs reveals that the flag's effect is heterogeneous and benches
-develop a **bimodal distribution** under it — the clear "fingerprint"
-of an un-audited hot-path embedder caller violating the symbol
-contract.  Example (object_read_only, 30 runs sorted):
+is "always pass an interned SYMBOL".  Net effect on the standard
+suite measured at **30-run trimmed mean (middle 14 of 30) on an
+unloaded system**: ratio 0.97, i.e. **−3 % geomean** with the flag
+on.  Heterogeneous bench by bench:
 
-```
-OFF: 75-86 ms       (uniform, σ ≈ 3 ms)
-ON:  82-92 (×16 runs), 105-161 (×14 runs)   (bimodal, σ ≈ 27 ms)
-```
+| Bench                | OFF (ms) | ON (ms) | Δ     |
+|----------------------|---------:|--------:|------:|
+| **control_flow**     |    223   |   185   | **−17 %** |
+| object_read_only     |     81   |    75   |  −6 % |
+| array_literal        |    222   |   230   |  +4 % |
+| function_calls       |    193   |   199   |  +3 % |
+| string_concat        |    115   |   112   |  −3 % |
+| tree_traversal       |    160   |   155   |  −3 % |
+| numeric_loop         |     77   |    75   |  −2 % |
+| object_property      |    576   |   582   |  +1 % |
+| json_transform       |    144   |   143   |    =  |
+| list_snapshot_hist.  |     18   |    18   |    =  |
 
-When the violating site fires, `getAttribute` returns PROTO_NONE
-under the flag, the caller's fallback path runs (typically an
-expensive `__get_<key>__` rope + AttributeCache invalidation),
-and the run pays +30–50 ms.  Without the flag, the defensive
-`lookupByContent` finds the interned symbol on the first call,
-populates the cache, and every subsequent call hits.
+Earlier reports claimed a bimodal distribution under the flag
+(object_read_only: 82–92 ms × 16 runs and 105–161 ms × 14 runs).
+That was an artefact of **CPU contention from background processes
+during the measurement window**, not a code-path bifurcation.
+Re-running on an idle system gives a uniform distribution
+(76–88 ms, IQR ≈ 5 ms) — the supposed "audit signal" was system
+noise.  The honest takeaway: the flag's effect is mostly positive
+but modest; promoting it to default requires confidence that the
++3 / +4 % regressions on `function_calls` / `array_literal` are not
+real cycle regressions, which the present measurement cannot
+distinguish from noise either.
 
-So the flag is held as an **audit instrument**, not a perf knob:
-a bench that becomes bimodal under it points at a hot-path
-caller still passing a rope.  That is how the 52 hot-path sites
-cleaned in the audit batches were located, and how future
-batches will be targeted.  The flag will become default only
-after the bimodal signature disappears across the standard suite
-under flag-on.
+The unambiguous wins of the cycle came from the **lazy-init
+discoveries** that the audit experiment triggered via re-profiling:
 
-Cleaning the latent JSSymbols `call_once` overhead (commit
-99aee28e7) and the debug-slot lazy-init (63e0b6354) — both
-unrelated to symbols — gave the standard suite a uniform −9–21 %
-across function_calls / object_read_only / tree_traversal /
-control_flow.  Those are the real wins of the cycle.
+- `63e0b6354` — `debugSlotsEnabled` in every `getSlot` / `setSlot`
+  inline = 3.29 % of `numeric_loop`'s CPU on a useless atomic check.
+  Single-shot init dropped numeric_loop by ~3 %.
+- `99aee28e7` — `JSSymbols::xxxx(ctx)` getters used
+  `std::call_once + lambda` that the compiler could not inline.
+  JSSymbols::hasAccessorProps / isSymbol / primitiveValue summed to
+  ~3 % CPU on object_read_only.  Magic-static replacement dropped
+  object_read_only by ~7 % and the JSSymbols family vanished from
+  the perf top-20.
+
+Both bugs predate the audit and are independent of the symbol
+contract.  They were latent for months and surfaced only because
+the trust-symbols experiment forced a fresh profile session.  The
+lesson is methodological: an "experiment that does not validate
+its own hypothesis" can still pay for itself by exposing
+unrelated bugs that prior profiles had normalised as background.
 
 #### Where protoJS wins by architecture
 
