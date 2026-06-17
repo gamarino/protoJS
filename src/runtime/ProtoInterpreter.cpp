@@ -3334,6 +3334,27 @@ static const proto::ProtoObject* toString(proto::ProtoContext* context,
 
     if (value->isInteger(context)) {
         const long long v = value->asLong(context);
+        // Cache for small non-negative integers (the common case in
+        // `'k' + (i % N)`-style key construction).  The result of
+        // fromUTF8String for ≤4-byte ASCII content is an inline
+        // POINTER_TAG_STRING that is pointer-identity canonical by
+        // construction (same content always packs into the same
+        // tagged pointer), so caching by integer index is safe across
+        // any context.  object_property's hot loop runs `i % 100`
+        // 2 M times — pre-fix each call paid an std::string heap
+        // allocation + a rope build (~2.3 % of CPU); post-fix the
+        // first 100 hits populate the cache and every subsequent call
+        // is a single load.
+        if (v >= 0 && v < 10000) {
+            static const proto::ProtoObject* s_intStrCache[10000] = {};
+            const proto::ProtoObject* cached = s_intStrCache[v];
+            if (cached) return cached;
+            char buf[8];
+            std::snprintf(buf, sizeof(buf), "%lld", v);
+            const proto::ProtoObject* result = context->fromUTF8String(buf);
+            s_intStrCache[v] = result;
+            return result;
+        }
         const std::string tmp = std::to_string(v);
         return context->fromUTF8String(tmp.c_str());
     }
