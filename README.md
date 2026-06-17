@@ -4372,6 +4372,22 @@ Pipeline of the cycle's commits (chronological):
    start; helpers marked `[[gnu::always_inline]]`.  Latent issue
    unrelated to symbols — surfaced by re-profiling during the
    audit experiment.
+9. `99aee28e7` — **JSSymbols magic-static**: `DEFINE_SYMBOL` used
+   `std::once_flag` + `std::call_once` + lambda capturing ctx,
+   which the compiler could not inline through the lambda
+   boundary.  Every `JSSymbols::xxxx(ctx)` call (and there are
+   many in the OP_get_array_el / OP_put_field / dispatch paths)
+   went through a non-inlined function with an atomic load and a
+   lambda thunk dispatch.  The JSSymbols family added up to
+   ~3 % of CPU on object_read_only (hasAccessorProps 0.96 %,
+   isSymbol 0.86 %, primitiveValue 0.93 %, etc.).
+   Replaced with the C++11 thread-safe static initialisation
+   pattern (`static const T s_sym = expr;`), which the compiler
+   reduces to a guard-byte test + load and can fully inline.
+   Post-fix: JSSymbols::* entries disappear from the perf top-20,
+   object_read_only drops from 87 → 79 ms (−9 %).  Same family
+   of bug as 63e0b6354 — a "harmless" lazy-init pattern paying
+   cycles at every call site.
 
 #### Standard In-Process Suite — current reading — vs Node.js 22 / V8 / vanilla QuickJS
 
@@ -4383,28 +4399,28 @@ contamination.
 
 | Benchmark                | Node  | QuickJS | protoJS | × Node | × QuickJS |
 |--------------------------|------:|--------:|--------:|-------:|----------:|
-| **array_literal**        |  3 ms |    6 ms |  240 ms |    80× |  **40×**  |
-| control_flow             |  5 ms |   53 ms |  212 ms |    42× |    4.0×   |
-| **function_calls**       |  1 ms |   12 ms |  219 ms |   219× |  **18×**  |
-| json_transform           |  1 ms |    4 ms |  149 ms |   149× |     37×   |
-| json_transform_small     |  0 ms |    0 ms |   15 ms |  parity|   parity  |
+| **array_literal**        |  2 ms |    6 ms |  217 ms |   109× |  **36×**  |
+| **control_flow**         |  4 ms |   49 ms |  183 ms |    46× |  **3.7×** |
+| **function_calls**       |  1 ms |   10 ms |  202 ms |   202× |  **20×**  |
+| json_transform           |  1 ms |    3 ms |  137 ms |   137× |     46×   |
+| json_transform_small     |  0 ms |    0 ms |   14 ms |  parity|   parity  |
 | json_transform_tiny      |  1 ms |    0 ms |    9 ms |     9× |   parity  |
-| list_snapshot_history    |  0 ms |    1 ms |   20 ms |  parity|     20×   |
-| **numeric_loop**         |  1 ms |   38 ms |   92 ms |    92× | **2.4×**  |
-| **object_property**      | 38 ms |   84 ms |  656 ms |    17× |   **7.8×**|
-| **object_read_only**     |  1 ms |    7 ms |   88 ms |    88× | **12.5×** |
-| object_write_only        | 17 ms |   96 ms | 2274 ms |   134× |     24×   |
+| list_snapshot_history    |  0 ms |    1 ms |   18 ms |  parity|     18×   |
+| **numeric_loop**         |  1 ms |   38 ms |   76 ms |    76× | **2.0×**  |
+| **object_property**      | 37 ms |   79 ms |  559 ms |    15× |   **7.0×**|
+| **object_read_only**     |  1 ms |    6 ms |   75 ms |    75× | **12.5×** |
+| object_write_only        | 14 ms |   62 ms | 1737 ms |   124× |     28×   |
 | **parallel_cpu**         | 41 ms |  804 ms |   52 ms | Node 1.3× | **protoJS 15×** |
-| string_concat            |  2 ms |    7 ms |  148 ms |    74× |     21×   |
+| string_concat            |  1 ms |    5 ms |  116 ms |   116× |     23×   |
 | string_concat_large_ch.  |  0 ms |    0 ms |    0 ms |  parity|   parity  |
 | string_insert_middle     |  0 ms |    0 ms |    1 ms |  parity|   parity  |
-| string_processing        |  0 ms |    0 ms |   11 ms |  parity|   parity  |
-| string_repeated_doubling | 61 ms |    2 ms |    2 ms | **protoJS 30×** | parity |
-| **tree_traversal**       |  1 ms |    5 ms |  241 ms |   241× |  **48×**  |
+| string_processing        |  0 ms |    0 ms |    8 ms |  parity|   parity  |
+| string_repeated_doubling | 40 ms |    1 ms |    1 ms | **protoJS 40×** | parity |
+| **tree_traversal**       |  1 ms |    4 ms |  159 ms |   159× |  **40×**  |
 
 **Geometric mean (in-process time, 11 single-thread benches):**
 
-- **protoJS / QuickJS = 15.5 ×**
+- **protoJS / QuickJS = 15.2 ×**
 - **protoJS / Node    = ~95 ×**
 
 **Headline single-bench wins from this cycle (vs. the pre-cycle 2026-06-16 baseline):**
@@ -4425,23 +4441,41 @@ contamination.
 - `object_read_only`: stable at ~12.5× QuickJS (was already brought
   down from 63× earlier the same day via the accessor-gate fix).
 
-**Optional `PROTOCORE_TRUST_SYMBOLS=1` flag (experimental):**
+**Optional `PROTOCORE_TRUST_SYMBOLS=1` flag (experimental, NOT default):**
 
 Adds an env-var gate that treats STRING-tagged `name` at
 `getAttribute` entry as definitely-absent — the embedder contract
-is "always pass an interned SYMBOL".  Measured net effect across the
-11-bench standard suite: **−5 % geomean** (15-run trimmed mean):
-`string_concat` −19 %, `control_flow` −11 %, `tree_traversal` −7 %,
-`object_property` / `object_write_only` / `object_read_only` each
-−5 %.  `function_calls` regresses +6 % under the flag, so it is not
-yet promoted to default behaviour — running the audit's remaining
-~187 cold-path sites is expected to close the function_calls gap.
+is "always pass an interned SYMBOL".  An honest re-measurement at
+30 runs reveals that the flag's effect is heterogeneous and benches
+develop a **bimodal distribution** under it — the clear "fingerprint"
+of an un-audited hot-path embedder caller violating the symbol
+contract.  Example (object_read_only, 30 runs sorted):
 
-The flag also doubles as an audit tool: a bench that regresses under
-the flag identifies a hot-path caller that violates the symbol
-contract (a `fromUTF8String` rope passed where an interned symbol was
-expected).  That is how the 52 hot-path sites cleaned in the audit
-batches were located.
+```
+OFF: 75-86 ms       (uniform, σ ≈ 3 ms)
+ON:  82-92 (×16 runs), 105-161 (×14 runs)   (bimodal, σ ≈ 27 ms)
+```
+
+When the violating site fires, `getAttribute` returns PROTO_NONE
+under the flag, the caller's fallback path runs (typically an
+expensive `__get_<key>__` rope + AttributeCache invalidation),
+and the run pays +30–50 ms.  Without the flag, the defensive
+`lookupByContent` finds the interned symbol on the first call,
+populates the cache, and every subsequent call hits.
+
+So the flag is held as an **audit instrument**, not a perf knob:
+a bench that becomes bimodal under it points at a hot-path
+caller still passing a rope.  That is how the 52 hot-path sites
+cleaned in the audit batches were located, and how future
+batches will be targeted.  The flag will become default only
+after the bimodal signature disappears across the standard suite
+under flag-on.
+
+Cleaning the latent JSSymbols `call_once` overhead (commit
+99aee28e7) and the debug-slot lazy-init (63e0b6354) — both
+unrelated to symbols — gave the standard suite a uniform −9–21 %
+across function_calls / object_read_only / tree_traversal /
+control_flow.  Those are the real wins of the cycle.
 
 #### Where protoJS wins by architecture
 
