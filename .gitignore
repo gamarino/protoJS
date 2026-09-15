@@ -42,6 +42,8 @@ protoJS_staging/
 build/
 build_release/
 build_check/
+build_asan/
+build_on/
 
 # Scratch and transient test artifacts
 scratch/
