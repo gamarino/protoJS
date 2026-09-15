@@ -1,133 +1,47 @@
-# protoCore Module Guide
+# The `protoCore` Global
 
-## Introduction
+The `protoCore` global exposes protoCore functionality that has no direct equivalent in standard JavaScript. Scripts run on the protoCore interpreter against the protoCore-native global object; on that object, `protoCore` is created by `src/ProtoCoreNativeBindings.cpp` and currently provides a single function, `runInThread`.
 
-The `protoCore` module exposes special collections and utilities from protoCore that have no direct equivalent in standard JavaScript.
-
-## Available Collections
-
-### ProtoSet
-
-Similar to JavaScript's `Set`, but with special features (immutability, hash-based).
+## Native multithreading: `runInThread`
 
 ```javascript
-const set = new protoCore.Set([1, 2, 3, 3, 4]);
-console.log(set.size); // 4 (duplicates removed)
-
-set.add(5);
-console.log(set.size); // 5
-
-console.log(set.has(3)); // true
-set.remove(3);
-console.log(set.has(3)); // false
-```
-
-### ProtoMultiset
-
-Does not exist in standard JavaScript. Allows duplicate elements and counts occurrences.
-
-```javascript
-const multiset = new protoCore.Multiset([1, 1, 2, 2, 2, 3]);
-console.log(multiset.size); // 6 (total including duplicates)
-console.log(multiset.count(2)); // 3 (occurrences of 2)
-
-multiset.add(2);
-console.log(multiset.count(2)); // 4
-```
-
-### ProtoSparseList
-
-Similar to `Array`, but optimized for sparse arrays (with gaps).
-
-```javascript
-const sparse = new protoCore.SparseList();
-sparse.set(0, "first");
-sparse.set(100, "hundredth");
-sparse.set(1000, "thousandth");
-
-console.log(sparse.size); // 3
-console.log(sparse.get(0)); // "first"
-console.log(sparse.has(50)); // false
-```
-
-### ProtoTuple
-
-Immutable array, similar to tuples in other languages.
-
-```javascript
-const tuple = protoCore.Tuple([1, 2, 3]);
-console.log(tuple.length); // 3
-console.log(tuple[0]); // 1
-
-// tuple.push(4); // Error: immutable
-// tuple[0] = 10; // Error: immutable
-```
-
-## Mutability Control
-
-### Creating Immutable Objects
-
-```javascript
-const immutable = protoCore.ImmutableObject({a: 1, b: 2});
-// immutable.a = 3; // Error or creates new object
-```
-
-### Creating Mutable Objects
-
-```javascript
-const mutable = protoCore.MutableObject({a: 1, b: 2});
-mutable.a = 3; // OK
-console.log(mutable.a); // 3
-```
-
-### Checking Mutability
-
-```javascript
-const obj = {a: 1};
-console.log(protoCore.isImmutable(obj)); // false (JS objects are mutable by default)
-
-const immutable = protoCore.ImmutableObject({a: 1});
-console.log(protoCore.isImmutable(immutable)); // true
-```
-
-### Converting Mutability
-
-```javascript
-const obj = {a: 1};
-
-// Convert to immutable
-const immutable = protoCore.makeImmutable(obj);
-
-// Convert to mutable
-const mutable = protoCore.makeMutable(immutable);
-```
-
-## Native multithreading (`runInThread`)
-
-Run a registered native worker in a protoCore thread with **no serialization**: the worker runs in the same ProtoSpace, and the result stays in shared memory. Returns a Deferred (thenable).
-
-```javascript
-// Run the built-in "cpuChunk" worker with one argument (e.g. iterations)
-const d = protoCore.runInThread('cpuChunk', [2e6]);
-d.then(function (result) {
-    console.log(result); // sum 0..2e6-1
-});
-d.catch(function (err) {
-    console.error(err);
+const d = protoCore.runInThread('cpuChunk', [2000000]);
+d.then((sum) => {
+    console.log("sum of generator states:", sum);
 });
 ```
 
-Built-in workers: `cpuChunk` (args: `[iterations]`) runs an LCG (linear congruential) loop for that many iterations and returns the accumulated value. The workload is data-dependent and not trivially optimizable by JIT, for fair parallel benchmarks. Use for CPU-bound parallel work without copying data between threads.
+`protoCore.runInThread(workerName, args)`:
 
-## Advantages
+- **`workerName`** — the name of a native worker registered in `src/ProtoCoreNativeBindings.cpp`. The only registered worker is `cpuChunk`. If the name is not a string or is not registered, the call returns `undefined`.
+- **`args`** — optional array whose elements are passed to the worker as protoCore objects, without serialization.
+- **Result** — a [`Deferred`](DEFERRED_USAGE.md). The worker runs on a new protoCore thread (`ProtoSpace::newThread`) in the same `ProtoSpace` as the script. When the thread finishes, the Deferred is fulfilled with the worker's result on the script's event loop. If the thread cannot be created, the Deferred is rejected with the message `runInThread: failed to create thread`.
 
-- **Immutability**: Eliminates shared state bugs
-- **Efficiency**: Structural sharing reduces memory usage
-- **Concurrency**: Immutable objects are shared between threads without copying
-- **Advanced collections**: Multiset and others not available in standard JS
+**`cpuChunk`** takes one argument, an iteration count `n`. It runs `n` steps of a 32-bit linear congruential generator and fulfils the Deferred with the integer sum of the generated states. The loop is data-dependent; the `parallel_cpu` benchmark in `tests/benchmarks/standard/` uses it to measure parallel CPU work.
 
-## Module Discovery (protoCore)
+Several calls can run at the same time, one protoCore thread each:
 
-protoCore provides a **Unified Module Discovery and Provider System**: configurable resolution chain per `ProtoSpace`, `ProviderRegistry` of `ModuleProvider`s, and `ProtoSpace::getImportModule` with a shared, thread-safe module cache. protoJS uses a `ProtoSpace` per context; that space carries the resolution chain and module roots.
+```javascript
+let done = 0;
+for (let i = 0; i < 4; i++) {
+    protoCore.runInThread('cpuChunk', [2000000]).then((sum) => {
+        done++;
+        console.log("task", i, "finished:", sum);
+    });
+}
+```
 
-For how protoJS integrates with this system and when to use `ProtoSpace::getImportModule` from host code, see **[MODULE_DISCOVERY_PROTOCORE.md](MODULE_DISCOVERY_PROTOCORE.md)**. For the full specification, see protoCore’s `docs/MODULE_DISCOVERY.md`.
+`protojs` keeps the process alive while these Deferreds are pending (see [DEFERRED_USAGE.md](DEFERRED_USAGE.md#process-lifetime)).
+
+## Collections and mutability helpers (not reachable from scripts)
+
+`src/modules/ProtoCoreModule.cpp` implements a larger `protoCore` object against the QuickJS C API:
+
+- constructors `Set` (`add`, `has`, `remove`, `size`), `Multiset` (`add`, `count`, `remove`, `size`) and `SparseList` (`set`, `get`, `has`, `size`);
+- functions `Tuple`, `ImmutableObject`, `MutableObject`, `isImmutable`, `makeImmutable` and `makeMutable`.
+
+`protojs` installs that object only on the QuickJS-side global object, which scripts running on the protoCore interpreter do not see. As a result, `protoCore.Set`, `protoCore.Tuple` and the other names above are `undefined` in scripts; `tests/integration/collections/protoCore_collections.js` checks for each one before using it. Moving these bindings to the protoCore-native global is step 3 of [MIGRATION_QUICKJS_TO_PROTOCORE.md](MIGRATION_QUICKJS_TO_PROTOCORE.md).
+
+## Module discovery
+
+protoCore also provides a unified module discovery system (resolution chain, `ProviderRegistry`, `ProtoSpace::getImportModule`). `require()` consults it for bare specifiers. See [MODULE_DISCOVERY_PROTOCORE.md](MODULE_DISCOVERY_PROTOCORE.md).

@@ -1,426 +1,150 @@
 # Troubleshooting Guide
 
-Solutions to common problems in protoJS.
+Solutions to common problems when building and running protoJS.
 
 ---
 
-## Table of Contents
+## Table of contents
 
-1. [Build Problems](#build-problems)
-2. [Runtime Errors](#runtime-errors)
-3. [Deferred Problems](#deferred-problems)
-4. [Module Problems](#module-problems)
-5. [Performance Problems](#performance-problems)
-6. [Thread Pool Problems](#thread-pool-problems)
-7. [Type Conversion Problems](#type-conversion-problems)
+1. [Build problems](#build-problems)
+2. [Command-line and runtime messages](#command-line-and-runtime-messages)
+3. [Missing globals and modules](#missing-globals-and-modules)
+4. [Deferred and asynchronous code](#deferred-and-asynchronous-code)
+5. [Performance and threads](#performance-and-threads)
+6. [Reporting problems](#reporting-problems)
 
 ---
 
-## Build Problems
+## Build problems
 
-### Error: "protoCore shared library not found"
+### "protoCore shared library not found"
 
-**Symptom:**
 ```
 CMake Error: protoCore shared library not found. Build protoCore first: ...
 ```
 
-**Solution:**
-1. Build the **protoCore shared library** (official name: protoCore) in the protoCore project:
-   ```bash
-   cd ../protoCore
-   cmake -B build -S .
-   cmake --build build --target protoCore
-   ```
-   This produces `libprotoCore.so` (Linux), `libprotoCore.dylib` (macOS), or `protoCore.dll` (Windows) in `protoCore/build/` (or `protoCore/build_check/`).
+Without `PROTO_CORE_PREFIX`, CMake looks for `libprotoCore` only in `../protoCore/build` and `../protoCore/build_check`. Either build protoCore there:
 
-2. Verify that protoCore is in the expected path or set `PROTOCORE_DIR` in CMake:
-   ```bash
-   cmake -DPROTOCORE_DIR=/path/to/protoCore ..
-   ```
-
-### Error: "QuickJS headers not found"
-
-**Symptom:**
-```
-fatal error: quickjs.h: No such file or directory
+```bash
+cmake -S ../protoCore -B ../protoCore/build
+cmake --build ../protoCore/build --target protoCore
 ```
 
-**Solution:**
-1. Verify that QuickJS is in `deps/quickjs/`
-2. If not, clone QuickJS:
-   ```bash
-   git clone https://github.com/bellard/quickjs.git deps/quickjs
-   ```
+or point CMake at an installed protoCore with `-DPROTO_CORE_PREFIX=<prefix>` (it must contain `lib/libprotoCore` or `lib64/libprotoCore`, and `include/protoCore.h`). See [INSTALLATION.md](INSTALLATION.md).
 
-### Error: "C++20 features not supported"
+### "quickjs.h: No such file or directory"
 
-**Symptom:**
-```
-error: 'concepts' not supported
-```
+QuickJS is vendored in `deps/quickjs/` and is part of the repository. The copy is modified for protoJS (for example `deps/quickjs/quickjs.c` defines `protojs_get_function_bytecode`, which the compile step uses), so do not replace it with an upstream QuickJS checkout. Restore the directory from the repository instead.
 
-**Solution:**
-1. Update your compiler:
-   - GCC 10+ or Clang 12+ required
-2. Verify the version:
-   ```bash
-   g++ --version
-   clang++ --version
-   ```
+### Undefined references to `SSL_*`, `EVP_*` or similar
 
-### Linker Error: "undefined reference"
+The runtime links the `ssl` and `crypto` libraries. Install the OpenSSL development package (`libssl-dev` on Debian/Ubuntu, `openssl-devel` on Fedora).
 
-**Symptom:**
-```
-undefined reference to `proto::...`
-```
+### Undefined references to `proto::...`
 
-**Solution:**
-1. Verify that the protoCore shared library was built and found by CMake (see "protoCore shared library not found" above).
-2. protoJS links against `${PROTOCORE_LIBRARY}` (the protoCore shared library). Ensure protoCore is built with `cmake --build build --target protoCore` before building protoJS.
+protoJS was configured against a protoCore library that is missing or older than the headers it compiled with. Rebuild protoCore (`cmake --build ../protoCore/build --target protoCore`), then rebuild protoJS.
+
+### C++20 errors
+
+The build requires a compiler with C++20 support. Check the compiler version with `g++ --version` or `clang++ --version`.
+
+### The configure step fails while downloading Catch2
+
+With tests enabled (the default), CMake downloads Catch2 v3.5.2 when it is not installed. Install Catch2 v3, allow network access, or configure with `-DBUILD_TESTING=OFF`.
 
 ---
 
-## Runtime Errors
+## Command-line and runtime messages
 
-### "Deferred is not defined"
+### The usage text is printed and the exit status is 1
 
-**Symptom:**
-```javascript
-ReferenceError: Deferred is not defined
-```
+`protojs` was started without arguments. Pass a script (`protojs script.js`) or code (`protojs -e "..."`). Starting `protojs` with options but no script opens the REPL.
 
-**Solution:**
-1. Verify that `Deferred::init()` has been called in `main.cpp`
-2. In Phase 1, Deferred may not be fully functional
-3. Verify that the module is initialized before use
+### "Unknown option: ..." or "Could not open file: ..."
 
-### "protoCore is not defined"
+The option is not recognised (see [API_REFERENCE.md](API_REFERENCE.md#command-line)) or the script path cannot be read.
 
-**Symptom:**
-```javascript
-ReferenceError: protoCore is not defined
-```
+### "[protojs] compile failed, fallback to QuickJS eval"
 
-**Solution:**
-1. Ensure that `ProtoCoreModule::init()` has been called
-2. Verify in `main.cpp` that the module is initialized:
-   ```cpp
-   ProtoCoreModule::init(ctx);
-   ```
+The protoCore compile step failed for the code (for example because of a syntax error), and `protojs` retried with QuickJS evaluation. Set `PROTOJS_NO_FALLBACK=1` to report the compile error instead of retrying.
 
-### "process is not defined"
+### "[ProtoInterpreter] unsupported opcode 0x.. at byte offset N"
 
-**Symptom:**
-```javascript
-ReferenceError: process is not defined
-```
+The interpreter reached a QuickJS bytecode instruction it does not implement, and the current function stops executing. Reduce the script to the construct that triggers it and report it with the message.
 
-**Solution:**
-1. Verify that `ProcessModule::init()` has been called with correct arguments
-2. The process module must be initialized in `main.cpp`:
-   ```cpp
-   ProcessModule::init(ctx, argc, argv);
-   ```
+### "Warning: Event loop timeout reached. Some callbacks may not have completed."
 
-### "io is not defined"
-
-**Symptom:**
-```javascript
-ReferenceError: io is not defined
-```
-
-**Solution:**
-1. Verify that `IOModule::init()` has been called
-2. Ensure that the module is initialized in `main.cpp`
+After the main script finishes, `protojs` waits for pending `Deferred`s, workers, HTTP servers and clients and `net` sockets for at most 180 seconds. A server that keeps listening, or a Deferred that never settles, reaches this limit.
 
 ---
 
-## Deferred Problems
+## Missing globals and modules
 
-### Deferred does not execute in worker thread
+### `protoCore.Set` (or `Multiset`, `SparseList`, `Tuple`, `ImmutableObject`, ...) is `undefined`
 
-**Symptom:**
-Code inside Deferred executes on the main thread, blocking the application.
+Only `protoCore.runInThread` is installed on the global that scripts see. The collection and mutability helpers exist only on the QuickJS-side global. See [PROTOCORE_MODULE.md](PROTOCORE_MODULE.md).
 
-**Solution:**
-1. In Phase 1, the implementation is basic and may not execute in worker threads
-2. Verify that `CPUThreadPool` is initialized:
-   ```cpp
-   CPUThreadPool::initialize();
-   ```
-3. Check the [Current Status](../README.md#-current-status) section of the README for the current implementation status
+### `require('fs')` (or another standard module) fails with "Cannot find module"
 
-### Deferred does not return result
+`require()` looks up bare module names on the QuickJS-side global object, while the standard modules are registered on the protoCore-native global. Use the global directly (`fs`, `path`, `http`, ...). See [MODULE_DISCOVERY_PROTOCORE.md](MODULE_DISCOVERY_PROTOCORE.md).
 
-**Symptom:**
-There is no way to get the Deferred result.
+### `setTimeout` or `setInterval` is not defined
 
-**Solution:**
-1. In Phase 1, `.then()` and `.catch()` may not be implemented
-2. Complete implementation is planned for future phases
-3. For now, the result is processed internally
+protoJS does not install timer functions. Use `setImmediate(callback)` to run code on a later event-loop turn.
 
-### Multiple Deferreds do not execute in parallel
+### `process.platform` prints a function
 
-**Symptom:**
-Deferreds execute sequentially instead of in parallel.
+`process.platform` and `process.arch` are functions in protoJS: call `process.platform()` and `process.arch()`.
 
-**Solution:**
-1. Verify that `CPUThreadPool` has multiple threads:
-   ```bash
-   protojs --cpu-threads 4 script.js
-   ```
-2. Verify that the pool is correctly initialized
-3. In Phase 1, the implementation may have limitations
+### Other `ReferenceError`s for host globals
+
+Check the list of installed globals in [API_REFERENCE.md](API_REFERENCE.md#globals). With `--minimal`, only `console`, `print`, `JSON`, `performance`, `Deferred`, `protoCore` and the script globals are installed.
 
 ---
 
-## Module Problems
+## Deferred and asynchronous code
 
-### protoCore Module: Methods not available
+### `TypeError` when calling `resolve` inside `new Deferred((resolve, reject) => ...)`
 
-**Symptom:**
-```javascript
-TypeError: set.add is not a function
-```
+The Deferred function receives no arguments. Return the value instead; it fulfils the Deferred. See [DEFERRED_USAGE.md](DEFERRED_USAGE.md).
 
-**Solution:**
-1. Verify that the object is a correct instance:
-   ```javascript
-   const set = new protoCore.Set([1, 2, 3]);
-   ```
-2. Don't use `protoCore.Set` as a function, use `new`
-3. Verify that the module is correctly initialized
+### A `catch` callback never runs for an exception thrown inside a Deferred
 
-### process Module: Missing environment variables
+In the current implementation, the constructor fulfils the Deferred with the call's return value and does not route exceptions to `catch`. Handle errors inside the function.
 
-**Symptom:**
-```javascript
-console.log(process.env.SOME_VAR); // undefined
-```
+### Deferreds do not run in parallel
 
-**Solution:**
-1. In Phase 1, only common variables (`PATH`, `HOME`, `USER`) are exposed
-2. For other variables, use `std::getenv` in C++ or wait for future phases
-3. Check the implementation in `ProcessModule.cpp`
-
-### io Module: File not found
-
-**Symptom:**
-```javascript
-Error: readFile error: No such file or directory
-```
-
-**Solution:**
-1. Verify that the file path is correct (relative to current directory)
-2. Use absolute paths if necessary:
-   ```javascript
-   const content = io.readFile("/absolute/path/to/file.txt");
-   ```
-3. Verify file read permissions
+A Deferred runs its function on the main thread's event loop, one at a time. For parallel CPU work use `protoCore.runInThread`, or `worker_threads`.
 
 ---
 
-## Performance Problems
+## Performance and threads
 
-### Application slow with many Deferreds
+### Many threads or high memory use during I/O-heavy scripts
 
-**Symptom:**
-The application becomes slow when many Deferreds are created.
+The I/O pool defaults to three threads per hardware thread. Reduce it with `--io-threads N` or `--io-threads-factor F`. See [THREAD_POOLS.md](THREAD_POOLS.md).
 
-**Solution:**
-1. Limit the number of concurrent Deferreds
-2. Increase the CPU thread pool size:
-   ```bash
-   protojs --cpu-threads 8 script.js
-   ```
-3. Consider grouping work into fewer, larger Deferreds
+### `--cpu-threads` has no visible effect on a script
 
-### High memory usage
+The CPU pool does not run script code; only `protoCore.runInThread` uses it, to wait for protoCore threads. Parallelism comes from the number of `runInThread` calls.
 
-**Symptom:**
-The application consumes a lot of memory.
+### Comparing performance
 
-**Solution:**
-1. Verify that you're using immutability correctly (structural sharing)
-2. Avoid unnecessary copies of large arrays
-3. Use `ProtoSparseList` for arrays with many gaps
-4. Verify that there are no memory leaks in the C++ code
-
-### Thread pool saturated
-
-**Symptom:**
-Tasks take a long time to execute.
-
-**Solution:**
-1. Increase the thread pool size:
-   ```bash
-   protojs --cpu-threads 16 script.js
-   ```
-2. Verify that there are no blocking tasks on the main thread
-3. Consider using the I/O thread pool for I/O operations
+Use the standard suite in `tests/benchmarks/standard/` to measure a specific build against Node.js or QuickJS; dated results are in `tests/benchmarks/results/`.
 
 ---
 
-## Thread Pool Problems
+## Reporting problems
 
-### CPU Thread Pool does not initialize
+When reporting a bug, include:
 
-**Symptom:**
-```
-Error: CPUThreadPool not initialized
-```
+1. The protoJS commit (`git rev-parse HEAD`) and protoCore commit.
+2. The operating system, compiler and CMake versions.
+3. The smallest script that reproduces the problem, the command line used, and the full output.
 
-**Solution:**
-1. Verify that `CPUThreadPool::initialize()` is called in `JSContextWrapper`
-2. Verify that the number of threads is > 0
-3. Verify that `std::thread::hardware_concurrency()` returns a valid value
-
-### I/O Thread Pool with too many threads
-
-**Symptom:**
-The system becomes slow with many I/O threads.
-
-**Solution:**
-1. Reduce the I/O thread factor:
-   ```bash
-   protojs --io-threads-factor 2.0 script.js
-   ```
-2. Or specify a fixed number:
-   ```bash
-   protojs --io-threads 8 script.js
-   ```
-
-### Threads do not close correctly
-
-**Symptom:**
-The application does not terminate or leaves zombie threads.
-
-**Solution:**
-1. Verify that `shutdown()` is called in destructors
-2. Ensure that `JSContextWrapper` is correctly destroyed
-3. Verify that there are no circular references preventing destruction
-
----
-
-## Type Conversion Problems
-
-### Error converting object to protoCore
-
-**Symptom:**
-```
-TypeError: Cannot convert object to protoCore
-```
-
-**Solution:**
-1. Verify that the object has a simple structure (without complex functions)
-2. In Phase 1, some types may not be supported
-3. Check `TypeBridge.cpp` to see which conversions are implemented
-
-### Array does not convert correctly
-
-**Symptom:**
-A JavaScript array does not behave as expected after conversion.
-
-**Solution:**
-1. Verify if the array is sparse (has gaps)
-2. Sparse arrays convert to `ProtoSparseList`
-3. Dense arrays convert to `ProtoList` (immutable)
-4. Use `protoCore.SparseList` explicitly if you need specific behavior
-
-### BigInt does not work
-
-**Symptom:**
-```javascript
-const big = BigInt(123);
-// Error or unexpected behavior
-```
-
-**Solution:**
-1. Verify that `TypeBridge` supports conversion from `BigInt` to `LargeInteger`
-2. In Phase 1, there may be limitations
-3. Check the implementation in `TypeBridge.cpp`
-
----
-
-## Debugging
-
-### Enable Detailed Logging
-
-Add logging in C++ code to debug:
-
-```cpp
-#include <iostream>
-std::cerr << "Debug: value = " << value << std::endl;
-```
-
-### Verify Thread Pool Status
-
-In C++ code, verify the thread pool status:
-
-```cpp
-// Verify that CPUThreadPool is initialized
-if (CPUThreadPool::getInstance()) {
-    std::cerr << "CPUThreadPool initialized" << std::endl;
-}
-```
-
-### Verify Type Conversions
-
-Add logging in `TypeBridge.cpp` to see which conversions are being performed.
-
----
-
-## Getting Help
-
-### Check Documentation
-
-1. [API Reference](API_REFERENCE.md)
-2. [Examples](EXAMPLES.md)
-3. [Architecture](../ARCHITECTURE.md)
-4. [Current Status](../README.md#-current-status)
-
-### Check Implementation Status
-
-Check the [Current Status](../README.md#-current-status) section of the README to see which features are implemented and which are pending.
-
-### Report Problems
-
-If you find a bug or undocumented problem:
-
-1. Verify that you're using the latest version
-2. Review compilation and execution logs
-3. Document the steps to reproduce the problem
-4. Include system information (OS, compiler, version)
-
----
-
-## Known Issues (Phase 1)
-
-### Current Limitations
-
-1. **Deferred**: Basic implementation, `.then()` and `.catch()` are not fully implemented
-2. **TypeBridge**: Some complex conversions may not be supported
-3. **Process.env**: Only exposes common variables (`PATH`, `HOME`, `USER`)
-4. **I/O**: Synchronous and blocking operations (async versions in future phases)
-5. **Modules**: Complete module system not implemented (only global modules)
-
-### Temporary Solutions
-
-For problems related to Phase 1 limitations:
-
-1. Check the Roadmap section of the [README](../README.md)
-2. Use workarounds documented in the examples
-3. Consider contributing implementations for missing features
-
----
-
-## References
+## See also
 
 - [API Reference](API_REFERENCE.md)
 - [Examples](EXAMPLES.md)
-- [Architecture](../ARCHITECTURE.md)
-- [Current Status](../README.md#-current-status)
+- [Installation](INSTALLATION.md)
 - [Documentation index](README.md)

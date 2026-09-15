@@ -1,133 +1,125 @@
-# protoJS Packaging and Release Procedures
+# protoJS Packaging Procedures
 
-This document describes how to build distribution packages for protoJS on Linux (.deb, .rpm), macOS (.pkg), and Windows (.msi). Use it after you have built the `protojs` binary (and, for Windows, `protojs.exe`) and have protoCore available for dependency checks.
+No prebuilt protoJS packages are published. This document describes how to build packages locally from a protoJS build. There are two independent mechanisms:
 
-**Prerequisites for packagers:**
+1. **CPack**, configured in `CMakeLists.txt`. It packages exactly what the CMake install rule installs.
+2. **Hand-maintained templates** under `packaging/templates/` plus `packaging/build_deb.sh`. They stage a `protojs` binary manually and add dependency-check scripts.
 
-- protoJS built successfully: `build/protojs` (Linux/macOS) or `build/protojs.exe` (Windows)
-- protoCore installed or built so that dependency checks in installers can pass
-- Platform-specific tools: `dpkg-deb` (deb), `rpmbuild` (rpm), `pkgbuild`/`productbuild` (macOS), WiX Toolset (Windows)
+Neither mechanism is exercised by continuous integration (the repository has none). Build and install instructions for end users are in [docs/INSTALLATION.md](../docs/INSTALLATION.md).
 
-**Quick .deb build (Debian/Ubuntu):** From the protoJS project root, run `./packaging/build_deb.sh` to generate only the .deb for the current system. This uses the latest templates (preinst checks for the `protocore` package). Then install with `sudo dpkg -i protoJS_0.1.0_amd64.deb`.
+**Prerequisites:** a successful build (see the installation guide) and the platform packaging tools for the format you want: `rpmbuild` for RPM, `dpkg-deb` for the template-based `.deb`, `pkgbuild`/`productbuild` for the macOS template. The CMake build files support Linux; macOS builds are not verified, and Windows is not supported by the current build files.
 
 ---
 
-## 1. Linux: Debian/Ubuntu (.deb)
+## 1. CPack (recommended)
 
-**Staging layout:**
-
-```
-protoJS_staging/
-├── DEBIAN/
-│   ├── control      (from control.template, with VERSION and MAINTAINER set)
-│   └── preinst      (from preinst.template; must be executable)
-└── usr/
-    └── bin/
-        └── protojs
-```
-
-**Steps:**
+The CPack settings are in `CMakeLists.txt` under "Packaging (CPack)". The package version comes from `project(protoJS VERSION 0.1.0)`.
 
 ```bash
-# From protoJS project root (parent of build/)
-export VERSION=0.1.0
-export MAINTAINER="Your Name <email@example.com>"
-
-# 1. Create staging directories
-mkdir -p protoJS_staging/DEBIAN
-mkdir -p protoJS_staging/usr/bin
-
-# 2. Copy the binary
-cp build/protojs protoJS_staging/usr/bin/protojs
-chmod 755 protoJS_staging/usr/bin/protojs
-
-# 3. Generate control from template (replace ${VERSION} and ${MAINTAINER})
-sed -e "s/\${VERSION}/$VERSION/g" -e "s/\${MAINTAINER}/$MAINTAINER/g" \
-    packaging/templates/linux/control.template > protoJS_staging/DEBIAN/control
-
-# 4. Copy and set permissions for preinst
-cp packaging/templates/linux/preinst.template protoJS_staging/DEBIAN/preinst
-chmod 755 protoJS_staging/DEBIAN/preinst
-
-# 5. Build the package
-dpkg-deb --build protoJS_staging protoJS_${VERSION}_amd64.deb
+cmake -S . -B build
+cmake --build build
+cd build
+cpack -G DEB          # Debian/Ubuntu package
+cpack -G RPM          # RPM package (requires rpmbuild)
+cpack -G TGZ          # tarball
 ```
 
-**Verification:**
+Running plain `cpack` builds every generator configured for the platform.
+
+| Platform | Generators | Output files (CPack default naming `<name>-<version>-<system>`) |
+|----------|------------|------------------------------------------------------------------|
+| Linux    | `DEB;RPM;TGZ` | `protojs-0.1.0-Linux.deb`, `protojs-0.1.0-Linux.rpm`, `protojs-0.1.0-Linux.tar.gz` |
+| macOS    | `DragNDrop`   | `protojs-0.1.0-Darwin.dmg` |
+| Windows  | `NSIS;ZIP`    | configured, but Windows builds are not supported by the current build files |
+
+Package metadata set in `CMakeLists.txt`:
+
+| Field | Value |
+|-------|-------|
+| Package name | `protojs` |
+| Vendor / contact | `numaes` / `gamarino@gmail.com` |
+| DEB section | `interpreters` |
+| DEB dependency | `protocore` (no minimum version) |
+| RPM license / group | `MIT` / `Development/Languages` |
+| RPM dependency | `protoCore` (no minimum version) |
+
+The dependency names match the packages built by protoCore's own CPack configuration (package name `protoCore`; the DEB generator lowercases it). Build and install the protoCore package first.
+
+**Inspecting and installing the results:**
+
+```bash
+dpkg -I protojs-0.1.0-Linux.deb        # metadata, including Depends
+dpkg -c protojs-0.1.0-Linux.deb        # contents
+sudo dpkg -i protojs-0.1.0-Linux.deb
+protojs --version                       # prints: protoJS v0.1.0
+sudo apt remove protojs
+
+rpm -qpi protojs-0.1.0-Linux.rpm       # metadata
+rpm -qpR protojs-0.1.0-Linux.rpm       # dependencies
+sudo rpm -ivh protojs-0.1.0-Linux.rpm
+sudo rpm -e protojs
+```
+
+The installed executable uses the RPATH `$ORIGIN/../<libdir>`, so it finds `libprotoCore` when protoCore is installed under the same prefix.
+
+---
+
+## 2. Hand-maintained templates
+
+These files predate the CPack configuration and are kept for packagers who need installer-side dependency checks. They are not generated from `CMakeLists.txt`; keep their version fields in sync manually.
+
+| File | Purpose |
+|------|---------|
+| `packaging/build_deb.sh` | Builds a `.deb` from `build/protojs` using the two Linux templates below |
+| `packaging/templates/linux/control.template` | Debian `control` file: package `protoJS`, `Architecture: amd64`, `Depends: protocore (>= 1.0.0)` |
+| `packaging/templates/linux/preinst.template` | Pre-install script: fails unless package `protocore` or `protoCore` >= 1.0.0 is installed |
+| `packaging/templates/linux/protoJS.spec.template` | RPM spec: `Requires: protoCore >= 1.0.0`, with a `%pre` dependency check |
+| `packaging/templates/macos/preinstall.template` | macOS pre-install script: looks for the package receipt `com.protoCore.pkg` or `/usr/local/lib/libprotoCore.dylib` |
+| `packaging/templates/windows/protoJS.wxs.template` | WiX source for an MSI; contains placeholder GUIDs |
+
+### 2.1 Debian/Ubuntu (.deb)
+
+From the repository root, after building `build/protojs`:
+
+```bash
+VERSION=0.1.0 MAINTAINER="Your Name <you@example.com>" ./packaging/build_deb.sh
+```
+
+The script stages `protoJS_staging/usr/bin/protojs`, generates `DEBIAN/control` from the template (substituting `${VERSION}` and `${MAINTAINER}`), copies `preinst`, and runs `dpkg-deb --build`. The output is `protoJS_<version>_amd64.deb` in the repository root. Without the environment variables, the script uses version `0.1.0` and a placeholder maintainer.
 
 ```bash
 sudo dpkg -i protoJS_0.1.0_amd64.deb
-dpkg -l protoJS
 protojs --version
-protojs -e "console.log('Hello from protoJS')"
-sudo apt remove protoJS
+sudo apt remove protojs     # dpkg stores package names in lowercase
 ```
 
-**Note:** The `preinst` script checks that protoCore (>= 1.0.0) is installed; it looks for the package under the name **`protocore`** (lowercase, as produced by CPack) or `protoCore`. The `control` template declares `Depends: protocore (>= 1.0.0)` to match. See [DOCUMENTATION.md](DOCUMENTATION.md) for user-facing messages.
+### 2.2 RPM (Fedora/RHEL/openSUSE)
 
----
-
-## 2. Linux: Fedora/RHEL/openSUSE (.rpm)
-
-The RPM spec expects a source tarball that unpacks to a single `protojs` binary (no directory prefix). The binary is then installed into `/usr/bin`.
-
-**Steps:**
+The spec expects a source tarball that unpacks to `protoJS-<version>/protojs`:
 
 ```bash
-# From protoJS project root
-export VERSION=0.1.0
-export RELEASE=1
-
-# 1. Create rpmbuild directory layout
+export VERSION=0.1.0 RELEASE=1
 mkdir -p ~/rpmbuild/{BUILD,RPMS,SOURCES,SPECS,SRPMS}
-
-# 2. Create tarball with layout protoJS-<version>/protojs (required by spec %prep)
 mkdir -p protoJS-${VERSION}
 cp build/protojs protoJS-${VERSION}/
 tar -czf ~/rpmbuild/SOURCES/protoJS-${VERSION}.tar.gz protoJS-${VERSION}
 rm -rf protoJS-${VERSION}
-
-# 3. Copy spec file and build (use --define for version and release)
 cp packaging/templates/linux/protoJS.spec.template ~/rpmbuild/SPECS/protoJS.spec
 rpmbuild -ba ~/rpmbuild/SPECS/protoJS.spec \
   --define "version $VERSION" \
   --define "release $RELEASE"
 ```
 
-The resulting package is:
+Because the spec sets `Release: %{release}%{?dist}`, the package file is `~/rpmbuild/RPMS/x86_64/protoJS-<version>-<release><dist>.x86_64.rpm`, where `<dist>` is the distribution tag (for example `.fc40`) or empty.
 
-- `~/rpmbuild/RPMS/x86_64/protoJS-${VERSION}-${RELEASE}.x86_64.rpm`
-
-**Verification:**
+### 2.3 macOS (.pkg)
 
 ```bash
-sudo rpm -ivh ~/rpmbuild/RPMS/x86_64/protoJS-0.1.0-1.x86_64.rpm
-# or: sudo dnf install ~/rpmbuild/RPMS/x86_64/protoJS-0.1.0-1.x86_64.rpm
-rpm -q protoJS
-protojs --version
-sudo rpm -e protoJS
-```
-
-The spec’s `%pre` script checks for protoCore (>= 1.0.0); if missing or too old, the RPM install will fail with the error messages defined in [DOCUMENTATION.md](DOCUMENTATION.md).
-
----
-
-## 3. macOS: .pkg installer
-
-**Staging layout:** The root of the package is the install hierarchy. To install into `/usr/local/bin`, the staging directory must contain `usr/local/bin/protojs`.
-
-**Steps:**
-
-```bash
-# From protoJS project root
 export VERSION=0.1.0
-
-# 1. Create staging with same layout as target
 mkdir -p staging/usr/local/bin
 cp build/protojs staging/usr/local/bin/protojs
 chmod 755 staging/usr/local/bin/protojs
 
-# 2. Build component package (preinstall script in packaging/templates/macos/)
 pkgbuild --root staging \
          --identifier com.protoJS.pkg \
          --version "$VERSION" \
@@ -135,90 +127,28 @@ pkgbuild --root staging \
          --scripts packaging/templates/macos \
          protoJS-core.pkg
 
-# 3. Build product/installer package
 productbuild --package protoJS-core.pkg \
              --identifier com.protoJS.installer \
              protoJS-${VERSION}.pkg
 ```
 
-**Verification:**
+`pkgbuild --scripts` only picks up a script named `preinstall`; copy `preinstall.template` to a scripts directory under that name (and make it executable) before running `pkgbuild`. The binary is built for the host architecture; the CMake files do not configure universal binaries. Signing (`productsign`) and notarization (`xcrun notarytool`) are required for distribution outside a development machine.
 
-```bash
-sudo installer -pkg protoJS-0.1.0.pkg -target /
-/usr/local/bin/protojs --version
-lipo -info /usr/local/bin/protojs
-otool -L /usr/local/bin/protojs
-```
+### 2.4 Windows (.msi)
 
-**Signing and notarization (recommended for distribution):**
-
-```bash
-# Sign
-productsign --sign "Developer ID Installer: Your Team (ID)" protoJS-0.1.0.pkg protoJS-0.1.0-signed.pkg
-
-# Notarize (requires Apple ID and app-specific password)
-xcrun notarytool submit protoJS-0.1.0-signed.pkg --keychain-profile "AC_PASSWORD" --wait
-
-# Staple ticket
-xcrun stapler staple protoJS-0.1.0-signed.pkg
-```
-
----
-
-## 4. Windows: .msi installer (WiX)
-
-**Requirements:** WiX Toolset v3.11 or later (e.g. from [wixtoolset.org](https://wixtoolset.org/) or Visual Studio extension).
-
-Before building, **replace placeholder GUIDs** in `packaging/templates/windows/protoJS.wxs.template`:
-
-- `PUT-GUID-HERE-1` — Product `Id="*"` generates a new GUID per build; for upgrades use a fixed `UpgradeCode` (already in the template). You can leave `Id="*"` or set a fixed Product GUID.
-- `PUT-GUID-HERE-2` — Component GUID for the `protojs.exe` file (generate with `uuidgen` or similar).
-- `PUT-GUID-HERE-3` — Component GUID for the PATH environment (generate a different one).
-
-Ensure the binary is built as **protojs.exe** and is in the current directory or adjust the `Source` path in the template.
-
-**Steps (from Command Prompt or PowerShell):**
-
-```cmd
-REM From protoJS project root; ensure build\protojs.exe exists (rename if your build outputs protojs.exe)
-set VERSION=0.1.0
-
-REM 1. Copy binary to a known location for WiX (e.g. packaging folder or current dir)
-copy build\protojs.exe protojs.exe
-
-REM 2. Compile WiX source (output .wixobj)
-candle -arch x64 packaging/templates/windows/protoJS.wxs.template -o protoJS.wixobj
-
-REM 3. Link (output .msi)
-light protoJS.wixobj -o protoJS-%VERSION%.msi
-```
-
-If the template is not in the current directory, use full paths. The `Source` attribute in the template must point to the location of `protojs.exe` (e.g. `Source="protojs.exe"` if it is in the current directory when running `candle`/`light`).
-
-**Verification:**
-
-- Install: double-click the .msi or run `msiexec /i protoJS-0.1.0.msi`.
-- Open a **new** command prompt and run: `protojs --version`, `protojs -e "console.log('OK')"`.
-- Uninstall via “Add or remove programs” or `msiexec /x {Product-GUID}`.
-
-**Silent install/uninstall:**
-
-```cmd
-msiexec /i protoJS-0.1.0.msi /quiet /qn /norestart
-msiexec /x {Product-GUID} /quiet /qn /norestart
-```
-
-The MSI adds the install directory to the system PATH so that `protojs` is available in new shells. The installer condition checks for protoCore (registry or file); see the template and [DOCUMENTATION.md](DOCUMENTATION.md).
+`protoJS.wxs.template` is a WiX v3 source for an x64 MSI that installs `protojs.exe` under `Program Files\protoJS`, adds that directory to `PATH`, and refuses to install unless the registry key `HKLM\SOFTWARE\protoCore` or the file `[ProgramFiles64Folder]protoCore\protoCore.dll` exists. Its GUID placeholders (`PUT-GUID-HERE-1` to `PUT-GUID-HERE-3`) must be replaced before use. The template cannot be used until protoJS builds on Windows, which the current build files do not support.
 
 ---
 
 ## Summary
 
-| Platform | Package  | Binary location after install   | Dependency check        |
-|----------|----------|----------------------------------|-------------------------|
-| Linux    | .deb     | `/usr/bin/protojs`              | preinst: dpkg protoCore |
-| Linux    | .rpm     | `/usr/bin/protojs`              | %pre: rpm protoCore     |
-| macOS    | .pkg     | `/usr/local/bin/protojs`        | preinstall: pkgutil/lib |
-| Windows  | .msi     | `C:\Program Files\protoJS\` + PATH | WiX condition: registry/file |
+| Mechanism | Format | Output file | Binary location | Dependency handling |
+|-----------|--------|-------------|-----------------|---------------------|
+| CPack | DEB | `protojs-0.1.0-Linux.deb` | `bin/protojs` under the package install prefix | `Depends: protocore` |
+| CPack | RPM | `protojs-0.1.0-Linux.rpm` | `bin/protojs` under the package install prefix | `Requires: protoCore` |
+| CPack | TGZ | `protojs-0.1.0-Linux.tar.gz` | `bin/protojs` inside the archive | none |
+| Template | DEB | `protoJS_0.1.0_amd64.deb` | `/usr/bin/protojs` | `Depends` + `preinst` check (>= 1.0.0) |
+| Template | RPM | `protoJS-0.1.0-1<dist>.x86_64.rpm` | `/usr/bin/protojs` | `Requires` + `%pre` check (>= 1.0.0) |
+| Template | PKG | `protoJS-0.1.0.pkg` | `/usr/local/bin/protojs` | `preinstall` check |
 
-For user-facing error messages and release checklist, see [DOCUMENTATION.md](DOCUMENTATION.md).
+Use `dpkg -c` or `rpm -qpl` to see the exact install path inside a CPack package. User-facing dependency error messages and a release checklist are in [DOCUMENTATION.md](DOCUMENTATION.md).

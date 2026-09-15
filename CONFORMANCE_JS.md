@@ -1,474 +1,76 @@
-# JavaScript Conformance Report (Test262)
+# JavaScript Conformance Report (Test262 subsets)
 
-**Runtime:** protoJS on protoCore (immutable backend)  
-**Status:** Test262 conformance tracked; `language/expressions` (11,093) and `built-ins/Array` (3,081) full subsets pass on protoCore. Full `language` + `built-ins` run passes with parse-negative leniency. See Phase 6 table and §2–§3 for current numbers.  
-**Last updated:** 2026-06-06. Eleven consecutive sprint rounds (~414 commits)
-plus a presence-probe audit closed ECMA-262 conformance gaps across the
-language and built-ins layers — see CHANGELOG.md § "test262 spec
-conformance push" for the full breakdown.
+**Runtime:** protoJS on the protoCore interpreter.
+**Scope:** Test262 runs restricted to selected directories (subsets), recorded while each area was worked on. For the latest run of the full `language` + `built-ins` suite — 28,830 of 46,963 tests passed (61.39 %) on 2026-06-01 — see [docs/TEST262_STATUS.md](docs/TEST262_STATUS.md).
+**Last updated:** 2026-06-06.
 
-**Latest coverage data points:**
+## Summary
 
-- `built-ins/{Array,Object,String,Number,Math,JSON,Error,NativeErrors,Promise,Boolean}` (2026-06-04, round 10 complete): **6 763 / 9 400 passed = 71.9 %** (6 syntax fails, 2 602 semantic fails, 29 timeouts).
-- `built-ins/Array/prototype/{map,filter,every,some}` (2026-06-05, round 11 + audit complete): **759 / 895 passed = 84.8 %** (0 syntax, 128 semantic, 8 timeouts). +14 pp on the iteration-method slice attributable to round 11 abrupt-completion / ToObject / iterReceiver / strict-equals work plus the PROTO_NONE presence-probe audit.
+- The most recent measurement in this report is `built-ins/Array` (3,081 tests) on 2026-06-06: about **2,719 passed (≈ 88.2 %)**. It was obtained by re-running the tests that failed and the tests that passed in the previous full `built-ins/Array` run, not by a new full run.
+- Rows that report complete passes for `built-ins/Array` (3,081 / 3,081 in §1 and §3, recorded in March 2026) and for `language/expressions` (11,093 / 11,093 in §2) are superseded: `built-ins/Array` measured 2,380 / 3,081 on 2026-06-05, and `language/expressions` measured 9,295 / 11,036 in the full run of 2026-04-12 (see [docs/archive/TEST262_STATUS_2026-04.md](docs/archive/TEST262_STATUS_2026-04.md)). The March 2026 full-suite rows in §1 are superseded as well; the full-suite figure of 94.4 % reported on 2026-03-18 was later identified as a false positive. The undated per-directory rows in §3 were not re-measured individually and are kept as historical records.
+- Pass counts depend on the runner's classification rules (§1): tests that exit without an error count as passed, and parse-negative tests that the engine accepts also count as passed.
+
+The fixes behind these measurements are summarised in §6 and in [CHANGELOG.md](CHANGELOG.md).
+
+**Coverage data points (oldest first):**
+
+- `built-ins/{Array,Object,String,Number,Math,JSON,Error,NativeErrors,Promise,Boolean}` (2026-06-04): **6 763 / 9 400 passed = 71.9 %** (6 syntax fails, 2 602 semantic fails, 29 timeouts).
+- `built-ins/Array/prototype/{map,filter,every,some}` (2026-06-05, after fix batch 11 and the presence-probe audit): **759 / 895 passed = 84.8 %** (0 syntax, 128 semantic, 8 timeouts). +14 pp on the iteration-method slice attributable to the batch 11 abrupt-completion / ToObject / iterReceiver / strict-equals fixes and the PROTO_NONE presence-probe audit.
 - `built-ins/Array` full pattern (2026-06-05, post 20-fix Array cleanup): **2 380 / 3 081 passed = 77.3 %** (0 syntax, 670 semantic, 31 timeouts).  Snapshot: `snapshot-built-ins-Array-1780675824848.json`.  Reflects the first 20-commit one-fix-per-failure Array package described in CHANGELOG.md.
 - `built-ins/Array` full pattern (2026-06-05, post 2nd 20-fix Array cleanup): **2 414 / 3 081 passed = 78.4 %** (0 syntax, 636 semantic, 31 timeouts).  Snapshot: `snapshot-built-ins-Array-1780677665005.json`.  +1.1 pp from the 2nd long-tail Array package (frozen-length / ToObject / abrupt-propagation / ArraySpeciesCreate-abrupt / sticky-done iterator / unscopables null-proto / arrLen Object-getter ToLength / elemToString ToPrimitive-string).
 - `built-ins/Array` full pattern (2026-06-05, post 3rd Array cleanup): **2 516 / 3 081 passed = 81.7 %** (0 syntax, 534 semantic, 31 timeouts).  Snapshot: `snapshot-built-ins-Array-1780691593908.json`.  +3.3 pp from the 3rd long-tail Array package (5 root-cause commits): arrLen inherited length-accessor probe, arrLen strict whole-string parse (NaN for trailing garbage), arrSet __set_<idx>__ dispatch, arrSetLen __set_length__ dispatch + splice no-args Set('length'), arrGet own-accessor probe shadows the native fast path.
 - `built-ins/Array` full pattern (2026-06-05, post 4th Array cleanup): **2 664 / 3 081 passed = 86.5 %** (verified via batch re-run of the 534 prev-fails + full re-run of the 2 516 prev-passes; +148 fixed, 0 regressions).  +4.8 pp from the 4th long-tail Array package (10 commits, all in src/ArrayPrototype.cpp): splice DeletePropertyOrThrow on shrink, push 2^53-1 overflow TypeError, IsCallable recognises built-in constructors, arrLen stod for float-shaped length strings, toReversed / toSpliced / with rewritten as spec walks (skip deleted window, skip replaced index, descending read), CreateDataPropertyOrThrow collapses holes to own undefined, pop routes last-index through arrGet for chain inheritance, lastIndexOf undefined-needle HasProperty skip.
 - `built-ins/Array` full pattern (2026-06-05, post 5th Array cleanup): **~2 744 / 3 081 passed ≈ 89 %** (sample-extrapolated, ~80 fixed from the 534 prev-fails plus 0 net regressions after intra-package self-correction).  +2.6 pp from the 5th long-tail Array package (7 commits, all in src/ArrayPrototype.cpp): Array.of + Array.from recognise bytecode user functions as constructors and use CreateDataPropertyOrThrow define semantics (reset __pd_<i>__ to defaults), arraySpeciesCreate invokes __get_constructor__ accessor (unlocks every `create-ctor-poisoned` test across concat / slice / splice / filter / map / etc.), copyWithin DeletePropertyOrThrow on absent source with non-configurable check, Array.from iterator branch CreateDataProperty define semantics, toSorted uses ArrayCreate (ignores species) like its sibling change-array-by-copy peers.  Note: post-rerun the conservative re-measurement showed the actual sample-extrapolated value was overstated; the true total at the end of pkg-5 was closer to ~84–85 % (the 89 % figure assumed 0 regressions which sample variance later contradicted).
-- `built-ins/Array` full pattern (2026-06-05, post 6th Array cleanup): **conservatively ~2 614 / 3 081 passed ≈ 84.8 %** (verified via batch re-run of all 534 prev-failing tests — 430 remain — plus the 2 516 prev-passing tests — 3 still fail).  No sample-extrapolated number this round.  The package's 11 commits trade depth for breadth on the prototype-setter / non-writable-length / inherited-accessor side of OrdinarySet semantics: arrSet probes inherited __set_<idx>__ for real arrays past __elements__.size, arrSetLen throws TypeError on non-writable length (accessor-descriptor gated to avoid misfiring on `{set length(v){...}}` receivers), arrGet reorders own-data > inherited-accessor > inherited-data per §10.1.5, push / pop / shift / unshift collapse to a single spec walk routing all element writes through arrSet and the final length through arrSetLen.  Known limitations: the interpreter's OP_get_array_el doesn't yet implement the own-data-shadows-inherited-accessor rule that arrGet now gains, so a small map / filter family that combines an own setter-only source with an inherited reader-side accessor on Array.prototype is still surfacing the inherited getter when JS-level testResult[k] is read; the fix needs interpreter work — out of scope for this Array-only package.
+- `built-ins/Array` full pattern (2026-06-05, post 6th Array cleanup): **conservatively ~2 614 / 3 081 passed ≈ 84.8 %** (verified via batch re-run of all 534 prev-failing tests — 430 remain — plus the 2 516 prev-passing tests — 3 still fail).  No sample-extrapolated number for this package.  The package's 11 commits trade depth for breadth on the prototype-setter / non-writable-length / inherited-accessor side of OrdinarySet semantics: arrSet probes inherited __set_<idx>__ for real arrays past __elements__.size, arrSetLen throws TypeError on non-writable length (accessor-descriptor gated to avoid misfiring on `{set length(v){...}}` receivers), arrGet reorders own-data > inherited-accessor > inherited-data per §10.1.5, push / pop / shift / unshift collapse to a single spec walk routing all element writes through arrSet and the final length through arrSetLen.  Known limitations: the interpreter's OP_get_array_el doesn't yet implement the own-data-shadows-inherited-accessor rule that arrGet now gains, so a small map / filter family that combines an own setter-only source with an inherited reader-side accessor on Array.prototype is still surfacing the inherited getter when JS-level testResult[k] is read; the fix needs interpreter work — out of scope for this Array-only package.
 - `built-ins/Array` full pattern (2026-06-06, post 7th Array cleanup): **~2 643 / 3 081 passed ≈ 85.8 %** (verified via batch re-run: 395 of the 534 prev-fails still fail; 12 of the 2 516 prev-passes now fail).  +1.0 pp from the 7th package (12 commits) which finally lit up the Symbol.species ctor path end-to-end: arraySpeciesCreate now accepts bytecode user functions (mirrors Reflect.construct), the species-built result is observed through Create-DataPropertyOrThrow checks (non-extensible + non-configurable both surface TypeError), Array.from's iterator branch closes the iterator on abrupt completions, copyWithin / fill preserve the user-visible length when only inner slots are mutated, and a shared arrayCreateDataPropertyOrThrow helper resets __pd_<i>__ descriptor flags so a ctor-installed writable:false / enumerable:false slot is replaced wholesale.  Known limitations: Object.getOwnPropertyDescriptor reads the attribute slot while arrGet reads __elements__, so when the species ctor sets the attribute via defineProperty and the subsequent write goes to __elements__ via arrayTryFastSet, the two drift — descriptor.value lags the actual element value.  The 12 \`target-array-with-non-writable-property\` regressions on the prev-pass list all come from this drift; fixing it needs sync work in defineProperty / arrayTryFastSet.
 - `built-ins/Array` full pattern (2026-06-06, post 8th Array cleanup): **~2 672 / 3 081 passed ≈ 86.7 %** (verified via batch re-run: 373 of the 534 prev-fails still fail; 5 of the 2 516 prev-passes now fail).  +0.9 pp from the 8th package (7 commits): arrSet keeps the string-keyed attribute in sync with __elements__ (closes the package-7 \`target-array-with-non-writable-property\` cluster of 12 regressions), arraySpeciesCreate now walks the @@species accessor through __get_Symbol.species__ and rejects non-constructor callables (parseInt etc.), every iteration method (reduce / reduceRight / forEach / map / filter / some / every / find / findIndex / findLast / findLastIndex) bails on arrGet abrupt before invoking the callback, Array.from constructs C with «len» in the array-like branch (was no-args), toLocaleString invokes element.toLocaleString with no arguments per the ES2024 narrowing, and ToNumber / Number ctor throw on objects whose valueOf+toString both are non-callable.
 - `built-ins/Array` full pattern (2026-06-06, post 9th Array cleanup): **~2 708 / 3 081 passed ≈ 87.9 %** (verified via batch re-run: 337 of the 373 prev-fails still fail; 0 of the 2 516 prev-passes regressed).  +1.2 pp from the 9th package (19 commits, scope widened beyond Array): map / slice spec-correct length/holes, Object.prototype.toLocaleString dispatches to overridden / accessor toString on primitives (Boolean.prototype.toString getter), arrayToString synthesises [object Object] when join is non-callable, Array / Set / Map / Promise / RegExp / ArrayBuffer Symbol.species install with name/length/{!enumerable,configurable} sidecars, builtin .prototype's [[Prototype]] is pinned to the post-update Object.prototype via t_jsProtoMap (closes Object.getPrototypeOf(Array.prototype) !== Object.prototype across every builtin), unimplemented-ctor stubs gain Function.prototype parent + name 0x2 + __is_constructor__ marker so Reflect.construct (via test262's isConstructor harness) recognises them, TimingAPIs Date stub picks up the same descriptor sidecars + __is_constructor__, Function.prototype.{call,apply,bind} accept built-in constructors as callable (Array.apply / String.call / fn.bind.apply path), Object.prototype.toLocaleString prefers __get_toString__ accessor over the stale data slot, and ES2026 disposable-resource ctors (SuppressedError, DisposableStack, AsyncDisposableStack, AbstractModuleSource) are stubbed so test262's bare reference no longer throws on the initial probe.
 - `built-ins/Array` full pattern (2026-06-06, post 10th Array cleanup): **~2 719 / 3 081 passed ≈ 88.2 %** (verified via batch re-run: 326 of the 337 prev-fails still fail; 0 of the 2 516 prev-passes regressed).  +0.3 pp from the 10th package (19 commits, scope continued to spill into the global infrastructure): reverse returns ToObject(this) per §23.1.3.27 step 7 (boxed Boolean for primitive receivers), lastIndexOf defaults the missing searchElement to undefined per spec (matches indexOf), ToString recurses on non-string primitives returned by toString/valueOf (`String({toString:()=>-2})` is now "-2" instead of -2), OP_regexp is stubbed so any test using a regex literal stops crashing the dispatch (find / findIndex / findLast / findLastIndex predicate-is-not-callable-throws + sort/comparefn-nonfunction-call-throws), user-function .prototype gains the spec-mandated .constructor === fn backref with 0x3 descriptor, Function.prototype.bind installs the §17 0x2 descriptors on the bound function's name/length, WeakMap installs the missing length + name descriptor sidecars, RegExp / Object / String / Number / Boolean / DataView / TypedArray ctors gain or fix the §17 name/length 0x2 sidecars, DataView / ArrayBuffer / TypedArray ctors become mutable so verifyConfigurable's JS-level delete actually removes the slot, Symbol / Error / RegExp / ArrayBuffer / DataView / every TypedArray ctor stamps __is_constructor__ so the isConstructor harness recognises them, the global Function ctor gets __is_constructor__ and OP_typeof / OP_typeof_is_function recognise the marker (typeof Function === "function" now matches spec), and OP_push_this in strict mode normalises raw PROTO_NONE to the undefined sentinel so `[this]` with undefined thisArg produces a 1-length array with the slot as own property (was a hole — closed flatMap thisArg-argument).
 
-(Full §1 Phase 6 table below has the row-by-row breakdown including pre-round-10 baselines.)
+(The table in §1 lists the runs from 2026-06-04 and 2026-06-05 with their snapshot names, together with earlier baselines.)
 
-**Audit (2026-06-05): PROTO_NONE-presence-probe sweep.**  79 sites
-across 10 files were switched from `getAttribute(...) != PROTO_NONE`
-(which false-negatives on attributes whose stored value happens to be
-the undefined sentinel) to the spec-correct `hasAttribute(...) ==
-PROTO_TRUE`.  Affected helpers: every isCallable lambda
-(`__bytecode_id__` / `__native_fn__` / `__bound_fn__` /
-`__construct__`), every marker probe (`__is_array__` /
-`__is_symbol__` / `__is_raw_json__` / `__is_function_prototype__` /
-`__is_constructor__` / `__error_ctor__` / `__ta_ctor__`), descriptor
-field probes in Object.defineProperty / defineProperties / getOwn-
-PropertyDescriptor, and NonExtensibleBehavior's "already-installed"
-check.  Value-use sites (`if (v && v != PROTO_NONE)` followed by a
-read of v) were intentionally left alone — for those, PROTO_NONE
-correctly means "no usable value".  See commit
-`f3d719dc` for the full diff and rationale.
-
-**Round 11 highlights (24-commit long-tail batch — easy-batch wins exhausted
-in rounds 6-10):**
-
-- §17 length descriptor on every unimplemented-ctor stub with the spec
-  arity and 0x2 sidecar (Date / BigInt / Proxy / WeakRef / WeakSet /
-  FinalizationRegistry / Iterator / Generator / GeneratorFunction /
-  AsyncFunction / AsyncGenerator / AsyncGeneratorFunction /
-  AggregateError / SharedArrayBuffer).
-- Symbol.toPrimitive completion in objToStr — trim* / replace / slice /
-  concat / includes raise the spec TypeError when the receiver's
-  `[Symbol.toPrimitive]` returns a non-primitive.
-- Symbol-receiver ToString throws TypeError via objToStr per §7.1.17.
-- Promise.* static and prototype methods gained name / length own
-  descriptors through a mutable wrapper (raw ProtoMethod cells cannot
-  carry sidecars); Promise.{resolve,reject,all,allSettled,race,any}
-  throw on non-constructor receivers per §27.2;
-  Promise.prototype.then throws on non-Promise receivers;
-  Promise.prototype.finally checks SpeciesConstructor.
-- Array strict-equals collapses PROTO_NONE and t_undefinedSentinel —
-  indexOf / lastIndexOf / includes locate the FIRST implicit / explicit
-  undefined slot consistently.
-- Array.prototype.copyWithin returns ToObject(this) so primitive
-  boolean receivers wrap into a Boolean object.
-- Array.prototype.{keys,values} ReturnIfAbrupt ToObject(this).
-- Array.prototype.slice ToIntegerOrInfinity via jsToNumber.
-- Array iteration receiver wrapping — callback's third argument is a
-  String wrapper when this is a primitive string.
-- Function.prototype.apply TypeError when argsArray is primitive /
-  Symbol / null per §20.2.3.1.
-- String.fromCharCode preserves embedded NUL by routing through
-  ProtoString::fromUTF8Buffer; non-primitive args coerce via
-  jsToNumber per §22.1.2.1.
-- String.prototype.{indexOf,concat} propagate ToString abrupts before
-  subsequent coercions (eager throw order).
-- arguments.length non-enumerable per §10.4.4.7.
-- Object.is treats t_undefinedSentinel / PROTO_NONE / missing arg as
-  one undefined.
-- Object.defineProperties({}, undefined) throws TypeError.
-- Error.prototype.toString raises TypeError on Symbol message per
-  §20.5.3.4.
-- Number.prototype.toLocaleString own property per §21.1.3.4 with
-  no-Intl toString fallback.
-
-Also: feedback memory documenting the protoCore PROTO_NONE ambiguity —
-`getAttribute` → PROTO_NONE doubles as "absent" AND a possible stored
-value; presence probes use `hasOwnAttribute` / `hasAttribute` so the
-distinction is preserved.  Several round-11 commits explicitly lean on
-this pattern.
-
-**Round 10 highlights (100-commit batch):**
-
-- **Built-in constructor descriptors per §17:** Array / Object / Boolean
-  / Number / String / Set / Map / Promise / Symbol / RegExp / Date /
-  AggregateError / NativeError / ArrayBuffer / WeakMap / WeakRef /
-  WeakSet / FinalizationRegistry / Iterator / Generator /
-  GeneratorFunction / SharedArrayBuffer (and every other constructor
-  stub) all install the
-  `{writable, !enumerable, configurable}` descriptor on their
-  `name`, `length`, and the `prototype` slot. Prototype objects for
-  Stage-4 / yet-to-be-implemented constructors stamp
-  `Symbol.toStringTag` so `Object.prototype.toString.call(...)`
-  reports the correct `[object Xxx]`.
-- **OrdinaryToPrimitive abrupt-completion propagation:** ToString
-  helpers in the interpreter, `String.prototype.replaceAll`,
-  `Array.from` iterator loop, `for-of` IteratorNext, and
-  `Symbol(description)` now check the call-exception channel
-  between every observable step, so a throwing user-side `toString`
-  / `valueOf` / `next` propagates the original abrupt instead of
-  being overwritten by a later helper's exception.
-- **ToNumber / ToInteger sweep:** `Array.prototype.at`, `includes`,
-  `lastIndexOf`, and the `Number.prototype.toFixed` argument all
-  route non-primitive arguments through `jsToNumber` so an Object
-  with `valueOf` / `Symbol.toPrimitive` is honoured and a Symbol
-  argument throws TypeError. `ToNumber(String)` rejects
-  case-insensitive `Infinity` / `Inf` / `NaN` per
-  §7.1.4.1.1 (only the exact spelling produces the literal value).
-- **Array.prototype hole-aware semantics:** `Array.prototype.sort`
-  buckets PROTO_NONE, the explicit undefined sentinel, and source
-  holes uniformly as "undefined" trailing values; `toReversed`,
-  `toSorted`, `toSpliced`, and `with` materialise holes as own
-  undefined data properties on the destination (`hasOwnProperty(k)`
-  is true for every k in `[0, len)`). `Array.prototype.includes`
-  searches for `undefined` when called with no argument and treats
-  PROTO_NONE in `__elements__` as the undefined sentinel under
-  `SameValueZero`.
-- **Object.{keys, values, entries} re-check own-property per §7.3.23
-  step 4.a:** a getter that deletes a later key during iteration
-  is now observed — the deleted key is excluded from the result.
-- **for-of / OP_iterator_next §7.4.2 step 4:** if the iterator
-  `next()` return is not an Object (Symbol, primitive, null,
-  undefined), throw TypeError — pre-fix the loop would silently
-  read a stale `done` and iterate on garbage.
-- **Reflect.* §28.1 Type(target) check:** every entry point rejects
-  Symbol targets with TypeError; `Reflect.set` now dispatches
-  accessor descriptors BEFORE the writable-bit gate (§9.1.9
-  [[Set]] step 5 / 7 ordering).
-- **JSON.rawJSON / JSON.stringify stage-4 polish:** the wrapper
-  has null `[[Prototype]]`; `JSON.stringify` emits the rawJSON
-  text verbatim per §25.5.2.2 step 4; the Number-to-text
-  conversion inside `JSON.rawJSON` uses the shortest-decimal
-  round-trip so `JSON.rawJSON(1.1)` records `"1.1"`, not the
-  noisy `1.1000000000000001`.
-- **Function.prototype is callable per §20.2.3:**
-  `Object.prototype.toString.call(Function.prototype)` returns
-  `[object Function]` via a new `__is_function_prototype__` probe.
-- **String.prototype.lastIndexOf / replaceAll ToString discipline:**
-  `lastIndexOf` uses `getStrArgWithUndef` so a missing/undefined
-  search argument becomes the literal `"undefined"`;
-  `replaceAll` gates every `objToStr` / replacer invocation with
-  `hasCallException()` so a throwing `thisValue.toString`
-  propagates instead of being overwritten by the searchValue or
-  replaceValue stringification.
-- **for-of `IteratorNext` PROTO_NONE = undefined for the static
-  ToString helper:** a JS function that completes without an
-  explicit `return` surfaces as PROTO_NONE in `callJSFunction`'s
-  return path. The OrdinaryToPrimitive helper now normalises it to
-  the undefined sentinel so wrapper-Object coercion produces
-  `"undefined"` instead of `"[object Object]"`.
-
-**Round 9 highlights:**
-
-- **Number/Boolean/String prototype internal slots:** install
-  `__primitive_value__` on each so `Number.prototype.toFixed`,
-  `Boolean.prototype.toString`, `String.prototype.valueOf` etc.
-  return spec-correct values instead of throwing
-  "incompatible receiver" TypeErrors.
-- **Object.prototype.toString dispatch:** consult
-  `__primitive_value__` so wrappers and the prototype objects
-  report `[object Boolean]` / `[object Number]` / `[object String]`
-  per §22.1.3.7.
-- **Spec step-ordering across Array prototype iteration helpers:**
-  `LengthOfArrayLike` now precedes `IsCallable` in reduce /
-  reduceRight / forEach / map / filter / find / findIndex /
-  findLast / findLastIndex / some / every — a throwing `length`
-  accessor propagates instead of being masked.
-- **arrLen / OP_get_length:** coerce booleans / objects via
-  `jsToNumber` per ToLength; fire `__get_length__` accessor
-  in OP_get_length; clamp +∞ to 2^32-1; respect mixed-storage
-  arrays whose `length` exceeds the `__elements__` size.
-- **arrGet sparse-tail visibility:** distinguish "out-of-range
-  fast-path read" from "no native storage" so sparse literals
-  like `[0, 'foo', , Infinity]` expose every index.
-- **Array.from constructor branch:** `Array.from.call(C, items)`
-  now delegates to `Construct(C)` per §23.1.2.1; the
-  Symbol.iterator accessor getter fires per §7.3.10.
-- **Number.prototype.toString shortest round-trip:** replaces
-  `%.15g` with a round-trip loop + decimal/scientific switch
-  per §6.1.6.1.13, fixing the `(1e18+128).toString()` case.
-- **Number.prototype.toExponential / toPrecision step order:**
-  `ToInteger` on the argument runs before the NaN / ±Infinity
-  guards; `undefined` argument is treated as omitted.
-- **parseInt/radix coercion + parseFloat(-0):** ToInt32 unwraps
-  Number wrappers via `jsToNumber`; parseFloat(-0) emits +0 per
-  ToString(-0) = "0".
-- **JSON pre-validation:** raw control characters U+0000..U+001F
-  inside string literals throw SyntaxError per §24.5.
-- **Built-in constructor `prototype` descriptors:** Boolean /
-  Number / String / Array / Error / Error-subclasses install
-  non-writable, non-enumerable, non-configurable per §17.
-- **AggregateError length = 2** per §19.2.1.5.
-- **Object.getOwnPropertyNames includes array's `length` slot**
-  per §23.1.3.
-
-**Round 8 highlights:**
-
-- **Map/Set methods inherit Function.prototype:** reinstalled in
-  ensure*Constructor (post-FunctionPrototype) so `m.set.call`, `s.add.bind`,
-  etc. resolve. Pre-fix every Map/Set method was parentless — blocking
-  every test262 case that used `m.method.call(badThis, …)`.
-- **Set-like accessor + iteration:** GetSetRecord invokes class-style
-  .size / .has / .keys getters; union / symDiff / isSupersetOf drive
-  the spec's keys() iterator for non-Set arguments; intersection picks
-  the smaller side and preserves its iteration order per §24.2.3.10.
-- **Reflect.* completeness:** Reflect.apply enforces IsCallable +
-  CreateListFromArrayLike. Reflect.get honours receiver and invokes
-  accessor getters. Reflect.set walks the prototype chain for setters
-  with receiver as `this` and returns false on non-writable receiver
-  slots. Reflect.defineProperty swallows abrupt completions
-  → false. Reflect.deleteProperty rejects delete on frozen / sealed
-  / non-configurable.
-- **JSON behaviour:** stringify invokes the replacer for array
-  elements with holder=array as `this`; runs the top-level toJSON
-  before the replacer; replacer-array order wins; the replacer fires
-  even when [[Get]] returned undefined; the replacer-array scan
-  invokes accessor getters. parse routes Object arguments through
-  the accessor-form toString / valueOf getters.
-- **Map / Set iterable semantics:** both throw TypeError when
-  @@iterator is explicitly undefined / null per §24.x.1 step 6 +
-  GetIterator. Map constructor invokes the .set accessor when
-  resolving the adder.
-- **Map[Symbol.species]:** added, returns `this`. Map / Set .size
-  accessor slot now carries descriptor 0x2 so it drops out of
-  Object.keys(Map.prototype).
-- **Date / Object descriptors:** Date.now / Date.parse / Date.UTC
-  carry §17 descriptor 0x3. Object.getOwnPropertyDescriptor /
-  getOwnPropertyDescriptors synthesise per-char and 'length'
-  descriptors for string primitives.
-- **Array.prototype.concat:** ToObject-boxes the primitive `this`
-  (so `Array.prototype.concat.call(101)[0] instanceof Number`).
-- **Math.round:** short-circuits |x| >= 2^52 to return x unchanged.
-- **parseInt:** routes overflow through double accumulation so
-  `parseInt('-1e19') === -1e19` instead of the signed-cast wrap.
-
-**Round 7 highlights:**
-
-- **Large array-literal fix:** OP_get_array_el falls back to indexed
-  attributes for slots ≥32, so `[10,11,...,44][32]` correctly returns
-  `42` (was `undefined`). QuickJS uses OP_define_field for elements
-  past slot 32, and the runtime was treating arrayTryFastGet's
-  out-of-bounds PROTO_NONE as the final answer. Affected every
-  consumer of large array literals — silent quiet bug.
-- **Object descriptors are real Objects:** `Object.getOwnPropertyDescriptor`
-  result inherits the live Object.prototype (so `desc.hasOwnProperty('get')`
-  works), synthesises descriptors for array index slots and String-wrapper
-  char indices, and Object static methods + Object.prototype carry the
-  spec §17 descriptors (so `Object.keys(Object)` returns []).
-- **No more own `constructor` on plain `new F()` instances:** the backref
-  is stamped on F.prototype lazily when missing, so the instance inherits
-  it via the chain without leaking into `Object.keys(instance)`.
-- **JSON coverage:** JSON.parse ToString-coerces null/boolean/number
-  arguments AND Object arguments (via ToPrimitive('string')). JSON.stringify
-  serialises accessor-backed properties from BOTH the literal and
-  Object.defineProperty forms, handles sparse replacer arrays, and
-  unboxes Number/String wrappers for the space argument. TypeBridge
-  preserves negative zero across the QuickJS boundary.
-- **Reflect alignment:** Reflect.set honours receiver and rejects
-  non-Object receivers. Reflect.setPrototypeOf rejects cycles AND
-  non-extensible targets (matched on Object.setPrototypeOf). Reflect.construct
-  validates argumentsList per §7.3.17 and discriminates Object returns
-  from undefined. Reflect.ownKeys orders per §9.1.11 (indices, strings,
-  then 'length' for arrays). Reflect / Math / JSON globals carry the
-  §17 descriptors.
-- **ToNumber + parseInt / parseFloat:** parseInt and parseFloat ToString
-  the full primitive result of ToPrimitive('string') — toString returning
-  a number / boolean now parses correctly. parseFloat recognises the
-  full ECMA-262 whitespace set (USP, NBSP, line separators, BOM).
-  toNumber consults @@toPrimitive('number') before valueOf/toString
-  and validates the hook (non-callable / non-primitive return → TypeError).
-- **Array.prototype.concat ToBoolean fix:** @@isConcatSpreadable applies
-  the full ToBoolean ruleset (0 / NaN / '' / null → false) AND invokes
-  the accessor-form getter when present.
-- **Math.hypot:** ToNumber abrupt-completion propagation stops further
-  valueOf invocations on the rest of the argument list.
-
-**Round 6 highlights:**
-
-- **Map / Set under §17:** Set / Map / Promise constructors carry .length
-  and .name with descriptor 0x2; Set.prototype.size / Map.prototype.size
-  getters wrapped as real Function objects with name = "get size",
-  length = 0; Set / Map / Promise.prototype / Math / JSON / RegExp.prototype
-  `[Symbol.toStringTag]` installed under the user-visible key.
-  `Set` now exposes `get Set[Symbol.species]` returning this.
-- **Map / Set behaviour:** Set / Map forEach visit entries added from
-  inside the callback and revisit values deleted-then-re-added per
-  §24.x.3.x NOTE; both throw TypeError on non-callable callback. Set
-  constructor throws TypeError when `add` is shadowed by a non-callable.
-  Set iterators latch a sticky done = true after exhaustion so later
-  Set.add does NOT resurface through the same iterator.
-- **Set collection methods:** the seven set ops (`union`, `intersection`,
-  `difference`, `symmetricDifference`, `isSubsetOf`, `isSupersetOf`,
-  `isDisjointFrom`) validate via GetSetRecord per §24.2.1.2 (TypeError
-  / RangeError for malformed `other`). `intersection` / `difference` /
-  `isSubsetOf` / `isDisjointFrom` now call `other.has(v)` for non-Set
-  set-like arguments, so `{size, has, keys}` objects yield correct
-  results.
-- **Map.prototype.getOrInsertComputed:** validates IsCallable(callbackfn)
-  BEFORE the map lookup and passes the canonical key to the callback.
-- **Array.prototype.flat / flatMap:** depth coercion via ToNumber
-  (non-numeric strings → NaN → 0, numeric strings parse, objects → 0);
-  flat result creation routes through ArraySpeciesCreate (so
-  `a.constructor = null` throws TypeError); arraySpeciesCreate enforces
-  the §22.1.3.1.1 non-Object constructor check.
-- **JSON / Function chain:** JSON.parse results inherit the real
-  Object.prototype; `Object.getPrototypeOf(JSON.parse) === Function.prototype`.
-  `Reflect.construct` implemented per §28.1.2 so the isConstructor
-  harness used by many test262 tests works.
-
-**Round 5 highlights:**
-
-- **Array constructor / prototype:** `Array(N)` function-call validation,
-  `.length` setter ToUint32 + SameValue + RangeError, concat
-  Symbol.isConcatSpreadable, flat / flatMap empty children,
-  push on plain-object receivers, Array.from ToLength coercion.
-- **Map / Set:** non-Object entry / non-iterable primitive guards,
-  Set iterates strings per code unit, insertion order across
-  delete + re-set cycles (Map.set / Set.add pick `max(slot)+1`,
-  not `size`).
-- **JSON.stringify / JSON.parse:** replacer-function form,
-  top-level undefined returns undefined (not the literal 'null').
-- **Property descriptors / accessors:** object-literal getter/setter
-  enumerable by default; Object.assign + object spread invoke the
-  source getter; defineProperty no-op + same-value redefine allowed
-  on non-configurable; getter-only accessors reject writes
-  (Map.size / Set.size / user `{ get x() {…} }`).
-- **Object.setPrototypeOf(o, null)** persists the null sentinel.
-  `Object.is{Extensible,Frozen,Sealed}` treat string / undefined /
-  boolean primitives as frozen. Reflect.is{Extensible,
-  preventExtensions} forward to the NonExtensibleMarker path.
-- **String + Number coercion:** replace / replaceAll ToString
-  non-string patterns; case mapping for the Latin-1 supplement;
-  repeat ToNumber on objects; toPrecision exact significant
-  digits; ToNumber preserves -0 / rejects intra-prefix whitespace.
-- **AggregateError** registered as a built-in error constructor;
-  Object.fromEntries TypeError on non-iterable primitives;
-  WeakMap key TypeError; Function.prototype.bind inherits
-  Function.prototype.
-- **hasOwnProperty** treats PROTO_NONE slots as absent (handles
-  the simulated-delete the array prototype uses).
-
-**Round 4 highlights:**
-
-- **Sentinel hygiene:** the global `undefined` identifier now agrees with
-  `void 0` everywhere — toBool, property access (`undefined.x` throws),
-  `Array.prototype.join(undefined)`, get_field, get_array_el.
-- **Prototype-chain reconstruction:** Object.prototype's instance methods
-  re-parent at Function.prototype, so the
-  `Object.prototype.hasOwnProperty.call(o, 'a')` idiom resolves;
-  `__proto__` in object literals takes effect via `OP_set_proto`;
-  `Array instanceof Object` and friends hold via the
-  Function.prototype-after-Object.prototype-rebuild tie.
-- **Object.freeze / seal / preventExtensions actually enforce writes:**
-  five cooperating bugs in BehaviorRegistry + marker installation
-  fixed in one commit. Writes to frozen / sealed objects silently no-op,
-  new keys on non-extensible objects rejected, existing-key updates
-  still allowed on sealed.
-- **JSON.stringify / JSON.parse fills:** wrapper unboxing, reviver
-  recursion, exponent padding, circular-reference TypeError, array
-  prototype after `JSON.parse('[…]')`.
-- **ToNumber / parseInt / parseFloat:** 0x / 0b / 0o prefix forms,
-  -0 preservation, parseInt radix-0 default, parseFloat case-sensitive
-  Infinity + 0x rejection.
-- **Descriptor housekeeping:** all built-in `constructor` backrefs
-  non-enumerable; Array .length descriptor matches §22.1.5.1; plain
-  object literals no longer leak phantom .length.
-
-**Earlier-round highlights (rounds 1–3, ~110 commits):**
-
-- `built-ins/Math` slice: ~59% → 94% pass rate after constructor
-  backref, NaN/Infinity handling on pow/round/clz32/hypot, function
-  wrapper shape (name/length descriptors).
-- `built-ins/Array` slice: undefined-sentinel guard in
-  `arrayThrowIfNullUndefined` unlocked ~30 indexOf/forEach/etc tests;
-  ToIntegerOrInfinity now applied to indexOf/lastIndexOf/slice/splice/flat.
-- `built-ins/Object`: `getOwnPropertyDescriptors` and `hasOwn` ToObject
-  TypeError, `defineProperty` no-arg TypeError, `create` TypeError on
-  non-Object/non-null proto. The Object constructor is now mutable so
-  the prototype.constructor backref roundtrips (`Object.prototype.constructor
-  === Object` holds).
-- `built-ins/Reflect`: 5 missing methods added (deleteProperty,
-  getPrototypeOf, setPrototypeOf, isExtensible, preventExtensions).
-- Spec-mandated `.constructor` backref on every built-in prototype with
-  non-enumerable descriptor.
-- ToIntegerOrInfinity now applied uniformly across every Array.prototype
-  index method (indexOf, lastIndexOf, includes, at, slice, splice,
-  copyWithin, fill, flat). Number.prototype.toString also handles
-  fractional radices and ToInteger on the radix arg.
-- ToNumber and String.prototype.trim variants now match the full
-  Unicode WhiteSpace + LineTerminator set, not just ASCII.
-- `Function.prototype` shape (length=0, name=""), Boolean / Object
-  prototype methods carry their spec name + length attributes, and
-  Date.parse / Date.UTC are implemented as minimal ISO-8601 / UTC
-  builders.
-
-Memory note: `feedback_protojs_proto_constructor_backref.md` records
-the load-bearing constraint (mutable proto + JSSymbols::constructor)
-for future contributors adding similar backrefs.
-
-**Single entry point and baseline:** To run C++ unit tests, smoke test, Phase 6 script, and optionally Test262: `./tests/run_all_tests.sh` (from repo root). For the testing baseline and how to run each layer, see [tests/README.md](tests/README.md).
+**Single entry point:** `./tests/run_all_tests.sh` (from the repository root) runs the C++ unit tests, the smoke test, the directed global-object script and, when `TEST262_ROOT` is set, the Test262 runner. See [tests/README.md](tests/README.md).
 
 ---
 
 ## 1. Scope and Methodology
 
-This document tracks JavaScript language conformance for protoJS using the official **Test262** suite.  
-Tests are executed via `tests/test262/runner/test262_runner.js`, which:
+Test262 runs use `tests/test262/runner/test262_runner.js`, which:
 
-- Reads `tests/test262/config/test262_paths.json` (or `TEST262_ROOT` env) to locate the Test262 tree. The default config uses `test262_root: "../test262"` so the **Test262 repo is expected at the same level as protoJS** (e.g. `proyectos/protoJS` and `proyectos/test262`). Override with `TEST262_ROOT` if your layout differs.
-- Prepends `harness/assert.js`, `harness/sta.js`, and any `includes` declared in the YAML front-matter.
-- Runs each test with the `protojs` binary (default: legacy path). To run tests on the **protoCore interpreter path**, set `TEST262_USE_PROTO_EVAL=1` or add `"use_proto_eval": true` in the config; the runner will pass `PROTOJS_USE_PROTO_EVAL=1` to the process.
-- Classifies results as:
-  - `passed`
-  - `failed_syntax`
-  - `failed_semantics`
-  - `timeout`
-  - `skipped` (when a test is listed in `tests/test262/config/skip_proto_eval.json`; currently 66 tests: module-code, statements, line-terminators, eval/import/global/identifier)
-- **Parse-negative leniency:** For tests that expect a parse-phase error (YAML `negative: { phase: parse }`), if the engine accepts the code (process exits 0), the runner counts the test as **passed**. This avoids failing the suite for parser divergence (e.g. QuickJS accepting code that Test262 expects to be invalid). Run again with a stricter parser to get real parse-negative coverage.
-- **Module tests (`flags: [module]`):** Detected from YAML front-matter; the runner passes `--input-type=module` to the binary and runs the **original** test file (so that `import './fixture.js'` resolves correctly from the test directory). Module evaluation uses QuickJS's native module linker + Promise-based evaluation — protoCore is bypassed for module mode since it does not implement ES module semantics.
-- **Test262Error heuristic:** `Test262Error` is a harness-defined constructor. protoCore correctly throws it but cannot resolve the class name, reporting `(ProtoObject)` instead. The runner treats `(ProtoObject)` as a match for `Test262Error`-expecting negative tests.
-- Writes JSON snapshots under `tests/test262/reports/`.
+- Reads `tests/test262/config/test262_paths.json`: the Test262 checkout (`test262_root`, default `../test262`; `TEST262_ROOT` overrides it, and relative paths are resolved from the repository root), the harness directory (`harness`), the per-test timeout (`default_timeout_ms`, 5,000 ms) and the path patterns (`language` and `built-ins`; `TEST262_PATTERNS` overrides them).
+- Runs each script-mode test as a temporary file that contains `harness/assert.js`, `harness/sta.js`, the `includes` listed in the test's YAML front matter, and the test. The binary is `PROTOJS`, or `build/protojs` by default. With `use_proto_eval` enabled (the default configuration) the runner sets `PROTOJS_USE_PROTO_EVAL=1`, which `protojs` does not read, and `PROTOJS_NO_FALLBACK=1`, which makes a protoCore compile failure an error instead of a retry with QuickJS.
+- Classifies each result as `passed`, `failed_syntax`, `failed_semantics`, `timeout` or `skipped`. A test without a `negative` expectation passes when `protojs` completes without reporting an error. Tests listed in `tests/test262/config/skip_proto_eval.json` (11 entries) are skipped.
+- **Parse-negative leniency:** for tests that expect a parse-phase error (YAML `negative: { phase: parse }`), if the engine accepts the code (the process exits with status 0), the runner counts the test as **passed**. This avoids failing the suite on parser divergence (for example QuickJS accepting code that Test262 expects to be invalid), but it means these runs do not measure parse-negative coverage.
+- **Module tests (`flags: [module]`):** the runner passes each harness file with `--preload`, adds `--input-type=module` and runs the **original** test file, so that relative imports resolve from the test directory. Module code is evaluated by the QuickJS module evaluator, not by the protoCore interpreter (`src/JSContext.cpp`).
+- **Test262Error heuristic:** a thrown harness `Test262Error` is reported by `protojs` as `(ProtoObject)`. The runner accepts that marker as a match for negative tests that expect `Test262Error`.
+- Writes a JSON snapshot for each run to `tests/test262/reports/`. The directory is not tracked in git, so the snapshot names below refer to local run output.
 
-The initial focus is on **language semantics and object/scoping behaviour**, not host APIs.
+### RegExp and `lastIndex`
 
-**Phase 3 / protoCore path:** Test262 runs on the protoCore interpreter path are supported. Use `TEST262_USE_PROTO_EVAL=1` (or `use_proto_eval: true` in config) so every test runs via compile → load → run without the QuickJS interpreter. Not all Test262 categories have been migrated or validated yet; the Phase 6 table and reports in `tests/test262/reports/` track conformance as patterns are run and updated.
+RegExp built-ins run on the protoCore interpreter (`src/RegExpPrototype.cpp`). `exec` reads `lastIndex` from the RegExp object with ToLength semantics and stores the updated index back on the same object with `setAttribute`.
 
-### RegExp and `lastIndex` (immutable backend)
+### Results on the protoCore interpreter
 
-The protoCore backend is immutable by default. ECMA-262 requires RegExp instances with the `global` or `sticky` flag to update their `lastIndex` property in place when `exec()` or `test()` is called. To satisfy Test262 and the spec:
+Every run in this report executes script code on the protoCore interpreter (compile, load, run). The March 2026 rows below are superseded (see [Summary](#summary)).
 
-- **RegExp is excluded from the protoCore path** in the ExecutionEngine: `shouldUseProtoCore()` returns `false` for `JS_CLASS_REGEXP`, so get/set property on RegExp always use QuickJS native behaviour.
-- **`lastIndex` is mutated in place** by QuickJS’s `js_regexp_exec` / `js_regexp_set_lastIndex`; no new RegExp instance is created and the caller’s reference continues to see the updated index.
-- This keeps RegExp semantics spec-compliant while the rest of the engine can remain immutable.
+**Native global:** top-level `var` assignments update the root of the protoCore-native global object, so later reads see the new value. `node tests/test262/runner/proto_eval_smoke.js` checks this among its six cases.
 
-### Phase 6 (Option B): Conformance on protoCore path
+**2026-03-08:** module mode wired end to end (`--input-type=module` → `JS_EVAL_TYPE_MODULE` with the QuickJS file-system module loader and Promise-based evaluation). 39 module-code tests, 7 line-terminator tests and 3 import tests were removed from the skip list, which went from 66 to 7 entries.
 
-**Phase 6** measures conformance when every test runs on the **protoCore interpreter** (compile → load → run, no QuickJS execution). Use the same runner with:
-
-- **Environment:** `TEST262_USE_PROTO_EVAL=1`, or
-- **Config:** `"use_proto_eval": true` in `tests/test262/config/test262_paths.json`.
-
-The runner then passes `PROTOJS_USE_PROTO_EVAL=1` to the protojs process. Results (pass/fail/timeout) should be filled from the JSON snapshots in `tests/test262/reports/` after each run. Focus: fix missing opcodes and built-ins in the ProtoInterpreter and TypeBridge to improve these numbers. See `src/runtime/README.md` § Phase 6.
-
-**Phase 6 native global:** The global object is a ProtoObject built at first eval from the QuickJS global; top-level `var` assignments update the global root so reads see the new value. Directed smoke test: `node tests/test262/runner/proto_eval_smoke.js` (6 cases, including native global var persistence).
-
-**Phase 6 Step 1+2 (2026-03-08):** Module mode wired end-to-end (`--input-type=module` → `JS_EVAL_TYPE_MODULE` with QuickJS filesystem module loader + Promise-based evaluation). 39 module-code tests + 7 line-terminator tests + 3 import tests removed from skip list. Skip list reduced from 66 to 7.
-
-**Phase 7 (2026-03-09):** `OP_array_from`, `OP_for_of_start/next`, `OP_iterator_close/check_object/get_value_done`, `OP_for_in_start` (PROTO_NONE guard) implemented. Skip list updated to 18 entries (+11 for TypedArray-resizable-buffer tests and for-of/dstr tests that require full TypedArray/destructuring-iterator support). Net result: +249 more passing tests vs Phase 6 baseline. Run: `TEST262_USE_PROTO_EVAL=1 node tests/test262/runner/test262_runner.js`.
+**2026-03-09:** `OP_array_from`, `OP_for_of_start/next`, `OP_iterator_close/check_object/get_value_done` and `OP_for_in_start` (PROTO_NONE guard) implemented. The skip list grew to 18 entries (+11 TypedArray-resizable-buffer and for-of/dstr tests that require full TypedArray and destructuring-iterator support). Net result: +249 passing tests compared with the 2026-03-08 run. The skip list has since been reduced to 11 entries.
 
 | Path / category (protoCore) | Total | Passed | Failed (syntax) | Failed (semantics) | Timeouts | Notes |
 |-----------------------------|-------|--------|-----------------|--------------------|----------|-------|
-| `built-ins/Array` (full)     | 3081 | 3081 | 0 | 0 | 0 | `TEST262_PATTERNS=built-ins/Array TEST262_USE_PROTO_EVAL=1 node tests/test262/runner/test262_runner.js`; snapshot: `snapshot-built-ins-Array-1772822992867.json`. |
-| `built-ins/Array/prototype` | 2810 | 2810 | 0 | 0 | 0 | Snapshot: `snapshot-built-ins-Array-prototype-1772823235793.json`. |
+| `built-ins/Array` (full)     | 3081 | 3081 | 0 | 0 | 0 | `TEST262_PATTERNS=built-ins/Array TEST262_USE_PROTO_EVAL=1 node tests/test262/runner/test262_runner.js`; snapshot: `snapshot-built-ins-Array-1772822992867.json`. Recorded 2026-03-06; superseded (see Summary). |
+| `built-ins/Array/prototype` | 2810 | 2810 | 0 | 0 | 0 | Snapshot: `snapshot-built-ins-Array-prototype-1772823235793.json`. Recorded 2026-03-06; superseded (see Summary). |
 | `built-ins/Array/isArray`   | 29 | 29 | 0 | 0 | 0 | Run: `TEST262_USE_PROTO_EVAL=1 node tests/test262/runner/test262_runner.js`. Sibling Test262 repo at `../test262`. |
-| proto_eval_smoke (directed) | 6 | 6 | 0 | 0 | 0 | `node tests/test262/runner/proto_eval_smoke.js` — arithmetic, typeof, comparison, Array.isArray, typeof function, Phase 6 native global (var). |
-| phase6_native_global.js (directed) | 1 | 1 | 0 | 0 | 0 | `PROTOJS_USE_PROTO_EVAL=1 ./build/protojs --proto-eval tests/test262/tests/phase6_native_global.js` — global var write/read, reassignment, built-ins on global. |
-| `language` + `built-ins` (full patterns, 2026-03-06) | 47219 | 47153 | 0 | 0 | 0 | 66 skipped. Pre-Phase-6-Step1 baseline. |
-| `language` + `built-ins` (full patterns, 2026-03-08) | 47219 | 42643 | 694 | 3750 | 125 | **7 skipped**. Phase 6 Step 1+2: module mode wired, line-terminators unlocked. Run: `TEST262_USE_PROTO_EVAL=1 node tests/test262/runner/test262_runner.js`. Snapshot: `snapshot-language_built-ins-1773028489384.json`. |
-| `language` + `built-ins` (full patterns, 2026-03-09) | 47219 | **42892** | 694 | 3488 | 127 | **18 skipped** (+11 Phase 7: TypedArray-resizable-buffer×5, for-of/dstr×6). Phase 7: `OP_array_from`, for-of iterator opcodes, for-in guard. **+249 vs Phase 6 baseline**. Snapshot: `snapshot-language_built-ins-1773077022112.json`. |
-| 10-pattern built-ins baseline (2026-06-04, round 10 complete) | 9400 | **6763** | 6 | 2602 | 29 | Patterns: built-ins/{Array,Object,String,Number,Math,JSON,Error,NativeErrors,Promise,Boolean}. Snapshot: `snapshot-built-ins-Array_built-ins-Object_built-ins-String_built-ins-Number_built-ins-Mat-1780589642485.json`.  71.9 % pass rate. |
-| Array iteration subset (2026-06-05, round 11 + audit) | 895 | **759** | 0 | 128 | 8 | Patterns: built-ins/Array/prototype/{map,filter,every,some}. Snapshot: `snapshot-built-ins-Array-prototype-map_built-ins-Array-prototype-filter_built-ins-Array-p-1780675630500.json`.  **84.8 % pass rate** — directly comparable to the iteration-method slice of the 2026-06-04 baseline, illustrates the +14 pp lift from round-11 abrupt-completion / ToObject / iterReceiver / strict-equals work plus the PROTO_NONE-presence-probe audit. |
+| proto_eval_smoke (directed) | 6 | 6 | 0 | 0 | 0 | `node tests/test262/runner/proto_eval_smoke.js` — arithmetic, typeof, comparison, Array.isArray, typeof function, native global (var). |
+| `phase6_native_global.js` (directed) | 1 | 1 | 0 | 0 | 0 | `./build/protojs tests/test262/tests/phase6_native_global.js` — global var write/read, reassignment, built-ins on global. |
+| `language` + `built-ins` (full patterns, 2026-03-06) | 47219 | 47153 | 0 | 0 | 0 | 66 skipped. Superseded (see Summary). |
+| `language` + `built-ins` (full patterns, 2026-03-08) | 47219 | 42643 | 694 | 3750 | 125 | **7 skipped**. Module mode wired, line terminators unlocked. Superseded (see Summary). Run: `TEST262_USE_PROTO_EVAL=1 node tests/test262/runner/test262_runner.js`. Snapshot: `snapshot-language_built-ins-1773028489384.json`. |
+| `language` + `built-ins` (full patterns, 2026-03-09) | 47219 | **42892** | 694 | 3488 | 127 | **18 skipped** (+11: TypedArray-resizable-buffer×5, for-of/dstr×6). `OP_array_from`, for-of iterator opcodes, for-in guard. **+249 vs the 2026-03-08 run**. Superseded (see Summary). Snapshot: `snapshot-language_built-ins-1773077022112.json`. |
+| 10-pattern built-ins baseline (2026-06-04) | 9400 | **6763** | 6 | 2602 | 29 | Patterns: built-ins/{Array,Object,String,Number,Math,JSON,Error,NativeErrors,Promise,Boolean}. Snapshot: `snapshot-built-ins-Array_built-ins-Object_built-ins-String_built-ins-Number_built-ins-Mat-1780589642485.json`.  71.9 % pass rate. |
+| Array iteration subset (2026-06-05, after fix batch 11 and the presence-probe audit) | 895 | **759** | 0 | 128 | 8 | Patterns: built-ins/Array/prototype/{map,filter,every,some}. Snapshot: `snapshot-built-ins-Array-prototype-map_built-ins-Array-prototype-filter_built-ins-Array-p-1780675630500.json`.  **84.8 % pass rate** — directly comparable to the iteration-method slice of the 2026-06-04 baseline, illustrates the +14 pp lift from the batch 11 abrupt-completion / ToObject / iterReceiver / strict-equals fixes plus the PROTO_NONE-presence-probe audit. |
 | `built-ins/Array` full (2026-06-05, post 20-fix Array package) | 3 081 | **2 380** | 0 | 670 | 31 | Patterns: built-ins/Array.  Snapshot: `snapshot-built-ins-Array-1780675824848.json`.  **77.3 % pass rate** post-cleanup of the long-tail Array-specific failures (push / pop / shift / unshift / splice frozen-length, ToInteger via jsToNumber on with / fill / includes / slice, ArrayIteratorPrototype.Symbol.toStringTag, sort comparator abrupt, indexOf no-arg / Infinity string length, flat Symbol/null-proto depth, arrayToString primitive receivers). |
 | `built-ins/Array` full (2026-06-05, post 2nd 20-fix Array package) | 3 081 | **2 414** | 0 | 636 | 31 | Patterns: built-ins/Array.  Snapshot: `snapshot-built-ins-Array-1780677665005.json`.  **78.4 % pass rate** (+1.1 pp) after the second long-tail Array package: fill ToObject(this), copyWithin no-args length read, elemToString user-toString fallback, shift/pop write-back length on NaN / Infinity, unscopables null-prototype, ArrayIteratorProto next descriptors, values-iterator sticky-done, lastIndexOf / indexOf accessor-throw early-exit, arrLen own-getter Object→ToNumber fallback, splice / map / filter / slice / concat / arrayCloneShallow ArraySpeciesCreate abrupt propagation, includes empty-receiver early return. |
 
@@ -476,21 +78,20 @@ The runner then passes `PROTOJS_USE_PROTO_EVAL=1` to the protojs process. Result
 
 ## 2. Language Conformance (Test262 /language/)
 
-The current configuration runs a **local mini-suite** under `tests/test262/tests` for quick validation of the runner and core semantics.  
-When `TEST262_ROOT` points to a full Test262 checkout, these numbers should be regenerated from the real suite.
+Rows marked "Local mini-suite" come from the small test files under `tests/test262/tests/` that were used to validate the runner. For the whole `language` family, see the full-suite run in [docs/TEST262_STATUS.md](docs/TEST262_STATUS.md).
 
 | Folder                      | Total | Passed | Failed (syntax) | Failed (semantics) | Timeouts | Notes |
 |-----------------------------|-------|--------|-----------------|--------------------|----------|-------|
-| `language/expressions`      | 11093 | 11093 |               0 |                  0 |        0 | Full Test262 `/language/expressions` on protoCore with parse-negative leniency. |
+| `language/expressions`      | 11093 | 11093 |               0 |                  0 |        0 | Full Test262 `/language/expressions` with parse-negative leniency (undated). Superseded: 9,295 / 11,036 in the full run of 2026-04-12 (see Summary). |
 | `language/statements`       |     1 |      1 |               0 |                  0 |        0 | Local mini-suite: `if-basic.js`. |
 | `language/scoping`          |     2 |      2 |               0 |                  0 |        0 | Local mini-suite: `closure-basic.js`, `let-block.js`. |
-| `language` (full Test262, protoCore) |  ? |   (see Phase 6) | 0 | 0 | 0 | With parse-negative leniency, parse-phase negative tests that the parser accepts count as passed. Use `TEST262_PATTERNS=language/expressions` to run expressions only. |
+| `language` (full Test262, protoCore) | 23629 | 18420 | — | — | — | Full-suite run of 2026-06-01 (family totals only); see [docs/TEST262_STATUS.md](docs/TEST262_STATUS.md). Use `TEST262_PATTERNS=language/expressions` to run a single directory. |
 
 ---
 
 ## 3. Object Model & Immutability
 
-> Initial data is from local tests and a focused subset of the official Test262 suite. When broadening coverage, this section should be regenerated from the latest snapshots in `tests/test262/reports/`.
+> Recorded from early local tests and focused Test262 subset runs, most of them undated. The `built-ins/Array` rows are superseded by the measurements of 2026-06-05 and 2026-06-06 (see [Summary](#summary)); treat the other rows as historical records rather than current results.
 
 | Folder                              | Total | Passed | Failed (syntax) | Failed (semantics) | Timeouts | Notes |
 |-------------------------------------|-------|--------|-----------------|--------------------|----------|-------|
@@ -1576,49 +1177,425 @@ The `built-ins/Array/isArray` subset confirms that:
 
 ---
 
-## 4. Common Failure Patterns (Top 5)
+## 4. Common Failure Patterns
 
-> To be filled once snapshots exist; this is the structure the analysis should follow.
-
-For each pattern:
-
-1. **Pattern name** — short, descriptive (e.g. “Property updates drop new root in object slots”).  
-2. **Affected areas** — example Test262 paths (e.g. `built-ins/Object/defineProperty/**`).  
-3. **Technical root cause** — in terms of protoJS / protoCore:
-   - Where an immutable update returns a new root (e.g. `setAttribute`) but the result is not propagated.
-   - Where lexical environment references or prototype chains are not updated consistently.
-4. **Fix status** — pending / in progress / resolved (with commit hash or PR reference).
+This report does not maintain a failure-pattern analysis. The main gaps identified by the full-suite run of 2026-06-01 (class support, generators and `async`/`await`, `Symbol` as a primitive type, and others) are listed in [docs/TEST262_STATUS.md](docs/TEST262_STATUS.md#next-steps-as-of-2026-06-01). Known limitations of individual `built-ins/Array` packages are noted in the coverage data points at the top of this report.
 
 ---
 
 ## 5. How to Regenerate Conformance Data
 
-1. **Configure Test262 location**
-   - Clone Test262:
-     ```bash
-     git clone https://github.com/tc39/test262.git /path/to/test262
-     ```
-   - Update `tests/test262/config/test262_paths.json`:
-     ```json
-     {
-       "test262_root": "/path/to/test262",
-       "harness_dir": "/path/to/test262/harness",
-       "default_timeout_ms": 10000,
-       "patterns": ["language/expressions", "language/statements"]
-     }
-     ```
-
-2. **Run the runner**
+1. **Get Test262.** From the protoJS repository root, clone Test262 next to the checkout (the default `test262_root` is `../test262`), or set `TEST262_ROOT` to another checkout:
    ```bash
-   cd protoJS
-   PROTOJS=./build/protojs TEST262_ROOT=/path/to/test262 \
+   git clone https://github.com/tc39/test262.git ../test262
+   ```
+   The configuration in `tests/test262/config/test262_paths.json` is (comment keys omitted):
+   ```json
+   {
+     "test262_root": "../test262",
+     "harness_dir": "harness",
+     "default_timeout_ms": 5000,
+     "patterns": ["language", "built-ins"],
+     "use_proto_eval": true
+   }
+   ```
+
+2. **Run the runner** from the repository root:
+   ```bash
+   # One directory
+   PROTOJS=./build/protojs TEST262_PATTERNS=built-ins/Array \
+     node tests/test262/runner/test262_runner.js
+
+   # The full language + built-ins run recorded in docs/TEST262_STATUS.md
+   PROTOJS=./build/protojs TEST262_CONCURRENCY=10 \
      node tests/test262/runner/test262_runner.js
    ```
 
-3. **Update this document**
-   - Inspect the latest JSON snapshot in `tests/test262/reports/`.
-   - Update the tables in sections 2 and 3 with:
-     - Total test counts.
-     - Passed / failed / timeout numbers.
-   - Summarise the five most common failure patterns in section 4, with technical analysis and references to protoJS / protoCore components.
+3. **Update the documents.**
+   - Take the totals from the newest JSON snapshot in `tests/test262/reports/`.
+   - Add a dated row (with the snapshot name) to the table in §1 and a dated coverage data point at the top of this report.
+   - Record full-suite runs in [docs/TEST262_STATUS.md](docs/TEST262_STATUS.md).
 
+
+
+---
+
+## 6. Fix history (2026-06-02 to 2026-06-05)
+
+Batches of conformance fixes made between 2026-06-02 and 2026-06-05, newest first. The same batches are recorded, with more detail, in [CHANGELOG.md](CHANGELOG.md) under "test262 spec conformance push" (dated 2026-06-02 to 2026-06-05); the `built-ins/Array` packages of 2026-06-05 and 2026-06-06 are recorded there under "Array cleanup package".
+
+### Audit — 2026-06-05: PROTO_NONE presence probes
+
+79 sites
+across 10 files were switched from `getAttribute(...) != PROTO_NONE`
+(which false-negatives on attributes whose stored value happens to be
+the undefined sentinel) to the spec-correct `hasAttribute(...) ==
+PROTO_TRUE`.  Affected helpers: every isCallable lambda
+(`__bytecode_id__` / `__native_fn__` / `__bound_fn__` /
+`__construct__`), every marker probe (`__is_array__` /
+`__is_symbol__` / `__is_raw_json__` / `__is_function_prototype__` /
+`__is_constructor__` / `__error_ctor__` / `__ta_ctor__`), descriptor
+field probes in Object.defineProperty / defineProperties / getOwn-
+PropertyDescriptor, and NonExtensibleBehavior's "already-installed"
+check.  Value-use sites (`if (v && v != PROTO_NONE)` followed by a
+read of v) were intentionally left alone — for those, PROTO_NONE
+correctly means "no usable value".  See commit
+`f3d719dc` for the full diff and rationale.
+
+In protoCore, `getAttribute` returns `PROTO_NONE` both when an attribute is absent and when its stored value is `PROTO_NONE`; presence checks therefore use `hasOwnAttribute` / `hasAttribute`.
+
+### Batch 11 — 2026-06-05 (24 commits)
+
+- §17 length descriptor on every unimplemented-ctor stub with the spec
+  arity and 0x2 sidecar (Date / BigInt / Proxy / WeakRef / WeakSet /
+  FinalizationRegistry / Iterator / Generator / GeneratorFunction /
+  AsyncFunction / AsyncGenerator / AsyncGeneratorFunction /
+  AggregateError / SharedArrayBuffer).
+- Symbol.toPrimitive completion in objToStr — trim* / replace / slice /
+  concat / includes raise the spec TypeError when the receiver's
+  `[Symbol.toPrimitive]` returns a non-primitive.
+- Symbol-receiver ToString throws TypeError via objToStr per §7.1.17.
+- Promise.* static and prototype methods gained name / length own
+  descriptors through a mutable wrapper (raw ProtoMethod cells cannot
+  carry sidecars); Promise.{resolve,reject,all,allSettled,race,any}
+  throw on non-constructor receivers per §27.2;
+  Promise.prototype.then throws on non-Promise receivers;
+  Promise.prototype.finally checks SpeciesConstructor.
+- Array strict-equals collapses PROTO_NONE and t_undefinedSentinel —
+  indexOf / lastIndexOf / includes locate the FIRST implicit / explicit
+  undefined slot consistently.
+- Array.prototype.copyWithin returns ToObject(this) so primitive
+  boolean receivers wrap into a Boolean object.
+- Array.prototype.{keys,values} ReturnIfAbrupt ToObject(this).
+- Array.prototype.slice ToIntegerOrInfinity via jsToNumber.
+- Array iteration receiver wrapping — callback's third argument is a
+  String wrapper when this is a primitive string.
+- Function.prototype.apply TypeError when argsArray is primitive /
+  Symbol / null per §20.2.3.1.
+- String.fromCharCode preserves embedded NUL by routing through
+  ProtoString::fromUTF8Buffer; non-primitive args coerce via
+  jsToNumber per §22.1.2.1.
+- String.prototype.{indexOf,concat} propagate ToString abrupts before
+  subsequent coercions (eager throw order).
+- arguments.length non-enumerable per §10.4.4.7.
+- Object.is treats t_undefinedSentinel / PROTO_NONE / missing arg as
+  one undefined.
+- Object.defineProperties({}, undefined) throws TypeError.
+- Error.prototype.toString raises TypeError on Symbol message per
+  §20.5.3.4.
+- Number.prototype.toLocaleString own property per §21.1.3.4 with
+  no-Intl toString fallback.
+
+### Batch 10 — 2026-06-04 (100 commits)
+
+- **Built-in constructor descriptors per §17:** Array / Object / Boolean
+  / Number / String / Set / Map / Promise / Symbol / RegExp / Date /
+  AggregateError / NativeError / ArrayBuffer / WeakMap / WeakRef /
+  WeakSet / FinalizationRegistry / Iterator / Generator /
+  GeneratorFunction / SharedArrayBuffer (and every other constructor
+  stub) all install the
+  `{writable, !enumerable, configurable}` descriptor on their
+  `name`, `length`, and the `prototype` slot. Prototype objects for
+  Stage-4 / yet-to-be-implemented constructors stamp
+  `Symbol.toStringTag` so `Object.prototype.toString.call(...)`
+  reports the correct `[object Xxx]`.
+- **OrdinaryToPrimitive abrupt-completion propagation:** ToString
+  helpers in the interpreter, `String.prototype.replaceAll`,
+  `Array.from` iterator loop, `for-of` IteratorNext, and
+  `Symbol(description)` now check the call-exception channel
+  between every observable step, so a throwing user-side `toString`
+  / `valueOf` / `next` propagates the original abrupt instead of
+  being overwritten by a later helper's exception.
+- **ToNumber / ToInteger sweep:** `Array.prototype.at`, `includes`,
+  `lastIndexOf`, and the `Number.prototype.toFixed` argument all
+  route non-primitive arguments through `jsToNumber` so an Object
+  with `valueOf` / `Symbol.toPrimitive` is honoured and a Symbol
+  argument throws TypeError. `ToNumber(String)` rejects
+  case-insensitive `Infinity` / `Inf` / `NaN` per
+  §7.1.4.1.1 (only the exact spelling produces the literal value).
+- **Array.prototype hole-aware semantics:** `Array.prototype.sort`
+  buckets PROTO_NONE, the explicit undefined sentinel, and source
+  holes uniformly as "undefined" trailing values; `toReversed`,
+  `toSorted`, `toSpliced`, and `with` materialise holes as own
+  undefined data properties on the destination (`hasOwnProperty(k)`
+  is true for every k in `[0, len)`). `Array.prototype.includes`
+  searches for `undefined` when called with no argument and treats
+  PROTO_NONE in `__elements__` as the undefined sentinel under
+  `SameValueZero`.
+- **Object.{keys, values, entries} re-check own-property per §7.3.23
+  step 4.a:** a getter that deletes a later key during iteration
+  is now observed — the deleted key is excluded from the result.
+- **for-of / OP_iterator_next §7.4.2 step 4:** if the iterator
+  `next()` return is not an Object (Symbol, primitive, null,
+  undefined), throw TypeError — pre-fix the loop would silently
+  read a stale `done` and iterate on garbage.
+- **Reflect.* §28.1 Type(target) check:** every entry point rejects
+  Symbol targets with TypeError; `Reflect.set` now dispatches
+  accessor descriptors BEFORE the writable-bit gate (§9.1.9
+  [[Set]] step 5 / 7 ordering).
+- **JSON.rawJSON / JSON.stringify stage-4 polish:** the wrapper
+  has null `[[Prototype]]`; `JSON.stringify` emits the rawJSON
+  text verbatim per §25.5.2.2 step 4; the Number-to-text
+  conversion inside `JSON.rawJSON` uses the shortest-decimal
+  round-trip so `JSON.rawJSON(1.1)` records `"1.1"`, not the
+  noisy `1.1000000000000001`.
+- **Function.prototype is callable per §20.2.3:**
+  `Object.prototype.toString.call(Function.prototype)` returns
+  `[object Function]` via a new `__is_function_prototype__` probe.
+- **String.prototype.lastIndexOf / replaceAll ToString discipline:**
+  `lastIndexOf` uses `getStrArgWithUndef` so a missing/undefined
+  search argument becomes the literal `"undefined"`;
+  `replaceAll` gates every `objToStr` / replacer invocation with
+  `hasCallException()` so a throwing `thisValue.toString`
+  propagates instead of being overwritten by the searchValue or
+  replaceValue stringification.
+- **for-of `IteratorNext` PROTO_NONE = undefined for the static
+  ToString helper:** a JS function that completes without an
+  explicit `return` surfaces as PROTO_NONE in `callJSFunction`'s
+  return path. The OrdinaryToPrimitive helper now normalises it to
+  the undefined sentinel so wrapper-Object coercion produces
+  `"undefined"` instead of `"[object Object]"`.
+
+### Batch 9 — 2026-06-03
+
+- **Number/Boolean/String prototype internal slots:** install
+  `__primitive_value__` on each so `Number.prototype.toFixed`,
+  `Boolean.prototype.toString`, `String.prototype.valueOf` etc.
+  return spec-correct values instead of throwing
+  "incompatible receiver" TypeErrors.
+- **Object.prototype.toString dispatch:** consult
+  `__primitive_value__` so wrappers and the prototype objects
+  report `[object Boolean]` / `[object Number]` / `[object String]`
+  per §22.1.3.7.
+- **Spec step-ordering across Array prototype iteration helpers:**
+  `LengthOfArrayLike` now precedes `IsCallable` in reduce /
+  reduceRight / forEach / map / filter / find / findIndex /
+  findLast / findLastIndex / some / every — a throwing `length`
+  accessor propagates instead of being masked.
+- **arrLen / OP_get_length:** coerce booleans / objects via
+  `jsToNumber` per ToLength; fire `__get_length__` accessor
+  in OP_get_length; clamp +∞ to 2^32-1; respect mixed-storage
+  arrays whose `length` exceeds the `__elements__` size.
+- **arrGet sparse-tail visibility:** distinguish "out-of-range
+  fast-path read" from "no native storage" so sparse literals
+  like `[0, 'foo', , Infinity]` expose every index.
+- **Array.from constructor branch:** `Array.from.call(C, items)`
+  now delegates to `Construct(C)` per §23.1.2.1; the
+  Symbol.iterator accessor getter fires per §7.3.10.
+- **Number.prototype.toString shortest round-trip:** replaces
+  `%.15g` with a round-trip loop + decimal/scientific switch
+  per §6.1.6.1.13, fixing the `(1e18+128).toString()` case.
+- **Number.prototype.toExponential / toPrecision step order:**
+  `ToInteger` on the argument runs before the NaN / ±Infinity
+  guards; `undefined` argument is treated as omitted.
+- **parseInt/radix coercion + parseFloat(-0):** ToInt32 unwraps
+  Number wrappers via `jsToNumber`; parseFloat(-0) emits +0 per
+  ToString(-0) = "0".
+- **JSON pre-validation:** raw control characters U+0000..U+001F
+  inside string literals throw SyntaxError per §24.5.
+- **Built-in constructor `prototype` descriptors:** Boolean /
+  Number / String / Array / Error / Error-subclasses install
+  non-writable, non-enumerable, non-configurable per §17.
+- **AggregateError length = 2** per §19.2.1.5.
+- **Object.getOwnPropertyNames includes array's `length` slot**
+  per §23.1.3.
+
+### Batch 8 — 2026-06-03
+
+- **Map/Set methods inherit Function.prototype:** reinstalled in
+  ensure*Constructor (post-FunctionPrototype) so `m.set.call`, `s.add.bind`,
+  etc. resolve. Pre-fix every Map/Set method was parentless — blocking
+  every test262 case that used `m.method.call(badThis, …)`.
+- **Set-like accessor + iteration:** GetSetRecord invokes class-style
+  .size / .has / .keys getters; union / symDiff / isSupersetOf drive
+  the spec's keys() iterator for non-Set arguments; intersection picks
+  the smaller side and preserves its iteration order per §24.2.3.10.
+- **Reflect.* completeness:** Reflect.apply enforces IsCallable +
+  CreateListFromArrayLike. Reflect.get honours receiver and invokes
+  accessor getters. Reflect.set walks the prototype chain for setters
+  with receiver as `this` and returns false on non-writable receiver
+  slots. Reflect.defineProperty swallows abrupt completions
+  → false. Reflect.deleteProperty rejects delete on frozen / sealed
+  / non-configurable.
+- **JSON behaviour:** stringify invokes the replacer for array
+  elements with holder=array as `this`; runs the top-level toJSON
+  before the replacer; replacer-array order wins; the replacer fires
+  even when [[Get]] returned undefined; the replacer-array scan
+  invokes accessor getters. parse routes Object arguments through
+  the accessor-form toString / valueOf getters.
+- **Map / Set iterable semantics:** both throw TypeError when
+  @@iterator is explicitly undefined / null per §24.x.1 step 6 +
+  GetIterator. Map constructor invokes the .set accessor when
+  resolving the adder.
+- **Map[Symbol.species]:** added, returns `this`. Map / Set .size
+  accessor slot now carries descriptor 0x2 so it drops out of
+  Object.keys(Map.prototype).
+- **Date / Object descriptors:** Date.now / Date.parse / Date.UTC
+  carry §17 descriptor 0x3. Object.getOwnPropertyDescriptor /
+  getOwnPropertyDescriptors synthesise per-char and 'length'
+  descriptors for string primitives.
+- **Array.prototype.concat:** ToObject-boxes the primitive `this`
+  (so `Array.prototype.concat.call(101)[0] instanceof Number`).
+- **Math.round:** short-circuits |x| >= 2^52 to return x unchanged.
+- **parseInt:** routes overflow through double accumulation so
+  `parseInt('-1e19') === -1e19` instead of the signed-cast wrap.
+
+### Batch 7 — 2026-06-03
+
+- **Large array-literal fix:** OP_get_array_el falls back to indexed
+  attributes for slots ≥32, so `[10,11,...,44][32]` correctly returns
+  `42` (was `undefined`). QuickJS uses OP_define_field for elements
+  past slot 32, and the runtime was treating arrayTryFastGet's
+  out-of-bounds PROTO_NONE as the final answer. Affected every
+  consumer of large array literals — silent quiet bug.
+- **Object descriptors are real Objects:** `Object.getOwnPropertyDescriptor`
+  result inherits the live Object.prototype (so `desc.hasOwnProperty('get')`
+  works), synthesises descriptors for array index slots and String-wrapper
+  char indices, and Object static methods + Object.prototype carry the
+  spec §17 descriptors (so `Object.keys(Object)` returns []).
+- **No more own `constructor` on plain `new F()` instances:** the backref
+  is stamped on F.prototype lazily when missing, so the instance inherits
+  it via the chain without leaking into `Object.keys(instance)`.
+- **JSON coverage:** JSON.parse ToString-coerces null/boolean/number
+  arguments AND Object arguments (via ToPrimitive('string')). JSON.stringify
+  serialises accessor-backed properties from BOTH the literal and
+  Object.defineProperty forms, handles sparse replacer arrays, and
+  unboxes Number/String wrappers for the space argument. TypeBridge
+  preserves negative zero across the QuickJS boundary.
+- **Reflect alignment:** Reflect.set honours receiver and rejects
+  non-Object receivers. Reflect.setPrototypeOf rejects cycles AND
+  non-extensible targets (matched on Object.setPrototypeOf). Reflect.construct
+  validates argumentsList per §7.3.17 and discriminates Object returns
+  from undefined. Reflect.ownKeys orders per §9.1.11 (indices, strings,
+  then 'length' for arrays). Reflect / Math / JSON globals carry the
+  §17 descriptors.
+- **ToNumber + parseInt / parseFloat:** parseInt and parseFloat ToString
+  the full primitive result of ToPrimitive('string') — toString returning
+  a number / boolean now parses correctly. parseFloat recognises the
+  full ECMA-262 whitespace set (USP, NBSP, line separators, BOM).
+  toNumber consults @@toPrimitive('number') before valueOf/toString
+  and validates the hook (non-callable / non-primitive return → TypeError).
+- **Array.prototype.concat ToBoolean fix:** @@isConcatSpreadable applies
+  the full ToBoolean ruleset (0 / NaN / '' / null → false) AND invokes
+  the accessor-form getter when present.
+- **Math.hypot:** ToNumber abrupt-completion propagation stops further
+  valueOf invocations on the rest of the argument list.
+
+### Batch 6 — 2026-06-03
+
+- **Map / Set under §17:** Set / Map / Promise constructors carry .length
+  and .name with descriptor 0x2; Set.prototype.size / Map.prototype.size
+  getters wrapped as real Function objects with name = "get size",
+  length = 0; Set / Map / Promise.prototype / Math / JSON / RegExp.prototype
+  `[Symbol.toStringTag]` installed under the user-visible key.
+  `Set` now exposes `get Set[Symbol.species]` returning this.
+- **Map / Set behaviour:** Set / Map forEach visit entries added from
+  inside the callback and revisit values deleted-then-re-added per
+  §24.x.3.x NOTE; both throw TypeError on non-callable callback. Set
+  constructor throws TypeError when `add` is shadowed by a non-callable.
+  Set iterators latch a sticky done = true after exhaustion so later
+  Set.add does NOT resurface through the same iterator.
+- **Set collection methods:** the seven set ops (`union`, `intersection`,
+  `difference`, `symmetricDifference`, `isSubsetOf`, `isSupersetOf`,
+  `isDisjointFrom`) validate via GetSetRecord per §24.2.1.2 (TypeError
+  / RangeError for malformed `other`). `intersection` / `difference` /
+  `isSubsetOf` / `isDisjointFrom` now call `other.has(v)` for non-Set
+  set-like arguments, so `{size, has, keys}` objects yield correct
+  results.
+- **Map.prototype.getOrInsertComputed:** validates IsCallable(callbackfn)
+  BEFORE the map lookup and passes the canonical key to the callback.
+- **Array.prototype.flat / flatMap:** depth coercion via ToNumber
+  (non-numeric strings → NaN → 0, numeric strings parse, objects → 0);
+  flat result creation routes through ArraySpeciesCreate (so
+  `a.constructor = null` throws TypeError); arraySpeciesCreate enforces
+  the §22.1.3.1.1 non-Object constructor check.
+- **JSON / Function chain:** JSON.parse results inherit the real
+  Object.prototype; `Object.getPrototypeOf(JSON.parse) === Function.prototype`.
+  `Reflect.construct` implemented per §28.1.2 so the isConstructor
+  harness used by many test262 tests works.
+
+### Batch 5 — 2026-06-03
+
+- **Array constructor / prototype:** `Array(N)` function-call validation,
+  `.length` setter ToUint32 + SameValue + RangeError, concat
+  Symbol.isConcatSpreadable, flat / flatMap empty children,
+  push on plain-object receivers, Array.from ToLength coercion.
+- **Map / Set:** non-Object entry / non-iterable primitive guards,
+  Set iterates strings per code unit, insertion order across
+  delete + re-set cycles (Map.set / Set.add pick `max(slot)+1`,
+  not `size`).
+- **JSON.stringify / JSON.parse:** replacer-function form,
+  top-level undefined returns undefined (not the literal 'null').
+- **Property descriptors / accessors:** object-literal getter/setter
+  enumerable by default; Object.assign + object spread invoke the
+  source getter; defineProperty no-op + same-value redefine allowed
+  on non-configurable; getter-only accessors reject writes
+  (Map.size / Set.size / user `{ get x() {…} }`).
+- **Object.setPrototypeOf(o, null)** persists the null sentinel.
+  `Object.is{Extensible,Frozen,Sealed}` treat string / undefined /
+  boolean primitives as frozen. Reflect.is{Extensible,
+  preventExtensions} forward to the NonExtensibleMarker path.
+- **String + Number coercion:** replace / replaceAll ToString
+  non-string patterns; case mapping for the Latin-1 supplement;
+  repeat ToNumber on objects; toPrecision exact significant
+  digits; ToNumber preserves -0 / rejects intra-prefix whitespace.
+- **AggregateError** registered as a built-in error constructor;
+  Object.fromEntries TypeError on non-iterable primitives;
+  WeakMap key TypeError; Function.prototype.bind inherits
+  Function.prototype.
+- **hasOwnProperty** treats PROTO_NONE slots as absent (handles
+  the simulated-delete the array prototype uses).
+
+### Batch 4 — 2026-06-02
+
+- **Sentinel hygiene:** the global `undefined` identifier now agrees with
+  `void 0` everywhere — toBool, property access (`undefined.x` throws),
+  `Array.prototype.join(undefined)`, get_field, get_array_el.
+- **Prototype-chain reconstruction:** Object.prototype's instance methods
+  re-parent at Function.prototype, so the
+  `Object.prototype.hasOwnProperty.call(o, 'a')` idiom resolves;
+  `__proto__` in object literals takes effect via `OP_set_proto`;
+  `Array instanceof Object` and friends hold via the
+  Function.prototype-after-Object.prototype-rebuild tie.
+- **Object.freeze / seal / preventExtensions actually enforce writes:**
+  five cooperating bugs in BehaviorRegistry + marker installation
+  fixed in one commit. Writes to frozen / sealed objects silently no-op,
+  new keys on non-extensible objects rejected, existing-key updates
+  still allowed on sealed.
+- **JSON.stringify / JSON.parse fills:** wrapper unboxing, reviver
+  recursion, exponent padding, circular-reference TypeError, array
+  prototype after `JSON.parse('[…]')`.
+- **ToNumber / parseInt / parseFloat:** 0x / 0b / 0o prefix forms,
+  -0 preservation, parseInt radix-0 default, parseFloat case-sensitive
+  Infinity + 0x rejection.
+- **Descriptor housekeeping:** all built-in `constructor` backrefs
+  non-enumerable; Array .length descriptor matches §22.1.5.1; plain
+  object literals no longer leak phantom .length.
+
+### Batches 1–3 — 2026-06-02 (about 110 commits)
+
+- `built-ins/Math` slice: ~59% → 94% pass rate after constructor
+  backref, NaN/Infinity handling on pow/round/clz32/hypot, function
+  wrapper shape (name/length descriptors).
+- `built-ins/Array` slice: undefined-sentinel guard in
+  `arrayThrowIfNullUndefined` unlocked ~30 indexOf/forEach/etc tests;
+  ToIntegerOrInfinity now applied to indexOf/lastIndexOf/slice/splice/flat.
+- `built-ins/Object`: `getOwnPropertyDescriptors` and `hasOwn` ToObject
+  TypeError, `defineProperty` no-arg TypeError, `create` TypeError on
+  non-Object/non-null proto. The Object constructor is now mutable so
+  the prototype.constructor backref roundtrips (`Object.prototype.constructor
+  === Object` holds).
+- `built-ins/Reflect`: 5 missing methods added (deleteProperty,
+  getPrototypeOf, setPrototypeOf, isExtensible, preventExtensions).
+- Spec-mandated `.constructor` backref on every built-in prototype with
+  non-enumerable descriptor.
+- ToIntegerOrInfinity now applied uniformly across every Array.prototype
+  index method (indexOf, lastIndexOf, includes, at, slice, splice,
+  copyWithin, fill, flat). Number.prototype.toString also handles
+  fractional radices and ToInteger on the radix arg.
+- ToNumber and String.prototype.trim variants now match the full
+  Unicode WhiteSpace + LineTerminator set, not just ASCII.
+- `Function.prototype` shape (length=0, name=""), Boolean / Object
+  prototype methods carry their spec name + length attributes, and
+  Date.parse / Date.UTC are implemented as minimal ISO-8601 / UTC
+  builders.

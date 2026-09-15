@@ -6,5 +6,4 @@ Depends: protocore (>= 1.0.0)
 Section: utils
 Priority: optional
 Description: protoJS runtime for JavaScript execution.
- protoJS provides a high-performance JavaScript execution environment
- leveraging protoCore.
+ protoJS is a JavaScript runtime built on the protoCore object model.

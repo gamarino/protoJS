@@ -1,28 +1,25 @@
-# Conformity Test Suite (Phase 1)
+# Conformity Test Suite
 
-Tests for semantic correctness on the immutable protoCore engine.
+Small JavaScript checks of built-in semantics and module identity on the protoCore interpreter. They complement the official Test262 runs described in [TEST262_STATUS.md](../../docs/TEST262_STATUS.md).
 
 ## Layout
 
-- **builtins/** — Phase 1.1: Number, String, Array, Object (protoJS).
-- **import/** — Phase 1.2: module resolution, wrapper vs exports (when applicable).
-- **bootstrap/** — Phase 1.3: manifest of minimal Test262 (or equivalent) subset.
+- **`builtins/`** — `test_number_conformity.js`, `test_string_conformity.js`, `test_array_conformity.js`, `test_object_conformity.js`.
+- **`import/`** — `test_require_twice.js` and `test_module_identity.js` check that repeated `require()` calls return the same module; `pkg/dummy_module.js` is their fixture.
+- **`bootstrap/test262_bootstrap.txt`** — manifest of the tests that `run_conformity.js` runs.
 
-## Running (protoJS)
+## Running
 
-Run integration tests with the protoJS runner; ensure `tests/conformity` is included in the test config.
+From the repository root, run one script directly:
 
 ```bash
-# From protoJS repo root
 ./build/protojs tests/conformity/builtins/test_number_conformity.js
 ```
 
-Or use the runner script (if provided):
+or run the manifest (or, without a manifest, every script under `builtins/`) with the runner:
 
 ```bash
 node tests/conformity/run_conformity.js
 ```
 
-## Immutability verification
-
-Run the same pattern as protoPython: grep for `const_cast` in module/resolution paths and fail CI if forbidden uses remain.
+The runner uses the binary named by the `PROTOJS` environment variable, or else `build/protojs` or `./protojs`. These tests are not part of CTest or `tests/run_all_tests.sh`.

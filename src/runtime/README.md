@@ -1,93 +1,61 @@
-# ProtoCore Runtime (Option B: Reuse Parser)
+# protoCore Runtime (`src/runtime`)
 
-This directory implements the **Reuse Parser, Full protoCore Runtime** path: QuickJS is used only to parse and compile JavaScript to bytecode; execution is done by a protoCore-native interpreter.
+This directory contains the protoJS execution pipeline: QuickJS parses and compiles JavaScript to bytecode, and a protoCore-native interpreter executes that bytecode. QuickJS does not execute script code, with two exceptions handled in `src/JSContext.cpp`:
 
-## Absolute rule: no std::vector for execution state
+- **ES modules** (`--input-type=module`) are evaluated by the QuickJS module evaluator.
+- **Compile failures:** if the protoCore compile step fails, `JSContextWrapper::eval` retries with QuickJS `JS_Eval` unless `PROTOJS_NO_FALLBACK=1` is set.
 
-**Local variables and the operand stack must not use `std::vector`.** They are not considered by the garbage collector. The only valid storage for locals and stack is **ProtoContext** (via `closureLocals` and, where applicable, automatic locals). All slot and stack reads/writes in the interpreter go through ProtoContext so the GC can trace every reference.
+## Pipeline
 
-## Flow
+1. **Compile.** `ProtoCompileOnly.cpp` calls `JS_Eval(..., JS_EVAL_FLAG_COMPILE_ONLY)` (`compileToBytecode`, `compileToBytecodeWithFlags`) and extracts the top-level `JSFunctionBytecode*` with `protojs_get_function_bytecode()`, which is added to the vendored `deps/quickjs/quickjs.c`.
+2. **Specialise.** `BytecodeSpecialiser.cpp` rewrites common opcode sequences into fused opcodes. The loader applies it to each function's bytecode. The mode comes from `PROTOJS_SPECIALISER`: `compact` (default), `nop` or `off`.
+3. **Load.** `ProtoBytecodeLoader.cpp` (`loadBytecode(ctx, bytecode, pContext, out)`) builds a `ProtoBytecodeModule`: a copy of the bytecode, the constant pool converted to `ProtoObject*`, nested functions as objects carrying `__bytecode_id__`, and function metadata. All atoms are resolved to protoCore strings at load time (`preResolveAllAtoms`), so the interpreter does not call QuickJS.
+4. **Run.** `ProtoInterpreter.cpp` executes the module with `runBytecode(pContext, module, thisObj, args, pGlobalRoot, outException)`, dispatching opcodes directly on `ProtoContext` and `ProtoObject`. `pGlobalRoot` points at the protoCore-native global, so writes to globals replace the root and later reads see them.
 
-1. **Compile only:** `ProtoCompileOnly.cpp` calls `JS_Eval(..., JS_EVAL_FLAG_COMPILE_ONLY)` and obtains the top-level `JSFunctionBytecode*` via `protojs_get_function_bytecode()` (implemented in `deps/quickjs/quickjs.c`).
-2. **Load:** `ProtoBytecodeLoader.cpp` converts the bytecode into a `ProtoBytecodeModule`: constant pool → `ProtoObject*`, nested functions → placeholder objects with `__bytecode_id__`, atom resolution deferred to the interpreter.
-3. **Run:** `ProtoInterpreter.cpp` executes the bytecode using **only** ProtoContext: the operand stack is a `ProtoList` stored in `closureLocals` under a reserved key, and local/argument slots are entries in `closureLocals` keyed by slot index. Opcodes are dispatched in terms of `ProtoContext` and `ProtoObject` (get/put field, call, return, etc.).
+## Execution state and the garbage collector
+
+Every `ProtoObject*` that the interpreter holds must be visible to protoCore's garbage collector.
+
+- A frame's arguments, local variables, closure variables and operand stack live in the frame's `ProtoContext` automatic locals, a flat array that protoCore scans as a GC root. The layout is `[args][locals][closure vars][operand stack][reserved]` (see the comment above `InterpFrame` in `ProtoInterpreter.cpp`).
+- The per-thread `InterpFrame` records keep only integer indices (stack base, top and capacity) and the frame's `ProtoContext*`; they hold no object references.
+- Do not keep `ProtoObject*` values in C++ containers (`std::vector`, lambda captures, ...) across points where the GC can run. For objects that must outlive a C++ call boundary, follow [docs/GC_BRIDGING.md](../../docs/GC_BRIDGING.md).
 
 ## Components
 
 | File | Role |
 |------|------|
-| `QuickJSBytecodeExport.h` | Declares the C API to get bytecode from a compile-only function and to read its fields (buf, len, arg_count, cpool, etc.). |
-| `ProtoCompileOnly.h/cpp` | `compileToBytecode(ctx, source, len, filename[, outException])` → opaque bytecode pointer; on failure, optional `outException` receives the exception (caller must free). |
-| `ProtoBytecodeModule.h` | Loaded module: copied bytecode buffer, `protoCpool`, `nestedFunctions`, atom cache and function metadata (arg/var/stack sizes). |
-| `ProtoBytecodeLoader.cpp` | `loadBytecode(ctx, bytecode, pContext, out)` → fills `ProtoBytecodeModule`. |
-| `QuickJSOpcodeEnum.h` | Opcode enum matching QuickJS for interpreter dispatch. |
-| `ProtoInterpreter.h/cpp` | `runBytecode(pContext, module, thisObj, args, globalObj, jsContextForAtoms)` → result `ProtoObject*`. |
+| `QuickJSBytecodeExport.h` | C declarations for reading a compile-only function's bytecode fields (buffer, length, argument count, constant pool, ...). |
+| `ProtoCompileOnly.h/.cpp` | `compileToBytecode` / `compileToBytecodeWithFlags`: opaque bytecode pointer, or `nullptr` on a parse or compile error. |
+| `BytecodeSpecialiser.h/.cpp` | Post-compile opcode fusion, selected by `PROTOJS_SPECIALISER`. |
+| `ProtoBytecodeModule.h` | The loaded module: bytecode copy, `protoCpool`, nested functions, atom cache, function metadata. |
+| `ProtoBytecodeLoader.cpp` | `loadBytecode`: fills a `ProtoBytecodeModule`. |
+| `QuickJSOpcodeEnum.h` | Opcode enumeration matching QuickJS, used for dispatch. |
+| `ProtoInterpreter.h/.cpp` | `runBytecode` and the helpers that call JavaScript functions from native code, including from event-loop callbacks. |
+| `GeneratorFrame.h` | Definitions shared by `runBytecode` and the generator protocol (for example the catch-frame record). |
+| `BehaviorRegistry.h/.cpp` | Polymorphic object behaviours; the default delegates to protoCore `getAttribute` / `setAttribute`. |
 
-## Status (Phase 3)
+## Built-ins and host modules
 
-The Phase 3 interpreter implements the primary QuickJS opcode groups needed for the current protoJS runtime:
+The standard built-ins (`src/*Prototype.cpp`, `src/JSONBuiltin.cpp`, `src/MathBuiltin.cpp`, ...) and the host modules (`src/modules/`) are native protoCore functions (`ProtoMethod`s) installed on the protoCore-native global. The interpreter calls them directly.
 
-- **Stack and constants**: full family of `push_*`, `dup/*`, `swap/*`, `rot/*`, plus constant pool and atom-based loads.
-- **Locals, arguments and lexical environment**: `get/put/set_loc*`, `get/put/set_arg*`, `get/put/set_var_ref*`, plus the `_check` variants used for TDZ and lexical checks. Locals can be implemented as **automatic variables** (by index, discarded on return) or as a **ProtoSparseList** keyed by interned variable name for closure support; the dictionary may be immutable (snapshot semantics) or mutable (closures see latest state). See ARCHITECTURE.md § 1.3a.
-- **Properties and arrays**: `get/put_field*`, `define_field`, and array access opcodes (`get/put_array_el*`) mapped to `ProtoObject` attributes and interned `ProtoString` keys.
-- **Control flow**: unconditional and conditional jumps (`goto*`, `if_true*`, `if_false*`) implemented in terms of JS-style truthiness (`toBool`).
-- **Calls**: bytecode function calls and `ProtoMethod` calls are routed through `runBytecode` and protoCore’s `call` model, with a proper `this` binding and argument list. **Phase 6** adds `OP_call_method`, `OP_tail_call_method`, and `OP_call_constructor`. **Phase 7** adds comparison, logical, `typeof`, `instanceof`, `in`, and `delete` operators.
+The native global starts as an object holding only `Infinity`, `NaN` and `undefined` (`JSContextWrapper::getNativeGlobal`); only bindings that register on it explicitly are visible to scripts. Bindings that still install on the QuickJS-side global are listed in [docs/MIGRATION_QUICKJS_TO_PROTOCORE.md](../../docs/MIGRATION_QUICKJS_TO_PROTOCORE.md).
 
-## Phase 4 (wire compile → load → run)
+When the interpreter reaches an opcode it does not implement, it prints `[ProtoInterpreter] unsupported opcode 0x.. at byte offset N` to stderr and returns from the current function.
 
-Phase 4 is complete: the eval entry point uses the protoCore path when `setUseProtoEval(true)` is set. The CLI supports `--proto-eval` and `PROTOJS_USE_PROTO_EVAL=1`; the Test262 runner supports `TEST262_USE_PROTO_EVAL=1` or config `use_proto_eval: true`. See `ARCHITECTURE.md` § 1.4.
+## Remaining QuickJS boundaries
 
-## Phase 5 (legacy path context + conformance)
+- **`QuickJSArrayBridge.cpp`** — no-op stubs for hooks that `quickjs.c` still references.
+- **`ExecutionEngine`** — initialized only to provide `getProtoContext(ctx)`.
+- **`TypeBridge` / `GCBridge`** — used where QuickJS values cross into protoCore, for example constant-pool conversion during loading and the exports returned by `require()` and native addons.
 
-Phase 5 completes the Option B runtime behaviour and sets the stage for conformance work:
+## Threads and protoCore contexts
 
-- **Single path:** All script execution uses compile → load → run; there is no legacy `JS_Eval` path. `ExecutionEngine::getProtoContext(ctx)` is used only by the debugger (and similar) to obtain the current ProtoContext from the wrapper.
-- **Stack and locals in ProtoContext only:** All interpreter state (operand stack and local/argument slots) is stored in `ProtoContext::closureLocals`; no `std::vector` is used so the GC sees every reference (see § "Absolute rule" above).
-- **Phase 6 native global:** The global object is a ProtoObject built on first eval from the QuickJS global; `runBytecode` takes `pGlobalRoot` so that `put_field`/`define_field` on the global update the root and subsequent reads see the new object. See `ARCHITECTURE.md` § 1.4.
-- **Next (Phase 6 / conformance):** Run Test262 on the protoCore path (`TEST262_USE_PROTO_EVAL=1`), document pass/fail by category, and fix missing opcodes or built-ins to improve conformance. Optionally make the protoCore path the default for the CLI.
+- `ProtoContext`s are never shared between threads. A thread's entry function creates its first `ProtoContext` with a null caller context and uses it for all work on that thread (see `cpuChunkThreadEntry` in `src/ProtoCoreNativeBindings.cpp`).
+- `protoCore.runInThread` starts protoCore threads with `ProtoSpace::newThread`; they run in the script's `ProtoSpace`.
+- A `worker_threads` `Worker` runs on a `std::thread` with its own `JSContextWrapper`, and therefore its own `ProtoSpace` (`src/modules/worker_threads/WorkerThreadsModule.cpp`). Messages between the main runtime and a worker are serialized.
+- C++ worker threads (the I/O thread pool, the `http` accept loop) do not run script code; they hand results to the script thread with `EventLoop::enqueueCallback`.
+- protoJS includes only protoCore's public header, `headers/protoCore.h`.
 
-## Phase 6 (Test262 conformance on protoCore path)
+## Test262 on this path
 
-Phase 6 focuses on **conformance of the protoCore interpreter** (Option B path):
-
-- **Run Test262 on protoCore:** Use the same runner (`tests/test262/runner/test262_runner.js`) with `TEST262_USE_PROTO_EVAL=1` or `"use_proto_eval": true` in `tests/test262/config/test262_paths.json`. The runner passes `PROTOJS_USE_PROTO_EVAL=1` to the protojs process so every test runs via compile → load → run (no QuickJS interpreter). The default config expects the Test262 repo **at the same level as protoJS** (e.g. `proyectos/protoJS` and `proyectos/test262`); override with `TEST262_ROOT` if needed.
-- **Document results:** Update `CONFORMANCE_JS.md` § "Phase 6 (protoCore path)" with pass/fail/timeout counts per category from the JSON snapshots in `tests/test262/reports/`.
-- **Fix gaps:** Address missing opcodes, built-in methods, or coercion in the ProtoInterpreter and TypeBridge so more tests pass; re-run and update the report.
-- The protoCore path is the only path; the CLI uses it by default.
-
-## Phase 8 (directed tests and documentation)
-
-Phase 8 completes the Phase 3 interpreter cycle with **targeted tests** and **documented coverage**:
-
-- **Directed smoke test:** Run `node tests/test262/runner/proto_eval_smoke.js` from the protoJS root. This script invokes protojs with `PROTOJS_USE_PROTO_EVAL=1` and a short list of expressions (arithmetic, `typeof`, comparison, `Array.isArray`) and asserts exit code 0. Use it to quickly verify the protoCore path after interpreter changes.
-- **Test262 mini-suites:** Use the same runner with `TEST262_USE_PROTO_EVAL=1` and config patterns (e.g. `built-ins/Array/isArray`) to run selected Test262 categories. Snapshot results go to `tests/test262/reports/`; update `CONFORMANCE_JS.md` § "Phase 6 (protoCore path)" with pass/fail/timeout counts.
-- **Coverage notes:** Phase 6 (calls/constructors) and Phase 7 (operators) are implemented in the interpreter; coverage is documented in this README and in `ARCHITECTURE.md` § 1.4.
-
-## Phase 9 (refactor and documentation)
-
-Phase 9 completes the Phase 3 cycle with **cleanup and documentation**:
-
-- **Unknown opcodes:** The interpreter no longer silently returns on an unimplemented opcode. The `default` case in the opcode switch logs the unsupported opcode (hex) and byte offset to stderr and then returns, so missing opcodes are visible during development and Test262 runs.
-- **Documentation:** `ARCHITECTURE.md` § 1.4 states that the protoCore interpreter covers the opcode set needed for the main execution path and uses no QuickJS abstraction beyond the compile frontend. `CONFORMANCE_JS.md` states that Test262 on the protoCore path is supported and tracks results in the Phase 6 table and reports.
-
-## Enabling
-
-The CLI sets `setUseProtoEval(true)` by default. `eval()` always uses compile → load → run and converts the result to `JSValue` only at the boundary.
-
-From the CLI, you can enable the protoCore path by either:
-
-- Passing `--proto-eval`, or
-- Setting `PROTOJS_USE_PROTO_EVAL=1` in the environment.
-
-For Test262: set `TEST262_USE_PROTO_EVAL=1` or `"use_proto_eval": true` in `tests/test262/config/test262_paths.json` so the runner invokes protojs with the protoCore path.
-
-## Bridges
-
-**QuickJSArrayBridge** is stubbed (no-ops). **ExecutionEngine** provides only `getProtoContext(ctx)`. **TypeBridge** and **GCBridge** are used at the boundary (global object, script result, host function bridge). See `ARCHITECTURE.md` § 1.4.
-
-## Multithreading and protoCore
-
-- **Only ProtoThreads:** Execution of user/script work in parallel uses **only** `ProtoSpace::newThread` (public API in `protoCore.h`). No native (OS) threads are used for execution; otherwise roots would not be tracked by protoCore's GC.
-- **Only public API:** protoJS uses only the public interface from `protoCore.h`. Internal structures of protoCore are not used (they may be used only to debug or understand behaviour).
-- **First ProtoContext in the thread entry:** A ProtoThread runs a function as its main method; that method receives a previous context (may be nullptr). The **initial function** of the thread instantiates the first (and only) `ProtoContext` for that thread with **nullptr** as the caller context, and uses that context for all work. This function never returns; it only ends when the thread ends. So without modifying protoCore, the first ProtoContext is created inside the thread's initial function, with no caller context. ProtoContexts are never shared between threads.
-- **Locks:** In general, users of protoCore do not use locks for object creation. The only valid exception is a lock for loading the module cache.
+Test262 runs use `tests/test262/runner/test262_runner.js`; see [docs/TEST262_STATUS.md](../../docs/TEST262_STATUS.md) for the latest full-suite result and [tests/README.md](../../tests/README.md) for instructions. `node tests/test262/runner/proto_eval_smoke.js` runs six short expressions as a quick check after interpreter changes.

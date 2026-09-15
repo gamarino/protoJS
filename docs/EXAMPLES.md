@@ -1,150 +1,112 @@
-# Advanced Examples
+# Examples
 
-Collection of advanced examples for protoJS.
+Short scripts that use the globals `protojs` installs. See [API_REFERENCE.md](API_REFERENCE.md) for the full list and for known gaps.
 
-## Immutable Arrays
+## Parallel CPU work with `protoCore.runInThread`
 
-In protoJS, arrays are immutable by default when converted to protoCore.
-
-```javascript
-const original = [1, 2, 3];
-const withFour = original.concat([4]);
-console.log("Original:", original); // [1, 2, 3] - unchanged
-console.log("New:", withFour);      // [1, 2, 3, 4]
-```
-
-## Concurrent Deferred
-
-Deferred automatically executes in worker threads.
+Each call runs the native `cpuChunk` worker on its own protoCore thread and returns a `Deferred`.
 
 ```javascript
-const deferreds = [];
-for (let i = 0; i < 10; i++) {
-    const d = new Deferred((resolve) => {
-        let sum = 0;
-        for (let j = 0; j < 1000000; j++) {
-            sum += j;
+const TASKS = 4;
+let finished = 0;
+const start = Date.now();
+
+for (let i = 0; i < TASKS; i++) {
+    protoCore.runInThread('cpuChunk', [2000000]).then((sum) => {
+        finished++;
+        console.log("task", i, "result", sum);
+        if (finished === TASKS) {
+            console.log("all tasks done in", Date.now() - start, "ms");
         }
-        resolve({index: i, sum: sum});
     });
-    deferreds.push(d);
 }
 ```
 
-## protoCore Collections
+`tests/benchmarks/standard/parallel_cpu.js` is a complete benchmark built on the same call.
 
-### ProtoSet
+## Deferred
+
+The function runs on a later event-loop turn of the main thread, receives no arguments, and its return value fulfils the Deferred. See [DEFERRED_USAGE.md](DEFERRED_USAGE.md).
 
 ```javascript
-const set = new protoCore.Set([1, 2, 3, 3, 4]);
-console.log(set.size); // 4
-set.add(5);
-console.log(set.has(3)); // true
+const d = new Deferred(() => {
+    let sum = 0;
+    for (let j = 0; j < 100000; j++) {
+        sum += j;
+    }
+    return sum;
+});
+
+d.then((value) => console.log("sum:", value));
+console.log("scheduled");   // printed before "sum: ..."
 ```
 
-### ProtoMultiset
+## `setImmediate`
 
 ```javascript
-const multiset = new protoCore.Multiset([1, 1, 2, 2, 2]);
-console.log(multiset.count(2)); // 3
-console.log(multiset.size); // 5
+setImmediate(() => console.log("second"));
+console.log("first");
 ```
 
-### ProtoSparseList
+## File I/O with `io`
 
 ```javascript
-const sparse = new protoCore.SparseList();
-sparse.set(0, "first");
-sparse.set(100, "hundredth");
-console.log(sparse.get(0)); // "first"
-console.log(sparse.has(50)); // false
+if (io.writeFile("output.txt", "Hello, world!")) {
+    console.log(io.readFile("output.txt"));
+}
+
+io.readFileAsync("output.txt").then((text) => {
+    console.log("read asynchronously:", text);
+});
 ```
 
-### ProtoTuple
+## Process information
+
+`process.platform` and `process.arch` are functions in protoJS.
 
 ```javascript
-const tuple = protoCore.Tuple([1, 2, 3]);
-console.log(tuple.length); // 3
-// tuple.push(4); // Error: immutable
-```
-
-## Mutability Control
-
-```javascript
-const immutable = protoCore.ImmutableObject({a: 1, b: 2});
-const mutable = protoCore.MutableObject({a: 1, b: 2});
-mutable.a = 3; // OK
-console.log(protoCore.isImmutable(immutable)); // true
-```
-
-## I/O Operations
-
-```javascript
-const content = io.readFile("data.txt");
-console.log(content);
-io.writeFile("output.txt", "Hello, world!");
-```
-
-## Process Information
-
-```javascript
-console.log("Args:", process.argv);
+console.log("Args:", process.argv.length);
 console.log("Platform:", process.platform());
 console.log("Arch:", process.arch());
 console.log("CWD:", process.cwd());
+console.log("HOME:", process.env.HOME);
 ```
 
-## Phase 6: Benchmarking and test compatibility
+## Benchmark scripts
 
-Phase 6 provides benchmarking and Node.js test compatibility via C++ (BenchmarkRunner, NodeJSTestRunner). Scripts run with the protoJS CLI; the runner infrastructure executes them and compares with Node.js.
-
-### Running a benchmark script
-
-Run any JavaScript file as a benchmark (timing and output are captured by the runner):
+The benchmark scripts are plain JavaScript files that print their own timings, so they run under both `protojs` and Node.js:
 
 ```bash
-# Run with protoJS
-./protojs tests/benchmarks/minimal_test.js
-
-# Run with Node.js (for comparison)
+./build/protojs tests/benchmarks/minimal_test.js
 node tests/benchmarks/minimal_test.js
+
+./build/protojs tests/benchmarks/phase6_benchmark_suite.js
 ```
 
-### Phase 6 benchmark suite
-
-Run the dedicated Phase 6 benchmark script (version-style and report-style workloads):
+The standard suite and its comparison runners are described in [tests/benchmarks/standard/README.md](../tests/benchmarks/standard/README.md):
 
 ```bash
-./protojs tests/benchmarks/phase6_benchmark_suite.js
+node tests/benchmarks/run_standard_comparison.js
 ```
 
-Example output: per-operation timings (version parse, array filter/sort, object iteration, string report).
-
-### Minimal benchmark script (runner-compatible)
-
-Scripts that print results and exit can be used as benchmark inputs:
+A script can report its own elapsed time in the same way:
 
 ```javascript
 // my_benchmark.js
 const start = Date.now();
-for (let i = 0; i < 1e6; i++) { /* work */ }
-console.log("Elapsed:", Date.now() - start, "ms");
+let acc = 0;
+for (let i = 0; i < 1000000; i++) {
+    acc += i;
+}
+console.log("Elapsed:", Date.now() - start, "ms", acc);
 ```
 
-Run: `./protojs my_benchmark.js`. The BenchmarkRunner C++ API runs such scripts and records time/memory.
+```bash
+./build/protojs my_benchmark.js
+```
 
-### Node.js test compatibility
-
-To compare protoJS vs Node.js on a test file, the NodeJSTestRunner (C++) runs both and compares stdout. From the project root with `protojs` and `node` on `PATH`:
-
-- Test file example: `tests/integration/basic/hello_world.js`
-- The runner executes `./protojs <file>` and `node <file>`, then compares output.
-
-See [Phase 6 module guides](archive/PHASE6_MODULE_GUIDES.md) for C++ API usage (runSuite, runTest, generateReport, exportToJSON/HTML).
-
-## References
+## See also
 
 - [API Reference](API_REFERENCE.md)
-- [Deferred Guide](DEFERRED_USAGE.md)
-- [protoCore Module](PROTOCORE_MODULE.md)
-- [Phase 6 module guides (npm, benchmarking, Node.js test)](archive/PHASE6_MODULE_GUIDES.md)
+- [Deferred](DEFERRED_USAGE.md)
+- [The `protoCore` global](PROTOCORE_MODULE.md)

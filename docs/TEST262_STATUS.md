@@ -1,16 +1,18 @@
 # Test262 Conformance Status — protoJS
 
-**Last full-suite run:** 2026-06-01 (cycle 5 — bug correction + 18 more fixes)
-**Snapshot:** `tests/test262/reports/snapshot-language_built-ins-1780352472153.json`
+**Last full-suite run:** 2026-06-01 (cycle 5: one bug fix plus 17 further fixes)
+**Snapshot:** `tests/test262/reports/snapshot-language_built-ins-1780352472153.json` (run output; the reports directory is not tracked in git)
 **Binary:** `build_release/protojs` v0.1.0 (commit `00ad7634` on `master`)
 **Scope:** `language` + `built-ins` (46 963 tests)
-**Runner:** parallel (`TEST262_CONCURRENCY=10`, ~7 min wall)
+**Runner:** `tests/test262/runner/test262_runner.js`, parallel (`TEST262_CONCURRENCY=10`, ~7 min wall)
+
+This page records the most recent run of the full `language` + `built-ins` suite. The fix lists, class-implementation notes and next steps below describe the state on that date. Later measurements of individual directories (subsets) are in [CONFORMANCE_JS.md](../CONFORMANCE_JS.md).
 
 ## Overall
 
 | | Total | Passed | Failed (syntax) | Failed (semantics) | Timeouts | Skipped | Pass rate |
 |---|---:|---:|---:|---:|---:|---:|---:|
-| **2026-06-01 (cycle 5 — bug fix + 18 more)** | 46 963 | **28 830** | 874 | 17 098 | 150 | 11 | **61.39 %** |
+| **2026-06-01 (cycle 5 — bug fix + 17 more)** | 46 963 | **28 830** | 874 | 17 098 | 150 | 11 | **61.39 %** |
 | 2026-06-01 (cycle 4) | 46 963 | 28 767 | 874 | 17 173 | 138 | 11 | 61.25 % |
 | 2026-06-01 (cycle 3) | 46 963 | 28 018 | 874 | 18 019 | 41 | 11 | 59.66 % |
 | 2026-06-01 (cycle 2) | 46 963 | 27 884 | 874 | 18 156 | 38 | 11 | 59.37 % |
@@ -32,8 +34,8 @@ Cumulative since 2026-05-11 baseline:
 
 | Family | Total | Passed (cycle 5) | Passed (cycle 4) | Δ | Pass rate (cycle 5) |
 |---|---:|---:|---:|---:|---:|
-| `built-ins` | 23 334 | **10 410** | 10 324 | **+86** | **44.62 %** |
-| `language` | 23 629 | **18 420** | 18 443 | **−23** | **77.95 %** |
+| `built-ins` | 23 334 | **10 410** | 10 324 | **+86** | **44.61 %** |
+| `language` | 23 629 | **18 420** | 18 443 | **−23** | **77.96 %** |
 
 Cycle 5 was built-ins-led (+86 from Reflect, Symbol.for/keyFor, ES2023 Array
 immutables, Object.assign(array), String.split, Array constructor populating
@@ -105,20 +107,21 @@ out of reach until super-call dispatch and instance fields are implemented).
 ## Historical Context
 
 - **2026-03-18:** 94.4 % overall claim — superseded as a false positive.
-- **2026-04-10 (Phase 13):** 87.1 % on `language/statements` only.
+- **2026-04-10:** 87.1 % on `language/statements` only.
 - **2026-05-11:** 57.55 % on `language + built-ins` (27 025 / 46 963).
 - **2026-06-01 (cycle 1 — 6 commits, morning):** 58.70 %.
 - **2026-06-01 (cycle 2 — 20 commits, afternoon):** 59.37 %.
 - **2026-06-01 (cycle 3 — 20 more commits, early evening):** 59.66 %.
 - **2026-06-01 (cycle 4 — 20 more commits, evening):** 61.25 % (28 767 / 46 963).
-- **2026-06-01 (cycle 5 — bug fix + 18 more, late evening):** **61.39 %** (28 830 / 46 963).
+- **2026-06-01 (cycle 5 — bug fix + 17 more, late evening):** **61.39 %** (28 830 / 46 963).
 
 ## How to Run
 
+From the protoJS repository root, with a Test262 checkout at `../test262` and the binary built in `build_release/` (adjust `PROTOJS` to your build directory):
+
 ```bash
-cd /home/gamarino/Documentos/proyectos/protoJS
 PROTOJS=$PWD/build_release/protojs \
-TEST262_ROOT=/home/gamarino/Documentos/proyectos/test262 \
+TEST262_ROOT=../test262 \
 TEST262_USE_PROTO_EVAL=1 \
 TEST262_CONCURRENCY=10 \
 PROTOCORE_GC_CONTEXT_THRESHOLD=1000000000 \
@@ -275,12 +278,12 @@ the test262 class tests still mostly fail on:
     pattern as instance fields but at class-evaluation time, requires
     detecting yet another OP_fclosure pattern.
   - Brand checks for private fields — tests verify that wrong-receiver
-    access throws TypeError; my impl doesn't enforce.
+    access throws TypeError; the implementation did not enforce this.
   - Specific QuickJS opcodes still unimplemented (0x32 OP_eval among
     others) used by class-body evaluation tests.
   - Subtle ordering / TDZ / temporal-dead-zone semantics.
 
-The pattern: each gap I close exposes the next.  Closing them all
+The pattern: each gap that is closed exposes the next.  Closing them all
 is a substantial effort beyond the scope of even a fourth attempt
 within a single cycle.
 
@@ -306,7 +309,7 @@ Until those pieces are in place, class tests are net-negative because
 the test runner's exit-code-based classification treats silent
 unsupported-opcode bails as passes.
 
-## Next Steps
+## Next Steps (as of 2026-06-01)
 
 1. **ES6 classes — complete implementation**.  The investigation above
    produced the precise list of pieces still missing:
@@ -345,7 +348,7 @@ unsupported-opcode bails as passes.
 ## Methodology Notes
 
 - **Pass rate ≠ ECMA conformance score.** Pass rate is `passed / total` where total includes syntax/semantics failures, timeouts, and skips.
-- **`PROTOCORE_GC_CONTEXT_THRESHOLD=1e9`** suppresses GC during the run for stable timing — has no effect on conformance.
+- **`PROTOCORE_GC_CONTEXT_THRESHOLD=1000000000`** raises the per-context allocation threshold that protoCore uses to trigger a collection (default 10,000 cells; see protoCore's `headers/protoCore.h`). The recorded run set it to reduce collection frequency; it is not a conformance setting.
 - **Skip list:** `tests/test262/config/skip_proto_eval.json` records 11 tests that hang or crash protoJS in ways unrelated to conformance.
-- **Test262 root** pinned to `../test262`.
+- **Test262 root:** `../test262` by default (`test262_root` in `tests/test262/config/test262_paths.json`).
 - **Silent unsupported-opcode exits** still count as `passed` for tests whose assertions never get a chance to run (e.g. when a class definition at the top of the file bails out the rest of the program). This is honest with the runner's classification rule (`!err → passed`) but it inflates the count slightly for class-heavy areas. Implementing classes (cycle 4 #18) made some of this visible — see the "next steps" note above.

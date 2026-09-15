@@ -1,51 +1,54 @@
-**Installation guide:** For end-user installation instructions (from-source build, .deb, .rpm, .pkg, .msi), see [../docs/INSTALLATION.md](../docs/INSTALLATION.md). For packager build steps, see [PROCEDURES.md](PROCEDURES.md).
+# protoJS Packaging Notes
+
+For end-user build and installation instructions, see [docs/INSTALLATION.md](../docs/INSTALLATION.md). For the package build steps, see [PROCEDURES.md](PROCEDURES.md). No prebuilt protoJS or protoCore packages are published; both are built from source.
 
 ---
 
-### User-Facing Error Messages
+## Dependency error messages
 
-**protoCore** is the official name of the shared library dependency (`libprotoCore.so` / `libprotoCore.dylib` / `protoCore.dll`). When protoCore is missing or the version is incompatible, the following error messages MUST be displayed by the installer/package manager:
+**protoCore** is the shared library that protoJS links against (`libprotoCore.so` on Linux, `libprotoCore.dylib` on macOS).
 
-#### 1. Missing Dependency (Generic)
-**Message:**
-`ERROR: protoCore is not installed. Please install protoCore before installing protoJS.`
+- **CPack packages** (`protojs-<version>-Linux.deb` / `.rpm`) declare the dependency in package metadata only (`Depends: protocore`, `Requires: protoCore`). The package manager reports a missing dependency with its own message.
+- **Template-based installers** (`packaging/templates/`) run a pre-install script that prints the messages below and aborts.
 
-**Actionable Step:**
-Download and install the latest `protoCore` package from [Official Download Page] or run `sudo apt/dnf install protoCore`.
+### Missing dependency
 
-#### 2. Version Mismatch
-**Message:**
-`ERROR: protoCore version <INSTALLED_VERSION> is too old. protoJS requires protoCore >= <MIN_VERSION>.`
+Printed by `preinst.template`, the `%pre` section of `protoJS.spec.template`, `preinstall.template` (macOS) and the WiX condition in `protoJS.wxs.template`:
 
-**Actionable Step:**
-Upgrade `protoCore` to the required version using your package manager (e.g., `sudo apt update && sudo apt install protoCore`) or download the newer installer.
+```
+ERROR: protoCore is not installed.
+Please install protoCore before installing protoJS.
+```
+
+Remedy: build protoCore from <https://github.com/numaes/protoCore>, create its package with CPack, and install that package first.
+
+### Version too old
+
+Printed by `preinst.template` and the RPM `%pre` script, which require protoCore >= 1.0.0:
+
+```
+ERROR: protoCore version <installed version> is too old.
+protoJS requires protoCore >= 1.0.0.
+```
+
+Remedy: rebuild and reinstall protoCore from a current checkout.
 
 ---
 
-### Release Checklist
+## Release checklist
 
-#### 1. Pre-Release Verification (Clean Machine / VM)
-- [ ] **Scenario: Clean install WITHOUT protoCore**
-  - Attempt to install `protoJS`.
-  - **Expected Result:** Installation MUST fail with the "Missing Dependency" error message.
-- [ ] **Scenario: Clean install WITH protoCore**
-  - Install `protoCore`.
-  - Install `protoJS`.
-  - **Expected Result:** Installation succeeds.
-- [ ] **Scenario: Binary Execution**
-  - Run `protojs --version`.
-  - Run a trivial test script: `protojs -e "console.log('Hello from protoJS')"`
-  - **Expected Result:** Commands execute without dynamic linker errors (e.g., missing `libprotoCore`).
+### 1. Verification on a clean machine or VM
 
-#### 2. Architecture Validation
-- [ ] **Linux:** Verify `.deb` and `.rpm` are `amd64` / `x86_64`.
-- [ ] **macOS:** Verify `.pkg` is `universal2` (use `lipo -info /usr/local/bin/protojs`).
-- [ ] **Windows:** Verify `.msi` is `x64`.
+- [ ] **Install without protoCore** — installing protoJS must fail: the package manager reports the unmet dependency (CPack packages), or the pre-install script prints the "Missing dependency" message (template packages).
+- [ ] **Install with protoCore** — install the protoCore package, then protoJS; installation succeeds.
+- [ ] **Execution** — `protojs --version` prints the configured version, and `protojs -e "console.log('Hello from protoJS')"` runs without dynamic-linker errors (for example a missing `libprotoCore`).
 
-#### 3. Uninstallation
-- [ ] **Scenario: Removal**
-  - Uninstall `protoJS`.
-  - **Expected Result:**
-    - `protojs` binary is removed from `/usr/bin` (Linux), `/usr/local/bin` (macOS), or `C:\Program Files\protoJS` (Windows).
-    - Windows: `PATH` entry for `protoJS` is removed.
-    - `protoCore` remains installed (since it is a separate dependency).
+### 2. Architecture
+
+- [ ] **Linux:** the template `.deb` declares `amd64`; the template `.rpm` declares `x86_64`. CPack packages take the architecture of the build host.
+- [ ] **macOS:** `lipo -info /usr/local/bin/protojs` matches the build host; the CMake files do not configure universal binaries.
+
+### 3. Removal
+
+- [ ] Uninstalling protoJS removes the `protojs` binary (`/usr/bin/protojs` for the template `.deb`/`.rpm`, `/usr/local/bin/protojs` for the macOS template, and the path listed by `dpkg -c` / `rpm -qpl` for CPack packages).
+- [ ] protoCore remains installed, since it is a separate package.

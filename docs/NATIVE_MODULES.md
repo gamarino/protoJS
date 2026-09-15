@@ -1,37 +1,35 @@
 # Native Addon Modules (C++ Shared Libraries)
 
-**Last Updated:** January 24, 2026
+protoJS can load **native addons** — shared libraries written in C++ — through the same `require()` call used for JavaScript modules. Whether `require('./my_module')` loads JavaScript or a native addon depends only on which files exist.
 
-## Overview
+## Resolution order
 
-protoJS supports loading **native addons** (shared libraries written in C++) via the same `require()` API used for JavaScript modules. There is no syntax change: `require('./my_module')` loads either a JavaScript file or a native addon depending on **resolution order**.
+`require()` is implemented in `src/modules/CommonJSLoader.cpp`; file lookup is in `src/modules/ModuleResolver.cpp`.
 
-## Resolution Order
+**Bare specifiers** (not starting with `./`, `../` or `/`) are first offered to protoCore's module discovery and then looked up as a property of the QuickJS-side global object; see [MODULE_DISCOVERY_PROTOCORE.md](MODULE_DISCOVERY_PROTOCORE.md). The standard modules (`fs`, `path`, `http`, ...) are registered on the protoCore-native global instead, so that lookup does not find them; use their globals directly. If neither step succeeds, bare specifiers are searched in `node_modules` directories.
 
-**Built-in modules:** Core modules (e.g. `fs`, `path`, `stream`, `crypto`, `buffer`, `net`, `http`, `events`, `util`, `url`, `dgram`, `cluster`, `worker_threads`, `child_process`, `dns`, `protoCore`) are resolved first by name. For example, `require('fs')` returns the same object as the global `fs`.
+**File-based resolution.** For a specifier such as `require('./my_module')`, the loader tries, in order:
 
-**File-based resolution:** When you `require('./mi_modulo')` or a bare specifier that is not a built-in, the loader looks for a module in this order:
+1. `my_module.node`, then `my_module` plus the platform library extension (`.so` on Linux, `.dylib` on macOS, `.dll` on Windows), then `my_module.protojs`
+2. `my_module.js`, then `my_module.mjs`
+3. For a directory: `my_module/index.node`, `my_module/index.<platform extension>`, `my_module/index.protojs`, `my_module/index.js`, `my_module/index.mjs`
 
-1. **Native addon:** `mi_modulo.node`, then `mi_modulo.so` (or `.dll` / `.dylib` on Windows/macOS), then `mi_modulo.protojs`
-2. **JavaScript:** `mi_modulo.js`, then `mi_modulo.mjs`
-3. **Directory:** `mi_modulo/index.node`, `mi_modulo/index.so`, `mi_modulo/index.protojs`, `mi_modulo/index.js`, `mi_modulo/index.mjs`
+The first existing file is used, so if both `my_module.so` and `my_module.js` exist, the native addon is loaded. Files ending in `.node`, `.so`, `.dll`, `.dylib` or `.protojs` are loaded as native addons.
 
-The first file that exists is used. So if both `mi_modulo.so` and `mi_modulo.js` exist, the native addon is loaded.
+## Writing a native addon
 
-## Writing a Native Addon
+### ABI
 
-### ABI (Application Binary Interface)
+The ABI is defined in `src/native/NativeModuleABI.h` (`PROTOJS_ABI_VERSION` is 1). An addon must:
 
-Native addons must:
+1. Export the symbol **`protojs_native_module_info`**, of type `protojs::ProtoJSNativeModuleInfo` (`abiVersion`, `name`, `version`, `init`, `cleanup`).
+2. Provide an **init** function with the signature
+   `int init(JSContext* ctx, proto::ProtoContext* pContext, JSValue moduleObject);`
+   returning `0` on success and non-zero on error. `cleanup` is optional (`nullptr`).
 
-1. Export the symbol **`protojs_native_module_info`** (type `protojs::ProtoJSNativeModuleInfo`).
-2. Implement an **init** function with signature:
-   - `int init(JSContext* ctx, proto::ProtoContext* pContext, JSValue moduleObject);`
-   - Return `0` on success, non-zero on error.
+`moduleObject` has the CommonJS shape `{ id, filename, exports, loaded, children, parent }`, created with an empty `exports` object. The init function registers every exported value on `moduleObject.exports`, for example with `JS_SetPropertyStr(ctx, exports, "key", value)`. After init returns, `require` converts the exports to protoCore objects (`TypeBridge::fromJS`) and caches them by file path.
 
-The **moduleObject** has CommonJS shape: `{ id, filename, exports, loaded, children, parent }`. The loader creates it with an empty `exports` object. Your init must register all exported values on **moduleObject.exports** (e.g. via `JS_SetPropertyStr(ctx, exports, "key", value)`).
-
-### Minimal Example (C++)
+### Minimal example (C++)
 
 ```cpp
 #include "native/NativeModuleABI.h"
@@ -70,36 +68,23 @@ ProtoJSNativeModuleInfo protojs_native_module_info(
 } // namespace protojs
 ```
 
-### Using from JavaScript
+### Using it from JavaScript
 
 ```javascript
 const m = require('./my_addon');
-console.log(m.version);  // 1
-console.log(m.sum(2, 3)); // 5
+console.log(m.version);
+console.log(m.sum(2, 3));
 ```
 
-### Build Requirements
+### Build requirements
 
-- **Headers:** Same QuickJS and protoCore headers as the protoJS build (include paths: protoJS `src/`, `deps/quickjs`, protoCore and its `headers/`).
-- **Linking:** Build as a **shared library** (e.g. `libmy_addon.so`). Do **not** link QuickJS or protoCore into the addon; symbols are resolved at load time from the protoJS executable.
-- **protoJS executable:** Must be built with **`-rdynamic`** (or equivalent) so that its symbols are exported to `dlopen`-loaded addons. The project CMake already adds `target_link_options(protojs PRIVATE -rdynamic)`.
-
-### File Extensions
-
-- **`.node`** – Node.js-style native addon (same resolution priority as other native extensions).
-- **`.so`** (Linux), **`.dll`** (Windows), **`.dylib`** (macOS) – platform shared library.
-- **`.protojs`** – protoJS native addon extension.
-
-## Transparency
-
-Users write the same `require()` call regardless of whether the module is JavaScript or native. This allows:
-
-- Replacing a JS module with a native one (or vice versa) without changing call sites.
-- Heavy workloads (e.g. image processing, tensors) in addons without blocking the event loop, using protoCore’s GIL-free design.
+- **Headers:** the same include directories as the protoJS build: protoJS `src/`, `deps/quickjs`, and the protoCore source directory with its `headers/` subdirectory.
+- **Linking:** build a shared library and do not link QuickJS or protoCore into it; their symbols are resolved at load time from the `protojs` executable, which is linked with `-rdynamic` (`CMakeLists.txt`).
+- **File name:** the resolver looks for `<name>.so` (or `.node`, `.protojs`), not `lib<name>.so`. The test addons set `PREFIX ""` in CMake for this reason.
 
 ## Reference
 
 - **ABI:** `src/native/NativeModuleABI.h`
 - **Loader:** `src/native/DynamicLibraryLoader.cpp`, `src/modules/CommonJSLoader.cpp`
-- **Resolution:** `src/modules/ModuleResolver.cpp` (native-first extension order)
-- **Test addons:** `tests/native_addons/simple/`, `tests/native_addons/fixture/`
+- **Resolution:** `src/modules/ModuleResolver.cpp`
+- **Test addons:** `tests/native_addons/simple/` (built as `simple.so` under `<build>/tests/native_addons/simple/`) and `tests/native_addons/fixture/` (built as `tests/integration/native_addons/fixture.so`), used by the scripts in `tests/integration/native_addons/`

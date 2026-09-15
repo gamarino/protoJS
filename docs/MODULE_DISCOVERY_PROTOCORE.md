@@ -1,66 +1,60 @@
-# protoCore Unified Module Discovery — protoJS Integration
+# protoCore Module Discovery in protoJS
 
-**Last Updated:** January 2026
+protoCore provides a unified module discovery system: a per-`ProtoSpace` resolution chain, a `ProviderRegistry` of `ModuleProvider` implementations, and `ProtoSpace::getImportModule`, backed by a shared, thread-safe module cache. The full specification is protoCore's [MODULE_DISCOVERY.md](https://github.com/numaes/protoCore/blob/master/docs/MODULE_DISCOVERY.md).
 
-## Overview
-
-protoCore provides a **Unified Module Discovery and Provider System** (resolution chain, `ProviderRegistry`, `ProtoSpace::getImportModule`, thread-safe `SharedModuleCache`). protoJS uses protoCore's `ProtoSpace` per context; that space carries the resolution chain and module roots, enabling future alignment of `require`/ESM with protoCore's discovery.
-
-This document describes how protoJS integrates with protoCore's module discovery and how to use or extend it. For the full specification of the system, see **protoCore**: `protoCore/docs/MODULE_DISCOVERY.md`.
+This document describes where protoJS uses that system and how host code can extend it.
 
 ---
 
-## Relationship to protoJS Module System
+## Relationship to the protoJS module system
 
-- **protoJS** implements its own **file-based** module resolution for `require()` and ES Modules: `ModuleResolver` (paths, extensions `.node`/`.so`/`.dll`/`.dylib`/`.protojs`/`.js`/`.mjs`), `CommonJSLoader`, `ESModuleLoader`, and a JS-level `ModuleCache`.
-- **protoCore** provides a **provider-based** discovery: configurable resolution chain (paths and `provider:alias`/`provider:GUID`), `ModuleProvider` implementations (e.g. `FileSystemProvider`), and `ProtoSpace::getImportModule(logicalPath, attrName2create)` with a global `SharedModuleCache` and GC roots for loaded modules.
+- **protoJS** resolves modules itself for `require()` and ES modules: `ModuleResolver` (file-based lookup with the extensions `.node`, the platform shared-library extension, `.protojs`, `.js`, `.mjs`), `CommonJSLoader`, `ESModuleLoader` and `ModuleCache`, all under `src/modules/`.
+- **protoCore** resolves *logical paths* through its resolution chain and registered providers. `ProtoSpace::getImportModule(ProtoContext* context, const char* logicalPath, const char* attrName2create)` returns a wrapper object whose attribute `attrName2create` holds the module, and adds loaded modules to the space's module roots so the garbage collector keeps them alive.
 
-**Integration points:**
+## Integration points
 
-1. **ProtoSpace per context**  
-   Each `JSContextWrapper` holds a `proto::ProtoSpace` (`pSpace`). That space is created by protoCore and includes:
-   - **Resolution chain** — platform-dependent default (e.g. `[".", "/usr/lib/proto", ...]`) or a custom chain set via `setResolutionChain`.
-   - **Module roots** — modules loaded via `ProtoSpace::getImportModule` are registered as GC roots in this space so they are not collected.
+1. **One `ProtoSpace` per runtime instance.** Each `JSContextWrapper` owns a `proto::ProtoSpace`, available through `JSContextWrapper::getProtoSpace()` (`src/JSContext.h`). The resolution chain and module roots belong to that space.
 
-2. **require() uses ProtoSpace::getImportModule for bare specifiers**  
-   For **bare specifiers** (e.g. `require("mymodule")` or `require("fs")` — not starting with `./`, `../`, or `/`), protoJS calls protoCore's `space->getImportModule(logicalPath, "exports")` **first**. If a provider or the default chain resolves the logical path, the returned module (wrapper attribute `exports`) is converted to a JS value via `TypeBridge::toJS`, cached under `umd:<specifier>`, and returned. If `getImportModule` returns nothing, resolution **falls back** to file-based `ModuleResolver` (built-ins like `path`, `fs`, and relative paths are resolved as before).
+2. **`require()` consults protoCore first for bare specifiers.** The `require` global calls `CommonJSLoader::require` (`src/modules/CommonJSLoader.cpp`), which handles a bare specifier (one that does not start with `./`, `../` or `/`) in this order:
+   1. `space->getImportModule(pContext, specifier, "exports")`. If protoCore resolves the logical path, the `exports` attribute is converted to a JavaScript value, cached under the key `umd:<specifier>`, and returned.
+   2. A property of the same name on the QuickJS-side global object (`require('buffer')` is wrapped as `{ Buffer }`). The standard modules (`fs`, `path`, `http`, ...) are registered on the protoCore-native global instead, so this step does not find them; use their globals directly.
+   3. File-based resolution through `ModuleResolver`, including `node_modules` package lookup.
 
-3. **ProviderRegistry**  
-   Custom `ModuleProvider` implementations can be registered in protoCore's `ProviderRegistry::instance()`. The resolution chain can reference them with `provider:alias` or `provider:GUID`. protoJS does not register providers by default; host code or extensions can do so.
+   Relative and absolute specifiers skip steps 1 and 2.
 
----
+3. **ES modules do not use protoCore discovery.** Imports in module-mode code (`--input-type=module`) are resolved by the QuickJS module-loader hooks installed in `src/JSContext.cpp`.
 
-## Default Resolution Chain in protoJS
-
-Because protoJS creates a default `ProtoSpace` (in `JSContextWrapper`), the resolution chain is the **platform default** from protoCore:
-
-| Platform | Default chain (example) |
-|----------|--------------------------|
-| Linux    | `[".", "/usr/lib/proto", "/usr/local/lib/proto"]` |
-| Windows  | `[".", "C:\\Program Files\\proto\\lib"]` (or equivalent) |
-| macOS    | `[".", "/usr/local/lib/proto", "~/Library/Application Support/proto/lib"]` |
-
-To customize the chain (e.g. add a custom path or a provider), use protoCore's API on the same `ProtoSpace` that protoJS uses: get it via `JSContextWrapper::getProtoSpace()` (or equivalent host API) and call `setResolutionChain(...)` with a `ProtoList` of `ProtoString*` entries.
+4. **Providers.** Custom `ModuleProvider` implementations can be registered with `ProviderRegistry::instance().registerProvider(...)` and referenced from the resolution chain as `provider:<alias>` or `provider:<GUID>`. protoJS registers no providers of its own.
 
 ---
 
-## When to Use protoCore ProtoSpace::getImportModule from protoJS
+## Default resolution chain
 
-- **Native addons** loaded from a non-file source (e.g. from a plugin registry keyed by logical path).
-- **Custom providers** (e.g. `provider:odoo_db`) registered in `ProviderRegistry` that resolve modules by logical path.
-- **Unified caching** — one global `SharedModuleCache` in protoCore so that the same logical path returns the same module across contexts that share the same semantics.
+protoJS creates its `ProtoSpace` with protoCore's defaults, so the resolution chain is the platform default defined in protoCore's `core/ProtoSpace.cpp`:
 
-protoJS's **require()** calls `getImportModule` for every **bare** specifier first; ESM loaders still use `ModuleResolver` + `ESModuleLoader` only. Custom providers registered in protoCore's `ProviderRegistry` (and the default `FileSystemProvider` chain) can thus supply modules for bare IDs; otherwise resolution falls back to file-based lookup.
+| Platform | Default chain |
+|----------|---------------|
+| Linux and other non-Apple POSIX systems | `[".", "/usr/lib/proto", "/usr/local/lib/proto"]` |
+| macOS | `[".", "/usr/local/lib/proto"]` |
+| Windows | `[".", "C:\\Program Files\\proto\\lib"]` |
+
+To change it, call `setResolutionChain(const ProtoObject* newChain)` on the space returned by `JSContextWrapper::getProtoSpace()`, passing a `ProtoList` of `ProtoString` entries. `getResolutionChain()` returns the current chain.
+
+---
+
+## When to use protoCore discovery from protoJS
+
+- Loading modules from a source other than the file system, keyed by logical path (for example a plugin registry exposed through a provider).
+- Sharing one module cache across runtime instances: protoCore's cache is global and thread-safe, so the same logical path yields the same module.
 
 ---
 
 ## References
 
-- **protoCore**  
-  - [MODULE_DISCOVERY.md](../protoCore/docs/MODULE_DISCOVERY.md) — full specification of resolution chain, providers, cache, and `ProtoSpace::getImportModule`.
-  - `ProtoSpace::getImportModule(const char* logicalPath, const char* attrName2create)`
-  - `ProtoSpace::getResolutionChain()` / `setResolutionChain(const ProtoObject* newChain)`
-  - `ProviderRegistry::instance()`, `registerProvider`, `findByAlias`, `findByGUID`, `getProviderForSpec("provider:alias")`
-- **protoJS**  
-  - [PROTOCORE_MODULE.md](PROTOCORE_MODULE.md) — protoCore collections and utilities exposed to JS.  
-  - [NATIVE_MODULES.md](NATIVE_MODULES.md) — native addon loading (.node, .so, .dll, .dylib, .protojs).
+- **protoCore**
+  - [MODULE_DISCOVERY.md](https://github.com/numaes/protoCore/blob/master/docs/MODULE_DISCOVERY.md) — resolution chain, providers, cache and `getImportModule`.
+  - `ProtoSpace::getImportModule`, `ProtoSpace::getResolutionChain`, `ProtoSpace::setResolutionChain` (`headers/protoCore.h`).
+  - `ProviderRegistry::instance()`, `registerProvider`, `findByAlias`, `findByGUID`, `getProviderForSpec` (`headers/protoCore.h`).
+- **protoJS**
+  - [PROTOCORE_MODULE.md](PROTOCORE_MODULE.md) — the `protoCore` global.
+  - [NATIVE_MODULES.md](NATIVE_MODULES.md) — native addon loading (`.node`, `.so`, `.dll`, `.dylib`, `.protojs`).

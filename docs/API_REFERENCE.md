@@ -1,460 +1,135 @@
 # API Reference
 
-Complete API reference for protoJS.
+Reference for the `protojs` command line and the globals that `protojs` 0.1.0 installs for scripts. The list follows the module initialization in `src/main.cpp`; each entry names the source file that implements it.
+
+Scripts run on the protoCore interpreter against a protoCore-native global object. Only objects registered on that global are visible to scripts. For ECMAScript conformance of the standard built-ins (`Object`, `Array`, `String`, ...), see [TEST262_STATUS.md](TEST262_STATUS.md) and [CONFORMANCE_JS.md](../CONFORMANCE_JS.md).
+
+---
+
+## Command line
+
+```bash
+protojs [options] <script.js>
+protojs [options] -e "<code>"
+```
+
+| Option | Effect |
+|--------|--------|
+| `--cpu-threads N` | Size of the CPU thread pool. Default: the number of hardware threads. See [THREAD_POOLS.md](THREAD_POOLS.md). |
+| `--io-threads N` | Fixed size of the I/O thread pool. |
+| `--io-threads-factor F` | When `--io-threads` is not given, the I/O pool has `ceil(hardware threads × F)` threads. Default `F`: 3.0. |
+| `-e "<code>"` | Evaluate `<code>` instead of a file (the file name is reported as `eval`). |
+| `-p`, `--print` | After evaluation, print the result if it is not `undefined` and no exception was thrown. |
+| `-c`, `--check` | Evaluate the input and exit with status 1 if it throws, 0 otherwise. There is no parse-only mode: the code is executed. |
+| `-v`, `--version` | Print `protoJS v0.1.0` and exit. |
+| `--input-type=module` | Evaluate the input as an ES module. Module code is evaluated by the QuickJS module evaluator, not by the protoCore interpreter. |
+| `--preload <file>` | Evaluate `<file>` as a script before the main input; may be repeated. |
+| `--minimal` | Install only `console`, `print`, `JSON`, `performance`, `Deferred`, `protoCore` and the script globals, then evaluate the input. Intended for isolating problems. |
+| `--proto-eval` | Accepted for compatibility; has no effect (the protoCore interpreter is always used). |
+
+- With no arguments, `protojs` prints the usage text and exits with status 1.
+- With options but no script and no `-e`, `protojs` starts an interactive REPL.
+- An unknown option or an unreadable script file prints an error and exits with status 1.
+- If the main script throws, the exit status is 1.
+
+### Environment variables
+
+| Variable | Read by | Effect |
+|----------|---------|--------|
+| `PROTOJS_NO_FALLBACK` | `src/JSContext.cpp` | When the protoCore compile step fails, `protojs` normally prints `[protojs] compile failed, fallback to QuickJS eval` and evaluates the code with QuickJS. Set to `1` to report the error instead. |
+| `PROTOJS_SPECIALISER` | `src/runtime/BytecodeSpecialiser.cpp` | Bytecode specialiser mode: `compact` (default), `nop` or `off`. |
+| `PROTOCORE_GC_CONTEXT_THRESHOLD` | protoCore | Per-context allocation threshold used by protoCore's garbage collector trigger. |
+
+`PROTOJS_USE_PROTO_EVAL`, which some test scripts set, is not read by `protojs`.
+
+---
 
 ## Globals
 
-### `console`
+| Global | Source | Contents |
+|--------|--------|----------|
+| `console` | `src/console.cpp` | `log`, `error`, `warn`, `info`, `debug`, `time`, `timeEnd`, `timeLog`, `assert`, `group`, `groupEnd`, `groupCollapsed`, `dir`, `dirxml`, `trace`, `count`, `countReset`, `table`, `clear` |
+| `print` | `src/console.cpp` | Alias of `console.log` (used by Test262 harness files) |
+| `performance` | `src/console.cpp` | `performance.now()` |
+| `JSON` | `src/JSONBuiltin.cpp` | `JSON.parse`, `JSON.stringify` |
+| `setImmediate` | `src/EventLoopBindings.cpp` | `setImmediate(callback)` runs `callback` on a later event-loop turn |
+| `Deferred` | `src/ProtoDeferred.cpp` | Promise-like object; see [DEFERRED_USAGE.md](DEFERRED_USAGE.md) |
+| `protoCore` | `src/ProtoCoreNativeBindings.cpp` | `protoCore.runInThread`; see [PROTOCORE_MODULE.md](PROTOCORE_MODULE.md) |
+| `io` | `src/modules/IOModule.cpp` | Simple file I/O; see below |
+| `process` | `src/modules/ProcessModule.cpp` | Process information; see below |
+| `require` | `src/modules/CommonJSLoader.cpp` | CommonJS loader with `require.resolve` and `require.cache`; see below |
+| `path`, `fs`, `url`, `http`, `events`, `stream`, `util`, `crypto`, `Buffer`, `net`, `worker_threads`, `cluster`, `dgram`, `child_process`, `dns` | `src/modules/<name>/` | Node.js-style modules, installed as globals |
+| `profiler` | `src/profiling/Profiler.cpp`, `src/profiling/VisualProfiler.cpp` | `startProfiling`, `stopProfiling`, `getProfile`, `startMemoryProfiling`, `stopMemoryProfiling`, `getMemoryProfile`, plus report-export functions added by `VisualProfiler` |
+| `memory` | `src/memory/MemoryAnalyzer.cpp` | `takeHeapSnapshot`, `detectLeaks`, `exportSnapshot`, `getMemoryUsage`, `startAllocationTracking`, `stopAllocationTracking` |
+| `debugger` | `src/debugging/IntegratedDebugger.cpp` | `startCDPServer`, `stopCDPServer`, `setBreakpoint`, `removeBreakpoint`, `getCallStack`, `evaluate`, `stepOver`, `stepInto`, `stepOut`, `continue` |
+| `__filename`, `__dirname`, `__protojs__` | `src/main.cpp` | Path of the main script, its directory, and `true` |
 
-Global object for logging.
+Timer functions such as `setTimeout` and `setInterval` are not installed.
 
-#### `console.log(...args)`
-Prints messages to stdout.
+---
+
+## `process`
+
+| Member | Description |
+|--------|-------------|
+| `process.argv` | Array of every command-line argument passed to `protojs`, starting with the program path and including options. |
+| `process.env` | Object with one string property per environment variable. |
+| `process.cwd()` | Current working directory. |
+| `process.platform()` | A function (not a property) returning `"linux"`, `"darwin"`, `"win32"` or the raw `uname` system name. |
+| `process.arch()` | A function returning `"x64"`, `"ia32"`, `"arm"` or the raw `uname` machine name. |
+| `process.exit(code)` | Exits immediately with `code` if it is an integer, otherwise with 0. |
 
 ```javascript
-console.log("Hello", "world", 42);
-```
-
-#### `console.error(...args)`
-Prints error messages to stderr.
-
-```javascript
-console.error("Error occurred:", error);
-```
-
-#### `console.warn(...args)`
-Prints warnings to stderr.
-
-```javascript
-console.warn("Warning: deprecated API");
+console.log(process.argv.length, process.platform(), process.arch(), process.cwd());
 ```
 
 ---
 
-## Deferred
+## `io`
+
+| Function | Description |
+|----------|-------------|
+| `io.readFile(path)` | Reads the file and returns its content as a string; returns `undefined` if the read fails. The read runs on the I/O pool while the caller waits. |
+| `io.writeFile(path, content)` | Writes a string; returns `true` on success and `false` on failure. |
+| `io.readFileAsync(path)` | Returns a `Deferred` fulfilled with the file content, or rejected if the read fails. |
+| `io.writeFileAsync(path, content)` | Returns a `Deferred` settled when the write completes or fails. |
 
-### Constructor
-
-#### `new Deferred(executor)`
-
-Creates a new `Deferred` that executes the `executor` in a worker thread.
-
-**Parameters:**
-- `executor`: Function `(resolve, reject) => void` containing the work to execute
-
-**Example:**
-```javascript
-const deferred = new Deferred((resolve, reject) => {
-    const result = heavyComputation();
-    resolve(result);
-});
-```
-
-**Note:** In Phase 1, the implementation is basic. Future phases will add `.then()`, `.catch()`, and automatic CPU-intensive work detection.
-
----
-
-## `protoCore` Module
-
-### Collections
-
-#### `protoCore.Set`
-
-Class for sets (similar to JavaScript's `Set`, but with special protoCore features).
-
-##### Constructor
-
-```javascript
-new protoCore.Set([iterable])
-```
-
-Creates a new `ProtoSet` optionally initialized with values from `iterable`.
-
-##### Methods
-
-- **`add(value)`**: Adds a value to the set
-- **`has(value)`**: Returns `true` if the value exists
-- **`remove(value)`**: Removes a value from the set
-- **`size`**: Property that returns the number of elements
-
-**Example:**
-```javascript
-const set = new protoCore.Set([1, 2, 3, 3, 4]);
-console.log(set.size); // 4
-set.add(5);
-console.log(set.has(3)); // true
-```
-
----
-
-#### `protoCore.Multiset`
-
-Class for multisets (allows duplicate elements and counts occurrences).
-
-##### Constructor
-
-```javascript
-new protoCore.Multiset([iterable])
-```
-
-##### Methods
-
-- **`add(value)`**: Adds a value
-- **`count(value)`**: Returns the number of occurrences of `value`
-- **`remove(value)`**: Removes one occurrence of `value`
-- **`size`**: Returns the total number of elements (including duplicates)
-- **`has(value)`**: Returns `true` if the value exists
-
-**Example:**
-```javascript
-const multiset = new protoCore.Multiset([1, 1, 2, 2, 2]);
-console.log(multiset.count(2)); // 3
-console.log(multiset.size); // 5
-```
-
----
-
-#### `protoCore.SparseList`
-
-Class for sparse lists (optimized for arrays with gaps).
-
-##### Constructor
-
-```javascript
-new protoCore.SparseList()
-```
-
-##### Methods
-
-- **`set(index, value)`**: Sets a value at the index
-- **`get(index)`**: Gets the value at the index
-- **`has(index)`**: Returns `true` if the index has a value
-- **`remove(index)`**: Removes the value at the index
-- **`size`**: Returns the number of elements set
-
-**Example:**
-```javascript
-const sparse = new protoCore.SparseList();
-sparse.set(0, "first");
-sparse.set(100, "hundredth");
-console.log(sparse.get(0)); // "first"
-console.log(sparse.has(50)); // false
-```
-
----
-
-#### `protoCore.Tuple`
-
-Factory function to create immutable tuples.
-
-##### Syntax
-
-```javascript
-protoCore.Tuple([...values])
-```
-
-Returns an immutable array (tuple).
-
-**Example:**
-```javascript
-const tuple = protoCore.Tuple([1, 2, 3]);
-console.log(tuple.length); // 3
-// tuple.push(4); // Error: immutable
-```
-
----
-
-### Mutability Control
-
-#### `protoCore.ImmutableObject(obj)`
-
-Creates an immutable object from `obj`.
-
-```javascript
-const immutable = protoCore.ImmutableObject({a: 1, b: 2});
-// immutable.a = 3; // Error or creates new object
-```
-
-#### `protoCore.MutableObject(obj)`
-
-Creates a mutable object from `obj`.
-
-```javascript
-const mutable = protoCore.MutableObject({a: 1, b: 2});
-mutable.a = 3; // OK
-```
-
-#### `protoCore.isImmutable(obj)`
-
-Returns `true` if the object is immutable.
-
-```javascript
-const obj = {a: 1};
-console.log(protoCore.isImmutable(obj)); // false
-
-const immutable = protoCore.ImmutableObject({a: 1});
-console.log(protoCore.isImmutable(immutable)); // true
-```
-
-#### `protoCore.makeImmutable(obj)`
-
-Converts an object to immutable.
-
-```javascript
-const obj = {a: 1};
-const immutable = protoCore.makeImmutable(obj);
-```
-
-#### `protoCore.makeMutable(obj)`
-
-Converts an object to mutable.
-
-```javascript
-const immutable = protoCore.ImmutableObject({a: 1});
-const mutable = protoCore.makeMutable(immutable);
-```
-
----
-
-## `process` Module
-
-Global object that provides information about the current process.
-
-### Properties
-
-#### `process.argv`
-
-Array of command line arguments.
-
-```javascript
-console.log(process.argv);
-// ['protojs', 'script.js', 'arg1', 'arg2']
-```
-
-#### `process.env`
-
-Object with environment variables.
-
-```javascript
-console.log(process.env.PATH);
-console.log(process.env.HOME);
-console.log(process.env.USER);
-```
-
-**Note:** In Phase 1, only common variables (`PATH`, `HOME`, `USER`) are exposed. Future phases will expose all environment variables.
-
-### Methods
-
-#### `process.cwd()`
-
-Returns the current working directory.
-
-```javascript
-const cwd = process.cwd();
-console.log(cwd); // "/home/user/project"
-```
-
-#### `process.platform()`
-
-Returns the operating system platform.
-
-```javascript
-const platform = process.platform();
-console.log(platform); // "linux", "darwin", "win32"
-```
-
-#### `process.arch()`
-
-Returns the CPU architecture.
-
-```javascript
-const arch = process.arch();
-console.log(arch); // "x64", "ia32", "arm"
-```
-
-#### `process.exit(code)`
-
-Terminates the process with the specified exit code.
-
-```javascript
-process.exit(0); // Success
-process.exit(1); // Error
-```
-
----
-
-## `io` Module
-
-Module for input/output operations.
-
-### `io.readFile(path)`
-
-Reads a complete file synchronously.
-
-**Parameters:**
-- `path`: File path (string)
-
-**Returns:** File content as string
-
-**Example:**
-```javascript
-const content = io.readFile("data.txt");
-console.log(content);
-```
-
-**Note:** In Phase 1, this operation is synchronous and blocking. Future phases will add async versions.
-
-### `io.writeFile(path, content)`
-
-Writes content to a file synchronously.
-
-**Parameters:**
-- `path`: File path (string)
-- `content`: Content to write (string)
-
-**Example:**
 ```javascript
 io.writeFile("output.txt", "Hello, world!");
-```
+console.log(io.readFile("output.txt"));
 
-**Note:** In Phase 1, this operation is synchronous and blocking. Future phases will add async versions.
-
----
-
-## Data Types
-
-### Automatic Conversions
-
-protoJS automatically converts between JavaScript and protoCore types:
-
-- **Number** ↔ `proto::Number`
-- **String** ↔ `proto::ProtoString`
-- **Boolean** ↔ `proto::Boolean`
-- **BigInt** ↔ `proto::LargeInteger`
-- **Array** ↔ `proto::ProtoList` (dense) or `proto::ProtoSparseList` (sparse)
-- **Object** ↔ `proto::ProtoObject`
-
-### Immutability by Default
-
-In protoJS, arrays and objects are immutable by default when converted to protoCore. Operations that would normally mutate an object return a new object.
-
-```javascript
-const arr1 = [1, 2, 3];
-const arr2 = arr1.concat([4]); // arr1 doesn't change
-console.log(arr1); // [1, 2, 3]
-console.log(arr2); // [1, 2, 3, 4]
+io.readFileAsync("output.txt").then((text) => console.log("async:", text));
 ```
 
 ---
 
-## Command Line
+## `require`
 
-### Syntax
+`require(specifier)` returns the module's exports. For a bare specifier it tries, in order: protoCore's module discovery, a property of the same name on the QuickJS-side global object, and file-based resolution including `node_modules`. Relative and absolute specifiers use file-based resolution only; native addons are loaded first when several candidate files exist.
 
-```bash
-protojs [options] [script.js]
-protojs [options] -e "code"
-```
-
-### Options
-
-#### `--cpu-threads N`
-
-Specifies the number of threads in the CPU pool.
-
-```bash
-protojs --cpu-threads 8 script.js
-```
-
-**Default:** Number of system CPUs
-
-#### `--io-threads N`
-
-Specifies the number of threads in the I/O pool.
-
-```bash
-protojs --io-threads 24 script.js
-```
-
-**Default:** `cpu-threads × 3.0`
-
-#### `--io-threads-factor F`
-
-Specifies the multiplier factor for calculating I/O threads.
-
-```bash
-protojs --io-threads-factor 4.0 script.js
-```
-
-**Default:** `3.0`
-
-#### `-e, --eval CODE`
-
-Evaluates JavaScript code inline.
-
-```bash
-protojs -e "console.log('Hello')"
-```
+The standard modules are registered on the protoCore-native global, not on the QuickJS-side global that the second step reads, so use their globals (`fs`, `path`, ...) directly. Details: [MODULE_DISCOVERY_PROTOCORE.md](MODULE_DISCOVERY_PROTOCORE.md) and [NATIVE_MODULES.md](NATIVE_MODULES.md).
 
 ---
 
-## Phase 6 (C++ / tooling APIs)
+## C++ libraries without a JavaScript API
 
-Phase 6 adds **npm support**, **performance benchmarking**, and **Node.js test compatibility** as C++ libraries used by the runtime and tooling. These are not exposed as JavaScript APIs; they are used by the build/test/benchmark infrastructure.
+The `protojs_core` library also contains C++ components that are not exposed to scripts. They are exercised by the C++ unit tests in `tests/unit/`:
 
-| API | Purpose |
-|-----|--------|
-| **Semver** (`src/npm/Semver.h`) | Version parsing, comparison, range satisfaction (`satisfies`, `findHighest`), normalization. |
-| **NPMRegistry** (`src/npm/NPMRegistry.h`) | Fetch package metadata, resolve version, download tarball, search packages. |
-| **BenchmarkRunner** (`src/benchmarking/BenchmarkRunner.h`) | Run benchmark scripts (protoJS/Node), compare time/memory, generate text/JSON/HTML reports. |
-| **NodeJSTestRunner** (`src/testing/NodeJSTestRunner.h`) | Run tests with Node.js and protoJS, compare output, generate compatibility reports and gap lists. |
+| Component | Header | Purpose |
+|-----------|--------|---------|
+| Semver | `src/npm/Semver.h` | Version parsing, comparison and range matching |
+| NPMRegistry | `src/npm/NPMRegistry.h` | Package metadata lookup, version resolution and tarball download |
+| BenchmarkRunner | `src/benchmarking/BenchmarkRunner.h` | Runs benchmark scripts under protoJS and Node.js and compares time and memory |
+| NodeJSTestRunner | `src/testing/NodeJSTestRunner.h` | Runs a test file under Node.js and protoJS and compares the output |
 
-**Full API details, data structures, and C++ usage:** [Phase 6 module guides](archive/PHASE6_MODULE_GUIDES.md).
-
-**Runnable usage examples (CLI and scripts):** [Examples – Phase 6](EXAMPLES.md#phase-6-benchmarking-and-test-compatibility).
+The January 2026 guides for these components are archived in [archive/PHASE6_MODULE_GUIDES.md](archive/PHASE6_MODULE_GUIDES.md) and may not match the current code.
 
 ---
 
-## Implementation Notes
+## See also
 
-### Phase 1 (Current)
-
-- Basic implementation of all modules
-- Deferred with simplified execution
-- TypeBridge with main conversions
-- Basic tests
-
-### Future Phases
-
-- Complete Promise API for Deferred (`.then()`, `.catch()`, `.finally()`)
-- Automatic CPU-intensive work detection
-- Async I/O versions (`readFileAsync`, `writeFileAsync`)
-- Complete environment variable support
-- More Node.js modules (fs, path, http, etc.)
-- Module system (CommonJS + ES Modules)
-
----
-
-## Common Errors
-
-### "Deferred is not defined"
-
-Make sure the Deferred module is initialized. In Phase 1, it may not be available in all contexts.
-
-### "protoCore is not defined"
-
-The `protoCore` module must be initialized before use. Verify that `ProtoCoreModule::init()` has been called.
-
-### Type Conversions
-
-Some complex conversions (such as objects with functions) may not be supported in Phase 1. Check `TypeBridge.cpp` to see which conversions are implemented.
-
----
-
-## References
-
-- [Deferred Guide](DEFERRED_USAGE.md)
-- [protoCore Module](PROTOCORE_MODULE.md)
-- [Thread Pool Configuration](THREAD_POOLS.md)
-- [Advanced Examples](EXAMPLES.md)
-- [Phase 6 module guides (npm, benchmarking, Node.js test)](archive/PHASE6_MODULE_GUIDES.md)
+- [Deferred](DEFERRED_USAGE.md)
+- [The `protoCore` global](PROTOCORE_MODULE.md)
+- [Thread pool configuration](THREAD_POOLS.md)
+- [Examples](EXAMPLES.md)
+- [Troubleshooting](TROUBLESHOOTING.md)

@@ -4,15 +4,14 @@ Release:        %{release}%{?dist}
 Summary:        protoJS runtime for JavaScript execution
 
 License:        MIT
-URL:            https://example.com/protoJS
+URL:            https://github.com/gamarino/protoJS
 Source0:        protoJS-%{version}.tar.gz
 
 BuildArch:      x86_64
 Requires:       protoCore >= 1.0.0
 
 %description
-protoJS provides a high-performance JavaScript execution environment
-leveraging protoCore.
+protoJS is a JavaScript runtime built on the protoCore object model.
 
 %prep
 %setup -q -n protoJS-%{version}

@@ -1,46 +1,55 @@
 # Standard benchmark suite
 
-Self-contained benchmarks for **protoJS vs Node.js** comparison. Each file:
+Self-contained benchmark scripts used to compare protoJS with Node.js and with a plain QuickJS interpreter. Each script:
 
-- Uses only common ES features (no `require`, no `Array.from` in hot path where avoidable).
-- Runs the same workload in both engines.
-- Prints a single line at the end: `__BENCH_RESULT__<json>` with `time_ms` (median of several runs) so the runner can compare **in-process** time instead of wall-clock.
-
-This gives **significant, comparable results** because both engines execute the same code and we measure the same thing.
+- uses only common ECMAScript features and no `require`, so it runs unchanged under `protojs`, `node` and QuickJS;
+- repeats its workload several times (`ITERATIONS`) and takes the median time measured inside the script;
+- prints one final line `__BENCH_RESULT__<json>` whose `time_ms` field the runners read, so that process start-up time is not measured.
 
 ## Benchmarks
 
-| File | Description | Workload |
-|------|-------------|----------|
-| `numeric_loop.js` | Integer loop and sum | 1e6 iterations, 5 runs, median ms |
-| `array_literal.js` | Array via push in loop | 100k elements, 5 runs |
-| `object_property.js` | Object property read/write | 200k ops (100 keys), 5 runs |
-| `string_concat.js` | String concatenation | 50k concats, 5 runs |
-| `function_calls.js` | No-op function call overhead | 2e6 calls, 5 runs |
-| `control_flow.js` | Conditionals in loop | 1e6 iterations if/else, 5 runs |
-| `parallel_cpu.js` | Heavy parallel CPU (ProtoThreads) | 4 tasks × 5 rounds. Under protojs: `protoCore.runInThread('cpuChunk', …)` with setImmediate stagger; WORK_PER_TASK = 2e5 so the run completes within the runner timeout. Under Node: same workload at 2e6 iter. |
+| File | Workload | Size (per iteration) | Iterations |
+|------|----------|----------------------|-----------:|
+| `numeric_loop.js` | Integer loop and sum | 1e6 steps | 5 |
+| `control_flow.js` | `if`/`else` inside a loop | 1e6 steps | 5 |
+| `function_calls.js` | No-op function calls | 2e5 calls | 5 |
+| `array_literal.js` | Array built with `push` | 100,000 elements | 5 |
+| `object_property.js` | Object property reads and writes | 200,000 operations | 5 |
+| `object_read_only.js` | Property reads on a pre-populated object | 100,000 reads over 100 keys | 5 |
+| `object_write_only.js` | Property writes with pre-created keys | 1,000,000 writes over 100 keys | 5 |
+| `string_concat.js` | One-character appends | 50,000 appends | 5 |
+| `string_concat_large_chunks.js` | Appends of 200-character chunks | see script | 5 |
+| `string_insert_middle.js` | `s.slice(0, mid) + chunk + s.slice(mid)` | 100 inserts of 50 characters into a 1,000-character string | 5 |
+| `string_repeated_doubling.js` | `s = s + s` | 200 sequences of 18 doublings | 5 |
+| `string_processing.js` | CSV generation and field parsing | 100 rows | 5 |
+| `json_transform.js` | Build, filter, map and serialize records | 5,000 records | 5 |
+| `json_transform_small.js` | Same pipeline | 500 records | 5 |
+| `json_transform_tiny.js` | Same pipeline | 50 records | 1 |
+| `list_snapshot_history.js` | Keep every version of a growing array (`concat`) | 200 steps | 5 |
+| `tree_traversal.js` | Build a binary tree and sum it recursively | depth 14 (16,383 nodes) | 5 |
+| `parallel_cpu.js` | Four CPU tasks run in parallel | 2e5 steps per task under `protojs`, 2e6 elsewhere | 5 |
 
-**Note:** `parallel_worker.js` is a worker script used by a potential parallel_cpu implementation (Worker-based), not a standalone benchmark; the runner skips `*_worker.js` files.
+`parallel_cpu.js` uses `protoCore.runInThread('cpuChunk', ...)` under `protojs` when it is available, and reports `"parallel": true` or `false` in its result line depending on whether the tasks ran in parallel. `parallel_cpu_worker.js` and `parallel_worker.js` are worker scripts, not benchmarks; the runners skip every file ending in `_worker.js`.
 
 ## How to run
 
-From the **protoJS project root**:
+From the repository root:
 
 ```bash
+# protoJS vs Node.js
 node tests/benchmarks/run_standard_comparison.js
+
+# protoJS vs QuickJS
+node tests/benchmarks/run_standard_comparison_quickjs.js
 ```
 
-- **protoJS:** Scripts run (compile fallback to QuickJS eval when needed). `parallel_cpu.js` uses ProtoThreads via `protoCore.runInThread`; thread creation is staggered with `setImmediate` to avoid lock contention. Under protojs the workload per task is 2e5 iterations so the benchmark finishes in time.
+- **protoJS binary:** `run_standard_comparison.js` uses `PROTOJS_BIN` when set, and otherwise searches `build_release/protojs` before `build/protojs`.
+- **QuickJS binary:** `run_standard_comparison_quickjs.js` looks for `tests/benchmarks/qjs_minimal` or `qjs_raw` in the repository root. Neither binary is tracked; `tests/benchmarks/qjs_minimal.c` is a minimal QuickJS host built against `deps/quickjs`.
+- **Timeout:** each benchmark run is limited to 120 seconds.
 
 Output:
 
-- Console: per-benchmark times and speedup, geometric mean.
-- `tests/benchmarks/results/standard_comparison.json`: full results and summary.
+- Console: time per benchmark, the ratio between the engines, and the geometric mean.
+- JSON: `tests/benchmarks/results/standard_comparison.json` (Node.js runner) or `tests/benchmarks/results/standard_comparison_quickjs.json` (QuickJS runner). Dated reports are kept in `tests/benchmarks/results/`.
 
-## Design
-
-- **No external deps**: each script is one file, runnable by both `node` and `protojs`.
-- **Median of 5 runs**: reduces noise; runner parses `time_ms` from the JSON line.
-- **Standard-style workloads**: inspired by common engine benchmarks (loop, array, object, string, call overhead, control flow).
-
-For the legacy comparison (wall-clock, mixed workloads) use `run_nodejs_comparison.js`.
+`tests/benchmarks/run_nodejs_comparison.js` is an older comparison that measures wall-clock time over mixed workloads.

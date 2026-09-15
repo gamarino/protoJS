@@ -1,76 +1,44 @@
-# Usage Guide: Deferred
+# Deferred
 
-## Introduction
+`Deferred` is a global constructor for a promise-like object with `then` and `catch` callbacks. It is implemented natively on protoCore in `src/ProtoDeferred.cpp`.
 
-`Deferred` is protoJS's implementation for asynchronous execution with transparent worker threads. Similar to JavaScript's `Promise`, but with the advantage of automatically executing in worker threads from the CPU pool.
+A `Deferred` does not run its function on a worker thread: the function runs on a later turn of the event loop, on the thread that runs the script. For CPU-bound work on another thread, use [`protoCore.runInThread`](PROTOCORE_MODULE.md#native-multithreading-runinthread), which also returns a `Deferred`.
 
-## Basic Usage
-
-### Creating a Deferred
+## Creating a Deferred
 
 ```javascript
-const deferred = new Deferred((resolve, reject) => {
-    // Code to execute
-    const result = heavyComputation();
-    resolve(result);
+const d = new Deferred(() => {
+    let sum = 0;
+    for (let i = 0; i < 1000; i++) {
+        sum += i;
+    }
+    return sum;
+});
+
+d.then((value) => {
+    console.log("Result:", value);   // Result: 499500
 });
 ```
 
-### Handling Results
+Behaviour, as implemented in `src/ProtoDeferred.cpp`:
 
-```javascript
-// In complete implementation, would support .then()
-deferred.then(value => {
-    console.log("Result:", value);
-}).catch(error => {
-    console.error("Error:", error);
-});
-```
+- The constructor takes one function and schedules it on the event loop. The function is called **with no arguments**; the Deferred is fulfilled with its return value. Code written in the `Promise` style, `new Deferred((resolve, reject) => { ... })`, receives `undefined` for `resolve` and `reject`.
+- `Deferred(fn)` without `new` behaves the same as `new Deferred(fn)`.
+- `then(callback)` registers a fulfilment callback. If the Deferred is already fulfilled, the callback runs on a later event-loop turn.
+- `catch(callback)` registers a rejection callback.
+- `then` and `catch` return the **same** Deferred, not a new one. Calls can be chained on that object, but a callback's return value is not passed to the next callback.
+- The constructor always fulfils the Deferred with the value returned by the call; an exception thrown by the function is not delivered to `catch` callbacks. Rejections come from native operations that return a Deferred, such as `protoCore.runInThread` when the thread cannot be created, or `io.readFileAsync` / `io.writeFileAsync` when the I/O operation fails.
 
-## Features
+## Process lifetime
 
-### Automatic Execution in Worker Threads
+After the main script finishes, `protojs` keeps processing event-loop callbacks while any Deferred is pending (and while workers, HTTP servers or clients, or `net` sockets are active). It stops waiting after 180 seconds and prints `Warning: Event loop timeout reached. Some callbacks may not have completed.` (see `src/main.cpp`).
 
-Unlike standard `Promise` which executes on the main thread, `Deferred` automatically executes in a thread from the CPU pool.
+## Parallel work
 
-### Sharing Immutable Objects
+- `protoCore.runInThread(workerName, args)` runs a registered native worker on a protoCore thread and fulfils the returned Deferred with the worker's result. See [PROTOCORE_MODULE.md](PROTOCORE_MODULE.md).
+- The `worker_threads` global provides a `Worker` class that runs a script in its own runtime instance on a separate OS thread.
 
-Immutable objects are shared between threads without copying, resulting in efficient memory usage.
+## See also
 
-### Thread Pool
-
-The CPU pool is automatically initialized with one thread per processor core.
-
-## Complete Example
-
-```javascript
-// Create multiple deferreds
-const deferreds = [];
-
-for (let i = 0; i < 10; i++) {
-    const d = new Deferred((resolve) => {
-        // CPU-intensive work
-        let sum = 0;
-        for (let j = 0; j < 1000000; j++) {
-            sum += j;
-        }
-        resolve(sum);
-    });
-    deferreds.push(d);
-}
-
-// All execute concurrently in worker threads
-```
-
-## Configuration
-
-The CPU pool size can be configured:
-
-```bash
-protojs --cpu-threads 8 script.js
-```
-
-## Implementation Notes
-
-- **Option B**: The JS function executes on the main thread, but heavy work is delegated to protoCore in worker threads.
-- **Phase 1**: Basic implementation. Future phases will add automatic CPU-intensive work detection.
+- [API reference](API_REFERENCE.md)
+- [Thread pool configuration](THREAD_POOLS.md)
