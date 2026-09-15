@@ -1,9 +1,17 @@
+# CLAUDE.md
+
+Guidance for AI coding assistants working in this repository.
+
+The GitNexus sections below apply to contributors who use GitNexus. The
+index is generated locally and is not tracked in this repository; it must be
+refreshed with `npx gitnexus analyze` after commits.
+
 <!-- gitnexus:start -->
 # GitNexus — Code Intelligence
 
-This project is indexed by GitNexus as **protoJS** (27817 symbols, 56015 relationships, 300 execution flows). Use the GitNexus MCP tools to understand code, assess impact, and navigate safely.
+This project is indexed by GitNexus as **protoJS**. Use the GitNexus MCP tools to understand code, assess impact, and navigate safely.
 
-> If any GitNexus tool warns the index is stale, run `npx gitnexus analyze` in terminal first.
+> If any GitNexus tool warns the index is stale, run `npx gitnexus analyze` in a terminal first.
 
 ## Always Do
 
@@ -18,7 +26,7 @@ This project is indexed by GitNexus as **protoJS** (27817 symbols, 56015 relatio
 1. `gitnexus_query({query: "<error or symptom>"})` — find execution flows related to the issue
 2. `gitnexus_context({name: "<suspect function>"})` — see all callers, callees, and process participation
 3. `READ gitnexus://repo/protoJS/process/{processName}` — trace the full execution flow step by step
-4. For regressions: `gitnexus_detect_changes({scope: "compare", base_ref: "main"})` — see what your branch changed
+4. For regressions: `gitnexus_detect_changes({scope: "compare", base_ref: "master"})` — see what your branch changed
 
 ## When Refactoring
 
@@ -71,7 +79,7 @@ Before completing any code modification task, verify:
 
 ## Keeping the Index Fresh
 
-After committing code changes, the GitNexus index becomes stale. Re-run analyze to update it:
+After committing code changes, the GitNexus index becomes stale. Nothing in this repository refreshes it automatically; re-run analyze after each commit:
 
 ```bash
 npx gitnexus analyze
@@ -83,95 +91,10 @@ If the index previously included embeddings, preserve them by adding `--embeddin
 npx gitnexus analyze --embeddings
 ```
 
-To check whether embeddings exist, inspect `.gitnexus/meta.json` — the `stats.embeddings` field shows the count (0 means no embeddings). **Running analyze without `--embeddings` will delete any previously generated embeddings.**
-
-> Claude Code users: A PostToolUse hook handles this automatically after `git commit` and `git merge`.
-
-## CLI
-
-| Task | Read this skill file |
-|------|---------------------|
-| Understand architecture / "How does X work?" | `.claude/skills/gitnexus/gitnexus-exploring/SKILL.md` |
-| Blast radius / "What breaks if I change X?" | `.claude/skills/gitnexus/gitnexus-impact-analysis/SKILL.md` |
-| Trace bugs / "Why is X failing?" | `.claude/skills/gitnexus/gitnexus-debugging/SKILL.md` |
-| Rename / extract / split / refactor | `.claude/skills/gitnexus/gitnexus-refactoring/SKILL.md` |
-| Tools, resources, schema reference | `.claude/skills/gitnexus/gitnexus-guide/SKILL.md` |
-| Index, status, clean, wiki CLI commands | `.claude/skills/gitnexus/gitnexus-cli/SKILL.md` |
+To check whether embeddings exist, inspect `.gitnexus/meta.json` in the local index — the `stats.embeddings` field shows the count (0 means no embeddings). **Running analyze without `--embeddings` deletes any previously generated embeddings.**
 
 <!-- gitnexus:end -->
 
-# protoCore GC Bridging Rules
+# protoCore GC bridging
 
-protoJS embeds protoCore as its object model. Whenever a `ProtoObject*` needs to outlive an allocation boundary that the protoCore tracing GC cannot see — typically because a C++ lambda registered with the EventLoop or a thread pool has captured the pointer — you MUST use one of the two protoCore-supplied mechanisms below. Smuggling references through `setAttribute` on the JS-side global is an anti-pattern; do not introduce new sites that do it.
-
-See `protoCore/DESIGN.md` § "Keeping ProtoObjects alive across allocation boundaries the GC cannot see" for the full rationale.
-
-## Decision rule
-
-| Object lifetime | Mechanism | Example |
-|---|---|---|
-| Process-perpetual (language vocabulary, prototypes, cached literals) | NULL `ProtoContext` allocation | An attribute name `Symbol`, the `Function.prototype` object, the `__bytecode_id__` symbol |
-| Bounded async (microseconds to seconds) | `ProtoRootSet` (`wrapper->getRootSet()`) | A `d.then(cb)` callback held in a setImmediate / pool-worker continuation; the deferred returned by `protoCore.runInThread` |
-
-The two mechanisms are complementary, not interchangeable. **NEVER try to "release" a NULL-context allocation** (it has no release path; that is the whole point) and **NEVER lean on `ProtoRootSet` for objects that are conceptually language vocabulary** (you would be paying a per-cycle scan cost for no benefit).
-
-## Mechanism A — Perpetual via NULL ProtoContext
-
-Pass `nullptr` as the `ProtoContext*` parameter through the entire allocation call chain. The Cell goes through `posix_memalign` directly; it is never on a thread freelist or in a context's young chain, and it lives for the entire process.
-
-```cpp
-// Single-shot strong symbol — already done by createSymbol(...) for you.
-const proto::ProtoString* k =
-    proto::ProtoString::createSymbol(ctx, "myAttribute");
-
-// Manual perpetual allocation — only if you need a non-string Cell:
-auto* permanent = new(/*ctx=*/nullptr) MyCell(/*ctor args*/);
-```
-
-**Critical invariant**: every Cell reachable from a perpetual root must itself be perpetual. A perpetual root holding a normal GC-managed reference is a use-after-free waiting to happen, because the GC sees no path to that child. In practice this means a single `nullptr` threaded through the construction call chain — `fromUTF8Bytes(nullptr, ...)` → `buildAVL(nullptr, ...)` → `new(nullptr) ProtoStringImplementation(...)`.
-
-Where protoJS already does this for you:
-* Every `ProtoString::createSymbol(ctx, name)` call is internally `is_strong=true` and routes through the perpetual path.
-* Every `setAttribute(ctx, key, value)` on a heap String key auto-interns the key strongly via `SymbolTable::intern(... is_strong=true)`, also perpetual.
-
-Don't override these — they're correct.
-
-## Mechanism B — `ProtoRootSet` (transient pin / unpin)
-
-For receivers of asynchronous callbacks, deferred values, in-flight worker arguments — anything whose JS-side reachability ends before the C++ continuation fires — pin and release through the wrapper's root set.
-
-The wrapper exposes a single root set named `"protojs-async"`, lazy-created on first use and torn down by `~JSContextWrapper`:
-
-```cpp
-proto::ProtoRootSet* rs = wrapper->getRootSet();
-auto cbHandle  = rs->add(callbackObj);
-auto valHandle = rs->add(valueObj);
-
-EventLoop::getInstance().enqueueCallback([wrapper, cbHandle, valHandle]() {
-    auto* rs = wrapper->getRootSet();
-    const proto::ProtoObject* cb  = rs->resolve(cbHandle);
-    const proto::ProtoObject* val = rs->resolve(valHandle);
-    rs->remove(cbHandle);
-    rs->remove(valHandle);
-    // dispatch...
-});
-```
-
-The handle is `proto::ProtoRootSet::Handle` (a 64-bit integer with embedded generation), so capturing it by value into a C++ lambda is safe and cheap. Multiple outstanding pins are independent — a stale `remove` of a handle whose slot has been recycled is a silent no-op thanks to the generation check.
-
-## Anti-patterns to refuse
-
-If you find yourself reaching for any of these in new code, STOP and use the right mechanism instead:
-
-* `wrapper->getNativeGlobal()->setAttribute(ctx, "__some_pending_thing__", obj)` to pin async state. The GC IS aware of the global, but every async op pays for a CAS-rebuild-swap of the entire mutable-object snapshot, contends with every other writer, and leaks state cross-embedder. Use `getRootSet()->add(obj)`.
-* Custom thread-local registries that mirror `ProtoRootSet`. The wrapper already owns one; reuse it.
-* "Pin until end of program" workarounds for things that should obviously be in `createSymbol`. If it's vocabulary, intern it.
-* Conditional pinning ("pin only if GC ran") — there is no way to reliably detect that, and any GC race makes this incorrect.
-
-## Verification
-
-When you add code that captures a `ProtoObject*` into a C++ lambda registered with `EventLoop::enqueueCallback` or `CPUThreadPool::submit`, before merging:
-
-1. Identify every `ProtoObject*` in the lambda's capture list.
-2. For each, point at where it was either pinned via `getRootSet()->add(...)` or proven to be perpetual.
-3. If neither, the lambda has a latent use-after-free — fix it.
+Before writing code that keeps a `ProtoObject*` across asynchronous, thread or native-call boundaries, read [docs/GC_BRIDGING.md](docs/GC_BRIDGING.md).
