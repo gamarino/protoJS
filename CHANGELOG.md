@@ -4,6 +4,206 @@ All notable changes to protoJS are documented in this file.
 
 ## [Unreleased]
 
+### Documentation and repository hygiene (2026-09-15)
+
+- The Test262 round-by-round log and the dated performance readings moved
+  out of `README.md` into `docs/archive/TEST262_ROUNDS.md` and
+  `docs/archive/PERFORMANCE_LOG.md`. `docs/README.md` replaces
+  `DOCUMENTATION_INDEX.md` as the documentation index.
+- `PLAN.md`, `CONFORMITY_PROGRESS.md`, the phase completion and progress
+  reports and the April 2026 Test262 status moved to `docs/archive/` with a
+  banner; documents that claimed "production ready" state that the
+  assessment is superseded. Design specifications moved to
+  `docs/archive/design-specs/`; step-by-step implementation plans were
+  deleted.
+- Removed generated and marketing documents: the executive summary, the
+  commercial impact report, deliverable lists, generated technical audits,
+  an agent test contract and an empty walkthrough.
+- Build directories, the generated `tests/test262/.tmp/` tree, local
+  investigation and scratch directories, IDE settings, `perf.data` captures,
+  locally built QuickJS benchmark binaries (`tests/benchmarks/qjs_minimal.c`
+  stays tracked), debug output, one-off patch scripts, `tasks/` working notes
+  and generated Test262 report snapshots are no longer tracked and are
+  ignored.
+- The protoCore GC bridging rules moved from `CLAUDE.md` to
+  `docs/GC_BRIDGING.md`, rewritten for contributors. `CLAUDE.md` keeps the
+  GitNexus guidance without references to files that are not in the
+  repository.
+
+### Bytecode specialiser (2026-06-16)
+
+- A post-codegen peephole pass (`src/runtime/BytecodeSpecialiser.cpp`)
+  rewrites common QuickJS bytecode sequences into fused super-instructions
+  with inline small-integer fast paths:
+  - `OP_PROTO_ACC_LOC8_LOC8`: `get_loc; get_loc; add; put_loc`, and the
+    equivalent `get_loc; add_loc` form (accumulator updates).
+  - `OP_PROTO_LT_LOC8_LOC8_JFALSE`: `get_loc; get_loc; lt; if_false`.
+  - `OP_PROTO_LT_LOC_VAR_JFALSE`: `get_loc; get_var; lt; if_false`, the loop
+    test of `for (let i = 0; i < N; i++)` when `N` is a module-level binding.
+- The matchers accept the TDZ-checked `get_loc_check` / `put_loc_check`
+  forms emitted for `let` and `const`; the fused handlers raise the same
+  `ReferenceError` when an operand is still uninitialised.
+- `PROTOJS_SPECIALISER=off|nop|compact` selects the mode: `nop` rewrites in
+  place and pads with `OP_nop`; `compact` emits a shorter buffer and remaps
+  every relative jump. The pass is **on by default** (`compact`); set
+  `PROTOJS_SPECIALISER=off` to disable it. An unrecognised value disables the
+  pass and prints a warning.
+- Measured in the commit messages: a `var`-declared integer sum loop
+  (5,000,000 iterations) takes 539 ms with the pass off, 498 ms with `nop` and
+  472 ms with `compact`; `numeric_loop` drops from 188 ms to 130 ms once
+  TDZ-checked locals are matched, and from 3.17× to 1.67× the QuickJS time
+  once the local/variable loop test is fused.
+
+### Scope chain as prototype chain (2026-06-16)
+
+- Top-level bindings of the root module live in a child object of the
+  built-in global object, so writes to top-level variables no longer rebuild
+  the object that holds every built-in; built-ins are reached through the
+  parent chain (`function_calls`: 358 ms → 213 ms).
+- Function objects created by `OP_fclosure` / `OP_fclosure8` have the module
+  scope, and the enclosing frame object when one exists, as additional
+  parents after `Function.prototype`. `Object.getPrototypeOf(f)`,
+  `instanceof` and `call` / `apply` / `bind` are unchanged.
+- Closure variables are resolved by name through a regular prototype-chain
+  walk over the enclosing frame object, which protoCore's attribute cache
+  memoises; the per-closure `__captured_cells__` list was removed
+  (`tree_traversal`: 375 ms → 199 ms → 164 ms across the two changes).
+- Fixed: an inner function hoisted above the `let` or `const` it captures
+  read `undefined` (`function outer() { let x = 10; function inner() { return
+  x; } return inner(); }`), because `set_loc_uninitialized`, `put_loc_check`
+  and `set_loc_check` overwrote the closure cell.
+- Fixed: `get_loc_check` pushed the closure cell instead of its value, so a
+  `let` variable modified by an inner function reported
+  `typeof n === "object"` in the outer function.
+
+### Performance: interned attribute keys and hot-path gates (2026-06-06 to 2026-06-17)
+
+- Internal attribute names are interned once through `JSSymbols` instead of
+  building a new string on every call: descriptor and marker keys
+  (`__pd_*__`, `__is_symbol__`, `__fields_init__`) at 134 sites,
+  `__is_class_ctor__` on every JavaScript-to-JavaScript call, the remaining
+  literal keys in the interpreter, `Symbol.isConcatSpreadable`, closure
+  variable names (taken from the module's pre-interned symbol list), 46 key
+  sources in `ArrayPrototype.cpp` and `ObjectPrototype.cpp`,
+  `__get_length__` / `__set_length__` and `toJSON`. A bulk replacement across
+  37 files was committed and then reverted.
+- `JSSymbols` getters use thread-safe static initialisation instead of
+  `std::call_once`, so they inline; the debug-slot and debug-bind switches
+  are read once at startup instead of on every slot access.
+- Accessor, setter and descriptor probes are gated by one-way hint flags
+  (`__has_indexed_setters__`, `__has_accessor_props__`) and by own-attribute
+  checks, so reads and writes on plain objects and arrays skip them. The
+  earlier chain-walking gate was always true, because the
+  `Object.prototype.__proto__` accessor sets the flag on `Object.prototype`.
+- Array built-ins call protoCore list primitives directly: `push`
+  (`appendLast`), `shift` / `unshift`, `slice` (`getSlice`), `concat`
+  (`extend`), `splice`, and `includes` / `indexOf` / `lastIndexOf` (list
+  iterator). `push` no longer writes `length` back on every call; for dense
+  arrays `length` is derived from the element list.
+- `charCodeAt` (index 0), `charAt`, `at`, `slice`, `substring`, `substr`,
+  `startsWith` and `endsWith` operate on the rope in O(log N) instead of
+  flattening the receiver. Known limitation stated with the change: the fast
+  paths other than `charCodeAt` index by code point, so strings containing
+  supplementary-plane characters can be split at the wrong position when a
+  boundary falls inside a surrogate pair.
+- Calls bind arguments directly from the caller's stack slice, pass
+  stack-allocated slots to `ProtoContext`, and allocate the arguments list
+  only when the callee reads it; stack and slot helpers are force-inlined;
+  `collectOwnKeys` walks the sparse list with a callback. Property writes
+  compare the key with the interned `length` symbol by identity and cache the
+  numeric-key test; small non-negative integer-to-string conversions are
+  cached.
+- `Object.setPrototypeOf`, `Reflect.setPrototypeOf`, `OP_set_prototype` and
+  other user-facing sites update the protoCore parent list with
+  `ProtoObject::setParents` in addition to the legacy override map. Two
+  internal sites were returned to the map only after Test262 regressions.
+- Fixed: the integer fallback of the `add`, `sub`, `mul` and `mod` opcodes
+  truncated results beyond the 64-bit range; it now delegates to protoCore
+  arithmetic, which promotes to large integers.
+- Measured in the commit messages (single benchmarks, wall time):
+  `array_literal` 2315 → 1660 ms (interning) and 994 → 199 ms (`push` via
+  `appendLast`); `function_calls` 1623 → 324 ms (`__is_class_ctor__`);
+  `object_read_only` 1005 → 442 ms (string-key gate) and 444 → 98 ms with RSS
+  1.58 GB → 24 MB (numeric-index gate); `object_property` 2669 → 932 ms with
+  RSS 8.4 GB → 1.4 GB (write-side gate); `list_snapshot_history` 327 → 26 ms
+  (`concat`); `string_insert_middle` 296 → 1 ms and `string_processing`
+  265 → 7 ms (rope slicing); `string_repeated_doubling` 2381 → 2 ms
+  (`charCodeAt`); `numeric_loop` ~128 → ~96 ms (debug switches).
+
+### Test262 conformance (2026-06-07 to 2026-06-13)
+
+Work continued from the Array cleanup packages into the rest of the
+built-ins. By area:
+
+- **Date:** a complete `Date` implementation: local and UTC getters and
+  setters, `Date.parse` (ISO 8601 with offsets and extended years, plus the
+  formats produced by `toString` / `toUTCString`), `Date.UTC`,
+  `toISOString`, `toJSON`, the string and locale string methods,
+  `@@toPrimitive`, Annex B `getYear` / `setYear`, `Date()` called as a
+  function returning a string, receiver brand checks and spec-ordered
+  argument coercion.
+- **BigInt:** literals, arithmetic, bitwise, shift, comparison and loose
+  equality operators on arbitrary-precision protoCore integers; the
+  constructor, `BigInt.asIntN` / `asUintN`, `toString(radix)`; `Number(bigint)`;
+  `JSON.stringify` and ToNumber throw `TypeError` on BigInt values as
+  specified.
+- **Proxy and Reflect:** `Proxy` with every trap, `Proxy.revocable`, trap
+  result invariant checks, nested proxies, and trap dispatch from property
+  access, `in`, `delete`, `instanceof`, `for-in`, calls, `Object.*`,
+  `Array.prototype.*` and `Reflect.*`. `Reflect` methods apply ToPropertyKey
+  and propagate abrupt completions.
+- **Iterators:** a shared `%IteratorPrototype%` (with shared Map and Set
+  iterator prototypes); Iterator helpers `map`, `filter`, `take`, `drop`,
+  `flatMap`, `reduce`, `toArray`, `forEach`, `some`, `every`, `find` and
+  `[Symbol.dispose]`; `Iterator.from`, `Iterator.concat`, `Iterator.zip` and
+  `Iterator.zipKeyed`; generator objects carry the `Generator` tag.
+- **Symbol:** `Symbol.prototype` methods and `description`, `Symbol.for` /
+  `Symbol.keyFor` validation, `new Symbol()` throws, `Symbol.dispose` and
+  `Symbol.asyncDispose`. Symbol-keyed properties use a per-symbol identity
+  key, so `obj[sym]`, `in`, `delete`, `Object.hasOwn`,
+  `Object.getOwnPropertySymbols`, `Reflect.ownKeys`, `Object.assign` and the
+  descriptor functions agree.
+- **Function:** `Function(...)` and `new Function(...)` produce callable
+  functions; `Function.prototype.toString` returns the source text;
+  `Function.prototype` is callable; `caller` / `arguments` poison accessors;
+  `Function.prototype[@@hasInstance]`; class constructors throw when called
+  without `new`.
+- **Object:** Annex B `__proto__`, `__defineGetter__`, `__defineSetter__`,
+  `__lookupGetter__` and `__lookupSetter__`; `Object.groupBy`; `Math`,
+  `JSON` and `Reflect` inherit from `Object.prototype`; the prototype of
+  `Object.prototype` is immutable; `Object.setPrototypeOf` detects cycles;
+  fixes to `Object.assign`, `Object.fromEntries`, `Object.defineProperty`
+  and the non-extensible, sealed and frozen checks.
+- **Collections and Promise:** Set methods follow the spec set-record
+  algorithms; `WeakMap` accepts an iterable, Symbol keys and
+  `getOrInsert` / `getOrInsertComputed`; collection constructors dispatch
+  through `add` / `set` and throw without `new`; `Promise.try`; `catch` and
+  `finally` invoke `then`, and combinators reject non-iterable arguments.
+- **RegExp and String:** regular-expression literals go through the `RegExp`
+  constructor and keep their flags; flag and `source` accessors; `exec`
+  `lastIndex` handling; `@@match`, `@@matchAll`, `@@replace`, `@@split` and
+  `String.prototype.matchAll`; `split`, `match`, `search`, `replace` and
+  `replaceAll` dispatch to Symbol methods on any object.
+- **Other built-ins:** the `Error` `cause` option; `Math.sumPrecise` and
+  `Math.f16round`; `Number.prototype.toExponential` rounding; spec `name` /
+  `length` descriptors and non-writable attributes on built-in functions and
+  constructors; `@@toStringTag` values for `Date`, `Error`, `ArrayBuffer`,
+  `DataView`, `arguments` and the String iterator.
+- **Arrays and runtime:** several Array methods throw `RangeError` for
+  lengths above 2^32 − 1 instead of looping indefinitely or exhausting
+  memory; `length`
+  truncation honours non-configurable elements and non-writable `length`;
+  `sort` preserves holes; strict-mode writes to non-writable properties and
+  non-extensible objects throw `TypeError`; reading an undeclared global
+  throws `ReferenceError`; a global `print` alias for `console.log`; a global
+  `eval` function with the specified descriptor (direct `eval` is not
+  implemented, and calling it throws `SyntaxError`).
+
+Result: the `built-ins` roll-up used by the Test262 log (18 directories,
+11,784 tests) reached 10,923 passing tests (92.69 %) on 2026-06-13. This is
+a subset of Test262, not the full suite; per-directory figures are in
+`docs/archive/TEST262_ROUNDS.md`.
+
 ### Array cleanup package 10 (2026-06-06): 19 root-cause commits
 
 Tenth Array cleanup pass — 19 commits.  Scope continued to spill into
@@ -779,8 +979,8 @@ new Map(...).get, arguments-spread).
 | 10-pattern built-ins baseline (2026-06-04, pre-round-11) | 9 400 | 6 763 | 71.9 % | built-ins/{Array,Object,String,Number,Math,JSON,Error,NativeErrors,Promise,Boolean} |
 | built-ins/Array/prototype/{map,filter,every,some} (2026-06-05, post-audit) | 895 | 759 | **84.8 %** | iteration-method slice — directly comparable to the iteration subset of the 2026-06-04 baseline; +14 pp lift from round-11 + audit |
 
-Comprehensive cross-pattern post-round-11 rerun was not completed in
-this session due to wall-clock budget; the iteration-method slice
+Comprehensive cross-pattern post-round-11 rerun was not completed
+due to wall-clock budget; the iteration-method slice
 serves as a representative directional indicator.  See CONFORMANCE_JS.md
 §1 Phase 6 table for the full row-by-row history and snapshot paths.
 
@@ -1707,8 +1907,7 @@ Map, Set, all 11 TypedArray kinds, ArrayBuffer, DataView, Error +
 each subtype) with the non-enumerable `__pd_constructor__ = 0x3`
 descriptor. Function.prototype was switched to mutable so the
 recursive backref doesn't split it into two identities; the same
-lesson applies to every other built-in prototype and is captured in
-`memory/feedback_protojs_proto_constructor_backref.md`.
+lesson applies to every other built-in prototype.
 
 **Type coercion via ToObject / ToNumber / ToString / ToPrimitive:**
 - `Object.getOwnPropertyDescriptor`, `getOwnPropertyNames`,
@@ -1959,7 +2158,7 @@ Exponent normalised to single-digit form.
 
   Standard suite (`run_standard_comparison.js`): 5/7 benchmarks now
   run end-to-end (was 0/7 before the timing/JSON/arg-binding fixes
-  earlier in this session).  Geomean vs Node 271× slower (was
+  earlier in this cycle).  Geomean vs Node 271× slower (was
   effectively infinite — every protoJS run hit the 120 s/bench
   timeout).  function_calls.js and string_concat.js still time out
   at default sizes; reducing inner counts would fit them in the
