@@ -1,332 +1,277 @@
 # protoJS
 
-**A modern JavaScript runtime based on protoCore**
+**A JavaScript runtime built on protoCore**
 
 [![Language](https://img.shields.io/badge/Language-C%2B%2B20-blue.svg)](https://isocpp.org/)
 [![Build System](https://img.shields.io/badge/Build-CMake-green.svg)](https://cmake.org/)
-[![Status](https://img.shields.io/badge/Status-Phase%206%20Complete-green.svg)]()
+[![Status](https://img.shields.io/badge/Status-not%20production%20ready-orange.svg)](#-current-status)
 [![License](https://img.shields.io/badge/License-MIT-blue.svg)](LICENSE)
 
-**GIL-free protoCore object model on a JavaScript front-end.  Zero-Copy Immutability.  Concurrent GC.  Powered by the Swarm of One.**
-
-Copyright (c) 2026 Gustavo Marino <gamarino@gmail.com>
-
-protoJS is a JavaScript runtime that uses **protoCore** (https://github.com/numaes/protoCore) as the foundation for internal object representation, memory management, and concurrency. It uses **QuickJS** as a parser and compiler, but completely replaces the QuickJS runtime with protoCore, leveraging its unique features of immutability, GIL-free concurrency, and efficiency.
+protoJS is a JavaScript runtime that uses [protoCore](https://github.com/numaes/protoCore) for object representation, memory management and concurrency. It uses [QuickJS](https://bellard.org/quickjs/) only as a parser and bytecode compiler: the bytecode runs on a protoCore-native interpreter, so JavaScript values are protoCore objects, collections use protoCore's immutable, structurally shared structures, and threads run without a global interpreter lock.
 
 > [!WARNING]
-> This project is officially **open for Community Review and Suggestions**. It is **not production ready**. We welcome architectural feedback, edge-case identification, and performance critiques.
+> protoJS is **not production ready**. It is open for community review: architectural feedback, edge cases and performance critiques are welcome through [GitHub issues](https://github.com/gamarino/protoJS/issues).
 
-### Community & Open Review
+---
 
-Beyond formal audits, this project is officially **open for Community Review and Suggestions**.
+## Ecosystem
 
-We welcome architectural feedback, edge-case identification, and performance critiques. While the core vision is firm, the path to perfection is a collective effort of the "Swarm."
+Four language runtimes (protoJS, protoPython, protoST, protoClojure) and protoCpp's C++ examples are built on protoCore.
+
+| Project | Role | Repository |
+|---|---|---|
+| protoCore | C++20 object model and runtime kernel: immutable structures, concurrent GC, GIL-free threads | https://github.com/numaes/protoCore |
+| protoJS | JavaScript runtime on protoCore | https://github.com/gamarino/protoJS |
+| protoPython | Python 3 runtime (protopy) and ahead-of-time compiler (protopyc) on protoCore | https://github.com/gamarino/protoPython |
+| protoST | Smalltalk-inspired actor language on protoCore | https://github.com/gamarino/protoST |
+| protoClojure | Clojure dialect on protoCore (early stage) | https://github.com/gamarino/protoClojure |
+| protoCpp | Examples and benchmarks using protoCore directly from C++ | https://github.com/gamarino/protoCpp |
 
 ---
 
 ## 🎯 Key Features
 
-### Phase 1 (Demonstrator - Completed)
-
-- ✅ **Basic JavaScript types** implemented using protoCore primitives
-- ✅ **QuickJS parser** integrated
-- ✅ **TypeBridge** complete (main conversions)
-- ✅ **Deferred** with transparent worker threads (basic implementation)
-- ✅ **protoCore module** for special collections
-- ✅ **process module** basic (argv, env, cwd, platform, arch, exit)
-- ✅ **io module** basic (readFile, writeFile)
-- ✅ **Comprehensive tests** (unit and integration)
-- ✅ **Complete documentation**
-
-### Unique Features
-
-- **Deferred with Worker Threads**: `Deferred` automatically executes in worker threads, utilizing all processor cores transparently
-- **Immutability by default**: Arrays and objects can be immutable, sharing structure between threads without copying
-- **Advanced collections**: Access to `ProtoSet`, `ProtoMultiset`, `ProtoSparseList`, and `ProtoTuple` from JavaScript
-- **No GIL**: Real concurrency without Global Interpreter Lock—courtesy of **protoCore**'s GIL-free architecture
-- **Efficient GC**: **protoCore**'s concurrent garbage collector manages object lifecycle with minimal pauses
-
-Built to be the cornerstone of a unified, polyglot environment where JS, Python, and C++ share the same memory DNA.
+- **protoCore execution path.** QuickJS (vendored in `deps/quickjs/`) compiles source to bytecode; `src/runtime/` loads that bytecode and executes it on a protoCore-native interpreter. There is no QuickJS interpreter fallback (see [src/runtime/README.md](src/runtime/README.md)).
+- **protoCore data structures.** Array elements are stored in protoCore's immutable `ProtoList` and updated by structural sharing; strings are protoCore ropes.
+- **Native threads.** `protoCore.runInThread` runs a registered C++ worker on a new protoCore thread that shares the same object space, without serialising arguments or results.
+- **Garbage collection** is provided by protoCore's collector.
+- **Node.js-style modules** (`fs`, `path`, `http`, `net`, `stream`, `events`, `crypto`, `worker_threads`, and others) and developer tools (memory analyzer, profiler, Chrome DevTools Protocol debugger) implemented in C++.
+- **Command-line interface** with Node.js-style flags and an interactive REPL.
 
 ---
 
 ## 📋 Requirements
 
-- **C++20** compatible compiler (GCC 10+, Clang 12+)
-- **CMake** 3.16+
-- **protoCore** (official name of the shared library; must be built and available as `libprotoCore.so` / `libprotoCore.dylib` / `protoCore.dll`)
-- **pthread** (for concurrency)
+- A **C++20** compiler (the build uses GCC/Clang options such as `-rdynamic`)
+- **CMake** 3.16 or later
+- The **protoCore** shared library (`libprotoCore`), built from source or installed under a prefix
+- **OpenSSL** (`libssl`, `libcrypto`), **pthread** and **libdl**, which `protojs` links against
+- For the unit tests: **Catch2** v3; if CMake does not find it, the build downloads v3.5.2 with `FetchContent`
 
 ---
 
 ## 📦 Installation
 
-- **From packages:** Install protoCore first, then install protoJS using your platform package:
-  - **Linux (Debian/Ubuntu):** `sudo dpkg -i protoJS_0.1.0_amd64.deb`
-  - **Linux (Fedora/RHEL):** `sudo dnf install protoJS-0.1.0-1.x86_64.rpm`
-  - **macOS:** Open `protoJS-0.1.0.pkg` and follow the installer (installs to `/usr/local/bin`)
-  - **Windows:** Run `protoJS-0.1.0.msi` (adds protoJS to PATH)
-- **From source:** Build as in [Building](#-building); then run from `build/` (RPATH set) or `cmake --build build --target install` to install to a prefix. Full instructions (install prefix, PROTO_CORE_PREFIX, .deb/.rpm/.pkg/.msi) are in **[docs/INSTALLATION.md](docs/INSTALLATION.md)**.
+No prebuilt protoJS packages are published. Build protoJS from source as described in [Building](#-building); you can then run the binary from the build tree or install it.
+
+**Install to a prefix.** The install rule places `protojs` in `<prefix>/bin` (CMake's default prefix is `/usr/local`) with an RPATH of `$ORIGIN/../<libdir>`, so libprotoCore is found when it is installed under the same prefix:
+
+```bash
+cmake --install build                      # default prefix
+cmake --install build --prefix "$HOME/.local"
+```
+
+**Build your own packages.** `CMakeLists.txt` configures CPack for the package `protojs`, version 0.1.0:
+
+| Platform | CPack generators | Dependency declared |
+|---|---|---|
+| Linux | `DEB`, `RPM`, `TGZ` | DEB depends on `protocore`; RPM requires `protoCore` |
+| macOS | `DragNDrop` | — |
+| Windows | `NSIS`, `ZIP` | — |
+
+Run `cpack` in the build directory (or `cmake --build build --target package`). With CPack's default file naming, the Linux packages are `protojs-0.1.0-Linux.deb`, `protojs-0.1.0-Linux.rpm` and `protojs-0.1.0-Linux.tar.gz`.
+
+See [docs/INSTALLATION.md](docs/INSTALLATION.md) for details and [packaging/PROCEDURES.md](packaging/PROCEDURES.md) for packaging procedures.
 
 ---
 
 ## 🚀 Building
 
-protoJS links against the **protoCore shared library** (official name: **protoCore**). Build protoCore first, then protoJS. For packaging or when protoCore is already installed, use `-DPROTO_CORE_PREFIX=<prefix>`. See [docs/INSTALLATION.md](docs/INSTALLATION.md) for details.
+protoJS links against the protoCore shared library, so build protoCore first. When `PROTO_CORE_PREFIX` is not set, CMake looks for the library in `../protoCore/build` or `../protoCore/build_check`, so clone both repositories side by side:
 
 ```bash
-# 1. Build protoCore shared library
-cd ../protoCore
-cmake -B build -S .
-cmake --build build --target protoCore
+git clone https://github.com/numaes/protoCore.git
+git clone https://github.com/gamarino/protoJS.git
 
-# 2. Build protoJS (finds libprotoCore in ../protoCore/build or build_check)
-cd ../protoJS
-mkdir -p build && cd build
-cmake ..
-cmake --build .
-# Optional: install to a prefix (default /usr/local)
-# cmake --build . --target install
+# 1. Build the protoCore shared library
+cmake -S protoCore -B protoCore/build
+cmake --build protoCore/build --target protoCore
+
+# 2. Build protoJS (the default build type is Release)
+cmake -S protoJS -B protoJS/build
+cmake --build protoJS/build
 ```
 
-When protoCore is built in a sibling directory, **RPATH is set** so you can run `./build/protojs` without setting `LD_LIBRARY_PATH` or `DYLD_LIBRARY_PATH`. If you use an installed protoCore (`-DPROTO_CORE_PREFIX=...`), the installed `protojs` binary uses RPATH to find the library.
+When protoCore comes from a sibling build directory, the build-tree RPATH points at it, so `./build/protojs` runs without `LD_LIBRARY_PATH` or `DYLD_LIBRARY_PATH`.
+
+Useful configuration options:
+
+| Option | Effect |
+|---|---|
+| `-DPROTO_CORE_PREFIX=<prefix>` | Use an installed protoCore (`<prefix>/lib` or `lib64`, and `<prefix>/include/protoCore.h`) instead of the sibling checkout |
+| `-DBUILD_TESTING=OFF` | Skip the unit-test executable and the Catch2 dependency |
+| `-DENABLE_COVERAGE=ON` | Compile with coverage instrumentation |
 
 ---
 
 ## 💻 Basic Usage
 
-### Run a script
-
-From the build directory or after install:
+### Running code
 
 ```bash
-# From build directory (RPATH set; no LD_LIBRARY_PATH needed)
-./build/protojs script.js
-# Or after install: protojs script.js
+./build/protojs script.js                    # run a script
+./build/protojs -e "console.log('Hello')"    # evaluate inline code
+./build/protojs -p -e "6 * 7"                # evaluate and print the result
+./build/protojs --cpu-threads 4              # options without a script: start the REPL
 ```
 
-### Execute inline code
+### Command-line options
 
-```bash
-./protojs -e "console.log('Hello, protoJS!')"
-```
+All options are parsed by `src/main.cpp`.
 
-### Basic Example
+| Option | Meaning |
+|---|---|
+| `<file>` | Script to run. Every argument that does not start with `-` is read as the script file, so extra positional arguments for the script are not supported. |
+| `-e "code"` | Evaluate `code` instead of a file. |
+| `-p`, `--print` | Print the result of the evaluation when it is not `undefined`. |
+| `-c`, `--check` | Evaluate the input once after module initialisation; if it throws, report the error and exit with status 1. The input is executed, not only parsed, and the event loop is not run. |
+| `-v`, `--version` | Print `protoJS v0.1.0` and exit. |
+| `--input-type=module` | Compile the input as an ES module. |
+| `--cpu-threads N` | Size of the CPU thread pool (default: the number of hardware threads). |
+| `--io-threads N` | Size of the I/O thread pool (default: hardware threads × the I/O factor, rounded up). |
+| `--io-threads-factor F` | I/O factor used when `--io-threads` is not given (default: 3.0). |
+| `--preload file.js` | Evaluate `file.js` as a script before the main input (may be repeated). protojs exits with status 1 if the file cannot be read or throws. |
+| `--minimal` | Install only `console`, `JSON`, the timing APIs, `Deferred`, `protoCore.runInThread`, `__filename` and `__dirname`; no `process`, `io`, `require` or Node.js-style modules. protojs exits right after the evaluation without running the event loop. Intended to isolate compiler and interpreter problems. |
+| `--proto-eval` | Accepted for compatibility; it has no effect because the protoCore interpreter is always used. |
+
+Without arguments, protojs prints its usage and exits with status 1. When options are given but no script, `-e` or `-c`, it starts the REPL: the prompt is `> `, incomplete input continues on a `... ` prompt, and `.help` and `.exit` (or `.quit`) are available.
+
+After the main evaluation, protojs keeps processing the event loop while there are pending callbacks, `Deferred` instances, worker threads, HTTP servers or clients, or `net` handles, for up to 180 seconds. The exit status is 1 if the main evaluation threw and 0 otherwise.
+
+### Examples
+
+Globals and asynchronous work:
 
 ```javascript
-// hello.js
 console.log("Hello from protoJS!");
 
-// Immutable arrays (by default)
-const arr1 = [1, 2, 3];
-const arr2 = arr1.concat([4]);
-console.log("Original:", arr1); // [1, 2, 3] - unchanged
-console.log("New:", arr2);      // [1, 2, 3, 4]
+// Deferred: the function runs on a later turn of the event loop;
+// its return value fulfils the Deferred and an exception rejects it.
+new Deferred(() => 6 * 7)
+    .then((value) => console.log("Deferred result:", value))
+    .catch((error) => console.log("Deferred failed:", error));
 
-// Deferred with worker threads
-const deferred = new Deferred((resolve) => {
-    // CPU-intensive work executed in worker thread
-    let sum = 0;
-    for (let i = 0; i < 10000000; i++) {
-        sum += i;
-    }
-    resolve(sum);
-});
-
-// Note: In Phase 1, .then() is under development
-// Result is processed internally
+// protoCore.runInThread: run a native C++ worker registered by name
+// (currently "cpuChunk") on a new protoCore thread.
+protoCore.runInThread("cpuChunk", [200000])
+    .then((sum) => console.log("cpuChunk result:", sum));
 ```
 
-### Example: protoCore Collections
+Process information and file I/O (`platform`, `arch` and `cwd` are methods in protoJS):
 
 ```javascript
-// ProtoSet - automatically removes duplicates
-const set = new protoCore.Set([1, 2, 3, 3, 4, 4]);
-console.log(set.size); // 4
-set.add(5);
-console.log(set.has(3)); // true
-
-// ProtoMultiset - counts occurrences
-const multiset = new protoCore.Multiset([1, 1, 2, 2, 2]);
-console.log(multiset.count(2)); // 3
-console.log(multiset.size); // 5
-
-// ProtoTuple - immutable array
-const tuple = protoCore.Tuple([1, 2, 3]);
-console.log(tuple.length); // 3
-// tuple.push(4); // Error: immutable
-
-// ProtoSparseList - efficient for arrays with gaps
-const sparse = new protoCore.SparseList();
-sparse.set(0, "first");
-sparse.set(100, "hundredth");
-console.log(sparse.get(0)); // "first"
-console.log(sparse.has(50)); // false
-```
-
-### Example: Mutability Control
-
-```javascript
-// Create immutable object
-const config = protoCore.ImmutableObject({
-    host: "localhost",
-    port: 8080
-});
-console.log(protoCore.isImmutable(config)); // true
-
-// Create mutable object
-const state = protoCore.MutableObject({
-    counter: 0
-});
-state.counter = 10; // OK
-console.log(state.counter); // 10
-```
-
-### Example: Process Information
-
-```javascript
-// Command line arguments
-console.log("Script:", process.argv[1]);
-console.log("Args:", process.argv.slice(2));
-
-// Environment variables
+console.log("Arguments:", process.argv);
 console.log("Home:", process.env.HOME);
-console.log("User:", process.env.USER);
-
-// System information
-console.log("Platform:", process.platform()); // "linux", "darwin", "win32"
-console.log("Arch:", process.arch());         // "x64", "ia32", "arm"
+console.log("Platform:", process.platform(), "Arch:", process.arch());
 console.log("CWD:", process.cwd());
-```
 
-### Example: I/O Operations
-
-```javascript
-// Read file
-const content = io.readFile("data.txt");
-console.log(content);
-
-// Write file
 io.writeFile("output.txt", "Hello, protoJS!");
+console.log(io.readFile("output.txt"));
 ```
 
-### Example: Advanced Networking (Phase 5)
+Developer tools. The modules are installed as the globals `memory`, `profiler` and `debugger`; because `debugger` is a reserved word, read it through `globalThis`:
 
 ```javascript
-// Worker Threads
-const { Worker, isMainThread, parentPort, workerData } = require('worker_threads');
-
-if (isMainThread) {
-    const worker = new Worker(__filename, { workerData: { start: 0, end: 1000 } });
-    worker.on('message', (result) => {
-        console.log('Result:', result);
-    });
-} else {
-    // Worker thread code
-    const sum = workerData.end - workerData.start;
-    parentPort.postMessage(sum);
-}
-
-// Cluster
-const cluster = require('cluster');
-if (cluster.isMaster) {
-    for (let i = 0; i < 4; i++) {
-        cluster.fork();
-    }
-} else {
-    // Worker process
-    require('http').createServer((req, res) => {
-        res.end('Hello from worker ' + process.pid);
-    }).listen(8000);
-}
-
-// UDP (dgram)
-const dgram = require('dgram');
-const socket = dgram.createSocket('udp4');
-socket.bind(41234);
-socket.on('message', (msg, rinfo) => {
-    console.log(`Received: ${msg} from ${rinfo.address}:${rinfo.port}`);
-});
-```
-
-### Example: Developer Tools (Phase 5)
-
-```javascript
-// Memory Analyzer
-const memory = require('memory');
-const snapshot1 = memory.takeHeapSnapshot();
+// Memory analyzer: snapshots are identified by the order in which they were taken.
+memory.takeHeapSnapshot();            // snapshot 0
 // ... run code ...
-const snapshot2 = memory.takeHeapSnapshot();
-const leaks = memory.detectLeaks(snapshot1, snapshot2);
-console.log('Memory leaks detected:', leaks);
+memory.takeHeapSnapshot();            // snapshot 1
+console.log(memory.detectLeaks(0, 1));
 
-// Visual Profiler
-const profiler = require('profiler');
-profiler.start();
+// Profiler
+profiler.startProfiling();
 // ... run code ...
-profiler.stop();
-const profile = profiler.exportProfile(); // Chrome DevTools format
-profiler.generateHTMLReport('profile.html');
+profiler.stopProfiling();
+profiler.exportProfile("profile.json");      // Chrome DevTools format
+profiler.generateHTMLReport("profile.html");
 
-// Integrated Debugger
-const debugger = require('debugger');
-debugger.startCDPServer(9229);
-debugger.setBreakpoint('script.js', 10);
-// Connect Chrome DevTools to localhost:9229
+// Chrome DevTools Protocol debugger
+const dbg = globalThis["debugger"];
+dbg.startCDPServer(9229);
+dbg.setBreakpoint("script.js", 10);          // script, line[, column]
 ```
 
-For more examples, see [docs/EXAMPLES.md](docs/EXAMPLES.md).
-
-### Thread Pool Configuration
-
-```bash
-# Specify number of CPU threads
-protojs --cpu-threads 8 script.js
-
-# Specify number of I/O threads
-protojs --io-threads 24 script.js
-
-# Specify factor for I/O threads (default: 3.0)
-protojs --io-threads-factor 4.0 script.js
-```
-
-For more information on configuration, see [docs/THREAD_POOLS.md](docs/THREAD_POOLS.md).
+For more examples, see [docs/EXAMPLES.md](docs/EXAMPLES.md). For thread pool configuration, see [docs/THREAD_POOLS.md](docs/THREAD_POOLS.md).
 
 ---
 
 ## 🏗️ Architecture
 
 ```
-JavaScript Code (ES2020+)
+JavaScript source
     ↓
-QuickJS Parser/Compiler
+QuickJS parser and compiler (bytecode only)
     ↓
-protoJS Runtime Layer
-    ├── TypeBridge (JS ↔ protoCore)
-    ├── ExecutionEngine
-    └── GCBridge
+protoJS runtime (src/runtime/)
+    ├── ProtoBytecodeLoader   bytecode → ProtoBytecodeModule
+    ├── ProtoInterpreter      executes the bytecode on protoCore objects
+    └── Built-in prototypes, modules, TypeBridge, GCBridge
     ↓
-protoCore Runtime
-    ├── ProtoSpace (GC, Memory)
-    ├── ProtoContext (Execution)
-    └── ProtoThread (Concurrency)
+protoCore
+    ├── ProtoSpace            object space and garbage collector
+    ├── ProtoContext          per-call execution context
+    └── Threads               native threads sharing one object space
 ```
 
-For more details, see [ARCHITECTURE.md](ARCHITECTURE.md).
+For details, see [ARCHITECTURE.md](ARCHITECTURE.md) and [src/runtime/README.md](src/runtime/README.md).
 
 ---
 
-## The Swarm of One
+## 📊 Conformance and Performance
 
-**The Swarm of One** is the architect's manifesto for the AI era. In protoJS, we didn't just build a runtime; we orchestrated a paradigm shift. By leading a swarm of specialized AI agents, a single architect replaced the entire QuickJS runtime with protoCore primitives in record time. The same 64-byte cells that power Python and C++ now back JavaScript on a GIL-free, structurally-sharing object model. The interpreter itself is currently ~100× behind V8 on pure compute (see the [performance log](docs/archive/PERFORMANCE_LOG.md) for an honest 2026-05-01 baseline) — a JIT is future work — but the runtime contract (immutability, concurrent GC, lock-free threading) opens design space that V8's monolith cannot match. This is the democratization of high-level engineering: delivering a clear architectural alternative without the overhead of a massive corporate R&D department.
+### Test262 Conformance
+
+- **Full suite.** The last full Test262 run recorded in [docs/TEST262_STATUS.md](docs/TEST262_STATUS.md) is dated **2026-06-01** and covers the `language` and `built-ins` directories (46 963 tests): **28 830 passed, 61.39 %**. The runner counts a test as passed when protojs exits without an error, so a test that stops at an unsupported opcode before reaching its assertions can count as a pass (see the methodology notes in that document).
+- **Subset.** The last archived per-family measurement, dated **2026-06-13**, covers **18 `built-ins` families** (Array, Boolean, Date, Error, Function, JSON, Map, Math, Number, Object, Promise, Proxy, Reflect, Set, String, Symbol, WeakMap, WeakSet; 11 784 tests): **10 923 passed, 92.69 %**. This is a subset figure, not full-suite conformance.
+
+The detailed history is in [docs/archive/TEST262_ROUNDS.md](docs/archive/TEST262_ROUNDS.md).
+
+### Performance Benchmarks
+
+protoJS executes bytecode in an interpreter; there is no JIT compiler. The newest dated reading in [docs/archive/PERFORMANCE_LOG.md](docs/archive/PERFORMANCE_LOG.md) was recorded on **2026-06-16** with the standard in-process suite ([tests/benchmarks/standard/](tests/benchmarks/standard/)). It compares `protojs` (Release build) with Node.js 22.17.0 and with QuickJS rebuilt with `-O3 -DNDEBUG`. Times are each benchmark's own in-process measurement (median of 3 outer runs, each averaging 5 inner iterations), reported in whole milliseconds.
+
+| Comparison (geometric mean, 11 single-thread benchmarks) | protoJS time relative to the baseline |
+|---|---|
+| protoJS / QuickJS | 15.2× slower |
+| protoJS / Node.js | about 95× slower |
+
+In the same reading, `string_repeated_doubling` (repeated `s = s + s`) took 1 ms in protoJS and QuickJS against 40 ms in Node.js; protoCore's rope strings avoid copying the whole string on each concatenation. The `parallel_cpu` benchmark is not a like-for-like comparison: under protoJS it runs 2e5 iterations per task instead of 2e6 (`tests/benchmarks/standard/parallel_cpu.js`), so its results are not used here.
+
+To reproduce, build protoJS and run `node tests/benchmarks/run_standard_comparison.js` (against Node.js) or `node tests/benchmarks/run_standard_comparison_quickjs.js` (against QuickJS); both accept a `PROTOJS_BIN` environment variable pointing at the binary. Raw results are in [tests/benchmarks/results/](tests/benchmarks/results/).
 
 ---
 
-## The Methodology: AI-Augmented Engineering
+## 🔬 Current Status
 
-This project was built using **extensive AI-augmentation tools** to empower human vision and strategic design. This is not "AI-generated code" in the traditional sense; it is **AI-amplified architecture**.
+**Version:** 0.1.0. protoJS is **not production ready**, and its APIs may change.
 
-We embrace AI as the **great equalizer**. protoJS is not "AI-generated"; it is AI-amplified architecture. It represents the unavoidable present where human strategic design—focused on lock-free concurrency and structural sharing—is executed with the precision and speed of a digital swarm. We are proving that a single focused mind can outpace legacy ecosystems.
+**Available:**
+
+- Script, inline and ES module evaluation on the protoCore interpreter; the REPL.
+- Globals installed on the protoCore-native global object: `console`, `JSON`, `globalThis`, `Deferred`, `protoCore` (`runInThread`), `process`, `io`, `require`, `fs`, `path`, `url`, `http`, `events`, `stream`, `util`, `crypto` (linked against OpenSSL), `Buffer`, `net`, `worker_threads`, `cluster`, `dgram`, `child_process`, `dns`, `memory`, `profiler` and `debugger`. These modules are native C++ implementations; their coverage of the Node.js API varies and has not been measured.
+- A CommonJS `require()` loader for JavaScript files and native addons (`.node`, `.so`/`.dylib`/`.dll`, `.protojs`); see [docs/NATIVE_MODULES.md](docs/NATIVE_MODULES.md).
+- C++ unit tests (Catch2) for the thread pools, event loop, npm registry client, semver handling, benchmark runner and Node.js test runner.
+
+**Known gaps:**
+
+- Test262 conformance is 61.39 % on the last full run (see [Test262 Conformance](#test262-conformance)). The remaining failures recorded on 2026-06-13 include insertion-order tracking for attribute storage, real `eval()` execution, the `$262` cross-realm harness, source text of generator and async functions for `Function.prototype.toString`, and resizable `ArrayBuffer` and `SuppressedError` subclassing.
+- `protoCore.Set`, `Multiset`, `SparseList`, `Tuple`, `ImmutableObject` and `MutableObject` are implemented only in the QuickJS-side module (`src/modules/ProtoCoreModule.cpp`); on the protoCore execution path the `protoCore` global currently exposes only `runInThread`.
+- `require()` looks up built-in module names on the QuickJS-side global object, while the modules listed above are installed on the protoCore-native global; the examples in this README use the globals directly.
+- npm registry and semver components exist in `src/npm/`, but the `protojs` command line has no package-management command.
+- The interpreter is 15.2× slower than QuickJS and about 95× slower than Node.js on the benchmark reading above.
+
+---
+
+## 🗺️ Roadmap
+
+Open work documented in the repository:
+
+- Close the Test262 gaps listed above; the per-family detail is in [docs/TEST262_STATUS.md](docs/TEST262_STATUS.md) and [docs/archive/TEST262_ROUNDS.md](docs/archive/TEST262_ROUNDS.md).
+- Expose the protoCore collections (`Set`, `Multiset`, `SparseList`, `Tuple`) on the protoCore-native `protoCore` global.
+- Continue moving QuickJS-side bindings onto the protoCore-native global ([docs/MIGRATION_QUICKJS_TO_PROTOCORE.md](docs/MIGRATION_QUICKJS_TO_PROTOCORE.md)).
+- Reduce interpreter overhead measured by the standard benchmark suite.
+
+The original implementation plan is kept for reference in [docs/archive/PLAN.md](docs/archive/PLAN.md).
 
 ---
 
@@ -334,286 +279,90 @@ We embrace AI as the **great equalizer**. protoJS is not "AI-generated"; it is A
 
 Full index: **[docs/README.md](docs/README.md)** — user guides, contributor documentation and the archive.
 
-### Main Documentation
-
-- **[docs/INSTALLATION.md](docs/INSTALLATION.md)** - **Installation guide** (Linux .deb/.rpm, macOS .pkg, Windows .msi, and from source)
-- **[docs/archive/PLAN.md](docs/archive/PLAN.md)** - Original implementation plan (historical)
-- **[ARCHITECTURE.md](ARCHITECTURE.md)** - Detailed technical architecture
-- **[TESTING_STRATEGY.md](TESTING_STRATEGY.md)** - Testing strategy
-
 ### User Guides
 
-- **[docs/API_REFERENCE.md](docs/API_REFERENCE.md)** - Complete API reference
+- **[docs/INSTALLATION.md](docs/INSTALLATION.md)** - Installation: building from source, installing and packaging
+- **[docs/API_REFERENCE.md](docs/API_REFERENCE.md)** - API reference
 - **[docs/EXAMPLES.md](docs/EXAMPLES.md)** - Advanced examples
 - **[docs/DEFERRED_USAGE.md](docs/DEFERRED_USAGE.md)** - Deferred usage guide
 - **[docs/PROTOCORE_MODULE.md](docs/PROTOCORE_MODULE.md)** - protoCore module guide
 - **[docs/NATIVE_MODULES.md](docs/NATIVE_MODULES.md)** - Native addon modules (C++ shared libraries)
 - **[docs/THREAD_POOLS.md](docs/THREAD_POOLS.md)** - Thread pool configuration
-- **[docs/TROUBLESHOOTING.md](docs/TROUBLESHOOTING.md)** - Common problem solutions
+- **[docs/TROUBLESHOOTING.md](docs/TROUBLESHOOTING.md)** - Solutions to common problems
 
-### Performance & Benchmarks
+### Contributor Documentation
 
-- **[docs/archive/PERFORMANCE_LOG.md](docs/archive/PERFORMANCE_LOG.md)** — dated benchmark readings (archived).
-- **[tests/benchmarks/results/baseline_2026-04-28.json](tests/benchmarks/results/baseline_2026-04-28.json)** — raw JSON for the latest run.
-- **[tests/benchmarks/run_standard_comparison.js](tests/benchmarks/run_standard_comparison.js)** — to reproduce; takes `PROTOJS_BIN` env override.
+- **[ARCHITECTURE.md](ARCHITECTURE.md)** - Technical architecture
+- **[TESTING_STRATEGY.md](TESTING_STRATEGY.md)** - Testing strategy
+- **[tests/README.md](tests/README.md)** - Running each test layer
+- **[docs/TEST262_STATUS.md](docs/TEST262_STATUS.md)** - Latest full Test262 run
+- **[CHANGELOG.md](CHANGELOG.md)** - Notable changes
+
+### Conformance and Performance History
+
+- **[docs/archive/TEST262_ROUNDS.md](docs/archive/TEST262_ROUNDS.md)** - Dated Test262 measurements (archived)
+- **[docs/archive/PERFORMANCE_LOG.md](docs/archive/PERFORMANCE_LOG.md)** - Dated benchmark readings (archived)
 
 ---
 
 ## 🧪 Testing
 
-### Run unit tests
+Run the C++ unit tests from the build directory:
 
 ```bash
 cd build
-ctest
+ctest --output-on-failure
 ```
 
-### Run integration tests
+Run an integration script or a benchmark directly:
 
 ```bash
-./protojs ../tests/integration/basic/hello_world.js
+./build/protojs tests/integration/basic/hello_world.js
+./build/protojs tests/benchmarks/array_operations.js
 ```
 
-### Run benchmarks
-
-```bash
-./protojs ../tests/benchmarks/array_operations.js
-```
-
-For more information on testing, see [TESTING_STRATEGY.md](TESTING_STRATEGY.md).
-For official ECMAScript compliance status and roadmap, see **[docs/TEST262_STATUS.md](docs/TEST262_STATUS.md)**.
-
-### Test262 Conformance
-
-The detailed Test262 conformance history is archived in [docs/archive/TEST262_ROUNDS.md](docs/archive/TEST262_ROUNDS.md).
-
-### Performance Benchmarks
-
-The detailed performance measurement history is archived in [docs/archive/PERFORMANCE_LOG.md](docs/archive/PERFORMANCE_LOG.md).
-
----
-
-## 🗺️ Roadmap
-
-### Phase 1: Demonstrator (Completed)
-
-- [x] Basic structure
-- [x] QuickJS + protoCore basic integration
-- [x] TypeBridge complete (main conversions)
-- [x] Deferred functional (basic implementation)
-- [x] protoCore module (Set, Multiset, SparseList, Tuple, mutability)
-- [x] process module (argv, env, cwd, platform, arch, exit)
-- [x] io module (readFile, writeFile)
-- [x] Comprehensive tests (unit and integration)
-- [x] Complete documentation
-
-**Goal:** Demonstrate protoCore's capabilities as a foundation for a JavaScript runtime.
-
-### Phase 2: Basic Node.js Compatibility
-
-- Node.js core modules (fs, path, http, etc.)
-- Module system (CommonJS + ES Modules)
-- Basic npm support
-- Node.js-compatible CLI
-
-**Goal:** Be a basic Node.js substitute for simple applications.
-
-### Phase 3: Complete Node.js Substitute
-
-- Advanced modules
-- Performance optimizations
-- Complete compatibility
-- Advanced features (debugging, profiling, etc.)
-
-**Goal:** Complete replacement of Node.js for most use cases.
-
-### Phase 4: Core Components & Performance (Completed)
-
-- [x] Buffer module (full Node.js API compatibility)
-- [x] Net module (TCP sockets and servers)
-- [x] Profiler module (CPU and memory profiling)
-- [x] Performance optimizations (20-30% improvements)
-
-**Goal:** Advanced differentiators and specific optimizations.
-
-### Phase 5: Advanced Developer Tools & Networking (Completed)
-
-- [x] Worker Threads module (multi-threaded execution)
-- [x] Cluster module (multi-process support)
-- [x] UDP/dgram module (UDP networking)
-- [x] Memory Analyzer (heap snapshots, leak detection)
-- [x] Visual Profiler (Chrome DevTools format)
-- [x] Integrated Debugger (Chrome DevTools Protocol)
-- [x] Complete Crypto module (OpenSSL integration)
-- [x] Child Process module (process spawning)
-- [x] DNS module (DNS resolution)
-
-**Goal:** Experimental (Open for Review) developer tools and advanced networking capabilities.
-
-### Phase 6: Ecosystem & Compatibility (Completed)
-
-- [x] Extended npm support (registry communication, version resolution, package installation)
-- [x] Node.js test suite compatibility (test runner and compatibility checker)
-- [x] Performance benchmarking (comprehensive benchmarking framework)
-- [x] Ecosystem compatibility enhancements (enhanced error messages and module resolution)
-
-**Goal:** Full ecosystem compatibility and maturity.
-
-For the original phase plan, see [docs/archive/PLAN.md](docs/archive/PLAN.md) (historical).
-
----
-
-## 🔬 Current Status
-
-**Version:** 0.6.0 (Phase 6 Complete - Ecosystem & Compatibility)
-
-### Implemented (Phases 1-5)
-
-**Core Architecture:**
-- ✅ Basic project structure
-- ✅ QuickJS + protoCore integration
-- ✅ TypeBridge complete (Number, String, Boolean, BigInt, Array, Object, Function, Date, RegExp)
-- ✅ Console (log, error, warn, info, debug, trace)
-- ✅ Deferred with worker threads (bytecode serialization)
-- ✅ CPUThreadPool and IOThreadPool
-- ✅ EventLoop for callbacks
-- ✅ GCBridge for memory management
-
-**Core Modules (Phase 1-2):**
-- ✅ protoCore module (Set, Multiset, SparseList, Tuple, mutability control)
-- ✅ process module (argv, env, cwd, platform, arch, exit)
-- ✅ io module (readFile, writeFile)
-- ✅ **fs module** (Promises API, Sync API, Streams)
-- ✅ **path module** (join, resolve, normalize, dirname, basename, extname, isAbsolute, relative)
-- ✅ **http module** (Server and Client with HTTP/1.1)
-- ✅ **stream module** (Readable, Writable, Duplex, Transform, PassThrough)
-- ✅ **events module** (EventEmitter with on, once, emit, removeListener)
-- ✅ **util module** (promisify, types.*, inspect, format)
-- ✅ **crypto module** (createHash, randomBytes)
-- ✅ **url module** (URL parsing and construction)
-
-**Advanced Modules (Phase 3-4):**
-- ✅ **buffer module** (Full Node.js API compatibility)
-- ✅ **net module** (TCP sockets and servers)
-- ✅ **Profiler module** (CPU and memory profiling)
-
-**Advanced Networking & Concurrency (Phase 5):**
-- ✅ **worker_threads module** (Multi-threaded execution with message passing)
-- ✅ **cluster module** (Multi-process support with IPC)
-- ✅ **dgram module** (UDP networking with multicast support)
-
-**Enhanced Developer Tools (Phase 5):**
-- ✅ **Memory Analyzer** (Heap snapshots, leak detection, allocation tracking)
-- ✅ **Visual Profiler** (Chrome DevTools format export, HTML reports)
-- ✅ **Integrated Debugger** (Chrome DevTools Protocol support, breakpoints, step debugging)
-
-**Extended Module Support (Phase 5):**
-- ✅ **Complete crypto module** (OpenSSL integration, encryption/decryption, signing)
-- ✅ **child_process module** (Process spawning, IPC, signal handling)
-- ✅ **dns module** (DNS resolution, reverse lookup, service lookup)
-
-**System Features:**
-- ✅ **Module system** (CommonJS require, ES Modules import/export, Module interop; **require** resolves built-in modules by name (e.g. `require('fs')`, `require('path')`, `require('buffer')`) and loads JS or native addons (.node/.so/.protojs) transparently)
-- ✅ **CLI compatibility** (Node.js flags: --version, --print, --check, --input-type=module)
-- ✅ **REPL** (Interactive read-eval-print loop with multi-line support)
-- ✅ **npm integration framework** (PackageResolver, PackageInstaller, ScriptExecutor)
-
-**Testing & Documentation:**
-- ✅ Unit tests (ThreadPoolExecutor, CPUThreadPool, IOThreadPool, EventLoop)
-- ✅ Integration tests (modules, fs, http, stream, crypto, net, worker_threads, cluster, dgram)
-- ✅ Comprehensive documentation (200+ pages)
-
-**Ecosystem & Compatibility (Phase 6):**
-- ✅ **Extended npm support** (Registry communication, semver version resolution, package installation)
-- ✅ **Performance benchmarking** (Comprehensive benchmarking framework with Node.js comparison)
-- ✅ **Node.js test suite compatibility** (Test runner and compatibility checker)
-- ✅ **Ecosystem compatibility enhancements** (Enhanced error messages and module resolution)
-
-### Upcoming Improvements (Phase 7)
-
-- 🔄 Advanced features and optimizations
-- 🔄 Auto-parallelization detection
-- 🔄 Object persistence
-- 🔄 Distributed computing support
+For the other test layers (smoke, Test262, integration, conformity), see [tests/README.md](tests/README.md) and [TESTING_STRATEGY.md](TESTING_STRATEGY.md). Test262 run instructions are in [docs/TEST262_STATUS.md](docs/TEST262_STATUS.md).
 
 ---
 
 ## 🤝 Contributing
 
-This project is under active development. Contributions are welcome, especially:
+Contributions are welcome, especially:
 
-- Phase 1 feature implementation
+- Fixes for Test262 failures
 - Tests and documentation
-- Optimizations
-- Bug fixes
+- Interpreter performance work
+- Bug reports and fixes
+
+Please open an issue or a pull request on [GitHub](https://github.com/gamarino/protoJS).
 
 ---
 
-## 📝 License
+## The Swarm of One
 
-Copyright (c) 2026 Gustavo Marino <gamarino@gmail.com>
-
-Permission is hereby granted, free of charge, to any person obtaining a copy
-of this software and associated documentation files (the "Software"), to deal
-in the Software without restriction, including without limitation the rights
-to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
-copies of the Software, and to permit persons to whom the Software is
-furnished to do so, subject to the following conditions:
-
-The above copyright notice and this permission notice shall be included in all
-copies or substantial portions of the Software.
-
-THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
-IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
-FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
-AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
-LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
-OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
-SOFTWARE.
-
----
-
-## 🙏 Acknowledgments
-
-- **protoCore**: Runtime foundation
-- **QuickJS**: JavaScript parser and compiler
-- **Fabrice Bellard**: Creator of QuickJS
+protoJS is designed and maintained by a single architect, Gustavo Marino, working with AI coding agents that draft code, tests and documentation under human review. The repository's history starts in January 2026, and the protoCore-native interpreter that executes protoJS bytecode (`src/runtime/ProtoInterpreter.cpp`) is about 18 000 lines of C++. The same protoCore object model also backs protoPython, protoST and protoClojure.
 
 ---
 
 ## Lead the Shift
 
-**Don't just watch the shift. Lead it.** The performance gap has been closed. The tools are here. Join the review, challenge our benchmarks, and become part of the Swarm of One. Let's build the future of computing, one cell at a time. **Think Different, As All We.**
+Review the code, reproduce the benchmarks, report conformance gaps and propose changes. Every measurement in this README cites its date and scope so that it can be checked. **Think Different, As All We.**
+
+---
+
+## License
+
+Copyright (c) 2023-2026 Gustavo Marino. Released under the MIT License; see [LICENSE](LICENSE).
+
+---
+
+## 🙏 Acknowledgments
+
+- **[protoCore](https://github.com/numaes/protoCore)**: runtime foundation
+- **[QuickJS](https://bellard.org/quickjs/)**: JavaScript parser and compiler, created by Fabrice Bellard
 
 ---
 
 ## 📧 Contact
 
-[To be defined]
-
----
-
-## ⚠️ Important Note
-
-**This project is in active development (Phase 6 Complete - Ecosystem & Compatibility).**
-
-- Phase 6 complete: Extended npm support, performance benchmarking, and Node.js test suite compatibility
-- **Performance:** ~100× slower than Node.js on the in-process compute suite (geomean baseline). The May 2026 "own-only" cache overhaul significantly improved object property access (~3.2x faster).
-- Core modules functional: fs, path, http, stream, events, util, crypto, url, buffer, net
-- Advanced modules: worker_threads, cluster, dgram, child_process, dns
-- Developer tools: Memory Analyzer, Visual Profiler, Integrated Debugger with Chrome DevTools Protocol
-- npm support: Full registry communication, semver version resolution, package installation
-- Benchmarking: Standard in-process suite (`tests/benchmarks/run_standard_comparison.js`); raw 2026-04-28 baseline at `tests/benchmarks/results/baseline_2026-04-28.json`
-- Test compatibility: Node.js test suite compatibility checker
-- Module system working: CommonJS and ES Modules supported
-- CLI tools available: REPL and Node.js-compatible flags
-- Ready for Phase 7: Advanced features and optimizations
-- API may change in future phases
-- **Recommended for development, testing, and review; not for production use.**
-
----
-
-## 🔗 Related Links
-
-- [protoCore](https://github.com/numaes/protoCore) - Runtime foundation
-- [QuickJS](https://bellard.org/quickjs/) - JavaScript parser
+Questions, bug reports and proposals: [GitHub issues](https://github.com/gamarino/protoJS/issues).

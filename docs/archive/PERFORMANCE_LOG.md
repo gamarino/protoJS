@@ -2,6 +2,8 @@
 
 > **Historical document.** Dated record kept for reference; not maintained and may not match the current code. Current documentation: [docs/README.md](../README.md).
 
+> **Note (2026-09-15):** the `parallel_cpu` figures below are not a valid cross-runtime comparison: the benchmark runs 2e5 iterations per task under protoJS and 2e6 under Node and QuickJS (`tests/benchmarks/standard/parallel_cpu.js`). Some prose summaries in this log also disagree with the tables they describe; the tables are the recorded measurements. The log is otherwise unchanged.
+
 **2026-06-16 — Scope-as-chain refactor landed.**  Five commits
 collapse the interpreter's bespoke variable-resolution machinery onto
 protoCore's native prototype chain.  Functions, methods, classes, and
