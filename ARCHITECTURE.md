@@ -1,661 +1,466 @@
-# Arquitectura Técnica: protoJS
+# protoJS Technical Architecture
 
-**Versión:** 1.0  
-**Fecha:** 2026-01-24
+**Last reviewed:** 2026-09-15
 
 ---
 
-## Visión General de la Arquitectura
+## Architecture Overview
 
 ```
 ┌─────────────────────────────────────────────────────────────┐
-│                    JavaScript Code                           │
-│              (ES2020+ Modern JavaScript)                     │
+│                     JavaScript source                       │
 └──────────────────────┬──────────────────────────────────────┘
                        │
                        ▼
 ┌─────────────────────────────────────────────────────────────┐
-│                    QuickJS Parser                            │
-│              (quickjs.c - Solo parser/compiler)            │
+│               QuickJS frontend (deps/quickjs)               │
+│        Parser and bytecode compiler (compile-only mode)     │
 └──────────────────────┬──────────────────────────────────────┘
                        │
                        ▼
 ┌─────────────────────────────────────────────────────────────┐
-│              protoJS Runtime Layer                           │
-│  ┌──────────────┐  ┌──────────────┐  ┌──────────────┐    │
-│  │ TypeBridge   │  │ Execution    │  │ GC Bridge    │    │
-│  │              │  │ Engine       │  │              │    │
-│  └──────────────┘  └──────────────┘  └──────────────┘    │
+│                   protoJS runtime layer                     │
+│  ┌──────────────┐  ┌──────────────┐  ┌──────────────┐       │
+│  │ Bytecode     │  │ Proto        │  │ Built-ins    │       │
+│  │ loader       │  │ Interpreter  │  │ and modules  │       │
+│  └──────────────┘  └──────────────┘  └──────────────┘       │
+│  ┌──────────────┐  ┌──────────────┐  ┌──────────────┐       │
+│  │ TypeBridge   │  │ GCBridge     │  │ EventLoop,   │       │
+│  │ (boundary)   │  │ (boundary)   │  │ thread pools │       │
+│  └──────────────┘  └──────────────┘  └──────────────┘       │
 └──────────────────────┬──────────────────────────────────────┘
                        │
                        ▼
 ┌─────────────────────────────────────────────────────────────┐
-│                    protoCore Runtime                        │
-│  ┌──────────────┐  ┌──────────────┐  ┌──────────────┐    │
-│  │ ProtoSpace   │  │ ProtoContext  │  │ ProtoThread  │    │
-│  │ (GC, Memory)  │  │ (Execution)   │  │ (Concurrency)│    │
-│  └──────────────┘  └──────────────┘  └──────────────┘    │
-│  ┌──────────────┐  ┌──────────────┐  ┌──────────────┐    │
-│  │ ProtoObject  │  │ Collections   │  │ Immutability │    │
-│  │ (Prototypes) │  │ (List, Set...)│  │ (Structural) │    │
-│  └──────────────┘  └──────────────┘  └──────────────┘    │
+│                     protoCore runtime                       │
+│  ┌──────────────┐  ┌──────────────┐  ┌──────────────┐       │
+│  │ ProtoSpace   │  │ ProtoContext │  │ ProtoThread  │       │
+│  │ (GC, memory) │  │ (execution)  │  │ (concurrency)│       │
+│  └──────────────┘  └──────────────┘  └──────────────┘       │
+│  ┌──────────────┐  ┌──────────────┐  ┌──────────────┐       │
+│  │ ProtoObject  │  │ Collections  │  │ Immutability │       │
+│  │ (prototypes) │  │ (List, Set…) │  │ (structural) │       │
+│  └──────────────┘  └──────────────┘  └──────────────┘       │
 └─────────────────────────────────────────────────────────────┘
 ```
 
+QuickJS is vendored under `deps/quickjs`. protoCore is linked as the shared library `libprotoCore`, located either through `PROTO_CORE_PREFIX` or in a sibling `../protoCore` checkout (`CMakeLists.txt`).
+
 ---
 
-## Componentes Principales
+## Main Components
 
 ### 1. JSContextWrapper
 
-**Responsabilidad:** Gestionar el ciclo de vida de QuickJS JSContext y su integración con protoCore.
+**Responsibility:** Owns the QuickJS runtime and context together with the protoCore space for one JavaScript environment (`src/JSContext.h`, `src/JSContext.cpp`).
 
-**Estructura:**
+**Structure (abridged):**
 ```cpp
 class JSContextWrapper {
-    JSRuntime* rt;              // QuickJS runtime (solo para parser)
-    JSContext* ctx;              // QuickJS context
-    proto::ProtoSpace pSpace;    // protoCore space (GC, memoria)
-    proto::ProtoContext* pContext; // protoCore root context (space->rootContext)
+    JSRuntime* rt;                  // QuickJS runtime (compiler frontend, ES modules, fallback)
+    JSContext* ctx;                 // QuickJS context
+    proto::ProtoSpace pSpace;       // protoCore space (GC, memory)
+    proto::ProtoContext* pContext;  // root context (pSpace.rootContext)
+    JSPrototypes jsPrototypes_;     // base JS prototypes (Object, Array, Arguments, RegExp)
+    // ...
 };
 ```
 
-**Decisiones de diseño:**
-- Un `ProtoSpace` por `JSRuntime` (comparte GC).
-- Un `ProtoContext` raíz (`space.rootContext`) por `JSContextWrapper` para bootstrap y raíces globales.
-- Ejecución real en protoCore se hace en **contextos de pila (RAII)**:
-  - Cada llamada top-level a `eval()` en la ruta protoCore crea un `ProtoContext` automático en la pila encadenado a `rootContext`.
-  - Cada llamada anidada a una función bytecode en `ProtoInterpreter` crea su propio `ProtoContext` hijo encadenado al anterior.
-  - Al destruirse el `ProtoContext`, su destructor entrega la generación joven al GC y, si `returnValue` está definido, crea un `ReturnReference` en el contexto padre para preservar el resultado.
-- QuickJS runtime se usa solo para parsing/compiling, no para ejecución real en la ruta protoCore.
-- Al construir el wrapper se ejecuta `BootstrapJSPrototypes`: se inicializan el prototipo base JS (Object) y los derivados (Array, Arguments, RegExp) como hijos de `ProtoSpace::objectPrototype` y se guardan en `JSPrototypes` para crear instancias con `newChild(ctx, true)`.
+**Design decisions:**
+- Each wrapper owns exactly one `ProtoSpace` and one QuickJS runtime.
+- The root `ProtoContext` (`pSpace.rootContext`) is used for bootstrap and global roots.
+- Execution on protoCore uses **stack-allocated (RAII) contexts**:
+  - Each top-level `eval()` creates a `ProtoContext` on the C++ stack, chained to the root context.
+  - Each call to a bytecode function in `ProtoInterpreter` creates its own child `ProtoContext`, chained to the caller's.
+  - When a `ProtoContext` is destroyed, its destructor anchors `returnValue` (if set) as a `ReturnReference` in the parent context and then submits its young generation to the GC.
+- The constructor runs `BootstrapJSPrototypes`, which creates the Object, Array, Arguments and RegExp prototypes as mutable children of `ProtoSpace::objectPrototype` and stores them in `JSPrototypes`. Later bootstrap steps install the fully populated prototypes (see the comments on the prototype accessors in `src/JSContext.h`).
+- `getRootSet()` exposes a `ProtoRootSet` named `"protojs-async"`, created on first use and destroyed by the wrapper destructor. It pins objects that must survive asynchronous hops (see `docs/GC_BRIDGING.md`).
 
-### 1.1 ProtoObject-Based Object Model and String Interning
+### 1.1 ProtoObject-Based Object Model and Attribute Keys
 
-**Object model:** The general object implementation is based on `ProtoObject`. The JS Object base is initialized when creating the ProtoSpace (or at protoJS bootstrap); derived prototypes (Array, Arguments, RegExp) are children of that Object and are created in `BootstrapJSPrototypes`. Objects that are mutable by JavaScript semantics are created with `prototype->newChild(ctx, true)` from the ProtoContext, so that attribute handling is direct (`getAttribute` / `setAttribute`) and does not require extra adapters.
+**Object model:** JavaScript objects are `ProtoObject`s. Objects that JavaScript semantics require to be mutable are created with `prototype->newChild(ctx, true)`, and properties are read and written directly with `getAttribute` / `setAttribute`.
 
-**Direct attribute handling:** Arrays and arguments are represented as a single `ProtoObject` with numeric-named attributes (`"0"`, `"1"`, …) and `"length"`. Index and length writes are reflected with `setAttribute`, and the new root is propagated with `GCBridge::registerMapping`. The main path does not use an "elements" or "values" sub-structure.
+**Arrays:** An array is a mutable child of the Array prototype. Dense elements are stored as a single `ProtoList` (protoCore's persistent AVL list) under the `__elements__` attribute, and a `length` attribute is kept in sync (`src/ArrayElementsStorage.h`). Writes past the end pad with `PROTO_NONE` up to a sparse-fallback threshold.
 
-**String interning:** All strings in protoCore are interned; `ProtoContext::fromUTF8String` returns a stable pointer per logical string. protoJS exposes frequently used `ProtoString` keys (e.g. `"length"`, `"elements"`, `"values"`, `"prototype"`) through `JSSymbols` (see `src/JSSymbols.h`). Each getter lazily interns its literal at `ProtoSpace` level on first call, so the resulting pointer is globally unique and safe to reuse across contexts without per-context caching.
+**Strings and symbols:** protoCore distinguishes plain strings from interned symbols. `ProtoString::createSymbol` returns a canonical pointer per content, and `setAttribute` auto-interns string keys; strings produced by `fromUTF8String` and similar constructors are not interned. Strong symbols are never collected. protoJS exposes frequently used keys (for example `"length"`, `"prototype"`, `"constructor"` and `"__elements__"`) through getters in `JSSymbols` (`src/JSSymbols.h`). Each getter initializes a function-local static with `createSymbol` on first call, so the pointer is globally unique and can be reused across contexts without per-context caching.
 
-### 1.2 Numbers: ProtoInteger, ProtoDouble, and Number Prototype
+### 1.2 Numbers: ProtoInteger, ProtoDouble, and the Number Prototype
 
-**Integer representation (ProtoInteger):** All JavaScript number values that are integers are represented in protoCore as **ProtoInteger**: either a small integer (embedded 54-bit signed) or a **LargeInteger** when the value exceeds that range. Creation uses `context->fromInteger` or `context->fromLong`. As an improvement over standard JavaScript, **ProtoInteger supports arbitrary (infinite) precision** via protoCore's LargeInteger when values exceed the small-integer range; arithmetic is handled in protoCore without C++ locks.
+**Integers:** Integer-valued JavaScript numbers are protoCore integers: a tagged **SmallInteger** (54-bit signed value stored in the pointer) or a **LargeInteger** when the value exceeds that range. They are created with `context->fromInteger` or `context->fromLong`. In the interpreter's addition opcode, integer results outside the SmallInteger range are delegated to protoCore, which promotes them to LargeInteger instead of converting them to a double.
 
-**Double representation (ProtoDouble):** Non-integer JavaScript numbers are represented as protoCore doubles created with `context->fromDouble`. All numeric semantics that cross the bridge use these types; no C++ `int`/`double` are used as primary storage for JS number semantics.
+**Doubles:** Non-integer numbers, and negative zero, are protoCore doubles created with `context->fromDouble`.
 
-**Number prototype methods:** Standard JavaScript Number methods (`valueOf`, `toString`, `toFixed`, `toExponential`, `toPrecision`) are implemented in protoJS as ProtoMethods on a shared Number prototype. At bootstrap, `BuildNumberPrototype` creates this prototype from `objectProto->newChild(ctx, false)`, attaches the methods via `setAttribute` and `context->fromMethod`, and assigns it to `space->smallIntegerPrototype`, `space->largeIntegerPrototype`, and `space->doublePrototype`. Method dispatch for numbers then goes through protoCore's `getAttribute` / `call`, with the number as the receiver (`self`).
+**Number prototype:** `BuildNumberPrototype` (`src/NumberPrototype.cpp`) builds a shared prototype with native `valueOf`, `toString`, `toFixed`, `toExponential`, `toPrecision` and `toLocaleString`, and assigns it to `space->smallIntegerPrototype`, `space->largeIntegerPrototype` and `space->doublePrototype`. Method lookup on a number therefore resolves through protoCore's attribute lookup, with the number as the receiver.
 
 ### 1.3 Object Creation and Inheritance (newChild, addParent)
 
-**Single inheritance:** New plain objects and arrays are created with `prototype->newChild(ctx, true)` so that they are mutable and inherit from the given prototype (e.g. JS Object or Array prototype). Derived prototypes (Array, Arguments, RegExp, Number) are created as `objectProto->newChild(ctx, false)`.
+**Single inheritance:** Plain objects and arrays are created with `prototype->newChild(ctx, true)`, which makes them mutable and inherit from the given prototype.
 
-**Multiple inheritance:** When an object must have more than one prototype (e.g. mixins or multiple base prototypes), use `obj->addParent(ctx, otherProto)` after creation. protoCore's object model supports **multiple parents**; the prototype chain is walked according to protoCore's resolution rules. Example: create with `objectProto->newChild(ctx, true)` then call `newObj->addParent(ctx, mixinProto)` to add a second parent.
+**Multiple parents:** protoCore's object model supports more than one parent through `obj->addParent(ctx, otherProto)`. protoJS uses it internally, for example to attach marker prototypes for non-extensible objects (`src/ObjectPrototype.cpp`).
 
-### 1.3a Local variables in ProtoContext
+### 1.3a Local Variables in ProtoContext
 
-Local variables for functions/methods are managed when the **ProtoContext** is initialised. They can be represented in two ways:
+protoCore's `ProtoContext` offers two kinds of local storage:
 
-- **Automatic variables (by index):** Storage is an array of slots indexed by the compiler/runtime (e.g. `automaticLocals` in protoCore). These are **discarded when the function returns**; they are not retained for closures.
+- **Automatic locals:** an index-addressed slot array (`automaticLocals`) sized through the constructor's `totalSlots` / `externalSlots` parameters and discarded when the context is destroyed.
+- **`closureLocals`:** a `ProtoSparseList` owned by the context.
 
-- **Name-keyed dictionary (ProtoSparseList):** Entries are keyed by the **address (or hash) of an interned string** (the variable name). This dictionary can outlive the function and is used for **closures**: any reference captured at call time continues to refer to the same storage. The dictionary itself can be:
-  - **Immutable:** A reference taken at a given instant is a **snapshot** of the contents at that moment and does not change; later updates in the same scope are not visible to that reference.
-  - **Mutable:** Closures that hold a reference see the **latest state** of the dictionary whenever they read.
+The protoJS interpreter lays out each frame in the automatic-locals array: local and argument slots first, followed by the operand stack. The stack base and top indices are tracked in a thread-local frame record that holds only the context pointer and integer indices. When an inner function captures a local variable, the interpreter promotes that local to a closure cell and reads it through closure-variable slots (`OP_close_loc`, `OP_get_var_ref`).
 
-The runtime must initialise ProtoContext (e.g. via its constructor with `parameterNames`, `localNames`, `args`, `kwargs`) so that automatic slots and/or the name-keyed dictionary are set up according to the compiled function and the chosen semantics (automatic-only, closure dictionary immutable, or closure dictionary mutable).
+**Interpreter rule (absolute):** `ProtoInterpreter` must **not** keep `ProtoObject*` execution state (locals, arguments, operand stack) in `std::vector` or any other C++ container, because the GC does not trace them. All such references live in `ProtoContext` slots. See the "Absolute rule" section of [src/runtime/README.md](src/runtime/README.md).
 
-**Interpreter rule (absolute):** The ProtoInterpreter must **not** use `std::vector` (or any C++ container outside protoCore) for local variables or the operand stack; the GC does not trace them. All slot and stack storage goes through **ProtoContext** (e.g. `closureLocals`: slot keys by index, and a reserved key for the evaluation stack implemented as a `ProtoList`). See `src/runtime/README.md` § "Absolute rule: no std::vector for execution state".
+### 1.4 Eval Path: Compile, Load, Run
 
-### 1.4 Eval Path: Single protoCore Path (Option B)
+**Default path:** Script execution goes through protoCore.
 
-**Single execution path:** All user script execution uses the **protoCore path**. There is no legacy `JS_Eval()` path for main script, REPL, or debugger eval.
+1. **`eval()`** compiles the source with the QuickJS frontend in compile-only mode (`compileToBytecodeWithFlags`, `src/runtime/ProtoCompileOnly.cpp`). `loadBytecode()` copies the bytecode and its constant pool into a `ProtoBytecodeModule` (`src/runtime/ProtoBytecodeLoader.cpp`), and `runBytecode()` executes it in `ProtoInterpreter`. Operands and locals are `ProtoObject*`; the QuickJS interpreter does not run. The result is converted to a `JSValue` only at the boundary, with `TypeBridge::toJS`.
+2. **CommonJS modules:** `CommonJSLoader` compiles, loads and runs module bodies through the same pipeline.
+3. **REPL and debugger evaluate:** `src/repl/REPL.cpp` and `src/debugging/IntegratedDebugger.cpp` call the wrapper's `eval()`.
 
-1. **eval()** uses a **compile-only frontend** (`protojs::compileToBytecode`) backed by QuickJS to parse and emit bytecode, then `loadBytecode()` copies that bytecode and its constant pool into a `ProtoBytecodeModule`. Finally, `runBytecode()` executes the copied buffer via **ProtoInterpreter**. Stack and locals are `ProtoObject*`; no QuickJS interpreter runs for script execution. Result is converted to JSValue only at the boundary with `TypeBridge::toJS`.
+**Cases that QuickJS executes:**
+- **ES module mode** (`--input-type=module`): QuickJS compiles and evaluates the module itself (`JS_EvalFunction`), because protoCore does not implement module linking.
+- **Compile fallback:** if compile-only compilation fails, `eval()` prints `compile failed, fallback to QuickJS eval` and runs the source with `JS_Eval`, unless `PROTOJS_NO_FALLBACK=1` is set.
 
-2. **Module loaders (CommonJS, ES):** Use compile → load → run for module bodies; no `JS_Eval` for user module code.
+**Bridges:** `QuickJSArrayBridge` consists of no-op stubs that `quickjs.c` still references. `ExecutionEngine` keeps legacy QuickJS interception hooks (`opGetProperty`, `opSetProperty`, `opCall`, …) that the interpreter path does not invoke; the wrapper calls only its `initialize` and `cleanup` functions. `TypeBridge` and `GCBridge` operate at the boundary with QuickJS values. Built-ins (Array, String, JSON, Math, RegExp, …) are protoCore-native prototypes and functions (`src/*Prototype.cpp`, `src/*Builtin.cpp`, wrapped with `wrapNativeFunction`) installed on the protoCore-native global; the interpreter does not call back into QuickJS to run them.
 
-3. **REPL and debugger evaluate:** Use the wrapper’s `eval()` (same compile → load → run).
+**Native global:** `getNativeGlobal()` creates the global object as a mutable child of the JS Object prototype and adds `Infinity`, `NaN` and `undefined`; `main.cpp` and the modules then register their bindings onto it explicitly. `runBytecode` receives a pointer to the current global root and updates it when `put_field` or `define_field` on the global produce a new root, so subsequent reads see the new object.
 
-**Bridges:** **QuickJSArrayBridge** is stubbed (no-ops); **ExecutionEngine** is reduced to `getProtoContext(ctx)` only (no op* hooks). **TypeBridge** and **GCBridge** are used at the boundary (global object, script result, host call bridge). Built-ins (Array, JSON, RegExp, etc.) are invoked via the **host function bridge** in the interpreter (GCBridge + JS_Call).
+**Worker threads:** `worker_threads` runs each `Worker` on a `std::thread` with its own `JSContextWrapper`, and therefore its own `ProtoSpace`. The worker script runs through the same compile → load → run path. Because objects from one space cannot be referenced from another, messages are JSON-serialized and delivered through the `EventLoop` (`src/modules/worker_threads/WorkerThreadsModule.h`).
 
-**Phase 4–5 (legacy removed):** `g_currentProtoContext` and the legacy eval branch have been removed. The interpreter uses only ProtoContext for stack and locals (no `std::vector`); see `src/runtime/README.md`.
+**Deferred and ProtoThreads:** see [section 4](#4-deferred-and-threading-model).
 
-**Workers as ProtoThreads:** Worker threads are implemented as **ProtoThread** (protoCore). The main thread creates a worker via `ProtoSpace::newThread()` with a C++ ProtoMethod entry that looks up `WorkerThreadData` by id and runs the worker script. Each worker has its own **JSContextWrapper** (and thus its own ProtoSpace) created inside the worker OS thread; script execution uses the same compile → load → run path as the main thread. No `JS_Eval` is used for worker script. Fallback to `std::thread` exists only when the main context has no wrapper or when `newThread` fails.
+**Unsupported opcodes:** an opcode the interpreter does not implement is reported on stderr as `[ProtoInterpreter] unsupported opcode 0x.. at byte offset N`, and execution of that function stops.
 
-**Deferred as ProtoThreads:** Deferred tasks (e.g. `new Deferred(fn)`) are scheduled via **ProtoSpace::newThread** (ProtoThread). The entry method receives a task id, looks up the task, and runs it in the same thread using a **JSContextWrapper** and `eval()` (compile → load → run), so the deferred function runs on the protoCore path. No `JS_Eval` or CPU thread pool is used for the task body; fallback to CPUThreadPool exists only when the main context has no wrapper or when `newThread` fails.
-
-**Phase 6 (native global):** The global object is built as a **ProtoObject** from bootstrap: on first eval, `getNativeGlobal()` creates a mutable ProtoObject, copies all enumerable own properties from the QuickJS global via `JS_GetOwnPropertyNames` and `TypeBridge::fromJS`, and uses it as the scope for the interpreter. `runBytecode` receives a pointer to the current global root; when the interpreter performs `put_field` or `define_field` on the global, the root is updated so subsequent reads see the new object. No QuickJS heap is used for the global container; conversion only at host boundaries (built-ins remain host-backed via GCBridge).
-
-**Phase 6 (Test262 conformance on protoCore path):** Run Test262 with `TEST262_USE_PROTO_EVAL=1` or `use_proto_eval: true`; document pass/fail by category in `CONFORMANCE_JS.md`; fix missing opcodes/built-ins to improve conformance. Optionally make protoCore the default CLI path.
-
-**Phase 8 (directed tests and documentation):** A directed smoke test (`node tests/test262/runner/proto_eval_smoke.js`) runs protojs with the protoCore path on a short list of expressions (arithmetic, typeof, comparison, Array.isArray). Test262 mini-suites are run via the same runner with `use_proto_eval`; coverage is documented in `CONFORMANCE_JS.md` § Phase 6 table and in `src/runtime/README.md` § Phase 8.
-
-**Phase 9 (Phase 3 cleanup and documentation):** The protoCore interpreter covers the opcode set required for the main execution path (stack, locals, properties, arrays, control flow, calls, constructors, operators). No QuickJS abstraction is used beyond the compile-only frontend; execution is fully in ProtoInterpreter over ProtoContext and ProtoObject. Unknown opcodes are reported explicitly to stderr (opcode and byte offset) instead of silently returning. See `src/runtime/README.md` § Phase 9.
+Test262 conformance on this path is covered in [TESTING_STRATEGY.md](TESTING_STRATEGY.md) and [CONFORMANCE_JS.md](CONFORMANCE_JS.md).
 
 ### 2. TypeBridge
 
-**Responsabilidad:** Conversión bidireccional entre tipos JavaScript (QuickJS) y tipos protoCore.
+**Responsibility:** Converts between QuickJS `JSValue`s and protoCore objects wherever QuickJS values still appear: eval results, code executed by QuickJS, and module bindings (`src/TypeBridge.h`, `src/TypeBridge.cpp`).
 
-**Mapeo de Tipos:**
+**`fromJS` mapping:**
 
-| JavaScript Type | protoCore Type | Notas |
-|----------------|----------------|-------|
-| `null` / `undefined` | `PROTO_NONE` | |
-| `boolean` | `SmallInteger` (tagged) | Usa constantes PROTO_TRUE/PROTO_FALSE |
-| `number` (entero pequeño) | `SmallInteger` | Si cabe en 54 bits |
-| `number` (entero grande) | `LargeInteger` | |
-| `number` (float) | `Double` | |
-| `bigint` | `LargeInteger` | |
-| `string` | `ProtoString` | UTF-8 ↔ UTF-16 conversion |
-| `array` (denso) | `ProtoList` | Inmutable por defecto |
-| `array` (sparse) | `ProtoSparseList` | Mutable, optimizado |
-| `object` | `ProtoObject` | Con `mutable_ref` para mutabilidad |
-| `function` | `ProtoMethod` | Wrapped en ProtoMethodCell |
-| `date` | `Date` (protoCore) | |
-| `regexp` | `ProtoObject` + libregexp | |
-| `map` | `ProtoSparseList` | Con wrapper JS |
-| `set` | `ProtoSet` | Con wrapper JS |
-| `typedarray` | `ProtoByteBuffer` | |
-| `arraybuffer` | `ProtoByteBuffer` | |
-| `promise` | `Deferred` (custom) | Nuestra implementación |
+| JavaScript value | protoCore representation | Notes |
+|------------------|--------------------------|-------|
+| `null` | Null sentinel | `PROTO_NONE` if the interpreter sentinel is not initialized |
+| `undefined` | Undefined sentinel | `PROTO_NONE` if the interpreter sentinel is not initialized |
+| `boolean` | protoCore boolean | `context->fromBoolean` |
+| `number` (integer-valued, not `-0`) | SmallInteger or LargeInteger | `context->fromInteger` |
+| `number` (other, including `-0`) | Double | `context->fromDouble` |
+| `bigint` | protoCore integer in a BigInt wrapper | |
+| `string` | `ProtoString` | |
+| `Array` | Mutable child of the Array prototype | Elements in a `ProtoList` under `__elements__`, plus `length` |
+| `function` | Mutable `ProtoObject` placeholder | Mapped back to the `JSValue` through `GCBridge` |
+| `RegExp` | `ProtoObject` with pattern and flags | Mutable (for `lastIndex`) |
+| `Map` | `ProtoSparseList` | |
+| `Set` | `ProtoSet` | |
+| TypedArray, `ArrayBuffer` | `ProtoList` | |
+| `Symbol` | `ProtoObject` with the description | |
+| Other objects | Mutable child of the JS Object prototype | Own properties converted recursively |
+| `Date` | — | No dedicated conversion |
 
-**Conversión JS → protoCore:**
+Objects already registered in `GCBridge` are returned from the mapping instead of being converted again.
 
-```cpp
-const proto::ProtoObject* TypeBridge::fromJS(
-    JSContext* ctx, 
-    JSValue val, 
-    proto::ProtoContext* pContext
-) {
-    // 1. Detectar tipo QuickJS
-    // 2. Convertir a tipo protoCore equivalente
-    // 3. Manejar mutabilidad según contexto
-    // 4. Retornar ProtoObject*
-}
-```
+**`toJS`** converts booleans, BigInts, integers, doubles and strings to their JavaScript equivalents, and `ProtoList`, `ProtoTuple` and `ProtoSet` to JavaScript arrays. Other protoCore objects become a placeholder JavaScript object tagged `_type: "ProtoObject"` and registered in `GCBridge`.
 
-**Conversión protoCore → JS:**
+**Signatures:**
 
 ```cpp
-JSValue TypeBridge::toJS(
-    JSContext* ctx,
-    const proto::ProtoObject* obj,
-    proto::ProtoContext* pContext
-) {
-    // 1. Detectar tipo protoCore
-    // 2. Convertir a JSValue equivalente
-    // 3. Crear wrapper si es necesario (Set, Multiset, etc.)
-    // 4. Retornar JSValue
-}
+static const proto::ProtoObject* TypeBridge::fromJS(
+    JSContext* ctx, JSValue val, proto::ProtoContext* pContext);
+
+static JSValue TypeBridge::toJS(
+    JSContext* ctx, const proto::ProtoObject* obj, proto::ProtoContext* pContext);
 ```
-
-**Consideraciones especiales:**
-
-1. **Mutabilidad:**
-   - Objetos JS normales → `mutable_ref > 0` en protoCore
-   - Arrays densos pequeños → `ProtoList` (inmutable)
-   - Arrays sparse o grandes → `ProtoSparseList` (mutable)
-   - Usuario puede forzar con `protoCore.ImmutableObject()` o `protoCore.MutableObject()`
-
-2. **Strings:**
-   - QuickJS usa UTF-8 internamente
-   - protoCore ProtoString es UTF-8 también
-   - Conversión directa, pero manejar casos edge (surrogate pairs)
-
-3. **Functions:**
-   - QuickJS bytecode se mantiene
-   - Ejecución se hace en contexto protoCore
-   - Closures usan `closureLocals` de ProtoContext
 
 ### 3. Execution Engine
 
-**Responsabilidad:** Ejecutar bytecode de QuickJS en contexto protoCore.
+**Responsibility:** Execute QuickJS bytecode on protoCore. This role belongs to `ProtoInterpreter` (`src/runtime/ProtoInterpreter.cpp`); the older `ExecutionEngine` class is legacy (see [section 1.4](#14-eval-path-compile-load-run)).
 
-**Flujo de ejecución:**
-
-```
-1. QuickJS compila JS → bytecode
-2. ExecutionEngine intercepta ejecución
-3. Para cada operación:
-   a. Convierte operandos JS → protoCore
-   b. Ejecuta operación en protoCore
-   c. Convierte resultado protoCore → JS
-4. Retorna resultado a QuickJS (para compatibilidad)
-```
-
-**Operaciones interceptadas:**
-
-- Creación de objetos
-- Acceso a propiedades
-- Llamadas a funciones
-- Operaciones aritméticas
-- Operaciones de colecciones
-
-**Implementación:**
-
-```cpp
-class ExecutionEngine {
-    // Interceptar operaciones QuickJS
-    static JSValue op_get_property(JSContext* ctx, JSValue obj, JSAtom prop);
-    static JSValue op_set_property(JSContext* ctx, JSValue obj, JSAtom prop, JSValue val);
-    static JSValue op_call(JSContext* ctx, JSValue func, JSValue this_val, int argc, JSValueConst* argv);
-    // ... más operaciones
-};
-```
-
-### 4. Deferred Implementation (Virtual Threads Model)
-
-**Responsabilidad:** Implementar Promises que ejecutan como tareas ligeras en el pool de CPU, similar a virtual threads de Java.
-
-**Arquitectura:**
+**Execution flow:**
 
 ```
-┌─────────────────────────────────────────┐
-│         Main Thread (JSContext)          │
-│  - Ejecuta código JS síncrono           │
-│  - Event loop para callbacks            │
-└──────────────┬──────────────────────────┘
+1. QuickJS compiles JS → bytecode (compile-only)
+2. ProtoBytecodeLoader copies bytecode and constants into a ProtoBytecodeModule
+3. ProtoInterpreter dispatches each opcode through a computed-goto table,
+   operating on ProtoObject* values held in ProtoContext slots
+4. Calls to bytecode functions run in child ProtoContexts; native
+   functions are invoked through protoCore
+5. The top-level result is converted to a JSValue at the boundary
+```
+
+**Implementation notes:**
+- Opcode numbering mirrors QuickJS (`src/runtime/QuickJSOpcodeEnum.h`).
+- Hot opcodes have inline SmallInteger fast paths; other cases delegate to protoCore operations.
+- `BytecodeSpecialiser` (`src/runtime/BytecodeSpecialiser.h`) is an optional post-codegen pass that fuses common loop sequences into single opcodes. It is selected with `PROTOJS_SPECIALISER=off|nop|compact` and defaults to `compact` (`src/runtime/BytecodeSpecialiser.cpp`); `PROTOJS_SPECIALISER=off` disables it.
+
+### 4. Deferred and Threading Model
+
+**Responsibility:** Run asynchronous and parallel work while keeping every `ProtoObject*` visible to the protoCore GC.
+
+**Threads in a protoJS process:**
+
+```
+┌──────────────────────────────────────────┐
+│ Main thread                              │
+│  - ProtoInterpreter (synchronous JS)     │
+│  - EventLoop callbacks                   │
+└──────────────┬───────────────────────────┘
                │
-    ┌──────────┼──────────┐
-    │          │          │
-    ▼          ▼          ▼
-┌─────────┐ ┌─────────┐ ┌─────────┐
-│ CPU Pool│ │ I/O Pool│ │  GC     │
-│         │ │         │ │ Thread  │
-│ Thread1 │ │ Thread1 │ │         │
-│ Thread2 │ │ Thread2 │ └─────────┘
-│ ...     │ │ ...     │
-│ ThreadN │ │ ThreadM │
-│ (N=CPUs)│ │(M=3-4*N)│
-└────┬────┘ └────┬────┘
-     │          │
-     │          │
-     ▼          ▼
-┌─────────────────────────┐
-│   Tareas Ligeras         │
-│  ┌─────────┐ ┌─────────┐│
-│  │Deferred1│ │Deferred2││
-│  │(Context)│ │(Context)││
-│  └─────────┘ └─────────┘│
-│  ┌─────────┐ ┌─────────┐│
-│  │IO Task1 │ │IO Task2 ││
-│  │(Context)│ │(Context)││
-│  └─────────┘ └─────────┘│
-└─────────────────────────┘
-     │          │
-     ▼          ▼
-┌─────────────────────────┐
-│      protoCore          │
-│  - ProtoSpace (shared)   │
-│  - Objetos inmutables    │
-│  - GC concurrente        │
-└─────────────────────────┘
+   ┌───────────┼──────────────┬──────────────────┬─────────────────┐
+   ▼           ▼              ▼                  ▼                 ▼
+┌────────┐ ┌────────┐ ┌──────────────┐ ┌──────────────────┐ ┌────────────┐
+│CPU pool│ │I/O pool│ │ ProtoThreads │ │ Worker threads   │ │ protoCore  │
+│N=cores │ │ceil(N× │ │ newThread()  │ │ std::thread +    │ │ GC thread  │
+│        │ │factor) │ │ shared space │ │ own ProtoSpace   │ │            │
+└────────┘ └────────┘ └──────────────┘ └──────────────────┘ └────────────┘
 ```
 
-**Flujo de ejecución:**
+- **EventLoop** (`src/EventLoop.h`) runs all callbacks on the main thread. `main.cpp` keeps processing callbacks while any are pending or while Deferreds, workers, or HTTP/net handles are active.
+- **CPUThreadPool** defaults to `std::thread::hardware_concurrency()` threads (`--cpu-threads`). **IOThreadPool** defaults to `ceil(cores × factor)` threads with a factor of 3.0 (`--io-threads`, `--io-threads-factor`) and serves the fs, dns and io modules.
+- **ProtoThreads** are created with `ProtoSpace::newThread` and share the creating space.
+- **Worker threads** are described in [section 1.4](#14-eval-path-compile-load-run).
 
-1. Usuario crea `new Deferred(fn)`
-2. Se crea `DeferredTask` (tarea ligera, no un ProtoThread completo)
-3. Se encola en `CPUThreadPool`
-4. Thread del pool disponible ejecuta la tarea
-5. Cada tarea crea su propio `ProtoContext` aislado pero comparte el thread del SO
-6. Si `fn` accede a objetos inmutables, los comparte sin copia (mismo ProtoSpace)
-7. Si `fn` accede a objetos mutables, usa sincronización vía `mutableRoot`
-8. Cuando `fn` llama `resolve(value)`, se encola callback en EventLoop
-9. EventLoop ejecuta callbacks en thread principal
+**`Deferred` on the protoCore-native global** (`src/ProtoDeferred.cpp`):
 
-**Implementación:**
+1. `new Deferred(workerFn)` creates a pending instance and schedules `workerFn` on the next event-loop turn, on the main thread.
+2. The function's return value fulfils the Deferred; a thrown exception rejects it.
+3. `.then(cb)` and `.catch(cb)` register callbacks, which are drained through the EventLoop.
+4. `workerFn` and the instance are pinned in the wrapper's root set until the callback runs.
 
-```cpp
-class Deferred {
-    // Lightweight task structure (not a full ProtoThread)
-    struct DeferredTask {
-        JSValue func;
-        JSValue resolve;
-        JSValue reject;
-        JSContext* jsContext;
-        proto::ProtoSpace* space;
-        JSContextWrapper* wrapper;
-    };
-    
-    static void executeTask(std::shared_ptr<DeferredTask> task) {
-        // Execute in CPU pool thread
-        // Create isolated ProtoContext
-        // Execute JS function
-        // Schedule callback on event loop
-    }
-};
-```
+**`protoCore.runInThread(workerName, args)`** (`src/ProtoCoreNativeBindings.cpp`):
 
-**Ventajas del modelo Virtual Threads:**
+1. Looks up a registered native C++ worker (for example `cpuChunk`).
+2. Starts it on a ProtoThread in the shared `ProtoSpace` and returns a pending Deferred.
+3. Pins the Deferred and the arguments in the wrapper's root set.
+4. A CPU-pool task joins the thread and enqueues the resolution on the EventLoop.
 
-- **Eficiencia**: Múltiples Deferred pueden ejecutarse en el mismo thread del SO
-- **Escalabilidad**: Puede manejar millones de Deferred sin crear millones de threads
-- **Separación CPU/I/O**: Pool de CPU optimizado para trabajo computacional, pool de I/O para operaciones bloqueantes
-- **Compartir objetos inmutables**: Múltiples tareas en el mismo thread pueden compartir objetos inmutables sin overhead
+**QuickJS-side Deferred** (`src/Deferred.cpp`): installed on the QuickJS global, so it is visible only to code that QuickJS executes. Each task runs on a ProtoThread with its own `JSContextWrapper`; if the wrapper or `newThread` is unavailable, the Deferred is rejected.
 
 ### 5. GC Bridge
 
-**Responsabilidad:** Integrar el Garbage Collector de protoCore con objetos QuickJS.
+**Responsibility:** Track the correspondence between QuickJS `JSValue`s and protoCore objects at the boundary (`src/GCBridge.h`, `src/GCBridge.cpp`).
 
-**Problema:**
-- QuickJS tiene su propio GC
-- protoCore tiene su propio GC
-- Necesitamos unificar para evitar memory leaks
+**Problem:**
+- QuickJS and protoCore each have their own garbage collector.
+- A value that crosses the boundary must stay reachable on both sides for as long as it is in use.
 
-**Solución:**
+**Solution:**
+1. **Mappings stored in protoCore objects:** per-`JSContext` mappings are kept in a `ProtoSparseList` keyed by the hash of a string key derived from the `JSValue`. The structure is anchored through a `ProtoRootSet` handle, so the protoCore GC traces it. No STL maps hold `ProtoObject*`.
+2. **Lookup:** `registerMapping`, `getProtoObject` and `getJSValue` are used by `TypeBridge`, the CommonJS loader and the interpreter to avoid converting the same object twice and to preserve identity.
+3. **Root and weak flags:** `registerRoot` / `unregisterRoot` and `registerWeakRef` / `unregisterWeakRef` mark mapping entries.
+4. **Diagnostics:** `detectLeaks`, `reportLeaks` and `getMemoryStats`.
 
-1. **JSValue como GC Root:**
-   - Cada JSValue activo se registra como root en protoCore GC
-   - Cuando JSValue se libera, se desregistra
+Map updates are serialized with a recursive mutex.
 
-2. **ProtoObject → JSValue mapping:**
-   - Mantener mapa bidireccional
-   - Cuando protoCore GC recolecta, liberar JSValue correspondiente
+**Asynchronous callbacks:** a `ProtoObject*` captured by a C++ lambda for the EventLoop or a thread pool is pinned in the wrapper's `"protojs-async"` root set, or is a perpetual allocation such as a symbol. The rules are documented in `docs/GC_BRIDGING.md`.
 
-3. **Weak References:**
-   - Usar mecanismos de protoCore para weak refs
-   - Implementar WeakMap/WeakSet usando esto
+### 6. protoCore Module
 
-**Implementación:**
+**Responsibility:** Expose protoCore-specific capabilities to JavaScript.
 
-```cpp
-class GCBridge {
-    // Mapa JSValue <-> ProtoObject
-    static std::unordered_map<JSValue, const proto::ProtoObject*> jsToProto;
-    static std::unordered_map<const proto::ProtoObject*, JSValue> protoToJS;
-    
-    // Registrar root para GC
-    static void registerRoot(JSValue jsVal, const proto::ProtoObject* protoObj);
-    
-    // Desregistrar root
-    static void unregisterRoot(JSValue jsVal);
-    
-    // Callback para GC de protoCore
-    static void onProtoObjectCollected(const proto::ProtoObject* obj);
-};
-```
-
-### 6. Módulo protoCore
-
-**Responsabilidad:** Exponer características únicas de protoCore a JavaScript.
-
-**API JavaScript:**
+**On the protoCore-native global** (`src/ProtoCoreNativeBindings.cpp`), the `protoCore` object currently provides only `runInThread`:
 
 ```javascript
-// Colecciones especiales
+// Run the registered native worker "cpuChunk" on a ProtoThread.
+// Returns a Deferred that resolves with the worker's result.
+const d = protoCore.runInThread('cpuChunk', [200000]);
+d.then(result => console.log(result));
+```
+
+**QuickJS-side module** (`src/modules/ProtoCoreModule.cpp`), installed on the QuickJS global and reachable only from code that QuickJS executes, provides:
+
+```javascript
+// Collections
 const set = new protoCore.Set([1, 2, 3]);
 const multiset = new protoCore.Multiset([1, 1, 2, 3]);
 const sparseList = new protoCore.SparseList();
-const tuple = protoCore.Tuple([1, 2, 3]); // Inmutable
+const tuple = protoCore.Tuple([1, 2, 3]);
 
-// Control de mutabilidad
+// Mutability control
 const immutable = protoCore.ImmutableObject({a: 1});
 const mutable = protoCore.MutableObject({a: 1});
-
-// Utilidades
 protoCore.isImmutable(obj);
 protoCore.makeImmutable(obj);
 protoCore.makeMutable(obj);
 
-// Información del runtime
-protoCore.getThreadCount(); // Número de threads disponibles
-protoCore.getGCMemory();    // Memoria usada
+// Native worker on a ProtoThread
+protoCore.runInThread('cpuChunk', [200000]);
 ```
 
-**Implementación:**
-
-Cada colección especial tiene un wrapper que:
-1. Mantiene referencia al objeto protoCore interno
-2. Expone métodos JavaScript equivalentes
-3. Convierte entre JS y protoCore en cada operación
+Porting the collection and mutability APIs to the native global is not yet done.
 
 ---
 
-## Flujo de Ejecución Completo
+## End-to-End Execution Flow
 
-### Ejecución de un Script Simple
+### Running a Simple Script
 
 ```
-1. Usuario ejecuta: protojs script.js
+1. User runs: protojs script.js
 
 2. main.cpp:
-   - Crea JSContextWrapper
-   - Lee script.js
-   - Llama wrapper.eval(code, "script.js")
+   - Parses options (--cpu-threads, --io-threads, --input-type=module, ...)
+   - Creates JSContextWrapper(cpuThreads, ioThreads, ioFactor)
+   - Installs console, JSON, timers, event-loop bindings, Deferred,
+     protoCore, process, io and other modules on the native global
+   - Calls wrapper.eval(code, filename, inputTypeModule)
 
 3. JSContextWrapper::eval():
-   - QuickJS parsea y compila código → bytecode
-   - ExecutionEngine intercepta ejecución
+   - Creates a stack ProtoContext chained to the root context
+   - QuickJS compiles the source to bytecode (compile-only)
+   - loadBytecode() builds a ProtoBytecodeModule
+   - runBytecode() executes it in ProtoInterpreter
 
-4. Para cada operación en bytecode:
-   a. ExecutionEngine convierte operandos JS → protoCore
-   b. Ejecuta operación usando protoCore
-   c. Convierte resultado protoCore → JS
-   d. Retorna a QuickJS
+4. main.cpp drains the EventLoop while callbacks are pending or
+   Deferreds, workers or HTTP/net handles are active
 
-5. Cuando script termina:
-   - GC de protoCore puede recolectar objetos no usados
-   - JSContextWrapper se destruye
-   - Todo se limpia
+5. Shutdown:
+   - ~JSContextWrapper releases the async root set, GCBridge mappings,
+     thread pools, and the QuickJS context and runtime
 ```
 
-### Ejecución con Deferred
+### Running with Deferred and runInThread
 
 ```
-1. Usuario crea: new Deferred(fn)
+1. Script calls: new Deferred(fn)
+   - ProtoDeferred creates a pending instance, pins fn and the instance,
+     and enqueues fn on the EventLoop
+   - On the next turn the main thread calls fn; its return value
+     fulfils the Deferred, an exception rejects it
+   - .then/.catch callbacks run on the main thread through the EventLoop
 
-2. Deferred::constructor():
-   - Analiza fn para determinar si es paralelizable
-   - Crea DeferredData
-   - Encola en WorkerPool
-
-3. WorkerPool:
-   - Asigna a worker thread disponible
-   - Crea nuevo ProtoThread
-   - Crea nuevo ProtoContext (aislado)
-
-4. Worker thread ejecuta fn:
-   - Convierte parámetros JS → protoCore
-   - Ejecuta fn en contexto aislado
-   - Comparte objetos inmutables sin copia
-   - Sincroniza acceso a objetos mutables
-
-5. Cuando fn llama resolve(value):
-   - Convierte value protoCore → JS
-   - Notifica thread principal
-   - Ejecuta callbacks .then() en thread principal
-
-6. Thread principal:
-   - Recibe notificación
-   - Ejecuta callbacks en su contexto
-   - Limpia recursos del worker thread
+2. Script calls: protoCore.runInThread('cpuChunk', args)
+   - A ProtoThread is created in the shared ProtoSpace and runs the
+     native worker
+   - A CPU-pool task joins the thread
+   - The resolution is enqueued on the EventLoop; the Deferred's .then
+     callbacks run on the main thread
 ```
 
 ---
 
-## Decisiones de Diseño Clave
+## Key Design Decisions
 
-### 1. ¿Por qué mantener QuickJS runtime?
+### 1. Why keep QuickJS?
 
-**Decisión:** Mantener QuickJS solo para parsing/compiling, no para ejecución.
+**Decision:** Use QuickJS as the parser and bytecode compiler; execute the bytecode on protoCore.
 
-**Razón:**
-- QuickJS tiene un parser excelente y bien probado
-- No queremos reimplementar el parser
-- Pero queremos usar protoCore para todo lo demás (objetos, memoria, GC)
+**Rationale:**
+- QuickJS has a complete, well-tested parser and compiler.
+- Reimplementing them is not needed to evaluate protoCore as the runtime.
+- Objects, memory and garbage collection on the default path belong to protoCore.
 
-**Implementación:**
-- Interceptar todas las operaciones de QuickJS
-- Redirigir a protoCore
-- QuickJS runtime se usa como "shell" pero no ejecuta realmente
+**Implementation:**
+- Compile-only QuickJS compilation, then `ProtoBytecodeLoader` and `ProtoInterpreter`.
+- QuickJS still executes ES modules and the compile-failure fallback ([section 1.4](#14-eval-path-compile-load-run)).
 
-### 2. ¿Cómo manejar mutabilidad?
+### 2. How is mutability handled?
 
-**Decisión:** Objetos JS normales son mutables en protoCore, pero exponer API para inmutables.
+**Decision:** JavaScript objects and arrays are mutable protoCore objects; protoCore's immutable collections are used as internal storage.
 
-**Razón:**
-- Compatibilidad con JavaScript (objetos son mutables por defecto)
-- Pero queremos aprovechar inmutabilidad de protoCore cuando sea posible
-- Usuario puede elegir explícitamente
+**Rationale:**
+- JavaScript semantics require mutable objects by default.
+- protoCore's persistent collections give cheap snapshots and structural sharing.
 
-**Implementación:**
-- Objetos JS → `mutable_ref > 0` en protoCore
-- Arrays pequeños/densos → `ProtoList` (inmutable, eficiente)
-- Arrays sparse/grandes → `ProtoSparseList` (mutable)
-- API `protoCore.ImmutableObject()` para forzar inmutabilidad
+**Implementation:**
+- Objects and arrays are created with `newChild(ctx, true)`.
+- A mutable object update installs a new immutable snapshot with a compare-and-swap into a sharded `mutableRoot` table in `ProtoSpace`.
+- Array elements are stored in a persistent `ProtoList`.
 
-### 3. ¿Cómo compartir objetos entre threads?
+### 3. How are objects shared between threads?
 
-**Decisión:** Objetos inmutables se comparten sin copia, mutables requieren sincronización.
+**Decision:** Threads that share a `ProtoSpace` share objects directly; isolated JavaScript environments exchange serialized messages.
 
-**Razón:**
-- Ventaja clave de protoCore: inmutabilidad permite sharing seguro
-- Objetos mutables necesitan locks o atomic operations
+**Rationale:**
+- Immutable protoCore values can be read from any thread in the same space without copying.
+- Mutable objects are updated through protoCore's compare-and-swap snapshot mechanism rather than protoJS-level locks.
 
-**Implementación:**
-- Deferred detecta qué objetos son inmutables
-- Comparte punteros directamente (seguro porque son inmutables)
-- Objetos mutables usan `mutableRoot` de protoCore (thread-safe)
+**Implementation:**
+- `runInThread` workers run in the creating space.
+- `worker_threads` workers own a separate space and communicate through JSON and the EventLoop.
 
-### 4. ¿Cómo manejar el GC?
+### 4. How is garbage collection handled?
 
-**Decisión:** Unificar GC usando protoCore, registrar JSValues como roots.
+**Decision:** protoCore's GC owns all runtime objects on the default path; QuickJS values are confined to the boundary.
 
-**Razón:**
-- Evitar dos GCs compitiendo
-- Aprovechar GC eficiente de protoCore
-- Simplificar gestión de memoria
+**Rationale:**
+- It avoids two collectors competing for the same objects.
+- It lets execution state be traced precisely.
 
-**Implementación:**
-- GCBridge mantiene mapa JSValue ↔ ProtoObject
-- JSValues activos son roots en protoCore GC
-- Cuando protoCore GC recolecta, libera JSValue correspondiente
+**Implementation:**
+- Interpreter state lives in `ProtoContext` slots.
+- Objects crossing asynchronous boundaries are pinned in a `ProtoRootSet`.
+- `GCBridge` keeps boundary mappings in protoCore structures.
 
 ---
 
-## Estructura de Directorios Propuesta
+## Directory Structure
 
 ```
 protoJS/
 ├── src/
-│   ├── main.cpp                 # Entry point
-│   ├── JSContext.h/cpp           # Wrapper QuickJS + protoCore
-│   ├── TypeBridge.h/cpp          # Conversión de tipos
-│   ├── ExecutionEngine.h/cpp     # Motor de ejecución
-│   ├── GCBridge.h/cpp            # Integración GC
-│   ├── Deferred.h/cpp            # Deferred implementation
-│   ├── WorkerPool.h/cpp          # Pool de worker threads
-│   ├── ThreadManager.h/cpp      # Gestión de threads
-│   ├── console.h/cpp             # Módulo console
-│   ├── types/                    # Bridges para tipos específicos
-│   │   ├── NumberBridge.h/cpp
-│   │   ├── StringBridge.h/cpp
-│   │   ├── ArrayBridge.h/cpp
-│   │   ├── ObjectBridge.h/cpp
-│   │   └── FunctionBridge.h/cpp
-│   └── modules/                  # Módulos JavaScript
-│       ├── ProtoCoreModule.h/cpp
-│       └── ProcessModule.h/cpp
-├── tests/
-│   ├── unit/                     # Tests unitarios
-│   ├── integration/              # Tests de integración
-│   ├── benchmarks/               # Benchmarks
-│   └── demos/                    # Scripts de demostración
+│   ├── main.cpp                    # CLI entry point
+│   ├── JSContext.h/.cpp            # JSContextWrapper (QuickJS + protoCore)
+│   ├── TypeBridge.h/.cpp           # JSValue ↔ protoCore conversion
+│   ├── GCBridge.h/.cpp             # Boundary mappings
+│   ├── ExecutionEngine.h/.cpp      # Legacy QuickJS interception hooks
+│   ├── ProtoDeferred.h/.cpp        # Deferred on the native global
+│   ├── Deferred.h/.cpp             # QuickJS-side Deferred
+│   ├── ProtoCoreNativeBindings.*   # protoCore object on the native global
+│   ├── EventLoop*.h/.cpp           # Main-thread callback queue and bindings
+│   ├── CPUThreadPool.*, IOThreadPool.*, ThreadPoolExecutor.*
+│   ├── JSPrototypes.*, JSSymbols.*, ArrayElementsStorage.h
+│   ├── *Prototype.h/.cpp, *Builtin.h/.cpp   # Built-ins
+│   ├── runtime/                    # Compile-only frontend, loader, interpreter, specialiser
+│   ├── modules/                    # CommonJS/ES loaders and Node-style modules
+│   ├── native/                     # Native addon loading
+│   ├── npm/                        # Package resolution and installation
+│   ├── repl/, debugging/, profiling/, memory/, monitoring/, logging/
+│   └── benchmarking/, testing/     # Benchmark and test runner components
+├── tests/                          # See TESTING_STRATEGY.md
 ├── deps/
-│   └── quickjs/                  # QuickJS (submodule o copia)
-├── docs/                         # Documentación
+│   └── quickjs/                    # Vendored QuickJS sources
+├── docs/                           # User and developer documentation
+├── packaging/                      # Packaging scripts and templates
 ├── CMakeLists.txt
 ├── README.md
-└── ARCHITECTURE.md               # Este documento
+├── CONFORMANCE_JS.md
+└── ARCHITECTURE.md                 # This document
 ```
 
 ---
 
-## Consideraciones de Performance
+## Performance Considerations
 
-### Optimizaciones Clave
+### Key Optimizations
 
-1. **Tagged Pointers:**
-   - Números pequeños y booleans no se alocan
-   - Conversión directa sin overhead
+1. **Tagged pointers:**
+   - SmallIntegers (54-bit) are stored in the pointer and need no allocation.
+   - The interpreter has inline SmallInteger fast paths for hot opcodes.
 
-2. **Structural Sharing:**
-   - Operaciones en arrays/strings no copian datos
-   - Compartir entre threads es gratis para inmutables
+2. **Structural sharing:**
+   - protoCore collections are persistent, so array element updates share structure with the previous version.
+   - Immutable values can be shared between threads of the same space without copying.
 
-3. **Per-Thread Allocation:**
-   - Cada thread aloca desde su arena local
-   - Sin locks en la mayoría de casos
+3. **Per-thread allocation:**
+   - protoCore allocates cells from per-thread free lists, avoiding locks on the common path.
 
-4. **Inline Caching:**
-   - Cache de lookups de propiedades
-   - Reducir traversals de prototype chain
+4. **Attribute lookup caching:**
+   - protoCore keeps a per-thread attribute cache.
+   - protoJS uses interned `JSSymbols` keys so lookups compare pointers instead of building strings on each access.
 
-### Benchmarks Objetivo (Fase 1)
+5. **Bytecode specialisation (on by default):**
+   - Fused opcodes for common loop shapes are emitted in `compact` mode unless `PROTOJS_SPECIALISER` selects `nop` or `off`.
 
-- **Array operations:** 2-5x más rápido que Node.js para operaciones inmutables
-- **String operations:** Similar o mejor que Node.js
-- **Concurrent operations:** 5-10x más rápido con Deferred vs Promise (en multi-core)
-- **Memory usage:** Similar o mejor que Node.js (gracias a structural sharing)
+Measured results and the standard benchmark suite are described in [README.md](README.md) and [tests/benchmarks/standard/README.md](tests/benchmarks/standard/README.md).
 
 ---
 
-## Riesgos y Mitigaciones
+## Known Limitations
 
-### Riesgo 1: Complejidad de integración QuickJS + protoCore
-
-**Mitigación:**
-- Empezar simple, solo interceptar operaciones básicas
-- Agregar complejidad gradualmente
-- Tests exhaustivos en cada paso
-
-### Riesgo 2: Performance peor que Node.js inicialmente
-
-**Mitigación:**
-- Esperado en Fase 1 (demostrador)
-- Enfocarse en casos donde protoCore brilla (concurrencia, inmutabilidad)
-- Optimizar iterativamente
-
-### Riesgo 3: Bugs en conversión de tipos
-
-**Mitigación:**
-- Tests exhaustivos para cada tipo
-- Edge cases documentados
-- Fuzzing para casos raros
-
-### Riesgo 4: GC pauses largos
-
-**Mitigación:**
-- Usar GC concurrente de protoCore
-- Tuning de parámetros GC
-- Monitoring y profiling
-
----
-
-## Próximos Pasos Técnicos
-
-1. **Completar TypeBridge:**
-   - Implementar todas las conversiones
-   - Tests para cada tipo
-   - Edge cases
-
-2. **Implementar ExecutionEngine:**
-   - Interceptar operaciones básicas
-   - Delegar a protoCore
-   - Tests de ejecución
-
-3. **Completar Deferred:**
-   - Worker pool
-   - Thread management
-   - Tests de concurrencia
-
-4. **Integrar GC:**
-   - GCBridge completo
-   - Tests de memory management
-   - Leak detection
-
-5. **Módulos básicos:**
-   - protoCore module
-   - process module
-   - Tests de módulos
+- ES modules (`--input-type=module`) are executed by QuickJS, not by `ProtoInterpreter`.
+- A source that the compile-only frontend rejects falls back to QuickJS evaluation unless `PROTOJS_NO_FALLBACK=1` is set.
+- `new Deferred(fn)` runs `fn` on the main thread. Parallel CPU work uses `protoCore.runInThread` with a registered native worker, or `worker_threads`.
+- The protoCore collection and mutability APIs (`Set`, `Multiset`, `SparseList`, `Tuple`, `ImmutableObject`, …) exist only in the QuickJS-side module.
+- `TypeBridge` has no `Date` conversion.
+- The `ExecutionEngine` interception hooks remain in the source but are not used on the default path.

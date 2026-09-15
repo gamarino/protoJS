@@ -1,598 +1,311 @@
-# Estrategia de Testing: protoJS
+# protoJS Testing Strategy
 
-**Versión:** 1.0  
-**Fecha:** 2026-01-24
-
----
-
-## Objetivos de Testing
-
-1. **Validar funcionalidad:** Asegurar que todas las características funcionan correctamente
-2. **Demostrar potencial:** Mostrar ventajas de protoCore sobre Node.js
-3. **Prevenir regresiones:** Detectar bugs temprano
-4. **Documentar comportamiento:** Tests como documentación ejecutable
+**Last reviewed:** 2026-09-15
 
 ---
 
-## Estructura de Tests
+## Testing Goals
+
+1. **Validate functionality:** Check C++ runtime components and JavaScript-level behaviour.
+2. **Track conformance:** Measure ECMAScript conformance with Test262 on the protoCore execution path.
+3. **Prevent regressions:** Detect interpreter and runtime breakage early with fast smoke and directed tests.
+4. **Measure performance:** Compare protoJS with Node.js and QuickJS on a standard benchmark suite.
+5. **Document behaviour:** Keep scripts that double as executable examples.
+
+---
+
+## Test Layout
 
 ```
 tests/
-├── unit/                    # Tests unitarios (C++ con Catch2 o Google Test)
-│   ├── TypeBridge/
-│   │   ├── test_number.cpp
-│   │   ├── test_string.cpp
-│   │   ├── test_array.cpp
-│   │   ├── test_object.cpp
-│   │   └── test_function.cpp
-│   ├── Deferred/
-│   │   ├── test_basic.cpp
-│   │   ├── test_concurrent.cpp
-│   │   └── test_immutable_sharing.cpp
-│   ├── ExecutionEngine/
-│   │   └── test_execution.cpp
-│   └── GCBridge/
-│       └── test_gc.cpp
-│
-├── integration/             # Tests de integración (JavaScript)
-│   ├── basic/
-│   │   ├── hello_world.js
-│   │   ├── arithmetic.js
-│   │   └── strings.js
-│   ├── collections/
-│   │   ├── arrays.js
-│   │   ├── objects.js
-│   │   └── protoCore_collections.js
-│   ├── deferred/
-│   │   ├── basic_deferred.js
-│   │   ├── concurrent_deferred.js
-│   │   └── immutable_sharing.js
-│   └── modules/
-│       ├── console.js
-│       ├── protoCore.js
-│       └── process.js
-│
-├── benchmarks/              # Benchmarks de performance
-│   ├── array_operations.js
-│   ├── string_operations.js
-│   ├── concurrent_operations.js
-│   └── memory_usage.js
-│
-└── demos/                   # Scripts de demostración
-    ├── hello_world.js
-    ├── immutable_arrays.js
-    ├── deferred_demo.js
-    └── protoCore_collections.js
+├── CMakeLists.txt          # Catch2 unit test target (protojs_tests)
+├── README.md               # How to run each layer; last validated baseline
+├── run_all_tests.sh        # Single entry point (see "Success Criteria")
+├── unit/                   # C++ unit tests (Catch2)
+│   ├── test_main.cpp
+│   ├── test_event_loop.cpp
+│   ├── test_thread_pools.cpp
+│   ├── test_io_thread_pool.cpp
+│   ├── test_semver.cpp
+│   ├── test_npm_registry.cpp
+│   ├── test_benchmark_runner.cpp
+│   ├── test_nodejs_test_runner.cpp
+│   └── test_array_storage_microbench.cpp
+├── integration/            # JavaScript scripts, one directory per area
+│   ├── basic/  buffer/  collections/  crypto/  deferred/  dgram/
+│   ├── fs/  http/  modules/  native_addons/  net/  profiling/  stream/
+│   └── test_deferred_basic.js
+├── conformity/             # Built-in and module-identity checks
+│   ├── builtins/  import/  bootstrap/
+│   └── run_conformity.js
+├── test262/                # Test262 tooling (the suite itself is not vendored)
+│   ├── runner/             # test262_runner.js, proto_eval_smoke.js, batch scripts
+│   ├── config/             # test262_paths.json, skip lists
+│   ├── harness/            # assert.js, sta.js
+│   └── tests/              # Directed tests (phase6_native_global.js, language/, built-ins/)
+├── benchmarks/             # Standard suite, comparison runners, dated results
+│   ├── standard/
+│   └── results/
+├── demos/                  # Demonstration scripts
+├── native_addons/          # Sources of the test addons built by CMakeLists.txt
+├── manual/  scripts/       # Ad-hoc scripts
+└── test_*.js, test_getfirstparent.cpp, run_gdb.sh, run_gdb_batch.sh
+                            # Ad-hoc debugging helpers, not registered with CTest
 ```
 
 ---
 
-## Tests Unitarios (C++)
+## C++ Unit Tests
 
-### Framework: Catch2 o Google Test
+### Framework: Catch2 with CTest
 
-**Ejemplo: TypeBridge - Numbers**
+`BUILD_TESTING` is `ON` by default. `CMakeLists.txt` uses an installed Catch2 package or fetches it with `FetchContent`. `tests/CMakeLists.txt` then builds `protojs_tests` from `tests/unit/*.cpp`, links it against `protojs_core`, and registers every test case with CTest through `catch_discover_tests`.
+
+**Coverage by file:**
+
+| File | Component | Test cases |
+|------|-----------|-----------|
+| `test_event_loop.cpp` | `EventLoop` | 3 |
+| `test_thread_pools.cpp` | `ThreadPoolExecutor`, `CPUThreadPool`, `IOThreadPool` | 3 |
+| `test_io_thread_pool.cpp` | `IOThreadPool` | 2 |
+| `test_semver.cpp` | `Semver` (npm version resolution) | 5 |
+| `test_npm_registry.cpp` | `NPMRegistry` | 3 |
+| `test_benchmark_runner.cpp` | `BenchmarkRunner` | 9 |
+| `test_nodejs_test_runner.cpp` | `NodeJSTestRunner` | 11 |
+| `test_array_storage_microbench.cpp` | Array element storage micro-benchmark | 1 |
+
+Four of the 37 test cases carry Catch2 hidden tags: two `[.integration]`, one `[.network]` and one `[.bench]`. Hidden test cases are not discovered by default, so CTest registers 33 tests. Hidden cases can be run explicitly by tag, for example `./build/tests/protojs_tests "[.integration]"`.
+
+**Example: `tests/unit/test_semver.cpp`**
 
 ```cpp
-// tests/unit/TypeBridge/test_number.cpp
-#include <catch2/catch.hpp>
-#include "TypeBridge.h"
-#include "JSContext.h"
+#include <catch2/catch_all.hpp>
+#include "../../src/npm/Semver.h"
 
-TEST_CASE("TypeBridge: Number to SmallInteger", "[TypeBridge]") {
-    protojs::JSContextWrapper wrapper;
-    JSContext* ctx = wrapper.getJSContext();
-    proto::ProtoContext* pCtx = wrapper.getProtoContext();
-    
-    // Test pequeño entero
-    JSValue jsNum = JS_NewInt32(ctx, 42);
-    const proto::ProtoObject* protoObj = protojs::TypeBridge::fromJS(ctx, jsNum, pCtx);
-    
-    REQUIRE(protoObj->isInteger(pCtx));
-    REQUIRE(protoObj->asLong(pCtx) == 42);
-    
-    // Test conversión de vuelta
-    JSValue back = protojs::TypeBridge::toJS(ctx, protoObj, pCtx);
-    int32_t result;
-    JS_ToInt32(ctx, &result, back);
-    REQUIRE(result == 42);
-    
-    JS_FreeValue(ctx, jsNum);
-    JS_FreeValue(ctx, back);
-}
+using namespace protojs;
 
-TEST_CASE("TypeBridge: Number to LargeInteger", "[TypeBridge]") {
-    protojs::JSContextWrapper wrapper;
-    JSContext* ctx = wrapper.getJSContext();
-    proto::ProtoContext* pCtx = wrapper.getProtoContext();
-    
-    // Test entero grande
-    JSValue jsBigNum = JS_NewInt64(ctx, 1LL << 60);
-    const proto::ProtoObject* protoObj = protojs::TypeBridge::fromJS(ctx, jsBigNum, pCtx);
-    
-    REQUIRE(protoObj->isInteger(pCtx));
-    REQUIRE(protoObj->asLong(pCtx) == (1LL << 60));
-    
-    JS_FreeValue(ctx, jsBigNum);
-}
+TEST_CASE("Semver::parse", "[Semver][Phase6]") {
+    int major, minor, patch;
+    std::string prerelease, build;
 
-TEST_CASE("TypeBridge: Float to Double", "[TypeBridge]") {
-    protojs::JSContextWrapper wrapper;
-    JSContext* ctx = wrapper.getJSContext();
-    proto::ProtoContext* pCtx = wrapper.getProtoContext();
-    
-    JSValue jsFloat = JS_NewFloat64(ctx, 3.14159);
-    const proto::ProtoObject* protoObj = protojs::TypeBridge::fromJS(ctx, jsFloat, pCtx);
-    
-    REQUIRE(protoObj->isDouble(pCtx));
-    REQUIRE(protoObj->asDouble(pCtx) == Approx(3.14159));
-    
-    JS_FreeValue(ctx, jsFloat);
+    SECTION("valid full version") {
+        REQUIRE(Semver::parse("1.2.3", major, minor, patch, prerelease, build));
+        REQUIRE(major == 1);
+        REQUIRE(minor == 2);
+        REQUIRE(patch == 3);
+    }
 }
 ```
 
-**Ejemplo: Deferred - Concurrent Execution**
+**Running:**
 
-```cpp
-// tests/unit/Deferred/test_concurrent.cpp
-#include <catch2/catch.hpp>
-#include "Deferred.h"
-#include "JSContext.h"
-#include <thread>
-#include <atomic>
-
-TEST_CASE("Deferred: Concurrent execution", "[Deferred]") {
-    protojs::JSContextWrapper wrapper;
-    JSContext* ctx = wrapper.getJSContext();
-    
-    std::atomic<int> counter{0};
-    const int numDeferreds = 10;
-    std::vector<JSValue> deferreds;
-    
-    // Crear múltiples deferreds
-    for (int i = 0; i < numDeferreds; i++) {
-        // Crear función que incrementa counter
-        const char* code = R"(
-            (function(resolve) {
-                // Simular trabajo
-                let sum = 0;
-                for (let i = 0; i < 1000000; i++) {
-                    sum += i;
-                }
-                resolve(sum);
-            })
-        )";
-        
-        JSValue func = JS_Eval(ctx, code, strlen(code), "test", JS_EVAL_TYPE_GLOBAL);
-        JSValue deferred = /* crear Deferred con func */;
-        deferreds.push_back(deferred);
-    }
-    
-    // Esperar a que todos completen
-    // (implementar wait mechanism)
-    
-    // Verificar que todos ejecutaron
-    REQUIRE(counter.load() == numDeferreds);
-    
-    // Limpiar
-    for (auto d : deferreds) {
-        JS_FreeValue(ctx, d);
-    }
-}
+```bash
+cmake -B build -S .
+cmake --build build
+ctest --test-dir build --output-on-failure -E "integration|network"
 ```
 
 ---
 
-## Tests de Integración (JavaScript)
+## Integration Tests (JavaScript)
 
-### Framework: Ejecutar scripts y verificar salida
+### Framework: Run scripts and inspect their output
 
-**Ejemplo: Basic - Hello World**
+Integration scripts are run directly with the `protojs` binary. Most of them print results rather than assert, so a run is judged by its exit status and output. `run_all_tests.sh` does not run them.
 
-```javascript
-// tests/integration/basic/hello_world.js
-console.log("Hello, protoJS!");
-
-// Verificar que console.log funciona
-const output = captureConsoleOutput(() => {
-    console.log("Test message");
-});
-assert(output === "Test message\n");
+```bash
+./build/protojs tests/integration/fs/test_fs.js
+./build/protojs tests/integration/modules/test_require.js
 ```
 
-**Ejemplo: Collections - Immutable Arrays**
+**Example: `tests/integration/basic/hello_world.js`**
 
 ```javascript
-// tests/integration/collections/immutable_arrays.js
+// Basic hello world test
 
-// Test que arrays son inmutables por defecto
-const arr1 = [1, 2, 3];
-const arr2 = arr1.push(4); // Debe retornar nuevo array
+console.log("Hello, World!");
+console.log("protoJS is running!");
 
-assert(arr1.length === 3); // Original no cambió
-assert(arr2.length === 4); // Nuevo array tiene el elemento
-
-// Test structural sharing
-const arr3 = [1, 2, 3];
-const arr4 = arr3.slice(0, 2); // Comparte estructura
-// Verificar que comparten memoria (usando protoCore internals)
+const x = 10;
+const y = 20;
+const sum = x + y;
+console.log(`${x} + ${y} = ${sum}`);
 ```
 
-**Ejemplo: Deferred - Basic**
+The native addon tests in `tests/integration/native_addons/` load `simple_addon` and `fixture_addon`. Both are shared libraries that `CMakeLists.txt` builds from `tests/native_addons/`.
 
-```javascript
-// tests/integration/deferred/basic_deferred.js
+---
 
-const deferred = new Deferred((resolve, reject) => {
-    // Trabajo pesado
-    let sum = 0;
-    for (let i = 0; i < 10000000; i++) {
-        sum += i;
-    }
-    resolve(sum);
-});
+## Conformance Tests
 
-deferred.then(value => {
-    assert(value === 49999995000000);
-    console.log("Deferred completed successfully");
-});
+### Smoke test
 
-// Esperar a que complete
-await deferred;
+`tests/test262/runner/proto_eval_smoke.js` runs `protojs --proto-eval -e <code>` on six short cases:
+- arithmetic
+- `typeof` on a number and on a function
+- comparison
+- `Array.isArray`
+- a top-level `var` on the native global
+
+It fails if any case exits with a non-zero status. Run it after every interpreter change:
+
+```bash
+node tests/test262/runner/proto_eval_smoke.js
 ```
 
-**Ejemplo: Deferred - Immutable Sharing**
+The `protojs` binary accepts `--proto-eval` and does not read `PROTOJS_USE_PROTO_EVAL`; both remain in the scripts for compatibility, and the protoCore path is always active.
 
-```javascript
-// tests/integration/deferred/immutable_sharing.js
+### Directed tests
 
-// Crear array grande inmutable
-const largeArray = Array.from({length: 1000000}, (_, i) => i);
+`tests/test262/tests/` holds small Test262-style tests: `phase6_native_global.js`, plus cases under `language/` and `built-ins/`.
 
-// Crear múltiples deferreds que usan el mismo array
-const deferreds = [];
-for (let i = 0; i < 10; i++) {
-    const d = new Deferred((resolve) => {
-        // Todos acceden al mismo array (compartido, no copiado)
-        const sum = largeArray.reduce((a, b) => a + b, 0);
-        resolve(sum);
-    });
-    deferreds.push(d);
-}
+### Test262
 
-// Esperar a que todos completen
-const results = await Promise.all(deferreds);
-assert(results.every(r => r === 499999500000));
+`tests/test262/runner/test262_runner.js` performs these steps:
 
-// Verificar que array no fue copiado (usando protoCore internals)
-// Memoria usada debe ser ~O(n) no O(n*threads)
+1. Reads `tests/test262/config/test262_paths.json`. By default this sets the Test262 root to `../test262`, the patterns to `language` and `built-ins`, a 5000 ms timeout, and `use_proto_eval: true`.
+2. Discovers tests and parses their front matter.
+3. Prepends `assert.js`, `sta.js` and any required includes.
+4. Runs each test with the `protojs` binary. It sets `PROTOJS_NO_FALLBACK=1`, so a compile failure is reported instead of being hidden by the QuickJS fallback.
+5. Writes a JSON snapshot to `tests/test262/reports/`.
+
+The Test262 suite is not part of this repository; clone it next to protoJS or set `TEST262_ROOT`.
+
+**Environment overrides:**
+
+| Variable | Effect |
+|----------|--------|
+| `TEST262_ROOT` | Location of the Test262 checkout |
+| `TEST262_PATTERNS` | Comma-separated test patterns |
+| `PROTOJS` | Path to the `protojs` binary |
+| `TEST262_USE_PROTO_EVAL` | Forces the protoCore path (already the configured default) |
+| `TEST262_CONCURRENCY` | Number of tests run in parallel (default 1) |
+| `TEST262_VERBOSE=1` | Prints one line per test |
+
+```bash
+TEST262_ROOT=../test262 TEST262_PATTERNS=built-ins/Array/isArray \
+  node tests/test262/runner/test262_runner.js
 ```
 
-**Ejemplo: protoCore Module**
+Results and methodology are recorded in [CONFORMANCE_JS.md](CONFORMANCE_JS.md) and [docs/TEST262_STATUS.md](docs/TEST262_STATUS.md). A full-suite run starts one `protojs` process per test and can take a long time; use patterns for day-to-day work.
 
-```javascript
-// tests/integration/modules/protoCore.js
+### Conformity suite
 
-// Test ProtoSet
-const set = new protoCore.Set([1, 2, 3, 3, 4]);
-assert(set.size === 4); // Duplicados eliminados
-assert(set.has(1));
-assert(!set.has(5));
+`tests/conformity/` holds these checks:
+- `builtins/`: Number, String, Array and Object conformity scripts.
+- `import/`: module identity and repeated `require`.
+- `bootstrap/`: a manifest of a minimal Test262 subset.
 
-// Test ProtoMultiset
-const multiset = new protoCore.Multiset([1, 1, 2, 3]);
-assert(multiset.count(1) === 2);
-assert(multiset.size === 4); // Total incluyendo duplicados
-
-// Test ProtoTuple (inmutable)
-const tuple = protoCore.Tuple([1, 2, 3]);
-assert(tuple.length === 3);
-// tuple.push(4); // Debe fallar (inmutable)
-
-// Test mutabilidad
-const mutable = protoCore.MutableObject({a: 1});
-mutable.a = 2; // OK
-assert(mutable.a === 2);
-
-const immutable = protoCore.ImmutableObject({a: 1});
-// immutable.a = 2; // Debe fallar o crear nuevo objeto
-```
+`node tests/conformity/run_conformity.js` runs them; set `PROTOJS` to choose the binary.
 
 ---
 
 ## Benchmarks
 
-### Framework: Comparar con Node.js
+### Framework: Compare with Node.js and QuickJS
 
-**Ejemplo: Array Operations**
+The standard suite in `tests/benchmarks/standard/` consists of self-contained scripts that run unchanged under `node` and `protojs`. Each script prints a final `__BENCH_RESULT__<json>` line with an in-process `time_ms` (median of several runs). The runners compare that time rather than wall-clock time.
 
-```javascript
-// tests/benchmarks/array_operations.js
+```bash
+# protoJS vs Node.js; writes tests/benchmarks/results/standard_comparison.json
+node tests/benchmarks/run_standard_comparison.js
 
-const size = 1000000;
-const iterations = 100;
-
-// Test: Crear y modificar arrays
-console.time("protoJS: Array operations");
-for (let i = 0; i < iterations; i++) {
-    const arr = Array.from({length: size}, (_, i) => i);
-    const arr2 = arr.map(x => x * 2);
-    const arr3 = arr2.filter(x => x % 2 === 0);
-}
-console.timeEnd("protoJS: Array operations");
-
-// Comparar con Node.js ejecutando el mismo código
-// Objetivo: protoJS debe ser 2-5x más rápido para operaciones inmutables
+# protoJS vs QuickJS
+node tests/benchmarks/run_standard_comparison_quickjs.js
 ```
 
-**Ejemplo: Concurrent Operations**
+The runners look for `build_release/protojs` first, then `build/protojs`. Workloads and details are listed in [tests/benchmarks/standard/README.md](tests/benchmarks/standard/README.md). Dated result files are kept in `tests/benchmarks/results/`. The parallel CPU benchmark (`parallel_cpu.js`) uses `protoCore.runInThread` when available.
 
-```javascript
-// tests/benchmarks/concurrent_operations.js
+---
 
-const numTasks = 100;
-const workPerTask = 1000000;
+## Demonstration Scripts
 
-// Test con Deferred (protoJS)
-console.time("protoJS: Concurrent with Deferred");
-const deferreds = [];
-for (let i = 0; i < numTasks; i++) {
-    const d = new Deferred((resolve) => {
-        let sum = 0;
-        for (let j = 0; j < workPerTask; j++) {
-            sum += j;
-        }
-        resolve(sum);
-    });
-    deferreds.push(d);
-}
-await Promise.all(deferreds);
-console.timeEnd("protoJS: Concurrent with Deferred");
+`tests/demos/` contains short scripts that print what they do:
 
-// Test con Promise (Node.js equivalente)
-console.time("Node.js: Concurrent with Promise");
-const promises = [];
-for (let i = 0; i < numTasks; i++) {
-    const p = new Promise((resolve) => {
-        // Mismo trabajo pero en thread principal
-        let sum = 0;
-        for (let j = 0; j < workPerTask; j++) {
-            sum += j;
-        }
-        resolve(sum);
-    });
-    promises.push(p);
-}
-await Promise.all(promises);
-console.timeEnd("Node.js: Concurrent with Promise");
+| Script | Shows |
+|--------|-------|
+| `deferred_demo.js` | Creating a `Deferred` |
+| `immutable_arrays.js` | `concat` returning a new array while the original is unchanged |
+| `protoCore_collections.js` | `protoCore.Set` and `protoCore.Multiset` |
+| `test_virtual_threads.js` | Availability of `Deferred`, the `io` module and thread-pool options |
 
-// Objetivo: protoJS debe ser 5-10x más rápido en multi-core
-```
+The scripts check whether an API exists (for example `typeof Deferred`, `protoCore.Set`) and skip sections that are not available. `protoCore.Set` and `protoCore.Multiset` are only provided by the QuickJS-side module (see [ARCHITECTURE.md](ARCHITECTURE.md)).
 
-**Ejemplo: Memory Usage**
-
-```javascript
-// tests/benchmarks/memory_usage.js
-
-// Test: Crear muchos arrays compartiendo estructura
-const baseArray = Array.from({length: 1000000}, (_, i) => i);
-
-const arrays = [];
-for (let i = 0; i < 100; i++) {
-    // Cada array comparte estructura con baseArray
-    const arr = baseArray.map(x => x + i);
-    arrays.push(arr);
-}
-
-// Medir memoria usada
-const memory = protoCore.getGCMemory();
-console.log(`Memory used: ${memory.used} bytes`);
-console.log(`Arrays created: ${arrays.length}`);
-console.log(`Memory per array: ${memory.used / arrays.length} bytes`);
-
-// Objetivo: Memoria debe ser ~O(n) no O(n*arrays)
-// Gracias a structural sharing
+```bash
+./build/protojs tests/demos/immutable_arrays.js
 ```
 
 ---
 
-## Scripts de Demostración
+## Success Criteria
 
-### Hello World
+`tests/run_all_tests.sh` is the pass/fail gate. It stops at the first failing step:
 
-```javascript
-// tests/demos/hello_world.js
-console.log("Hello, protoJS!");
-console.log("Running on protoCore runtime");
-```
+1. `cmake --build build`
+2. `ctest --output-on-failure -E "integration|network"`
+3. The smoke test (`proto_eval_smoke.js`)
+4. The directed test `tests/test262/tests/phase6_native_global.js`
+5. The Test262 patterns from the configuration, only when `TEST262_ROOT` points to a Test262 checkout
 
-### Immutable Arrays
-
-```javascript
-// tests/demos/immutable_arrays.js
-
-console.log("=== Immutable Arrays Demo ===");
-
-// Crear array
-const arr1 = [1, 2, 3];
-console.log("Original array:", arr1);
-
-// Operaciones retornan nuevos arrays
-const arr2 = arr1.push(4);
-console.log("After push(4):");
-console.log("  Original:", arr1); // [1, 2, 3] - no cambió
-console.log("  New:", arr2);       // [1, 2, 3, 4]
-
-// Structural sharing
-const arr3 = arr1.slice(0, 2);
-console.log("Slice [0,2]:", arr3); // [1, 2]
-// arr3 comparte estructura con arr1 (no copia)
-```
-
-### Deferred Demo
-
-```javascript
-// tests/demos/deferred_demo.js
-
-console.log("=== Deferred Demo ===");
-
-// Crear deferred que hace trabajo pesado
-const deferred = new Deferred((resolve, reject) => {
-    console.log("Deferred started in worker thread");
-    
-    // Simular trabajo pesado
-    let sum = 0;
-    for (let i = 0; i < 100000000; i++) {
-        sum += i;
-    }
-    
-    console.log("Deferred completed, sum =", sum);
-    resolve(sum);
-});
-
-console.log("Deferred created, waiting...");
-
-deferred.then(value => {
-    console.log("Resolved with value:", value);
-});
-
-// Esperar
-await deferred;
-console.log("Done!");
-```
-
-### protoCore Collections
-
-```javascript
-// tests/demos/protoCore_collections.js
-
-console.log("=== protoCore Collections Demo ===");
-
-// ProtoSet
-const set = new protoCore.Set([1, 2, 3, 3, 4, 4, 5]);
-console.log("Set:", Array.from(set)); // [1, 2, 3, 4, 5]
-
-// ProtoMultiset
-const multiset = new protoCore.Multiset([1, 1, 2, 2, 2, 3]);
-console.log("Multiset count(2):", multiset.count(2)); // 3
-console.log("Multiset size:", multiset.size); // 6
-
-// ProtoTuple (inmutable)
-const tuple = protoCore.Tuple([1, 2, 3]);
-console.log("Tuple:", Array.from(tuple));
-// tuple.push(4); // Error: inmutable
-
-// Control de mutabilidad
-const mutable = protoCore.MutableObject({a: 1});
-mutable.a = 2;
-console.log("Mutable object:", mutable);
-
-const immutable = protoCore.ImmutableObject({a: 1});
-// immutable.a = 2; // Crea nuevo objeto o error
-console.log("Immutable object:", immutable);
-```
+The binary and build directory can be overridden with `PROTOJS` and `BUILD_DIR`. The last validated baseline is recorded in [tests/README.md](tests/README.md).
 
 ---
 
-## Criterios de Éxito
+## Testing Tools
 
-### Cobertura de Código
+### C++ tests
 
-- **Objetivo:** >90% coverage en código crítico
-- **Herramienta:** gcov + lcov
-- **Archivos críticos:**
-  - TypeBridge
-  - ExecutionEngine
-  - Deferred
-  - GCBridge
+- **Framework:** Catch2, registered with CTest.
+- **Coverage:** configure with `-DENABLE_COVERAGE=ON` to add `--coverage` instrumentation. No report target is defined, so reports are produced with external tools that read gcov data.
+- **Debugging:** `tests/run_gdb.sh` and `tests/run_gdb_batch.sh`.
+- **Sanitizers:** no dedicated CMake option; pass the flags through `CMAKE_CXX_FLAGS` when needed.
 
-### Performance
+### JavaScript tests
 
-- **Array operations:** 2-5x más rápido que Node.js
-- **Concurrent operations:** 5-10x más rápido con Deferred
-- **Memory usage:** Similar o mejor que Node.js
-
-### Funcionalidad
-
-- Todos los tipos básicos JS funcionan
-- Deferred ejecuta en worker threads
-- Módulo protoCore funciona correctamente
-- GC no tiene memory leaks
-
-### Estabilidad
-
-- Tests pasan consistentemente
-- No hay crashes en tests
-- No hay memory leaks detectados
-- Performance es consistente
-
----
-
-## Herramientas de Testing
-
-### C++ Tests
-
-- **Framework:** Catch2 o Google Test
-- **Coverage:** gcov + lcov
-- **Memory:** Valgrind o AddressSanitizer
-- **Threading:** ThreadSanitizer
-
-### JavaScript Tests
-
-- **Runner:** Script custom que ejecuta .js files
-- **Assertions:** Implementar assert() básico
-- **Comparison:** Comparar salida con expected output
+- **Runner:** the `protojs` binary for individual scripts. Node.js scripts drive the smoke test, Test262, the conformity suite and the benchmarks.
+- **Assertions:** Test262 tests use the harness in `tests/test262/harness/`; most integration scripts print results.
 
 ### Benchmarks
 
-- **Framework:** Custom benchmark runner
-- **Comparison:** Ejecutar mismo código en Node.js
-- **Metrics:** Tiempo, memoria, CPU usage
+- **Framework:** the standard suite and its comparison runners.
+- **Comparison engines:** Node.js and QuickJS.
+- **Metric:** in-process `time_ms` per benchmark.
 
 ---
 
-## Proceso de Testing
+## Testing Process
 
-### Desarrollo
+### Development
 
-1. Escribir test antes de implementar (TDD cuando sea posible)
-2. Implementar feature
-3. Ejecutar tests
-4. Iterar hasta que pasen
+1. Add or update a test that covers the change: a unit test for C++ components, a directed or Test262 pattern for language semantics.
+2. Implement the change.
+3. Run the smoke test and the relevant Test262 patterns.
+4. Iterate until they pass.
 
-### Pre-commit
+### Before submitting changes
 
-1. Ejecutar todos los tests unitarios
-2. Ejecutar tests de integración básicos
-3. Verificar que no hay memory leaks
-4. Verificar coverage mínimo
+1. Run `tests/run_all_tests.sh`.
+2. For interpreter or built-in changes, rerun the affected Test262 patterns and compare with the previous snapshot.
+3. For performance-sensitive changes, run the standard benchmark comparison.
 
-### CI/CD (Futuro)
+### Continuous integration
 
-1. Ejecutar todos los tests
-2. Ejecutar benchmarks
-3. Comparar con baseline
-4. Generar reporte de coverage
-5. Publicar resultados
+No CI workflow is configured in this repository; the steps above are run locally.
 
 ---
 
-## Métricas a Trackear
+## Metrics to Track
 
-1. **Coverage:** % de código cubierto
-2. **Test count:** Número de tests
-3. **Pass rate:** % de tests que pasan
-4. **Performance:** Tiempo de ejecución de benchmarks
-5. **Memory:** Uso de memoria en tests
-6. **Stability:** Número de crashes/errors
+1. **Unit tests:** CTest pass count.
+2. **Conformance:** Test262 pass rate per pattern (JSON snapshots, `CONFORMANCE_JS.md`).
+3. **Performance:** per-benchmark `time_ms` and the ratios reported by the comparison runners.
+4. **Coverage:** line coverage when built with `ENABLE_COVERAGE`.
+5. **Stability:** crashes and timeouts reported by the Test262 runner.
 
 ---
 
-## Próximos Pasos
+## Known Gaps
 
-1. Configurar framework de testing (Catch2)
-2. Escribir primeros tests unitarios (TypeBridge)
-3. Implementar test runner para JavaScript
-4. Escribir tests de integración básicos
-5. Configurar coverage reporting
-6. Escribir benchmarks iniciales
+1. There are no unit tests for `TypeBridge`, `GCBridge`, `Deferred` / `ProtoDeferred` or `ProtoInterpreter`; interpreter correctness is covered by the smoke, directed and Test262 tests.
+2. Integration, conformity and demonstration scripts are not run by `run_all_tests.sh`, and most integration scripts do not assert.
+3. There is no coverage report target and no CI workflow.

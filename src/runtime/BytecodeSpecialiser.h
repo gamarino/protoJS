@@ -6,15 +6,14 @@
  * accumulator-loop sequences emitted by QuickJS into single-dispatch
  * "super-instructions" with inline SmallInt fast paths.
  *
- * Parallel of protoPython's sprint-11 specialiser (commit 13b2c278),
- * adapted to QuickJS's variable-length bytecode.  Where protoPython
- * could NOP-pad in place because every instruction is a fixed (op, arg)
- * pair, QuickJS opcodes range from 1 to 13 bytes — so a NOP-pad rewrite
- * is one valid option, and a compact rewrite that REMAPS jump targets
- * through a translation table is the other.  Both are implemented
- * here; pick via `PROTOJS_SPECIALISER=off|nop|compact` (default:
- * `off` until the embedder has validated the new opcodes on its
- * workload).
+ * Parallel of protoPython's peephole specialiser (protoPython commit
+ * 48d81bbd), adapted to QuickJS's variable-length bytecode.  Where
+ * protoPython could NOP-pad in place because every instruction is a
+ * fixed (op, arg) pair, QuickJS opcodes range from 1 to 13 bytes — so a
+ * NOP-pad rewrite is one valid option, and a compact rewrite that REMAPS
+ * jump targets through a translation table is the other.  Both are
+ * implemented here; pick via `PROTOJS_SPECIALISER=off|nop|compact`
+ * (default: `compact`; see specialiseModeFromEnv in the .cpp).
  *
  * Patterns recognised
  * -------------------
