@@ -49,3 +49,28 @@ build_on/
 scratch/
 tests/test262/.tmp/
 tests/test262/reports/
+
+# Local investigation runs, reports and IDE settings
+/.r10/
+/.r11/
+/results/
+/.idea/
+
+# Profiling data
+/perf.data*
+/tests/perf.data*
+
+# Locally built QuickJS benchmark binaries (the qjs_minimal.c source stays tracked)
+/tests/benchmarks/qjs_minimal
+/tests/benchmarks/qjs_minimal.bak
+/tests/benchmarks/qjs_minimal_release
+
+# Debug output and one-off patch scripts
+/err.txt
+/desc_err.txt
+/name_err.txt
+/error.log
+/fix_array.py
+/patch_all.py
+/patch_from.py
+/patch_of.py
