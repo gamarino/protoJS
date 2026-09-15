@@ -1,6 +1,6 @@
 # Conformity Test Suite (Phase 1)
 
-Tests defined by `TEST_PLAN.md` for semantic correctness on the immutable protoCore engine.
+Tests for semantic correctness on the immutable protoCore engine.
 
 ## Layout
 

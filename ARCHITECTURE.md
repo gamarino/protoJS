@@ -567,7 +567,6 @@ protoJS/
 ├── docs/                         # Documentación
 ├── CMakeLists.txt
 ├── README.md
-├── PLAN.md                       # Este documento
 └── ARCHITECTURE.md               # Este documento
 ```
 

@@ -409,7 +409,7 @@ Phase 6 adds **npm support**, **performance benchmarking**, and **Node.js test c
 | **BenchmarkRunner** (`src/benchmarking/BenchmarkRunner.h`) | Run benchmark scripts (protoJS/Node), compare time/memory, generate text/JSON/HTML reports. |
 | **NodeJSTestRunner** (`src/testing/NodeJSTestRunner.h`) | Run tests with Node.js and protoJS, compare output, generate compatibility reports and gap lists. |
 
-**Full API details, data structures, and C++ usage:** [Phase 6 module guides](PHASE6_MODULE_GUIDES.md).
+**Full API details, data structures, and C++ usage:** [Phase 6 module guides](archive/PHASE6_MODULE_GUIDES.md).
 
 **Runnable usage examples (CLI and scripts):** [Examples – Phase 6](EXAMPLES.md#phase-6-benchmarking-and-test-compatibility).
 
@@ -457,4 +457,4 @@ Some complex conversions (such as objects with functions) may not be supported i
 - [protoCore Module](PROTOCORE_MODULE.md)
 - [Thread Pool Configuration](THREAD_POOLS.md)
 - [Advanced Examples](EXAMPLES.md)
-- [Phase 6 module guides (npm, benchmarking, Node.js test)](PHASE6_MODULE_GUIDES.md)
+- [Phase 6 module guides (npm, benchmarking, Node.js test)](archive/PHASE6_MODULE_GUIDES.md)

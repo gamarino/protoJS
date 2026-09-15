@@ -150,7 +150,7 @@ Code inside Deferred executes on the main thread, blocking the application.
    ```cpp
    CPUThreadPool::initialize();
    ```
-3. Check `NEXT_STEPS.md` for the current implementation status
+3. Check the [Current Status](../README.md#-current-status) section of the README for the current implementation status
 
 ### Deferred does not return result
 
@@ -380,11 +380,11 @@ Add logging in `TypeBridge.cpp` to see which conversions are being performed.
 1. [API Reference](API_REFERENCE.md)
 2. [Examples](EXAMPLES.md)
 3. [Architecture](../ARCHITECTURE.md)
-4. [Implementation Status](../IMPLEMENTATION_STATUS.md)
+4. [Current Status](../README.md#-current-status)
 
 ### Check Implementation Status
 
-Check `IMPLEMENTATION_STATUS.md` and `NEXT_STEPS.md` to see which features are implemented and which are pending.
+Check the [Current Status](../README.md#-current-status) section of the README to see which features are implemented and which are pending.
 
 ### Report Problems
 
@@ -411,7 +411,7 @@ If you find a bug or undocumented problem:
 
 For problems related to Phase 1 limitations:
 
-1. Check `NEXT_STEPS.md` to see the roadmap
+1. Check the Roadmap section of the [README](../README.md)
 2. Use workarounds documented in the examples
 3. Consider contributing implementations for missing features
 
@@ -422,5 +422,5 @@ For problems related to Phase 1 limitations:
 - [API Reference](API_REFERENCE.md)
 - [Examples](EXAMPLES.md)
 - [Architecture](../ARCHITECTURE.md)
-- [Implementation Status](../IMPLEMENTATION_STATUS.md)
-- [Next Steps](../NEXT_STEPS.md)
+- [Current Status](../README.md#-current-status)
+- [Documentation index](README.md)

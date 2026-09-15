@@ -74,3 +74,6 @@ tests/test262/reports/
 /patch_all.py
 /patch_from.py
 /patch_of.py
+
+# Local working notes
+/tasks/

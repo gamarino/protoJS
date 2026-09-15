@@ -140,11 +140,11 @@ To compare protoJS vs Node.js on a test file, the NodeJSTestRunner (C++) runs bo
 - Test file example: `tests/integration/basic/hello_world.js`
 - The runner executes `./protojs <file>` and `node <file>`, then compares output.
 
-See [Phase 6 module guides](PHASE6_MODULE_GUIDES.md) for C++ API usage (runSuite, runTest, generateReport, exportToJSON/HTML).
+See [Phase 6 module guides](archive/PHASE6_MODULE_GUIDES.md) for C++ API usage (runSuite, runTest, generateReport, exportToJSON/HTML).
 
 ## References
 
 - [API Reference](API_REFERENCE.md)
 - [Deferred Guide](DEFERRED_USAGE.md)
 - [protoCore Module](PROTOCORE_MODULE.md)
-- [Phase 6 module guides (npm, benchmarking, Node.js test)](PHASE6_MODULE_GUIDES.md)
+- [Phase 6 module guides (npm, benchmarking, Node.js test)](archive/PHASE6_MODULE_GUIDES.md)

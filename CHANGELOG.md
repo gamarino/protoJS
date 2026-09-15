@@ -2005,11 +2005,11 @@ Exponent normalised to single-digit form.
 - Performance suite executed successfully: `run_nodejs_comparison.js` (5/5 benchmarks)
 - **Array operations:** 34–45x faster than Node.js (immutable structural sharing)
 - **Overall speedup:** ~10–45x depending on workload
-- Added [docs/PERFORMANCE_RUN_2026-02-07.md](docs/PERFORMANCE_RUN_2026-02-07.md) with run report and analysis
+- Added `docs/PERFORMANCE_RUN_2026-02-07.md` with run report and analysis
 
 ### Performance (2026-03-06)
 
 - Re-ran Node.js comparison suite: 5/5 benchmarks passed; protoJS wins all 5.
 - **Latest results:** array_operations 45x faster; overall speedup 10.81x (protoJS avg 42.6 ms vs Node 460.4 ms).
 - Full combined suite (41 tests) run with Node.js; report and JSON written to `tests/benchmarks/results/report_2026-03-06_00-07-34.html` and `results_2026-03-06_00-07-34.json`.
-- Updated [docs/PERFORMANCE_RUN_2026-02-07.md](docs/PERFORMANCE_RUN_2026-02-07.md) with latest run table; [docs/PERFORMANCE_REPORT.md](docs/PERFORMANCE_REPORT.md) with "Latest Node.js comparison", report paths, and new "Results analysis" section (Node comparison table + full-suite summary).
+- Updated `docs/PERFORMANCE_RUN_2026-02-07.md` with latest run table; `docs/PERFORMANCE_REPORT.md` with "Latest Node.js comparison", report paths, and new "Results analysis" section (Node comparison table + full-suite summary).
