@@ -4,6 +4,20 @@ All notable changes to protoJS are documented in this file.
 
 ## [Unreleased]
 
+### protoCore upgrade: the mutability helpers copy their argument (2026-09-16)
+
+- Rebuilt against protoCore e43fa2e4, whose `ProtoObject::clone()` copies an
+  object's **current** state rather than its birth-time state.
+- `protoCore.ImmutableObject(obj)`, `MutableObject(obj)`, `makeImmutable` and
+  `makeMutable` therefore return a copy that carries the source's own
+  attributes: `protoCore.ImmutableObject({a: 1}).a` is now `1`, where it used
+  to be `undefined`.
+- `tests/integration/collections/protoCore_collections.js` pinned the old
+  limitation and so started failing against current protoCore; it now asserts
+  the copy. `docs/PROTOCORE_MODULE.md` recorded the limitation as one that
+  "needs a change in protoCore" — that change has landed, and the note records
+  the new behaviour.
+
 ### Build: find protoCore in `build_release` (2026-09-16)
 
 - Fixed: a fresh `cmake -S . -B build` linked protoJS against a stale protoCore.

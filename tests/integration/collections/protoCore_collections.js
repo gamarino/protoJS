@@ -133,18 +133,19 @@ check("Tuple keeps the elements", tuple[0] === 1 && tuple[1] === 2 && tuple[2] =
 
 // ---- Mutability helpers ---------------------------------------------------
 
-// NOTE: `ProtoObject::clone()` does not carry the source's own attributes, so
-// these helpers return an EMPTY object of the requested mutability rather than
-// a copy of the argument. That is a protoCore-level limitation, recorded in
-// docs/PROTOCORE_MODULE.md. The checks below pin the behaviour that actually
-// exists rather than the behaviour the names suggest.
+// `ProtoObject::clone()` used to copy an object's birth-time state, so these
+// helpers returned an EMPTY object of the requested mutability rather than a
+// copy of the argument, and the checks below pinned that limitation. protoCore
+// e43fa2e4 makes clone() copy the object's current state, so the helpers now
+// do what their names say: the copy carries the source's own attributes.
 var source = { a: 1, b: "two" };
 var frozen = protoCore.ImmutableObject(source);
 check("ImmutableObject returns a different object", frozen !== source);
 check("ImmutableObject returns an object",
       typeof frozen === "object" && frozen !== null, "got " + typeof frozen);
-check("ImmutableObject does not carry the source properties (protoCore clone limitation)",
-      frozen.a === undefined, "got a=" + frozen.a);
+check("ImmutableObject carries the source properties",
+      frozen.a === 1 && frozen.b === "two",
+      "got a=" + frozen.a + ", b=" + frozen.b);
 check("ImmutableObject leaves the source untouched",
       source.a === 1 && source.b === "two");
 
