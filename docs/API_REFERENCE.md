@@ -111,7 +111,7 @@ A built-in name returns the object installed as the global, so `require('fs') ==
 
 A specifier that resolves to nothing throws `Error: Cannot find module 'x'` with `code: 'MODULE_NOT_FOUND'`; a missing or non-string specifier throws a `TypeError`.
 
-**Limitation:** `require()` of a relative JavaScript file does not execute the module body, so its exports come back empty. Details: [MODULE_DISCOVERY_PROTOCORE.md](MODULE_DISCOVERY_PROTOCORE.md) and [NATIVE_MODULES.md](NATIVE_MODULES.md).
+A relative or absolute specifier — and a bare specifier that resolves inside `node_modules` — executes the module body and returns its `module.exports`. Functions the module exports are callable, replacing the exports object with `module.exports = …` is honoured, `__filename` and `__dirname` are set to the module's own path, a second `require()` of the same file returns the same object without re-running the body, and a require cycle terminates with the partner seeing the half-initialised exports, as in Node. A module whose body throws propagates the error to the caller and is not cached, so the next `require()` runs it again. Details: [MODULE_DISCOVERY_PROTOCORE.md](MODULE_DISCOVERY_PROTOCORE.md) and [NATIVE_MODULES.md](NATIVE_MODULES.md).
 
 ---
 

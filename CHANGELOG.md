@@ -4,6 +4,47 @@ All notable changes to protoJS are documented in this file.
 
 ## [Unreleased]
 
+### `require()` executes JavaScript file modules — J2 stage B (2026-09-16)
+
+- Fixed: `require('./module.js')` never ran the module body, so its exports came
+  back empty. `executeModule` compiled the CommonJS wrapper, ran it against a
+  `TypeBridge` copy of the QuickJS global, kept the `ProtoBytecodeModule` in a
+  stack local that died at return, and dropped any exception.
+- File modules now execute natively (`executeFileModuleNative` in
+  `src/modules/CommonJSLoader.cpp`): the module record, the exports object and
+  the five wrapper arguments are all protoCore objects, so the functions a
+  module exports are real interpreter closures rather than bridge copies. The
+  record is published in `require.cache` before the body runs, so a require
+  cycle terminates, and is dropped again when the body throws.
+- Root cause of the part that blocked the earlier attempt: `loadBytecode`
+  flattens every nested function, at any depth, into ONE table on the module
+  root, so a `__bytecode_id__` resolves only against that root. The interpreter
+  inferred the root from thread-local state (`t_rootModule`), which during a
+  require is the REQUIRING script — so a function declared inside a required
+  module indexed the wrong table and either threw `TypeError: is not a
+  function` or, when the index happened to be in range, silently ran an
+  unrelated function's body.
+  - `ProtoBytecodeModule::ownerRoot` / `functionTable()` name the owning root
+    directly (`src/runtime/ProtoBytecodeModule.h`), set once in `loadBytecode`.
+  - `OP_fclosure` / `OP_fclosure8` resolve metadata through `functionTable()`
+    and stamp `__closure_module__` on closures whose table is not the thread
+    root, so an exported function carries its table with it. Ordinary in-script
+    closures are not stamped and pay no extra write.
+  - Every dispatch site now shares one `resolveNestedFunction` helper
+    (`src/runtime/ProtoInterpreter.cpp`). The method-call site had consulted
+    only the running module and `t_rootModule`, which is why an exported
+    function was callable as `var f = m.f; f()` but threw as `m.f()`.
+- protoCore's module discovery keeps its documented precedence over file
+  resolution for bare specifiers, and its exports are now returned natively
+  rather than through a `TypeBridge` round trip.
+- Covered by `tests/integration/modules/test_require_file.js` and its fixtures,
+  registered in `tests/run_all_tests.sh`: both export forms, callable exports,
+  closures over module locals, closures built after the body returned, nested
+  requires, `__filename` / `__dirname`, the module cache and single execution,
+  a require cycle, a throwing module and its non-caching, and two modules with
+  same-named functions never resolving to each other's bytecode.
+- CTest still registers 34 tests; this work adds no C++ unit test.
+
 ### protoCore upgrade: the mutability helpers copy their argument (2026-09-16)
 
 - Rebuilt against protoCore e43fa2e4, whose `ProtoObject::clone()` copies an

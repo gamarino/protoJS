@@ -109,9 +109,22 @@ shadow an npm package. Native entry points now raise their errors with
 `signalNativeException` instead of leaving them on the QuickJS context, where
 they were dropped.
 
-Still open: executing a **relative JavaScript file** natively
-(`CommonJSLoader::executeModule` still runs through the QuickJS bridge and the
-module body does not run).
+### Step 2b — `require()` of JavaScript file modules — **done**
+
+`CommonJSLoader::executeFileModuleNative` runs a file module's body against
+protoCore objects: the module record, the exports object and the five CommonJS
+wrapper arguments are all `ProtoObject`s, and `module.exports` is returned
+unconverted, so the functions a module exports are real interpreter closures
+rather than bridge copies. The record is published in `require.cache` before
+the body runs, so a require cycle terminates, and it is dropped again when the
+body throws. protoCore module discovery keeps its precedence over file
+resolution and now returns its exports natively too, so `require()` no longer
+uses `TypeBridge` on any path.
+
+The JSValue route (`CommonJSLoader::require`, `executeModule`,
+`createModuleObject`, `requireImpl` and the `cjsCache_` JSValue map) is now
+reached only for a specifier that resolves to nothing, i.e. to raise
+`Cannot find module`. Removing what is left of it is follow-up cleanup.
 
 ### Step 3 — remove the QuickJS-side `Deferred`
 

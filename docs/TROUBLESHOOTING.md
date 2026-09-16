@@ -86,12 +86,21 @@ After the main script finishes, `protojs` waits for pending `Deferred`s, workers
 
 `Set`, `Multiset` and `SparseList` are constructors: call them with `new`. Note also that `size()` is a method, not a property, so `set.size` is the function itself and `set.size()` is the count. See [PROTOCORE_MODULE.md](PROTOCORE_MODULE.md).
 
-### `require('./my-module.js')` returns an empty object
+### `require('./my-module.js')` returns an object with nothing on it
 
-Requiring a **built-in** name works and returns the object installed as the
-global, so `require('fs') === fs`. Requiring a relative JavaScript file does
-not yet run the module body, so its `exports` come back empty. Use the globals,
-or inline the code, until file modules are executed natively. See
+File modules execute their body, so this is almost always the `exports`
+rebinding trap, which behaves exactly as it does in Node: assigning to
+`exports` itself only replaces the local parameter and publishes nothing.
+
+```js
+exports = { a: 1 };        // wrong: rebinds the parameter, exports stay empty
+module.exports = { a: 1 }; // right: replaces the module's exports object
+exports.a = 1;             // right: mutates the exports object in place
+```
+
+A module whose body throws propagates the error to the `require()` call rather
+than returning a half-built object, and is not cached, so the next `require()`
+runs the body again. See
 [MODULE_DISCOVERY_PROTOCORE.md](MODULE_DISCOVERY_PROTOCORE.md).
 
 ### `Error: Cannot find module 'x'`

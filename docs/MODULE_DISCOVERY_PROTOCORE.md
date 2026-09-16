@@ -15,12 +15,12 @@ This document describes where protoJS uses that system and how host code can ext
 
 1. **One `ProtoSpace` per runtime instance.** Each `JSContextWrapper` owns a `proto::ProtoSpace`, available through `JSContextWrapper::getProtoSpace()` (`src/JSContext.h`). The resolution chain and module roots belong to that space.
 
-2. **`require()` consults protoCore first for bare specifiers.** The `require` global calls `CommonJSLoader::require` (`src/modules/CommonJSLoader.cpp`), which handles a bare specifier (one that does not start with `./`, `../` or `/`) in this order:
+2. **`require()` consults protoCore first for bare specifiers.** The `require` global is `CommonJSLoader::requireProtoMethod` (`src/modules/CommonJSLoader.cpp`), which handles a bare specifier (one that does not start with `./`, `../` or `/`) in this order:
    1. The built-in module names, read from the protoCore-native global (`JSContextWrapper::getNativeGlobal()`) and returned as the ProtoObject itself, so `require('fs') === fs`. `require('buffer')` yields `{ Buffer }`, and a `node:` prefix is accepted. The names are an explicit allowlist, so an unrelated host global cannot be required and cannot shadow an npm package.
-   2. `space->getImportModule(pContext, specifier, "exports")`. If protoCore resolves the logical path, the `exports` attribute is converted to a JavaScript value, cached under the key `umd:<specifier>`, and returned.
-   3. File-based resolution through `ModuleResolver`, including `node_modules` package lookup.
+   2. `space->getImportModule(pContext, specifier, "exports")`. If protoCore resolves the logical path, its `exports` attribute is returned as the ProtoObject itself — with no `TypeBridge` conversion, so functions on such a module stay callable.
+   3. File-based resolution through `ModuleResolver`, including `node_modules` package lookup. A native addon is loaded through `DynamicLibraryLoader` (see [NATIVE_MODULES.md](NATIVE_MODULES.md)); a JavaScript file is executed by `executeFileModuleNative`, which runs the CommonJS wrapper against protoCore objects and returns `module.exports`.
 
-   Relative and absolute specifiers skip steps 1 and 2. Note that built-in names take precedence over protoCore module discovery: a provider cannot override `fs`.
+   Relative and absolute specifiers skip steps 1 and 2. Built-in names take precedence over protoCore module discovery — a provider cannot override `fs` — and module discovery in turn takes precedence over file resolution.
 
 3. **ES modules do not use protoCore discovery.** Imports in module-mode code (`--input-type=module`) are resolved by the QuickJS module-loader hooks installed in `src/JSContext.cpp`.
 

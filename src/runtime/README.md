@@ -46,7 +46,7 @@ When the interpreter reaches an opcode it does not implement, it prints `[ProtoI
 
 - **`QuickJSArrayBridge.cpp`** — no-op stubs for hooks that `quickjs.c` still references.
 - **`ExecutionEngine`** — initialized only to provide `getProtoContext(ctx)`.
-- **`TypeBridge` / `GCBridge`** — used where QuickJS values cross into protoCore, for example constant-pool conversion during loading and the exports returned by JavaScript file modules. Neither `require()` of a built-in name nor a native addon goes through the bridge any more: built-ins are read from the protoCore-native global, and ABI v2 addons build protoCore objects themselves.
+- **`TypeBridge` / `GCBridge`** — used where QuickJS values cross into protoCore, for example constant-pool conversion during loading. `require()` no longer goes through the bridge at all: built-in names are read from the protoCore-native global, protoCore module discovery returns its exports directly, ABI v2 addons build protoCore objects themselves, and JavaScript file modules execute on protoCore objects through `executeFileModuleNative`.
 
 ## Threads and protoCore contexts
 

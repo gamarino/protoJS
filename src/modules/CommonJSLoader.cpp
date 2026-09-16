@@ -587,6 +587,138 @@ JSValue CommonJSLoader::requireResolveImpl(JSContext* ctx, JSValueConst this_val
     return result;
 }
 
+// Execute a JavaScript file module and return its `module.exports`.
+//
+// Pre-fix this went through CommonJSLoader::executeModule, which ran the
+// wrapper against a TypeBridge copy of the QuickJS global, kept the
+// ProtoBytecodeModule in a stack local that died on return, and dropped any
+// exception -- so `require('./x.js')` returned an object with no exports.
+//
+// Everything here stays in protoCore objects: the module record, the exports
+// object and the five arguments are all ProtoObjects, so the functions a module
+// exports are real interpreter closures rather than TypeBridge copies.
+static const proto::ProtoObject* executeFileModuleNative(
+        proto::ProtoContext* pCtx,
+        JSContextWrapper* wrapper,
+        const std::string& filePath) {
+    if (!pCtx || !wrapper) return PROTO_NONE;
+
+    const proto::ProtoObject* cache = requireCacheObject(pCtx);
+    const proto::ProtoObject* keyObj = pCtx->fromUTF8String(filePath.c_str());
+    const proto::ProtoString* cacheKey = keyObj ? keyObj->asString(pCtx) : nullptr;
+
+    // A second require returns the very same exports object, as in Node.
+    if (cache && cacheKey) {
+        const proto::ProtoObject* cached = cache->getAttribute(pCtx, cacheKey, false);
+        if (cached && cached != PROTO_NONE) {
+            const proto::ProtoObject* ex = getAttr(pCtx, cached, "exports");
+            if (ex) return ex;
+        }
+    }
+
+    std::ifstream file(filePath);
+    if (!file.is_open()) {
+        throwModuleError(pCtx, "Error", "Cannot open module '" + filePath + "'");
+        return PROTO_NONE;
+    }
+    std::stringstream sourceBuffer;
+    sourceBuffer << file.rdbuf();
+
+    // The CommonJS wrapper: the module body becomes a function whose parameters
+    // are the five names a module may use.
+    std::string wrapped =
+        "(function(exports, require, module, __filename, __dirname) {\n";
+    wrapped += sourceBuffer.str();
+    wrapped += "\n});";
+
+    // Build the module record natively and publish it BEFORE running the body,
+    // so that a require cycle sees the partially-filled exports object and
+    // terminates instead of recursing.  require.cache hangs off the native
+    // global, so the record is GC-rooted for free.
+    const proto::ProtoObject* exportsObj = pCtx->newObject(/*mutable=*/true);
+    const proto::ProtoObject* moduleObj = pCtx->newObject(/*mutable=*/true);
+    if (!exportsObj || !moduleObj) return PROTO_NONE;
+    setAttr(pCtx, moduleObj, "exports", exportsObj);
+    setAttr(pCtx, moduleObj, "id", pCtx->fromUTF8String(filePath.c_str()));
+    setAttr(pCtx, moduleObj, "filename", pCtx->fromUTF8String(filePath.c_str()));
+    setAttr(pCtx, moduleObj, "loaded", PROTO_FALSE);
+    setAttr(pCtx, moduleObj, "parent", PROTO_NONE);
+    if (cache && cacheKey) cache->setAttribute(pCtx, cacheKey, moduleObj);
+
+    // `require('./sibling.js')` inside the module must resolve against THIS
+    // file rather than against the entry script.  evalIsolatedToProto copies
+    // currentFileName from the wrapper's root context, while the frame
+    // callJSFunction builds for the module body inherits it from pCtx, so both
+    // have to carry the module path: with only the first set, a nested require
+    // resolves against the entry script's directory.
+    const std::string pathStorage = filePath;
+    char* pathPtr = const_cast<char*>(pathStorage.c_str());
+    proto::ProtoContext* rootCtx = wrapper->getProtoContext();
+    struct FileNameScope {
+        proto::ProtoContext* outer;
+        char* outerPrev;
+        proto::ProtoContext* inner;
+        char* innerPrev;
+        ~FileNameScope() {
+            if (outer) outer->currentFileName = outerPrev;
+            if (inner) inner->currentFileName = innerPrev;
+        }
+    } fileNameScope{rootCtx, rootCtx ? rootCtx->currentFileName : nullptr,
+                    pCtx, pCtx->currentFileName};
+    if (rootCtx) rootCtx->currentFileName = pathPtr;
+    pCtx->currentFileName = pathPtr;
+
+    // Compile and run the wrapper.  evalIsolatedToProto keeps the bytecode
+    // module alive for the wrapper's lifetime, pins its metadata, runs on the
+    // native global, and returns the wrapper closure stamped with
+    // __closure_module__.
+    const proto::ProtoObject* wrapperFn =
+        wrapper->evalIsolatedToProto(wrapped, filePath);
+    if (!wrapperFn || wrapperFn == PROTO_NONE) {
+        if (cache && cacheKey) cache->setAttribute(pCtx, cacheKey, PROTO_NONE);
+        // A compile failure has already signalled a precise SyntaxError; report
+        // a generic error only when nothing is pending, so that the precise
+        // message is never overwritten.
+        if (!hasCallException()) {
+            throwModuleError(pCtx, "Error",
+                              "Failed to load module '" + filePath + "'");
+        }
+        return PROTO_NONE;
+    }
+
+    // The module's `require` is the native one from the global, so that
+    // `require('path') === path` holds inside a module too.
+    const proto::ProtoObject* g = wrapper->getNativeGlobal();
+    const proto::ProtoString* requireKey = JSSymbols::require(pCtx);
+    const proto::ProtoObject* requireFn =
+        (g && requireKey) ? g->getAttribute(pCtx, requireKey, false) : nullptr;
+
+    const std::string dirName = ModuleResolver::getDirectory(filePath);
+    const proto::ProtoList* argsList = pCtx->newList();
+    if (!argsList) return PROTO_NONE;
+    argsList = argsList->appendLast(pCtx, exportsObj);
+    argsList = argsList->appendLast(pCtx, requireFn ? requireFn : PROTO_NONE);
+    argsList = argsList->appendLast(pCtx, moduleObj);
+    argsList = argsList->appendLast(pCtx, pCtx->fromUTF8String(filePath.c_str()));
+    argsList = argsList->appendLast(pCtx, pCtx->fromUTF8String(dirName.c_str()));
+
+    callJSFunction(pCtx, wrapperFn, PROTO_NONE, argsList);
+
+    if (hasCallException()) {
+        // Leave the exception pending: the interpreter promotes it once this
+        // native method returns.  A module that threw is not kept -- as in
+        // Node, the next require runs the body again rather than serving a
+        // half-built exports object.
+        if (cache && cacheKey) cache->setAttribute(pCtx, cacheKey, PROTO_NONE);
+        return PROTO_NONE;
+    }
+
+    setAttr(pCtx, moduleObj, "loaded", PROTO_TRUE);
+    // Re-read: the body may have replaced it with `module.exports = ...`.
+    const proto::ProtoObject* finalExports = getAttr(pCtx, moduleObj, "exports");
+    return finalExports ? finalExports : PROTO_NONE;
+}
+
 const proto::ProtoObject* CommonJSLoader::requireProtoMethod(
     proto::ProtoContext* pCtx,
     const proto::ProtoObject* self,
@@ -629,17 +761,45 @@ const proto::ProtoObject* CommonJSLoader::requireProtoMethod(
         fromPath = pCtx->currentFileName;
     }
 
+    // protoCore's module discovery keeps its documented precedence over file
+    // resolution for bare specifiers: built-in names, then discovery, then
+    // files (MODULE_DISCOVERY_PROTOCORE.md).  Routing every resolvable file to
+    // the native path below would otherwise have moved discovery behind file
+    // resolution.  Answering it here also drops the last TypeBridge round trip
+    // on this path -- the JSValue route converted the exports toJS and then
+    // back fromJS, which rebuilds a function as an empty object.
+    if (isBareSpecifier(specifier)) {
+        if (proto::ProtoSpace* space = wrapper->getProtoSpace()) {
+            const proto::ProtoObject* umd =
+                space->getImportModule(pCtx, specifier.c_str(), "exports");
+            if (umd && umd != PROTO_NONE) {
+                if (const proto::ProtoObject* ex = getAttr(pCtx, umd, "exports"))
+                    return ex;
+            }
+        }
+    }
+
+    ResolveResult resolved = ModuleResolver::resolve(specifier, fromPath, ctx);
+
     // Native addons are loaded natively: under ABI v2 the addon builds
     // protoCore objects, so its exports are returned without conversion and
     // its functions stay callable.
-    {
-        ResolveResult resolved = ModuleResolver::resolve(specifier, fromPath, ctx);
-        if (!resolved.filePath.empty() &&
-            (resolved.type == ModuleType::Native ||
-             ModuleResolver::isNativeExtension(resolved.filePath))) {
-            return loadNativeAddon(pCtx, resolved.filePath);
-        }
+    if (!resolved.filePath.empty() &&
+        (resolved.type == ModuleType::Native ||
+         ModuleResolver::isNativeExtension(resolved.filePath))) {
+        return loadNativeAddon(pCtx, resolved.filePath);
     }
+
+    // JavaScript file modules run natively for the same reason: the exports
+    // stay protoCore objects, so the functions they carry remain callable.
+    // Pre-fix this fell through to the JSValue path below, whose exports
+    // round-tripped through TypeBridge and came back empty.
+    if (!resolved.filePath.empty()) {
+        return executeFileModuleNative(pCtx, wrapper, resolved.filePath);
+    }
+
+    // Only a specifier that resolved to no file reaches the JSValue path now:
+    // protoCore's module discovery may still serve it, and otherwise it throws.
 
     JSValue result = require(specifier, fromPath, ctx);
     if (JS_IsException(result)) {

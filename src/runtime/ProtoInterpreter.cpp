@@ -3778,6 +3778,43 @@ static const ProtoBytecodeModule* getClosureModule(
     return ptr ? reinterpret_cast<const ProtoBytecodeModule*>(ptr) : nullptr;
 }
 
+// Resolve the bytecode entry that `fn`'s __bytecode_id__ names.
+//
+// loadBytecode flattens every nested function, at any depth, into ONE table on
+// the module root, so a bytecode ID is an index into that table and nothing
+// else.  Three candidates, in order:
+//
+//   1. the module stamped on the closure by OP_fclosure — the only thing that
+//      still identifies the right table once a function has escaped the module
+//      that created it, which is exactly what a file module's exports do;
+//   2. the running module's function table (functionTable() names the root
+//      that owns it, since a nested module's own table is empty);
+//   3. the thread's root module, for closures created before any stamp.
+//
+// EVERY dispatch site must go through this.  A site that skips step 1 resolves
+// an exported function's ID against the CALLER's table and then either throws
+// "is not a function" or, when the index happens to be in range, silently runs
+// an unrelated function's body — the second being far the worse failure.
+static const ProtoBytecodeModule* resolveNestedFunction(
+    proto::ProtoContext* pContext, const proto::ProtoObject* fn, int bcId,
+    const ProtoBytecodeModule* module)
+{
+    if (bcId < 0) return nullptr;
+    const size_t id = static_cast<size_t>(bcId);
+    if (const ProtoBytecodeModule* owner = getClosureModule(pContext, fn)) {
+        if (id < owner->nestedFunctions.size())
+            return &owner->nestedFunctions[id];
+    }
+    if (module) {
+        const ProtoBytecodeModule* table = module->functionTable();
+        if (table && id < table->nestedFunctions.size())
+            return &table->nestedFunctions[id];
+    }
+    if (t_rootModule && id < t_rootModule->nestedFunctions.size())
+        return &t_rootModule->nestedFunctions[id];
+    return nullptr;
+}
+
 // ---------------------------------------------------------------------------
 // setNWCDescriptor — store the property-descriptor sidecar key __pd_<prop>__
 // with bits = 0x2 (configurable only: not writable, not enumerable).
@@ -5947,12 +5984,10 @@ const proto::ProtoObject* runBytecode(proto::ProtoContext* pContext,
                           const proto::ProtoObject* thisVal) -> const proto::ProtoObject* {
         if (!fn || fn == PROTO_NONE) return PROTO_NONE;
         int bcId = getBytecodeId(pContext, fn);
-        const ProtoBytecodeModule* resolvedFn = nullptr;
-        if (bcId >= 0 && static_cast<size_t>(bcId) < module->nestedFunctions.size())
-            resolvedFn = &module->nestedFunctions[bcId];
-        else if (bcId >= 0 && t_rootModule &&
-                 static_cast<size_t>(bcId) < t_rootModule->nestedFunctions.size())
-            resolvedFn = &t_rootModule->nestedFunctions[bcId];
+        // A valueOf / toString exported by a required module resolves against
+        // the module that created it — see resolveNestedFunction.
+        const ProtoBytecodeModule* resolvedFn =
+            resolveNestedFunction(pContext, fn, bcId, module);
         if (resolvedFn) {
             // Arrow functions ignore the call-site receiver and use their lexical this.
             const proto::ProtoObject* effectiveThisLambda = thisVal;
@@ -8009,11 +8044,12 @@ const proto::ProtoObject* runBytecode(proto::ProtoContext* pContext,
                         const proto::ProtoString* lenKey = JSSymbols::length(pContext);
                         long long argCnt = 0;
                         int bcId = getBytecodeId(pContext, ctor);
-                        if (bcId >= 0 && t_rootModule &&
-                            static_cast<size_t>(bcId) < t_rootModule->nestedFunctions.size()) {
-                            argCnt = static_cast<long long>(
-                                t_rootModule->nestedFunctions[bcId].argCount_);
-                        }
+                        // Root-only pre-fix: a class declared inside a required
+                        // module reported length 0, because its bytecode IDs
+                        // index that module's table, not the thread root's.
+                        if (const ProtoBytecodeModule* ctorNf =
+                                resolveNestedFunction(pContext, ctor, bcId, module))
+                            argCnt = static_cast<long long>(ctorNf->argCount_);
                         if (lenKey)
                             ctor = ctor->setAttribute(pContext, lenKey, pContext->fromInteger(argCnt));
                         const proto::ProtoString* pdk = JSSymbols::pdLength(pContext);
@@ -13814,12 +13850,15 @@ const proto::ProtoObject* runBytecode(proto::ProtoContext* pContext,
                 // though it always returned -1.  Skip it when we can.
                 const bool funcIsNative = func && func->isMethod(pContext);
                 int bcId = funcIsNative ? -1 : getBytecodeId(pContext, func);
-                const ProtoBytecodeModule* resolvedMod2 = nullptr;
-                if (bcId >= 0 && static_cast<size_t>(bcId) < module->nestedFunctions.size())
-                    resolvedMod2 = &module->nestedFunctions[bcId];
-                else if (bcId >= 0 && t_rootModule &&
-                         static_cast<size_t>(bcId) < t_rootModule->nestedFunctions.size())
-                    resolvedMod2 = &t_rootModule->nestedFunctions[bcId];
+                // Method calls consult the closure's own module like every other
+                // dispatch site.  Pre-fix this site looked only at the running
+                // module and t_rootModule, so a function exported by a required
+                // module threw "is not a function" when called as `m.f()`, while
+                // the very same function called as `var f = m.f; f()` worked --
+                // the plain-call path already honoured the stamp.  That split is
+                // what made file-module exports look callable but not be.
+                const ProtoBytecodeModule* resolvedMod2 =
+                    resolveNestedFunction(pContext, func, bcId, module);
                 if (resolvedMod2) {
                     const auto& nf = *resolvedMod2;
                     // GC critical section: argsList is built by repeated
@@ -14231,19 +14270,7 @@ const proto::ProtoObject* runBytecode(proto::ProtoContext* pContext,
                 // arm even though FACTORY is a regular constructible
                 // JS function.  Mirror the dispatch L_OP_call performs
                 // at line 13657 so the resolution paths agree.
-                if (bcId >= 0) {
-                    const ProtoBytecodeModule* ownerMod =
-                        getClosureModule(pContext, func);
-                    if (ownerMod &&
-                        static_cast<size_t>(bcId) < ownerMod->nestedFunctions.size())
-                        resolved = &ownerMod->nestedFunctions[bcId];
-                }
-                if (!resolved && bcId >= 0 &&
-                    static_cast<size_t>(bcId) < module->nestedFunctions.size())
-                    resolved = &module->nestedFunctions[bcId];
-                else if (!resolved && bcId >= 0 && t_rootModule &&
-                         static_cast<size_t>(bcId) < t_rootModule->nestedFunctions.size())
-                    resolved = &t_rootModule->nestedFunctions[bcId];
+                resolved = resolveNestedFunction(pContext, func, bcId, module);
 
                 if (resolved) {
                     // §9.1.13 OrdinaryCreateFromConstructor does NOT stamp
@@ -14913,19 +14940,7 @@ const proto::ProtoObject* runBytecode(proto::ProtoContext* pContext,
                 // current/root module — and either miss outright or
                 // (worse) collide with an unrelated nested function at
                 // the same index.
-                if (bcId >= 0) {
-                    const ProtoBytecodeModule* ownerMod =
-                        getClosureModule(pContext, func);
-                    if (ownerMod &&
-                        static_cast<size_t>(bcId) < ownerMod->nestedFunctions.size())
-                        resolvedModule = &ownerMod->nestedFunctions[bcId];
-                }
-                if (!resolvedModule && bcId >= 0 &&
-                    static_cast<size_t>(bcId) < module->nestedFunctions.size())
-                    resolvedModule = &module->nestedFunctions[bcId];
-                else if (!resolvedModule && bcId >= 0 && t_rootModule &&
-                         static_cast<size_t>(bcId) < t_rootModule->nestedFunctions.size())
-                    resolvedModule = &t_rootModule->nestedFunctions[bcId];
+                resolvedModule = resolveNestedFunction(pContext, func, bcId, module);
 
                 if (resolvedModule) {
                     const auto& nf = *resolvedModule;
@@ -15459,17 +15474,29 @@ const proto::ProtoObject* runBytecode(proto::ProtoContext* pContext,
                                 pContext->fromInteger(0x3LL));
                         }
                     }
-                    // Resolve function metadata.  Prefer the currently
-                    // executing module — see the matching note in
-                    // OP_fclosure (32-bit immediate variant) for why
-                    // the root-only lookup misses sub-eval closures.
+                    // Resolve function metadata against the module that owns
+                    // this bytecode's function table — see the matching note
+                    // in OP_fclosure (32-bit immediate variant).
+                    const ProtoBytecodeModule* ownerTable8 =
+                        module ? module->functionTable() : t_rootModule;
                     const ProtoBytecodeModule* nm8Ptr = nullptr;
-                    if (fnBcId8 >= 0 && module &&
-                            static_cast<size_t>(fnBcId8) < module->nestedFunctions.size())
-                        nm8Ptr = &module->nestedFunctions[static_cast<size_t>(fnBcId8)];
+                    if (fnBcId8 >= 0 && ownerTable8 &&
+                            static_cast<size_t>(fnBcId8) < ownerTable8->nestedFunctions.size())
+                        nm8Ptr = &ownerTable8->nestedFunctions[static_cast<size_t>(fnBcId8)];
                     else if (fnBcId8 >= 0 && t_rootModule &&
                             static_cast<size_t>(fnBcId8) < t_rootModule->nestedFunctions.size())
                         nm8Ptr = &t_rootModule->nestedFunctions[static_cast<size_t>(fnBcId8)];
+                    // A closure that escapes the module that created it — a
+                    // file module's exports — must carry its function table
+                    // with it: at call time neither the running module nor
+                    // t_rootModule points at it.  See L_OP_fclosure.
+                    if (ownerTable8 && ownerTable8 != t_rootModule) {
+                        const proto::ProtoString* cmKey8 = JSSymbols::closureModule(pContext);
+                        if (cmKey8)
+                            fnInst = fnInst->setAttribute(pContext, cmKey8,
+                                pContext->fromInteger(static_cast<long long>(
+                                    reinterpret_cast<uintptr_t>(ownerTable8))));
+                    }
                     if (nm8Ptr) {
                         const ProtoBytecodeModule& nm8 = *nm8Ptr;
                         if (!nm8.funcName.empty()) {
@@ -15646,22 +15673,49 @@ const proto::ProtoObject* runBytecode(proto::ProtoContext* pContext,
                                 pContext->fromInteger(0x3LL));
                         }
                     }
-                    // Resolve function metadata.  Prefer the currently
-                    // executing module's nestedFunctions list — the sub-eval
-                    // path used by the Function constructor enters
-                    // runBytecode with its own module while t_rootModule
-                    // still points at the outer caller's module, so a
-                    // root-only lookup misses every closure produced
-                    // by `new Function(...)`.  Fall back to the root
-                    // module to preserve behaviour for ordinary nested
-                    // OP_fclosure sites where bytecode IDs live there.
+                    // Resolve function metadata against the module that owns
+                    // this bytecode's function table.
+                    //
+                    // loadBytecode flattens every nested function into the
+                    // ROOT module's nestedFunctions, so a nested module's own
+                    // table is empty and only the root can resolve an ID.
+                    // Pre-fix this site consulted the running module and then
+                    // fell back to t_rootModule, which is the OUTERMOST module
+                    // on the thread — the requiring script, not the file
+                    // module being loaded.  A function declared inside a
+                    // required module therefore indexed the requiring
+                    // script's table and either missed (TypeError: is not a
+                    // function) or, when the index happened to be in range,
+                    // silently ran an unrelated function's body.
+                    // functionTable() names the owning root directly, so the
+                    // answer no longer depends on thread-local state.
+                    const ProtoBytecodeModule* ownerTable2 =
+                        module ? module->functionTable() : t_rootModule;
                     const ProtoBytecodeModule* nm2Ptr = nullptr;
-                    if (fnBcId2 >= 0 && module &&
-                            static_cast<size_t>(fnBcId2) < module->nestedFunctions.size())
-                        nm2Ptr = &module->nestedFunctions[static_cast<size_t>(fnBcId2)];
+                    if (fnBcId2 >= 0 && ownerTable2 &&
+                            static_cast<size_t>(fnBcId2) < ownerTable2->nestedFunctions.size())
+                        nm2Ptr = &ownerTable2->nestedFunctions[static_cast<size_t>(fnBcId2)];
                     else if (fnBcId2 >= 0 && t_rootModule &&
                             static_cast<size_t>(fnBcId2) < t_rootModule->nestedFunctions.size())
                         nm2Ptr = &t_rootModule->nestedFunctions[static_cast<size_t>(fnBcId2)];
+                    // A closure that escapes the module that created it — a
+                    // file module's exports, or anything a required module
+                    // returns — must carry its function table with it: at call
+                    // time the dispatcher sees the CALLER's module and root,
+                    // neither of which can resolve this ID.  The three
+                    // dispatch sites already consult __closure_module__ first,
+                    // so stamping it here is what makes exported functions
+                    // callable.  Stamping only when the table is not
+                    // t_rootModule leaves the ordinary in-script case — where
+                    // the existing fallback already resolves correctly — free
+                    // of the extra attribute and the extra write.
+                    if (ownerTable2 && ownerTable2 != t_rootModule) {
+                        const proto::ProtoString* cmKey2 = JSSymbols::closureModule(pContext);
+                        if (cmKey2)
+                            fnInst2 = fnInst2->setAttribute(pContext, cmKey2,
+                                pContext->fromInteger(static_cast<long long>(
+                                    reinterpret_cast<uintptr_t>(ownerTable2))));
+                    }
                     
                     if (nm2Ptr) {
                         const ProtoBytecodeModule& nm2 = *nm2Ptr;

@@ -255,7 +255,6 @@ To reproduce, build protoJS and run `node tests/benchmarks/run_standard_comparis
 **Known gaps:**
 
 - Test262 conformance is 61.39 % on the last full run (see [Test262 Conformance](#test262-conformance)). The remaining failures recorded on 2026-06-13 include insertion-order tracking for attribute storage, real `eval()` execution, the `$262` cross-realm harness, source text of generator and async functions for `Function.prototype.toString`, and resizable `ArrayBuffer` and `SuppressedError` subclassing.
-- `require()` of a **relative JavaScript file** does not run the module body: its exports come back empty. Requiring a built-in name works (`require('fs') === fs`); requiring your own `./module.js` does not.
 - npm registry and semver components exist in `src/npm/`, but the `protojs` command line has no package-management command.
 - The interpreter is 15.2× slower than QuickJS and about 95× slower than Node.js on the benchmark reading above.
 

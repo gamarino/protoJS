@@ -41,6 +41,29 @@ struct ProtoBytecodeModule {
 
     /** Nested bytecode functions, fully translated to ProtoBytecodeModule. */
     std::vector<ProtoBytecodeModule> nestedFunctions;
+
+    /** The module root that owns the flat `nestedFunctions` table which this
+     *  module's bytecode IDs index into.
+     *
+     *  loadBytecode flattens every nested function, at any depth, into the
+     *  ROOT module's `nestedFunctions`, and every `__bytecode_id__` is an
+     *  index into that single table.  A nested module's own `nestedFunctions`
+     *  is therefore always empty, and an ID can only be resolved against the
+     *  root.  Null on a root module, which owns its own table.
+     *
+     *  Set once by loadBytecode after the table has stopped growing, and never
+     *  mutated afterwards.  It points at the root ProtoBytecodeModule, which is
+     *  owned by a unique_ptr in JSContextWrapper (rootModuleStorage_ or
+     *  subEvalModules_) and therefore does not move. */
+    const ProtoBytecodeModule* ownerRoot{nullptr};
+
+    /** The module whose `nestedFunctions` this module's bytecode IDs index.
+     *  Resolving through this, rather than through the thread-local current /
+     *  root module, is what keeps a closure bound to the module that created
+     *  it once it escapes into another module (a file module's exports). */
+    const ProtoBytecodeModule* functionTable() const {
+        return ownerRoot ? ownerRoot : this;
+    }
     /** Lazily filled: atom index -> ProtoString (for get_field etc.).
      *  Note: atomToProto is still a map for O(1) resolution at runtime, 
      *  but we must ensure these symbols are rooted elsewhere (e.g. in metadata). */

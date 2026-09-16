@@ -37,6 +37,9 @@ echo "[run_all_tests] protoCore collections..."
 echo "[run_all_tests] require() of built-in modules..."
 "$PROTOJS" tests/integration/modules/test_require.js
 
+echo "[run_all_tests] require() of relative JavaScript files..."
+"$PROTOJS" tests/integration/modules/test_require_file.js
+
 echo "[run_all_tests] Native addons..."
 "$PROTOJS" tests/integration/native_addons/test_native_require.js
 "$PROTOJS" tests/integration/native_addons/test_resolution.js

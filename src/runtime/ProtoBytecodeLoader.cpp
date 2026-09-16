@@ -316,6 +316,12 @@ bool loadBytecode(JSContext* ctx, void* bytecode, proto::ProtoContext* pContext,
     size_t nextGlobalId = 0;
     if (!loadBytecodeRecursive(ctx, bytecode, pContext, out, out->nestedFunctions, nextGlobalId))
         return false;
+    /* Every nested function's bytecode IDs index `out->nestedFunctions`, the
+     * one flat table built above.  Record that here, now that the vector has
+     * stopped growing, so the interpreter can resolve an ID against the module
+     * that actually owns it instead of inferring it from thread-local state.
+     * `out` keeps ownerRoot null: it already owns the table. */
+    for (auto& nf : out->nestedFunctions) nf.ownerRoot = out;
     /* Pre-resolve all atom operands so the interpreter never needs JSContext* at runtime. */
     preResolveAllAtoms(ctx, out, pContext);
     return true;
