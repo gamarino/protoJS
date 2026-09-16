@@ -102,9 +102,19 @@ TEST_CASE("BenchmarkRunner::detectRegressions", "[BenchmarkRunner][Phase6]") {
     REQUIRE(regressed.empty());
 }
 
+// Tests must not write outside the build tree: honour TMPDIR (ctest runs with
+// it set in this project's workflows) and fall back to the current working
+// directory, which is the build directory under ctest.
+static std::string testTempPath(const char* name) {
+    const char* tmp = std::getenv("TMPDIR");
+    std::string dir = (tmp && *tmp) ? std::string(tmp) : std::string(".");
+    if (!dir.empty() && dir.back() == '/') dir.pop_back();
+    return dir + "/" + name;
+}
+
 TEST_CASE("BenchmarkRunner::saveBaseline and loadBaseline", "[BenchmarkRunner][Phase6]") {
     std::vector<BenchmarkResult> results = { { "x.js", 5.0, 4.0, 0.8, 1024, true, "", false, 0, 0, 0, 0, 0 } };
-    std::string path = "/tmp/protojs_baseline_test.csv";
+    std::string path = testTempPath("protojs_baseline_test.csv");
     REQUIRE(BenchmarkRunner::saveBaseline(results, path));
     auto loaded = BenchmarkRunner::loadBaseline(path);
     REQUIRE(loaded.size() == 1);
@@ -122,7 +132,7 @@ TEST_CASE("BenchmarkRunner::runSuiteFromFile empty or no file", "[BenchmarkRunne
 TEST_CASE("BenchmarkRunner::runForCI no baseline", "[BenchmarkRunner][Phase6]") {
     std::string root = getTestProjectRoot();
     std::string configPath = root + "/tests/benchmarks/suite_config.txt";
-    std::string baselinePath = "/tmp/protojs_ci_baseline_nonexistent.csv";
+    std::string baselinePath = testTempPath("protojs_ci_baseline_nonexistent.csv");
     if (root.empty() || !std::ifstream(configPath).good()) {
         WARN("Skipping: suite_config.txt not found");
         return;

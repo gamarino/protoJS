@@ -126,7 +126,12 @@ TEST_CASE("NodeJSTestRunner::exportCoverageReport", "[NodeJSTestRunner][Phase6]"
     report.failed_tests = 0;
     report.pass_rate = 100.0;
     report.results = { { "x.js", true, "", 1.0, "", "" } };
-    std::string path = "/tmp/protojs_coverage_test.txt";
+    std::string path = [] {
+        const char* tmp = std::getenv("TMPDIR");
+        std::string dir = (tmp && *tmp) ? std::string(tmp) : std::string(".");
+        if (!dir.empty() && dir.back() == '/') dir.pop_back();
+        return dir + "/protojs_coverage_test.txt";
+    }();
     REQUIRE(NodeJSTestRunner::exportCoverageReport(report, path, "text"));
     std::ifstream f(path);
     REQUIRE(f.good());
