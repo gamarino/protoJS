@@ -229,7 +229,7 @@ The runners look for `build_release/protojs` first, then `build/protojs`. Worklo
 | `protoCore_collections.js` | `protoCore.Set` and `protoCore.Multiset` |
 | `test_virtual_threads.js` | Availability of `Deferred`, the `io` module and thread-pool options |
 
-The scripts check whether an API exists (for example `typeof Deferred`, `protoCore.Set`) and skip sections that are not available. `protoCore.Set` and `protoCore.Multiset` are only provided by the QuickJS-side module (see [ARCHITECTURE.md](ARCHITECTURE.md)).
+The scripts use the APIs directly. `protoCore.Set`, `protoCore.Multiset` and the other collections are installed on the protoCore-native global by `src/ProtoCoreNativeBindings.cpp`; `tests/integration/collections/protoCore_collections.js` asserts their behaviour.
 
 ```bash
 ./build/protojs tests/demos/immutable_arrays.js

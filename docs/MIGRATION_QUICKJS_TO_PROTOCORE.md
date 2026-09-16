@@ -16,7 +16,7 @@ The rule for this migration: no bridges. The interpreter does not call back into
 | `JSON` | `src/JSONBuiltin.cpp` |
 | `setImmediate` | `src/EventLoopBindings.cpp` |
 | `Deferred` | `src/ProtoDeferred.cpp` |
-| `protoCore.runInThread` | `src/ProtoCoreNativeBindings.cpp` |
+| `protoCore` (`Set`, `Multiset`, `SparseList`, `Tuple`, `ImmutableObject`, `MutableObject`, `isImmutable`, `makeImmutable`, `makeMutable`, `runInThread`) | `src/ProtoCoreNativeBindings.cpp` |
 | `__filename`, `__dirname`, `__protojs__` | `installScriptGlobals` in `src/main.cpp` |
 | `io`, `process`, `require` | `src/modules/IOModule.cpp`, `src/modules/ProcessModule.cpp`, `src/modules/CommonJSLoader.cpp` |
 | `path`, `fs`, `url`, `http`, `events`, `stream`, `util`, `crypto`, `Buffer`, `net`, `worker_threads`, `cluster`, `dgram`, `child_process`, `dns` | `src/modules/` |
@@ -26,7 +26,6 @@ The rule for this migration: no bridges. The interpreter does not call back into
 
 | Binding | Source | Situation |
 |---------|--------|-----------|
-| `protoCore.Set`, `Multiset`, `SparseList`, `Tuple`, `ImmutableObject`, `MutableObject`, `isImmutable`, `makeImmutable`, `makeMutable` | `src/modules/ProtoCoreModule.cpp` | Not reachable from scripts; see step 1 below. |
 | QuickJS-side `Deferred` | `src/Deferred.cpp` | Superseded by `src/ProtoDeferred.cpp`; see step 3. |
 
 **Other remaining QuickJS dependencies in the runtime surface:**
@@ -92,11 +91,11 @@ The body works directly with protoCore primitives — no `JSContext*`, no `JSVal
 
 ## Remaining steps
 
-### Step 1 — `protoCore` collections and mutability helpers
+### Step 1 — `protoCore` collections and mutability helpers — **done**
 
-Port the constructors and functions of `src/modules/ProtoCoreModule.cpp` to `ProtoMethod`s and add them to the `protoCore` object built in `src/ProtoCoreNativeBindings.cpp`. `Set`, `Multiset` and `SparseList` become constructors whose instances are mutable `ProtoObject`s parented to a prototype holding the methods. Then remove the `ProtoCoreModule::init(wrapper.getJSContext())` call from `src/main.cpp`.
+The constructors and functions are `ProtoMethod`s on the `protoCore` object built in `src/ProtoCoreNativeBindings.cpp`. `Set`, `Multiset` and `SparseList` are constructors whose instances are mutable `ProtoObject`s parented to a prototype that holds the methods; each instance keeps its persistent collection in a private attribute, republished with `setAttributeIfEqual`. `src/modules/ProtoCoreModule.cpp` is no longer built, and the `ProtoCoreModule::init(wrapper.getJSContext())` calls are gone from `src/main.cpp`.
 
-Done when `tests/integration/collections/protoCore_collections.js` prints no "not available" lines.
+`tests/integration/collections/protoCore_collections.js` asserts the behaviour instead of skipping it.
 
 ### Step 2 — `require()` of built-in module names
 

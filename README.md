@@ -131,7 +131,7 @@ All options are parsed by `src/main.cpp`.
 | `--io-threads N` | Size of the I/O thread pool (default: hardware threads × the I/O factor, rounded up). |
 | `--io-threads-factor F` | I/O factor used when `--io-threads` is not given (default: 3.0). |
 | `--preload file.js` | Evaluate `file.js` as a script before the main input (may be repeated). protojs exits with status 1 if the file cannot be read or throws. |
-| `--minimal` | Install only `console`, `JSON`, the timing APIs, `Deferred`, `protoCore.runInThread`, `__filename` and `__dirname`; no `process`, `io`, `require` or Node.js-style modules. protojs exits right after the evaluation without running the event loop. Intended to isolate compiler and interpreter problems. |
+| `--minimal` | Install only `console`, `JSON`, the timing APIs, `Deferred`, `protoCore`, `__filename` and `__dirname`; no `process`, `io`, `require` or Node.js-style modules. protojs exits right after the evaluation without running the event loop. Intended to isolate compiler and interpreter problems. |
 | `--proto-eval` | Deprecated. Accepted for compatibility; it has no effect because the protoCore interpreter is always used. |
 
 Without arguments, protojs prints its usage and exits with status 1. When options are given but no script, `-e` or `-c`, it starts the REPL: the prompt is `> `, incomplete input continues on a `... ` prompt, and `.help` and `.exit` (or `.quit`) are available.
@@ -248,14 +248,13 @@ To reproduce, build protoJS and run `node tests/benchmarks/run_standard_comparis
 **Available:**
 
 - Script, inline and ES module evaluation on the protoCore interpreter; the REPL.
-- Globals installed on the protoCore-native global object: `console`, `JSON`, `globalThis`, `Deferred`, `protoCore` (`runInThread`), `process`, `io`, `require`, `fs`, `path`, `url`, `http`, `events`, `stream`, `util`, `crypto` (linked against OpenSSL), `Buffer`, `net`, `worker_threads`, `cluster`, `dgram`, `child_process`, `dns`, `memory`, `profiler` and `debugger`. These modules are native C++ implementations; their coverage of the Node.js API varies and has not been measured.
+- Globals installed on the protoCore-native global object: `console`, `JSON`, `globalThis`, `Deferred`, `protoCore` (`Set`, `Multiset`, `SparseList`, `Tuple`, `ImmutableObject`, `MutableObject`, `isImmutable`, `makeImmutable`, `makeMutable`, `runInThread`), `process`, `io`, `require`, `fs`, `path`, `url`, `http`, `events`, `stream`, `util`, `crypto` (linked against OpenSSL), `Buffer`, `net`, `worker_threads`, `cluster`, `dgram`, `child_process`, `dns`, `memory`, `profiler` and `debugger`. These modules are native C++ implementations; their coverage of the Node.js API varies and has not been measured.
 - A CommonJS `require()` loader for JavaScript files and native addons (`.node`, `.so`/`.dylib`/`.dll`, `.protojs`); see [docs/NATIVE_MODULES.md](docs/NATIVE_MODULES.md).
 - C++ unit tests (Catch2) for the thread pools, event loop, npm registry client, semver handling, benchmark runner and Node.js test runner.
 
 **Known gaps:**
 
 - Test262 conformance is 61.39 % on the last full run (see [Test262 Conformance](#test262-conformance)). The remaining failures recorded on 2026-06-13 include insertion-order tracking for attribute storage, real `eval()` execution, the `$262` cross-realm harness, source text of generator and async functions for `Function.prototype.toString`, and resizable `ArrayBuffer` and `SuppressedError` subclassing.
-- `protoCore.Set`, `Multiset`, `SparseList`, `Tuple`, `ImmutableObject` and `MutableObject` are implemented only in the QuickJS-side module (`src/modules/ProtoCoreModule.cpp`); on the protoCore execution path the `protoCore` global currently exposes only `runInThread`.
 - `require()` looks up built-in module names on the QuickJS-side global object, while the modules listed above are installed on the protoCore-native global; the examples in this README use the globals directly.
 - npm registry and semver components exist in `src/npm/`, but the `protojs` command line has no package-management command.
 - The interpreter is 15.2× slower than QuickJS and about 95× slower than Node.js on the benchmark reading above.
@@ -267,7 +266,6 @@ To reproduce, build protoJS and run `node tests/benchmarks/run_standard_comparis
 Open work documented in the repository:
 
 - Close the Test262 gaps listed above; the per-family detail is in [docs/TEST262_STATUS.md](docs/TEST262_STATUS.md) and [docs/archive/TEST262_ROUNDS.md](docs/archive/TEST262_ROUNDS.md).
-- Expose the protoCore collections (`Set`, `Multiset`, `SparseList`, `Tuple`) on the protoCore-native `protoCore` global.
 - Continue moving QuickJS-side bindings onto the protoCore-native global ([docs/MIGRATION_QUICKJS_TO_PROTOCORE.md](docs/MIGRATION_QUICKJS_TO_PROTOCORE.md)).
 - Reduce interpreter overhead measured by the standard benchmark suite.
 

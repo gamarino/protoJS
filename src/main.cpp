@@ -7,7 +7,6 @@
 #include "EventLoopBindings.h"
 #include "console.h"
 #include "modules/IOModule.h"
-#include "modules/ProtoCoreModule.h"
 #include "modules/ProcessModule.h"
 #include "modules/CommonJSLoader.h"
 #include "modules/path/PathModule.h"
@@ -82,6 +81,81 @@ static const proto::ProtoObject* installScriptGlobals(
         ? pCtx->fromUTF8String("__protojs__")->asString(pCtx) : nullptr;
     if (pjKey) g = g->setAttribute(pCtx, pjKey, PROTO_TRUE);
     return g;
+}
+
+// Install every runtime global on the protoCore-native global object.
+//
+// ONE list, shared by the REPL, by `--minimal` and by the script path, so
+// that the three cannot drift apart again.  They had already drifted: the
+// REPL installed neither `Deferred` nor `protoCore` nor the script globals,
+// so `typeof protoCore` was `undefined` at the prompt, and it initialised
+// `child_process` twice.
+//
+// `minimal` installs only the primitives needed to isolate compiler and
+// interpreter problems: console, JSON, the timing APIs, Deferred, protoCore
+// and the script globals — no event loop bindings and no Node.js-style
+// modules.
+static void installRuntimeGlobals(protojs::JSContextWrapper& wrapper,
+                                  int argc, char** argv,
+                                  const std::string& filename,
+                                  bool minimal) {
+    proto::ProtoContext* pCtx = wrapper.getProtoContext();
+
+    {
+        const proto::ProtoObject* g = wrapper.getNativeGlobal();
+        protojs::Console::init(pCtx, g);
+        protojs::JSONBuiltin::init(pCtx, g);
+        protojs::TimingAPIs::init(pCtx, g);
+        if (!minimal) g = protojs::EventLoopBindings::init(pCtx, g);
+        g = protojs::ProtoDeferred::init(pCtx, g);
+        g = protojs::ProtoCoreNativeBindings::init(pCtx, g);
+        g = installScriptGlobals(pCtx, g, filename);
+        wrapper.updateNativeGlobal(g);
+    }
+
+    if (minimal) return;
+
+    protojs::Deferred::init(wrapper.getJSContext(), &wrapper);
+
+    // ProcessModule needs the command line, so it is installed on its own.
+    {
+        const proto::ProtoObject* g = wrapper.getNativeGlobal();
+        wrapper.updateNativeGlobal(
+            protojs::ProcessModule::init(pCtx, g, argc, argv));
+    }
+
+    // Every remaining module takes (context, global) and returns the new
+    // global.  Each registers on the protoCore-native global; no QuickJS
+    // bridge is involved.
+    using ModuleInit =
+        const proto::ProtoObject* (*)(proto::ProtoContext*, const proto::ProtoObject*);
+    static const ModuleInit kModules[] = {
+        &protojs::IOModule::init,
+        &protojs::CommonJSLoader::init,
+        &protojs::PathModule::init,
+        &protojs::FSModule::init,
+        &protojs::URLModule::init,
+        &protojs::HTTPModule::init,
+        &protojs::EventsModule::init,
+        &protojs::StreamModule::init,
+        &protojs::UtilModule::init,
+        &protojs::CryptoModule::init,
+        &protojs::BufferModule::init,
+        &protojs::NetModule::init,
+        &protojs::WorkerThreadsModule::init,
+        &protojs::ClusterModule::init,
+        &protojs::DgramModule::init,
+        &protojs::ChildProcessModule::init,
+        &protojs::DNSModule::init,
+        &protojs::MemoryAnalyzer::init,
+        &protojs::Profiler::init,
+        &protojs::VisualProfiler::init,
+        &protojs::IntegratedDebugger::init,
+    };
+    for (ModuleInit init : kModules) {
+        const proto::ProtoObject* g = wrapper.getNativeGlobal();
+        wrapper.updateNativeGlobal(init(pCtx, g));
+    }
 }
 
 // Parse the input without executing it (`-c` / `--check`).  A bare QuickJS
@@ -190,7 +264,7 @@ int main(int argc, char** argv) {
     int i = 1;
     while (i < argc) {
         std::string arg = argv[i];
-        
+
         if (arg == "--cpu-threads" && i + 1 < argc) {
             cpuThreads = std::stoul(argv[++i]);
         } else if (arg == "--io-threads" && i + 1 < argc) {
@@ -262,135 +336,8 @@ int main(int argc, char** argv) {
         // protoCore is the single execution path (compile → load → run).
         wrapper.setUseProtoEval(true);
 
-        // Initialize all modules for REPL
-        {
-            const proto::ProtoObject* nativeGlobal = wrapper.getNativeGlobal();
-            protojs::Console::init(wrapper.getProtoContext(), nativeGlobal);
-            protojs::JSONBuiltin::init(wrapper.getProtoContext(), nativeGlobal);
-            protojs::TimingAPIs::init(wrapper.getProtoContext(), nativeGlobal);
-            nativeGlobal = protojs::EventLoopBindings::init(wrapper.getProtoContext(), nativeGlobal);
-            wrapper.updateNativeGlobal(nativeGlobal);
-        }
-        protojs::Deferred::init(wrapper.getJSContext(), &wrapper);
-        {
-            const proto::ProtoObject* nativeGlobal = wrapper.getNativeGlobal();
-            nativeGlobal = protojs::IOModule::init(wrapper.getProtoContext(), nativeGlobal);
-            wrapper.updateNativeGlobal(nativeGlobal);
-        }
-        protojs::ProtoCoreModule::init(wrapper.getJSContext());
-        {
-            const proto::ProtoObject* nativeGlobal = wrapper.getNativeGlobal();
-            nativeGlobal = protojs::ProcessModule::init(
-                wrapper.getProtoContext(), nativeGlobal, argc, argv);
-            wrapper.updateNativeGlobal(nativeGlobal);
-        }
-        {
-            const proto::ProtoObject* nativeGlobal = wrapper.getNativeGlobal();
-            nativeGlobal = protojs::CommonJSLoader::init(wrapper.getProtoContext(), nativeGlobal);
-            wrapper.updateNativeGlobal(nativeGlobal);
-        }
-        {
-            const proto::ProtoObject* nativeGlobal = wrapper.getNativeGlobal();
-            nativeGlobal = protojs::PathModule::init(
-                wrapper.getProtoContext(), nativeGlobal);
-            wrapper.updateNativeGlobal(nativeGlobal);
-        }
-        {
-            const proto::ProtoObject* nativeGlobal = wrapper.getNativeGlobal();
-            nativeGlobal = protojs::FSModule::init(wrapper.getProtoContext(), nativeGlobal);
-            wrapper.updateNativeGlobal(nativeGlobal);
-        }
-        {
-            const proto::ProtoObject* nativeGlobal = wrapper.getNativeGlobal();
-            nativeGlobal = protojs::URLModule::init(wrapper.getProtoContext(), nativeGlobal);
-            wrapper.updateNativeGlobal(nativeGlobal);
-        }
-        {
-            const proto::ProtoObject* nativeGlobal = wrapper.getNativeGlobal();
-            nativeGlobal = protojs::HTTPModule::init(wrapper.getProtoContext(), nativeGlobal);
-            wrapper.updateNativeGlobal(nativeGlobal);
-        }
-        {
-            const proto::ProtoObject* nativeGlobal = wrapper.getNativeGlobal();
-            nativeGlobal = protojs::EventsModule::init(wrapper.getProtoContext(), nativeGlobal);
-            wrapper.updateNativeGlobal(nativeGlobal);
-        }
-        {
-            const proto::ProtoObject* nativeGlobal = wrapper.getNativeGlobal();
-            nativeGlobal = protojs::StreamModule::init(wrapper.getProtoContext(), nativeGlobal);
-            wrapper.updateNativeGlobal(nativeGlobal);
-        }
-        {
-            const proto::ProtoObject* nativeGlobal = wrapper.getNativeGlobal();
-            nativeGlobal = protojs::UtilModule::init(wrapper.getProtoContext(), nativeGlobal);
-            wrapper.updateNativeGlobal(nativeGlobal);
-        }
-        {
-            const proto::ProtoObject* nativeGlobal = wrapper.getNativeGlobal();
-            nativeGlobal = protojs::CryptoModule::init(wrapper.getProtoContext(), nativeGlobal);
-            wrapper.updateNativeGlobal(nativeGlobal);
-        }
-        {
-            const proto::ProtoObject* nativeGlobal = wrapper.getNativeGlobal();
-            nativeGlobal = protojs::BufferModule::init(wrapper.getProtoContext(), nativeGlobal);
-            wrapper.updateNativeGlobal(nativeGlobal);
-        }
-        {
-            const proto::ProtoObject* nativeGlobal = wrapper.getNativeGlobal();
-            nativeGlobal = protojs::NetModule::init(wrapper.getProtoContext(), nativeGlobal);
-            wrapper.updateNativeGlobal(nativeGlobal);
-        }
-        {
-            const proto::ProtoObject* nativeGlobal = wrapper.getNativeGlobal();
-            nativeGlobal = protojs::WorkerThreadsModule::init(wrapper.getProtoContext(), nativeGlobal);
-            wrapper.updateNativeGlobal(nativeGlobal);
-        }
-        {
-            const proto::ProtoObject* nativeGlobal = wrapper.getNativeGlobal();
-            nativeGlobal = protojs::ClusterModule::init(wrapper.getProtoContext(), nativeGlobal);
-            wrapper.updateNativeGlobal(nativeGlobal);
-        }
-        {
-            const proto::ProtoObject* nativeGlobal = wrapper.getNativeGlobal();
-            nativeGlobal = protojs::DgramModule::init(wrapper.getProtoContext(), nativeGlobal);
-            wrapper.updateNativeGlobal(nativeGlobal);
-        }
-        {
-            const proto::ProtoObject* nativeGlobal = wrapper.getNativeGlobal();
-            nativeGlobal = protojs::ChildProcessModule::init(wrapper.getProtoContext(), nativeGlobal);
-            wrapper.updateNativeGlobal(nativeGlobal);
-        }
-    {
-        const proto::ProtoObject* nativeGlobal = wrapper.getNativeGlobal();
-        nativeGlobal = protojs::DNSModule::init(wrapper.getProtoContext(), nativeGlobal);
-        wrapper.updateNativeGlobal(nativeGlobal);
-    }
-    {
-        const proto::ProtoObject* nativeGlobal = wrapper.getNativeGlobal();
-        nativeGlobal = protojs::ChildProcessModule::init(wrapper.getProtoContext(), nativeGlobal);
-        wrapper.updateNativeGlobal(nativeGlobal);
-    }
-    {
-        const proto::ProtoObject* nativeGlobal = wrapper.getNativeGlobal();
-        nativeGlobal = protojs::MemoryAnalyzer::init(wrapper.getProtoContext(), nativeGlobal);
-        wrapper.updateNativeGlobal(nativeGlobal);
-    }
-    {
-        const proto::ProtoObject* nativeGlobal = wrapper.getNativeGlobal();
-        nativeGlobal = protojs::Profiler::init(wrapper.getProtoContext(), nativeGlobal);
-        wrapper.updateNativeGlobal(nativeGlobal);
-    }
-    {
-        const proto::ProtoObject* nativeGlobal = wrapper.getNativeGlobal();
-        nativeGlobal = protojs::VisualProfiler::init(wrapper.getProtoContext(), nativeGlobal);
-        wrapper.updateNativeGlobal(nativeGlobal);
-    }
-    {
-        const proto::ProtoObject* nativeGlobal = wrapper.getNativeGlobal();
-        nativeGlobal = protojs::IntegratedDebugger::init(wrapper.getProtoContext(), nativeGlobal);
-        wrapper.updateNativeGlobal(nativeGlobal);
-    }
-        
+        installRuntimeGlobals(wrapper, argc, argv, filename, /*minimal=*/false);
+
         protojs::REPL::start(wrapper.getJSContext());
         return 0;
     }
@@ -408,167 +355,20 @@ int main(int argc, char** argv) {
     wrapper.setUseProtoEval(true);
 
     if (minimalInit) {
-        {
-            const proto::ProtoObject* nativeGlobal = wrapper.getNativeGlobal();
-            protojs::Console::init(wrapper.getProtoContext(), nativeGlobal);
-            protojs::JSONBuiltin::init(wrapper.getProtoContext(), nativeGlobal);
-            protojs::TimingAPIs::init(wrapper.getProtoContext(), nativeGlobal);
-            nativeGlobal = protojs::ProtoDeferred::init(wrapper.getProtoContext(), nativeGlobal);
-            nativeGlobal = protojs::ProtoCoreNativeBindings::init(wrapper.getProtoContext(), nativeGlobal);
-            nativeGlobal = installScriptGlobals(wrapper.getProtoContext(), nativeGlobal, filename);
-            wrapper.updateNativeGlobal(nativeGlobal);
-        }
+        installRuntimeGlobals(wrapper, argc, argv, filename, /*minimal=*/true);
         JSValue result = wrapper.eval(code, filename, inputTypeModule);
         JS_FreeValue(wrapper.getJSContext(), result);
         return 0;
     }
 
-    // Initialize modules
-    {
-        const proto::ProtoObject* nativeGlobal = wrapper.getNativeGlobal();
-        protojs::Console::init(wrapper.getProtoContext(), nativeGlobal);
-        protojs::JSONBuiltin::init(wrapper.getProtoContext(), nativeGlobal);
-        protojs::TimingAPIs::init(wrapper.getProtoContext(), nativeGlobal);
-        nativeGlobal = protojs::EventLoopBindings::init(wrapper.getProtoContext(), nativeGlobal);
-        nativeGlobal = protojs::ProtoDeferred::init(wrapper.getProtoContext(), nativeGlobal);
-        nativeGlobal = protojs::ProtoCoreNativeBindings::init(wrapper.getProtoContext(), nativeGlobal);
-        nativeGlobal = installScriptGlobals(wrapper.getProtoContext(), nativeGlobal, filename);
-        wrapper.updateNativeGlobal(nativeGlobal);
-    }
-    // (__protojs__ is now set by installScriptGlobals above on the
-    // protoCore-native global.)
-
     // JSON.stringify / JSON.parse polyfill is prepended to the user's
-    // code below (see line ~392) rather than eval'd separately.  In the
-    // current runtime, function references defined in one wrapper.eval
-    // call do not work correctly when called from a later one (the
-    // function's bytecode is keyed by module-relative bcId, which goes
-    // stale once that module's compile-time tables are released).
-    // Prepending keeps the polyfill and user code in the same module
-    // so the references stay valid.
-    protojs::Deferred::init(wrapper.getJSContext(), &wrapper);
-    {
-        const proto::ProtoObject* nativeGlobal = wrapper.getNativeGlobal();
-        nativeGlobal = protojs::IOModule::init(wrapper.getProtoContext(), nativeGlobal);
-        wrapper.updateNativeGlobal(nativeGlobal);
-    }
-    protojs::ProtoCoreModule::init(wrapper.getJSContext());
-    // ProcessModule registers `process` directly on the protoCore-native
-    // global (no QuickJS bridge).  The hang that affected the previous
-    // QuickJS-side install path is gone with the migration.
-    {
-        const proto::ProtoObject* nativeGlobal = wrapper.getNativeGlobal();
-        nativeGlobal = protojs::ProcessModule::init(
-            wrapper.getProtoContext(), nativeGlobal, argc, argv);
-        wrapper.updateNativeGlobal(nativeGlobal);
-    }
-    
-    // Initialize Phase 2 modules
-    {
-        const proto::ProtoObject* nativeGlobal = wrapper.getNativeGlobal();
-        nativeGlobal = protojs::CommonJSLoader::init(wrapper.getProtoContext(), nativeGlobal);
-        wrapper.updateNativeGlobal(nativeGlobal);
-    }
-    // ES Module loader will be used via import statements
-    {
-        const proto::ProtoObject* nativeGlobal = wrapper.getNativeGlobal();
-        nativeGlobal = protojs::PathModule::init(
-            wrapper.getProtoContext(), nativeGlobal);
-        wrapper.updateNativeGlobal(nativeGlobal);
-    }
-    {
-        const proto::ProtoObject* nativeGlobal = wrapper.getNativeGlobal();
-        nativeGlobal = protojs::FSModule::init(wrapper.getProtoContext(), nativeGlobal);
-        wrapper.updateNativeGlobal(nativeGlobal);
-    }
-    {
-        const proto::ProtoObject* nativeGlobal = wrapper.getNativeGlobal();
-        nativeGlobal = protojs::URLModule::init(wrapper.getProtoContext(), nativeGlobal);
-        wrapper.updateNativeGlobal(nativeGlobal);
-    }
-    {
-        const proto::ProtoObject* nativeGlobal = wrapper.getNativeGlobal();
-        nativeGlobal = protojs::HTTPModule::init(wrapper.getProtoContext(), nativeGlobal);
-        wrapper.updateNativeGlobal(nativeGlobal);
-    }
-    {
-        const proto::ProtoObject* nativeGlobal = wrapper.getNativeGlobal();
-        nativeGlobal = protojs::EventsModule::init(wrapper.getProtoContext(), nativeGlobal);
-        wrapper.updateNativeGlobal(nativeGlobal);
-    }
-    {
-        const proto::ProtoObject* nativeGlobal = wrapper.getNativeGlobal();
-        nativeGlobal = protojs::StreamModule::init(wrapper.getProtoContext(), nativeGlobal);
-        wrapper.updateNativeGlobal(nativeGlobal);
-    }
-    {
-        const proto::ProtoObject* nativeGlobal = wrapper.getNativeGlobal();
-        nativeGlobal = protojs::UtilModule::init(wrapper.getProtoContext(), nativeGlobal);
-        wrapper.updateNativeGlobal(nativeGlobal);
-    }
-    {
-        const proto::ProtoObject* nativeGlobal = wrapper.getNativeGlobal();
-        nativeGlobal = protojs::CryptoModule::init(wrapper.getProtoContext(), nativeGlobal);
-        wrapper.updateNativeGlobal(nativeGlobal);
-    }
-    {
-        const proto::ProtoObject* nativeGlobal = wrapper.getNativeGlobal();
-        nativeGlobal = protojs::BufferModule::init(wrapper.getProtoContext(), nativeGlobal);
-        wrapper.updateNativeGlobal(nativeGlobal);
-    }
-    {
-        const proto::ProtoObject* nativeGlobal = wrapper.getNativeGlobal();
-        nativeGlobal = protojs::NetModule::init(wrapper.getProtoContext(), nativeGlobal);
-        wrapper.updateNativeGlobal(nativeGlobal);
-    }
-    {
-        const proto::ProtoObject* nativeGlobal = wrapper.getNativeGlobal();
-        nativeGlobal = protojs::WorkerThreadsModule::init(wrapper.getProtoContext(), nativeGlobal);
-        wrapper.updateNativeGlobal(nativeGlobal);
-    }
-    {
-        const proto::ProtoObject* nativeGlobal = wrapper.getNativeGlobal();
-        nativeGlobal = protojs::ClusterModule::init(wrapper.getProtoContext(), nativeGlobal);
-        wrapper.updateNativeGlobal(nativeGlobal);
-    }
-    {
-        const proto::ProtoObject* nativeGlobal = wrapper.getNativeGlobal();
-        nativeGlobal = protojs::DgramModule::init(wrapper.getProtoContext(), nativeGlobal);
-        wrapper.updateNativeGlobal(nativeGlobal);
-    }
-    {
-        const proto::ProtoObject* nativeGlobal = wrapper.getNativeGlobal();
-        nativeGlobal = protojs::ChildProcessModule::init(wrapper.getProtoContext(), nativeGlobal);
-        wrapper.updateNativeGlobal(nativeGlobal);
-    }
-    {
-        const proto::ProtoObject* nativeGlobal = wrapper.getNativeGlobal();
-        nativeGlobal = protojs::DNSModule::init(wrapper.getProtoContext(), nativeGlobal);
-        wrapper.updateNativeGlobal(nativeGlobal);
-    }
-    {
-        const proto::ProtoObject* nativeGlobal = wrapper.getNativeGlobal();
-        nativeGlobal = protojs::MemoryAnalyzer::init(wrapper.getProtoContext(), nativeGlobal);
-        wrapper.updateNativeGlobal(nativeGlobal);
-    }
-    {
-        const proto::ProtoObject* nativeGlobal = wrapper.getNativeGlobal();
-        nativeGlobal = protojs::Profiler::init(wrapper.getProtoContext(), nativeGlobal);
-        wrapper.updateNativeGlobal(nativeGlobal);
-    }
-    {
-        const proto::ProtoObject* nativeGlobal = wrapper.getNativeGlobal();
-        nativeGlobal = protojs::VisualProfiler::init(wrapper.getProtoContext(), nativeGlobal);
-        wrapper.updateNativeGlobal(nativeGlobal);
-    }
-    {
-        const proto::ProtoObject* nativeGlobal = wrapper.getNativeGlobal();
-        nativeGlobal = protojs::IntegratedDebugger::init(wrapper.getProtoContext(), nativeGlobal);
-        wrapper.updateNativeGlobal(nativeGlobal);
-    }
-
-    // __filename / __dirname / __protojs__ are now set by installScriptGlobals
-    // earlier on the protoCore-native global.  No QuickJS-side install here.
+    // code below rather than eval'd separately.  In the current runtime,
+    // function references defined in one wrapper.eval call do not work
+    // correctly when called from a later one (the function's bytecode is
+    // keyed by module-relative bcId, which goes stale once that module's
+    // compile-time tables are released).  Prepending keeps the polyfill
+    // and user code in the same module so the references stay valid.
+    installRuntimeGlobals(wrapper, argc, argv, filename, /*minimal=*/false);
 
     // Evaluate preload files as scripts to set up globals (e.g., harness for test262).
     for (const auto& preload : preloadFiles) {
@@ -598,7 +398,7 @@ int main(int argc, char** argv) {
             JS_FreeCString(wrapper.getJSContext(), resultStr);
         }
     }
-    
+
     // Process event loop: handle Deferred/Worker callbacks and wait for worker threads
     auto start = std::chrono::steady_clock::now();
     const auto timeout = std::chrono::seconds(180);  // Allow parallel_cpu (5 rounds × 4 staggered ProtoThreads, 2e6 iter each) to complete
@@ -622,10 +422,10 @@ int main(int argc, char** argv) {
             break;
         }
     }
-    
+
     // Process any remaining callbacks one more time
     protojs::EventLoop::getInstance().processCallbacks();
-    
+
     const int exitCode = JS_IsException(result) ? 1 : 0;
     JS_FreeValue(wrapper.getJSContext(), result);
 

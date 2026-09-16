@@ -99,6 +99,21 @@ function check(name, condition, detail) {
   check("--proto-eval accepted: exit status 0", r.status === 0, `status ${r.status}`);
 }
 
+// The REPL must install the same globals as a script run.
+{
+  const r = spawnSync(proto, ["--cpu-threads", "2"], {
+    input: "console.log(typeof protoCore.Set, typeof Deferred, typeof __filename)\n.exit\n",
+    encoding: "utf8",
+    timeout: 20000,
+  });
+  const out = String(r.stdout);
+  check(
+    "REPL installs protoCore collections, Deferred and the script globals",
+    out.includes("function function string"),
+    `stdout: ${JSON.stringify(out)}`
+  );
+}
+
 // The usage text must describe the I/O thread default that the code implements.
 {
   const r = run([]);

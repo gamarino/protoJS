@@ -4,6 +4,46 @@ All notable changes to protoJS are documented in this file.
 
 ## [Unreleased]
 
+### The `protoCore` global (2026-09-16)
+
+- Fixed: the `protoCore` global that scripts see exposed only `runInThread`.
+  The collections and mutability helpers existed solely in
+  `src/modules/ProtoCoreModule.cpp`, which was built with the QuickJS C API
+  and installed on the QuickJS global object — an object the protoCore
+  interpreter never reads — so `protoCore.Set` and its peers were `undefined`
+  in every script, contrary to the documentation. They are now native
+  `ProtoMethod`s on the protoCore-native global: `Set`, `Multiset`,
+  `SparseList`, `Tuple`, `ImmutableObject`, `MutableObject`, `isImmutable`,
+  `makeImmutable`, `makeMutable` and `runInThread`.
+- `Set`, `Multiset` and `SparseList` instances hold their persistent protoCore
+  collection in a private attribute and republish it with
+  `setAttributeIfEqual`, so concurrent mutations cannot lose an update.
+  `size()` is a method, as documented. An absent `SparseList` index reads as
+  `undefined` rather than as `PROTO_NONE`, which is also a storable value.
+- Fixed: the REPL installed neither `Deferred` nor `protoCore` nor the script
+  globals, so `typeof protoCore` was `undefined` at the prompt, and it
+  initialised `child_process` twice. The REPL, `--minimal` and the script path
+  now share one `installRuntimeGlobals` list in `src/main.cpp`, so they cannot
+  drift apart again; this removes about 200 lines of duplicated setup.
+- `src/modules/ProtoCoreModule.cpp` is no longer built (removed from
+  `CMakeLists.txt`); the files are left in the tree for the maintainer to
+  delete.
+- Known limitation, newly visible and now documented: `ImmutableObject`,
+  `MutableObject`, `makeImmutable` and `makeMutable` return an **empty**
+  object, because `ProtoObject::clone()` does not carry the source's own
+  attributes. The QuickJS-side versions appeared to copy the properties only
+  because they round-tripped the argument through `TypeBridge`, which rebuilt
+  the object. Fixing this needs a protoCore change (a clone that carries
+  attributes, or public attribute-name enumeration): `getOwnAttributes()`
+  returns a sparse list keyed by attribute hash, which does not yield the
+  names. `isImmutable` remains the placeholder it always was: primitives
+  report `true`, objects `false`.
+- `tests/integration/collections/protoCore_collections.js` and
+  `tests/demos/protoCore_collections.js` used to guard every check with an
+  "if available" branch that silently skipped. Both now use the API directly,
+  and the integration script asserts. The CLI test additionally checks that
+  the REPL installs the same globals as a script.
+
 ### Deferred (2026-09-16)
 
 - Fixed: `new Deferred(fn)` threw `TypeError: function is not a constructor`.

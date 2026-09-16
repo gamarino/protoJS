@@ -3,9 +3,27 @@
 // ProtoCoreNativeBindings — protoCore-native installation of the
 // `protoCore` global module.
 //
-// Replaces (for the user-visible binding) the QuickJS-side
-// src/modules/ProtoCoreModule.cpp registration on the QuickJS global
-// object.  Currently exposes:
+// Replaces the QuickJS-side src/modules/ProtoCoreModule.cpp registration,
+// which installed its object on the QuickJS global object that scripts
+// running on the protoCore interpreter never see.  Exposes:
+//
+//   protoCore.Set / Multiset / SparseList
+//     - Constructors backed by protoCore's persistent collections.  The
+//       collection is held in a private attribute of the instance and
+//       republished with a compare-and-swap on every mutation, so two
+//       threads mutating the same instance cannot lose an update.
+//       `size()` is a method, not a property.
+//
+//   protoCore.Tuple(array)
+//     - Builds the elements in protoCore list storage and returns them as
+//       a regular JavaScript Array.
+//
+//   protoCore.ImmutableObject / MutableObject / makeImmutable / makeMutable
+//     - ProtoObject::clone with the requested mutability.
+//
+//   protoCore.isImmutable(value)
+//     - Placeholder: protoCore's public API has no mutability query, so
+//       primitives report true and objects always report false.
 //
 //   protoCore.runInThread(workerName, args)
 //     - Looks up `workerName` in the native worker registry (the same
@@ -16,8 +34,8 @@
 //     - Returns a ProtoDeferred that resolves with the worker's
 //       result when the thread joins.
 //
-// Set / Multiset / SparseList classes from the QuickJS module are
-// deferred; runInThread is the only piece parallel_cpu.js needs.
+// This is the only `protoCore` binding; the QuickJS-side module is no
+// longer built.
 
 #include <protoCore.h>
 
@@ -31,10 +49,7 @@ public:
         proto::ProtoContext* ctx,
         const proto::ProtoObject* globalObj);
 
-    // Worker registration — shared with the QuickJS-side ProtoCoreModule
-    // which already registers cpuChunk.  We do NOT re-register here; the
-    // existing static map is reused via a forward-declared accessor in
-    // the .cpp.
+    // The native worker registry (cpuChunk, ...) lives in the .cpp.
 };
 
 }  // namespace protojs

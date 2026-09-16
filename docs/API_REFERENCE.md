@@ -54,7 +54,7 @@ protojs [options] -e "<code>"
 | `JSON` | `src/JSONBuiltin.cpp` | `JSON.parse`, `JSON.stringify` |
 | `setImmediate` | `src/EventLoopBindings.cpp` | `setImmediate(callback)` runs `callback` on a later event-loop turn |
 | `Deferred` | `src/ProtoDeferred.cpp` | Promise-like object. `new Deferred(fn)` and `Deferred(fn)` both work; `fn` takes no arguments, its return value fulfils and a thrown value rejects. `then(onFulfilled, onRejected)` and `catch(onRejected)` return the same instance. See [DEFERRED_USAGE.md](DEFERRED_USAGE.md) |
-| `protoCore` | `src/ProtoCoreNativeBindings.cpp` | `protoCore.runInThread`; see [PROTOCORE_MODULE.md](PROTOCORE_MODULE.md) |
+| `protoCore` | `src/ProtoCoreNativeBindings.cpp` | protoCore collections (`Set`, `Multiset`, `SparseList`, `Tuple`), the mutability helpers (`ImmutableObject`, `MutableObject`, `isImmutable`, `makeImmutable`, `makeMutable`) and `runInThread`; see [PROTOCORE_MODULE.md](PROTOCORE_MODULE.md) |
 | `io` | `src/modules/IOModule.cpp` | Simple file I/O; see below |
 | `process` | `src/modules/ProcessModule.cpp` | Process information; see below |
 | `require` | `src/modules/CommonJSLoader.cpp` | CommonJS loader with `require.resolve` and `require.cache`; see below |

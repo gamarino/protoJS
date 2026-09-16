@@ -1,11 +1,15 @@
 #include "ProtoCoreNativeBindings.h"
 #include "ProtoDeferred.h"
 #include "ArrayElementsStorage.h"
+#include "ArrayPrototype.h"
+#include "FunctionPrototype.h"
+#include "ProtoNativeModule.h"
 #include "JSContext.h"
 #include "JSSymbols.h"
 #include "EventLoop.h"
 #include "CPUThreadPool.h"
 #include "ThreadPoolExecutor.h"
+#include "runtime/ProtoInterpreter.h"
 #include <atomic>
 #include <mutex>
 #include <unordered_map>
@@ -18,9 +22,8 @@ namespace {
 
 // ---- Native worker registry ------------------------------------------
 // Workers are C++ ProtoMethod functions selectable from JS code by name.
-// The QuickJS-side ProtoCoreModule maintains its own copy populated at
-// its init time; we duplicate the registration here so this module is
-// self-contained (no ordering dependency between the two init paths).
+// This is the only registry; the QuickJS-side ProtoCoreModule that used
+// to keep a second copy is no longer built.
 
 // Worker-side result slot: a heap-allocated struct shared between the
 // JS thread (which reads it after join) and the worker thread (which
@@ -213,23 +216,560 @@ const proto::ProtoObject* runInThreadNative(
     return deferred;
 }
 
+// ---- Collections ------------------------------------------------------
+//
+// Each instance keeps its persistent protoCore collection in one private
+// attribute.  A mutator derives the new collection and republishes it with
+// setAttributeIfEqual, retrying when another thread got there first, so two
+// threads adding to the same instance cannot lose an update — the reason the
+// value is held in an attribute rather than in a C++ side table.
+
+// Interned private keys, cached per thread (symbols compare by pointer).
+struct CollKeys {
+    const proto::ProtoString* set        = nullptr;
+    const proto::ProtoString* multiset   = nullptr;
+    const proto::ProtoString* sparselist = nullptr;
+};
+
+CollKeys& collKeys(proto::ProtoContext* ctx) {
+    static thread_local CollKeys k;
+    if (!k.set) {
+        k.set        = proto::ProtoString::createSymbol(ctx, "__pc_set__");
+        k.multiset   = proto::ProtoString::createSymbol(ctx, "__pc_multiset__");
+        k.sparselist = proto::ProtoString::createSymbol(ctx, "__pc_sparselist__");
+    }
+    return k;
+}
+
+const proto::ProtoObject* throwTypeError(proto::ProtoContext* ctx, const char* msg) {
+    signalNativeException(makeNativeError(ctx, "TypeError", msg));
+    return PROTO_NONE;
+}
+
+// The three prototype objects, one set per thread.  Their identity is what
+// distinguishes `new protoCore.Set()` — whose receiver is a fresh child of
+// the prototype — from a plain `protoCore.Set()` call, whose receiver is the
+// `protoCore` module object.  This works whichever slot the interpreter
+// dispatches a constructor through (`__construct__` or `__native_fn__`).
+const proto::ProtoObject*& setProtoSlot() {
+    static thread_local const proto::ProtoObject* p = nullptr; return p;
+}
+const proto::ProtoObject*& multisetProtoSlot() {
+    static thread_local const proto::ProtoObject* p = nullptr; return p;
+}
+const proto::ProtoObject*& sparseListProtoSlot() {
+    static thread_local const proto::ProtoObject* p = nullptr; return p;
+}
+
+bool calledWithNew(proto::ProtoContext* ctx,
+                    const proto::ProtoObject* self,
+                    const proto::ProtoObject* protoObj) {
+    if (!self || self == PROTO_NONE || !protoObj) return false;
+    return self->getPrototype(ctx) == protoObj;
+}
+
+// Bound so that a receiver which can never be published (an immutable
+// instance, say) fails loudly instead of spinning forever.
+constexpr int kCasAttempts = 1000;
+
+// Read one element of an Array argument list, or nullptr when the argument
+// is not an Array.
+const proto::ProtoList* arrayArgElements(proto::ProtoContext* ctx,
+                                          const proto::ProtoList* args) {
+    if (!args || args->getSize(ctx) == 0) return nullptr;
+    const proto::ProtoObject* a = args->getAt(ctx, 0);
+    if (!a || a == PROTO_NONE || a == getUndefinedSentinel()) return nullptr;
+    return getArrayElements(ctx, a);
+}
+
+bool readIndex(proto::ProtoContext* ctx, const proto::ProtoObject* v,
+                unsigned long& out) {
+    if (!v || v == PROTO_NONE) return false;
+    if (v->isInteger(ctx)) {
+        long long n = v->asLong(ctx);
+        if (n < 0) return false;
+        out = static_cast<unsigned long>(n);
+        return true;
+    }
+    if (v->isDouble(ctx) || v->isFloat(ctx)) {
+        double d = v->asDouble(ctx);
+        if (d < 0 || d != static_cast<double>(static_cast<long long>(d))) return false;
+        out = static_cast<unsigned long>(static_cast<long long>(d));
+        return true;
+    }
+    return false;
+}
+
+// ---- Set ---------------------------------------------------------------
+
+const proto::ProtoObject* setConstruct(
+    proto::ProtoContext* ctx, const proto::ProtoObject* self,
+    const proto::ParentLink*, const proto::ProtoList* args,
+    const proto::ProtoSparseList*) {
+    if (!ctx) return PROTO_NONE;
+    if (!calledWithNew(ctx, self, setProtoSlot()))
+        return throwTypeError(ctx, "Constructor Set requires 'new'");
+    const proto::ProtoSet* s = ctx->newSet();
+    if (!s) return throwTypeError(ctx, "Set: could not create the collection");
+    if (args && args->getSize(ctx) > 0) {
+        const proto::ProtoObject* init = args->getAt(ctx, 0);
+        if (init && init != PROTO_NONE && init != getUndefinedSentinel()) {
+            const proto::ProtoList* els = arrayArgElements(ctx, args);
+            if (!els) return throwTypeError(ctx, "Set expects an array");
+            unsigned long n = els->getSize(ctx);
+            for (unsigned long i = 0; i < n; i++)
+                s = s->add(ctx, els->getAt(ctx, static_cast<int>(i)));
+        }
+    }
+    self->setAttribute(ctx, collKeys(ctx).set, s->asObject(ctx));
+    // A non-object result makes the interpreter keep the receiver it built.
+    return PROTO_NONE;
+}
+
+const proto::ProtoSet* readSet(proto::ProtoContext* ctx,
+                                const proto::ProtoObject* self) {
+    if (!self || self == PROTO_NONE) return nullptr;
+    const proto::ProtoObject* a =
+        self->getOwnAttributeDirect(ctx, collKeys(ctx).set);
+    if (!a || a == PROTO_NONE) return nullptr;
+    return a->asSet(ctx);
+}
+
+const proto::ProtoObject* setAdd(
+    proto::ProtoContext* ctx, const proto::ProtoObject* self,
+    const proto::ParentLink*, const proto::ProtoList* args,
+    const proto::ProtoSparseList*) {
+    if (!args || args->getSize(ctx) < 1)
+        return throwTypeError(ctx, "Set.add expects a value");
+    const proto::ProtoString* key = collKeys(ctx).set;
+    const proto::ProtoObject* value = args->getAt(ctx, 0);
+    for (int attempt = 0; attempt < kCasAttempts; attempt++) {
+        const proto::ProtoObject* cur = (self && self != PROTO_NONE)
+            ? self->getOwnAttributeDirect(ctx, key) : nullptr;
+        const proto::ProtoSet* s = (cur && cur != PROTO_NONE) ? cur->asSet(ctx) : nullptr;
+        if (!s) return throwTypeError(ctx, "Invalid Set object");
+        const proto::ProtoSet* neu = s->add(ctx, value);
+        if (!neu) return throwTypeError(ctx, "Invalid Set object");
+        if (neu == s) return self;
+        if (self->setAttributeIfEqual(ctx, key, cur, neu->asObject(ctx)))
+            return self;
+    }
+    return throwTypeError(ctx, "Set.add: could not update the receiver");
+}
+
+const proto::ProtoObject* setHas(
+    proto::ProtoContext* ctx, const proto::ProtoObject* self,
+    const proto::ParentLink*, const proto::ProtoList* args,
+    const proto::ProtoSparseList*) {
+    if (!args || args->getSize(ctx) < 1)
+        return throwTypeError(ctx, "Set.has expects a value");
+    const proto::ProtoSet* s = readSet(ctx, self);
+    if (!s) return throwTypeError(ctx, "Invalid Set object");
+    const proto::ProtoObject* r = s->has(ctx, args->getAt(ctx, 0));
+    return (r == PROTO_TRUE) ? PROTO_TRUE : PROTO_FALSE;
+}
+
+const proto::ProtoObject* setRemove(
+    proto::ProtoContext* ctx, const proto::ProtoObject* self,
+    const proto::ParentLink*, const proto::ProtoList* args,
+    const proto::ProtoSparseList*) {
+    if (!args || args->getSize(ctx) < 1)
+        return throwTypeError(ctx, "Set.remove expects a value");
+    const proto::ProtoString* key = collKeys(ctx).set;
+    const proto::ProtoObject* value = args->getAt(ctx, 0);
+    for (int attempt = 0; attempt < kCasAttempts; attempt++) {
+        const proto::ProtoObject* cur = (self && self != PROTO_NONE)
+            ? self->getOwnAttributeDirect(ctx, key) : nullptr;
+        const proto::ProtoSet* s = (cur && cur != PROTO_NONE) ? cur->asSet(ctx) : nullptr;
+        if (!s) return throwTypeError(ctx, "Invalid Set object");
+        const proto::ProtoSet* neu = s->remove(ctx, value);
+        if (!neu || neu == s) return self;
+        if (self->setAttributeIfEqual(ctx, key, cur, neu->asObject(ctx)))
+            return self;
+    }
+    return throwTypeError(ctx, "Set.remove: could not update the receiver");
+}
+
+const proto::ProtoObject* setSize(
+    proto::ProtoContext* ctx, const proto::ProtoObject* self,
+    const proto::ParentLink*, const proto::ProtoList*,
+    const proto::ProtoSparseList*) {
+    const proto::ProtoSet* s = readSet(ctx, self);
+    if (!s) return throwTypeError(ctx, "Invalid Set object");
+    return ctx->fromInteger(static_cast<long long>(s->getSize(ctx)));
+}
+
+// ---- Multiset ----------------------------------------------------------
+
+const proto::ProtoObject* multisetConstruct(
+    proto::ProtoContext* ctx, const proto::ProtoObject* self,
+    const proto::ParentLink*, const proto::ProtoList* args,
+    const proto::ProtoSparseList*) {
+    if (!ctx) return PROTO_NONE;
+    if (!calledWithNew(ctx, self, multisetProtoSlot()))
+        return throwTypeError(ctx, "Constructor Multiset requires 'new'");
+    const proto::ProtoMultiset* m = ctx->newMultiset();
+    if (!m) return throwTypeError(ctx, "Multiset: could not create the collection");
+    if (args && args->getSize(ctx) > 0) {
+        const proto::ProtoObject* init = args->getAt(ctx, 0);
+        if (init && init != PROTO_NONE && init != getUndefinedSentinel()) {
+            const proto::ProtoList* els = arrayArgElements(ctx, args);
+            if (!els) return throwTypeError(ctx, "Multiset expects an array");
+            unsigned long n = els->getSize(ctx);
+            for (unsigned long i = 0; i < n; i++)
+                m = m->add(ctx, els->getAt(ctx, static_cast<int>(i)));
+        }
+    }
+    self->setAttribute(ctx, collKeys(ctx).multiset, m->asObject(ctx));
+    return PROTO_NONE;
+}
+
+const proto::ProtoMultiset* readMultiset(proto::ProtoContext* ctx,
+                                          const proto::ProtoObject* self) {
+    if (!self || self == PROTO_NONE) return nullptr;
+    const proto::ProtoObject* a =
+        self->getOwnAttributeDirect(ctx, collKeys(ctx).multiset);
+    if (!a || a == PROTO_NONE) return nullptr;
+    return a->asMultiset(ctx);
+}
+
+const proto::ProtoObject* multisetAdd(
+    proto::ProtoContext* ctx, const proto::ProtoObject* self,
+    const proto::ParentLink*, const proto::ProtoList* args,
+    const proto::ProtoSparseList*) {
+    if (!args || args->getSize(ctx) < 1)
+        return throwTypeError(ctx, "Multiset.add expects a value");
+    const proto::ProtoString* key = collKeys(ctx).multiset;
+    const proto::ProtoObject* value = args->getAt(ctx, 0);
+    for (int attempt = 0; attempt < kCasAttempts; attempt++) {
+        const proto::ProtoObject* cur = (self && self != PROTO_NONE)
+            ? self->getOwnAttributeDirect(ctx, key) : nullptr;
+        const proto::ProtoMultiset* m =
+            (cur && cur != PROTO_NONE) ? cur->asMultiset(ctx) : nullptr;
+        if (!m) return throwTypeError(ctx, "Invalid Multiset object");
+        const proto::ProtoMultiset* neu = m->add(ctx, value);
+        if (!neu) return throwTypeError(ctx, "Invalid Multiset object");
+        if (self->setAttributeIfEqual(ctx, key, cur, neu->asObject(ctx)))
+            return self;
+    }
+    return throwTypeError(ctx, "Multiset.add: could not update the receiver");
+}
+
+const proto::ProtoObject* multisetCount(
+    proto::ProtoContext* ctx, const proto::ProtoObject* self,
+    const proto::ParentLink*, const proto::ProtoList* args,
+    const proto::ProtoSparseList*) {
+    if (!args || args->getSize(ctx) < 1)
+        return throwTypeError(ctx, "Multiset.count expects a value");
+    const proto::ProtoMultiset* m = readMultiset(ctx, self);
+    if (!m) return throwTypeError(ctx, "Invalid Multiset object");
+    const proto::ProtoObject* c = m->count(ctx, args->getAt(ctx, 0));
+    return (c && c != PROTO_NONE) ? c : ctx->fromInteger(0);
+}
+
+const proto::ProtoObject* multisetRemove(
+    proto::ProtoContext* ctx, const proto::ProtoObject* self,
+    const proto::ParentLink*, const proto::ProtoList* args,
+    const proto::ProtoSparseList*) {
+    if (!args || args->getSize(ctx) < 1)
+        return throwTypeError(ctx, "Multiset.remove expects a value");
+    const proto::ProtoString* key = collKeys(ctx).multiset;
+    const proto::ProtoObject* value = args->getAt(ctx, 0);
+    for (int attempt = 0; attempt < kCasAttempts; attempt++) {
+        const proto::ProtoObject* cur = (self && self != PROTO_NONE)
+            ? self->getOwnAttributeDirect(ctx, key) : nullptr;
+        const proto::ProtoMultiset* m =
+            (cur && cur != PROTO_NONE) ? cur->asMultiset(ctx) : nullptr;
+        if (!m) return throwTypeError(ctx, "Invalid Multiset object");
+        const proto::ProtoMultiset* neu = m->remove(ctx, value);
+        if (!neu || neu == m) return self;
+        if (self->setAttributeIfEqual(ctx, key, cur, neu->asObject(ctx)))
+            return self;
+    }
+    return throwTypeError(ctx, "Multiset.remove: could not update the receiver");
+}
+
+const proto::ProtoObject* multisetSize(
+    proto::ProtoContext* ctx, const proto::ProtoObject* self,
+    const proto::ParentLink*, const proto::ProtoList*,
+    const proto::ProtoSparseList*) {
+    const proto::ProtoMultiset* m = readMultiset(ctx, self);
+    if (!m) return throwTypeError(ctx, "Invalid Multiset object");
+    return ctx->fromInteger(static_cast<long long>(m->getSize(ctx)));
+}
+
+// ---- SparseList --------------------------------------------------------
+
+const proto::ProtoObject* sparseListConstruct(
+    proto::ProtoContext* ctx, const proto::ProtoObject* self,
+    const proto::ParentLink*, const proto::ProtoList*,
+    const proto::ProtoSparseList*) {
+    if (!ctx) return PROTO_NONE;
+    if (!calledWithNew(ctx, self, sparseListProtoSlot()))
+        return throwTypeError(ctx, "Constructor SparseList requires 'new'");
+    const proto::ProtoSparseList* sl = ctx->newSparseList();
+    if (!sl) return throwTypeError(ctx, "SparseList: could not create the collection");
+    self->setAttribute(ctx, collKeys(ctx).sparselist, sl->asObject(ctx));
+    return PROTO_NONE;
+}
+
+const proto::ProtoSparseList* readSparseList(proto::ProtoContext* ctx,
+                                              const proto::ProtoObject* self) {
+    if (!self || self == PROTO_NONE) return nullptr;
+    const proto::ProtoObject* a =
+        self->getOwnAttributeDirect(ctx, collKeys(ctx).sparselist);
+    if (!a || a == PROTO_NONE) return nullptr;
+    return a->asSparseList(ctx);
+}
+
+const proto::ProtoObject* sparseListSet(
+    proto::ProtoContext* ctx, const proto::ProtoObject* self,
+    const proto::ParentLink*, const proto::ProtoList* args,
+    const proto::ProtoSparseList*) {
+    if (!args || args->getSize(ctx) < 2)
+        return throwTypeError(ctx, "SparseList.set expects index and value");
+    unsigned long index = 0;
+    if (!readIndex(ctx, args->getAt(ctx, 0), index))
+        return throwTypeError(ctx, "SparseList.set expects a non-negative integer index");
+    const proto::ProtoObject* value = args->getAt(ctx, 1);
+    const proto::ProtoString* key = collKeys(ctx).sparselist;
+    for (int attempt = 0; attempt < kCasAttempts; attempt++) {
+        const proto::ProtoObject* cur = (self && self != PROTO_NONE)
+            ? self->getOwnAttributeDirect(ctx, key) : nullptr;
+        const proto::ProtoSparseList* sl =
+            (cur && cur != PROTO_NONE) ? cur->asSparseList(ctx) : nullptr;
+        if (!sl) return throwTypeError(ctx, "Invalid SparseList object");
+        const proto::ProtoSparseList* neu = sl->setAt(ctx, index, value);
+        if (!neu) return throwTypeError(ctx, "Invalid SparseList object");
+        if (self->setAttributeIfEqual(ctx, key, cur, neu->asObject(ctx)))
+            return self;
+    }
+    return throwTypeError(ctx, "SparseList.set: could not update the receiver");
+}
+
+const proto::ProtoObject* sparseListGet(
+    proto::ProtoContext* ctx, const proto::ProtoObject* self,
+    const proto::ParentLink*, const proto::ProtoList* args,
+    const proto::ProtoSparseList*) {
+    if (!args || args->getSize(ctx) < 1)
+        return throwTypeError(ctx, "SparseList.get expects an index");
+    const proto::ProtoSparseList* sl = readSparseList(ctx, self);
+    if (!sl) return throwTypeError(ctx, "Invalid SparseList object");
+    unsigned long index = 0;
+    if (!readIndex(ctx, args->getAt(ctx, 0), index)) {
+        const proto::ProtoObject* u = getUndefinedSentinel();
+        return u ? u : PROTO_NONE;
+    }
+    // An absent index reads as undefined, never as PROTO_NONE: PROTO_NONE is
+    // also a legitimate stored value, so returning it would be ambiguous.
+    if (!sl->has(ctx, index)) {
+        const proto::ProtoObject* u = getUndefinedSentinel();
+        return u ? u : PROTO_NONE;
+    }
+    const proto::ProtoObject* v = sl->getAt(ctx, index);
+    return v ? v : PROTO_NONE;
+}
+
+const proto::ProtoObject* sparseListHas(
+    proto::ProtoContext* ctx, const proto::ProtoObject* self,
+    const proto::ParentLink*, const proto::ProtoList* args,
+    const proto::ProtoSparseList*) {
+    if (!args || args->getSize(ctx) < 1)
+        return throwTypeError(ctx, "SparseList.has expects an index");
+    const proto::ProtoSparseList* sl = readSparseList(ctx, self);
+    if (!sl) return throwTypeError(ctx, "Invalid SparseList object");
+    unsigned long index = 0;
+    if (!readIndex(ctx, args->getAt(ctx, 0), index)) return PROTO_FALSE;
+    return sl->has(ctx, index) ? PROTO_TRUE : PROTO_FALSE;
+}
+
+const proto::ProtoObject* sparseListSize(
+    proto::ProtoContext* ctx, const proto::ProtoObject* self,
+    const proto::ParentLink*, const proto::ProtoList*,
+    const proto::ProtoSparseList*) {
+    const proto::ProtoSparseList* sl = readSparseList(ctx, self);
+    if (!sl) return throwTypeError(ctx, "Invalid SparseList object");
+    return ctx->fromInteger(static_cast<long long>(sl->getSize(ctx)));
+}
+
+// ---- Tuple and mutability helpers --------------------------------------
+
+// Tuple(array) — the elements are carried in protoCore list storage and
+// published as a regular JavaScript Array.  The QuickJS version also
+// returned a plain array and never enforced immutability; the interpreter
+// has no handling for a bare ProtoTuple value.
+const proto::ProtoObject* tupleFn(
+    proto::ProtoContext* ctx, const proto::ProtoObject*,
+    const proto::ParentLink*, const proto::ProtoList* args,
+    const proto::ProtoSparseList*) {
+    const proto::ProtoList* els = arrayArgElements(ctx, args);
+    if (!els) return throwTypeError(ctx, "Tuple expects an array");
+
+    const proto::ProtoObject** groot = getCurrentGlobalRoot();
+    const proto::ProtoObject* arrayProto = nullptr;
+    if (groot && *groot) {
+        const proto::ProtoString* apK = JSSymbols::arrayProto(ctx);
+        if (apK) arrayProto = (*groot)->getAttribute(ctx, apK, false);
+        if (arrayProto == PROTO_NONE) arrayProto = nullptr;
+    }
+    const proto::ProtoObject* arr = createNewArray(ctx, arrayProto);
+    if (!arr) return throwTypeError(ctx, "Tuple: could not create the result array");
+    setArrayElements(ctx, arr, els);
+    return arr;
+}
+
+// True for JavaScript primitives.  protoCore's public API exposes no
+// mutability query, so object cells always report false — the same
+// placeholder the QuickJS version carried, and documented as such.
+bool isPrimitiveValue(proto::ProtoContext* ctx, const proto::ProtoObject* v) {
+    if (!v || v == PROTO_NONE) return true;
+    if (v == getUndefinedSentinel() || v == getNullSentinel()) return true;
+    if (v == PROTO_TRUE || v == PROTO_FALSE) return true;
+    // Only the predicates the interpreter itself links against: several
+    // others are declared in protoCore.h but not defined in the library.
+    return v->isBoolean(ctx) || v->isInteger(ctx) || v->isDouble(ctx)
+        || v->isFloat(ctx) || v->isString(ctx);
+}
+
+const proto::ProtoObject* cloneArg(proto::ProtoContext* ctx,
+                                    const proto::ProtoList* args,
+                                    bool mutableCopy,
+                                    const char* message) {
+    if (!args || args->getSize(ctx) < 1)
+        return throwTypeError(ctx, message);
+    const proto::ProtoObject* v = args->getAt(ctx, 0);
+    if (isPrimitiveValue(ctx, v)) return throwTypeError(ctx, message);
+    const proto::ProtoObject* copy = v->clone(ctx, mutableCopy);
+    return copy ? copy : PROTO_NONE;
+}
+
+const proto::ProtoObject* immutableObjectFn(
+    proto::ProtoContext* ctx, const proto::ProtoObject*,
+    const proto::ParentLink*, const proto::ProtoList* args,
+    const proto::ProtoSparseList*) {
+    return cloneArg(ctx, args, false, "ImmutableObject expects an object");
+}
+
+const proto::ProtoObject* mutableObjectFn(
+    proto::ProtoContext* ctx, const proto::ProtoObject*,
+    const proto::ParentLink*, const proto::ProtoList* args,
+    const proto::ProtoSparseList*) {
+    return cloneArg(ctx, args, true, "MutableObject expects an object");
+}
+
+const proto::ProtoObject* makeImmutableFn(
+    proto::ProtoContext* ctx, const proto::ProtoObject*,
+    const proto::ParentLink*, const proto::ProtoList* args,
+    const proto::ProtoSparseList*) {
+    return cloneArg(ctx, args, false, "makeImmutable expects an object");
+}
+
+const proto::ProtoObject* makeMutableFn(
+    proto::ProtoContext* ctx, const proto::ProtoObject*,
+    const proto::ParentLink*, const proto::ProtoList* args,
+    const proto::ProtoSparseList*) {
+    return cloneArg(ctx, args, true, "makeMutable expects an object");
+}
+
+const proto::ProtoObject* isImmutableFn(
+    proto::ProtoContext* ctx, const proto::ProtoObject*,
+    const proto::ParentLink*, const proto::ProtoList* args,
+    const proto::ProtoSparseList*) {
+    if (!args || args->getSize(ctx) < 1)
+        return throwTypeError(ctx, "isImmutable expects a value");
+    return isPrimitiveValue(ctx, args->getAt(ctx, 0)) ? PROTO_TRUE : PROTO_FALSE;
+}
+
+// ---- Constructor assembly ----------------------------------------------
+
+// Build a constructor object of the shape L_OP_call_constructor expects: a
+// wrapNativeFunction wrapper carrying `prototype` and `__construct__`.  A
+// bare ProtoMethod would be rejected with "function is not a constructor".
+const proto::ProtoObject* buildConstructor(proto::ProtoContext* ctx,
+                                            const char* name,
+                                            long long length,
+                                            proto::ProtoMethod construct,
+                                            const NativeEntry* methods,
+                                            size_t methodCount,
+                                            const proto::ProtoObject*& protoSlot) {
+    const proto::ProtoObject* prototypeObj =
+        ProtoNativeModule::buildModule(ctx, methods, methodCount);
+    if (!prototypeObj) return nullptr;
+    protoSlot = prototypeObj;
+
+    const proto::ProtoObject* ctor =
+        wrapNativeFunction(ctx, construct, name, length, /*globalRoot=*/nullptr);
+    if (!ctor) return nullptr;
+
+    const proto::ProtoString* protoKey = JSSymbols::prototype(ctx);
+    if (protoKey) ctor = ctor->setAttribute(ctx, protoKey, prototypeObj);
+    const proto::ProtoString* constructKey = JSSymbols::construct(ctx);
+    if (constructKey) {
+        const proto::ProtoObject* cm = ctx->fromMethod(nullptr, construct);
+        if (cm) ctor = ctor->setAttribute(ctx, constructKey, cm);
+    }
+    return ctor;
+}
+
 }  // namespace
 
 const proto::ProtoObject* ProtoCoreNativeBindings::init(
     proto::ProtoContext* ctx,
     const proto::ProtoObject* globalObj) {
     if (!ctx || !globalObj) return globalObj;
-    // Build the protoCore module object.  Just runInThread for now;
-    // future commits will add Set/Multiset/SparseList/Tuple/etc.
+
     const proto::ProtoObject* mod = ctx->newObject(/*mutable=*/true);
     if (!mod) return globalObj;
-    const proto::ProtoString* name = ctx->fromUTF8String("runInThread")
-        ? ctx->fromUTF8String("runInThread")->asString(ctx) : nullptr;
-    if (name) {
-        const proto::ProtoObject* fn =
-            ctx->fromMethod(nullptr, runInThreadNative);
-        if (fn) mod->setAttribute(ctx, name, fn);
-    }
+
+    auto put = [&](const char* name, const proto::ProtoObject* value) {
+        if (!value) return;
+        const proto::ProtoObject* k = ctx->fromUTF8String(name);
+        const proto::ProtoString* key = k ? k->asString(ctx) : nullptr;
+        if (key) mod->setAttribute(ctx, key, value);
+    };
+
+    static const NativeEntry setMethods[] = {
+        {"add",    setAdd},
+        {"has",    setHas},
+        {"remove", setRemove},
+        {"size",   setSize},
+        NATIVE_MODULE_END
+    };
+    static const NativeEntry multisetMethods[] = {
+        {"add",    multisetAdd},
+        {"count",  multisetCount},
+        {"remove", multisetRemove},
+        {"size",   multisetSize},
+        NATIVE_MODULE_END
+    };
+    static const NativeEntry sparseListMethods[] = {
+        {"set",  sparseListSet},
+        {"get",  sparseListGet},
+        {"has",  sparseListHas},
+        {"size", sparseListSize},
+        NATIVE_MODULE_END
+    };
+
+    put("Set", buildConstructor(ctx, "Set", 1, setConstruct,
+                                 setMethods, 4, setProtoSlot()));
+    put("Multiset", buildConstructor(ctx, "Multiset", 1, multisetConstruct,
+                                      multisetMethods, 4, multisetProtoSlot()));
+    put("SparseList", buildConstructor(ctx, "SparseList", 0, sparseListConstruct,
+                                        sparseListMethods, 4, sparseListProtoSlot()));
+
+    put("Tuple", wrapNativeFunction(ctx, tupleFn, "Tuple", 1, nullptr));
+    put("ImmutableObject",
+        wrapNativeFunction(ctx, immutableObjectFn, "ImmutableObject", 1, nullptr));
+    put("MutableObject",
+        wrapNativeFunction(ctx, mutableObjectFn, "MutableObject", 1, nullptr));
+    put("makeImmutable",
+        wrapNativeFunction(ctx, makeImmutableFn, "makeImmutable", 1, nullptr));
+    put("makeMutable",
+        wrapNativeFunction(ctx, makeMutableFn, "makeMutable", 1, nullptr));
+    put("isImmutable",
+        wrapNativeFunction(ctx, isImmutableFn, "isImmutable", 1, nullptr));
+    put("runInThread", ctx->fromMethod(nullptr, runInThreadNative));
+
     const proto::ProtoString* modName = ctx->fromUTF8String("protoCore")
         ? ctx->fromUTF8String("protoCore")->asString(ctx) : nullptr;
     if (!modName) return globalObj;

@@ -258,19 +258,10 @@ Map updates are serialized with a recursive mutex.
 
 **Responsibility:** Expose protoCore-specific capabilities to JavaScript.
 
-**On the protoCore-native global** (`src/ProtoCoreNativeBindings.cpp`), the `protoCore` object currently provides only `runInThread`:
+**On the protoCore-native global** (`src/ProtoCoreNativeBindings.cpp`), the `protoCore` object provides the collections, the mutability helpers and `runInThread`:
 
 ```javascript
-// Run the registered native worker "cpuChunk" on a ProtoThread.
-// Returns a Deferred that resolves with the worker's result.
-const d = protoCore.runInThread('cpuChunk', [200000]);
-d.then(result => console.log(result));
-```
-
-**QuickJS-side module** (`src/modules/ProtoCoreModule.cpp`), installed on the QuickJS global and reachable only from code that QuickJS executes, provides:
-
-```javascript
-// Collections
+// Collections — size() is a method, not a property
 const set = new protoCore.Set([1, 2, 3]);
 const multiset = new protoCore.Multiset([1, 1, 2, 3]);
 const sparseList = new protoCore.SparseList();
@@ -283,11 +274,13 @@ protoCore.isImmutable(obj);
 protoCore.makeImmutable(obj);
 protoCore.makeMutable(obj);
 
-// Native worker on a ProtoThread
-protoCore.runInThread('cpuChunk', [200000]);
+// Run the registered native worker "cpuChunk" on a ProtoThread.
+// Returns a Deferred that resolves with the worker's result.
+const d = protoCore.runInThread('cpuChunk', [2000000]);
+d.then(result => console.log(result));
 ```
 
-Porting the collection and mutability APIs to the native global is not yet done.
+`Set`, `Multiset` and `SparseList` instances hold their persistent protoCore collection in one private attribute, and every mutator republishes the derived collection with `setAttributeIfEqual`, so concurrent mutations from several threads cannot lose an update. The QuickJS-side module that used to provide a second, unreachable copy of this API is no longer built.
 
 ---
 
@@ -461,6 +454,7 @@ Measured results and the standard benchmark suite are described in [README.md](R
 - ES modules (`--input-type=module`) are executed by QuickJS, not by `ProtoInterpreter`.
 - A source that the compile-only frontend rejects falls back to QuickJS evaluation unless `PROTOJS_NO_FALLBACK=1` is set.
 - `new Deferred(fn)` runs `fn` on the main thread. Parallel CPU work uses `protoCore.runInThread` with a registered native worker, or `worker_threads`.
-- The protoCore collection and mutability APIs (`Set`, `Multiset`, `SparseList`, `Tuple`, `ImmutableObject`, …) exist only in the QuickJS-side module.
+- `protoCore.isImmutable` is a placeholder: protoCore's public API has no mutability query, so primitives report `true` and objects always report `false`.
+- `protoCore.ImmutableObject` / `MutableObject` / `makeImmutable` / `makeMutable` return an empty object: `ProtoObject::clone()` does not carry the source's own attributes. See [docs/PROTOCORE_MODULE.md](docs/PROTOCORE_MODULE.md).
 - `TypeBridge` has no `Date` conversion.
 - The `ExecutionEngine` interception hooks remain in the source but are not used on the default path.

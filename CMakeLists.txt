@@ -88,7 +88,6 @@ add_library(protojs_core STATIC
     src/modules/AsyncModuleLoader.cpp
     # Core modules
     src/modules/IOModule.cpp
-    src/modules/ProtoCoreModule.cpp
     src/modules/ProcessModule.cpp
     src/modules/path/PathModule.cpp
     src/modules/fs/FSModule.cpp

@@ -80,9 +80,9 @@ After the main script finishes, `protojs` waits for pending `Deferred`s, workers
 
 ## Missing globals and modules
 
-### `protoCore.Set` (or `Multiset`, `SparseList`, `Tuple`, `ImmutableObject`, ...) is `undefined`
+### `protoCore.Set(...)` throws `Constructor Set requires 'new'`
 
-Only `protoCore.runInThread` is installed on the global that scripts see. The collection and mutability helpers exist only on the QuickJS-side global. See [PROTOCORE_MODULE.md](PROTOCORE_MODULE.md).
+`Set`, `Multiset` and `SparseList` are constructors: call them with `new`. Note also that `size()` is a method, not a property, so `set.size` is the function itself and `set.size()` is the count. See [PROTOCORE_MODULE.md](PROTOCORE_MODULE.md).
 
 ### `require('fs')` (or another standard module) fails with "Cannot find module"
 

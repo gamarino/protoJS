@@ -31,6 +31,9 @@ PROTOJS="$PROTOJS" node tests/integration/cli/test_cli_flags.js
 echo "[run_all_tests] parallel_cpu benchmark workload..."
 PROTOJS="$PROTOJS" node tests/integration/benchmarks/test_parallel_cpu_workload.js
 
+echo "[run_all_tests] protoCore collections..."
+"$PROTOJS" tests/integration/collections/protoCore_collections.js
+
 echo "[run_all_tests] Deferred semantics..."
 "$PROTOJS" tests/integration/deferred/test_deferred_reject.js
 "$PROTOJS" tests/integration/test_deferred_basic.js
