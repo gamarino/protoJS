@@ -20,39 +20,74 @@ The first existing file is used, so if both `my_module.so` and `my_module.js` ex
 
 ### ABI
 
-The ABI is defined in `src/native/NativeModuleABI.h` (`PROTOJS_ABI_VERSION` is 1). An addon must:
+The ABI is defined in `src/native/NativeModuleABI.h` (`PROTOJS_ABI_VERSION` is **2**). An addon works with protoCore objects only; no QuickJS type appears in the interface. An addon must:
 
 1. Export the symbol **`protojs_native_module_info`**, of type `protojs::ProtoJSNativeModuleInfo` (`abiVersion`, `name`, `version`, `init`, `cleanup`).
 2. Provide an **init** function with the signature
-   `int init(JSContext* ctx, proto::ProtoContext* pContext, JSValue moduleObject);`
+   `int init(proto::ProtoContext* context, const proto::ProtoObject* module);`
    returning `0` on success and non-zero on error. `cleanup` is optional (`nullptr`).
 
-`moduleObject` has the CommonJS shape `{ id, filename, exports, loaded, children, parent }`, created with an empty `exports` object. The init function registers every exported value on `moduleObject.exports`, for example with `JS_SetPropertyStr(ctx, exports, "key", value)`. After init returns, `require` converts the exports to protoCore objects (`TypeBridge::fromJS`) and caches them by file path.
+`module` is a mutable protoCore object with the CommonJS shape `{ id, filename, exports, loaded, parent }`, created with an empty mutable `exports`. The init function registers everything it exports on that object. After init returns, `require` uses `module.exports` **as it is** — there is no conversion — and keeps the module record in `require.cache`, which is reachable from the native global and therefore GC-rooted.
+
+Exported functions use `ProtoJSNativeFunction`, which is exactly `proto::ProtoMethod`, so the interpreter calls them directly.
+
+#### Helpers
+
+These are implemented in `protojs_core` and exported from the `protojs` executable, so an addon resolves them at load time and links against nothing:
+
+| Helper | Purpose |
+|---|---|
+| `protojs_make_function(ctx, fn, name, length)` | Wrap a native function so JavaScript can call it; it carries `name` and `length` |
+| `protojs_set_export(ctx, module, name, value)` | `module.exports.<name> = value` |
+| `protojs_get_exports(ctx, module)` | Read `module.exports` |
+| `protojs_set_exports_object(ctx, module, exports)` | Replace `module.exports` wholesale |
+| `protojs_throw(ctx, type, message)` | Raise a catchable JavaScript exception; return `PROTO_NONE` immediately afterwards |
+
+#### Upgrading from ABI v1
+
+v1 addons received a `JSContext*` and `JSValue`s and built their exports with the QuickJS C API. Scripts run on the protoCore interpreter, which never sees those values: the exports were converted with `TypeBridge::fromJS`, and a QuickJS function became an empty object, so **exported functions were not callable**. A v1 addon is now refused at load time with
+
+```
+native addon <path> uses ABI v1 (QuickJS values); rebuild against ABI v2
+```
+
+To upgrade, replace the QuickJS calls with the helpers above and change the init signature; the example below is the whole of the `simple` test addon.
 
 ### Minimal example (C++)
 
 ```cpp
 #include "native/NativeModuleABI.h"
-#include "quickjs.h"
 #include "headers/protoCore.h"
 
 namespace protojs {
+namespace {
 
-static JSValue sum_impl(JSContext* ctx, JSValueConst this_val, int argc, JSValueConst* argv) {
-    int32_t a = 0, b = 0;
-    JS_ToInt32(ctx, &a, argv[0]);
-    JS_ToInt32(ctx, &b, argv[1]);
-    return JS_NewInt32(ctx, a + b);
+const proto::ProtoObject* sum_impl(proto::ProtoContext* ctx,
+                                    const proto::ProtoObject* /*self*/,
+                                    const proto::ParentLink*,
+                                    const proto::ProtoList* args,
+                                    const proto::ProtoSparseList*) {
+    if (!args || args->getSize(ctx) < 2) {
+        protojs_throw(ctx, "TypeError", "sum expects two numbers");
+        return PROTO_NONE;
+    }
+    const proto::ProtoObject* a = args->getAt(ctx, 0);
+    const proto::ProtoObject* b = args->getAt(ctx, 1);
+    if (!a->isInteger(ctx) || !b->isInteger(ctx)) {
+        protojs_throw(ctx, "TypeError", "sum expects two numbers");
+        return PROTO_NONE;
+    }
+    return ctx->fromInteger(a->asLong(ctx) + b->asLong(ctx));
 }
 
-static int init_impl(JSContext* ctx, proto::ProtoContext* pContext, JSValue moduleObject) {
-    (void)pContext;
-    JSValue exports = JS_GetPropertyStr(ctx, moduleObject, "exports");
-    if (JS_IsException(exports)) return -1;
-    JS_SetPropertyStr(ctx, exports, "version", JS_NewInt32(ctx, 1));
-    JS_SetPropertyStr(ctx, exports, "sum", JS_NewCFunction(ctx, sum_impl, "sum", 2));
+int init_impl(proto::ProtoContext* ctx, const proto::ProtoObject* module) {
+    if (protojs_set_export(ctx, module, "version", ctx->fromInteger(1)) != 0) return -1;
+    if (protojs_set_export(ctx, module, "sum",
+                            protojs_make_function(ctx, sum_impl, "sum", 2)) != 0) return -1;
     return 0;
 }
+
+} // namespace
 
 extern "C" {
 
@@ -78,8 +113,8 @@ console.log(m.sum(2, 3));
 
 ### Build requirements
 
-- **Headers:** the same include directories as the protoJS build: protoJS `src/`, `deps/quickjs`, and the protoCore source directory with its `headers/` subdirectory.
-- **Linking:** build a shared library and do not link QuickJS or protoCore into it; their symbols are resolved at load time from the `protojs` executable, which is linked with `-rdynamic` (`CMakeLists.txt`).
+- **Headers:** protoJS `src/` and the protoCore source directory with its `headers/` subdirectory. QuickJS headers are **not** needed: an ABI v2 addon contains no QuickJS type, and the two test addons are built without that include directory.
+- **Linking:** build a shared library and do not link QuickJS or protoCore into it; the protoCore symbols and the `protojs_*` helpers are resolved at load time from the `protojs` executable, which is linked with `-rdynamic` (`CMakeLists.txt`).
 - **File name:** the resolver looks for `<name>.so` (or `.node`, `.protojs`), not `lib<name>.so`. The test addons set `PREFIX ""` in CMake for this reason.
 
 ## Reference

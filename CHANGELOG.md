@@ -4,6 +4,40 @@ All notable changes to protoJS are documented in this file.
 
 ## [Unreleased]
 
+### Native addon ABI v2 (2026-09-16) — **breaking for addons**
+
+- Fixed: functions exported by a native addon were not callable.
+  `typeof addon.sum` was `"object"` and calling it threw
+  `TypeError: is not a function`. Addons built their exports with the QuickJS
+  C API (`JS_NewCFunction`), and `require` converted the result with
+  `TypeBridge::fromJS`, which turns a QuickJS function into an empty
+  `newObject(true)` (`src/TypeBridge.cpp:189-198`) that the interpreter cannot
+  call.
+- The addon interface moves to **ABI v2**, with no QuickJS types at all.
+  `ProtoJSNativeModuleInit` now takes `(proto::ProtoContext*, const
+  proto::ProtoObject* module)`, and exported functions use the existing
+  `ProtoJSNativeFunction` signature, which is `proto::ProtoMethod` — so the
+  interpreter calls them directly, with no bridge.
+- Addons get `extern "C"` helpers implemented in `protojs_core` and exported
+  from the `protojs` executable (`-rdynamic`), so an addon links against
+  nothing: `protojs_make_function`, `protojs_set_export`,
+  `protojs_get_exports`, `protojs_set_exports_object` and `protojs_throw`
+  (which raises a catchable JavaScript exception).
+- `require()` loads native addons natively and returns their exports
+  unconverted; the module record is kept in `require.cache`, which is reachable
+  from the native global and therefore GC-rooted.
+- **Breaking:** a v1 addon is now rejected at load time with
+  `native addon <path> uses ABI v1 (QuickJS values); rebuild against ABI v2`.
+  The only addons in the repository are the two test addons, both rebuilt
+  against v2; they no longer include `quickjs.h`, and their build targets no
+  longer add the QuickJS include directory.
+- Tests: `tests/integration/native_addons/test_native_require.js` and
+  `test_resolution.js` now assert instead of printing, and cover a callable
+  export, an addon-raised exception and module identity;
+  `tests/unit/test_dynamic_library_loader.cpp` covers `validateABI` (current
+  version, v1 rejection, a future version, and missing fields). Both scripts
+  run in `tests/run_all_tests.sh`. CTest now registers 34 tests, up from 33.
+
 ### `require()` of built-in modules (2026-09-16)
 
 - Fixed: `require('fs')` — and every other built-in name — returned

@@ -31,7 +31,7 @@ The rule for this migration: no bridges. The interpreter does not call back into
 **Other remaining QuickJS dependencies in the runtime surface:**
 
 - `CommonJSLoader::executeModule` runs JavaScript file modules through the QuickJS bridge, converting the global and the module objects with `TypeBridge` (see step 2).
-- The native addon ABI (`src/native/NativeModuleABI.h`) passes a QuickJS `JSContext*` and `JSValue` to addons; exports are converted with `TypeBridge::fromJS`.
+- ~~The native addon ABI passes QuickJS values to addons.~~ **Done:** ABI v2 (`src/native/NativeModuleABI.h`) passes a `proto::ProtoContext*` and a protoCore module object; exports are returned without conversion, and addons include no QuickJS header.
 - ES modules (`--input-type=module`) are evaluated by the QuickJS module evaluator.
 
 QuickJS remains a build dependency in any case: it provides the parser and compiler (`JS_Eval` with `JS_EVAL_FLAG_COMPILE_ONLY`), atoms and class IDs.

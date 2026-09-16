@@ -119,6 +119,100 @@ void throwModuleError(proto::ProtoContext* pCtx, const char* type,
     signalNativeException(err);
 }
 
+// ---- Native addons (ABI v2) --------------------------------------------
+
+void setAttr(proto::ProtoContext* pCtx, const proto::ProtoObject* obj,
+              const char* name, const proto::ProtoObject* value) {
+    if (!obj) return;
+    const proto::ProtoObject* n = pCtx->fromUTF8String(name);
+    const proto::ProtoString* k = n ? n->asString(pCtx) : nullptr;
+    if (k) obj->setAttribute(pCtx, k, value ? value : PROTO_NONE);
+}
+
+const proto::ProtoObject* getAttr(proto::ProtoContext* pCtx,
+                                   const proto::ProtoObject* obj,
+                                   const char* name) {
+    if (!obj || obj == PROTO_NONE) return nullptr;
+    const proto::ProtoObject* n = pCtx->fromUTF8String(name);
+    const proto::ProtoString* k = n ? n->asString(pCtx) : nullptr;
+    if (!k) return nullptr;
+    const proto::ProtoObject* v = obj->getAttribute(pCtx, k, false);
+    return (v && v != PROTO_NONE) ? v : nullptr;
+}
+
+// `require.cache`, reachable from the native global and therefore GC-rooted.
+// Addon module records live here, which is what keeps them alive.
+const proto::ProtoObject* requireCacheObject(proto::ProtoContext* pCtx) {
+    JSContextWrapper* wrapper = JSContextWrapper::current();
+    if (!wrapper) return nullptr;
+    const proto::ProtoObject* g = wrapper->getNativeGlobal();
+    if (!g) return nullptr;
+    const proto::ProtoString* rk = JSSymbols::require(pCtx);
+    if (!rk) return nullptr;
+    const proto::ProtoObject* req = g->getAttribute(pCtx, rk, false);
+    if (!req || req == PROTO_NONE) return nullptr;
+    return getAttr(pCtx, req, "cache");
+}
+
+// Load a native addon and return its exports.
+//
+// Under ABI v1 the addon built its exports with the QuickJS C API and the
+// loader handed back a JSValue, which `requireProtoMethod` converted with
+// TypeBridge::fromJS.  That conversion turns a QuickJS function into an empty
+// object (TypeBridge.cpp:189-198), so every exported function was unusable:
+// `typeof m.sum` was "object" and calling it threw.  Under v2 the addon builds
+// protoCore objects directly and they are returned unconverted.
+const proto::ProtoObject* loadNativeAddon(proto::ProtoContext* pCtx,
+                                           const std::string& filePath) {
+    const proto::ProtoObject* cache = requireCacheObject(pCtx);
+    const proto::ProtoObject* keyObj = pCtx->fromUTF8String(filePath.c_str());
+    const proto::ProtoString* cacheKey = keyObj ? keyObj->asString(pCtx) : nullptr;
+    if (cache && cacheKey) {
+        const proto::ProtoObject* cached = cache->getAttribute(pCtx, cacheKey, false);
+        if (cached && cached != PROTO_NONE) {
+            const proto::ProtoObject* ex = getAttr(pCtx, cached, "exports");
+            if (ex) return ex;
+        }
+    }
+
+    LoadedModule* loaded = DynamicLibraryLoader::load(filePath);
+    if (!loaded) {
+        // load() has already explained the reason (missing symbol, ABI v1, ...).
+        throwModuleError(pCtx, "Error",
+                          "Cannot load native module '" + filePath + "'");
+        return PROTO_NONE;
+    }
+
+    const proto::ProtoObject* exportsObj = pCtx->newObject(/*mutable=*/true);
+    const proto::ProtoObject* moduleObj = pCtx->newObject(/*mutable=*/true);
+    if (!exportsObj || !moduleObj) {
+        DynamicLibraryLoader::unload(loaded);
+        return PROTO_NONE;
+    }
+    setAttr(pCtx, moduleObj, "exports", exportsObj);
+    setAttr(pCtx, moduleObj, "id", pCtx->fromUTF8String(filePath.c_str()));
+    setAttr(pCtx, moduleObj, "filename", pCtx->fromUTF8String(filePath.c_str()));
+    setAttr(pCtx, moduleObj, "loaded", PROTO_FALSE);
+    setAttr(pCtx, moduleObj, "parent", PROTO_NONE);
+
+    const proto::ProtoObject* exports =
+        DynamicLibraryLoader::initializeModule(loaded, pCtx, moduleObj);
+
+    if (!exports) {
+        // The library stays loaded on purpose: its ProtoMethod pointers may
+        // already be reachable.  Only report the failure.
+        if (!hasCallException()) {
+            throwModuleError(pCtx, "Error",
+                              "Native module '" + filePath + "' failed to initialise");
+        }
+        return PROTO_NONE;
+    }
+
+    setAttr(pCtx, moduleObj, "loaded", PROTO_TRUE);
+    if (cache && cacheKey) cache->setAttribute(pCtx, cacheKey, moduleObj);
+    return exports;
+}
+
 // Drain a pending QuickJS exception and re-raise it as a native one.  Without
 // this the exception stayed on the QuickJS context, `require()` returned
 // PROTO_NONE, and the script silently saw `undefined`.
@@ -330,30 +424,14 @@ JSValue CommonJSLoader::require(
         }
     }
     
-    // Native module: load shared library and run init
+    // Native addons are handled by the native entry point
+    // (requireProtoMethod -> loadNativeAddon), which returns protoCore objects
+    // directly.  Reaching here means a caller used the JSValue path, which
+    // cannot represent an ABI v2 addon's exports.
     if (resolved.type == ModuleType::Native) {
-        LoadedModule* loaded = DynamicLibraryLoader::load(resolved.filePath);
-        if (!loaded) {
-            return JS_ThrowTypeError(ctx, "%s", ("Cannot load native module: " + resolved.filePath).c_str());
-        }
-        proto::ProtoContext* pContext = wrapper->getProtoContext();
-        if (!pContext) {
-            DynamicLibraryLoader::unload(loaded);
-            return JS_ThrowTypeError(ctx, "Native module load: ProtoContext not available");
-        }
-        JSValue moduleObj = createModuleObject(resolved.filePath, ctx);
-        JSValue exports = DynamicLibraryLoader::initializeModule(loaded, ctx, pContext, moduleObj);
-        JS_FreeValue(ctx, moduleObj);
-        if (JS_IsException(exports)) {
-            DynamicLibraryLoader::unload(loaded);
-            return exports;
-        }
-        // Keep library loaded (no unload); cache exports
-        {
-            std::lock_guard<std::mutex> lock(wrapper->getCJSCacheMutex());
-            wrapper->getCJSCache()[cacheKey] = JS_DupValue(ctx, exports);
-        }
-        return exports;
+        return JS_ThrowTypeError(ctx, "%s",
+            ("Native addon '" + resolved.filePath +
+             "' must be loaded through require() on the protoCore path").c_str());
     }
     
     // JavaScript module: read source and evaluate
@@ -549,6 +627,18 @@ const proto::ProtoObject* CommonJSLoader::requireProtoMethod(
     std::string fromPath = ".";
     if (pCtx->currentFileName) {
         fromPath = pCtx->currentFileName;
+    }
+
+    // Native addons are loaded natively: under ABI v2 the addon builds
+    // protoCore objects, so its exports are returned without conversion and
+    // its functions stay callable.
+    {
+        ResolveResult resolved = ModuleResolver::resolve(specifier, fromPath, ctx);
+        if (!resolved.filePath.empty() &&
+            (resolved.type == ModuleType::Native ||
+             ModuleResolver::isNativeExtension(resolved.filePath))) {
+            return loadNativeAddon(pCtx, resolved.filePath);
+        }
     }
 
     JSValue result = require(specifier, fromPath, ctx);

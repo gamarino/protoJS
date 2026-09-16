@@ -6,7 +6,7 @@ How to run each test layer. Commands are run from the repository root and assume
 
 | Layer | What | How to run |
 |-------|------|------------|
-| **C++ unit** | Catch2 tests in `tests/unit/`: event loop, CPU and I/O thread pools, Semver, NPMRegistry, BenchmarkRunner, NodeJSTestRunner | `ctest --test-dir build --output-on-failure` |
+| **C++ unit** | Catch2 tests in `tests/unit/`: event loop, CPU and I/O thread pools, Semver, NPMRegistry, BenchmarkRunner, NodeJSTestRunner, native addon ABI check | `ctest --test-dir build --output-on-failure` |
 | **Smoke** | Six short expressions evaluated by `protojs` | `node tests/test262/runner/proto_eval_smoke.js` |
 | **Directed global-object script** | Global `var` writes and reads on the protoCore-native global | `./build/protojs tests/test262/tests/phase6_native_global.js` |
 | **Test262** | Official Test262 suite, selected by path pattern | `node tests/test262/runner/test262_runner.js` (see below) |
@@ -44,7 +44,7 @@ The Test262 runner still sets `PROTOJS_USE_PROTO_EVAL=1`; `protojs` does not rea
 
 ### Native addons
 
-The build produces two test addons: `build/tests/native_addons/simple/simple.so` and `tests/integration/native_addons/fixture.so`. The scripts in `tests/integration/native_addons/` load them.
+The build produces two test addons: `<build>/tests/native_addons/simple/simple.so` (the scripts look under `build_release/` and `build/`) and `tests/integration/native_addons/fixture.so`. Both are built against ABI v2, so they use protoCore objects only and include no QuickJS header. The scripts in `tests/integration/native_addons/` load them and assert: `test_native_require.js` checks a callable export and a catchable addon exception, `test_resolution.js` checks that a native addon wins over a sibling `.js`.
 
 ## Single entry point
 

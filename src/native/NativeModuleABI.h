@@ -1,53 +1,37 @@
 #ifndef PROTOJS_NATIVEMODULEABI_H
 #define PROTOJS_NATIVEMODULEABI_H
 
-#include "quickjs.h"
 #include "headers/protoCore.h"
 
 /**
  * @brief Native Module ABI for protoJS.
- * 
- * Defines the Application Binary Interface for native modules (.protojs files).
- * Based on protoCore's ProtoMethod signature and object model.
+ *
+ * Defines the Application Binary Interface for native addons (`.node`,
+ * `.so` / `.dylib` / `.dll`, `.protojs`).
+ *
+ * ## ABI v2 — protoCore objects only
+ *
+ * v1 passed a `JSContext*` and `JSValue`s, so an addon built its exports with
+ * the QuickJS C API. Scripts run on the protoCore interpreter, which never
+ * sees those values: the exports were converted with `TypeBridge::fromJS`,
+ * and a QuickJS function became an empty object, so exported functions were
+ * not callable. v2 removes QuickJS from the addon interface entirely — an
+ * addon works with `proto::ProtoObject`s, exactly like the runtime's own
+ * native modules.
+ *
+ * v1 addons are rejected at load time with a message telling the author to
+ * rebuild.
  */
 
-#define PROTOJS_ABI_VERSION 1
+#define PROTOJS_ABI_VERSION 2
 
 namespace protojs {
 
 /**
- * @brief Native module initialization function signature.
- * 
- * Called when module is loaded to initialize exports.
- * 
- * The moduleObject has CommonJS shape: { id, filename, exports, loaded, children, parent }.
- * The loader creates it with an empty "exports" object. The init function must register
- * all exported values on moduleObject.exports (e.g. via JS_SetPropertyStr(ctx, exports, "key", value)).
- * 
- * @param ctx QuickJS context
- * @param pContext protoCore context
- * @param moduleObject JavaScript module object (with "exports" property to populate)
- * @return 0 on success, non-zero on error
- */
-typedef int (*ProtoJSNativeModuleInit)(
-    JSContext* ctx,
-    proto::ProtoContext* pContext,
-    JSValue moduleObject
-);
-
-/**
- * @brief Native module cleanup function signature.
- * 
- * Called when module is unloaded.
- * 
- * @param ctx QuickJS context
- */
-typedef void (*ProtoJSNativeModuleCleanup)(JSContext* ctx);
-
-/**
- * @brief Native function signature (matches protoCore ProtoMethod).
- * 
- * Functions exported from native modules use this signature.
+ * @brief Native function signature (identical to proto::ProtoMethod).
+ *
+ * Functions exported from native addons use this signature and are called
+ * directly by the interpreter — no bridge, no conversion.
  */
 typedef const proto::ProtoObject* (*ProtoJSNativeFunction)(
     proto::ProtoContext* context,
@@ -58,38 +42,102 @@ typedef const proto::ProtoObject* (*ProtoJSNativeFunction)(
 );
 
 /**
- * @brief Exception information structure.
+ * @brief Native module initialization function.
+ *
+ * Called once when the addon is loaded.
+ *
+ * `module` is a mutable protoCore object with CommonJS shape
+ * (`id`, `filename`, `exports`, `loaded`, `parent`); its `exports` attribute
+ * starts as an empty mutable object. The init function registers everything
+ * it exports on that object, most conveniently with `protojs_set_export`.
+ *
+ * @param context protoCore context
+ * @param module  the module object whose `exports` is to be populated
+ * @return 0 on success, non-zero on error
  */
-struct ProtoJSException {
-    const char* message;
-    const char* type;
-    int code;
-    
-    ProtoJSException() : message(nullptr), type(nullptr), code(0) {}
-    ProtoJSException(const char* msg, const char* t, int c) 
-        : message(msg), type(t), code(c) {}
-};
+typedef int (*ProtoJSNativeModuleInit)(
+    proto::ProtoContext* context,
+    const proto::ProtoObject* module
+);
+
+/**
+ * @brief Native module cleanup function (optional).
+ */
+typedef void (*ProtoJSNativeModuleCleanup)(proto::ProtoContext* context);
 
 /**
  * @brief Native module information structure.
- * 
- * Every native module must export this symbol:
- * extern "C" ProtoJSNativeModuleInfo protojs_native_module_info;
+ *
+ * Every native addon must export this symbol with C linkage:
+ *   extern "C" ProtoJSNativeModuleInfo protojs_native_module_info;
  */
 struct ProtoJSNativeModuleInfo {
-    int abiVersion;                    // Must match PROTOJS_ABI_VERSION
-    const char* name;                  // Module name
-    const char* version;               // Module version
-    ProtoJSNativeModuleInit init;      // Initialization function
-    ProtoJSNativeModuleCleanup cleanup; // Cleanup function (optional, can be nullptr)
-    
-    ProtoJSNativeModuleInfo() 
-        : abiVersion(0), name(nullptr), version(nullptr), 
+    int abiVersion;                     // Must match PROTOJS_ABI_VERSION
+    const char* name;                   // Module name
+    const char* version;                // Module version
+    ProtoJSNativeModuleInit init;       // Initialization function
+    ProtoJSNativeModuleCleanup cleanup; // Optional, may be nullptr
+
+    ProtoJSNativeModuleInfo()
+        : abiVersion(0), name(nullptr), version(nullptr),
           init(nullptr), cleanup(nullptr) {}
-    ProtoJSNativeModuleInfo(int ver, const char* n, const char* v, ProtoJSNativeModuleInit i, ProtoJSNativeModuleCleanup c)
+    ProtoJSNativeModuleInfo(int ver, const char* n, const char* v,
+                            ProtoJSNativeModuleInit i,
+                            ProtoJSNativeModuleCleanup c)
         : abiVersion(ver), name(n), version(v), init(i), cleanup(c) {}
 };
 
 } // namespace protojs
+
+/**
+ * Helpers available to addons.
+ *
+ * They are implemented in `protojs_core` and linked into the `protojs`
+ * executable with `-rdynamic`, so a dlopen'd addon resolves them from the
+ * host process; an addon links against nothing.
+ */
+extern "C" {
+
+/**
+ * Wrap a native function so that JavaScript can call it and so that it
+ * carries `name` and `length`. Returns nullptr on failure.
+ */
+const proto::ProtoObject* protojs_make_function(proto::ProtoContext* context,
+                                                protojs::ProtoJSNativeFunction fn,
+                                                const char* name,
+                                                int length);
+
+/**
+ * Set `module.exports.<name> = value`. Returns 0 on success.
+ */
+int protojs_set_export(proto::ProtoContext* context,
+                       const proto::ProtoObject* module,
+                       const char* name,
+                       const proto::ProtoObject* value);
+
+/**
+ * Return `module.exports`, or nullptr when it cannot be read.
+ */
+const proto::ProtoObject* protojs_get_exports(proto::ProtoContext* context,
+                                              const proto::ProtoObject* module);
+
+/**
+ * Replace `module.exports` wholesale, the equivalent of
+ * `module.exports = value`. Returns 0 on success.
+ */
+int protojs_set_exports_object(proto::ProtoContext* context,
+                               const proto::ProtoObject* module,
+                               const proto::ProtoObject* exports);
+
+/**
+ * Raise a JavaScript exception from inside an addon function. The addon must
+ * return PROTO_NONE immediately afterwards. `type` is an error constructor
+ * name such as "TypeError" or "RangeError".
+ */
+void protojs_throw(proto::ProtoContext* context,
+                   const char* type,
+                   const char* message);
+
+} // extern "C"
 
 #endif // PROTOJS_NATIVEMODULEABI_H

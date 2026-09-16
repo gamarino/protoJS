@@ -74,7 +74,7 @@ tests/
 | `test_nodejs_test_runner.cpp` | `NodeJSTestRunner` | 11 |
 | `test_array_storage_microbench.cpp` | Array element storage micro-benchmark | 1 |
 
-Four of the 37 test cases carry Catch2 hidden tags: two `[.integration]`, one `[.network]` and one `[.bench]`. Hidden test cases are not discovered by default, so CTest registers 33 tests. Hidden cases can be run explicitly by tag, for example `./build/tests/protojs_tests "[.integration]"`.
+Four of the 38 test cases carry Catch2 hidden tags: two `[.integration]`, one `[.network]` and one `[.bench]`. Hidden test cases are not discovered by default, so CTest registers 34 tests. Hidden cases can be run explicitly by tag, for example `./build/tests/protojs_tests "[.integration]"`.
 
 **Example: `tests/unit/test_semver.cpp`**
 
@@ -132,7 +132,7 @@ const sum = x + y;
 console.log(`${x} + ${y} = ${sum}`);
 ```
 
-The native addon tests in `tests/integration/native_addons/` load `simple_addon` and `fixture_addon`. Both are shared libraries that `CMakeLists.txt` builds from `tests/native_addons/`.
+The native addon tests in `tests/integration/native_addons/` load `simple_addon` and `fixture_addon`. Both are shared libraries that `CMakeLists.txt` builds from `tests/native_addons/`, against ABI v2: they use protoCore objects only and include no QuickJS header. `test_native_require.js` checks that an exported function is callable and that an exception raised by the addon is catchable; `test_resolution.js` checks that a native addon is preferred over a sibling `.js`. `tests/unit/test_dynamic_library_loader.cpp` covers the ABI check itself, including the rejection of a v1 addon.
 
 ---
 

@@ -10,21 +10,34 @@ LoadedModule* DynamicLibraryLoader::load(const std::string& filePath) {
         std::cerr << "Failed to load library: " << filePath << " - " << dlerror() << std::endl;
         return nullptr;
     }
-    
+
     void* symbol = getSymbol(handle, "protojs_native_module_info");
     if (!symbol) {
-        std::cerr << "Symbol protojs_native_module_info not found" << std::endl;
+        std::cerr << "Symbol protojs_native_module_info not found in " << filePath << std::endl;
         closeLibrary(handle);
         return nullptr;
     }
-    
+
     ProtoJSNativeModuleInfo* info = static_cast<ProtoJSNativeModuleInfo*>(symbol);
     if (!validateABI(info)) {
-        std::cerr << "ABI version mismatch" << std::endl;
+        if (info && info->abiVersion == 1) {
+            // v1 addons built their exports with the QuickJS C API, which the
+            // protoCore interpreter cannot call.
+            std::cerr << "native addon " << filePath
+                      << " uses ABI v1 (QuickJS values); rebuild against ABI v"
+                      << PROTOJS_ABI_VERSION << std::endl;
+        } else if (info) {
+            std::cerr << "native addon " << filePath << " declares ABI v"
+                      << info->abiVersion << "; this runtime implements v"
+                      << PROTOJS_ABI_VERSION << std::endl;
+        } else {
+            std::cerr << "native addon " << filePath
+                      << " has no module information" << std::endl;
+        }
         closeLibrary(handle);
         return nullptr;
     }
-    
+
     auto* module = new LoadedModule();
     module->handle = handle;
     module->info = info;
@@ -39,13 +52,16 @@ void DynamicLibraryLoader::unload(LoadedModule* module) {
     }
 }
 
-JSValue DynamicLibraryLoader::initializeModule(LoadedModule* module, JSContext* ctx, proto::ProtoContext* pContext, JSValue moduleObject) {
-    if (!module || !module->info || !module->info->init) return JS_EXCEPTION;
-    int result = module->info->init(ctx, pContext, moduleObject);
-    if (result != 0) return JS_EXCEPTION;
-    JSValue exports = JS_GetPropertyStr(ctx, moduleObject, "exports");
-    if (JS_IsException(exports)) return JS_EXCEPTION;
-    return JS_DupValue(ctx, exports);
+const proto::ProtoObject* DynamicLibraryLoader::initializeModule(
+        LoadedModule* module,
+        proto::ProtoContext* context,
+        const proto::ProtoObject* moduleObject) {
+    if (!module || !module->info || !module->info->init) return nullptr;
+    if (!context || !moduleObject || moduleObject == PROTO_NONE) return nullptr;
+
+    if (module->info->init(context, moduleObject) != 0) return nullptr;
+
+    return protojs_get_exports(context, moduleObject);
 }
 
 std::string DynamicLibraryLoader::getLibraryExtension() {
@@ -79,7 +95,9 @@ void DynamicLibraryLoader::closeLibrary(void* handle) {
 }
 
 bool DynamicLibraryLoader::validateABI(const ProtoJSNativeModuleInfo* info) {
-    return info && info->abiVersion == PROTOJS_ABI_VERSION && info->name && info->init;
+    if (!info) return false;
+    if (!info->name || !info->init) return false;
+    return info->abiVersion == PROTOJS_ABI_VERSION;
 }
 
 } // namespace protojs

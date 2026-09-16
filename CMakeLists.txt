@@ -72,6 +72,7 @@ add_library(protojs_core STATIC
     src/Deferred.cpp
     src/ProtoDeferred.cpp
     src/ProtoCoreNativeBindings.cpp
+    src/native/NativeModuleABI.cpp
     src/console.cpp
     src/ProtoNativeModule.cpp
     src/ThreadPoolExecutor.cpp
@@ -184,9 +185,9 @@ target_link_options(protojs PRIVATE -rdynamic)
 
 # Native addon for tests (shared library; symbols resolved when loaded by protojs)
 add_library(simple_addon SHARED tests/native_addons/simple/simple_addon.cpp)
+# ABI v2 addons use protoCore objects only: no QuickJS headers are needed.
 target_include_directories(simple_addon PRIVATE
     ${CMAKE_SOURCE_DIR}/src
-    ${CMAKE_SOURCE_DIR}/deps/quickjs
     ${PROTOCORE_INCLUDE_DIRS}
 )
 set_target_properties(simple_addon PROPERTIES
@@ -200,7 +201,6 @@ target_link_libraries(simple_addon PRIVATE dl)
 add_library(fixture_addon SHARED tests/native_addons/fixture/fixture_addon.cpp)
 target_include_directories(fixture_addon PRIVATE
     ${CMAKE_SOURCE_DIR}/src
-    ${CMAKE_SOURCE_DIR}/deps/quickjs
     ${PROTOCORE_INCLUDE_DIRS}
 )
 set_target_properties(fixture_addon PROPERTIES

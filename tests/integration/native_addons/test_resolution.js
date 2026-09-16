@@ -1,34 +1,40 @@
-// Test resolution order: native (.node / .so) first, then .js.
-// When both fixture.js and fixture.so exist in this directory,
-// require.resolve('./fixture') should return the path to fixture.so.
+// Resolution order: a native addon (.node / .so) wins over a sibling .js file.
+//
+// fixture.js and fixture.so both sit in this directory, so require('./fixture')
+// must load the native addon and `require.resolve` must report its path.
+//
+// Asserting test: prints the failures and exits 1 when anything is wrong.
 
-console.log('=== Resolution order test ===');
+var failures = [];
 
-const resolved = require.resolve('./fixture');
-console.log('Resolved path:', resolved);
-
-const ext = resolved.slice(resolved.lastIndexOf('.'));
-const isNative = ['.node', '.so', '.dll', '.dylib'].indexOf(ext) >= 0;
-
-if (isNative) {
-    console.log('OK: resolved to native addon (' + ext + ')');
-    const m = require('./fixture');
-    if (m.type === 'native') {
-        console.log('OK: require("./fixture") loaded native module');
-    } else {
-        console.log('FAIL: expected native module exports.type === "native", got', m.type);
-        process.exit(1);
-    }
-} else {
-    // Only fixture.js present: resolve to .js is correct
-    console.log('OK: resolved to JS module (' + ext + ')');
-    const m = require('./fixture');
-    if (m.type === 'js') {
-        console.log('OK: require("./fixture") loaded JS module');
-    } else {
-        console.log('FAIL: expected JS module exports.type === "js", got', m.type);
-        process.exit(1);
+function check(name, condition, detail) {
+    if (!condition) {
+        failures.push(name + (detail !== undefined ? " — " + detail : ""));
     }
 }
 
-console.log('Resolution test passed.');
+var resolved = require.resolve('./fixture');
+check("require.resolve returns a string", typeof resolved === "string",
+      "got " + typeof resolved);
+
+var ext = typeof resolved === "string"
+    ? resolved.slice(resolved.lastIndexOf('.'))
+    : "";
+var nativeExtensions = ['.node', '.so', '.dll', '.dylib'];
+var isNative = nativeExtensions.indexOf(ext) >= 0;
+
+check("the native addon is preferred over the sibling .js", isNative,
+      "resolved to " + resolved);
+
+var m = require('./fixture');
+check("require loaded the native addon", m && m.type === "native",
+      "type = " + (m && m.type));
+
+if (failures.length) {
+    console.log("test_resolution: " + failures.length + " check(s) failed");
+    for (var f = 0; f < failures.length; f++) {
+        console.log("  FAIL: " + failures[f]);
+    }
+    process.exit(1);
+}
+console.log("test_resolution: all checks passed");

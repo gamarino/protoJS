@@ -37,6 +37,10 @@ echo "[run_all_tests] protoCore collections..."
 echo "[run_all_tests] require() of built-in modules..."
 "$PROTOJS" tests/integration/modules/test_require.js
 
+echo "[run_all_tests] Native addons..."
+"$PROTOJS" tests/integration/native_addons/test_native_require.js
+"$PROTOJS" tests/integration/native_addons/test_resolution.js
+
 echo "[run_all_tests] Deferred semantics..."
 "$PROTOJS" tests/integration/deferred/test_deferred_reject.js
 "$PROTOJS" tests/integration/test_deferred_basic.js
