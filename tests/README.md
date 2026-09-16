@@ -40,7 +40,7 @@ TEST262_PATTERNS=built-ins/Array/isArray node tests/test262/runner/test262_runne
 
 The runner skips the tests listed in `tests/test262/config/skip_proto_eval.json` and writes a JSON snapshot for each run to `tests/test262/reports/`, which is not tracked in git. Its classification rules (including parse-negative leniency) are described in [CONFORMANCE_JS.md](../CONFORMANCE_JS.md#1-scope-and-methodology).
 
-The runner, the smoke script and `run_all_tests.sh` set `PROTOJS_USE_PROTO_EVAL=1`; `protojs` does not read that variable, and the protoCore interpreter is always used. For non-module tests the Test262 runner also sets `PROTOJS_NO_FALLBACK=1`, so a protoCore compile failure is reported instead of being retried with QuickJS.
+The Test262 runner still sets `PROTOJS_USE_PROTO_EVAL=1`; `protojs` does not read that variable, and the protoCore interpreter is always used. The smoke script and `run_all_tests.sh` no longer set it, and no longer pass the deprecated `--proto-eval` flag. For non-module tests the Test262 runner also sets `PROTOJS_NO_FALLBACK=1`, so a protoCore compile failure is reported instead of being retried with QuickJS.
 
 ### Native addons
 
@@ -52,7 +52,7 @@ The build produces two test addons: `build/tests/native_addons/simple/simple.so`
 ./tests/run_all_tests.sh
 ```
 
-The script builds `build/` (override with `BUILD_DIR`; the binary with `PROTOJS`), runs the C++ unit tests with `ctest -E "integration|network"`, runs the smoke test and the directed global-object script, and, when `TEST262_ROOT` is set, runs the Test262 runner with the configured patterns. With the default configuration that is the full `language` and `built-ins` suite, which is a long run. The script exits non-zero if any step fails.
+The script builds `build/` (override with `BUILD_DIR`; the binary with `PROTOJS`), runs the C++ unit tests with `ctest -E "integration|network"`, runs the smoke test, the directed global-object script and the command-line tests (`tests/integration/cli/test_cli_flags.js`), and, when `TEST262_ROOT` is set, runs the Test262 runner with the configured patterns. With the default configuration that is the full `language` and `built-ins` suite, which is a long run. The script exits non-zero if any step fails.
 
 Integration, conformity and benchmark scripts are not run by `run_all_tests.sh`.
 

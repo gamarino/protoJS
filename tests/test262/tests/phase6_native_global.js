@@ -5,7 +5,7 @@
  * - Top-level var assignments persist within the same eval (global root update).
  * - Reading a global after writing returns the written value.
  *
- * Run with protoCore path: PROTOJS_USE_PROTO_EVAL=1 ./build/protojs --proto-eval tests/test262/tests/phase6_native_global.js
+ * Run with protoCore path: ./build/protojs tests/test262/tests/phase6_native_global.js
  * Or via smoke: node tests/test262/runner/proto_eval_smoke.js (includes one Phase 6 case).
  */
 var __phase6_a = 1;

@@ -20,10 +20,13 @@ ctest --output-on-failure -E "integration|network"
 cd "$REPO_ROOT"
 
 echo "[run_all_tests] Smoke (protoCore path)..."
-PROTOJS_USE_PROTO_EVAL=1 PROTOJS="$PROTOJS" node tests/test262/runner/proto_eval_smoke.js
+PROTOJS="$PROTOJS" node tests/test262/runner/proto_eval_smoke.js
 
 echo "[run_all_tests] Phase 6 directed test..."
-PROTOJS_USE_PROTO_EVAL=1 "$PROTOJS" --proto-eval tests/test262/tests/phase6_native_global.js
+"$PROTOJS" tests/test262/tests/phase6_native_global.js
+
+echo "[run_all_tests] CLI flags..."
+PROTOJS="$PROTOJS" node tests/integration/cli/test_cli_flags.js
 
 if [ -n "$TEST262_ROOT" ] && [ -d "$TEST262_ROOT" ]; then
   echo "[run_all_tests] Test262 (pattern from config, protoCore path)..."

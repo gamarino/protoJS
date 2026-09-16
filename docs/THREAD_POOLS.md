@@ -43,4 +43,3 @@ Example: on a machine with 16 hardware threads and no options, the CPU pool has 
 
 - Tasks that block on I/O benefit from a larger I/O pool; CPU-bound tasks gain nothing from more threads than the machine has cores.
 - `--io-threads-factor` is ignored when `--io-threads` is given.
-- The usage text printed by `protojs` describes the I/O default as "3-4x CPU cores"; the implemented default factor is 3.0.

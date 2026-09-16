@@ -84,18 +84,85 @@ static const proto::ProtoObject* installScriptGlobals(
     return g;
 }
 
+// Parse the input without executing it (`-c` / `--check`).  A bare QuickJS
+// runtime is used on purpose: no ProtoSpace, no thread pools and no module
+// initialisation are created, so nothing in the input can run.
+// JS_EVAL_FLAG_COMPILE_ONLY compiles without linking imports, which matches
+// the behaviour of `node --check`.
+static int checkSyntaxOnly(const std::string& code,
+                           const std::string& filename,
+                           bool inputTypeModule) {
+    JSRuntime* rt = JS_NewRuntime();
+    if (!rt) {
+        std::cerr << "protojs: could not create a JavaScript runtime" << std::endl;
+        return 1;
+    }
+    JSContext* ctx = JS_NewContext(rt);
+    if (!ctx) {
+        JS_FreeRuntime(rt);
+        std::cerr << "protojs: could not create a JavaScript context" << std::endl;
+        return 1;
+    }
+
+    const int flags =
+        (inputTypeModule ? JS_EVAL_TYPE_MODULE : JS_EVAL_TYPE_GLOBAL) |
+        JS_EVAL_FLAG_COMPILE_ONLY;
+    JSValue compiled = JS_Eval(ctx, code.c_str(), code.size(),
+                               filename.c_str(), flags);
+
+    int status = 0;
+    if (JS_IsException(compiled)) {
+        status = 1;
+        JSValue exc = JS_GetException(ctx);
+        std::string errStr;
+        JSValue nameVal = JS_GetPropertyStr(ctx, exc, "name");
+        JSValue msgVal = JS_GetPropertyStr(ctx, exc, "message");
+        const char* name = (!JS_IsUndefined(nameVal) && !JS_IsException(nameVal))
+                           ? JS_ToCString(ctx, nameVal) : nullptr;
+        const char* msg = (!JS_IsUndefined(msgVal) && !JS_IsException(msgVal))
+                          ? JS_ToCString(ctx, msgVal) : nullptr;
+        if (name || msg) {
+            errStr = name ? name : "";
+            if (msg) errStr += (errStr.empty() ? "" : ": ") + std::string(msg);
+        }
+        if (name) JS_FreeCString(ctx, name);
+        if (msg) JS_FreeCString(ctx, msg);
+        JS_FreeValue(ctx, nameVal);
+        JS_FreeValue(ctx, msgVal);
+        if (errStr.empty()) {
+            const char* str = JS_ToCString(ctx, exc);
+            if (str) { errStr = str; JS_FreeCString(ctx, str); }
+        }
+        std::cerr << filename << ": " << errStr << std::endl;
+        // The stack carries the line number QuickJS recorded for the error.
+        JSValue stackVal = JS_GetPropertyStr(ctx, exc, "stack");
+        if (!JS_IsUndefined(stackVal) && !JS_IsException(stackVal)) {
+            const char* stack = JS_ToCString(ctx, stackVal);
+            if (stack && *stack) std::cerr << stack;
+            if (stack) JS_FreeCString(ctx, stack);
+        }
+        JS_FreeValue(ctx, stackVal);
+        JS_FreeValue(ctx, exc);
+    }
+
+    JS_FreeValue(ctx, compiled);
+    JS_FreeContext(ctx);
+    JS_FreeRuntime(rt);
+    return status;
+}
+
 void printUsage(const char* programName) {
     std::cerr << "Usage: " << programName << " [options] <filename.js> or " << programName << " -e \"code\"" << std::endl;
     std::cerr << "Options:" << std::endl;
     std::cerr << "  --cpu-threads N      Number of CPU threads (default: number of CPU cores)" << std::endl;
-    std::cerr << "  --io-threads N       Number of I/O threads (default: 3-4x CPU cores)" << std::endl;
-    std::cerr << "  --io-threads-factor F  Multiplier for I/O threads (default: 3.0)" << std::endl;
+    std::cerr << "  --io-threads N       Number of I/O threads (default: ceil(hardware threads x factor))" << std::endl;
+    std::cerr << "  --io-threads-factor F  Multiplier used when --io-threads is not given (default: 3.0)" << std::endl;
     std::cerr << "  -e \"code\"            Execute code directly" << std::endl;
     std::cerr << "  -p, --print          Print result of -e" << std::endl;
-    std::cerr << "  -c, --check          Syntax check only" << std::endl;
+    std::cerr << "  -c, --check          Syntax check only (parse without executing)" << std::endl;
     std::cerr << "  -v, --version        Show version" << std::endl;
     std::cerr << "  --input-type=module  Treat input as ES module" << std::endl;
-    std::cerr << "  --proto-eval         Use protoCore interpreter for eval (compile-only + ProtoInterpreter)" << std::endl;
+    std::cerr << "  --proto-eval         Deprecated; accepted and ignored (the protoCore interpreter is always used)" << std::endl;
     std::cerr << "  --minimal            Minimal init (Console only); use to isolate compile/run issues" << std::endl;
     std::cerr << "  --preload file.js    Evaluate file as script before main module (sets globals)" << std::endl;
 }
@@ -116,7 +183,6 @@ int main(int argc, char** argv) {
     bool syntaxCheck = false;
     bool showVersion = false;
     bool inputTypeModule = false;
-    bool useProtoEvalCli = false;
     bool minimalInit = false;
     std::vector<std::string> preloadFiles;
 
@@ -143,7 +209,8 @@ int main(int argc, char** argv) {
         } else if (arg == "--input-type=module") {
             inputTypeModule = true;
         } else if (arg == "--proto-eval") {
-            useProtoEvalCli = true;
+            // Deprecated no-op: the protoCore interpreter is always used.
+            // Accepted silently so existing invocations keep working.
         } else if (arg == "--minimal") {
             minimalInit = true;
         } else if (arg == "--preload" && i + 1 < argc) {
@@ -172,8 +239,24 @@ int main(int argc, char** argv) {
         return 0;
     }
 
+    // Syntax check (`-c` / `--check`): parse the input and exit.  This runs
+    // before any runtime, thread pool or module initialisation, so the input
+    // is never executed.
+    if (syntaxCheck) {
+        if (executeCode) {
+            std::cerr << "protojs: either --check or -e can be used, not both" << std::endl;
+            return 9;
+        }
+        if (code.empty()) {
+            std::cerr << "No code to check" << std::endl;
+            printUsage(argv[0]);
+            return 1;
+        }
+        return checkSyntaxOnly(code, filename, inputTypeModule);
+    }
+
     // If no file and no -e, start REPL
-    if (code.empty() && !executeCode && !syntaxCheck) {
+    if (code.empty() && !executeCode) {
         protojs::JSContextWrapper wrapper(cpuThreads, ioThreads, ioFactor);
 
         // protoCore is the single execution path (compile → load → run).
@@ -487,26 +570,6 @@ int main(int argc, char** argv) {
     // __filename / __dirname / __protojs__ are now set by installScriptGlobals
     // earlier on the protoCore-native global.  No QuickJS-side install here.
 
-    // Handle syntax check
-    if (syntaxCheck) {
-        // For syntax check, we'd parse without executing
-        // QuickJS doesn't have a separate parse API, so we'll just try to compile
-        JSValue result = wrapper.eval(code, filename, inputTypeModule);
-        if (JS_IsException(result)) {
-            JSValue exception = JS_GetException(wrapper.getJSContext());
-            const char* error = JS_ToCString(wrapper.getJSContext(), exception);
-            if (error) {
-                std::cerr << "Syntax Error: " << error << std::endl;
-                JS_FreeCString(wrapper.getJSContext(), error);
-            }
-            JS_FreeValue(wrapper.getJSContext(), exception);
-            JS_FreeValue(wrapper.getJSContext(), result);
-            return 1;
-        }
-        JS_FreeValue(wrapper.getJSContext(), result);
-        return 0;
-    }
-    
     // Evaluate preload files as scripts to set up globals (e.g., harness for test262).
     for (const auto& preload : preloadFiles) {
         std::ifstream pf(preload);

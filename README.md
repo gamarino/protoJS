@@ -124,7 +124,7 @@ All options are parsed by `src/main.cpp`.
 | `<file>` | Script to run. Every argument that does not start with `-` is read as the script file, so extra positional arguments for the script are not supported. |
 | `-e "code"` | Evaluate `code` instead of a file. |
 | `-p`, `--print` | Print the result of the evaluation when it is not `undefined`. |
-| `-c`, `--check` | Evaluate the input once after module initialisation; if it throws, report the error and exit with status 1. The input is executed, not only parsed, and the event loop is not run. |
+| `-c`, `--check` | Parse the input without executing it. A file that parses prints nothing and exits 0; otherwise the syntax error is printed and the status is 1. Combining it with `-e` exits with status 9. With `--input-type=module` the module itself is parsed, but its imports cannot be resolved: any `import` is reported as `ReferenceError: could not load module`, so the check is limited to modules without imports. |
 | `-v`, `--version` | Print `protoJS v0.1.0` and exit. |
 | `--input-type=module` | Compile the input as an ES module. |
 | `--cpu-threads N` | Size of the CPU thread pool (default: the number of hardware threads). |
@@ -132,7 +132,7 @@ All options are parsed by `src/main.cpp`.
 | `--io-threads-factor F` | I/O factor used when `--io-threads` is not given (default: 3.0). |
 | `--preload file.js` | Evaluate `file.js` as a script before the main input (may be repeated). protojs exits with status 1 if the file cannot be read or throws. |
 | `--minimal` | Install only `console`, `JSON`, the timing APIs, `Deferred`, `protoCore.runInThread`, `__filename` and `__dirname`; no `process`, `io`, `require` or Node.js-style modules. protojs exits right after the evaluation without running the event loop. Intended to isolate compiler and interpreter problems. |
-| `--proto-eval` | Accepted for compatibility; it has no effect because the protoCore interpreter is always used. |
+| `--proto-eval` | Deprecated. Accepted for compatibility; it has no effect because the protoCore interpreter is always used. |
 
 Without arguments, protojs prints its usage and exits with status 1. When options are given but no script, `-e` or `-c`, it starts the REPL: the prompt is `> `, incomplete input continues on a `... ` prompt, and `.help` and `.exit` (or `.quit`) are available.
 

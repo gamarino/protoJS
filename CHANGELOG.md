@@ -4,6 +4,32 @@ All notable changes to protoJS are documented in this file.
 
 ## [Unreleased]
 
+### Command line (2026-09-16)
+
+- Fixed: `-c` / `--check` parsed **and executed** the input. The check now runs
+  before any initialisation, in a bare QuickJS runtime with no `ProtoSpace`,
+  thread pools or modules, so nothing in the input can run. A file that parses
+  prints nothing and exits 0; a syntax error is reported as
+  `<file>: SyntaxError: <message>`, followed by the recorded stack, with exit
+  status 1. Known limitation: that runtime has no module loader, so with
+  `--input-type=module` the module itself is parsed but its imports cannot be
+  resolved — any `import` is reported as `ReferenceError: could not load
+  module`. Unlike `node --check`, the check is limited to modules without
+  imports; the options for closing this gap are recorded outside the
+  repository.
+- `--check` combined with `-e` is now rejected with exit status 9, following
+  `node -c -e`.
+- `--proto-eval` is documented as a deprecated no-op. It is still accepted
+  silently so that existing invocations keep working; the dead
+  `useProtoEvalCli` variable was removed. `run_all_tests.sh`,
+  `proto_eval_smoke.js` and the directed Phase 6 test no longer pass the flag
+  or set `PROTOJS_USE_PROTO_EVAL`, which `protojs` never read.
+- The usage text advertised an I/O thread default of "3-4x CPU cores" while the
+  implemented default is `ceil(hardware threads x 3.0)`; the text now states
+  the implemented value.
+- Added `tests/integration/cli/test_cli_flags.js`, run as a step of
+  `tests/run_all_tests.sh`, covering these flags and the usage text.
+
 ### Documentation and repository hygiene (2026-09-15)
 
 - The Test262 round-by-round log and the dated performance readings moved

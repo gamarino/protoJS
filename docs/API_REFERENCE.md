@@ -20,12 +20,12 @@ protojs [options] -e "<code>"
 | `--io-threads-factor F` | When `--io-threads` is not given, the I/O pool has `ceil(hardware threads × F)` threads. Default `F`: 3.0. |
 | `-e "<code>"` | Evaluate `<code>` instead of a file (the file name is reported as `eval`). |
 | `-p`, `--print` | After evaluation, print the result if it is not `undefined` and no exception was thrown. |
-| `-c`, `--check` | Evaluate the input and exit with status 1 if it throws, 0 otherwise. There is no parse-only mode: the code is executed. |
+| `-c`, `--check` | Parse the input without executing it: status 0 when it parses, 1 with the syntax error on stderr when it does not. The check runs in a bare QuickJS runtime, so no module, thread pool or `ProtoSpace` is created. Combining it with `-e` exits with status 9. Because that runtime has no module loader, `--input-type=module` parses the module itself but cannot resolve its imports: any `import` is reported as `ReferenceError: could not load module`. Unlike `node --check`, the check is therefore limited to modules without imports. |
 | `-v`, `--version` | Print `protoJS v0.1.0` and exit. |
 | `--input-type=module` | Evaluate the input as an ES module. Module code is evaluated by the QuickJS module evaluator, not by the protoCore interpreter. |
 | `--preload <file>` | Evaluate `<file>` as a script before the main input; may be repeated. |
 | `--minimal` | Install only `console`, `print`, `JSON`, `performance`, `Deferred`, `protoCore` and the script globals, then evaluate the input. Intended for isolating problems. |
-| `--proto-eval` | Accepted for compatibility; has no effect (the protoCore interpreter is always used). |
+| `--proto-eval` | Deprecated. Accepted for compatibility; has no effect (the protoCore interpreter is always used). |
 
 - With no arguments, `protojs` prints the usage text and exits with status 1.
 - With options but no script and no `-e`, `protojs` starts an interactive REPL.

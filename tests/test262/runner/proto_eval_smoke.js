@@ -2,7 +2,7 @@
 /**
  * Directed smoke test for the protoCore interpreter path.
  *
- * Runs protojs with PROTOJS_USE_PROTO_EVAL=1 and a short list of expressions
+ * Runs protojs on a short list of expressions
  * (arithmetic, typeof, comparison, Array.isArray). Exits with code 0 if all
  * pass; non-zero otherwise. Use after interpreter changes to quickly verify
  * the protoCore path.
@@ -27,7 +27,7 @@ if (!proto) {
   process.exit(1);
 }
 
-const env = { ...process.env, PROTOJS_USE_PROTO_EVAL: "1" };
+const env = { ...process.env };
 
 const cases = [
   { code: "1 + 2", name: "arithmetic" },
@@ -42,7 +42,7 @@ const cases = [
 let failed = 0;
 for (const { code, name } of cases) {
   try {
-    execFileSync(proto, ["--proto-eval", "-e", code], {
+    execFileSync(proto, ["-e", code], {
       env,
       stdio: "pipe",
       timeout: 5000,

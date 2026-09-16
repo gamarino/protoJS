@@ -140,7 +140,7 @@ The native addon tests in `tests/integration/native_addons/` load `simple_addon`
 
 ### Smoke test
 
-`tests/test262/runner/proto_eval_smoke.js` runs `protojs --proto-eval -e <code>` on six short cases:
+`tests/test262/runner/proto_eval_smoke.js` runs `protojs -e <code>` on six short cases:
 - arithmetic
 - `typeof` on a number and on a function
 - comparison
@@ -153,7 +153,7 @@ It fails if any case exits with a non-zero status. Run it after every interprete
 node tests/test262/runner/proto_eval_smoke.js
 ```
 
-The `protojs` binary accepts `--proto-eval` and does not read `PROTOJS_USE_PROTO_EVAL`; both remain in the scripts for compatibility, and the protoCore path is always active.
+The `protojs` binary accepts `--proto-eval` as a deprecated no-op and does not read `PROTOJS_USE_PROTO_EVAL`. The smoke script, the directed Phase 6 test and `run_all_tests.sh` no longer pass either of them; the protoCore path is always active. `tests/integration/cli/test_cli_flags.js` checks that the flag is still accepted, that `-c` / `--check` parses without executing, and that the usage text matches the implemented I/O thread default.
 
 ### Directed tests
 
