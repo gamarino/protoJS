@@ -16,11 +16,11 @@ This document describes where protoJS uses that system and how host code can ext
 1. **One `ProtoSpace` per runtime instance.** Each `JSContextWrapper` owns a `proto::ProtoSpace`, available through `JSContextWrapper::getProtoSpace()` (`src/JSContext.h`). The resolution chain and module roots belong to that space.
 
 2. **`require()` consults protoCore first for bare specifiers.** The `require` global calls `CommonJSLoader::require` (`src/modules/CommonJSLoader.cpp`), which handles a bare specifier (one that does not start with `./`, `../` or `/`) in this order:
-   1. `space->getImportModule(pContext, specifier, "exports")`. If protoCore resolves the logical path, the `exports` attribute is converted to a JavaScript value, cached under the key `umd:<specifier>`, and returned.
-   2. A property of the same name on the QuickJS-side global object (`require('buffer')` is wrapped as `{ Buffer }`). The standard modules (`fs`, `path`, `http`, ...) are registered on the protoCore-native global instead, so this step does not find them; use their globals directly.
+   1. The built-in module names, read from the protoCore-native global (`JSContextWrapper::getNativeGlobal()`) and returned as the ProtoObject itself, so `require('fs') === fs`. `require('buffer')` yields `{ Buffer }`, and a `node:` prefix is accepted. The names are an explicit allowlist, so an unrelated host global cannot be required and cannot shadow an npm package.
+   2. `space->getImportModule(pContext, specifier, "exports")`. If protoCore resolves the logical path, the `exports` attribute is converted to a JavaScript value, cached under the key `umd:<specifier>`, and returned.
    3. File-based resolution through `ModuleResolver`, including `node_modules` package lookup.
 
-   Relative and absolute specifiers skip steps 1 and 2.
+   Relative and absolute specifiers skip steps 1 and 2. Note that built-in names take precedence over protoCore module discovery: a provider cannot override `fs`.
 
 3. **ES modules do not use protoCore discovery.** Imports in module-mode code (`--input-type=module`) are resolved by the QuickJS module-loader hooks installed in `src/JSContext.cpp`.
 

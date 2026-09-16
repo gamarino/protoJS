@@ -84,9 +84,23 @@ After the main script finishes, `protojs` waits for pending `Deferred`s, workers
 
 `Set`, `Multiset` and `SparseList` are constructors: call them with `new`. Note also that `size()` is a method, not a property, so `set.size` is the function itself and `set.size()` is the count. See [PROTOCORE_MODULE.md](PROTOCORE_MODULE.md).
 
-### `require('fs')` (or another standard module) fails with "Cannot find module"
+### `require('./my-module.js')` returns an empty object
 
-`require()` looks up bare module names on the QuickJS-side global object, while the standard modules are registered on the protoCore-native global. Use the global directly (`fs`, `path`, `http`, ...). See [MODULE_DISCOVERY_PROTOCORE.md](MODULE_DISCOVERY_PROTOCORE.md).
+Requiring a **built-in** name works and returns the object installed as the
+global, so `require('fs') === fs`. Requiring a relative JavaScript file does
+not yet run the module body, so its `exports` come back empty. Use the globals,
+or inline the code, until file modules are executed natively. See
+[MODULE_DISCOVERY_PROTOCORE.md](MODULE_DISCOVERY_PROTOCORE.md).
+
+### `Error: Cannot find module 'x'`
+
+The specifier is neither a built-in name nor a file that the resolver found.
+The error carries `code: 'MODULE_NOT_FOUND'`, as in Node. The built-in names
+`require()` accepts are `child_process`, `cluster`, `crypto`, `dgram`, `dns`,
+`events`, `fs`, `http`, `net`, `path`, `process`, `stream`, `url`, `util`,
+`worker_threads` and `buffer`, with or without a `node:` prefix. Other host
+globals such as `console`, `io`, `memory`, `profiler` and `debugger` are
+deliberately **not** requirable; use them directly.
 
 ### `setTimeout` or `setInterval` is not defined
 

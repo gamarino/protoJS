@@ -4,6 +4,41 @@ All notable changes to protoJS are documented in this file.
 
 ## [Unreleased]
 
+### `require()` of built-in modules (2026-09-16)
+
+- Fixed: `require('fs')` — and every other built-in name — returned
+  `undefined` without throwing. `CommonJSLoader::require` looked bare names up
+  on the **QuickJS** global object with `JS_GetGlobalObject`, while the
+  standard modules are registered on the protoCore-native global, so the
+  lookup always missed and fell through to file resolution. Built-in names are
+  now resolved natively against the protoCore-native global, before any
+  JSValue is built, and the module object itself is returned, so
+  `require('fs') === fs`.
+- `require('buffer')` returns `{ Buffer }`, as in Node, memoised on the native
+  global so repeated calls return the same object. A `node:` prefix is
+  accepted (`require('node:path') === path`), and `require.resolve` of a
+  built-in returns its name.
+- The accepted names are now an explicit allowlist (`child_process`,
+  `cluster`, `crypto`, `dgram`, `dns`, `events`, `fs`, `http`, `net`, `path`,
+  `process`, `stream`, `url`, `util`, `worker_threads`, `buffer`). The old
+  code read *any* property of the global, so `require('console')`,
+  `require('JSON')`, `require('memory')`, `require('profiler')` and
+  `require('debugger')` would have resolved and would have shadowed any npm
+  package with those names. This deliberately narrows the behaviour recorded
+  in the 2026-02 entry below.
+- Fixed: errors never reached the script. The native entry points called
+  `JS_ThrowTypeError` on the QuickJS context and returned `PROTO_NONE`, and
+  the pending exception was freed without ever being raised, so
+  `require('does-not-exist')` quietly evaluated to `undefined`. `require` and
+  `require.resolve` now raise through `signalNativeException`; a missing
+  module is `Error: Cannot find module 'x'` carrying
+  `code: 'MODULE_NOT_FOUND'`, and a missing or non-string specifier is a
+  `TypeError`.
+- `tests/integration/modules/test_require.js` asserts instead of falling back
+  to `globalThis.path` and skipping, and runs in `tests/run_all_tests.sh`.
+- Still open: `require()` of a relative JavaScript file does not execute the
+  module body, so its exports come back empty.
+
 ### The `protoCore` global (2026-09-16)
 
 - Fixed: the `protoCore` global that scripts see exposed only `runInThread`.

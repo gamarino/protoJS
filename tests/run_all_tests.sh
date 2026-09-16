@@ -34,6 +34,9 @@ PROTOJS="$PROTOJS" node tests/integration/benchmarks/test_parallel_cpu_workload.
 echo "[run_all_tests] protoCore collections..."
 "$PROTOJS" tests/integration/collections/protoCore_collections.js
 
+echo "[run_all_tests] require() of built-in modules..."
+"$PROTOJS" tests/integration/modules/test_require.js
+
 echo "[run_all_tests] Deferred semantics..."
 "$PROTOJS" tests/integration/deferred/test_deferred_reject.js
 "$PROTOJS" tests/integration/test_deferred_basic.js

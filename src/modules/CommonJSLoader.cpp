@@ -19,6 +19,131 @@
 
 namespace protojs {
 
+namespace {
+
+// Built-in module names that `require()` resolves to the object installed on
+// the protoCore-native global.
+//
+// This is a deliberate allowlist. The previous implementation read ANY
+// property of the (QuickJS) global object, so `require('console')`,
+// `require('JSON')`, `require('memory')`, `require('profiler')` and
+// `require('debugger')` would all have "resolved", and any npm package with
+// one of those names would have been shadowed by a host global.
+const char* const kBuiltinModules[] = {
+    "child_process", "cluster", "crypto", "dgram", "dns", "events", "fs",
+    "http", "net", "path", "process", "stream", "url", "util",
+    "worker_threads",
+};
+
+bool isBuiltinModuleName(const std::string& name) {
+    for (const char* n : kBuiltinModules) {
+        if (name == n) return true;
+    }
+    return false;
+}
+
+// Read a name from the protoCore-native global, building the key exactly as
+// ProtoNativeModule::registerOnGlobal does, so the lookup matches the
+// registration.
+const proto::ProtoObject* nativeGlobalLookup(proto::ProtoContext* pCtx,
+                                              const char* name) {
+    JSContextWrapper* wrapper = JSContextWrapper::current();
+    if (!wrapper || !pCtx) return nullptr;
+    const proto::ProtoObject* g = wrapper->getNativeGlobal();
+    if (!g) return nullptr;
+    const proto::ProtoObject* nameObj = pCtx->fromUTF8String(name);
+    const proto::ProtoString* key = nameObj ? nameObj->asString(pCtx) : nullptr;
+    if (!key) return nullptr;
+    const proto::ProtoObject* v = g->getAttribute(pCtx, key, false);
+    if (!v || v == PROTO_NONE) return nullptr;
+    return v;
+}
+
+// `require('buffer')` yields `{ Buffer }`, as in Node, where the constructor
+// is a property of the module rather than the module itself.  The object is
+// memoised under a private attribute of the native global — which is a GC
+// root — so repeated calls return the same object.
+const proto::ProtoObject* bufferModuleObject(proto::ProtoContext* pCtx) {
+    JSContextWrapper* wrapper = JSContextWrapper::current();
+    if (!wrapper || !pCtx) return nullptr;
+    const proto::ProtoObject* g = wrapper->getNativeGlobal();
+    if (!g) return nullptr;
+
+    const proto::ProtoObject* cacheNameObj =
+        pCtx->fromUTF8String("__pjs_buffer_module__");
+    const proto::ProtoString* cacheKey =
+        cacheNameObj ? cacheNameObj->asString(pCtx) : nullptr;
+    if (cacheKey) {
+        const proto::ProtoObject* cached = g->getAttribute(pCtx, cacheKey, false);
+        if (cached && cached != PROTO_NONE) return cached;
+    }
+
+    const proto::ProtoObject* buf = nativeGlobalLookup(pCtx, "Buffer");
+    if (!buf) return nullptr;
+    const proto::ProtoObject* mod = pCtx->newObject(/*mutable=*/true);
+    if (!mod) return nullptr;
+    const proto::ProtoObject* bufNameObj = pCtx->fromUTF8String("Buffer");
+    const proto::ProtoString* bufKey =
+        bufNameObj ? bufNameObj->asString(pCtx) : nullptr;
+    if (bufKey) mod->setAttribute(pCtx, bufKey, buf);
+    // The global is mutable, so this publishes in place.
+    if (cacheKey) g->setAttribute(pCtx, cacheKey, mod);
+    return mod;
+}
+
+// Resolve a bare built-in specifier natively.  Returns nullptr when the name
+// is not a built-in, so the caller falls through to UMD / file resolution.
+const proto::ProtoObject* resolveBuiltinModule(proto::ProtoContext* pCtx,
+                                                const std::string& specifier) {
+    std::string bare = specifier;
+    if (bare.rfind("node:", 0) == 0) bare = bare.substr(5);
+    if (bare.empty()) return nullptr;
+    if (bare == "buffer") return bufferModuleObject(pCtx);
+    if (!isBuiltinModuleName(bare)) return nullptr;
+    return nativeGlobalLookup(pCtx, bare.c_str());
+}
+
+// Raise a JavaScript exception from a native method.  Adds Node's
+// `code: 'MODULE_NOT_FOUND'` to resolution failures.
+void throwModuleError(proto::ProtoContext* pCtx, const char* type,
+                       const std::string& message) {
+    const proto::ProtoObject* err = makeNativeError(pCtx, type, message.c_str());
+    if (err && message.rfind("Cannot find module", 0) == 0) {
+        const proto::ProtoObject* codeNameObj = pCtx->fromUTF8String("code");
+        const proto::ProtoString* codeKey =
+            codeNameObj ? codeNameObj->asString(pCtx) : nullptr;
+        if (codeKey)
+            err = err->setAttribute(pCtx, codeKey,
+                                     pCtx->fromUTF8String("MODULE_NOT_FOUND"));
+    }
+    signalNativeException(err);
+}
+
+// Drain a pending QuickJS exception and re-raise it as a native one.  Without
+// this the exception stayed on the QuickJS context, `require()` returned
+// PROTO_NONE, and the script silently saw `undefined`.
+void rethrowQuickJSException(proto::ProtoContext* pCtx, JSContext* ctx,
+                              const std::string& fallbackMessage) {
+    std::string message;
+    JSValue exc = JS_GetException(ctx);
+    if (!JS_IsNull(exc) && !JS_IsUndefined(exc)) {
+        JSValue msgVal = JS_GetPropertyStr(ctx, exc, "message");
+        const char* m = (!JS_IsUndefined(msgVal) && !JS_IsException(msgVal))
+                        ? JS_ToCString(ctx, msgVal) : nullptr;
+        if (m) { message = m; JS_FreeCString(ctx, m); }
+        JS_FreeValue(ctx, msgVal);
+        if (message.empty()) {
+            const char* s = JS_ToCString(ctx, exc);
+            if (s) { message = s; JS_FreeCString(ctx, s); }
+        }
+    }
+    JS_FreeValue(ctx, exc);
+    if (message.empty()) message = fallbackMessage;
+    throwModuleError(pCtx, "Error", message);
+}
+
+}  // namespace
+
 // ProtoMethod wrapper for `require.resolve` — same dispatch as the
 // QuickJS-side requireResolveImpl, exposed on the protoCore-native
 // global.  Returns the resolved file path as a ProtoString.
@@ -28,17 +153,37 @@ static const proto::ProtoObject* requireResolveProtoMethod(
         const proto::ParentLink*,
         const proto::ProtoList* args,
         const proto::ProtoSparseList*) {
-    JSContextWrapper* wrapper = JSContextWrapper::current();
-    if (!wrapper || !pCtx || !args || args->getSize(pCtx) == 0) return PROTO_NONE;
+    if (!pCtx) return PROTO_NONE;
+    if (!args || args->getSize(pCtx) == 0) {
+        throwModuleError(pCtx, "TypeError",
+                          "require.resolve expects a module specifier");
+        return PROTO_NONE;
+    }
     const proto::ProtoObject* a = args->getAt(pCtx, 0);
-    if (!a || !a->isString(pCtx)) return PROTO_NONE;
+    if (!a || !a->isString(pCtx)) {
+        throwModuleError(pCtx, "TypeError",
+                          "require.resolve specifier must be a string");
+        return PROTO_NONE;
+    }
     std::string specifier;
     a->asString(pCtx)->toUTF8String(pCtx, specifier);
+
+    // A built-in resolves to its own name, as in Node.
+    if (resolveBuiltinModule(pCtx, specifier)) {
+        std::string bare = specifier;
+        if (bare.rfind("node:", 0) == 0) bare = bare.substr(5);
+        return pCtx->fromUTF8String(bare.c_str());
+    }
+
+    JSContextWrapper* wrapper = JSContextWrapper::current();
+    if (!wrapper) return PROTO_NONE;
     std::string fromPath = pCtx->currentFileName ? pCtx->currentFileName : ".";
     JSContext* ctx = wrapper->getJSContext();
     JSValue r = CommonJSLoader::requireResolve(specifier, fromPath, ctx);
     if (JS_IsException(r)) {
         JS_FreeValue(ctx, r);
+        rethrowQuickJSException(pCtx, ctx,
+                                 "Cannot find module '" + specifier + "'");
         return PROTO_NONE;
     }
     const char* s = JS_ToCString(ctx, r);
@@ -170,7 +315,7 @@ JSValue CommonJSLoader::require(
     // Resolve module (file-based)
     ResolveResult resolved = ModuleResolver::resolve(specifier, fromPath, ctx);
     if (resolved.filePath.empty()) {
-        return JS_ThrowTypeError(ctx, "%s", ("Cannot find module: " + specifier).c_str());
+        return JS_ThrowTypeError(ctx, "%s", ("Cannot find module '" + specifier + "'").c_str());
     }
     
     std::string cacheKey = resolved.filePath;
@@ -300,7 +445,7 @@ JSValue CommonJSLoader::requireResolve(
 ) {
     ResolveResult resolved = ModuleResolver::resolve(specifier, fromPath, ctx);
     if (resolved.filePath.empty()) {
-        return JS_ThrowTypeError(ctx, "%s", ("Cannot resolve module: " + specifier).c_str());
+        return JS_ThrowTypeError(ctx, "%s", ("Cannot find module '" + specifier + "'").c_str());
     }
     return JS_NewString(ctx, resolved.filePath.c_str());
 }
@@ -371,25 +516,35 @@ const proto::ProtoObject* CommonJSLoader::requireProtoMethod(
     const proto::ProtoList* args,
     const proto::ProtoSparseList* locals
 ) {
-    JSContextWrapper* wrapper = JSContextWrapper::current();
-    if (!wrapper) return PROTO_NONE;
-    JSContext* ctx = wrapper->getJSContext();
-    if (!ctx) return PROTO_NONE;
+    if (!pCtx) return PROTO_NONE;
 
     if (!args || args->getSize(pCtx) == 0) {
-        JS_ThrowTypeError(ctx, "require expects a module specifier");
-        return PROTO_NONE; // Exception is set on JSContext
+        throwModuleError(pCtx, "TypeError", "require expects a module specifier");
+        return PROTO_NONE;
     }
 
     const proto::ProtoObject* specifierProto = args->getAt(pCtx, 0);
     if (!specifierProto || !specifierProto->isString(pCtx)) {
-        JS_ThrowTypeError(ctx, "require specifier must be a string");
+        throwModuleError(pCtx, "TypeError", "require specifier must be a string");
         return PROTO_NONE;
     }
 
     std::string specifier;
     specifierProto->asString(pCtx)->toUTF8String(pCtx, specifier);
-    
+
+    // Built-in names resolve natively, before any JSValue is built, so that
+    // `require('fs') === fs`.  The old code read them from the QuickJS global
+    // object, where the standard modules are not registered: the lookup always
+    // missed, fell through to file resolution and ended in a dropped
+    // exception, so the script silently received `undefined`.
+    if (const proto::ProtoObject* builtin = resolveBuiltinModule(pCtx, specifier))
+        return builtin;
+
+    JSContextWrapper* wrapper = JSContextWrapper::current();
+    if (!wrapper) return PROTO_NONE;
+    JSContext* ctx = wrapper->getJSContext();
+    if (!ctx) return PROTO_NONE;
+
     // Get fromPath from current file name in ProtoContext
     std::string fromPath = ".";
     if (pCtx->currentFileName) {
@@ -398,8 +553,9 @@ const proto::ProtoObject* CommonJSLoader::requireProtoMethod(
 
     JSValue result = require(specifier, fromPath, ctx);
     if (JS_IsException(result)) {
-        // Exception already set, just return PROTO_NONE
         JS_FreeValue(ctx, result);
+        rethrowQuickJSException(pCtx, ctx,
+                                 "Cannot find module '" + specifier + "'");
         return PROTO_NONE;
     }
 

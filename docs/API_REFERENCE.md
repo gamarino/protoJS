@@ -105,9 +105,13 @@ io.readFileAsync("output.txt").then((text) => console.log("async:", text));
 
 ## `require`
 
-`require(specifier)` returns the module's exports. For a bare specifier it tries, in order: protoCore's module discovery, a property of the same name on the QuickJS-side global object, and file-based resolution including `node_modules`. Relative and absolute specifiers use file-based resolution only; native addons are loaded first when several candidate files exist.
+`require(specifier)` returns the module's exports. For a bare specifier it tries, in order: the built-in module names, protoCore's module discovery, and file-based resolution including `node_modules`. Relative and absolute specifiers use file-based resolution only; native addons are loaded first when several candidate files exist.
 
-The standard modules are registered on the protoCore-native global, not on the QuickJS-side global that the second step reads, so use their globals (`fs`, `path`, ...) directly. Details: [MODULE_DISCOVERY_PROTOCORE.md](MODULE_DISCOVERY_PROTOCORE.md) and [NATIVE_MODULES.md](NATIVE_MODULES.md).
+A built-in name returns the object installed as the global, so `require('fs') === fs`. The accepted names are `child_process`, `cluster`, `crypto`, `dgram`, `dns`, `events`, `fs`, `http`, `net`, `path`, `process`, `stream`, `url`, `util` and `worker_threads`, plus `buffer`, which returns `{ Buffer }`; a `node:` prefix is accepted. This is a closed list, so other host globals (`console`, `io`, `memory`, `profiler`, `debugger`) are not requirable and cannot shadow an npm package of the same name. `require.resolve` of a built-in returns its name.
+
+A specifier that resolves to nothing throws `Error: Cannot find module 'x'` with `code: 'MODULE_NOT_FOUND'`; a missing or non-string specifier throws a `TypeError`.
+
+**Limitation:** `require()` of a relative JavaScript file does not execute the module body, so its exports come back empty. Details: [MODULE_DISCOVERY_PROTOCORE.md](MODULE_DISCOVERY_PROTOCORE.md) and [NATIVE_MODULES.md](NATIVE_MODULES.md).
 
 ---
 

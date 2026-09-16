@@ -30,7 +30,7 @@ The rule for this migration: no bridges. The interpreter does not call back into
 
 **Other remaining QuickJS dependencies in the runtime surface:**
 
-- `CommonJSLoader::require` resolves bare built-in names by reading the QuickJS-side global, where the standard modules are no longer registered (see step 2).
+- `CommonJSLoader::executeModule` runs JavaScript file modules through the QuickJS bridge, converting the global and the module objects with `TypeBridge` (see step 2).
 - The native addon ABI (`src/native/NativeModuleABI.h`) passes a QuickJS `JSContext*` and `JSValue` to addons; exports are converted with `TypeBridge::fromJS`.
 - ES modules (`--input-type=module`) are evaluated by the QuickJS module evaluator.
 
@@ -97,11 +97,21 @@ The constructors and functions are `ProtoMethod`s on the `protoCore` object buil
 
 `tests/integration/collections/protoCore_collections.js` asserts the behaviour instead of skipping it.
 
-### Step 2 — `require()` of built-in module names
+### Step 2 — `require()` of built-in module names — **done**
 
-`CommonJSLoader::require` looks bare names up on the QuickJS-side global. Look them up on the protoCore-native global instead (`JSContextWrapper::getNativeGlobal()`), keeping the special case that wraps `Buffer` as `{ Buffer }` for `require('buffer')`.
+`CommonJSLoader::requireProtoMethod` resolves bare built-in names on the
+protoCore-native global (`JSContextWrapper::getNativeGlobal()`) before it
+builds any JSValue, and returns the ProtoObject itself, so `require('fs') === fs`
+holds. `require('buffer')` still yields `{ Buffer }`, and a `node:` prefix is
+accepted. The names are an explicit allowlist rather than "any global", so
+`require('console')` and `require('memory')` no longer resolve and cannot
+shadow an npm package. Native entry points now raise their errors with
+`signalNativeException` instead of leaving them on the QuickJS context, where
+they were dropped.
 
-Done when `require('fs') === fs` holds in a script.
+Still open: executing a **relative JavaScript file** natively
+(`CommonJSLoader::executeModule` still runs through the QuickJS bridge and the
+module body does not run).
 
 ### Step 3 — remove the QuickJS-side `Deferred`
 

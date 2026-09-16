@@ -6,7 +6,7 @@ protoJS can load **native addons** — shared libraries written in C++ — throu
 
 `require()` is implemented in `src/modules/CommonJSLoader.cpp`; file lookup is in `src/modules/ModuleResolver.cpp`.
 
-**Bare specifiers** (not starting with `./`, `../` or `/`) are first offered to protoCore's module discovery and then looked up as a property of the QuickJS-side global object; see [MODULE_DISCOVERY_PROTOCORE.md](MODULE_DISCOVERY_PROTOCORE.md). The standard modules (`fs`, `path`, `http`, ...) are registered on the protoCore-native global instead, so that lookup does not find them; use their globals directly. If neither step succeeds, bare specifiers are searched in `node_modules` directories.
+**Bare specifiers** (not starting with `./`, `../` or `/`) are first matched against the built-in module names on the protoCore-native global, then offered to protoCore's module discovery; see [MODULE_DISCOVERY_PROTOCORE.md](MODULE_DISCOVERY_PROTOCORE.md). If neither step succeeds, bare specifiers are searched in `node_modules` directories.
 
 **File-based resolution.** For a specifier such as `require('./my_module')`, the loader tries, in order:
 
