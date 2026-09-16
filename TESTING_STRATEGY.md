@@ -214,7 +214,7 @@ node tests/benchmarks/run_standard_comparison.js
 node tests/benchmarks/run_standard_comparison_quickjs.js
 ```
 
-The runners look for `build_release/protojs` first, then `build/protojs`. Workloads and details are listed in [tests/benchmarks/standard/README.md](tests/benchmarks/standard/README.md). Dated result files are kept in `tests/benchmarks/results/`. The parallel CPU benchmark (`parallel_cpu.js`) uses `protoCore.runInThread` when available.
+The runners look for `build_release/protojs` first, then `build/protojs`. Workloads and details are listed in [tests/benchmarks/standard/README.md](tests/benchmarks/standard/README.md). Dated result files are kept in `tests/benchmarks/results/`. The parallel CPU benchmark (`parallel_cpu.js`) uses `protoCore.runInThread` when available. It runs the same workload (2e6 iterations per task) in every runtime and prints the work performed and the executor that ran it, but it compares protoCore's native multithreaded worker with a sequential JavaScript loop, so it is not a like-for-like engine comparison. `tests/integration/benchmarks/test_parallel_cpu_workload.js` asserts that the protojs and Node.js arms run the same work.
 
 ---
 

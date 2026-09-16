@@ -27,9 +27,11 @@ Self-contained benchmark scripts used to compare protoJS with Node.js and with a
 | `json_transform_tiny.js` | Same pipeline | 50 records | 1 |
 | `list_snapshot_history.js` | Keep every version of a growing array (`concat`) | 200 steps | 5 |
 | `tree_traversal.js` | Build a binary tree and sum it recursively | depth 14 (16,383 nodes) | 5 |
-| `parallel_cpu.js` | Four CPU tasks run in parallel | 2e5 steps per task under `protojs`, 2e6 elsewhere | 5 |
+| `parallel_cpu.js` | Four CPU tasks run in parallel | 2e6 steps per task in every runtime | 5 |
 
-`parallel_cpu.js` uses `protoCore.runInThread('cpuChunk', ...)` under `protojs` when it is available, and reports `"parallel": true` or `false` in its result line depending on whether the tasks ran in parallel. `parallel_cpu_worker.js` and `parallel_worker.js` are worker scripts, not benchmarks; the runners skip every file ending in `_worker.js`.
+`parallel_cpu.js` uses `protoCore.runInThread('cpuChunk', ...)` under `protojs` when it is available, and reports `"parallel": true` or `false` in its result line depending on whether the tasks ran in parallel. Every run prints the work it performed (`work_per_task`, `total_work`) and the `executor` that ran the tasks, so a change of workload cannot pass unnoticed.
+
+**`parallel_cpu` is not a like-for-like comparison, even with an equal workload.** Under `protojs` the loop runs inside the native C++ `cpuChunk` worker (`src/ProtoCoreNativeBindings.cpp`) on four protoCore threads; under Node.js and QuickJS the JavaScript loop in this file runs sequentially. The benchmark measures protoCore's native multithreading against single-threaded JavaScript, not two JavaScript engines. Its `time_ms` under `protojs` also includes event-loop latency: the result is dominated by the 10 ms polling interval of the drain loop in `src/main.cpp`, so at this workload the figure is a latency floor rather than a measure of the computation. `parallel_cpu_worker.js` and `parallel_worker.js` are worker scripts, not benchmarks; the runners skip every file ending in `_worker.js`.
 
 ## How to run
 

@@ -206,7 +206,10 @@ their own tracking.
    work that is identified and tractable.
 
 The conceptual case for protoJS's architecture remains valid (the
-GIL-free `parallel_cpu` win is the existing proof point); the
+GIL-free `parallel_cpu` win is the existing proof point — but see the
+2026-09-16 correction in `comparison_2026-05-31.md`: that reading
+compared unequal workloads and a native C++ worker against a
+sequential JavaScript loop); the
 performance case is currently undefendable on single-thread compute
 across both workload shapes, and that is what the optimisation
 track needs to address before any "structurally favourable

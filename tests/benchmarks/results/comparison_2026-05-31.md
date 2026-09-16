@@ -102,6 +102,15 @@ could not be measured properly while the TRACE printf was active.
 - **vs Node.js / V8** (~38× geomean): includes the JIT advantage on top
   of the interpreter gap.  Not directly closable without a JIT layer.
 - **`parallel_cpu`**: the one benchmark where protoJS beats both.
+  **Correction (2026-09-16):** this is not a like-for-like comparison and the
+  figures above should not be read as an engine win. When this run was
+  recorded, `parallel_cpu.js` used 2e5 iterations per task under protoJS and
+  2e6 under Node.js and QuickJS, so the arms measured different amounts of
+  work. protoJS also ran the native C++ `cpuChunk` worker on four protoCore
+  threads while the other engines ran the JavaScript loop sequentially, and
+  the protoJS time is dominated by event-loop latency rather than by the
+  computation. The workload has since been equalised; the readings here are
+  kept as recorded.
   14.92× vs QuickJS, 1.27× faster than Node.  This is the architectural
   payoff of GIL-free threading on protoCore — workloads that scale
   across cores show the advantage.

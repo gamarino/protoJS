@@ -4,6 +4,25 @@ All notable changes to protoJS are documented in this file.
 
 ## [Unreleased]
 
+### Benchmarks (2026-09-16)
+
+- Fixed: `tests/benchmarks/standard/parallel_cpu.js` ran 2e5 iterations per task
+  under `protojs` and 2e6 under every other runtime, so the two arms of the
+  comparison measured different amounts of work and the reported ratio was
+  meaningless. Every runtime now runs 2e6 iterations per task. The reduction
+  was introduced when a runner timeout was a concern; at 2e6 a whole `protojs`
+  run completes in well under a second, far below the runner's 120 s timeout.
+- The benchmark now states the work it performed in its own output and in its
+  result line (`work_per_task`, `total_work`) together with the `executor` that
+  ran the tasks, so a silent change of workload cannot look like a result.
+- Documented that `parallel_cpu` is not a like-for-like engine comparison even
+  with an equal workload: under `protojs` the loop runs in the native C++
+  `cpuChunk` worker on four protoCore threads, while Node.js and QuickJS run the
+  JavaScript loop sequentially. Its `protojs` figure is also dominated by the
+  10 ms polling interval of the event-loop drain in `src/main.cpp`.
+- Added `tests/integration/benchmarks/test_parallel_cpu_workload.js`, which
+  asserts that the `protojs` and Node.js arms report the same work.
+
 ### Command line (2026-09-16)
 
 - Fixed: `-c` / `--check` parsed **and executed** the input. The check now runs

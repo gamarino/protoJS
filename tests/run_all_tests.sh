@@ -28,6 +28,9 @@ echo "[run_all_tests] Phase 6 directed test..."
 echo "[run_all_tests] CLI flags..."
 PROTOJS="$PROTOJS" node tests/integration/cli/test_cli_flags.js
 
+echo "[run_all_tests] parallel_cpu benchmark workload..."
+PROTOJS="$PROTOJS" node tests/integration/benchmarks/test_parallel_cpu_workload.js
+
 if [ -n "$TEST262_ROOT" ] && [ -d "$TEST262_ROOT" ]; then
   echo "[run_all_tests] Test262 (pattern from config, protoCore path)..."
   TEST262_USE_PROTO_EVAL=1 PROTOJS="$PROTOJS" node tests/test262/runner/test262_runner.js

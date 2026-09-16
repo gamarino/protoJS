@@ -235,7 +235,7 @@ protoJS executes bytecode in an interpreter; there is no JIT compiler. The newes
 | protoJS / QuickJS | 15.2× slower |
 | protoJS / Node.js | about 95× slower |
 
-In the same reading, `string_repeated_doubling` (repeated `s = s + s`) took 1 ms in protoJS and QuickJS against 40 ms in Node.js; protoCore's rope strings avoid copying the whole string on each concatenation. The `parallel_cpu` benchmark is not a like-for-like comparison: under protoJS it runs 2e5 iterations per task instead of 2e6 (`tests/benchmarks/standard/parallel_cpu.js`), so its results are not used here.
+In the same reading, `string_repeated_doubling` (repeated `s = s + s`) took 1 ms in protoJS and QuickJS against 40 ms in Node.js; protoCore's rope strings avoid copying the whole string on each concatenation. The `parallel_cpu` benchmark now runs the same workload (2e6 iterations per task) in every runtime, but it is still not a like-for-like comparison: under protoJS the work runs in the native C++ `cpuChunk` worker on four protoCore threads, while Node.js and QuickJS run the JavaScript loop sequentially. Its results are therefore not used here.
 
 To reproduce, build protoJS and run `node tests/benchmarks/run_standard_comparison.js` (against Node.js) or `node tests/benchmarks/run_standard_comparison_quickjs.js` (against QuickJS); both accept a `PROTOJS_BIN` environment variable pointing at the binary. Raw results are in [tests/benchmarks/results/](tests/benchmarks/results/).
 

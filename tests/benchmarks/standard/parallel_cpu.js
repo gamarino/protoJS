@@ -8,8 +8,12 @@
 // Runner uses __BENCH_RESULT__.time_ms for comparison.
 
 var NUM_TASKS = 4;
-// Under protojs, use fewer iterations so the benchmark completes within the runner timeout (ProtoThread + stagger).
-var WORK_PER_TASK = (typeof __protojs__ !== 'undefined') ? 2e5 : 2e6;
+// One workload for every runtime, so that the arms of the comparison measure
+// the same amount of work.  This used to be 2e5 under protojs and 2e6
+// elsewhere, which made the reported ratio meaningless.  The reduction was
+// introduced when a runner timeout was a concern; a whole protojs run at 2e6
+// now completes in well under a second, far below the runner's 120 s timeout.
+var WORK_PER_TASK = 2e6;
 
 // LCG workload: state = (state * A + C) mod 2^32, sum += state. Not reducible by JIT.
 // Use literal so Deferred worker has no closure refs.
@@ -121,18 +125,37 @@ function runParallelWithProtoCore(callback) {
     runRound();
 }
 
+// Every run states the work it performed, so that a change of workload — or a
+// run that silently did far less work than intended — cannot look like a
+// result.  `executor` names what actually ran the tasks, which is NOT the same
+// code in every runtime: under protojs the loop runs inside the native C++
+// `cpuChunk` worker, while node and QuickJS run the JavaScript loop above.
+function report(median, parallel, executor) {
+    var result = {
+        name: 'parallel_cpu',
+        time_ms: median,
+        iterations: 5,
+        tasks: NUM_TASKS,
+        parallel: parallel,
+        work_per_task: WORK_PER_TASK,
+        total_work: NUM_TASKS * WORK_PER_TASK,
+        executor: executor
+    };
+    console.log('parallel_cpu: ' + NUM_TASKS + ' tasks x ' + WORK_PER_TASK +
+                ' LCG steps = ' + (NUM_TASKS * WORK_PER_TASK) +
+                ' steps per round, 5 rounds, median ' + median + ' ms' +
+                ', parallel=' + parallel + ', executor=' + executor);
+    console.log('__BENCH_RESULT__' + JSON.stringify(result));
+}
+
 if (typeof protoCore !== 'undefined' && typeof protoCore.runInThread === 'function') {
     runParallelWithProtoCore(function (median) {
-        var result = { name: 'parallel_cpu', time_ms: median, iterations: 5, tasks: NUM_TASKS, parallel: true };
-        console.log('__BENCH_RESULT__' + JSON.stringify(result));
+        report(median, true, 'protoCore.runInThread (native cpuChunk worker, ' + NUM_TASKS + ' protoCore threads)');
     });
 } else if (typeof Deferred !== 'undefined') {
     runParallelWithDeferred(function (median) {
-        var result = { name: 'parallel_cpu', time_ms: median, iterations: 5, tasks: NUM_TASKS, parallel: true };
-        console.log('__BENCH_RESULT__' + JSON.stringify(result));
+        report(median, true, 'Deferred (JavaScript loop on the event loop)');
     });
 } else {
-    var median = runSequential();
-    var result = { name: 'parallel_cpu', time_ms: median, iterations: 5, tasks: NUM_TASKS, parallel: false };
-    console.log('__BENCH_RESULT__' + JSON.stringify(result));
+    report(runSequential(), false, 'sequential JavaScript loop');
 }
