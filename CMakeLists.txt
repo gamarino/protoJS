@@ -13,7 +13,12 @@ set(QUICKJS_DIR ${CMAKE_CURRENT_SOURCE_DIR}/deps/quickjs)
 
 # --- protoCore: use installed package or build from sibling directory ---
 # For packaging: set PROTO_CORE_PREFIX to the install prefix of protoCore (e.g. /usr/local or $HOME/.local).
-# For development: leave unset to find protoCore in ../protoCore/build or ../protoCore/build_check.
+# For development: leave unset to find protoCore in a sibling build directory. The
+# search order is ../protoCore/build_release, then ../protoCore/build, then
+# ../protoCore/build_check; the first directory that holds the library wins.
+# build_release comes first because it is the directory protoCore's own release
+# workflow writes to, so a developer who keeps a stale ../protoCore/build around
+# does not silently link protoJS against it.
 if(DEFINED PROTO_CORE_PREFIX)
     find_library(PROTOCORE_LIBRARY NAMES protoCore
         HINTS "${PROTO_CORE_PREFIX}" PATH_SUFFIXES lib lib64)
@@ -30,7 +35,7 @@ if(DEFINED PROTO_CORE_PREFIX)
 else()
     set(PROTOCORE_DIR ${CMAKE_CURRENT_SOURCE_DIR}/../protoCore)
     find_library(PROTOCORE_LIBRARY NAMES protoCore
-        PATHS ${PROTOCORE_DIR}/build ${PROTOCORE_DIR}/build_check
+        PATHS ${PROTOCORE_DIR}/build_release ${PROTOCORE_DIR}/build ${PROTOCORE_DIR}/build_check
         NO_DEFAULT_PATH
     )
     if(NOT PROTOCORE_LIBRARY)

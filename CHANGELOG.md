@@ -4,6 +4,22 @@ All notable changes to protoJS are documented in this file.
 
 ## [Unreleased]
 
+### Build: find protoCore in `build_release` (2026-09-16)
+
+- Fixed: a fresh `cmake -S . -B build` linked protoJS against a stale protoCore.
+  Without `PROTO_CORE_PREFIX`, `CMakeLists.txt` searched only
+  `../protoCore/build` and `../protoCore/build_check`, while protoCore's release
+  workflow writes to `../protoCore/build_release`. A developer with both
+  directories present silently got the older `build` one, and the mismatch
+  surfaced much later as a run-time crash or a missing symbol rather than as a
+  configure error.
+- The search order is now `build_release`, then `build`, then `build_check` —
+  the same order protoST uses — and the first directory holding the library
+  wins. The chosen path is printed as `-- Found protoCore: <path>`.
+- Documented the order in `README.md`, `docs/INSTALLATION.md` and
+  `docs/TROUBLESHOOTING.md`, together with the configure line to check when
+  protoJS behaves as though a protoCore change had not landed.
+
 ### Native addon ABI v2 (2026-09-16) — **breaking for addons**
 
 - Fixed: functions exported by a native addon were not callable.

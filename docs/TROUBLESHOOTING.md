@@ -23,12 +23,14 @@ Solutions to common problems when building and running protoJS.
 CMake Error: protoCore shared library not found. Build protoCore first: ...
 ```
 
-Without `PROTO_CORE_PREFIX`, CMake looks for `libprotoCore` only in `../protoCore/build` and `../protoCore/build_check`. Either build protoCore there:
+Without `PROTO_CORE_PREFIX`, CMake looks for `libprotoCore` only in `../protoCore/build_release`, `../protoCore/build` and `../protoCore/build_check`, in that order, and takes the first that holds it. Either build protoCore there:
 
 ```bash
-cmake -S ../protoCore -B ../protoCore/build
-cmake --build ../protoCore/build --target protoCore
+cmake -S ../protoCore -B ../protoCore/build_release
+cmake --build ../protoCore/build_release --target protoCore
 ```
+
+The path CMake settled on is printed as `-- Found protoCore: <path>`. If protoJS behaves as though a protoCore change had not landed, check that line: an older sibling build directory earlier in the search order will have been used.
 
 or point CMake at an installed protoCore with `-DPROTO_CORE_PREFIX=<prefix>` (it must contain `lib/libprotoCore` or `lib64/libprotoCore`, and `include/protoCore.h`). See [INSTALLATION.md](INSTALLATION.md).
 

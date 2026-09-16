@@ -45,7 +45,13 @@ cmake -S . -B build
 cmake --build build
 ```
 
-When `PROTO_CORE_PREFIX` is not set, CMake looks for `libprotoCore` only in `../protoCore/build` and `../protoCore/build_check`, and stops with the error "protoCore shared library not found" if neither contains it.
+When `PROTO_CORE_PREFIX` is not set, CMake looks for `libprotoCore` only in sibling build directories of protoCore, in this order:
+
+1. `../protoCore/build_release`
+2. `../protoCore/build`
+3. `../protoCore/build_check`
+
+The first directory that holds the library wins, and CMake stops with the error "protoCore shared library not found" if none of them does. `build_release` is searched first because it is the directory protoCore's release workflow writes to: if a stale `../protoCore/build` is left over from an earlier checkout, protoJS would otherwise link against it silently, and the mismatch only shows up later as a run-time crash or a missing symbol. The chosen path is printed at configure time as `-- Found protoCore: <path>`; check that line when a build behaves as though protoCore changes had not landed.
 
 - The build type defaults to `Release` when `CMAKE_BUILD_TYPE` is not given.
 - `cmake --build build` also builds the Catch2 unit-test executable and two test addons. Pass `-DBUILD_TESTING=OFF` at configure time to skip the unit tests, or build only the runtime with `cmake --build build --target protojs`.
@@ -127,7 +133,8 @@ The `packaging/` directory also holds hand-maintained installer templates and a 
 
 ## Troubleshooting
 
-- **"protoCore shared library not found" at configure time** — build protoCore in `../protoCore/build` (or `../protoCore/build_check`), or configure with `-DPROTO_CORE_PREFIX=<prefix>` for an installed protoCore.
+- **"protoCore shared library not found" at configure time** — build protoCore in `../protoCore/build_release` (or `../protoCore/build`, or `../protoCore/build_check`), or configure with `-DPROTO_CORE_PREFIX=<prefix>` for an installed protoCore.
+- **protoJS behaves as though a protoCore change had not landed** — a stale sibling build directory earlier in the search order was picked. Re-read the `-- Found protoCore: <path>` line from the configure output, and remove the stale directory or configure with `-DPROTO_CORE_PREFIX=<prefix>`.
 - **"PROTO_CORE_PREFIX=... set but protoCore not found"** — the prefix must contain `lib/libprotoCore` (or `lib64/`) and `include/protoCore.h`.
 - **Linker errors mentioning `ssl` or `crypto`** — install the OpenSSL development package.
 - **`error while loading shared libraries: libprotoCore...` at run time** — the executable was moved away from its RPATH layout, or protoCore is installed in another prefix. Set `LD_LIBRARY_PATH` / `DYLD_LIBRARY_PATH`, or install protoCore and protoJS under the same prefix.

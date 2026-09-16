@@ -77,7 +77,7 @@ See [docs/INSTALLATION.md](docs/INSTALLATION.md) for details and [packaging/PROC
 
 ## 🚀 Building
 
-protoJS links against the protoCore shared library, so build protoCore first. When `PROTO_CORE_PREFIX` is not set, CMake looks for the library in `../protoCore/build` or `../protoCore/build_check`, so clone both repositories side by side:
+protoJS links against the protoCore shared library, so build protoCore first. When `PROTO_CORE_PREFIX` is not set, CMake looks for the library in `../protoCore/build_release`, then `../protoCore/build`, then `../protoCore/build_check`, and uses the first of those that holds it — so clone both repositories side by side:
 
 ```bash
 git clone https://github.com/numaes/protoCore.git
