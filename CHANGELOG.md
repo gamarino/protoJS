@@ -4,6 +4,38 @@ All notable changes to protoJS are documented in this file.
 
 ## [Unreleased]
 
+### Deferred (2026-09-16)
+
+- Fixed: `new Deferred(fn)` threw `TypeError: function is not a constructor`.
+  `Deferred` was installed as a bare `ProtoMethod`, which
+  `L_OP_call_constructor` rejects. It is now a `wrapNativeFunction` wrapper
+  carrying `prototype` and `__construct__`, the same shape as
+  `events.EventEmitter`, so `new Deferred(fn)` works, `instanceof Deferred`
+  holds, and plain `Deferred(fn)` keeps working through `__native_fn__`.
+- Fixed: an exception thrown by the constructor's function **fulfilled** the
+  Deferred with `undefined` instead of rejecting it, so `catch` never ran.
+  `callJSFunction` reports a throw through a thread-local flag and returns
+  `PROTO_NONE`, and the worker passed that result to `resolveFromAsync`
+  unconditionally. The thrown value — an `Error` or a primitive — is now
+  delivered unchanged to the rejection handlers.
+- Fixed: `then(onFulfilled, onRejected)` ignored its second argument. Both
+  arguments are honoured, following Promises/A+; `then(undefined, onRejected)`
+  registers only the rejection handler. `then` and `catch` still return the
+  same instance.
+- Fixed: an exception thrown by a `then` or `catch` callback left the
+  interpreter's pending-exception flag set, so the next native call on that
+  thread behaved as if it had thrown. Callback exceptions are now consumed and
+  reported as `Uncaught exception in Deferred callback: <Name: message>`.
+- Fixed: `Deferred()` without a callable argument created a Deferred that
+  nothing could settle, and the process waited out the 180-second event-loop
+  timeout. It now throws a `TypeError` synchronously.
+- Added `tests/integration/deferred/test_deferred_reject.js`. The existing
+  `tests/integration/test_deferred_basic.js` and
+  `tests/integration/deferred/concurrent_deferred.js` used a
+  `(resolve, reject)` signature the API never supported and asserted nothing;
+  both now use the real API and assert. All three run in
+  `tests/run_all_tests.sh`.
+
 ### Benchmarks (2026-09-16)
 
 - Fixed: `tests/benchmarks/standard/parallel_cpu.js` ran 2e5 iterations per task

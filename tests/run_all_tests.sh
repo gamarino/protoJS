@@ -31,6 +31,11 @@ PROTOJS="$PROTOJS" node tests/integration/cli/test_cli_flags.js
 echo "[run_all_tests] parallel_cpu benchmark workload..."
 PROTOJS="$PROTOJS" node tests/integration/benchmarks/test_parallel_cpu_workload.js
 
+echo "[run_all_tests] Deferred semantics..."
+"$PROTOJS" tests/integration/deferred/test_deferred_reject.js
+"$PROTOJS" tests/integration/test_deferred_basic.js
+"$PROTOJS" tests/integration/deferred/concurrent_deferred.js
+
 if [ -n "$TEST262_ROOT" ] && [ -d "$TEST262_ROOT" ]; then
   echo "[run_all_tests] Test262 (pattern from config, protoCore path)..."
   TEST262_USE_PROTO_EVAL=1 PROTOJS="$PROTOJS" node tests/test262/runner/test262_runner.js

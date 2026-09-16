@@ -1,10 +1,13 @@
 #include "ProtoDeferred.h"
 #include "EventLoop.h"
+#include "FunctionPrototype.h"
 #include "JSContext.h"
 #include "JSSymbols.h"
 #include "runtime/ProtoInterpreter.h"
 #include "runtime/ProtoBytecodeModule.h"
 #include <atomic>
+#include <iostream>
+#include <string>
 
 namespace protojs {
 
@@ -36,6 +39,57 @@ DeferredKeys& keys(proto::ProtoContext* ctx) {
         k.prototype = proto::ProtoString::createSymbol(ctx, "__df_proto__");
     }
     return k;
+}
+
+// A value is callable when it is a raw ProtoMethod, a wrapped native
+// function, a bytecode closure or a bound function.  Same test the
+// interpreter applies to Proxy traps (ProtoInterpreter.cpp).
+bool isCallableValue(proto::ProtoContext* ctx, const proto::ProtoObject* v) {
+    if (!ctx || !v || v == PROTO_NONE) return false;
+    if (v->isMethod(ctx)) return true;
+    const proto::ProtoString* bcK = JSSymbols::bytecodeId(ctx);
+    if (bcK && v->hasAttribute(ctx, bcK) == PROTO_TRUE) return true;
+    const proto::ProtoString* nfK = JSSymbols::nativeFn(ctx);
+    if (nfK && v->hasAttribute(ctx, nfK) == PROTO_TRUE) return true;
+    const proto::ProtoString* bfK = JSSymbols::boundFn(ctx);
+    if (bfK && v->hasAttribute(ctx, bfK) == PROTO_TRUE) return true;
+    return false;
+}
+
+// Consume and report an exception left behind by a user callback.
+//
+// callJSFunction reports a throw by setting a thread-local flag and returning
+// PROTO_NONE.  Nothing in the event loop consumes that flag, so leaving it set
+// made the next native call on this thread believe that IT had thrown.  Every
+// site that invokes a user callback must drain it.
+void drainCallbackException(proto::ProtoContext* ctx, const char* where) {
+    if (!hasCallException()) return;
+    const proto::ProtoObject* exc = consumeCallException();
+    std::string errStr;
+    if (ctx && exc && exc != PROTO_NONE) {
+        const proto::ProtoString* nameKey = JSSymbols::name(ctx);
+        if (nameKey) {
+            const proto::ProtoObject* nv = exc->getAttribute(ctx, nameKey, true);
+            if (nv && nv != PROTO_NONE && nv->isString(ctx))
+                nv->asString(ctx)->toUTF8String(ctx, errStr);
+        }
+        const proto::ProtoString* msgKey = JSSymbols::message(ctx);
+        if (msgKey) {
+            const proto::ProtoObject* mv = exc->getAttribute(ctx, msgKey, true);
+            if (mv && mv != PROTO_NONE && mv->isString(ctx)) {
+                std::string tmp;
+                mv->asString(ctx)->toUTF8String(ctx, tmp);
+                if (!tmp.empty()) {
+                    if (!errStr.empty()) errStr += ": ";
+                    errStr += tmp;
+                }
+            }
+        }
+        if (errStr.empty() && exc->isString(ctx))
+            exc->asString(ctx)->toUTF8String(ctx, errStr);
+    }
+    if (errStr.empty()) errStr = "Error";
+    std::cerr << "Uncaught exception in " << where << ": " << errStr << std::endl;
 }
 
 // Active-count for the event-loop drain.  Atomic because resolveFromAsync
@@ -163,6 +217,7 @@ void drainQueue(proto::ProtoContext* ctx,
                     ->appendLast(c, valR ? valR : PROTO_NONE);
                 callJSFunctionFromAsync(c, cbR, PROTO_NONE, args, mod,
                                         wrapper->getNativeGlobalRootPtr());
+                drainCallbackException(c, "Deferred callback");
             });
         }
         // Clear queue so subsequent state transitions don't double-fire.
@@ -171,6 +226,55 @@ void drainQueue(proto::ProtoContext* ctx,
     // One async-completion event per Deferred regardless of how many
     // callbacks were chained.
     g_activeCount.fetch_sub(1, std::memory_order_acq_rel);
+}
+
+// Append a callback to one of the pending queues.
+void enqueueCallbackFor(proto::ProtoContext* ctx,
+                         const proto::ProtoObject* d,
+                         const proto::ProtoString* qKey,
+                         const proto::ProtoObject* cb) {
+    const proto::ProtoList* queue = readQueue(ctx, d, qKey);
+    if (!queue) queue = ctx->newList();
+    queue = queue->appendLast(ctx, cb);
+    writeQueue(ctx, d, qKey, queue);
+}
+
+// Schedule `cb` with the already-settled value on a later event-loop turn.
+// Shared by then() and catch() for a Deferred that has already settled.
+void scheduleSettledCallback(proto::ProtoContext* ctx,
+                              const proto::ProtoObject* d,
+                              const proto::ProtoObject* cb) {
+    auto& k = keys(ctx);
+    const proto::ProtoObject* value = d->getAttribute(ctx, k.value, false);
+    if (!value) value = PROTO_NONE;
+    JSContextWrapper* wrapper = JSContextWrapper::current();
+    g_activeCount.fetch_add(1, std::memory_order_acq_rel);
+    PinnedInvocation pin = pinInvocation(wrapper, cb, value);
+    EventLoop::getInstance().enqueueCallback([wrapper, pin]() {
+        if (!wrapper) {
+            g_activeCount.fetch_sub(1, std::memory_order_acq_rel);
+            return;
+        }
+        JSContextWrapper::CurrentScope wscope(wrapper);
+        proto::ProtoContext* c = wrapper->getProtoContext();
+        if (!c) {
+            g_activeCount.fetch_sub(1, std::memory_order_acq_rel);
+            return;
+        }
+        const proto::ProtoObject* cbR = nullptr;
+        const proto::ProtoObject* valR = nullptr;
+        takeInvocation(wrapper, pin, cbR, valR);
+        if (cbR && cbR != PROTO_NONE) {
+            const ProtoBytecodeModule* mod =
+                static_cast<const ProtoBytecodeModule*>(wrapper->getRootModule());
+            const proto::ProtoList* args = c->newList()
+                ->appendLast(c, valR ? valR : PROTO_NONE);
+            callJSFunctionFromAsync(c, cbR, PROTO_NONE, args, mod,
+                                    wrapper->getNativeGlobalRootPtr());
+            drainCallbackException(c, "Deferred callback");
+        }
+        g_activeCount.fetch_sub(1, std::memory_order_acq_rel);
+    });
 }
 
 // ---- Constructor -----------------------------------------------------
@@ -187,10 +291,20 @@ const proto::ProtoObject* deferredConstruct(
     const proto::ProtoObject* workerFn =
         (args && args->getSize(ctx) > 0) ? args->getAt(ctx, 0) : PROTO_NONE;
 
+    // Reject a missing or non-callable worker synchronously.  Before this
+    // check, `Deferred()` built a pending Deferred that nothing could ever
+    // settle, so the process sat in the event-loop drain until its 180 s
+    // timeout before exiting.
+    if (!isCallableValue(ctx, workerFn)) {
+        signalNativeException(makeNativeError(
+            ctx, "TypeError", "Deferred requires a function argument"));
+        return PROTO_NONE;
+    }
+
     const proto::ProtoObject* inst = ProtoDeferred::createPending(ctx);
     if (!inst) return PROTO_NONE;
 
-    if (workerFn && workerFn != PROTO_NONE) {
+    {
         JSContextWrapper* wrapper = JSContextWrapper::current();
         // createPending already incremented the active counter; the
         // worker invocation runs as part of that pending resolution
@@ -214,7 +328,17 @@ const proto::ProtoObject* deferredConstruct(
                 callJSFunctionFromAsync(c, workerFnR, PROTO_NONE,
                                          c->newList(), mod,
                                          wrapper->getNativeGlobalRootPtr());
-            ProtoDeferred::resolveFromAsync(c, instR, result, wrapper);
+            // An exception thrown by the worker must reject.  It used to
+            // fulfil the Deferred with undefined: callJSFunction reports a
+            // throw through the thread-local flag and returns PROTO_NONE,
+            // and the result was passed to resolveFromAsync unconditionally.
+            if (hasCallException()) {
+                const proto::ProtoObject* reason = consumeCallException();
+                ProtoDeferred::rejectFromAsync(c, instR,
+                    reason ? reason : PROTO_NONE, wrapper);
+            } else {
+                ProtoDeferred::resolveFromAsync(c, instR, result, wrapper);
+            }
         });
     }
 
@@ -230,52 +354,29 @@ const proto::ProtoObject* deferredThen(
     const proto::ProtoList* args,
     const proto::ProtoSparseList*) {
     if (!ctx || !self || self == PROTO_NONE) return self;
-    const proto::ProtoObject* cb =
+    // Promises/A+ 2.2: then(onFulfilled, onRejected).  The second argument
+    // used to be ignored entirely, so a rejection registered this way was
+    // never delivered.
+    const proto::ProtoObject* onFulfilled =
         (args && args->getSize(ctx) > 0) ? args->getAt(ctx, 0) : PROTO_NONE;
-    if (!cb || cb == PROTO_NONE) return self;
+    const proto::ProtoObject* onRejected =
+        (args && args->getSize(ctx) > 1) ? args->getAt(ctx, 1) : PROTO_NONE;
+    const bool haveFulfil = isCallableValue(ctx, onFulfilled);
+    const bool haveReject = isCallableValue(ctx, onRejected);
+    // Note: a missing onFulfilled no longer returns early, because
+    // then(undefined, onRejected) must still register the rejection handler.
+    if (!haveFulfil && !haveReject) return self;
     auto& k = keys(ctx);
 
     long long state = readState(ctx, self);
     if (state == kStateFulfilled) {
-        // Already fulfilled — fire callback on next turn.
-        const proto::ProtoObject* value =
-            self->getAttribute(ctx, k.value, false);
-        if (!value) value = PROTO_NONE;
-        JSContextWrapper* wrapper = JSContextWrapper::current();
-        g_activeCount.fetch_add(1, std::memory_order_acq_rel);
-        PinnedInvocation pin = pinInvocation(wrapper, cb, value);
-        EventLoop::getInstance().enqueueCallback([wrapper, pin]() {
-            if (!wrapper) {
-                g_activeCount.fetch_sub(1, std::memory_order_acq_rel);
-                return;
-            }
-            JSContextWrapper::CurrentScope wscope(wrapper);
-            proto::ProtoContext* c = wrapper->getProtoContext();
-            if (!c) {
-                g_activeCount.fetch_sub(1, std::memory_order_acq_rel);
-                return;
-            }
-            const proto::ProtoObject* cbR = nullptr;
-            const proto::ProtoObject* valR = nullptr;
-            takeInvocation(wrapper, pin, cbR, valR);
-            if (cbR && cbR != PROTO_NONE) {
-                const ProtoBytecodeModule* mod =
-                    static_cast<const ProtoBytecodeModule*>(wrapper->getRootModule());
-                const proto::ProtoList* args = c->newList()
-                    ->appendLast(c, valR ? valR : PROTO_NONE);
-                callJSFunctionFromAsync(c, cbR, PROTO_NONE, args, mod,
-                                        wrapper->getNativeGlobalRootPtr());
-            }
-            g_activeCount.fetch_sub(1, std::memory_order_acq_rel);
-        });
-    } else if (state == kStatePending) {
-        // Queue for later dispatch when the Deferred resolves.
-        const proto::ProtoList* queue = readQueue(ctx, self, k.thenList);
-        if (!queue) queue = ctx->newList();
-        queue = queue->appendLast(ctx, cb);
-        writeQueue(ctx, self, k.thenList, queue);
+        if (haveFulfil) scheduleSettledCallback(ctx, self, onFulfilled);
+    } else if (state == kStateRejected) {
+        if (haveReject) scheduleSettledCallback(ctx, self, onRejected);
+    } else {
+        if (haveFulfil) enqueueCallbackFor(ctx, self, k.thenList, onFulfilled);
+        if (haveReject) enqueueCallbackFor(ctx, self, k.catchList, onRejected);
     }
-    // state == rejected: ignore .then per Promise semantics.
     return self;
 }
 
@@ -288,46 +389,14 @@ const proto::ProtoObject* deferredCatch(
     if (!ctx || !self || self == PROTO_NONE) return self;
     const proto::ProtoObject* cb =
         (args && args->getSize(ctx) > 0) ? args->getAt(ctx, 0) : PROTO_NONE;
-    if (!cb || cb == PROTO_NONE) return self;
+    if (!isCallableValue(ctx, cb)) return self;
     auto& k = keys(ctx);
 
     long long state = readState(ctx, self);
     if (state == kStateRejected) {
-        const proto::ProtoObject* reason =
-            self->getAttribute(ctx, k.value, false);
-        if (!reason) reason = PROTO_NONE;
-        JSContextWrapper* wrapper = JSContextWrapper::current();
-        g_activeCount.fetch_add(1, std::memory_order_acq_rel);
-        PinnedInvocation pin = pinInvocation(wrapper, cb, reason);
-        EventLoop::getInstance().enqueueCallback([wrapper, pin]() {
-            if (!wrapper) {
-                g_activeCount.fetch_sub(1, std::memory_order_acq_rel);
-                return;
-            }
-            JSContextWrapper::CurrentScope wscope(wrapper);
-            proto::ProtoContext* c = wrapper->getProtoContext();
-            if (!c) {
-                g_activeCount.fetch_sub(1, std::memory_order_acq_rel);
-                return;
-            }
-            const proto::ProtoObject* cbR = nullptr;
-            const proto::ProtoObject* valR = nullptr;
-            takeInvocation(wrapper, pin, cbR, valR);
-            if (cbR && cbR != PROTO_NONE) {
-                const ProtoBytecodeModule* mod =
-                    static_cast<const ProtoBytecodeModule*>(wrapper->getRootModule());
-                const proto::ProtoList* args = c->newList()
-                    ->appendLast(c, valR ? valR : PROTO_NONE);
-                callJSFunctionFromAsync(c, cbR, PROTO_NONE, args, mod,
-                                        wrapper->getNativeGlobalRootPtr());
-            }
-            g_activeCount.fetch_sub(1, std::memory_order_acq_rel);
-        });
+        scheduleSettledCallback(ctx, self, cb);
     } else if (state == kStatePending) {
-        const proto::ProtoList* queue = readQueue(ctx, self, k.catchList);
-        if (!queue) queue = ctx->newList();
-        queue = queue->appendLast(ctx, cb);
-        writeQueue(ctx, self, k.catchList, queue);
+        enqueueCallbackFor(ctx, self, k.catchList, cb);
     }
     return self;
 }
@@ -409,14 +478,32 @@ const proto::ProtoObject* ProtoDeferred::init(
     const proto::ProtoObject* globalObj) {
     if (!ctx || !globalObj) return globalObj;
     // Eager-build the prototype on this thread so the cache fills.
-    if (!deferredPrototypeObject(ctx)) return globalObj;
-    // Install constructor on global.  ProtoMethod IS callable and
-    // protoCore's call dispatch uses asMethod() — using the same
-    // signature for the constructor is fine; `new Deferred(fn)`
-    // and `Deferred(fn)` produce identical results in this design
-    // (no this-binding subtleties).
-    const proto::ProtoObject* ctor = ctx->fromMethod(nullptr, deferredConstruct);
+    const proto::ProtoObject* dproto = deferredPrototypeObject(ctx);
+    if (!dproto) return globalObj;
+
+    // `new Deferred(fn)` needs a constructor object, not a bare ProtoMethod:
+    // L_OP_call_constructor rejects a raw method with "function is not a
+    // constructor", so `new Deferred(...)` failed outright even though the
+    // documentation and the tests use it.  Same shape as EventsModule's
+    // EventEmitter: a wrapNativeFunction wrapper carrying `prototype` and
+    // `__construct__`.  Plain `Deferred(fn)` still works through
+    // `__native_fn__`.
+    const proto::ProtoObject* ctor =
+        wrapNativeFunction(ctx, deferredConstruct, "Deferred",
+                            /*length=*/1, /*globalRoot=*/nullptr);
     if (!ctor) return globalObj;
+
+    // `prototype` makes instances of `new Deferred(...)` inherit then/catch
+    // and makes `instanceof Deferred` hold: createPending parents every
+    // instance on this same object.
+    const proto::ProtoString* protoKey = JSSymbols::prototype(ctx);
+    if (protoKey) ctor = ctor->setAttribute(ctx, protoKey, dproto);
+    const proto::ProtoString* constructKey = JSSymbols::construct(ctx);
+    if (constructKey) {
+        const proto::ProtoObject* cm = ctx->fromMethod(nullptr, deferredConstruct);
+        if (cm) ctor = ctor->setAttribute(ctx, constructKey, cm);
+    }
+
     const proto::ProtoString* name = ctx->fromUTF8String("Deferred")
         ? ctx->fromUTF8String("Deferred")->asString(ctx) : nullptr;
     if (!name) return globalObj;

@@ -23,11 +23,15 @@ d.then((value) => {
 Behaviour, as implemented in `src/ProtoDeferred.cpp`:
 
 - The constructor takes one function and schedules it on the event loop. The function is called **with no arguments**; the Deferred is fulfilled with its return value. Code written in the `Promise` style, `new Deferred((resolve, reject) => { ... })`, receives `undefined` for `resolve` and `reject`.
+- The argument must be callable: `Deferred()` and `Deferred(42)` throw a `TypeError` straight away, instead of creating a Deferred that nothing can ever settle.
 - `Deferred(fn)` without `new` behaves the same as `new Deferred(fn)`.
-- `then(callback)` registers a fulfilment callback. If the Deferred is already fulfilled, the callback runs on a later event-loop turn.
-- `catch(callback)` registers a rejection callback.
+- `then(onFulfilled)` registers a fulfilment callback. If the Deferred is already fulfilled, the callback runs on a later event-loop turn.
+- `then(onFulfilled, onRejected)` also registers a rejection handler, following Promises/A+. Either argument may be omitted, so `then(undefined, onRejected)` registers only the rejection handler.
+- `catch(callback)` registers a rejection callback. A `catch` registered after the Deferred has already been rejected still runs, on a later turn.
 - `then` and `catch` return the **same** Deferred, not a new one. Calls can be chained on that object, but a callback's return value is not passed to the next callback.
-- The constructor always fulfils the Deferred with the value returned by the call; an exception thrown by the function is not delivered to `catch` callbacks. Rejections come from native operations that return a Deferred, such as `protoCore.runInThread` when the thread cannot be created, or `io.readFileAsync` / `io.writeFileAsync` when the I/O operation fails.
+- An exception thrown by the constructor's function **rejects** the Deferred, and the thrown value reaches the rejection handlers unchanged — an `Error` object, or a primitive such as `throw 42`. Rejections also come from native operations that return a Deferred, such as `protoCore.runInThread` when the thread cannot be created, or `io.readFileAsync` / `io.writeFileAsync` when the I/O operation fails.
+- An exception thrown by a `then` or `catch` callback is reported on stderr as `Uncaught exception in Deferred callback: <Name: message>`. It does not settle any other Deferred and does not disturb the native call that runs next.
+- A rejection with no registered handler is silent: there is no unhandled-rejection warning.
 
 ## Process lifetime
 

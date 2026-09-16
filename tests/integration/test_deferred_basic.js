@@ -1,35 +1,60 @@
-// Basic test for Deferred functionality
+// Basic Deferred test.
+//
+// The Deferred function takes NO arguments: its return value fulfils the
+// Deferred, and an exception it throws rejects it. The Promise-style
+// `(resolve, reject)` signature this test used to assume is not supported —
+// see docs/DEFERRED_USAGE.md.
+//
+// Asserting test: prints the failures and exits 1 when anything is wrong.
 
-console.log("=== Testing Deferred ===");
+var failures = [];
 
-// Test 1: Create a Deferred
-console.log("\n1. Creating Deferred...");
-try {
-    const deferred = new Deferred((resolve, reject) => {
-        console.log("   Deferred function executing...");
-        // Simulate some work
-        let sum = 0;
-        for (let i = 0; i < 1000; i++) {
-            sum += i;
+function check(name, condition, detail) {
+    if (!condition) {
+        failures.push(name + (detail !== undefined ? " — " + detail : ""));
+    }
+}
+
+check("Deferred is a function", typeof Deferred === "function",
+      "got " + typeof Deferred);
+
+var fulfilledWith;
+var rejectedWith;
+
+var d = new Deferred(function () {
+    var sum = 0;
+    for (var i = 0; i < 1000; i++) {
+        sum += i;
+    }
+    return sum;
+});
+check("new Deferred(fn) returns an instance", d instanceof Deferred);
+d.then(function (value) { fulfilledWith = value; });
+
+var dErr = new Deferred(function () {
+    throw new Error("Test error");
+});
+dErr['catch'](function (e) { rejectedWith = e && e.message; });
+
+var hops = 0;
+function step() {
+    if (++hops < 20) {
+        setImmediate(step);
+        return;
+    }
+    check("fulfils with the value returned by the function",
+          fulfilledWith === 499500, "got " + fulfilledWith);
+    check("rejects with the error thrown by the function",
+          rejectedWith === "Test error", "got " + rejectedWith);
+
+    if (failures.length) {
+        console.log("test_deferred_basic: " + failures.length + " check(s) failed");
+        for (var i = 0; i < failures.length; i++) {
+            console.log("  FAIL: " + failures[i]);
         }
-        console.log("   Work completed, sum =", sum);
-        resolve(sum);
-    });
-    console.log("   Deferred created successfully");
-} catch (e) {
-    console.log("   Error creating Deferred:", e);
+        process.exit(1);
+    }
+    console.log("test_deferred_basic: all checks passed");
 }
 
-// Test 2: Deferred with error
-console.log("\n2. Testing Deferred with error handling...");
-try {
-    const deferred2 = new Deferred((resolve, reject) => {
-        console.log("   This will throw an error");
-        throw new Error("Test error");
-    });
-    console.log("   Deferred with error created");
-} catch (e) {
-    console.log("   Error:", e);
-}
-
-console.log("\n=== Deferred tests completed ===");
+setImmediate(step);

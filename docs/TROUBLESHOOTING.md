@@ -108,9 +108,12 @@ Check the list of installed globals in [API_REFERENCE.md](API_REFERENCE.md#globa
 
 The Deferred function receives no arguments. Return the value instead; it fulfils the Deferred. See [DEFERRED_USAGE.md](DEFERRED_USAGE.md).
 
-### A `catch` callback never runs for an exception thrown inside a Deferred
+### `TypeError: Deferred requires a function argument`
 
-In the current implementation, the constructor fulfils the Deferred with the call's return value and does not route exceptions to `catch`. Handle errors inside the function.
+The Deferred constructor needs a callable argument. `Deferred()` and
+`Deferred(42)` throw this error immediately. Previously they created a Deferred
+that nothing could settle, and the process waited out the 180-second event-loop
+timeout before exiting.
 
 ### Deferreds do not run in parallel
 
