@@ -3,7 +3,7 @@
 
 #include "quickjs.h"
 #include "NativeModuleABI.h"
-#include "headers/protoCore.h"
+#include "protoCore.h"
 
 namespace protojs {
 

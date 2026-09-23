@@ -1,7 +1,7 @@
 #ifndef PROTOJS_REGEXP_STRING_ITERATOR_H
 #define PROTOJS_REGEXP_STRING_ITERATOR_H
 
-#include "headers/protoCore.h"
+#include "protoCore.h"
 
 namespace protojs {
 

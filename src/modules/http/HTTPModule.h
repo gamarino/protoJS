@@ -1,7 +1,7 @@
 #ifndef PROTOJS_HTTPMODULE_H
 #define PROTOJS_HTTPMODULE_H
 
-#include "headers/protoCore.h"
+#include "protoCore.h"
 
 namespace protojs {
 

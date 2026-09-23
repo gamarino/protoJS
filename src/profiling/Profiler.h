@@ -1,7 +1,7 @@
 #ifndef PROTOJS_PROFILER_H
 #define PROTOJS_PROFILER_H
 
-#include "headers/protoCore.h"
+#include "protoCore.h"
 #include <string>
 #include <chrono>
 #include <vector>

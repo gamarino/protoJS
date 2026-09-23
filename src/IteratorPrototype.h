@@ -1,7 +1,7 @@
 #ifndef PROTOJS_ITERATORPROTOTYPE_H
 #define PROTOJS_ITERATORPROTOTYPE_H
 
-#include "headers/protoCore.h"
+#include "protoCore.h"
 
 namespace protojs {
 

@@ -1,7 +1,7 @@
 #ifndef PROTOJS_IOMODULE_H
 #define PROTOJS_IOMODULE_H
 
-#include "headers/protoCore.h"
+#include "protoCore.h"
 #include "../IOThreadPool.h"
 #include "../EventLoop.h"
 #include <string>

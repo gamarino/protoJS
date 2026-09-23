@@ -1,7 +1,7 @@
 #ifndef PROTOJS_PATHMODULE_H
 #define PROTOJS_PATHMODULE_H
 
-#include "headers/protoCore.h"
+#include "protoCore.h"
 
 namespace protojs {
 

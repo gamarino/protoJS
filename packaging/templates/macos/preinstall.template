@@ -1,24 +1,31 @@
 #!/bin/bash
 
-# Configuration
+# Configuration.
+# protoCore's macOS packaging is currently DragNDrop (a .dmg), which registers
+# no pkgutil receipt, so the pkgutil check below only succeeds once protoCore
+# ships a productbuild .pkg with this identifier. The versioned dylib is the
+# check that works today, and it is the one that actually tests the ABI: the
+# unversioned libprotoCore.dylib symlink would be satisfied by any version.
+# UNVERIFIED: never run - no macOS host (D-I6).
 PROTOCORE_PKG_ID="com.protoCore.pkg"
-PROTOCORE_LIB_PATH="/usr/local/lib/libprotoCore.dylib"
+PROTOCORE_SOVERSION="2"
+PROTOCORE_LIB_DIRS="/usr/local/lib /opt/homebrew/lib /opt/local/lib"
 
 echo "Checking for protoCore dependency..."
 
-# Check via pkgutil (preferred for installers)
-if pkgutil --pkg-info "$PROTOCORE_PKG_ID" > /dev/null 2>&1; then
-    echo "protoCore detected via pkgutil."
-    exit 0
-fi
+for dir in $PROTOCORE_LIB_DIRS; do
+    if [ -f "$dir/libprotoCore.$PROTOCORE_SOVERSION.dylib" ]; then
+        echo "protoCore detected: $dir/libprotoCore.$PROTOCORE_SOVERSION.dylib"
+        exit 0
+    fi
+done
 
-# Fallback: check for the library file directly
-if [ -f "$PROTOCORE_LIB_PATH" ]; then
-    echo "protoCore detected via library path: $PROTOCORE_LIB_PATH"
+if pkgutil --pkg-info "$PROTOCORE_PKG_ID" > /dev/null 2>&1; then
+    echo "protoCore detected via pkgutil ($PROTOCORE_PKG_ID)."
     exit 0
 fi
 
 # If both fail, abort installation
-echo "ERROR: protoCore is not installed." >&2
-echo "Please install protoCore before installing protoJS." >&2
+echo "ERROR: protoCore with ABI $PROTOCORE_SOVERSION is not installed." >&2
+echo "Install protoCore 2.x before installing protoJS." >&2
 exit 1

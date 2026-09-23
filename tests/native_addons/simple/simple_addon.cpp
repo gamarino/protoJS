@@ -10,7 +10,7 @@
  * objects, and its functions are called directly by the interpreter.
  */
 #include "native/NativeModuleABI.h"
-#include "headers/protoCore.h"
+#include "protoCore.h"
 
 namespace protojs {
 

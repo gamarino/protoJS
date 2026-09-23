@@ -29,7 +29,7 @@ extern "C" {
 #include "../JSContext.h"
 #include "../GCBridge.h"
 #include "../TypeBridge.h"
-#include "headers/protoCore.h"
+#include "protoCore.h"
 #include <cerrno>
 #include <cmath>
 #include <cstring>

@@ -1,7 +1,7 @@
 #ifndef PROTOJS_BUFFERMODULE_H
 #define PROTOJS_BUFFERMODULE_H
 
-#include "headers/protoCore.h"
+#include "protoCore.h"
 
 namespace protojs {
 

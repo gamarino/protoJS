@@ -1,7 +1,7 @@
 #ifndef PROTOJS_ARRAYPROTOTYPE_H
 #define PROTOJS_ARRAYPROTOTYPE_H
 
-#include "headers/protoCore.h"
+#include "protoCore.h"
 
 namespace protojs {
 

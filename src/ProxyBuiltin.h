@@ -1,7 +1,7 @@
 #ifndef PROTOJS_PROXYBUILTIN_H
 #define PROTOJS_PROXYBUILTIN_H
 
-#include "headers/protoCore.h"
+#include "protoCore.h"
 
 namespace protojs {
 

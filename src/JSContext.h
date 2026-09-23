@@ -2,7 +2,7 @@
 #define PROTOJS_JSCONTEXT_H
 
 #include "quickjs.h"
-#include "headers/protoCore.h"
+#include "protoCore.h"
 #include "JSPrototypes.h"
 #include <memory>
 #include <string>

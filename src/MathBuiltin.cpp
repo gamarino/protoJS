@@ -3,7 +3,7 @@
 #include "ArrayElementsStorage.h"
 #include "ObjectPrototype.h"
 #include "runtime/ProtoInterpreter.h"
-#include "headers/protoCore.h"
+#include "protoCore.h"
 #include <cmath>
 #include <cstdlib>
 #include <ctime>

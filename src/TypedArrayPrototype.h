@@ -1,7 +1,7 @@
 #ifndef PROTOJS_TYPEDARRAYPROTOTYPE_H
 #define PROTOJS_TYPEDARRAYPROTOTYPE_H
 
-#include "headers/protoCore.h"
+#include "protoCore.h"
 #include <cstdint>
 
 namespace protojs {

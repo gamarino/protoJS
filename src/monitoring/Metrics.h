@@ -1,7 +1,7 @@
 #ifndef PROTOJS_METRICS_H
 #define PROTOJS_METRICS_H
 
-#include "headers/protoCore.h"
+#include "protoCore.h"
 #include <mutex>
 
 namespace protojs {

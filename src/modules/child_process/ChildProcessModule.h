@@ -1,7 +1,7 @@
 #ifndef PROTOJS_CHILDPROCESSMODULE_H
 #define PROTOJS_CHILDPROCESSMODULE_H
 
-#include "headers/protoCore.h"
+#include "protoCore.h"
 
 namespace protojs {
 

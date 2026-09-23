@@ -4,7 +4,7 @@
  * addon was preferred over the sibling fixture.js.
  */
 #include "native/NativeModuleABI.h"
-#include "headers/protoCore.h"
+#include "protoCore.h"
 
 namespace protojs {
 

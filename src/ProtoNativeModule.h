@@ -1,7 +1,7 @@
 #ifndef PROTOJS_PROTO_NATIVE_MODULE_H
 #define PROTOJS_PROTO_NATIVE_MODULE_H
 
-#include "headers/protoCore.h"
+#include "protoCore.h"
 #include <cstddef>
 
 namespace protojs {

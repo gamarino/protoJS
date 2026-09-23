@@ -7,7 +7,7 @@
 #include "ObjectPrototype.h"
 #include "runtime/ProtoInterpreter.h"
 #include "JSSymbols.h"
-#include "headers/protoCore.h"
+#include "protoCore.h"
 #include <algorithm>
 #include <cmath>
 #include <cstdio>

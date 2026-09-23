@@ -8,7 +8,7 @@ URL:            https://github.com/gamarino/protoJS
 Source0:        protoJS-%{version}.tar.gz
 
 BuildArch:      x86_64
-Requires:       protoCore >= 1.0.0
+Requires:       protoCore >= 2.0.0, protoCore < 3.0.0
 
 %description
 protoJS is a JavaScript runtime built on the protoCore object model.
@@ -17,23 +17,39 @@ protoJS is a JavaScript runtime built on the protoCore object model.
 %setup -q -n protoJS-%{version}
 
 %pre
-MIN_VERSION="1.0.0"
+# protoCore's major version and its soname move together, so protoJS accepts
+# exactly the 2.x series it was built against.
+MIN_VERSION="2.0.0"
+NEXT_MAJOR="3.0.0"
 PACKAGE_NAME="protoCore"
 
 echo "Checking for $PACKAGE_NAME dependency..."
 
 if ! rpm -q "$PACKAGE_NAME" > /dev/null 2>&1; then
     echo "ERROR: protoCore is not installed." >&2
-    echo "Please install protoCore before installing protoJS." >&2
+    echo "protoJS requires protoCore >= $MIN_VERSION and < $NEXT_MAJOR." >&2
     exit 1
 fi
 
 INSTALLED_VERSION=$(rpm -q --queryformat '%{VERSION}' "$PACKAGE_NAME")
 
-# Basic version check using sort -V if rpmdev-vercmp is not available
+# Version comparison with sort -V, so rpmdev-vercmp is not required.
 if [ "$(printf '%s\n%s' "$MIN_VERSION" "$INSTALLED_VERSION" | sort -V | head -n1)" != "$MIN_VERSION" ]; then
     echo "ERROR: protoCore version $INSTALLED_VERSION is too old." >&2
     echo "protoJS requires protoCore >= $MIN_VERSION." >&2
+    exit 1
+fi
+
+if [ "$(printf '%s\n%s' "$NEXT_MAJOR" "$INSTALLED_VERSION" | sort -V | head -n1)" = "$NEXT_MAJOR" ]; then
+    echo "ERROR: protoCore version $INSTALLED_VERSION is too new." >&2
+    echo "protoJS is built against the $MIN_VERSION series and needs < $NEXT_MAJOR." >&2
+    exit 1
+fi
+
+# The package version is metadata; the soname is what the loader will use.
+if ! rpm -ql "$PACKAGE_NAME" | grep -q '/libprotoCore\.so\.2$'; then
+    echo "ERROR: $PACKAGE_NAME $INSTALLED_VERSION does not provide libprotoCore.so.2." >&2
+    echo "protoJS was linked against libprotoCore.so.2 and will not start without it." >&2
     exit 1
 fi
 

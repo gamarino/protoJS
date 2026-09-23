@@ -1,7 +1,7 @@
 #ifndef PROTOJS_DATEPROTOTYPE_H
 #define PROTOJS_DATEPROTOTYPE_H
 
-#include "headers/protoCore.h"
+#include "protoCore.h"
 
 namespace protojs {
 

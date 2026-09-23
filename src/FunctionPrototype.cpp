@@ -6,7 +6,7 @@
 #include "ProxyBuiltin.h"
 #include "ArrayElementsStorage.h"
 #include "runtime/ProtoInterpreter.h"
-#include "headers/protoCore.h"
+#include "protoCore.h"
 #include <cmath>
 #include <cstdio>
 #include <limits>

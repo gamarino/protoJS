@@ -1,7 +1,7 @@
 #ifndef PROTOJS_REGEXPPROTOTYPE_H
 #define PROTOJS_REGEXPPROTOTYPE_H
 
-#include "headers/protoCore.h"
+#include "protoCore.h"
 
 namespace protojs {
 

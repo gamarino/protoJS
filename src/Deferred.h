@@ -2,7 +2,7 @@
 #define PROTOJS_DEFERRED_H
 
 #include "quickjs.h"
-#include "headers/protoCore.h"
+#include "protoCore.h"
 #include "CPUThreadPool.h"
 #include "EventLoop.h"
 #include <atomic>

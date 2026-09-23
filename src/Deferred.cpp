@@ -3,7 +3,7 @@
 #include "JSContext.h"
 #include "CPUThreadPool.h"
 #include "EventLoop.h"
-#include "headers/protoCore.h"
+#include "protoCore.h"
 #include <iostream>
 #include <memory>
 #include <cstring>

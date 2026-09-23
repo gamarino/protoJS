@@ -1,3 +1,3 @@
 #include <iostream>
-#include "headers/protoCore.h"
+#include "protoCore.h"
 int main() { std::cout << "OK\n"; return 0; }

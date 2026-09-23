@@ -2,7 +2,7 @@
 #include "ArrayElementsStorage.h"
 #include "JSSymbols.h"
 #include "ObjectPrototype.h"
-#include "headers/protoCore.h"
+#include "protoCore.h"
 #include "runtime/ProtoInterpreter.h"
 #include <cstdio>
 #include <string>

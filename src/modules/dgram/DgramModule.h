@@ -1,7 +1,7 @@
 #ifndef PROTOJS_DGRAMMODULE_H
 #define PROTOJS_DGRAMMODULE_H
 
-#include "headers/protoCore.h"
+#include "protoCore.h"
 
 namespace protojs {
 

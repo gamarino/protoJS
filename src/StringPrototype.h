@@ -1,7 +1,7 @@
 #ifndef PROTOJS_STRINGPROTOTYPE_H
 #define PROTOJS_STRINGPROTOTYPE_H
 
-#include "headers/protoCore.h"
+#include "protoCore.h"
 
 namespace protojs {
 

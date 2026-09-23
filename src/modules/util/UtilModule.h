@@ -1,7 +1,7 @@
 #ifndef PROTOJS_UTILMODULE_H
 #define PROTOJS_UTILMODULE_H
 
-#include "headers/protoCore.h"
+#include "protoCore.h"
 
 namespace protojs {
 

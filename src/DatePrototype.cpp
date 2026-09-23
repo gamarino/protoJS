@@ -9,7 +9,7 @@
 #include "PrototypeUtils.h"
 #include "FunctionPrototype.h"
 #include "runtime/ProtoInterpreter.h"
-#include "headers/protoCore.h"
+#include "protoCore.h"
 
 // Date prototype implementation per ECMA-262 §21.4.  Internal slot
 // [[DateValue]] is stored as the own attribute __date_value__ on every

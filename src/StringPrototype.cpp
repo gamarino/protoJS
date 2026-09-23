@@ -8,7 +8,7 @@
 #include "PrototypeUtils.h"
 #include "RegExpPrototype.h"
 #include "TypeBridge.h"
-#include "headers/protoCore.h"
+#include "protoCore.h"
 #include "runtime/ProtoInterpreter.h"
 #include <algorithm>
 #include <cctype>

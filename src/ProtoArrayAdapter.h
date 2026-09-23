@@ -1,7 +1,7 @@
 #ifndef PROTOJS_PROTOARRAYADAPTER_H
 #define PROTOJS_PROTOARRAYADAPTER_H
 
-#include "headers/protoCore.h"
+#include "protoCore.h"
 
 namespace protojs {
 

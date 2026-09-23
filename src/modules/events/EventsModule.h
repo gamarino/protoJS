@@ -1,7 +1,7 @@
 #ifndef PROTOJS_EVENTSMODULE_H
 #define PROTOJS_EVENTSMODULE_H
 
-#include "headers/protoCore.h"
+#include "protoCore.h"
 
 namespace protojs {
 

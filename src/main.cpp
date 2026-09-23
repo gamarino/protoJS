@@ -1,5 +1,5 @@
 #include "JSContext.h"
-#include "headers/protoCore.h"
+#include "protoCore.h"
 #include "Deferred.h"
 #include "ProtoDeferred.h"
 #include "ProtoCoreNativeBindings.h"

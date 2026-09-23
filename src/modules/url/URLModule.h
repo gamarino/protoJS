@@ -1,6 +1,6 @@
 #ifndef PROTOJS_URLMODULE_H
 #define PROTOJS_URLMODULE_H
-#include "headers/protoCore.h"
+#include "protoCore.h"
 namespace protojs {
 
 /**

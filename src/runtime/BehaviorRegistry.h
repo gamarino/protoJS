@@ -1,7 +1,7 @@
 #ifndef PROTOJS_BEHAVIOR_REGISTRY_H
 #define PROTOJS_BEHAVIOR_REGISTRY_H
 
-#include "headers/protoCore.h"
+#include "protoCore.h"
 #include <unordered_map>
 #include <memory>
 
