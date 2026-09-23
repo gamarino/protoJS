@@ -1,7 +1,7 @@
 #ifndef PROTOJS_JSON_BUILTIN_H
 #define PROTOJS_JSON_BUILTIN_H
 
-#include "headers/protoCore.h"
+#include "protoCore.h"
 
 namespace protojs {
 

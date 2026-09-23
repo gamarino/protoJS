@@ -5,7 +5,7 @@
 #include "JSSymbols.h"
 #include "JSContext.h"
 #include "TypeBridge.h"
-#include "headers/protoCore.h"
+#include "protoCore.h"
 extern "C" {
 #include "libregexp.h"
 }

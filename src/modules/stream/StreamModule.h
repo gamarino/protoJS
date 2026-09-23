@@ -1,7 +1,7 @@
 #ifndef PROTOJS_STREAMMODULE_H
 #define PROTOJS_STREAMMODULE_H
 
-#include "headers/protoCore.h"
+#include "protoCore.h"
 
 namespace protojs {
 

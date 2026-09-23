@@ -8,21 +8,32 @@
         <MajorUpgrade DowngradeErrorMessage="A newer version of [ProductName] is already installed." />
         <MediaTemplate EmbedCab="yes" />
 
-        <!-- protoCore dependency check -->
-        <!-- Option A: Registry Search -->
-        <Property Id="PROTOCORE_INSTALLED">
-            <RegistrySearch Id="ProtoCoreRegSearch" Root="HKLM" Key="SOFTWARE\protoCore" Name="Version" Type="raw" />
+        <!-- protoCore dependency check.
+             protoCore's NSIS installer writes Version, Soversion and InstallDir
+             under HKLM\protoCore (protoCore/CMakeLists.txt, the WIN32 CPack
+             branch: CPACK_NSIS_EXTRA_INSTALL_COMMANDS). Before that, nothing in
+             protoCore wrote this key and the search below could never succeed.
+             A Windows DLL carries no soname, so Soversion is the only ABI
+             statement available and is what this condition tests.
+             UNVERIFIED: never built - no Windows host (D-I6). -->
+        <Property Id="PROTOCORE_SOVERSION">
+            <RegistrySearch Id="ProtoCoreSoversionSearch" Root="HKLM"
+                            Key="SOFTWARE\protoCore" Name="Soversion" Type="raw" />
+        </Property>
+        <Property Id="PROTOCORE_VERSION">
+            <RegistrySearch Id="ProtoCoreVersionSearch" Root="HKLM"
+                            Key="SOFTWARE\protoCore" Name="Version" Type="raw" />
+        </Property>
+        <Property Id="PROTOCORE_INSTALLDIR">
+            <RegistrySearch Id="ProtoCoreInstallDirSearch" Root="HKLM"
+                            Key="SOFTWARE\protoCore" Name="InstallDir" Type="raw" />
         </Property>
 
-        <!-- Option B: File Search (Fallback) -->
-        <Property Id="PROTOCORE_DLL_EXISTS">
-            <DirectorySearch Id="ProtoCoreDirSearch" Path="[ProgramFiles64Folder]protoCore">
-                <FileSearch Id="ProtoCoreFileSearch" Name="protoCore.dll" />
-            </DirectorySearch>
-        </Property>
-
-        <Condition Message="ERROR: protoCore is not installed. Please install protoCore before installing protoJS.">
-            <![CDATA[Installed OR PROTOCORE_INSTALLED OR PROTOCORE_DLL_EXISTS]]>
+        <!-- Windows Installer prefixes a raw REG_SZ search result with "#" in
+             some cases, so both spellings are accepted; the Windows host task
+             determines which one appears and simplifies this. -->
+        <Condition Message="ERROR: protoCore with ABI version 2 was not found. Install protoCore 2.x before installing protoJS.">
+            <![CDATA[Installed OR PROTOCORE_SOVERSION = "#2" OR PROTOCORE_SOVERSION = "2"]]>
         </Condition>
 
         <Feature Id="ProductFeature" Title="protoJS" Level="1">

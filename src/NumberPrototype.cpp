@@ -3,7 +3,7 @@
 #include "JSSymbols.h"
 #include "PrototypeUtils.h"
 #include "TypeBridge.h"
-#include "headers/protoCore.h"
+#include "protoCore.h"
 #include "runtime/ProtoInterpreter.h"
 #include <cmath>
 #include <cstdio>

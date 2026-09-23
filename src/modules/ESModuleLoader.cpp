@@ -7,7 +7,7 @@
 #include "../runtime/ProtoBytecodeModule.h"
 #include "../runtime/ProtoInterpreter.h"
 #include "quickjs.h"
-#include "headers/protoCore.h"
+#include "protoCore.h"
 #include <fstream>
 #include <sstream>
 #include <regex>

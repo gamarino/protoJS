@@ -1,6 +1,6 @@
 #include "ArrayBufferPrototype.h"
 #include "JSSymbols.h"
-#include "headers/protoCore.h"
+#include "protoCore.h"
 #include <cstring>
 #include <algorithm>
 

@@ -6,7 +6,7 @@
 #include "JSContext.h"
 #include "TypeBridge.h"
 #include "runtime/ProtoInterpreter.h"
-#include "headers/protoCore.h"
+#include "protoCore.h"
 extern "C" {
 #include "libregexp.h"
 }

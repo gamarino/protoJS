@@ -1,7 +1,7 @@
 #ifndef PROTOJS_WORKERTHREADSMODULE_H
 #define PROTOJS_WORKERTHREADSMODULE_H
 
-#include "headers/protoCore.h"
+#include "protoCore.h"
 #include <string>
 
 namespace protojs {

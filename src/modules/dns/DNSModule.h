@@ -1,7 +1,7 @@
 #ifndef PROTOJS_DNSMODULE_H
 #define PROTOJS_DNSMODULE_H
 
-#include "headers/protoCore.h"
+#include "protoCore.h"
 
 namespace protojs {
 

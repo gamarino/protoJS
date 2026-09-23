@@ -1,7 +1,7 @@
 #ifndef PROTOJS_NATIVEMODULEABI_H
 #define PROTOJS_NATIVEMODULEABI_H
 
-#include "headers/protoCore.h"
+#include "protoCore.h"
 
 /**
  * @brief Native Module ABI for protoJS.

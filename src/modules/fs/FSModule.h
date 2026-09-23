@@ -1,7 +1,7 @@
 #ifndef PROTOJS_FSMODULE_H
 #define PROTOJS_FSMODULE_H
 
-#include "headers/protoCore.h"
+#include "protoCore.h"
 
 namespace protojs {
 

@@ -2,7 +2,7 @@
 #define PROTOJS_GCBRIDGE_H
 
 #include "quickjs.h"
-#include "headers/protoCore.h"
+#include "protoCore.h"
 #include <mutex>
 
 // Forward declaration

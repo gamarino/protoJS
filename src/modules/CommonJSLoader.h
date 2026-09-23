@@ -5,7 +5,7 @@
 #include <string>
 #include <map>
 #include <mutex>
-#include "headers/protoCore.h"
+#include "protoCore.h"
 
 namespace protojs {
 

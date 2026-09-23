@@ -3,7 +3,7 @@
 #include "PrototypeUtils.h"
 #include "TypeBridge.h"
 #include "runtime/ProtoInterpreter.h"
-#include "headers/protoCore.h"
+#include "protoCore.h"
 #include <cmath>
 #include <string>
 

@@ -6,7 +6,7 @@
 #include "JSSymbols.h"
 #include "PrototypeUtils.h"
 #include "runtime/ProtoInterpreter.h"
-#include "headers/protoCore.h"
+#include "protoCore.h"
 #include <cmath>
 #include <limits>
 

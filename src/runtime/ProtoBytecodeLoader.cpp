@@ -5,7 +5,7 @@
 #include "../JSSymbols.h"
 #include "../TypeBridge.h"
 #include "quickjs.h"
-#include "headers/protoCore.h"
+#include "protoCore.h"
 
 namespace protojs {
 

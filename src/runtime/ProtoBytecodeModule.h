@@ -6,7 +6,7 @@
  * Holds a copy of the bytecode buffer, proto constant pool, and optional atom cache.
  */
 
-#include "headers/protoCore.h"
+#include "protoCore.h"
 #include <vector>
 #include <unordered_map>
 #include <cstdint>

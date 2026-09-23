@@ -1,7 +1,7 @@
 #ifndef PROTOJS_CONSOLE_H
 #define PROTOJS_CONSOLE_H
 
-#include "headers/protoCore.h"
+#include "protoCore.h"
 
 namespace protojs {
 

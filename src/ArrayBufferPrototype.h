@@ -1,7 +1,7 @@
 #ifndef PROTOJS_ARRAYBUFFERPROTOTYPE_H
 #define PROTOJS_ARRAYBUFFERPROTOTYPE_H
 
-#include "headers/protoCore.h"
+#include "protoCore.h"
 
 namespace protojs {
 

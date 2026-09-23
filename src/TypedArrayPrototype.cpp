@@ -1,7 +1,7 @@
 #include "TypedArrayPrototype.h"
 #include "ArrayBufferPrototype.h"
 #include "JSSymbols.h"
-#include "headers/protoCore.h"
+#include "protoCore.h"
 #include "runtime/BehaviorRegistry.h"
 
 #include <algorithm>

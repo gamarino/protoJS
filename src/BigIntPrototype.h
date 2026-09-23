@@ -1,7 +1,7 @@
 #ifndef PROTOJS_BIGINTPROTOTYPE_H
 #define PROTOJS_BIGINTPROTOTYPE_H
 
-#include "headers/protoCore.h"
+#include "protoCore.h"
 
 namespace protojs {
 

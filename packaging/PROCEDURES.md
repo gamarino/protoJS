@@ -39,11 +39,13 @@ Package metadata set in `CMakeLists.txt`:
 | Package name | `protojs` |
 | Vendor / contact | `numaes` / `gamarino@gmail.com` |
 | DEB section | `interpreters` |
-| DEB dependency | `protocore` (no minimum version) |
+| DEB dependency | `protocore (>= 2.0.0), protocore (<< 3.0.0)` |
 | RPM license / group | `MIT` / `Development/Languages` |
-| RPM dependency | `protoCore` (no minimum version) |
+| RPM dependency | `protoCore >= 2.0.0, protoCore < 3.0.0` |
 
-The dependency names match the packages built by protoCore's own CPack configuration (package name `protoCore`; the DEB generator lowercases it). Build and install the protoCore package first.
+The dependency names match the packages built by protoCore's own CPack configuration, which pins them explicitly: `protocore` for DEB, `protoCore` for RPM. The range is `[2.0.0, 3.0.0)` because protoCore's major version and its soname move together. Build and install the protoCore package first.
+
+The DEB and RPM generators are enabled only when `dpkg` and `rpmbuild` are found: `cpack` runs every configured generator in one pass and a missing tool is fatal, so an unconditional generator list makes the whole run fail on a host that lacks one of them. Each configure prints which generators were enabled or disabled, and why.
 
 **Inspecting and installing the results:**
 
@@ -70,22 +72,22 @@ These files predate the CPack configuration and are kept for packagers who need 
 
 | File | Purpose |
 |------|---------|
-| `packaging/build_deb.sh` | Builds a `.deb` from `build/protojs` using the two Linux templates below |
-| `packaging/templates/linux/control.template` | Debian `control` file: package `protoJS`, `Architecture: amd64`, `Depends: protocore (>= 1.0.0)` |
-| `packaging/templates/linux/preinst.template` | Pre-install script: fails unless package `protocore` or `protoCore` >= 1.0.0 is installed |
-| `packaging/templates/linux/protoJS.spec.template` | RPM spec: `Requires: protoCore >= 1.0.0`, with a `%pre` dependency check |
-| `packaging/templates/macos/preinstall.template` | macOS pre-install script: looks for the package receipt `com.protoCore.pkg` or `/usr/local/lib/libprotoCore.dylib` |
+| `packaging/build_deb.sh` | Builds a `.deb` from `build_release/protojs` (override with `PROTOJS_BINARY`) using the two Linux templates below; refuses to build unless the binary is linked against `libprotoCore.so.2` |
+| `packaging/templates/linux/control.template` | Debian `control` file: package `protoJS`, `Architecture: amd64`, `Depends: protocore (>= 2.0.0), protocore (<< 3.0.0)` |
+| `packaging/templates/linux/preinst.template` | Pre-install script: fails unless package `protocore` or `protoCore` is installed in `[2.0.0, 3.0.0)` **and** provides the `libprotoCore.so.2` soname |
+| `packaging/templates/linux/protoJS.spec.template` | RPM spec: `Requires: protoCore >= 2.0.0, protoCore < 3.0.0`, with a `%pre` version and soname check |
+| `packaging/templates/macos/preinstall.template` | macOS pre-install script: looks for the versioned `libprotoCore.2.dylib` under `/usr/local/lib`, `/opt/homebrew/lib` or `/opt/local/lib`, then for the package receipt `com.protoCore.pkg`. protoCore's macOS generator is DragNDrop (a `.dmg`), which registers no receipt, so the `pkgutil` branch only fires once protoCore ships a `productbuild` `.pkg` |
 | `packaging/templates/windows/protoJS.wxs.template` | WiX source for an MSI; contains placeholder GUIDs |
 
 ### 2.1 Debian/Ubuntu (.deb)
 
-From the repository root, after building `build/protojs`:
+From the repository root, after building `build_release/protojs`:
 
 ```bash
 VERSION=0.1.0 MAINTAINER="Your Name <you@example.com>" ./packaging/build_deb.sh
 ```
 
-The script stages `protoJS_staging/usr/bin/protojs`, generates `DEBIAN/control` from the template (substituting `${VERSION}` and `${MAINTAINER}`), copies `preinst`, and runs `dpkg-deb --build`. The output is `protoJS_<version>_amd64.deb` in the repository root. Without the environment variables, the script uses version `0.1.0` and a placeholder maintainer.
+The script checks that the binary is linked against `libprotoCore.so.2`, stages `build_release/protoJS_staging/usr/bin/protojs`, generates `DEBIAN/control` from the template (substituting `${VERSION}` and `${MAINTAINER}`), copies `preinst`, and runs `dpkg-deb --build`. The output is `build_release/protoJS_<version>_amd64.deb`. Staging and output live inside the build directory so the script no longer writes into the repository root next to the committed artefacts of the same name. Override any of `VERSION`, `MAINTAINER`, `PROTOJS_BINARY`, `PROTOCORE_SONAME` and `OUTDIR`.
 
 ```bash
 sudo dpkg -i protoJS_0.1.0_amd64.deb
@@ -144,11 +146,11 @@ productbuild --package protoJS-core.pkg \
 
 | Mechanism | Format | Output file | Binary location | Dependency handling |
 |-----------|--------|-------------|-----------------|---------------------|
-| CPack | DEB | `protojs-0.1.0-Linux.deb` | `bin/protojs` under the package install prefix | `Depends: protocore` |
-| CPack | RPM | `protojs-0.1.0-Linux.rpm` | `bin/protojs` under the package install prefix | `Requires: protoCore` |
+| CPack | DEB | `protojs-0.1.0-Linux.deb` | `bin/protojs` under the package install prefix | `Depends: protocore (>= 2.0.0), protocore (<< 3.0.0)` |
+| CPack | RPM | `protojs-0.1.0-Linux.rpm` | `bin/protojs` under the package install prefix | `Requires: protoCore >= 2.0.0, protoCore < 3.0.0` |
 | CPack | TGZ | `protojs-0.1.0-Linux.tar.gz` | `bin/protojs` inside the archive | none |
-| Template | DEB | `protoJS_0.1.0_amd64.deb` | `/usr/bin/protojs` | `Depends` + `preinst` check (>= 1.0.0) |
-| Template | RPM | `protoJS-0.1.0-1<dist>.x86_64.rpm` | `/usr/bin/protojs` | `Requires` + `%pre` check (>= 1.0.0) |
+| Template | DEB | `build_release/protoJS_0.1.0_amd64.deb` | `/usr/bin/protojs` | `Depends` + `preinst` version and soname check (`[2.0.0, 3.0.0)`, `libprotoCore.so.2`) |
+| Template | RPM | `protoJS-0.1.0-1<dist>.x86_64.rpm` | `/usr/bin/protojs` | `Requires` + `%pre` version and soname check (`[2.0.0, 3.0.0)`, `libprotoCore.so.2`) |
 | Template | PKG | `protoJS-0.1.0.pkg` | `/usr/local/bin/protojs` | `preinstall` check |
 
 Use `dpkg -c` or `rpm -qpl` to see the exact install path inside a CPack package. User-facing dependency error messages and a release checklist are in [DOCUMENTATION.md](DOCUMENTATION.md).

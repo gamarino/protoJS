@@ -1,7 +1,7 @@
 #ifndef PROTOJS_MEMORYANALYZER_H
 #define PROTOJS_MEMORYANALYZER_H
 
-#include "headers/protoCore.h"
+#include "protoCore.h"
 #include <string>
 #include <map>
 #include <vector>

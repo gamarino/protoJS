@@ -1,7 +1,7 @@
 #ifndef PROTOJS_JSSYMBOLS_H
 #define PROTOJS_JSSYMBOLS_H
 
-#include "headers/protoCore.h"
+#include "protoCore.h"
 #include <cstdint>
 #include <string>
 

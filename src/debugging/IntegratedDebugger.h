@@ -1,7 +1,7 @@
 #ifndef PROTOJS_INTEGRATEDDEBUGGER_H
 #define PROTOJS_INTEGRATEDDEBUGGER_H
 
-#include "headers/protoCore.h"
+#include "protoCore.h"
 #include <string>
 #include <vector>
 #include <thread>

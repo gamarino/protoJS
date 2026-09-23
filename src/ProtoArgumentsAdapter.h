@@ -1,7 +1,7 @@
 #ifndef PROTOJS_PROTOARGUMENTSADAPTER_H
 #define PROTOJS_PROTOARGUMENTSADAPTER_H
 
-#include "headers/protoCore.h"
+#include "protoCore.h"
 
 namespace protojs {
 

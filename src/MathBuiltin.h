@@ -1,7 +1,7 @@
 #ifndef PROTOJS_MATHBUILTIN_H
 #define PROTOJS_MATHBUILTIN_H
 
-#include "headers/protoCore.h"
+#include "protoCore.h"
 
 namespace protojs {
 

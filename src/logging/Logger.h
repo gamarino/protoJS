@@ -1,7 +1,7 @@
 #ifndef PROTOJS_LOGGER_H
 #define PROTOJS_LOGGER_H
 
-#include "headers/protoCore.h"
+#include "protoCore.h"
 #include <mutex>
 #include <ostream>
 

@@ -10,7 +10,7 @@
 #include "../runtime/ProtoBytecodeModule.h"
 #include "../runtime/ProtoInterpreter.h"
 #include "../native/DynamicLibraryLoader.h"
-#include "headers/protoCore.h"
+#include "protoCore.h"
 #include <string>
 #include <fstream>
 #include <sstream>

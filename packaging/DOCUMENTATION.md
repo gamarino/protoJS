@@ -6,9 +6,9 @@ For end-user build and installation instructions, see [docs/INSTALLATION.md](../
 
 ## Dependency error messages
 
-**protoCore** is the shared library that protoJS links against (`libprotoCore.so` on Linux, `libprotoCore.dylib` on macOS).
+**protoCore** is the shared library that protoJS links against (`libprotoCore.so.2` on Linux, `libprotoCore.2.dylib` on macOS). protoJS requires the 2.x series: protoCore's major version and its soname move together, so a 1.x or a 3.x is ABI-incompatible with a protoJS built against 2.x.
 
-- **CPack packages** (`protojs-<version>-Linux.deb` / `.rpm`) declare the dependency in package metadata only (`Depends: protocore`, `Requires: protoCore`). The package manager reports a missing dependency with its own message.
+- **CPack packages** (`protojs-<version>-Linux.deb` / `.rpm`) declare the dependency in package metadata only (`Depends: protocore (>= 2.0.0), protocore (<< 3.0.0)`, `Requires: protoCore >= 2.0.0, protoCore < 3.0.0`). The package manager reports a missing or out-of-range dependency with its own message.
 - **Template-based installers** (`packaging/templates/`) run a pre-install script that prints the messages below and aborts.
 
 ### Missing dependency
@@ -17,18 +17,27 @@ Printed by `preinst.template`, the `%pre` section of `protoJS.spec.template`, `p
 
 ```
 ERROR: protoCore is not installed.
-Please install protoCore before installing protoJS.
+protoJS requires protoCore >= 2.0.0 and < 3.0.0.
 ```
 
 Remedy: build protoCore from <https://github.com/numaes/protoCore>, create its package with CPack, and install that package first.
 
 ### Version too old
 
-Printed by `preinst.template` and the RPM `%pre` script, which require protoCore >= 1.0.0:
+Printed by `preinst.template` and the RPM `%pre` script, which require protoCore in `[2.0.0, 3.0.0)` and, separately, the `libprotoCore.so.2` soname:
 
 ```
 ERROR: protoCore version <installed version> is too old.
-protoJS requires protoCore >= 1.0.0.
+protoJS requires protoCore >= 2.0.0.
+
+or, for a protoCore from a later major series:
+
+ERROR: protoCore version <installed version> is too new.
+protoJS is built against the 2.0.0 series and needs < 3.0.0.
+
+or, when the package version is right but the library is not:
+
+ERROR: protocore <installed version> does not provide libprotoCore.so.2.
 ```
 
 Remedy: rebuild and reinstall protoCore from a current checkout.

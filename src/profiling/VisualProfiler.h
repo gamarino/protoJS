@@ -1,7 +1,7 @@
 #ifndef PROTOJS_VISUALPROFILER_H
 #define PROTOJS_VISUALPROFILER_H
 
-#include "headers/protoCore.h"
+#include "protoCore.h"
 #include "Profiler.h"
 #include <string>
 #include <vector>

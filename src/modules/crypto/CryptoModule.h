@@ -1,6 +1,6 @@
 #ifndef PROTOJS_CRYPTOMODULE_H
 #define PROTOJS_CRYPTOMODULE_H
-#include "headers/protoCore.h"
+#include "protoCore.h"
 
 namespace protojs {
 

@@ -7,7 +7,7 @@
  */
 
 #include "ProtoBytecodeModule.h"
-#include "headers/protoCore.h"
+#include "protoCore.h"
 #include <vector>
 
 namespace protojs {

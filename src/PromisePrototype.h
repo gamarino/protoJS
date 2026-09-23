@@ -1,7 +1,7 @@
 #ifndef PROTOJS_PROMISEPROTOTYPE_H
 #define PROTOJS_PROMISEPROTOTYPE_H
 
-#include "headers/protoCore.h"
+#include "protoCore.h"
 
 namespace protojs {
 
