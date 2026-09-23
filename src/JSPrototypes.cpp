@@ -41,14 +41,11 @@ void BootstrapJSPrototypes(proto::ProtoSpace* space, proto::ProtoContext* ctx, J
     BuildMapPrototype(space, ctx, objectProto);
     BuildSetPrototype(space, ctx, objectProto);
 
-    // Initialize markers and behaviors
-    out->frozenMarker = ctx->newObject(false);
-    out->nonExtensibleMarker = ctx->newObject(false);
-    out->sealedMarker = ctx->newObject(false);
-
-    BehaviorRegistry::instance().registerBehavior(out->frozenMarker, std::make_unique<FrozenBehavior>());
-    BehaviorRegistry::instance().registerBehavior(out->nonExtensibleMarker, std::make_unique<NonExtensibleBehavior>());
-    BehaviorRegistry::instance().registerBehavior(out->sealedMarker, std::make_unique<NonExtensibleBehavior>());
+    // Integrity levels (Object.freeze / .seal / .preventExtensions) are NOT
+    // registered here: they are per-object own state, resolved by
+    // BehaviorRegistry::resolve from the receiver's "__integrity__"
+    // attribute.  See ObjectPrototype.h for why they must not live on the
+    // parent chain.
 }
 
 } // namespace protojs

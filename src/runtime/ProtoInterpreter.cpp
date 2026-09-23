@@ -1484,19 +1484,13 @@ static const proto::ProtoObject* reflectDeleteProperty(
     if (protojs::isProxy(ctx, target))
         return protojs::proxyDispatchDelete(ctx, target, k);
     // §10.1.10 step 5: own non-configurable data / accessor descriptor
-    // cannot be deleted — return false. Frozen and sealed objects
-    // install behaviour markers (FrozenBehavior / NonExtensibleBehavior)
-    // that block descriptor mutation; reject delete when either parent
-    // is on the chain. Pre-fix Reflect.deleteProperty cleared the slot
+    // cannot be deleted — return false. SetIntegrityLevel clears the
+    // configurable bit of every own property, so a sealed or frozen
+    // receiver rejects the delete outright (Object.freeze sets the
+    // sealed bit too). Pre-fix Reflect.deleteProperty cleared the slot
     // even on a frozen receiver and returned true.
-    JSContextWrapper* wrapper = JSContextWrapper::current();
-    if (wrapper) {
-        const proto::ProtoObject* frozenM = wrapper->getFrozenMarker();
-        const proto::ProtoObject* sealedM = wrapper->getSealedMarker();
-        if ((frozenM && target->hasParent(ctx, frozenM)) ||
-            (sealedM && target->hasParent(ctx, sealedM))) {
-            return PROTO_FALSE;
-        }
+    if (protojs::jsIsSealed(ctx, target)) {
+        return PROTO_FALSE;
     }
     {
         std::string kstr;
@@ -1536,9 +1530,7 @@ static const proto::ProtoObject* reflectGetPrototypeOf(
             const proto::ProtoObject* res = callJSFunction(ctx, trap, handler, trapArgs);
             // §10.5.1 step 8: if target is non-extensible, the result must
             // SameValue target.[[GetPrototypeOf]]().
-            JSContextWrapper* w = JSContextWrapper::current();
-            if (inner && w && w->getNonExtensibleMarker()
-                && inner->hasParent(ctx, w->getNonExtensibleMarker())) {
+            if (inner && protojs::jsIsNonExtensible(ctx, inner)) {
                 const proto::ProtoObject* override_ = protojs::getJSProtoOverride(inner);
                 const proto::ProtoObject* actual = override_
                     ? override_
@@ -1588,9 +1580,7 @@ static const proto::ProtoObject* reflectIsExtensible(
             if (t_hasCallException) return PROTO_NONE;
             bool truthy = (r == PROTO_TRUE || (r && r != PROTO_NONE && r != PROTO_FALSE));
             // §10.5.3 step 6: trap result must equal target.[[IsExtensible]]().
-            JSContextWrapper* w = JSContextWrapper::current();
-            bool targetExtensible = !(inner && w && w->getNonExtensibleMarker()
-                && inner->hasParent(ctx, w->getNonExtensibleMarker()));
+            bool targetExtensible = !(inner && protojs::jsIsNonExtensible(ctx, inner));
             if (truthy != targetExtensible) {
                 signalNativeException(makeNativeError(ctx, "TypeError",
                     "'isExtensible' on proxy: trap result inconsistent "
@@ -1602,12 +1592,10 @@ static const proto::ProtoObject* reflectIsExtensible(
         target = protojs::proxyTarget(ctx, target);
         if (!target) return PROTO_FALSE;
     }
-    // Honour the NonExtensibleMarker that Object.preventExtensions /
-    // .seal / .freeze attach. Pre-fix this returned true unconditionally,
-    // so the contract Reflect.isExtensible === Object.isExtensible
-    // didn't hold.
-    JSContextWrapper* wrapper = JSContextWrapper::current();
-    if (wrapper && target->hasParent(ctx, wrapper->getNonExtensibleMarker())) {
+    // Honour the integrity level that Object.preventExtensions / .seal /
+    // .freeze record. Pre-fix this returned true unconditionally, so the
+    // contract Reflect.isExtensible === Object.isExtensible didn't hold.
+    if (protojs::jsIsNonExtensible(ctx, target)) {
         return PROTO_FALSE;
     }
     return PROTO_TRUE;
@@ -1653,9 +1641,7 @@ static const proto::ProtoObject* reflectPreventExtensions(
             // §10.5.4 step 8: if trap returned truthy, target must be
             // non-extensible after the call.
             if (truthy) {
-                JSContextWrapper* w = JSContextWrapper::current();
-                bool stillExtensible = !(inner && w && w->getNonExtensibleMarker()
-                    && inner->hasParent(ctx, w->getNonExtensibleMarker()));
+                bool stillExtensible = !(inner && protojs::jsIsNonExtensible(ctx, inner));
                 if (stillExtensible) {
                     signalNativeException(makeNativeError(ctx, "TypeError",
                         "'preventExtensions' on proxy: trap returned truthy "
@@ -1670,15 +1656,11 @@ static const proto::ProtoObject* reflectPreventExtensions(
         if (!inner) return PROTO_FALSE;
         target = inner;
     }
-    // Forward to the same NonExtensibleMarker attachment that
-    // Object.preventExtensions uses, so the marker is observable via
-    // either path. Without this Reflect.preventExtensions silently
-    // returned true while leaving the object freely extensible.
-    JSContextWrapper* wrapper = JSContextWrapper::current();
-    if (wrapper) {
-        target->addParent(ctx, wrapper->getNonExtensibleMarker());
-        protojs::BehaviorRegistry::instance().invalidateObjectCache(target);
-    }
+    // Record the same integrity bit Object.preventExtensions records, so
+    // the state is observable via either path. Without this
+    // Reflect.preventExtensions silently returned true while leaving the
+    // object freely extensible.
+    protojs::jsAddIntegrity(ctx, target, protojs::kIntegrityNonExtensible);
     return PROTO_TRUE;
 }
 
@@ -1939,8 +1921,7 @@ static const proto::ProtoObject* reflectSetPrototypeOf(
             }
         }
         {
-            protojs::JSContextWrapper* w = protojs::JSContextWrapper::current();
-            if (w && target->hasParent(ctx, w->getNonExtensibleMarker())) {
+            if (protojs::jsIsNonExtensible(ctx, target)) {
                 const proto::ProtoObject* override =
                     protojs::getJSProtoOverride(target);
                 const proto::ProtoObject* current = (override && override != PROTO_NONE)
@@ -9415,9 +9396,7 @@ const proto::ProtoObject* runBytecode(proto::ProtoContext* pContext,
                 // object-contains-symbol-properties-strict.js, and the
                 // broader strict-mode add-to-non-extensible suite).
                 {
-                    JSContextWrapper* wNE = JSContextWrapper::current();
-                    if (wNE && wNE->getNonExtensibleMarker()
-                        && obj->hasParent(pContext, wNE->getNonExtensibleMarker())
+                    if (protojs::jsIsNonExtensible(pContext, obj)
                         && obj->hasOwnAttribute(pContext, key) != PROTO_TRUE) {
                         // Also check accessor sidecars before rejecting —
                         // a non-extensible target with an installed setter
@@ -11373,9 +11352,7 @@ const proto::ProtoObject* runBytecode(proto::ProtoContext* pContext,
                 // `var a = []; Object.preventExtensions(a); a[0] = 1`
                 // still added index 0.
                 if (idxFast >= 0) {
-                    JSContextWrapper* w = JSContextWrapper::current();
-                    if (w && w->getNonExtensibleMarker()
-                        && obj->hasParent(pContext, w->getNonExtensibleMarker())) {
+                    if (protojs::jsIsNonExtensible(pContext, obj)) {
                         const proto::ProtoList* els = protojs::getArrayElements(pContext, obj);
                         long long currLen = els ? static_cast<long long>(els->getSize(pContext)) : 0;
                         if (idxFast >= currLen) {
@@ -11498,11 +11475,7 @@ const proto::ProtoObject* runBytecode(proto::ProtoContext* pContext,
                         // contains-symbol-properties-strict.js exercises
                         // the Symbol-key path through this site.
                         {
-                            JSContextWrapper* wNE2 =
-                                JSContextWrapper::current();
-                            if (wNE2 && wNE2->getNonExtensibleMarker()
-                                && obj->hasParent(pContext,
-                                    wNE2->getNonExtensibleMarker())
+                            if (protojs::jsIsNonExtensible(pContext, obj)
                                 && obj->hasOwnAttribute(pContext, key) != PROTO_TRUE) {
                                 bool hasAccessor = false;
                                 std::string ks;

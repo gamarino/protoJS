@@ -178,6 +178,14 @@ const proto::ProtoString* getToJSON(proto::ProtoContext* ctx);      // "__get_to
 const proto::ProtoString* hasAccessorProps(proto::ProtoContext* ctx);   // "__has_accessor_props__"
 const proto::ProtoString* hasNonWritableProps(proto::ProtoContext* ctx); // "__has_nonwritable_props__"
 
+// Integrity level bitmask ([[Extensible]] plus the sealed / frozen levels
+// of SetIntegrityLevel).  Stored as an OWN attribute so it stays
+// per-object: it must never be inherited by children created with
+// Object.create / new F() / Object.setPrototypeOf.  Read it with
+// protojs::jsIsFrozen / jsIsSealed / jsIsNonExtensible (ObjectPrototype.h),
+// which probe own attributes only.
+const proto::ProtoString* integrity(proto::ProtoContext* ctx);         // "__integrity__"
+
 // ---- TypedArray / ArrayBuffer / DataView internal keys ------------------
 const proto::ProtoString* abData(proto::ProtoContext* ctx);         // "__ab_data__"
 const proto::ProtoString* abDetached(proto::ProtoContext* ctx);     // "__ab_detached__"

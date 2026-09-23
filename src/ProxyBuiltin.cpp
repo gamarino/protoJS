@@ -287,10 +287,7 @@ static OwnDescriptor probeOwnDescriptor(proto::ProtoContext* ctx,
 static bool isTargetNonExtensible(proto::ProtoContext* ctx,
                                     const proto::ProtoObject* target) {
     if (!target || target == PROTO_NONE) return false;
-    JSContextWrapper* w = JSContextWrapper::current();
-    if (!w) return false;
-    const proto::ProtoObject* nem = w->getNonExtensibleMarker();
-    return nem && target->hasParent(ctx, nem);
+    return jsIsNonExtensible(ctx, target);
 }
 
 // SameValue per §7.2.10.  For the invariant checks we only need the
@@ -1221,8 +1218,7 @@ const proto::ProtoObject* proxyDispatchSetPrototypeOf(
             if (!inner) return PROTO_FALSE;
             probe = inner;
         }
-        if (probe && w && w->getNonExtensibleMarker()
-            && probe->hasParent(ctx, w->getNonExtensibleMarker()))
+        if (probe && jsIsNonExtensible(ctx, probe))
             targetNonExt = true;
     }
     if (!targetNonExt) return PROTO_TRUE;

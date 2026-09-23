@@ -21,9 +21,9 @@ struct JSPrototypes {
     const proto::ProtoObject* array{};
     const proto::ProtoObject* arguments{};
     const proto::ProtoObject* regexp{};
-    const proto::ProtoObject* frozenMarker{};
-    const proto::ProtoObject* nonExtensibleMarker{};
-    const proto::ProtoObject* sealedMarker{};
+    // No integrity markers here: Object.freeze / .seal / .preventExtensions
+    // record their level as per-object own state ("__integrity__"), never
+    // as a parent-chain marker — see ObjectPrototype.h.
 };
 
 /**

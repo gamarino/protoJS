@@ -1126,13 +1126,10 @@ static const proto::ProtoObject* objectAssign(
                     if (gk2 && target->hasOwnAttribute(ctx, gk2) == PROTO_TRUE)
                         targetHasOwn = true;
                 }
-                if (!targetHasOwn) {
-                    JSContextWrapper* w2 = JSContextWrapper::current();
-                    if (w2 && target->hasParent(ctx, w2->getNonExtensibleMarker())) {
-                        signalNativeException(makeNativeError(ctx, "TypeError",
-                            "Cannot add property to non-extensible object"));
-                        return PROTO_NONE;
-                    }
+                if (!targetHasOwn && jsIsNonExtensible(ctx, target)) {
+                    signalNativeException(makeNativeError(ctx, "TypeError",
+                        "Cannot add property to non-extensible object"));
+                    return PROTO_NONE;
                 }
                 // §22.1.4.1 — String wrapper char-index data slot is
                 // non-writable. `Object.assign("a", [1])` wraps the
@@ -1450,18 +1447,23 @@ static const proto::ProtoObject* objectCreate(
 // ---------------------------------------------------------------------------
 // Freeze / seal / extensibility state storage.
 //
-// IMPORTANT: We do NOT store these flags as ProtoObject attributes via
-// setAttribute(). Calling protoCore type-interrogation methods (isString,
-// isCell, etc.) on a ProtoObject after setAttribute() has been called on it
-// causes infinite loops inside protoCore. This is a known protoCore bug.
+// The integrity level lives in ONE internal own attribute, "__integrity__",
+// holding the kIntegrity* bitmask (see ObjectPrototype.h for the full
+// rationale).  Own storage is what makes the level per-object: reads go
+// through getOwnAttributeDirect, which never walks the parent chain, so a
+// frozen prototype leaks nothing to `Object.create(proto)` / `new F()` /
+// `Object.setPrototypeOf(o, proto)` children.
 //
-// Instead, we track state in thread-local pointer sets. Using the raw pointer
-// as the key is safe within a single script execution: frozen/sealed objects
-// remain referenced (and thus not GC'd) for their entire observable lifetime.
+// The state used to be recorded by attaching marker objects to the
+// protoCore parent chain and probed with hasParent.  protoCore 2.0.0's
+// newChild captures the prototype's chain by value, which turned every
+// such marker into an inherited one.
 // ---------------------------------------------------------------------------
 
-// instead, we use markers added to the inheritance chain.
-// ---------------------------------------------------------------------------
+// jsIntegrityBits / jsAddIntegrity are defined outside this anonymous
+// namespace (below it, next to getJSProtoOverride) because the header
+// exports them to the interpreter, ProxyBuiltin, ArrayPrototype and
+// BehaviorRegistry; ObjectPrototype.h's declarations are in scope here.
 
 // Map from a JS object to its explicitly-overridden [[Prototype]], set by
 // Object.setPrototypeOf(). protoCore objects are immutable so we cannot change
@@ -1609,19 +1611,10 @@ static const proto::ProtoObject* objectFreeze(
         return obj;
     }
 
-    JSContextWrapper* wrapper = JSContextWrapper::current();
-    if (wrapper) {
-        // Order matters: addParent prepends, so the LAST added shows
-        // up at parents[0]. The composite behavior iterates parents
-        // front-to-back and stops at the first non-null putField; with
-        // NonExtensibleBehavior at parents[0] it would happily forward
-        // existing-key writes to setAttribute, defeating freeze.
-        // Add the non-extensible marker first so the frozen marker
-        // ends up at parents[0] and gets the first say on every write.
-        obj->addParent(ctx, wrapper->getNonExtensibleMarker());
-        obj->addParent(ctx, wrapper->getFrozenMarker());
-        BehaviorRegistry::instance().invalidateObjectCache(obj);
-    }
+    // Frozen implies sealed implies non-extensible, so record all three
+    // bits and every predicate stays a single mask test.
+    jsAddIntegrity(ctx, obj,
+                   kIntegrityNonExtensible | kIntegritySealed | kIntegrityFrozen);
     // §7.3.16 SetIntegrityLevel("frozen") clears both the writable AND
     // configurable bits on every own property. Pre-fix the markers
     // blocked writes / deletes but the per-property descriptor sidecar
@@ -1764,16 +1757,15 @@ static const proto::ProtoObject* objectIsFrozen(
             // configurable OR writable (data), it's not frozen.  We
             // don't fully implement the spec semantics here; trap
             // observability is what the regression test requires, and
-            // returning false / true based on the receiver's local
-            // frozen marker is the existing fallback.  (The legacy
+            // returning false / true based on the receiver's own
+            // integrity level is the existing fallback.  (The legacy
             // path below at line 1574 already handles non-Proxy.)
             (void)desc;
         }
-        // Fall through to the legacy marker-only check.
+        // Fall through to the receiver's own integrity level.
     }
 
-    JSContextWrapper* wrapper = JSContextWrapper::current();
-    if (wrapper && obj->hasParent(ctx, wrapper->getFrozenMarker())) {
+    if (jsIsFrozen(ctx, obj)) {
         return PROTO_TRUE;
     }
     // §10.1.6.4 TestIntegrityLevel: a non-extensible object whose own
@@ -1781,13 +1773,13 @@ static const proto::ProtoObject* objectIsFrozen(
     // writable data props) is frozen.  Inherited descriptors do NOT
     // count.  A non-extensible object with NO own properties is
     // trivially frozen — pre-fix isFrozen only honoured the explicit
-    // FrozenMarker parent, missing the case where Object.preventExtensions
+    // frozen bit, missing the case where Object.preventExtensions
     // had been called on an empty receiver:
     //
     //   var c = new Con();              // empty own props, inherits from proto
     //   Object.preventExtensions(c);
     //   Object.isFrozen(c)              // pre-fix: false  post-fix: true
-    if (wrapper && obj->hasParent(ctx, wrapper->getNonExtensibleMarker())) {
+    if (jsIsNonExtensible(ctx, obj)) {
         const proto::ProtoSparseList* own = obj->getOwnAttributes(ctx);
         bool anyOwn = false;
         bool allFrozen = true;
@@ -1918,12 +1910,7 @@ static const proto::ProtoObject* objectSeal(
         return obj;
     }
 
-    JSContextWrapper* wrapper = JSContextWrapper::current();
-    if (wrapper) {
-        obj->addParent(ctx, wrapper->getSealedMarker());
-        obj->addParent(ctx, wrapper->getNonExtensibleMarker());
-        BehaviorRegistry::instance().invalidateObjectCache(obj);
-    }
+    jsAddIntegrity(ctx, obj, kIntegrityNonExtensible | kIntegritySealed);
     // §7.3.16 SetIntegrityLevel("sealed"): walk each own property and
     // clear the configurable bit. Pre-fix the markers above prevented
     // future delete / redefine, but getOwnPropertyDescriptor still
@@ -2050,11 +2037,8 @@ static const proto::ProtoObject* objectIsSealed(
         }
     }
 
-    JSContextWrapper* wrapper = JSContextWrapper::current();
-    if (wrapper) {
-        if (obj->hasParent(ctx, wrapper->getFrozenMarker())) return PROTO_TRUE;
-        if (obj->hasParent(ctx, wrapper->getSealedMarker())) return PROTO_TRUE;
-    }
+    // The sealed bit is set by both Object.seal and Object.freeze.
+    if (jsIsSealed(ctx, obj)) return PROTO_TRUE;
     return PROTO_FALSE;
 }
 
@@ -2128,9 +2112,7 @@ static const proto::ProtoObject* objectPreventExtensions(
             // returning true.  Pre-fix the truthy path returned obj
             // unconditionally, missing the spec invariant (test262
             // preventExtensions/return-true-target-is-extensible.js).
-            JSContextWrapper* w = JSContextWrapper::current();
-            bool stillExtensible = !(target && w && w->getNonExtensibleMarker()
-                && target->hasParent(ctx, w->getNonExtensibleMarker()));
+            bool stillExtensible = !(target && jsIsNonExtensible(ctx, target));
             if (stillExtensible) {
                 signalNativeException(makeNativeError(ctx, "TypeError",
                     "'preventExtensions' on proxy: trap returned truthy "
@@ -2150,11 +2132,7 @@ static const proto::ProtoObject* objectPreventExtensions(
         return objectPreventExtensions(ctx, nullptr, nullptr, recurseArgs, nullptr);
     }
 
-    JSContextWrapper* wrapper = JSContextWrapper::current();
-    if (wrapper) {
-        obj->addParent(ctx, wrapper->getNonExtensibleMarker());
-        BehaviorRegistry::instance().invalidateObjectCache(obj);
-    }
+    jsAddIntegrity(ctx, obj, kIntegrityNonExtensible);
     return obj;
 }
 
@@ -2215,8 +2193,7 @@ static const proto::ProtoObject* objectIsExtensible(
             }
             // §10.5.3 step 9: invariant — trap result must equal
             // target's actual extensibility.
-            JSContextWrapper* w2 = JSContextWrapper::current();
-            bool targetExt = !(w2 && target->hasParent(ctx, w2->getNonExtensibleMarker()));
+            bool targetExt = !jsIsNonExtensible(ctx, target);
             if (truthy != targetExt) {
                 signalNativeException(makeNativeError(ctx, "TypeError",
                     "'isExtensible' on proxy: trap result doesn't match target's actual extensibility"));
@@ -2238,8 +2215,7 @@ static const proto::ProtoObject* objectIsExtensible(
         }
     }
 
-    JSContextWrapper* wrapper = JSContextWrapper::current();
-    if (wrapper && obj->hasParent(ctx, wrapper->getNonExtensibleMarker())) {
+    if (jsIsNonExtensible(ctx, obj)) {
         return PROTO_FALSE;
     }
     return PROTO_TRUE;
@@ -2480,8 +2456,7 @@ static const proto::ProtoObject* objectSetPrototypeOf(
     // Pre-fix Object.setPrototypeOf silently accepted any prototype
     // even on non-extensible targets.
     {
-        JSContextWrapper* w = JSContextWrapper::current();
-        if (w && obj->hasParent(ctx, w->getNonExtensibleMarker())) {
+        if (jsIsNonExtensible(ctx, obj)) {
             const proto::ProtoObject* current = nullptr;
             auto ovrIt = t_jsProtoMap.find(obj);
             if (ovrIt != t_jsProtoMap.end()) current = ovrIt->second;
@@ -2953,15 +2928,11 @@ static const proto::ProtoObject* objectDefineProperty(
     // (test262 Object/preventExtensions/symbol-object-contains-
     // symbol-properties-strict.js: Object.defineProperty(obj, symC, {…})
     // after preventExtensions must throw).
-    if (!propExists) {
-        JSContextWrapper* wNE = JSContextWrapper::current();
-        if (wNE && wNE->getNonExtensibleMarker()
-            && target->hasParent(ctx, wNE->getNonExtensibleMarker())) {
-            // Array index-extension also counts; we don't carve that out.
-            signalNativeException(makeNativeError(ctx, "TypeError",
-                "Cannot define property on non-extensible object"));
-            return PROTO_NONE;
-        }
+    if (!propExists && jsIsNonExtensible(ctx, target)) {
+        // Array index-extension also counts; we don't carve that out.
+        signalNativeException(makeNativeError(ctx, "TypeError",
+            "Cannot define property on non-extensible object"));
+        return PROTO_NONE;
     }
     // ECMA-262 §10.4.2.4 ArraySetLength considers each indexed element
     // (k in [0, length)) an own data property. protoJS keeps these in
@@ -3511,12 +3482,9 @@ static const proto::ProtoObject* objectDefineProperty(
         return PROTO_NONE;
     }
 
-    if (!propExists) {
-        JSContextWrapper* wrapper = JSContextWrapper::current();
-        if (wrapper && target->hasParent(ctx, wrapper->getNonExtensibleMarker())) {
-            signalNativeException(makeNativeError(ctx, "TypeError", "Cannot add property to non-extensible object"));
-            return PROTO_NONE;
-        }
+    if (!propExists && jsIsNonExtensible(ctx, target)) {
+        signalNativeException(makeNativeError(ctx, "TypeError", "Cannot add property to non-extensible object"));
+        return PROTO_NONE;
     }
 
     bool writable     = getBoolProp("writable",     propExists ? ((existingBits & 0x1) != 0) : false);
@@ -6123,9 +6091,7 @@ static const proto::ProtoObject* protoAccessorSetter(
     // Same-value rebinds remain a no-op (step 4: SameValue(V,
     // current) is true → return true).
     {
-        JSContextWrapper* w = JSContextWrapper::current();
-        if (w && w->getNonExtensibleMarker()
-            && sself->hasParent(sctx, w->getNonExtensibleMarker())) {
+        if (jsIsNonExtensible(sctx, sself)) {
             const proto::ProtoObject* curr = nullptr;
             auto it2 = t_jsProtoMap.find(sself);
             if (it2 != t_jsProtoMap.end()) curr = it2->second;
@@ -6157,6 +6123,39 @@ static const proto::ProtoObject* protoAccessorSetter(
 }
 
 } // anonymous namespace
+
+// ---------------------------------------------------------------------------
+// Object integrity level — per-object own state (see ObjectPrototype.h).
+// ---------------------------------------------------------------------------
+
+long long jsIntegrityBits(proto::ProtoContext* ctx, const proto::ProtoObject* obj) {
+    if (!ctx || !obj || obj == PROTO_NONE) return 0;
+    const proto::ProtoString* k = JSSymbols::integrity(ctx);
+    if (!k) return 0;
+    // OWN attribute only — never the chain.  getOwnAttributeDirect returns
+    // nullptr both for a missing key and for a non-cell receiver (tagged
+    // integers, strings, ...), and is backed by the per-thread
+    // AttributeCache, so the hot interpreter gates (OP_put_field /
+    // OP_put_array_el) stay as cheap as the hasParent walk they replace.
+    const proto::ProtoObject* v = obj->getOwnAttributeDirect(ctx, k);
+    if (!v || v == PROTO_NONE || !v->isInteger(ctx)) return 0;
+    return v->asLong(ctx);
+}
+
+void jsAddIntegrity(proto::ProtoContext* ctx, const proto::ProtoObject* obj,
+                    long long bits) {
+    if (!ctx || !obj || obj == PROTO_NONE || bits == 0) return;
+    const proto::ProtoString* k = JSSymbols::integrity(ctx);
+    if (!k) return;
+    long long cur = jsIntegrityBits(ctx, obj);
+    long long updated = cur | bits;
+    if (updated == cur) return;
+    obj->setAttribute(ctx, k, ctx->fromInteger(updated));
+    // The BehaviorRegistry caches the resolved behaviour per object and the
+    // integrity level is one of its inputs — drop the stale entry so the
+    // next write sees FrozenBehavior / NonExtensibleBehavior.
+    BehaviorRegistry::instance().invalidateObjectCache(obj);
+}
 
 // Re-wrap the Object.prototype.__proto__ getter / setter with a
 // Function.prototype-parented wrapper so .call / .apply / .bind

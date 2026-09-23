@@ -3626,9 +3626,7 @@ static bool arrayThrowIfCreateDataPropertyFails(proto::ProtoContext* ctx,
                                                  unsigned long idx) {
     const proto::ProtoString* k =
         JSSymbols::indexKey(ctx, static_cast<uint32_t>(idx));
-    JSContextWrapper* wrapper = JSContextWrapper::current();
-    bool nonExtensible = wrapper
-        && obj->hasParent(ctx, wrapper->getNonExtensibleMarker());
+    bool nonExtensible = jsIsNonExtensible(ctx, obj);
     bool hasOwnK = k && obj->hasOwnAttribute(ctx, k) == PROTO_TRUE;
     if (nonExtensible && !hasOwnK) {
         signalNativeException(makeNativeError(ctx, "TypeError",
@@ -5753,9 +5751,7 @@ static const proto::ProtoObject* arrayOf(
         //     → throw because existing slot is non-configurable.
         // built-ins/Array/of/return-abrupt-from-data-property.
         {
-            JSContextWrapper* wrapper = JSContextWrapper::current();
-            bool nonExtensible = wrapper
-                && result->hasParent(ctx, wrapper->getNonExtensibleMarker());
+            bool nonExtensible = jsIsNonExtensible(ctx, result);
             bool hasOwnK = k && result->hasOwnAttribute(ctx, k) == PROTO_TRUE;
             if (nonExtensible && !hasOwnK) {
                 signalNativeException(makeNativeError(ctx, "TypeError",

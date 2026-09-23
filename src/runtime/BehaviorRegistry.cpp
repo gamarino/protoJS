@@ -3,6 +3,7 @@
 #include <unordered_map>
 #include <vector>
 #include "../JSSymbols.h"
+#include "../ObjectPrototype.h"
 
 namespace protojs {
 
@@ -123,6 +124,21 @@ namespace protojs {
         struct ObjCacheSlot { const proto::ProtoObject* obj; const JSObjectBehavior* behavior; };
         thread_local ObjCacheSlot t_objCache[256];
 
+        // Integrity behaviours are not keyed on a prototype: the level is
+        // per-object own state (see ObjectPrototype.h), so resolve() reads
+        // it from the receiver and picks one of these singletons.
+        const FrozenBehavior        s_frozenBehavior{};
+        const NonExtensibleBehavior s_nonExtensibleBehavior{};
+
+        const JSObjectBehavior* integrityBehavior(proto::ProtoContext* ctx,
+                                                  const proto::ProtoObject* obj) {
+            long long bits = jsIntegrityBits(ctx, obj);
+            if (bits & kIntegrityFrozen) return &s_frozenBehavior;
+            if (bits & (kIntegritySealed | kIntegrityNonExtensible))
+                return &s_nonExtensibleBehavior;
+            return nullptr;
+        }
+
         size_t objCacheIdx(const proto::ProtoObject* obj) {
             return (reinterpret_cast<size_t>(obj)
                   ^ (reinterpret_cast<size_t>(obj) >> 12)) & 255;
@@ -149,22 +165,41 @@ namespace protojs {
         }
 
         // Resolve by walking ALL parents and collecting every behavior
-        // present in the registry. The pre-fix scheme cached behavior
-        // keyed on getFirstParent — but Object.freeze attaches BOTH a
-        // FrozenMarker and a NonExtensibleMarker while leaving
-        // Object.prototype at the head, so the keyed cache aliased
-        // every freshly minted object share-the-same-prototype to one
-        // stale behavior. The per-object t_objCache further down still
-        // protects the hot path; this loop only runs on misses.
+        // present in the registry (TypedArray element types and the like
+        // are keyed on a prototype, so they DO live on the chain), then
+        // prepending the receiver's own integrity behaviour if it has
+        // one.  The integrity behaviour goes first: CompositeBehavior
+        // stops at the first child whose putField returns non-null, and
+        // a frozen receiver must get the first say on every write.
+        //
+        // The per-object t_objCache above protects the hot path; this
+        // loop only runs on misses, and jsAddIntegrity drops the entry
+        // whenever Object.{freeze,seal,preventExtensions} changes the
+        // level.
+        const JSObjectBehavior* integrity = integrityBehavior(ctx, obj);
         const proto::ProtoList* parents = obj->getParents(ctx);
         size_t parentCount = parents ? parents->getSize(ctx) : 0;
         const JSObjectBehavior* behavior = defaultBehavior.get();
         if (parentCount == 0) {
             const proto::ProtoObject* p = obj->getFirstParent(ctx);
             auto it = p ? registry.find(p) : registry.end();
-            if (it != registry.end()) behavior = it->second.get();
+            if (integrity && it == registry.end()) {
+                behavior = integrity;
+            } else if (it != registry.end()) {
+                if (integrity) {
+                    static thread_local std::map<std::vector<const JSObjectBehavior*>,
+                                                 std::unique_ptr<CompositeBehavior>> t_pairCache;
+                    std::vector<const JSObjectBehavior*> pair{integrity, it->second.get()};
+                    auto& composite = t_pairCache[pair];
+                    if (!composite) composite = std::make_unique<CompositeBehavior>(pair);
+                    behavior = composite.get();
+                } else {
+                    behavior = it->second.get();
+                }
+            }
         } else {
             std::vector<const JSObjectBehavior*> found;
+            if (integrity) found.push_back(integrity);
             for (size_t i = 0; i < parentCount; i++) {
                 const proto::ProtoObject* p = parents->getAt(ctx, i);
                 auto it = p ? registry.find(p) : registry.end();

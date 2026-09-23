@@ -4,6 +4,37 @@ All notable changes to protoJS are documented in this file.
 
 ## [Unreleased]
 
+### Object integrity levels are per-object again — protoCore 2.0.0 (2026-09-23)
+
+- Fixed: with protoCore 2.0.0, `Object.create(frozenProto)` returned a frozen
+  object, `new F()` with a frozen `F.prototype` returned a frozen instance, and
+  `Object.setPrototypeOf(o, frozenProto)` froze `o`. Freezing
+  `Object.prototype` would have frozen every `{}` literal created afterwards.
+  Sealing and `preventExtensions` leaked the same way. This violates
+  ECMA-262: `[[Extensible]]` and the integrity level are slots of one object
+  and are never inherited.
+- Root cause: protoJS recorded the level by attaching three marker objects
+  (frozen / sealed / non-extensible) to the protoCore parent chain and probed
+  them with `hasParent` at 28 sites. protoCore 2.0.0's `newChild` captures the
+  prototype's CURRENT chain by value, so from that release on every child of a
+  frozen prototype was born carrying the markers.
+- The level is now per-object own state: the internal attribute
+  `__integrity__` holds a bitmask (`kIntegrityNonExtensible` /
+  `kIntegritySealed` / `kIntegrityFrozen`, see `src/ObjectPrototype.h`), read
+  through `jsIsFrozen` / `jsIsSealed` / `jsIsNonExtensible`, which probe OWN
+  attributes only (`getOwnAttributeDirect` never walks the chain) and are
+  therefore immune to any future change in prototype-chain capture.
+  `BehaviorRegistry::resolve` picks `FrozenBehavior` /
+  `NonExtensibleBehavior` from the receiver's own bits instead of from a
+  registered marker parent, and composes them ahead of any prototype-keyed
+  behaviour (TypedArray) so a frozen receiver gets the first say on writes.
+- Also fixed as a consequence: the markers were prepended to the parent
+  chain, so `Object.getPrototypeOf` on a frozen object reported a marker
+  rather than the object's real prototype, and the accessor walk in
+  `resolvePutFieldOOP` started from it.
+- New regression test `tests/integration/basic/object_integrity.js`, wired
+  into `tests/run_all_tests.sh`.
+
 ### `require()` executes JavaScript file modules — J2 stage B (2026-09-16)
 
 - Fixed: `require('./module.js')` never ran the module body, so its exports came
