@@ -117,6 +117,13 @@ MIN_RECLAIMED=100000
 
 # Ports are fixed rather than ephemeral so a failure names the port. They are in the
 # high private range and each case uses its own, so two cases never collide.
+#
+# EVERY CASE THAT OPENS A LISTENER PROVES IT OPENED, by printing LISTENING and having
+# the shell require that line. Without it a bind that failed -- a port already in use on
+# a shared runner -- would leave the case computing the right number and passing while
+# exercising no accept loop at all: a test that cannot fail. net.Server reports its bound
+# port through address(); http.Server has no address(), so its descriptor attribute
+# `__fd__` is checked instead (3 when listening, -1 after close).
 PORT_NET_SRV=18841
 PORT_NET_SOCK=18842
 PORT_HTTP=18843
@@ -183,6 +190,13 @@ check() {
     if [ $rc -ne 0 ]; then
         echo "FAIL [$name]: protojs exited $rc under PROTOCORE_HEAP_LIMIT_CELLS=$LIMIT"
         printf '%s\n' "$out" | tail -5
+        failures=$((failures + 1)); return
+    fi
+    if printf '%s\n' "$out" | grep -qF 'LISTEN-FAILED'; then
+        echo "FAIL [$name]: the listener did not bind, so no accept loop ran and the"
+        echo "      case exercises nothing. A port in the 18841-18844 range is probably"
+        echo "      already in use."
+        printf '%s\n' "$out" | grep -F 'LISTEN-FAILED' | sed 's/^/      /'
         failures=$((failures + 1)); return
     fi
     answer=$(printf '%s\n' "$out" | grep -E '^[0-9]+$' | head -1)
@@ -261,7 +275,9 @@ const w = new wt.Worker('$SCRATCH/worker_child.js');" \
 check "net-server-close" 1 0 \
     "const net = require('net');
 const nsrv = net.createServer(function (c) { c.destroy(); });
-nsrv.listen($PORT_NET_SRV);" \
+nsrv.listen($PORT_NET_SRV);
+if (!nsrv.address() || nsrv.address().port !== $PORT_NET_SRV) console.log('LISTEN-FAILED net $PORT_NET_SRV');
+else console.log('LISTENING');" \
     "nsrv.close();"
 
 # 5. net.Socket's relinquish path: destroy() joins a thread sitting in ::recv, which
@@ -270,6 +286,8 @@ check "net-socket-destroy" 1 0 \
     "const net = require('net');
 const ssrv = net.createServer(function (c) { c.end(); });
 ssrv.listen($PORT_NET_SOCK);
+if (!ssrv.address() || ssrv.address().port !== $PORT_NET_SOCK) console.log('LISTEN-FAILED net $PORT_NET_SOCK');
+else console.log('LISTENING');
 const sock = net.connect($PORT_NET_SOCK, '127.0.0.1');" \
     "sock.destroy(); ssrv.close();"
 
@@ -288,6 +306,10 @@ check "http-server-collected" 1 1 \
 function mkServer() {
   const hsrv = http.createServer(function (req, res) { res.end('x'); });
   hsrv.listen($PORT_HTTP);
+  // __fd__ is the listening descriptor: >= 0 while listening, -1 after close. http.Server
+  // has no address(), so this is how the case proves an accept loop ever existed.
+  if (hsrv.__fd__ === undefined || hsrv.__fd__ < 0) console.log('LISTEN-FAILED http $PORT_HTTP');
+  else console.log('LISTENING');
   hsrv.close();
 }
 mkServer();" \
