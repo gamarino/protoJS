@@ -41,6 +41,15 @@ endif()
 # `ctest -E "integration|network"`, and a fixture excluded from the gate is not a
 # gate.
 
+# Proves the Test262 regression gate can go red. Needs no protojs binary and no
+# corpus: it feeds the gate synthetic snapshots, which is what lets it assert the
+# cases a real run cannot produce on demand -- notably a commit that repairs one
+# test and breaks another, which leaves the pass rate unchanged.
+add_test(NAME cli/test262-regression-gate-self-test
+    COMMAND "${CMAKE_CURRENT_SOURCE_DIR}/cli/test262-regression-gate-self-test.sh"
+            "${CMAKE_SOURCE_DIR}"
+            "${CMAKE_CURRENT_BINARY_DIR}/cli-scratch/regression-gate")
+
 # Asserts that no native method cell is bound to the object that holds it, which
 # would be a permanent reference cycle through a mutable. Needs the real binary,
 # because the cells under test are created while the global object is built and

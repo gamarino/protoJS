@@ -1,0 +1,377 @@
+name: CI
+
+# protoJS had no continuous integration until this file existed.  It is the last
+# of the six repositories in this family to get one, and the one with the hardest
+# constraints, so this file is deliberately the most conservative of the six.
+#
+# NO PARALLELISM ANYWHERE, AND THIS IS NOT A PREFERENCE.  Parallel builds
+# (`cmake --build -j` with j > 1) and parallel Test262 runs hang the development
+# machine this project is maintained on -- documented in docs/TEST262_STATUS.md
+# and re-stated in tests/README.md.  Every build below therefore omits `-j`
+# entirely and every Test262 invocation sets `TEST262_CONCURRENCY=1` explicitly.
+# A runner is not known to differ, and a hang on a runner costs a whole job with
+# no attribution, so the assumption is not made.  ctest is `-j1` (its default)
+# for the same reason.
+#
+# HOW protoCore IS OBTAINED: checked out as a SIBLING directory and built into
+# ../protoCore/build_release -- the first path protoJS's developer fallback
+# searches (CMakeLists.txt:82).  No `cmake --install` is involved, and nothing is
+# written outside the workspace.  The installed-package mode exists to check
+# version and ABI against a prefix that may be stale; on a runner nothing is
+# stale, because both trees are built from source in the same job, so that mode's
+# hazard cannot arise here and CI runs the configuration contributors run.
+#
+# WHY THE ldd STEP IS A GATE, NOT A DIAGNOSTIC: protoCore 2.5.0 kept SOVERSION 3,
+# so a protojs linked against an older SOVERSION-3 protoCore loads without
+# complaint (memory: ABI mismatch crashes stale binaries).  The maintainer's
+# machine also carries a root-owned protoCore 1.0.0 at /usr/local/lib.  The step
+# asserts that libprotoCore.so.3 resolves inside the workspace and nowhere else.
+#
+# HOW test262 IS OBTAINED: tc39/test262 as a SIBLING ../test262 at a PINNED
+# commit.  Not vendored (53,582 files) and not a submodule.  The pin is the whole
+# point: Test262 gains and loses tests every week, so an unpinned corpus moves
+# the denominator underneath the baseline and "3 new failures" becomes
+# indistinguishable from "upstream added 3 tests".  That is the exact fault
+# corrected in this repository at 7018e312b, hours before this workflow existed.
+#
+# THE TWO TEST262 MEASUREMENTS, AND WHY ONLY ONE OF THEM GATES A COMMIT:
+#
+#   Per-commit gate -- built-ins/{Object,Reflect,Proxy}: 3,619 of 3,875 in 97-113
+#   s sequentially.  Fast enough to run on every push.  It is gated on an
+#   EXPECTED-FAILURES DIFF and never on a percentage: a percentage cannot
+#   distinguish a fixed test from a newly broken one, and a commit that repairs
+#   one test and breaks another leaves 3,619 of 3,875 untouched.  See
+#   tests/test262/runner/regression_gate.py, whose own adversarial test
+#   (cli/test262-regression-gate-self-test) asserts that exact case goes red.
+#   The gate also checks its own premise: pinned corpus commit and unchanged
+#   denominator, reported with a distinct exit code because they need a different
+#   fix.
+#
+#   Release measurement -- the whole corpus: 28,529 of 53,571 = 53.25 %, and
+#   1 h 21 min sequentially (docs/TEST262_STATUS.md).  That is protoJS's one
+#   authoritative conformance figure, and it is far too slow to gate a commit, so
+#   it runs on a version tag, on the nightly schedule and on demand.  It has no
+#   expected-failures baseline of its own yet -- producing one costs 1 h 21 min
+#   and would be a 25,000-line file -- so what it gates is the PREMISE: that the
+#   corpus is at the pin and the denominator is still 53,571.  The pass rate is
+#   reported, never asserted.  Do not read the 93.4 % of the per-commit gate as a
+#   conformance figure; those three directories are among protoJS's strongest.
+#
+# NOTHING TIMING-SENSITIVE GATES.  A runner is a shared machine.  In the other
+# five repositories this split was vindicated on the first real run: a test
+# failed its own timing precondition with no defect present, and the run still
+# concluded success because it sat in an informational job.  protoJS's 34
+# registered Catch2 cases were checked for wall-clock assertions and have none,
+# so the informational job here carries the two things that are red or slow by
+# design -- the static conformance ratchet and the whole-corpus run -- rather
+# than a quarantined clock-dependent case.  If a timing assertion is ever added
+# to the Catch2 suite, it belongs in `informational`, not in the gate.
+
+on:
+  push:
+    branches: [master, main]
+    tags: ['v*']
+  pull_request:
+  schedule:
+    # 04:47 UTC daily: the integration run against protoCore master, and the only
+    # scheduled slot in this family that also runs the whole Test262 corpus.
+    - cron: '47 4 * * *'
+  workflow_dispatch:
+
+# The workflow reads source and runs tests; it needs nothing else.
+permissions:
+  contents: read
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+env:
+  PROTOCORE_REPO: numaes/protoCore
+  # protoCore 2.5.0, SOVERSION 3 (master, 2026-09-26).  Bump deliberately.
+  # protoJS declares PROTOCORE_ABI_SOVERSION 3 at CMakeLists.txt:34 and the ldd
+  # step below asserts the library actually loaded is this tree's.
+  PROTOCORE_REF: ${{ github.event_name == 'schedule' && 'master' || 'da5f19e2bbb2ed0af85c8960fc27b2d89f505648' }}
+  TEST262_REPO: tc39/test262
+  # The corpus commit every published protoJS figure was measured against
+  # (docs/TEST262_STATUS.md, tests/test262/config/regression_gate_baseline.json).
+  # Bumping it requires re-recording the regression-gate baseline in the same
+  # commit, which is what the gate's premise check exists to force.
+  TEST262_REF: aae8cf6eed6d6c6a203be48c1184bb194880f66b
+
+jobs:
+  test:
+    name: Build and gate (no parallelism anywhere)
+    runs-on: ubuntu-24.04
+    # Generous, because nothing here is parallel: protoCore plus protoJS plus
+    # QuickJS single-threaded, then a 113 s Test262 run.
+    timeout-minutes: 120
+    steps:
+      - name: Check out protoJS
+        uses: actions/checkout@v4
+        with:
+          path: protoJS
+
+      - name: Check out protoCore as a sibling
+        uses: actions/checkout@v4
+        with:
+          repository: ${{ env.PROTOCORE_REPO }}
+          ref: ${{ env.PROTOCORE_REF }}
+          path: protoCore
+
+      - name: Check out test262 as a sibling at the pinned commit
+        # fetch-depth 0 because a single commit cannot be checked out by SHA
+        # otherwise, and the runner needs `git rev-parse HEAD` in ../test262 for
+        # the runner's corpusCommit field, which is what the gate's premise check
+        # compares against.
+        uses: actions/checkout@v4
+        with:
+          repository: ${{ env.TEST262_REPO }}
+          ref: ${{ env.TEST262_REF }}
+          path: test262
+          fetch-depth: 0
+
+      - name: Record what is being built
+        run: |
+          cmake --version | head -1
+          g++ --version | head -1
+          node --version
+          python3 --version
+          {
+            echo "protoJS at \`$(git -C protoJS rev-parse HEAD)\`"
+            echo "protoCore ref \`$PROTOCORE_REF\` at \`$(git -C protoCore rev-parse HEAD)\`"
+            echo "test262 pinned at \`$(git -C test262 rev-parse HEAD)\`"
+          } >> "$GITHUB_STEP_SUMMARY"
+
+      - name: Assert the test262 checkout is at the pin
+        # Cheap, and it fails here with one clear line instead of 113 s later as
+        # a wall of unattributable diffs.
+        run: |
+          HAVE=$(git -C test262 rev-parse HEAD)
+          if [ "$HAVE" != "$TEST262_REF" ]; then
+            echo "test262 is at $HAVE, expected the pin $TEST262_REF"
+            exit 1
+          fi
+          echo "test262 at the pin: $HAVE"
+
+      - name: Install build dependencies
+        # protoJS links ssl and crypto (CMakeLists.txt:231-232).
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y libssl-dev
+
+      - name: Build protoCore into ../protoCore/build_release
+        # No `-j`.  See the header: no parallelism anywhere, including the
+        # dependency.  build_release, never build-release, and never
+        # `cmake --install`.
+        run: |
+          cmake -S protoCore -B protoCore/build_release -DCMAKE_BUILD_TYPE=Release
+          cmake --build protoCore/build_release --target protoCore
+
+      - name: Confirm protoCore built SOVERSION 3
+        # protoJS's own configure checks this too (CMakeLists.txt:94-99); doing it
+        # here attributes the failure to protoCore rather than to protoJS.
+        run: |
+          ls -l protoCore/build_release/libprotoCore.so*
+          test -e protoCore/build_release/libprotoCore.so.3
+
+      - name: Configure protoJS
+        # Developer/sibling mode: no PROTO_CORE_PREFIX and no
+        # PROTOCORE_REQUIRE_PACKAGE, either of which would demand an installed
+        # package.  Catch2 v3.5.2 is fetched at configure time when the system has
+        # none (CMakeLists.txt:295-301), so this step needs network access.
+        working-directory: protoJS
+        run: cmake -S . -B build_release -DCMAKE_BUILD_TYPE=Release
+
+      - name: Build protoJS
+        # No `-j`.  This is the single constraint that hangs the development
+        # machine, and the one a runner is not assumed to be exempt from.
+        working-directory: protoJS
+        run: cmake --build build_release
+
+      - name: Assert protojs loaded the workspace protoCore, not a stale one
+        # A gate, not a diagnostic -- see the header.  protoCore 2.5.0 kept
+        # SOVERSION 3, so a stale SOVERSION-3 library would load silently.
+        working-directory: protoJS
+        run: |
+          ldd build_release/protojs | tee ldd.txt
+          RESOLVED=$(awk '/libprotoCore\.so\.3/ {print $3}' ldd.txt)
+          echo "libprotoCore.so.3 resolved to: ${RESOLVED:-<unresolved>}"
+          case "$RESOLVED" in
+            */protoCore/build_release/libprotoCore.so.3) ;;
+            *) echo "libprotoCore.so.3 must resolve inside the workspace build tree, not ${RESOLVED:-nothing}"; exit 1 ;;
+          esac
+          if ldd build_release/protojs | grep -q '/usr/local/.*protoCore'; then
+            echo "protojs is linked against a protoCore under /usr/local"
+            exit 1
+          fi
+
+      - name: Report the registered test count
+        # Printed, never asserted.  A hard-coded total turns every new test into a
+        # red build, and this file adds test cases itself.
+        working-directory: protoJS
+        run: |
+          COUNT=$(ctest --test-dir build_release -N | tail -1)
+          echo "$COUNT"
+          echo "protoJS ctest: $COUNT" >> "$GITHUB_STEP_SUMMARY"
+
+      - name: Catch2 suite (gate)
+        # `-E "integration|network"` excludes the cases that reach the network.
+        # Exactly one registered case matches, by name: "NPMRegistry and Semver
+        # integration" -- which does pass, and is re-run in `informational` so the
+        # exclusion does not quietly retire it.
+        #
+        # `< /dev/null` on every ctest invocation in this family: a test that
+        # reads standard input hangs for the whole job timeout and reports nothing
+        # (protoST bug S18 is exactly that).
+        #
+        # No `-j`: the pool and event-loop cases spawn their own threads, and this
+        # family has already been burned by saturating a small runner.
+        working-directory: protoJS
+        run: ctest --test-dir build_release -E "integration|network" --output-on-failure < /dev/null
+
+      - name: Test262 regression gate, built-ins/{Object,Reflect,Proxy} (gate)
+        # An expected-failures diff, not a percentage -- see the header and
+        # tests/test262/runner/regression_gate.py.  The runner exits 1 whenever
+        # anything fails, which is every run of a suite at 93 %, so the gate reads
+        # the snapshot and ignores the runner's exit code.
+        #
+        # TEST262_CONCURRENCY=1 is set inside the gate script and cannot be
+        # overridden by the environment; it is repeated here so a reader of the
+        # log sees it.
+        working-directory: protoJS
+        env:
+          TEST262_CONCURRENCY: '1'
+        run: |
+          python3 tests/test262/runner/regression_gate.py \
+            --binary ./build_release/protojs \
+            --corpus ../test262 | tee gate.log
+          STATUS=${PIPESTATUS[0]}
+          {
+            echo ""
+            echo "### Test262 per-commit gate"
+            echo '```'
+            sed -n '/=== Test262 regression gate ===/,$p' gate.log
+            echo '```'
+          } >> "$GITHUB_STEP_SUMMARY"
+          exit "$STATUS"
+
+  informational:
+    name: Red-by-design and slow-by-design checks (informational, never gates)
+    runs-on: ubuntu-24.04
+    timeout-minutes: 180
+    # A failure here does not fail the run.  Two different reasons live in this
+    # job, and neither is "this check is unimportant":
+    #
+    #   * conformance-allow.txt EXITS 1 ON PURPOSE -- 14 uncovered errors left
+    #     uncovered so the check keeps failing until they are fixed
+    #     (docs/CONFORMANCE.md).  Gating on a check designed to be red would make
+    #     every build red and teach everyone to ignore it.
+    #   * the whole-corpus Test262 run takes 1 h 21 min and its verdict is a
+    #     measurement, not a pass/fail.
+    continue-on-error: true
+    steps:
+      - name: Check out protoJS
+        uses: actions/checkout@v4
+        with:
+          path: protoJS
+
+      - name: Check out protoCore as a sibling
+        uses: actions/checkout@v4
+        with:
+          repository: ${{ env.PROTOCORE_REPO }}
+          ref: ${{ env.PROTOCORE_REF }}
+          path: protoCore
+
+      - name: Check out test262 as a sibling at the pinned commit
+        uses: actions/checkout@v4
+        with:
+          repository: ${{ env.TEST262_REPO }}
+          ref: ${{ env.TEST262_REF }}
+          path: test262
+          fetch-depth: 0
+
+      - name: Install build dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y libssl-dev
+
+      - name: Build protoCore and protoJS
+        # No `-j` anywhere, as in the gating job.
+        run: |
+          cmake -S protoCore -B protoCore/build_release -DCMAKE_BUILD_TYPE=Release
+          cmake --build protoCore/build_release --target protoCore
+          cmake -S protoJS -B protoJS/build_release -DCMAKE_BUILD_TYPE=Release
+          cmake --build protoJS/build_release
+
+      - name: The case the gate excludes by name
+        # "NPMRegistry and Semver integration" is excluded from the gate by the
+        # `-E integration` pattern even though it passes.  Running it here keeps
+        # the exclusion from quietly retiring a working test.
+        working-directory: protoJS
+        run: ctest --test-dir build_release -R "integration|network" --output-on-failure < /dev/null
+
+      - name: Static conformance ratchet (exits 1 by design)
+        # 14 uncovered errors, on purpose (docs/CONFORMANCE.md, and the header of
+        # conformance-allow.txt).  It runs, it reports, it does not gate.
+        working-directory: protoJS
+        run: python3 ../protoCore/scripts/conformance/check_static.py --repo .
+
+      - name: Mutable-reference-cycle census
+        # protoCore 2.5.0's ProtoSpace::findMutableCycles, reached through
+        # PROTOCORE_MUTABLE_CYCLE_CHECK, which writes to a FILE rather than
+        # stderr -- stderr breaks suites that diff their output.  A cycle among
+        # mutables is never collected (protoCore docs/MemoryModel.md S7), so the
+        # census is worth watching; it is reported rather than asserted because
+        # protoJS still has known-benign cycles and a number asserted too early
+        # becomes a number someone switches off.
+        working-directory: protoJS
+        run: |
+          PROTOCORE_MUTABLE_CYCLE_CHECK="$PWD/cycles.txt" \
+            ./build_release/protojs -e '1' > /dev/null 2>&1 || true
+          echo "--- cycles.txt ---"
+          cat cycles.txt || echo "(no census written)"
+          {
+            echo ""
+            echo "### Mutable-cycle census (one protojs process)"
+            echo '```'
+            head -40 cycles.txt 2>/dev/null || echo "(no census written)"
+            echo '```'
+          } >> "$GITHUB_STEP_SUMMARY"
+
+      - name: Whole Test262 corpus (1 h 21 min) -- the authoritative figure
+        # Only on a version tag, the nightly schedule, or on demand.  Far too slow
+        # to gate a commit; see the header.  Sequential, always.
+        if: >-
+          github.event_name == 'schedule' ||
+          github.event_name == 'workflow_dispatch' ||
+          startsWith(github.ref, 'refs/tags/v')
+        working-directory: protoJS
+        run: |
+          set +e
+          TEST262_ROOT=../test262 \
+          TEST262_CONCURRENCY=1 \
+          TEST262_PATTERNS=annexB,built-ins,harness,intl402,language,staging \
+          PROTOJS=./build_release/protojs \
+          node tests/test262/runner/test262_runner.js > full.log 2>&1
+          set -e
+          # The runner exits 1 on any failure, which at 53 % is every run, so its
+          # exit code is not the verdict.  What IS checked is the premise: the
+          # denominator must still be 53,571 against the pinned corpus.  A moved
+          # denominator means the figure is not comparable to the published one,
+          # and that is a real finding rather than a measurement.
+          sed -n '/=== Test262 run summary ===/,$p' full.log | tee summary.txt
+          {
+            echo ""
+            echo "### Whole Test262 corpus"
+            echo '```'
+            cat summary.txt
+            echo '```'
+          } >> "$GITHUB_STEP_SUMMARY"
+          DENOM=$(awk -F': *' '/^denominator/ {print $2}' summary.txt)
+          if [ "$DENOM" != "53571" ]; then
+            echo "denominator is $DENOM, docs/TEST262_STATUS.md records 53571 against this pin"
+            echo "The authoritative figure is not comparable until this is explained."
+            exit 1
+          fi
+          echo "Premise holds: denominator 53571 against the pinned corpus."

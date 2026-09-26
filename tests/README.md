@@ -13,6 +13,8 @@ How to run each test layer. Commands are run from the repository root and assume
 | **Integration** | Scripts per module area under `tests/integration/` | `./build/protojs tests/integration/<area>/<script>.js` |
 | **Conformity** | Built-in and module-identity checks | `node tests/conformity/run_conformity.js`; see [conformity/README.md](conformity/README.md) |
 | **Benchmarks** | Standard benchmark suite and comparison runners | See [benchmarks/standard/README.md](benchmarks/standard/README.md) |
+| **CLI fixtures** | Shell cases registered directly with CTest (`cli/...`), for things no unit test can reach | `ctest --test-dir build -R "^cli/"` |
+| **Test262 regression gate** | Expected-failures diff over `built-ins/{Object,Reflect,Proxy}` — the per-commit conformance gate | `python3 tests/test262/runner/regression_gate.py` |
 
 ### C++ unit tests
 
@@ -66,6 +68,52 @@ The build produces two test addons: `<build>/tests/native_addons/simple/simple.s
 The script builds `build/` (override with `BUILD_DIR`; the binary with `PROTOJS`), runs the C++ unit tests with `ctest -E "integration|network"`, runs the smoke test, the directed global-object script and the command-line tests (`tests/integration/cli/test_cli_flags.js`), and, when `TEST262_ROOT` is set, runs the Test262 runner with the configured patterns. With the default configuration that is the full `language` and `built-ins` suite, which is a long run. The script exits non-zero if any step fails.
 
 Integration, conformity and benchmark scripts are not run by `run_all_tests.sh`.
+
+## Continuous integration
+
+`.github/workflows/ci.yml`. Two jobs, and which one a check sits in is the whole
+design:
+
+| Job | Gates? | What it runs |
+|---|---|---|
+| `test` | **yes** | protoCore and protoJS built with **no `-j`**, an `ldd` assertion that `libprotoCore.so.3` came from the workspace, `ctest -E "integration|network" < /dev/null`, and the Test262 regression gate |
+| `informational` | no | the static conformance ratchet (which exits 1 by design), the mutable-cycle census, the case the gate excludes by name, and — on a tag, the nightly schedule or on demand — the whole 1 h 21 min Test262 corpus |
+
+Nothing timing-sensitive gates: a runner is a shared machine, and in the other
+five repositories of this family a test failed its own timing precondition on the
+first real run with no defect present. protoJS's 34 registered Catch2 cases were
+checked and contain no wall-clock assertion, so if one is ever added it belongs in
+`informational`.
+
+**No parallelism anywhere.** Every build omits `-j` and every Test262 invocation
+sets `TEST262_CONCURRENCY=1`. A runner is not assumed to be exempt from the
+constraint that hangs the development machine.
+
+**Three pinned inputs.** protoCore is checked out as a sibling `../protoCore` at a
+pinned SHA and built into `../protoCore/build_release` (the first path protoJS's
+discovery searches); no `cmake --install` is involved. `tc39/test262` is a sibling
+`../test262` at a pinned commit — not vendored, not a submodule. The corpus pin is
+load-bearing: without it the denominator moves with upstream every week and a
+failure diff becomes unattributable.
+
+### The Test262 regression gate
+
+`tests/test262/runner/regression_gate.py` compares the *set* of non-passing test
+paths against `tests/test262/config/regression_gate_baseline.json` and fails on
+any difference in either direction. It is deliberately **not** a percentage gate: a
+commit that repairs one test and breaks another leaves 3,619 of 3,875 untouched,
+so a percentage would report it green. A test that starts passing is also a
+failure, because a baseline allowed to drift stops detecting the reverse; bank it
+with `--update` in the same commit that earned it.
+
+The gate also checks its own premise — the corpus must be at the pin and the
+denominator unchanged — and reports that with exit code 2 rather than 1, because
+it needs a different fix. `cli/test262-regression-gate-self-test` feeds the gate
+synthetic snapshots and asserts all of that, including the rate-preserving swap.
+
+Do not read the gate's 93.4 % as a conformance figure. Those three directories are
+among protoJS's strongest; the conformance figure is the whole corpus, in
+[docs/TEST262_STATUS.md](../docs/TEST262_STATUS.md).
 
 ## Results
 
