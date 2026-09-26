@@ -131,13 +131,28 @@ protoPython's: protoJS has no unit test that evaluates a source string, and the
 module-init list it would need is `static` inside `src/main.cpp`, which is not
 part of `protojs_core`.
 
-## Static check — the phase's largest finding
+## Static check — the phase's largest finding (FIXED 2026-09-26)
 
-**14 uncovered errors, 217 justified warnings, 2 informational.** The allowlist
-exits 1 deliberately: these are real defects, and a ratchet must never be used to
-launder one.
+**As found: 14 uncovered errors, 217 justified warnings, 2 informational.** As of
+2026-09-26 it is **1 uncovered error**, with the allowlist untouched at 217 entries and
+0 stale: thirteen were fixed rather than allowlisted, in `f708dc3fc`, `50fe92b1b` and
+`f5d332c3a`. The analysis below is kept as written, because it is the record of what the
+defects were and why they mattered; each subsection now says what closed it.
 
-### Rule 7 — five finalizers that do what the contract forbids absolutely
+The one that remains is `src/GCBridge.cpp:676`, described at the end of this section. It
+is a question, not a defect to launder, which is why nothing was added to the allowlist
+for it.
+
+### Rule 7 — five finalizers that do what the contract forbids absolutely — FIXED
+
+**Closed by `50fe92b1b`.** Each of the five now does only the non-blocking half that
+section 7 permits — close the descriptor, flip the atomic flag — and records the orphan on
+a lock-free stack (`src/GcOrphanQueue.h`); `EventLoop::processCallbacks` does the join and
+the pin release on a mutator thread. Where an owner can relinquish explicitly it does, at
+`serverClose`, `socketDestroy` and `workerTerminate`, which is section 7's own
+prescription. `tests/cli/finalizers-do-not-block` audits all five bodies one whole call
+graph deep and fails 5 of 5 if any original body is restored. The description below is the
+defect as found.
 
 A finalizer runs **on the single GC thread, inside the sweep**. The contract is
 that it *"never allocates cells, never publishes to a shared structure with
@@ -166,6 +181,10 @@ helpers are correctly bracketed in `UnmanagedScope` when called from JavaScript
 (`NetModule.cpp:401`, `:649`, `HTTPModule.cpp:549`) and not when called from the
 finalizer. Someone knew; the finalizer path was missed.
 
+That asymmetry is now structurally impossible: since `f5d332c3a` the guard lives *inside*
+the `await*Teardown` helper, next to the join, so both callers share it and a new caller
+cannot forget it.
+
 A sixth site, `src/GCBridge.cpp:676`, is a null finalizer whose comment says the
 pointer is not owned. It is probably legitimate and is left uncovered because
 nobody has answered it as a C7 question. A seventh, `finalizeJSValue`
@@ -174,7 +193,25 @@ mutation — but `JS_FreeValue` can run QuickJS's own finalizer chain, and Quick
 class finalizers in this tree do touch protoCore. Whether that reentrancy is safe
 is not protoCore's to decide: **C7, unanswered.**
 
-### Rule 2 — six unbracketed blocking joins
+### Rule 2 — six unbracketed blocking joins — FIXED
+
+**Closed by `50fe92b1b` and `f5d332c3a`.** The two on registered threads are bracketed,
+with the guard covering the condition wait as well as the join loop and sitting next to
+each — `ThreadUnmanagedScope` (`src/ThreadProtoContext.h`) is a
+`ProtoContext::UnmanagedScope` that finds the calling thread's registered context, which
+`ThreadPoolExecutor` has no other way to reach. The other four were on the GC thread,
+where a guard would be a no-op at best and a cross-thread corruption at worst, so the
+join moved off the finalizer instead. `tests/unit/test_blocking_regions.cpp` reads
+`ProtoSpace::parkedThreads` from inside the blocking region and fails `0 >= 1` if either
+guard is removed. The description below is the defect as found.
+
+An adjacent defect found in the same audit and fixed with it:
+`ProtoCoreModule.cpp:661` handed the **main thread's** context to
+`ProtoThread::join` from a CPU-pool worker. `join` brackets itself with
+`UnmanagedScope(context)`, so that incremented `parkedThreads` for a thread actively
+running managed code — the inverse failure, where the collector reaches quorum and scans
+while a mutator mutates. It now builds its own context on the stack, as
+`ProtoCoreNativeBindings.cpp:194` already did.
 
 `src/ThreadPoolExecutor.cpp:43` and `:64` are reached from `~JSContextWrapper` via
 `CPUThreadPool::shutdown()` / `IOThreadPool::shutdown()`

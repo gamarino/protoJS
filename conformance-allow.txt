@@ -7,31 +7,42 @@
 # Run: python3 ../protoCore/scripts/conformance/check_static.py --repo .
 # Exit 0 clean, 1 an unjustified finding, 2 a stale entry.
 #
-# THIS FILE EXITS 1 ON PURPOSE, with FOURTEEN uncovered errors.  They are real
-# defects and they are left uncovered so the check keeps failing until they are
-# fixed.  See docs/CONFORMANCE.md for each one's mechanism and severity.  In
-# short:
+# THIS FILE EXITS 1 ON PURPOSE, with ONE uncovered error.  It is left uncovered
+# so the check keeps failing until it is answered.
 #
-#   EIGHT external_finalizer errors.  Five finalizers do things the contract
-#   forbids absolutely, and they run ON THE SINGLE GC THREAD INSIDE THE SWEEP:
-#     HTTPModule.cpp:120  freeServerState -- thread.join() AND rs->remove()
-#     HTTPModule.cpp:731  freeClientRequestState -- rs->remove()
-#     NetModule.cpp:213   freeServerState -- join (via teardownServer) + rs->remove()
-#     NetModule.cpp:224   freeSocketState -- join (via teardownSocket) + rs->remove()
-#     WorkerThreadsModule.cpp:357 freeWorkerState -- join a thread that owns its
-#         OWN ProtoSpace, rs->remove(), and workerWrapper.reset(), which runs a
-#         whole ~JSContextWrapper (destroyRootSet, a recursive_mutex, two pool
-#         shutdowns with their own joins) from inside a GC callback
-#   plus GCBridge.cpp:676, a null finalizer whose comment says the pointer is not
-#   owned -- probably legitimate, but it is a C7 question nobody has answered.
+#   GCBridge.cpp:676 -- external_finalizer.  A fromExternalPointer with a NULL
+#   finalizer, whose comment says the pointer is not owned.  Probably legitimate,
+#   but it is a checklist C7 question nobody has answered, and the check says in
+#   its own message that it cannot rule on it.  See docs/CONFORMANCE.md.
 #
-#   SIX blocking_join_unbracketed errors.  ThreadPoolExecutor.cpp:43 and :64 are
-#   reached from ~JSContextWrapper on the main thread, which IS registered, with
-#   no UnmanagedScope; HTTPModule.cpp:130, NetModule.cpp:199 and :209 and
-#   WorkerThreadsModule.cpp:362 are the joins inside the finalizers above.
-#   Note the inconsistency that makes this a finding rather than an oversight:
-#   the SAME teardown helpers are bracketed when called from JavaScript
-#   (NetModule.cpp:401 and :649) and not when called from the finalizer.
+# IT WAS FOURTEEN UNTIL 2026-09-26.  Thirteen were fixed, not allowlisted, and the
+# allowlist below is unchanged at 217 entries with 0 stale.  For the record of what
+# they were and why they mattered, see docs/CONFORMANCE.md, which keeps the original
+# analysis:
+#
+#   SEVEN external_finalizer errors (f708dc3fc..50fe92b1b).  Five finalizers joined
+#   OS threads, released ProtoRootSet pins and in one case destroyed a second
+#   ProtoSpace, all ON THE SINGLE GC THREAD INSIDE THE SWEEP.  Each now does only
+#   the non-blocking half -- close the descriptor, flip the flag -- and records the
+#   orphan (src/GcOrphanQueue.h); a mutator thread does the rest.  Where an owner
+#   can relinquish explicitly, it does: serverClose, socketDestroy, workerTerminate.
+#
+#   SIX blocking_join_unbracketed errors (50fe92b1b, f5d332c3a).  Two were on
+#   genuinely registered threads -- ThreadPoolExecutor::shutdown and shutdownNow,
+#   reached from ~JSContextWrapper on the main thread -- and are now bracketed, the
+#   guard covering the condition wait as well as the join loop.  The other four were
+#   the joins inside the finalizers above, i.e. the GC thread, which is NOT in
+#   runningThreads; there an UnmanagedScope would be a no-op at best, so the join
+#   moved off the finalizer instead.
+#
+#   The inconsistency that made these findings rather than oversights -- the same
+#   teardown helpers bracketed when called from JavaScript and not from the
+#   finalizer -- is gone: the guard now lives inside the helper, so both callers
+#   share it and a new caller cannot forget it.
+#
+# Do not add an entry here to silence a finding.  Thirteen of fourteen were closed by
+# fixing the code and the fourteenth is a question, not a defect to launder.
+
 symbol_key_source src/ArrayBufferPrototype.cpp:* * :: File-level entry covering the symbol_key_source WARNINGS in this file. For symbol_key_source these are uninterned strings reaching setAttribute or getAttribute as the name: protoCore auto-interns on the write path and falls back to a content lookup on the read path, so every one of them is CORRECT and pays a per-call intern or a content hash over the rope -- a performance finding, not a miss. The count is large (197 across the tree) and reducing it is protoJS own next phase; what matters for conformance is that NONE of them reaches getOwnAttributeDirect, which is the destination where an uninterned key silently misses. For attr_sentinel they are heuristic boolean-test hits whose false-positive rate the check documents as unbounded from the text. A file-level entry is deliberate: 217 individual justifications would be a ritual, not a review. The ratchet still closes on a NEW FILE. Reviewed 2026-09-25, agent, pending maintainer review.
 symbol_key_source src/ArrayPrototype.cpp:* * :: File-level entry covering the symbol_key_source WARNINGS in this file. For symbol_key_source these are uninterned strings reaching setAttribute or getAttribute as the name: protoCore auto-interns on the write path and falls back to a content lookup on the read path, so every one of them is CORRECT and pays a per-call intern or a content hash over the rope -- a performance finding, not a miss. The count is large (197 across the tree) and reducing it is protoJS own next phase; what matters for conformance is that NONE of them reaches getOwnAttributeDirect, which is the destination where an uninterned key silently misses. For attr_sentinel they are heuristic boolean-test hits whose false-positive rate the check documents as unbounded from the text. A file-level entry is deliberate: 217 individual justifications would be a ritual, not a review. The ratchet still closes on a NEW FILE. Reviewed 2026-09-25, agent, pending maintainer review.
 symbol_key_source src/BigIntPrototype.cpp:* * :: File-level entry covering the symbol_key_source WARNINGS in this file. For symbol_key_source these are uninterned strings reaching setAttribute or getAttribute as the name: protoCore auto-interns on the write path and falls back to a content lookup on the read path, so every one of them is CORRECT and pays a per-call intern or a content hash over the rope -- a performance finding, not a miss. The count is large (197 across the tree) and reducing it is protoJS own next phase; what matters for conformance is that NONE of them reaches getOwnAttributeDirect, which is the destination where an uninterned key silently misses. For attr_sentinel they are heuristic boolean-test hits whose false-positive rate the check documents as unbounded from the text. A file-level entry is deliberate: 217 individual justifications would be a ritual, not a review. The ratchet still closes on a NEW FILE. Reviewed 2026-09-25, agent, pending maintainer review.
