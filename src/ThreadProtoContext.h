@@ -61,24 +61,34 @@ void clearThreadProtoContext(proto::ProtoContext* ctx) noexcept;
 proto::ProtoContext* threadProtoContext() noexcept;
 
 /**
- * @brief `UnmanagedScope` for code that has no `ProtoContext` argument.
+ * @brief A `ProtoContext::UnmanagedScope` that finds its own context.
  *
- * On a thread protoCore does not know it is a no-op, which is the correct
- * behaviour there: an unregistered thread is not in `runningThreads` and has
- * nothing to leave. Bracket the WHOLE blocking region, not just the syscall: a
- * `condition_variable::wait` immediately before a `join` blocks just as
- * effectively as the join.
+ * Use it where no `ProtoContext*` is in hand; where one is, pass it explicitly and
+ * this behaves exactly like `ProtoContext::UnmanagedScope` on it.
+ *
+ * On a thread protoCore does not know it is a no-op, which is the correct behaviour
+ * there: an unregistered thread is not in `runningThreads` and has nothing to leave.
+ *
+ * Bracket the WHOLE blocking region, not just the syscall: a
+ * `condition_variable::wait` immediately before a `join` blocks just as effectively
+ * as the join. And keep the guard next to the call it protects -- protoCore's static
+ * conformance rule `blocking_join_unbracketed` looks for a guard within eight lines
+ * of the join, which is a good rule for a human reader too.
+ *
+ * Calls nest; protoCore refcounts the unmanaged depth, so a single thread
+ * contributes one slot to the quorum however many regions it has open.
  */
-class BlockingScope {
+class ThreadUnmanagedScope {
 public:
-    BlockingScope() noexcept : ctx_(threadProtoContext()) {
+    explicit ThreadUnmanagedScope(proto::ProtoContext* explicitCtx = nullptr) noexcept
+        : ctx_(explicitCtx ? explicitCtx : threadProtoContext()) {
         if (ctx_) ctx_->goUnmanaged();
     }
-    ~BlockingScope() {
+    ~ThreadUnmanagedScope() {
         if (ctx_) ctx_->returnFromUnmanaged();
     }
-    BlockingScope(const BlockingScope&) = delete;
-    BlockingScope& operator=(const BlockingScope&) = delete;
+    ThreadUnmanagedScope(const ThreadUnmanagedScope&) = delete;
+    ThreadUnmanagedScope& operator=(const ThreadUnmanagedScope&) = delete;
 
     /** @brief True when this scope actually left protoCore's running set. */
     bool active() const noexcept { return ctx_ != nullptr; }

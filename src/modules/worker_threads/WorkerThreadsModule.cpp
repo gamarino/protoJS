@@ -366,6 +366,17 @@ void requestWorkerTeardown(WorkerState* s) {
     s->running.store(false);
 }
 
+// The blocking half.  The guard lives HERE rather than at each caller, so a new caller
+// cannot forget it.  `ctx` may be null, in which case the calling thread's own
+// registered context is used.  The worker owns its OWN ProtoSpace and is that space's
+// adopted main thread; this thread is registered in the main space, and leaving the
+// main space's running set here is what lets it collect while the worker finishes.
+void awaitWorkerTeardown(WorkerState* s, proto::ProtoContext* ctx) {
+    if (!s) return;
+    ThreadUnmanagedScope parked(ctx);   // an UnmanagedScope on ctx, or on this thread's
+    if (s->thread.joinable()) s->thread.join();
+}
+
 // Everything the old finalizer did after the two stores, now on a mutator thread.
 //
 // This is protoCore's own worked example, verbatim in shape.
@@ -382,14 +393,7 @@ void requestWorkerTeardown(WorkerState* s) {
 // outright -- shuts down the process-wide thread pools, and finally destroys an
 // entire second ProtoSpace. From another space's GC thread, mid-sweep.
 void WorkerState::releaseOnMutator() {
-    {
-        // The worker owns its OWN ProtoSpace and is that space's adopted main
-        // thread, so it is a registered thread in its own space; this thread is
-        // registered in the main space. Leaving the running set here is what lets
-        // the main space collect while the worker finishes.
-        BlockingScope parked;
-        if (thread.joinable()) thread.join();
-    }
+    awaitWorkerTeardown(this, nullptr);
     if (mainWrapper && workerPin != proto::ProtoRootSet::kNullHandle) {
         proto::ProtoRootSet* rs = mainWrapper->getRootSet();
         if (rs) rs->remove(workerPin);
@@ -397,7 +401,7 @@ void WorkerState::releaseOnMutator() {
     }
     // Safe only here. Note that ~JSContextWrapper reaches
     // ThreadPoolExecutor::shutdown, which waits on a condition variable and then
-    // joins; that call brackets itself with a BlockingScope, and because the slot
+    // joins; that call brackets itself with a ThreadUnmanagedScope, and because the slot
     // it reads is THIS thread's rather than the worker wrapper's context, it parks
     // the right thread.
     workerWrapper.reset();
@@ -539,10 +543,7 @@ const proto::ProtoObject* workerTerminate(
         // not happen. Doing them here means that a script that calls terminate()
         // never reaches the deferred path at all.
         requestWorkerTeardown(state);
-        {
-            proto::ProtoContext::UnmanagedScope u(ctx);
-            if (state->thread.joinable()) state->thread.join();
-        }
+        awaitWorkerTeardown(state, ctx);
         if (state->mainWrapper &&
             state->workerPin != proto::ProtoRootSet::kNullHandle) {
             proto::ProtoRootSet* rs = state->mainWrapper->getRootSet();

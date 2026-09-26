@@ -2,7 +2,8 @@
 
 The normative rule table is `protoCore/docs/EMBEDDER-CONFORMANCE.md`.
 
-- Static ratchet: `conformance-allow.txt` — **exits 1 on purpose: 14 uncovered errors**
+- Static ratchet: `conformance-allow.txt` — **exits 1 on purpose: 1 uncovered error**
+  (was 14 until 2026-09-26)
 - Runtime adaptor: **NOT WRITTEN IN P4.** See "What is not covered".
 - Run the static half:
   `python3 ../protoCore/scripts/conformance/check_static.py --repo .`
@@ -14,6 +15,28 @@ The normative rule table is `protoCore/docs/EMBEDDER-CONFORMANCE.md`.
 > **28,529 of 53,571, 53.25 %, as of 2026-09-26** — in
 > [TEST262_STATUS.md](TEST262_STATUS.md). Never quote 3 619 / 3 875 as a pass
 > rate.
+
+## Static ratchet — 2026-09-26: 14 uncovered findings down to 1
+
+Independent confirmation of the finalizer and blocking-join work, from a checker this
+repository did not write. `python3 ../protoCore/scripts/conformance/check_static.py
+--repo .` reported **14 uncovered** before and **1** after, with **0 stale entries**
+and the allowlist untouched at 217 entries. Nothing was allowlisted to get there; the
+findings were fixed.
+
+| Rule | Before | After | What changed |
+|---|---:|---:|---|
+| `external_finalizer` | 8 | 1 | The five `ProtoExternalPointer` finalizers no longer join threads, release `ProtoRootSet` pins or destroy a second `ProtoSpace` on the GC thread. They record the orphan (`src/GcOrphanQueue.h`) and the event loop releases it. |
+| `blocking_join_unbracketed` | 6 | 0 | Two were on genuinely registered threads (`ThreadPoolExecutor::shutdown` and `shutdownNow`, reached from `~JSContextWrapper`) and are now bracketed — the guard covers the condition wait as well as the join loop. The other four were the finalizers above, i.e. the GC thread, which is *not* in `runningThreads`; there `UnmanagedScope` would be a no-op at best, so the join moved off the finalizer instead. |
+
+The one that remains is `src/GCBridge.cpp:676`, a deliberate
+`fromExternalPointer(..., nullptr)`. The checker says in its own message that it cannot
+rule on it: the external memory is freed by the embedder on a path the script cannot
+see, which is checklist item C7.
+
+The rule that governs this is documented for contributors in
+[GC_BRIDGING.md](GC_BRIDGING.md), which now covers both which protoJS threads are
+registered and what a finalizer may and may not do.
 
 ## Regression gate — 2026-09-26, against protoCore 2.5.0 (`df8406a3`)
 
@@ -55,6 +78,34 @@ machine's constraints:
 regression**, which is the thing that had to be checked: protoJS reaches
 `ProtoThread::join` at `src/ProtoCoreNativeBindings.cpp:196`, from a CPU-pool
 thread, through a `ProtoContext` fabricated on the stack.
+
+## Known, reported, not fixed (2026-09-26)
+
+Found while auditing the finalizers and the blocking joins, out of scope for that work,
+and recorded here rather than lost:
+
+1. **`~JSContextWrapper` shuts down the PROCESS-WIDE thread pools.**
+   `CPUThreadPool`/`IOThreadPool` are singletons, and `JSContextWrapper`'s constructor
+   calls `initialize()` on both — which shuts the previous pool down and replaces it. So
+   constructing a `worker_threads` worker's wrapper kills the main thread's pool, and
+   destroying any wrapper kills everyone's. It is now at least bracketed and on a mutator
+   thread, but the ownership is wrong.
+2. **Three finalizers can only ever run at space teardown.** `net.Server`, `net.Socket`
+   and `Worker` each pin the very object that carries their `ExternalPointer`
+   (`rs->add(server)` then `server->setAttribute(..., extPtr)`), so the pin keeps the
+   owner reachable, the `ExternalPointer` is never swept, and the finalizer never runs. A
+   self-sustaining root. Breaking the self-pin — pinning only what the worker thread
+   actually needs to resolve — would make the deferred release path reachable for them
+   too.
+3. **Two unbracketed `future::get` sites** outside the audited six:
+   `src/npm/NPMRegistry.cpp:380` and `src/testing/NodeJSTestRunner.cpp:115`, both waiting
+   on `std::async` batches. Whether the calling thread is registered on those paths was
+   not established.
+4. **An orphan posted at space teardown is deliberately abandoned.** The process is
+   exiting, the finalizer's request half has already closed the descriptor so the loop
+   thread ends on its own, and doing protoCore work inside a space being destroyed is
+   what the contract forbids. `PROTOJS_GC_STATS` reports `orphans-posted` next to
+   `orphans-released` so an abandonment is visible rather than silent.
 
 ## What is not covered
 

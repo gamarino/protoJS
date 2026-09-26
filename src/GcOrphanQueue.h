@@ -61,7 +61,7 @@ public:
          * @brief Do the release, on a mutator thread, and `delete this`.
          *
          * Runs with a live `ProtoContext` for the calling thread available through
-         * `threadProtoContext()`, so it may block (inside a `BlockingScope`),
+         * `threadProtoContext()`, so it may block (inside a `ThreadUnmanagedScope`),
          * call protoCore, and free protoCore-owned resources.
          */
         virtual void releaseOnMutator() = 0;

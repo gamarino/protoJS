@@ -271,10 +271,10 @@ jobs:
     # A failure here does not fail the run.  Two different reasons live in this
     # job, and neither is "this check is unimportant":
     #
-    #   * conformance-allow.txt EXITS 1 ON PURPOSE -- 14 uncovered errors left
-    #     uncovered so the check keeps failing until they are fixed
-    #     (docs/CONFORMANCE.md).  Gating on a check designed to be red would make
-    #     every build red and teach everyone to ignore it.
+    #   * conformance-allow.txt EXITS 1 ON PURPOSE -- one uncovered error left
+    #     uncovered so the check keeps failing until it is fixed (it was 14 until
+    #     50fe92b1b; docs/CONFORMANCE.md).  Gating on a check designed to be red
+    #     would make every build red and teach everyone to ignore it.
     #   * the whole-corpus Test262 run takes 1 h 21 min and its verdict is a
     #     measurement, not a pass/fail.
     continue-on-error: true
@@ -326,8 +326,12 @@ jobs:
         run: ctest --test-dir build_release -R "integration|network" --output-on-failure < /dev/null
 
       - name: Static conformance ratchet (exits 1 by design)
-        # 14 uncovered errors, on purpose (docs/CONFORMANCE.md, and the header of
-        # conformance-allow.txt).  It runs, it reports, it does not gate.
+        # ONE uncovered error, on purpose (docs/CONFORMANCE.md, and the header of
+        # conformance-allow.txt).  It was 14 until the finalizer and blocking-join
+        # work at 50fe92b1b; nothing was allowlisted to get there, the findings were
+        # fixed, and the allowlist is still 217 entries with 0 stale.  Gating on a
+        # check that is designed to be red would make every build red and teach
+        # everyone to ignore it.  It runs, it reports, it does not gate.
         continue-on-error: true
         working-directory: protoJS
         run: python3 ../protoCore/scripts/conformance/check_static.py --repo .

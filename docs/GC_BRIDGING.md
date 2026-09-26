@@ -123,9 +123,15 @@ read loops and the GC thread are **not**: protoCore's `Thread.cpp` says explicit
 that a bare `std::thread` is not counted.
 
 Use `ProtoContext::UnmanagedScope` where a context is in hand, and
-`protojs::BlockingScope` (`src/ThreadProtoContext.h`) where one is not — it reads the
-calling thread's registered context from a thread-local and is a no-op on an
-unregistered thread, which is the correct behaviour there.
+`protojs::ThreadUnmanagedScope` (`src/ThreadProtoContext.h`) where one is not — it reads
+the calling thread's registered context from a thread-local and is a no-op on an
+unregistered thread, which is the correct behaviour there. It also takes an explicit
+context, so a helper that blocks can carry its own guard and be called from both kinds
+of site; `awaitServerTeardown` in `NetModule.cpp` is the pattern.
+
+Keep the guard **next to** the call it protects. protoCore's static conformance rule
+`blocking_join_unbracketed` looks for one within eight lines of the join, and a guard
+further away than that is one a future reader will not connect to the call either.
 
 Two substitutes that look reasonable and are both wrong:
 
@@ -225,5 +231,8 @@ And before merging any blocking call — `join`, `condition_variable::wait`,
 4. Decide whether the calling thread is registered (see above; a `JSContextWrapper`
    constructor or `ProtoSpace::newThread` is what registers one).
 5. If it may be, bracket the whole blocking region with `ProtoContext::UnmanagedScope`
-   or `protojs::BlockingScope`. On an unregistered thread the guard costs nothing.
+   or `protojs::ThreadUnmanagedScope`, next to the call. On an unregistered thread the
+   guard costs nothing.
+   Then run `python3 ../protoCore/scripts/conformance/check_static.py --repo .` and check
+   that `blocking_join_unbracketed` is still at zero.
 6. If the call is inside a finalizer, it does not belong there at all. See above.

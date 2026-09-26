@@ -46,23 +46,27 @@ void ThreadPoolExecutor::shutdown() {
     // waits for the queue to drain and for `activeCount` to reach zero, i.e. for
     // tasks that may themselves be waiting for memory.
     //
-    // BlockingScope rather than UnmanagedScope: this class is deliberately free of
-    // protoCore in its header, and the right context is the CALLING thread's, which
-    // is not reachable from anything this class holds. It is a no-op on an
-    // unregistered thread, which is correct -- such a thread is not in
-    // `runningThreads` and has nothing to leave.
-    BlockingScope parked;
-
+    // ThreadUnmanagedScope rather than ProtoContext::UnmanagedScope: this class is
+    // deliberately free of protoCore in its header, and the right context is the
+    // CALLING thread's, which is not reachable from anything this class holds. It is
+    // an UnmanagedScope that finds that context, and a no-op on an unregistered
+    // thread -- which is correct, since such a thread has nothing to leave.
+    //
+    // One guard per blocking region, each next to the call it protects.
     {
+        ThreadUnmanagedScope parked;
         std::unique_lock<std::mutex> lock(queueMutex);
         condition.wait(lock, [this] {
             return taskQueue.empty() && activeCount.load() == 0;
         });
     }
 
-    for (auto& thread : threads) {
-        if (thread.joinable()) {
-            thread.join();
+    {
+        ThreadUnmanagedScope parked;
+        for (auto& thread : threads) {
+            if (thread.joinable()) {
+                thread.join();
+            }
         }
     }
 }
@@ -85,11 +89,12 @@ void ThreadPoolExecutor::shutdownNow() {
     // is no condition wait here because the queue was cleared above, but a worker
     // already inside a task still has to finish it, and that task can be waiting
     // for memory.
-    BlockingScope parked;
-
-    for (auto& thread : threads) {
-        if (thread.joinable()) {
-            thread.join();
+    {
+        ThreadUnmanagedScope parked;
+        for (auto& thread : threads) {
+            if (thread.joinable()) {
+                thread.join();
+            }
         }
     }
 }

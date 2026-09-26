@@ -51,7 +51,7 @@ std::size_t GcOrphanQueue::drain() noexcept {
         list->gcOrphanNext = nullptr;
         g_pending.fetch_sub(1, std::memory_order_relaxed);
         // Releases and deletes itself.  May block; it is on a mutator thread and
-        // uses BlockingScope to leave protoCore's running set while it does.
+        // uses ThreadUnmanagedScope to leave protoCore's running set while it does.
         list->releaseOnMutator();
         g_released.fetch_add(1, std::memory_order_relaxed);
         ++n;

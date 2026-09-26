@@ -131,9 +131,13 @@ bool requestServerTeardown(ServerState* s) {
     return wasListening;
 }
 
-// Must run on a mutator thread, inside an unmanaged region.
-void awaitServerTeardown(ServerState* s) {
-    if (s && s->thread.joinable()) s->thread.join();
+// The blocking half.  The guard lives HERE rather than at each caller, so a new caller
+// cannot forget it.  `ctx` may be null, in which case the calling thread's own
+// registered context is used.
+void awaitServerTeardown(ServerState* s, proto::ProtoContext* ctx) {
+    if (!s) return;
+    ThreadUnmanagedScope parked(ctx);   // an UnmanagedScope on ctx, or on this thread's
+    if (s->thread.joinable()) s->thread.join();
 }
 
 // Counts servers whose accept loop is active.  Decremented from
@@ -148,13 +152,9 @@ std::atomic<int> g_activeServers{0};
 std::atomic<int> g_activeClients{0};
 
 void ServerState::releaseOnMutator() {
-    {
-        // Leaves protoCore's running set for the join: this thread IS registered,
-        // and a registered thread blocking inside the running set makes the
-        // stop-the-world quorum unreachable.
-        BlockingScope parked;
-        awaitServerTeardown(this);
-    }
+    // awaitServerTeardown brackets the join itself; no context is in hand here, so it
+    // uses the calling thread's own.
+    awaitServerTeardown(this, nullptr);
     // Only legal off the GC thread: ProtoRootSet::remove takes the mutex the
     // collector holds during root collection, so it both blocks and publishes.
     if (wrapper && listenerPin != proto::ProtoRootSet::kNullHandle) {
@@ -584,10 +584,7 @@ const proto::ProtoObject* serverClose(
     // what moves here now is the listenerPin release, which used to happen on the
     // GC thread.
     const bool wasListening = requestServerTeardown(state);
-    {
-        proto::ProtoContext::UnmanagedScope u(ctx);
-        awaitServerTeardown(state);
-    }
+    awaitServerTeardown(state, ctx);
     if (wasListening) g_activeServers.fetch_sub(1);
     if (state->wrapper && state->listenerPin != proto::ProtoRootSet::kNullHandle) {
         proto::ProtoRootSet* rs = state->wrapper->getRootSet();

@@ -18,7 +18,7 @@
 // left the quorum or not. No timing margin, no race, no reliance on a collection
 // happening to be due.
 //
-// WHAT WOULD MAKE EACH CASE FAIL. Deleting the `BlockingScope` from
+// WHAT WOULD MAKE EACH CASE FAIL. Deleting the `ThreadUnmanagedScope` from
 // `ThreadPoolExecutor::shutdown` (src/ThreadPoolExecutor.cpp) makes the first case
 // observe parkedThreads == 0 and fail. Deleting it from `shutdownNow` fails the
 // second. Both were run that way before the guards were added.
@@ -73,7 +73,7 @@ struct RegisteredThread {
 
 }  // namespace
 
-TEST_CASE("BlockingScope: a registered thread leaves the running set", "[gc][blocking]") {
+TEST_CASE("ThreadUnmanagedScope: a registered thread leaves the running set", "[gc][blocking]") {
     RegisteredThread self;
 
     // Premise. If constructing a space did not register this thread there would be
@@ -85,7 +85,7 @@ TEST_CASE("BlockingScope: a registered thread leaves the running set", "[gc][blo
     REQUIRE(threadProtoContext() == self.context);
 
     {
-        BlockingScope parked;
+        ThreadUnmanagedScope parked;
         REQUIRE(parked.active());
         // The whole property: while blocked, this thread is out of the quorum, so
         // `parkedThreads >= runningThreads` can be satisfied and a cycle can start.
@@ -95,14 +95,14 @@ TEST_CASE("BlockingScope: a registered thread leaves the running set", "[gc][blo
     REQUIRE(self.parked() == 0);
 }
 
-TEST_CASE("BlockingScope: nesting is refcounted, not idempotent", "[gc][blocking]") {
+TEST_CASE("ThreadUnmanagedScope: nesting is refcounted, not idempotent", "[gc][blocking]") {
     RegisteredThread self;
     REQUIRE(self.parked() == 0);
     {
-        BlockingScope outer;
+        ThreadUnmanagedScope outer;
         REQUIRE(self.parked() == 1);
         {
-            BlockingScope inner;
+            ThreadUnmanagedScope inner;
             // A single thread contributes one slot to the quorum however many
             // unmanaged regions it has open -- ThreadPoolExecutor::shutdown nests
             // (CPUThreadPool::shutdown calls it, then ~ThreadPoolExecutor calls it
@@ -116,14 +116,14 @@ TEST_CASE("BlockingScope: nesting is refcounted, not idempotent", "[gc][blocking
     REQUIRE(self.parked() == 0);
 }
 
-TEST_CASE("BlockingScope: no-op on an unregistered thread", "[gc][blocking]") {
+TEST_CASE("ThreadUnmanagedScope: no-op on an unregistered thread", "[gc][blocking]") {
     // A pool worker, an accept loop and the GC thread are not in `runningThreads`,
     // so they have nothing to leave. Parking a context they do not own would be
     // worse than doing nothing: it would tell the collector that a thread actively
     // running managed code is parked.
     std::atomic<bool> wasActive{true};
     std::thread t([&] {
-        BlockingScope parked;
+        ThreadUnmanagedScope parked;
         wasActive.store(parked.active());
     });
     t.join();

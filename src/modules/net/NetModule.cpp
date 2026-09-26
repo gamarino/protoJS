@@ -224,9 +224,13 @@ bool requestServerTeardown(ServerState* s) {
     return wasListening;
 }
 
-// Must run on a mutator thread, inside an unmanaged region.
-void awaitServerTeardown(ServerState* s) {
+// The blocking half.  The guard lives HERE rather than at each caller, so a new
+// caller cannot forget it: a registered thread that blocks inside protoCore's running
+// set makes the stop-the-world quorum unreachable.  `ctx` may be null, in which case
+// the calling thread's own registered context is used.
+void awaitServerTeardown(ServerState* s, proto::ProtoContext* ctx) {
     if (!s) return;
+    ThreadUnmanagedScope parked(ctx);   // an UnmanagedScope on ctx, or on this thread's
     if (s->acceptThread.joinable()) s->acceptThread.join();
 }
 
@@ -240,20 +244,17 @@ bool requestSocketTeardown(SocketState* s) {
     return wasReading;
 }
 
-// Must run on a mutator thread, inside an unmanaged region.
-void awaitSocketTeardown(SocketState* s) {
+// The blocking half -- see awaitServerTeardown for why the guard is here.
+void awaitSocketTeardown(SocketState* s, proto::ProtoContext* ctx) {
     if (!s) return;
+    ThreadUnmanagedScope parked(ctx);   // an UnmanagedScope on ctx, or on this thread's
     if (s->readThread.joinable()) s->readThread.join();
 }
 
 void ServerState::releaseOnMutator() {
-    {
-        // Leaves protoCore's running set for the join: this thread IS registered
-        // (it constructed the space), and a registered thread blocking inside the
-        // running set makes the stop-the-world quorum unreachable.
-        BlockingScope parked;
-        awaitServerTeardown(this);
-    }
+    // awaitServerTeardown brackets the join itself; no context is in hand here, so it
+    // uses the calling thread's own.
+    awaitServerTeardown(this, nullptr);
     // Only legal here, not in the finalizer: ProtoRootSet::remove takes the very
     // mutex the collector holds during root collection, so it both blocks and
     // publishes to a shared structure.
@@ -266,10 +267,7 @@ void ServerState::releaseOnMutator() {
 }
 
 void SocketState::releaseOnMutator() {
-    {
-        BlockingScope parked;
-        awaitSocketTeardown(this);
-    }
+    awaitSocketTeardown(this, nullptr);
     if (mainWrapper && socketPin != proto::ProtoRootSet::kNullHandle) {
         proto::ProtoRootSet* rs = mainWrapper->getRootSet();
         if (rs) rs->remove(socketPin);
@@ -463,10 +461,7 @@ const proto::ProtoObject* socketDestroyImpl(
     if (s) {
         // The owner relinquish point -- see serverCloseImpl.
         const bool wasReading = requestSocketTeardown(s);
-        {
-            proto::ProtoContext::UnmanagedScope u(ctx);
-            awaitSocketTeardown(s);
-        }
+        awaitSocketTeardown(s, ctx);
         if (wasReading) g_active.fetch_sub(1);
         if (s->mainWrapper && s->socketPin != proto::ProtoRootSet::kNullHandle) {
             proto::ProtoRootSet* rs = s->mainWrapper->getRootSet();
@@ -725,10 +720,7 @@ const proto::ProtoObject* serverCloseImpl(
         // point where the owner itself gives it up" -- this is it, so the join and
         // the pin release both happen here rather than on the collector.
         const bool wasListening = requestServerTeardown(s);
-        {
-            proto::ProtoContext::UnmanagedScope u(ctx);
-            awaitServerTeardown(s);
-        }
+        awaitServerTeardown(s, ctx);
         if (wasListening) g_active.fetch_sub(1);
         if (s->mainWrapper && s->serverPin != proto::ProtoRootSet::kNullHandle) {
             proto::ProtoRootSet* rs = s->mainWrapper->getRootSet();
