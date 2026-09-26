@@ -99,6 +99,98 @@ exactly once; removing a stale handle whose slot has since been reused is a
 silent no-op because the generation no longer matches, and `resolve` returns
 `nullptr` for such a handle.
 
+## Blocking calls on a registered protoCore thread
+
+A registered protoCore thread that blocks without leaving the running set is still
+counted in `runningThreads`, so the stop-the-world quorum
+(`parkedThreads >= runningThreads`) can never be met, no collection cycle can start,
+and every thread that then needs memory waits for a cycle that cannot begin. That is
+a deadlock, not a slow shutdown; the mechanism was read off a live backtrace in
+protoClojure.
+
+protoCore >= 2.3 brackets its own `ProtoThread::join`, and its header says in as many
+words that this covers `ProtoThread::join` only — a direct `std::thread::join`, a
+`condition_variable::wait`, or a `future::get` on a thread the embedder registered is
+still the embedder's obligation.
+
+**Which protoJS threads are registered**, verified rather than assumed: protoJS never
+calls any `registerThread`. A thread enters `runningThreads` either by constructing a
+`ProtoSpace` — whose constructor adopts the constructing thread as that space's main
+thread — or through `ProtoSpace::newThread`. So the JS main thread is registered, and
+each `worker_threads` worker is registered **in its own space**, because it constructs
+its own `JSContextWrapper`. The CPU and I/O pool workers, the `net`/`http` accept and
+read loops and the GC thread are **not**: protoCore's `Thread.cpp` says explicitly
+that a bare `std::thread` is not counted.
+
+Use `ProtoContext::UnmanagedScope` where a context is in hand, and
+`protojs::BlockingScope` (`src/ThreadProtoContext.h`) where one is not — it reads the
+calling thread's registered context from a thread-local and is a no-op on an
+unregistered thread, which is the correct behaviour there.
+
+Two substitutes that look reasonable and are both wrong:
+
+- **`this->pContext` at a destruction site.** A worker's `JSContextWrapper` is
+  destroyed by the main thread, and its context belongs to the worker's own space with
+  the worker thread adopted as that space's main thread. Parking that context from the
+  main thread increments `parkedThreads` for a thread that is actively running managed
+  code — the inverse failure, where the collector reaches quorum and scans while a
+  mutator mutates.
+- **`JSContextWrapper::current()`.** It is only published during `eval()` and under
+  `CurrentScope`, so it is null on exactly the teardown paths that block.
+
+Bracket the **whole** blocking region, not just the syscall. `ThreadPoolExecutor::
+shutdown` waits on a condition variable for the queue to drain and *then* joins every
+worker; a guard around the join loop alone leaves the wait blocking just as long.
+
+`tests/unit/test_blocking_regions.cpp` asserts the property directly by reading
+`ProtoSpace::parkedThreads` from inside the blocking region. Removing the guard makes
+it report `0 >= 1`.
+
+## Finalizers
+
+`Cell::finalize` runs on the GC thread during sweep, concurrently with the mutators.
+protoCore's `docs/GarbageCollector.md` section 7 is the normative text; the short form
+is that a finalizer **must not block, must not allocate cells, must not publish to a
+shared structure, and must not dereference other `ProtoObject*`**. The
+`ProtoExternalPointer` callbacks passed to `ProtoContext::fromExternalPointer` are
+finalizers and follow the same contract.
+
+In protoJS terms, a finalizer may close a file descriptor and flip an atomic flag. It
+may **not**:
+
+- `join()` an OS thread. It blocks, and a finalizer is not even proof the thread
+  stopped, because sweep runs with the world going.
+- call `ProtoRootSet::remove`. That takes the very mutex the collector holds during
+  root collection, so it both blocks and publishes — and on the same space it is a
+  self-deadlock risk.
+- reset a `std::unique_ptr<JSContextWrapper>`. That runs a whole
+  `~JSContextWrapper`: a root set destruction, `GCBridge::cleanup` (which iterates a
+  `ProtoSparseList` and dereferences `ProtoObject*`s), the process-wide thread pool
+  shutdown, and the destruction of a second `ProtoSpace`.
+
+Where the work genuinely has to happen, move it to **where the owner relinquishes the
+resource** — `serverClose`, `socketDestroy`, `workerTerminate` — which is what section
+7 prescribes and what protoCore itself did for thread teardown, releasing in
+`thread_main`'s tail rather than in `finalize`. For the case where the script never
+relinquishes and the object is simply collected, use `src/GcOrphanQueue.h`: the
+finalizer records the orphan with an intrusive push onto a lock-free stack — no
+allocation, no lock, no protoCore call, no wait — and `EventLoop::processCallbacks`
+releases it on a mutator thread. That is section 7's own Phase 5b shape.
+
+**Three of protoJS's five finalizers cannot run mid-program at all**, and this is
+worth knowing before designing around them: `net.Server`, `net.Socket` and
+`worker_threads.Worker` each pin the very object that carries their
+`ExternalPointer`, so the pin keeps the owner reachable, the `ExternalPointer` is never
+swept, and the finalizer that would release the pin never runs. A self-sustaining
+root. Their bodies execute only at space teardown. `http.Server` and
+`http.ClientRequest` pin a callback rather than themselves, so those two are genuinely
+collectable and their finalizers do run.
+
+`tests/cli/finalizers_do_not_block.py` audits all five bodies, following calls one
+whole call graph deep within each translation unit — which is what the original `net`
+finalizers needed, since their `join` was inside `teardownServer` and not in the
+finalizer body at all.
+
 ## Anti-patterns
 
 New code must not use any of the following. Use the matching mechanism instead.
@@ -126,3 +218,12 @@ Before merging code that captures a `ProtoObject*` in a C++ lambda passed to
    show that it is perpetual.
 3. If neither applies, the lambda has a latent use-after-free. Fix it before
    merging.
+
+And before merging any blocking call — `join`, `condition_variable::wait`,
+`future::get`, a sleep, or a syscall that may not return promptly:
+
+4. Decide whether the calling thread is registered (see above; a `JSContextWrapper`
+   constructor or `ProtoSpace::newThread` is what registers one).
+5. If it may be, bracket the whole blocking region with `ProtoContext::UnmanagedScope`
+   or `protojs::BlockingScope`. On an unregistered thread the guard costs nothing.
+6. If the call is inside a finalizer, it does not belong there at all. See above.

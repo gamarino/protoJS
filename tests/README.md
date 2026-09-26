@@ -13,7 +13,7 @@ How to run each test layer. Commands are run from the repository root and assume
 | **Integration** | Scripts per module area under `tests/integration/` | `./build/protojs tests/integration/<area>/<script>.js` |
 | **Conformity** | Built-in and module-identity checks | `node tests/conformity/run_conformity.js`; see [conformity/README.md](conformity/README.md) |
 | **Benchmarks** | Standard benchmark suite and comparison runners | See [benchmarks/standard/README.md](benchmarks/standard/README.md) |
-| **CLI fixtures** | Shell cases registered directly with CTest (`cli/...`), for things no unit test can reach | `ctest --test-dir build -R "^cli/"` |
+| **CLI fixtures** | Cases registered directly with CTest (`cli/...`), for things no unit test can reach: the regression gate's own adversarial test, the mutable-cycle census, the finalizer-contract source audit, and seven end-to-end teardown cases under a heap ceiling | `ctest --test-dir build -R "^cli/"` |
 | **Test262 regression gate** | Expected-failures diff over `built-ins/{Object,Reflect,Proxy}` — the per-commit conformance gate | `python3 tests/test262/runner/regression_gate.py` |
 
 ### C++ unit tests
@@ -81,9 +81,11 @@ design:
 
 Nothing timing-sensitive gates: a runner is a shared machine, and in the other
 five repositories of this family a test failed its own timing precondition on the
-first real run with no defect present. protoJS's 34 registered Catch2 cases were
-checked and contain no wall-clock assertion, so if one is ever added it belongs in
-`informational`.
+first real run with no defect present. protoJS's registered Catch2 cases were
+checked and contain no wall-clock assertion — the two sleeps in
+`tests/unit/test_blocking_regions.cpp` are ordering guarantees, not margins, since
+`shutdown()` cannot return until the task it waits for does. If a timing assertion is
+ever added, it belongs in `informational`.
 
 **No parallelism anywhere.** Every build omits `-j` and every Test262 invocation
 sets `TEST262_CONCURRENCY=1`. A runner is not assumed to be exempt from the

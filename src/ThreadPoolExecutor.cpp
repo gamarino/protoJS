@@ -1,4 +1,5 @@
 #include "ThreadPoolExecutor.h"
+#include "ThreadProtoContext.h"
 #include <iostream>
 #include <stdexcept>
 
@@ -30,14 +31,35 @@ void ThreadPoolExecutor::shutdown() {
         shutdownFlag = true;
     }
     condition.notify_all();
-    
+
+    // Everything below blocks, and the callers that reach it are registered
+    // protoCore threads: ~JSContextWrapper (main thread, and the main thread again
+    // when it releases a worker's wrapper) and CPUThreadPool/IOThreadPool
+    // ::initialize, which shut the previous pool down from the constructing thread.
+    // A registered thread that blocks without leaving protoCore's running set is
+    // still counted in `runningThreads`, so the stop-the-world quorum can never be
+    // met, no collection can start, and every thread that needs memory waits for a
+    // cycle that cannot begin -- including, often, a pool worker being joined here.
+    //
+    // The guard covers the CONDITION WAIT as well as the joins. Bracketing only the
+    // joins would leave the wait at the top of the region blocking just as long: it
+    // waits for the queue to drain and for `activeCount` to reach zero, i.e. for
+    // tasks that may themselves be waiting for memory.
+    //
+    // BlockingScope rather than UnmanagedScope: this class is deliberately free of
+    // protoCore in its header, and the right context is the CALLING thread's, which
+    // is not reachable from anything this class holds. It is a no-op on an
+    // unregistered thread, which is correct -- such a thread is not in
+    // `runningThreads` and has nothing to leave.
+    BlockingScope parked;
+
     {
         std::unique_lock<std::mutex> lock(queueMutex);
         condition.wait(lock, [this] {
             return taskQueue.empty() && activeCount.load() == 0;
         });
     }
-    
+
     for (auto& thread : threads) {
         if (thread.joinable()) {
             thread.join();
@@ -58,7 +80,13 @@ void ThreadPoolExecutor::shutdownNow() {
     }
     
     condition.notify_all();
-    
+
+    // Same reasoning as shutdown(): the joins block on a registered thread. There
+    // is no condition wait here because the queue was cleared above, but a worker
+    // already inside a task still has to finish it, and that task can be waiting
+    // for memory.
+    BlockingScope parked;
+
     for (auto& thread : threads) {
         if (thread.joinable()) {
             thread.join();

@@ -12,6 +12,7 @@
 #include "runtime/ProtoInterpreter.h"
 #include "BigIntPrototype.h"
 #include "JSSymbols.h"
+#include "ThreadProtoContext.h"
 #include "runtime/ProtoCompileOnly.h"
 #include "runtime/ProtoBytecodeModule.h"
 #include "runtime/ProtoInterpreter.h"
@@ -100,6 +101,14 @@ JSContextWrapper::JSContextWrapper(size_t cpuThreads, size_t ioThreads, double i
     
     // Initialize protoCore root context
     pContext = pSpace.rootContext;
+
+    // Record this context as the constructing thread's.  `pSpace`'s constructor
+    // has just adopted this thread as that space's main thread and counted it in
+    // `runningThreads`, so this is the context whose parked/running accounting
+    // describes this thread -- and the one that blocking code with no context in
+    // hand must park.  See ThreadProtoContext.h for why neither `this->pContext`
+    // at a destruction site nor `JSContextWrapper::current()` can substitute.
+    setThreadProtoContext(pContext);
     
     // Bootstrap JS Object and derived prototypes (array, arguments, regexp)
     BootstrapJSPrototypes(&pSpace, pContext, &jsPrototypes_);
@@ -196,12 +205,20 @@ JSContextWrapper::~JSContextWrapper() {
     // Cleanup GCBridge mappings
     GCBridge::cleanup(ctx);
     
-    // Shutdown thread pools
+    // Shutdown thread pools.  Both block -- ThreadPoolExecutor::shutdown waits on
+    // a condition variable until the queue drains and then joins every worker --
+    // and this destructor runs on a registered protoCore thread.  The guard lives
+    // inside ThreadPoolExecutor::shutdown, where it can cover the condition wait
+    // and the joins as one region and protect every caller, not just this one.
     CPUThreadPool::shutdown();
     IOThreadPool::shutdown();
-    
+
     JS_FreeContext(ctx);
     JS_FreeRuntime(rt);
+
+    // Only clears the slot if it still holds THIS context.  A worker's wrapper is
+    // destroyed by the main thread, and must not unregister the main thread.
+    clearThreadProtoContext(pContext);
 }
 
 JSValue JSContextWrapper::eval(const std::string& code, const std::string& filename, bool isModule) {

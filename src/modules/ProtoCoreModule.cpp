@@ -657,8 +657,21 @@ JSValue ProtoCoreModule::RunInThread(JSContext* ctx, JSValueConst this_val, int 
     if (JS_IsException(deferredObj)) return deferredObj;
 
     Deferred::incrementActiveCount();
-    CPUThreadPool::getInstance().getExecutor().submit([thread, taskHandle, resultHolder, wrapper, pContext]() {
-        const_cast<proto::ProtoThread*>(thread)->join(const_cast<proto::ProtoContext*>(pContext));
+    proto::ProtoSpace* joinSpace = space;
+    CPUThreadPool::getInstance().getExecutor().submit([thread, taskHandle, resultHolder, wrapper, joinSpace]() {
+        // A context of the JOINING thread, built on the stack here, NOT the main
+        // thread's pContext. ProtoThread::join brackets itself with
+        // `UnmanagedScope parked(context)`, so handing it the main thread's context
+        // from this pool worker would increment `parkedThreads` for a thread that is
+        // actively running managed code -- the inverse of an unbracketed join, and
+        // worse: the collector then reaches quorum and scans while a mutator
+        // mutates. This pool worker is not registered in `runningThreads`
+        // (protoCore Thread.cpp is explicit that a bare std::thread is not), so its
+        // own fresh context makes the guard a harmless no-op, which is correct.
+        // Same shape as ProtoCoreNativeBindings.cpp:194.
+        proto::ProtoContext joinCtx(joinSpace, nullptr, nullptr,
+                                    nullptr, nullptr, nullptr);
+        const_cast<proto::ProtoThread*>(thread)->join(&joinCtx);
         EventLoop::getInstance().enqueueCallback([taskHandle, resultHolder, wrapper]() {
             JSContext* mainCtx = wrapper->getJSContext();
             proto::ProtoContext* pCtx = wrapper->getProtoContext();

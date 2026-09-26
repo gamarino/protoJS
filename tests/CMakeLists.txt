@@ -58,3 +58,20 @@ add_test(NAME cli/no-method-self-cycles
     COMMAND "${CMAKE_CURRENT_SOURCE_DIR}/cli/no-method-self-cycles.sh"
             "$<TARGET_FILE:protojs>"
             "${CMAKE_CURRENT_BINARY_DIR}/cli-scratch/method-cycles")
+
+# protoCore's finalizer contract, asserted against the source because three of the
+# five finalizers cannot be reached at run time at all (each pins the object that
+# carries its own ExternalPointer). Follows calls one whole call graph deep, which is
+# what the original net finalizers needed: their join was in teardownServer, not in
+# the finalizer body.
+add_test(NAME cli/finalizers-do-not-block
+    COMMAND python3 "${CMAKE_CURRENT_SOURCE_DIR}/cli/finalizers_do_not_block.py"
+                    "${CMAKE_SOURCE_DIR}")
+
+# End-to-end coverage of the reworked teardown paths under a heap ceiling: seven
+# cases, each asserting the value its program computed and, where it can be
+# established, that collection really ran while the program waited. Takes about 2 s.
+add_test(NAME cli/blocking-joins-and-finalizers
+    COMMAND "${CMAKE_CURRENT_SOURCE_DIR}/cli/blocking-joins-and-finalizers.sh"
+            "$<TARGET_FILE:protojs>"
+            "${CMAKE_CURRENT_BINARY_DIR}/cli-scratch/joins")

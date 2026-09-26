@@ -6,6 +6,8 @@
 #include "../../JSSymbols.h"
 #include "../../JSContext.h"
 #include "../../EventLoop.h"
+#include "../../GcOrphanQueue.h"
+#include "../../ThreadProtoContext.h"
 #include "../../runtime/ProtoInterpreter.h"
 #include "../../runtime/ProtoBytecodeModule.h"
 #include "../buffer/BufferModule.h"
@@ -164,7 +166,7 @@ void invokeEEMethodFromAsync(
 
 struct SocketState;
 
-struct ServerState {
+struct ServerState : GcOrphanQueue::Orphan {
     JSContextWrapper* mainWrapper{nullptr};
     proto::ProtoRootSet::Handle serverPin{
         proto::ProtoRootSet::kNullHandle};
@@ -174,9 +176,11 @@ struct ServerState {
     std::atomic<bool> listening{false};
     std::atomic<bool> closed{false};
     std::thread acceptThread;
+
+    void releaseOnMutator() override;
 };
 
-struct SocketState {
+struct SocketState : GcOrphanQueue::Orphan {
     JSContextWrapper* mainWrapper{nullptr};
     proto::ProtoRootSet::Handle socketPin{
         proto::ProtoRootSet::kNullHandle};
@@ -188,48 +192,107 @@ struct SocketState {
     std::string localAddress;
     int localPort{0};
     std::thread readThread;
+
+    void releaseOnMutator() override;
 };
 
-void teardownServer(ServerState* s) {
-    if (!s) return;
+// Teardown is split in two halves, and the split is the fix.
+//
+// The REQUEST half flips the flags and closes the listening/connected descriptor.
+// Closing the descriptor is what makes the accept/recv loop return, so it is the
+// part that has to happen promptly; it blocks on nothing and calls no protoCore
+// API, which is exactly what protoCore's finalizer contract permits a finalizer to
+// do (docs/GarbageCollector.md S7: "free an external buffer, run an external
+// pointer's callback").
+//
+// The AWAIT half joins the loop thread. It blocks, and a finalizer must not block:
+// it runs on the single GC thread inside the sweep, so a wait there stalls
+// collection for the whole space -- and joining an accept loop or a thread sitting
+// in ::recv on a silent peer is an unbounded wait. Section 7 is explicit that a
+// finalizer is not even proof the OS thread has stopped, since sweep runs with the
+// world going. So the await half runs only where a mutator thread can bracket it.
+
+// Returns true exactly once per server: `listening` is the once-only token, so
+// whichever of an explicit close() and the finalizer gets there first owns the
+// g_active decrement and the other one does nothing.
+bool requestServerTeardown(ServerState* s) {
+    if (!s) return false;
     bool wasListening = s->listening.exchange(false);
     s->closed.store(true);
     int fd = s->socketFd.exchange(-1);
     if (fd >= 0) { ::shutdown(fd, SHUT_RDWR); ::close(fd); }
-    if (s->acceptThread.joinable()) s->acceptThread.join();
-    if (wasListening) g_active.fetch_sub(1);
+    return wasListening;
 }
 
-void teardownSocket(SocketState* s) {
+// Must run on a mutator thread, inside an unmanaged region.
+void awaitServerTeardown(ServerState* s) {
     if (!s) return;
+    if (s->acceptThread.joinable()) s->acceptThread.join();
+}
+
+// Returns true exactly once per socket, for the same reason.
+bool requestSocketTeardown(SocketState* s) {
+    if (!s) return false;
     bool wasReading = s->connected.exchange(false);
     s->destroyed.store(true);
     int fd = s->socketFd.exchange(-1);
     if (fd >= 0) { ::shutdown(fd, SHUT_RDWR); ::close(fd); }
-    if (s->readThread.joinable()) s->readThread.join();
-    if (wasReading) g_active.fetch_sub(1);
+    return wasReading;
 }
 
+// Must run on a mutator thread, inside an unmanaged region.
+void awaitSocketTeardown(SocketState* s) {
+    if (!s) return;
+    if (s->readThread.joinable()) s->readThread.join();
+}
+
+void ServerState::releaseOnMutator() {
+    {
+        // Leaves protoCore's running set for the join: this thread IS registered
+        // (it constructed the space), and a registered thread blocking inside the
+        // running set makes the stop-the-world quorum unreachable.
+        BlockingScope parked;
+        awaitServerTeardown(this);
+    }
+    // Only legal here, not in the finalizer: ProtoRootSet::remove takes the very
+    // mutex the collector holds during root collection, so it both blocks and
+    // publishes to a shared structure.
+    if (mainWrapper && serverPin != proto::ProtoRootSet::kNullHandle) {
+        proto::ProtoRootSet* rs = mainWrapper->getRootSet();
+        if (rs) rs->remove(serverPin);
+        serverPin = proto::ProtoRootSet::kNullHandle;
+    }
+    delete this;
+}
+
+void SocketState::releaseOnMutator() {
+    {
+        BlockingScope parked;
+        awaitSocketTeardown(this);
+    }
+    if (mainWrapper && socketPin != proto::ProtoRootSet::kNullHandle) {
+        proto::ProtoRootSet* rs = mainWrapper->getRootSet();
+        if (rs) rs->remove(socketPin);
+        socketPin = proto::ProtoRootSet::kNullHandle;
+    }
+    delete this;
+}
+
+// The finalizers. Each does only the non-blocking request half and then records the
+// orphan; GcOrphanQueue::post allocates nothing, takes no lock, calls no protoCore
+// API and never waits.
 void freeServerState(void* p) {
     auto* s = static_cast<ServerState*>(p);
     if (!s) return;
-    teardownServer(s);
-    if (s->mainWrapper && s->serverPin != proto::ProtoRootSet::kNullHandle) {
-        proto::ProtoRootSet* rs = s->mainWrapper->getRootSet();
-        if (rs) rs->remove(s->serverPin);
-    }
-    delete s;
+    if (requestServerTeardown(s)) g_active.fetch_sub(1);
+    GcOrphanQueue::post(s);
 }
 
 void freeSocketState(void* p) {
     auto* s = static_cast<SocketState*>(p);
     if (!s) return;
-    teardownSocket(s);
-    if (s->mainWrapper && s->socketPin != proto::ProtoRootSet::kNullHandle) {
-        proto::ProtoRootSet* rs = s->mainWrapper->getRootSet();
-        if (rs) rs->remove(s->socketPin);
-    }
-    delete s;
+    if (requestSocketTeardown(s)) g_active.fetch_sub(1);
+    GcOrphanQueue::post(s);
 }
 
 ServerState* getServerState(proto::ProtoContext* ctx,
@@ -398,8 +461,18 @@ const proto::ProtoObject* socketDestroyImpl(
     const proto::ProtoSparseList*) {
     SocketState* s = getSocketState(ctx, self);
     if (s) {
-        proto::ProtoContext::UnmanagedScope u(ctx);
-        teardownSocket(s);
+        // The owner relinquish point -- see serverCloseImpl.
+        const bool wasReading = requestSocketTeardown(s);
+        {
+            proto::ProtoContext::UnmanagedScope u(ctx);
+            awaitSocketTeardown(s);
+        }
+        if (wasReading) g_active.fetch_sub(1);
+        if (s->mainWrapper && s->socketPin != proto::ProtoRootSet::kNullHandle) {
+            proto::ProtoRootSet* rs = s->mainWrapper->getRootSet();
+            if (rs) rs->remove(s->socketPin);
+            s->socketPin = proto::ProtoRootSet::kNullHandle;
+        }
     }
     return PROTO_NONE;
 }
@@ -646,8 +719,22 @@ const proto::ProtoObject* serverCloseImpl(
     const proto::ProtoSparseList*) {
     ServerState* s = getServerState(ctx, self);
     if (s) {
-        proto::ProtoContext::UnmanagedScope u(ctx);
-        teardownServer(s);
+        // The owner relinquish point. protoCore's finalizer contract
+        // (docs/GarbageCollector.md S7) says a resource whose release blocks,
+        // publishes, or depends on another thread having finished belongs "at the
+        // point where the owner itself gives it up" -- this is it, so the join and
+        // the pin release both happen here rather than on the collector.
+        const bool wasListening = requestServerTeardown(s);
+        {
+            proto::ProtoContext::UnmanagedScope u(ctx);
+            awaitServerTeardown(s);
+        }
+        if (wasListening) g_active.fetch_sub(1);
+        if (s->mainWrapper && s->serverPin != proto::ProtoRootSet::kNullHandle) {
+            proto::ProtoRootSet* rs = s->mainWrapper->getRootSet();
+            if (rs) rs->remove(s->serverPin);
+            s->serverPin = proto::ProtoRootSet::kNullHandle;
+        }
     }
     return PROTO_NONE;
 }

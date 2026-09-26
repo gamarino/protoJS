@@ -1,4 +1,5 @@
 #include "EventLoop.h"
+#include "GcOrphanQueue.h"
 #include <iostream>
 
 namespace protojs {
@@ -38,6 +39,18 @@ void EventLoop::processCallbacks() {
             std::cerr << "Unknown exception in event loop callback" << std::endl;
         }
     }
+
+    // The mutator-side half of the finalizer contract.  Five of protoJS's
+    // ProtoExternalPointer finalizers used to join threads and release ProtoRootSet
+    // pins on the GC thread, which protoCore forbids (docs/GarbageCollector.md S7:
+    // a finalizer must not block, must not publish to a shared structure and must
+    // not call protoCore).  They now record the orphan and return; the work happens
+    // here, on a thread that owns a protoCore context and may legally block.
+    //
+    // This is the right place because it is where protoJS already pumps deferred
+    // work: the process drain loop calls processCallbacks until nothing is
+    // outstanding, so every orphan posted during a run is released before exit.
+    GcOrphanQueue::drain();
 }
 
 void EventLoop::run() {

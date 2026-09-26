@@ -60,12 +60,14 @@ name: CI
 # NOTHING TIMING-SENSITIVE GATES.  A runner is a shared machine.  In the other
 # five repositories this split was vindicated on the first real run: a test
 # failed its own timing precondition with no defect present, and the run still
-# concluded success because it sat in an informational job.  protoJS's 34
-# registered Catch2 cases were checked for wall-clock assertions and have none,
-# so the informational job here carries the two things that are red or slow by
-# design -- the static conformance ratchet and the whole-corpus run -- rather
-# than a quarantined clock-dependent case.  If a timing assertion is ever added
-# to the Catch2 suite, it belongs in `informational`, not in the gate.
+# concluded success because it sat in an informational job.  protoJS's registered
+# Catch2 cases were checked for wall-clock assertions and have none -- the two
+# sleeps in tests/unit/test_blocking_regions.cpp are ordering guarantees, not
+# margins: shutdown() cannot return until the task it is waiting for does.  So the
+# informational job here carries the things that are red or slow BY DESIGN -- the
+# static conformance ratchet and the whole-corpus run -- rather than a quarantined
+# clock-dependent case.  If a timing assertion is ever added to the Catch2 suite, it
+# belongs in `informational`, not in the gate.
 
 on:
   push:
@@ -227,6 +229,12 @@ jobs:
         #
         # No `-j`: the pool and event-loop cases spawn their own threads, and this
         # family has already been burned by saturating a small runner.
+        #
+        # The suite includes four CLI fixtures registered directly with CTest, the
+        # slowest of which (cli/blocking-joins-and-finalizers) runs seven end-to-end
+        # cases under a heap ceiling in about 2 s. It binds localhost ports in the
+        # 18841-18844 range; if a runner ever has those in use, that is what to look
+        # at first.
         working-directory: protoJS
         run: ctest --test-dir build_release -E "integration|network" --output-on-failure < /dev/null
 
@@ -305,6 +313,12 @@ jobs:
           cmake --build protoJS/build_release
 
       - name: The case the gate excludes by name
+        # Every step in this job carries its own continue-on-error, not just the job.
+        # The job-level flag keeps a failure from failing the RUN, but a failed step
+        # still aborts the steps after it -- observed on the first real run
+        # (36242644877), where the conformance ratchet exited 1 as designed and the
+        # cycle census below never got to run.
+        continue-on-error: true
         # "NPMRegistry and Semver integration" is excluded from the gate by the
         # `-E integration` pattern even though it passes.  Running it here keeps
         # the exclusion from quietly retiring a working test.
@@ -314,6 +328,7 @@ jobs:
       - name: Static conformance ratchet (exits 1 by design)
         # 14 uncovered errors, on purpose (docs/CONFORMANCE.md, and the header of
         # conformance-allow.txt).  It runs, it reports, it does not gate.
+        continue-on-error: true
         working-directory: protoJS
         run: python3 ../protoCore/scripts/conformance/check_static.py --repo .
 
@@ -325,12 +340,17 @@ jobs:
         # census is worth watching; it is reported rather than asserted because
         # protoJS still has known-benign cycles and a number asserted too early
         # becomes a number someone switches off.
+        continue-on-error: true
         working-directory: protoJS
         run: |
           PROTOCORE_MUTABLE_CYCLE_CHECK="$PWD/cycles.txt" \
             ./build_release/protojs -e '1' > /dev/null 2>&1 || true
           echo "--- cycles.txt ---"
           cat cycles.txt || echo "(no census written)"
+          echo "Expected on a clean tree: 36 cycles, all of them required by JS"
+          echo "semantics (34 X.prototype.constructor === X, one __proto__ setter"
+          echo "back-reference, one globalThis.globalThis). It was 177 before"
+          echo "f708dc3fc. cli/no-method-self-cycles gates the difference."
           {
             echo ""
             echo "### Mutable-cycle census (one protojs process)"
@@ -342,6 +362,7 @@ jobs:
       - name: Whole Test262 corpus (1 h 21 min) -- the authoritative figure
         # Only on a version tag, the nightly schedule, or on demand.  Far too slow
         # to gate a commit; see the header.  Sequential, always.
+        continue-on-error: true
         if: >-
           github.event_name == 'schedule' ||
           github.event_name == 'workflow_dispatch' ||

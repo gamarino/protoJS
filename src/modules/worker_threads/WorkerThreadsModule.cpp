@@ -6,6 +6,8 @@
 #include "../../JSSymbols.h"
 #include "../../JSContext.h"
 #include "../../EventLoop.h"
+#include "../../GcOrphanQueue.h"
+#include "../../ThreadProtoContext.h"
 #include "../../runtime/ProtoInterpreter.h"
 #include "../../runtime/ProtoBytecodeModule.h"
 #include "../events/EventsModule.h"
@@ -342,7 +344,7 @@ void workerThreadEntry(WorkerState* state);
 
 // ---- WorkerState (carried via ExternalPointer) -------------------------
 
-struct WorkerState {
+struct WorkerState : GcOrphanQueue::Orphan {
     JSContextWrapper* mainWrapper{nullptr};
     proto::ProtoRootSet::Handle workerPin{
         proto::ProtoRootSet::kNullHandle};
@@ -352,20 +354,62 @@ struct WorkerState {
     std::string workerDataJson;
     std::atomic<bool> terminated{false};
     std::atomic<bool> running{false};
+
+    void releaseOnMutator() override;
 };
 
-void freeWorkerState(void* p) {
-    auto* s = static_cast<WorkerState*>(p);
+// Ask the worker to stop. Two atomic stores; blocks on nothing, calls no protoCore
+// API. This is all a finalizer is allowed to do here.
+void requestWorkerTeardown(WorkerState* s) {
     if (!s) return;
     s->terminated.store(true);
     s->running.store(false);
-    if (s->thread.joinable()) s->thread.join();
-    if (s->mainWrapper && s->workerPin != proto::ProtoRootSet::kNullHandle) {
-        proto::ProtoRootSet* rs = s->mainWrapper->getRootSet();
-        if (rs) rs->remove(s->workerPin);
+}
+
+// Everything the old finalizer did after the two stores, now on a mutator thread.
+//
+// This is protoCore's own worked example, verbatim in shape.
+// docs/GarbageCollector.md S7: "Releasing an exiting ProtoThread needs to give back
+// an allocation batch, destroy a ProtoContext and join a std::thread. Every one of
+// those is forbidden here: returning the batch takes ProtoSpace::globalMutex
+// (blocks), destroying the context submits a young generation (publishes to a
+// shared structure), and joining blocks outright." Releasing a protoJS Worker needs
+// all three and more: the join is on a thread running an entire JS program;
+// `workerPin` release takes the root-set mutex the collector itself holds during
+// root collection; and `workerWrapper.reset()` runs ~JSContextWrapper, which
+// destroys a ProtoRootSet, runs GCBridge::cleanup -- which iterates a
+// ProtoSparseList and dereferences ProtoObject*s, two more things S7 forbids
+// outright -- shuts down the process-wide thread pools, and finally destroys an
+// entire second ProtoSpace. From another space's GC thread, mid-sweep.
+void WorkerState::releaseOnMutator() {
+    {
+        // The worker owns its OWN ProtoSpace and is that space's adopted main
+        // thread, so it is a registered thread in its own space; this thread is
+        // registered in the main space. Leaving the running set here is what lets
+        // the main space collect while the worker finishes.
+        BlockingScope parked;
+        if (thread.joinable()) thread.join();
     }
-    s->workerWrapper.reset();
-    delete s;
+    if (mainWrapper && workerPin != proto::ProtoRootSet::kNullHandle) {
+        proto::ProtoRootSet* rs = mainWrapper->getRootSet();
+        if (rs) rs->remove(workerPin);
+        workerPin = proto::ProtoRootSet::kNullHandle;
+    }
+    // Safe only here. Note that ~JSContextWrapper reaches
+    // ThreadPoolExecutor::shutdown, which waits on a condition variable and then
+    // joins; that call brackets itself with a BlockingScope, and because the slot
+    // it reads is THIS thread's rather than the worker wrapper's context, it parks
+    // the right thread.
+    workerWrapper.reset();
+    delete this;
+}
+
+// The finalizer. Only the request half, then record the orphan.
+void freeWorkerState(void* p) {
+    auto* s = static_cast<WorkerState*>(p);
+    if (!s) return;
+    requestWorkerTeardown(s);
+    GcOrphanQueue::post(s);
 }
 
 WorkerState* getWorkerState(proto::ProtoContext* ctx,
@@ -489,8 +533,23 @@ const proto::ProtoObject* workerTerminate(
     const proto::ProtoSparseList*) {
     WorkerState* state = getWorkerState(ctx, self);
     if (state) {
-        state->terminated.store(true);
-        state->running.store(false);
+        // The owner relinquish point. It used to set two flags and return, leaving
+        // the join, the pin release and the worker space's destruction to the
+        // collector -- which is exactly where protoCore's contract says they must
+        // not happen. Doing them here means that a script that calls terminate()
+        // never reaches the deferred path at all.
+        requestWorkerTeardown(state);
+        {
+            proto::ProtoContext::UnmanagedScope u(ctx);
+            if (state->thread.joinable()) state->thread.join();
+        }
+        if (state->mainWrapper &&
+            state->workerPin != proto::ProtoRootSet::kNullHandle) {
+            proto::ProtoRootSet* rs = state->mainWrapper->getRootSet();
+            if (rs) rs->remove(state->workerPin);
+            state->workerPin = proto::ProtoRootSet::kNullHandle;
+        }
+        state->workerWrapper.reset();
     }
     return PROTO_NONE;
 }

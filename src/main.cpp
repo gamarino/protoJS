@@ -4,6 +4,7 @@
 #include "ProtoDeferred.h"
 #include "ProtoCoreNativeBindings.h"
 #include "EventLoop.h"
+#include "GcOrphanQueue.h"
 #include "EventLoopBindings.h"
 #include "console.h"
 #include "modules/IOModule.h"
@@ -403,7 +404,30 @@ int main(int argc, char** argv) {
     auto start = std::chrono::steady_clock::now();
     const auto timeout = std::chrono::seconds(180);  // Allow parallel_cpu (5 rounds × 4 staggered ProtoThreads, 2e6 iter each) to complete
 
+    // PROTOJS_GC_STATS census, printed to stderr at exit.
+    //
+    // A fixture that waits for something and then passes has to prove it actually
+    // waited for what it claims. Under a heap ceiling this census is that proof: if
+    // no collection cycle ever ran, then no thread ever had to wait for memory, the
+    // blocking-join guards were never exercised, and the case established nothing.
+    //
+    // Two numbers, both straight from protoCore's public atomics:
+    //   cycles         ProtoSpace::getGCCycleCount() -- monotone, so a non-zero
+    //                  value is unambiguous evidence that collection ran.
+    //   reclaimed-last ProtoSpace::reclaimedLastCycle -- cells the most recently
+    //                  COMPLETED cycle swept into the freelist. Non-zero means a
+    //                  cycle not only ran but freed memory, which is the condition
+    //                  protoCore itself uses as its out-of-memory signal.
+    //
+    // There is deliberately no running total: protoCore keeps none, and one
+    // accumulated from 10 ms samples here would silently miss cycles and read as
+    // cumulative while being a lower bound. A number that looks exact and is not is
+    // worse than no number.
+    proto::ProtoSpace* censusSpace = wrapper.getProtoSpace();
+    const bool gcStats = std::getenv("PROTOJS_GC_STATS") != nullptr;
+
     while (protojs::EventLoop::getInstance().hasPendingCallbacks() ||
+           protojs::GcOrphanQueue::pending() > 0 ||
            protojs::WorkerThreadsModule::getActiveWorkerCount() > 0 ||
            protojs::Deferred::getActiveDeferredCount() > 0 ||
            protojs::ProtoDeferred::getActiveCount() > 0 ||
@@ -425,6 +449,22 @@ int main(int argc, char** argv) {
 
     // Process any remaining callbacks one more time
     protojs::EventLoop::getInstance().processCallbacks();
+    // And release anything a finalizer handed over after that last pass. Orphans
+    // recorded by a finalizer are released by EventLoop::processCallbacks, which is
+    // pumped above; this is the belt-and-braces pass for a finalizer that ran during
+    // the final callbacks.
+    protojs::GcOrphanQueue::drain();
+
+    if (gcStats) {
+        std::cerr << "protojs gc: cycles="
+                  << (censusSpace ? censusSpace->getGCCycleCount() : 0)
+                  << " reclaimed-last=" << (censusSpace
+                        ? censusSpace->reclaimedLastCycle.load(std::memory_order_relaxed)
+                        : 0UL)
+                  << " orphans-posted=" << protojs::GcOrphanQueue::postedTotal()
+                  << " orphans-released=" << protojs::GcOrphanQueue::releasedTotal()
+                  << std::endl;
+    }
 
     const int exitCode = JS_IsException(result) ? 1 : 0;
     JS_FreeValue(wrapper.getJSContext(), result);

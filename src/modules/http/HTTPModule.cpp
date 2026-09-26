@@ -4,6 +4,8 @@
 #include "../../JSSymbols.h"
 #include "../../JSContext.h"
 #include "../../EventLoop.h"
+#include "../../GcOrphanQueue.h"
+#include "../../ThreadProtoContext.h"
 #include "../../runtime/ProtoInterpreter.h"
 #include "../../runtime/ProtoBytecodeModule.h"
 #include <sys/socket.h>
@@ -98,13 +100,41 @@ int getIntAttr(proto::ProtoContext* ctx, const proto::ProtoObject* self,
 // the request listener.  Lifetime: freed by `freeServerState` when the
 // owning Server instance is collected.
 
-struct ServerState {
+struct ServerState : GcOrphanQueue::Orphan {
     std::atomic<bool> listening{false};
     int socketFd{-1};
     std::thread thread;
     JSContextWrapper* wrapper{nullptr};
     proto::ProtoRootSet::Handle listenerPin{proto::ProtoRootSet::kNullHandle};
+
+    void releaseOnMutator() override;
 };
+
+// Split in two halves, and the split is the fix: see NetModule.cpp for the full
+// reasoning. The REQUEST half closes the listening descriptor, which is what makes
+// ::accept return, and blocks on nothing. The AWAIT half joins the accept loop and
+// therefore blocks, which protoCore's finalizer contract forbids on the GC thread
+// (docs/GarbageCollector.md S7): a wait inside the sweep stalls collection for the
+// whole space, and joining a loop that may be inside ::read on a slow client is not
+// bounded.
+//
+// Returns true exactly once per server, so whichever of close() and the finalizer
+// gets there first owns the g_activeServers decrement.
+bool requestServerTeardown(ServerState* s) {
+    if (!s) return false;
+    const bool wasListening = s->listening.exchange(false);
+    if (s->socketFd >= 0) {
+        ::shutdown(s->socketFd, SHUT_RDWR);
+        ::close(s->socketFd);
+        s->socketFd = -1;
+    }
+    return wasListening;
+}
+
+// Must run on a mutator thread, inside an unmanaged region.
+void awaitServerTeardown(ServerState* s) {
+    if (s && s->thread.joinable()) s->thread.join();
+}
 
 // Counts servers whose accept loop is active.  Decremented from
 // serverClose / freeServerState.  main.cpp's drain loop keeps spinning
@@ -117,24 +147,32 @@ std::atomic<int> g_activeServers{0};
 // this so the process doesn't exit while a client request is in flight.
 std::atomic<int> g_activeClients{0};
 
+void ServerState::releaseOnMutator() {
+    {
+        // Leaves protoCore's running set for the join: this thread IS registered,
+        // and a registered thread blocking inside the running set makes the
+        // stop-the-world quorum unreachable.
+        BlockingScope parked;
+        awaitServerTeardown(this);
+    }
+    // Only legal off the GC thread: ProtoRootSet::remove takes the mutex the
+    // collector holds during root collection, so it both blocks and publishes.
+    if (wrapper && listenerPin != proto::ProtoRootSet::kNullHandle) {
+        proto::ProtoRootSet* rs = wrapper->getRootSet();
+        if (rs) rs->remove(listenerPin);
+        listenerPin = proto::ProtoRootSet::kNullHandle;
+    }
+    delete this;
+}
+
+// The finalizer: only the non-blocking request half, then record the orphan.
+// GcOrphanQueue::post allocates nothing, takes no lock, calls no protoCore API and
+// never waits -- the whole budget a finalizer has.
 void freeServerState(void* p) {
     auto* s = static_cast<ServerState*>(p);
     if (!s) return;
-    bool wasListening = s->listening.exchange(false);
-    if (s->socketFd >= 0) {
-        ::shutdown(s->socketFd, SHUT_RDWR);
-        ::close(s->socketFd);
-        s->socketFd = -1;
-    }
-    if (s->thread.joinable()) {
-        s->thread.join();
-    }
-    if (wasListening) g_activeServers.fetch_sub(1);
-    if (s->wrapper && s->listenerPin != proto::ProtoRootSet::kNullHandle) {
-        proto::ProtoRootSet* rs = s->wrapper->getRootSet();
-        if (rs) rs->remove(s->listenerPin);
-    }
-    delete s;
+    if (requestServerTeardown(s)) g_activeServers.fetch_sub(1);
+    GcOrphanQueue::post(s);
 }
 
 ServerState* getServerState(proto::ProtoContext* ctx,
@@ -539,17 +577,23 @@ const proto::ProtoObject* serverClose(
     const proto::ProtoSparseList*) {
     ServerState* state = getServerState(ctx, self);
     if (!state) return PROTO_NONE;
-    bool wasListening = state->listening.exchange(false);
-    if (state->socketFd >= 0) {
-        ::shutdown(state->socketFd, SHUT_RDWR);
-        ::close(state->socketFd);
-        state->socketFd = -1;
-    }
-    if (state->thread.joinable()) {
+    // The owner relinquish point. protoCore's finalizer contract
+    // (docs/GarbageCollector.md S7) says a resource whose release blocks, publishes,
+    // or depends on another thread having finished belongs "at the point where the
+    // owner itself gives it up" -- this is it. The join was already bracketed here;
+    // what moves here now is the listenerPin release, which used to happen on the
+    // GC thread.
+    const bool wasListening = requestServerTeardown(state);
+    {
         proto::ProtoContext::UnmanagedScope u(ctx);
-        state->thread.join();
+        awaitServerTeardown(state);
     }
     if (wasListening) g_activeServers.fetch_sub(1);
+    if (state->wrapper && state->listenerPin != proto::ProtoRootSet::kNullHandle) {
+        proto::ProtoRootSet* rs = state->wrapper->getRootSet();
+        if (rs) rs->remove(state->listenerPin);
+        state->listenerPin = proto::ProtoRootSet::kNullHandle;
+    }
     if (self) self->setAttribute(ctx, keyFD(ctx), ctx->fromInteger(-1));
     return PROTO_NONE;
 }
@@ -717,7 +761,9 @@ void dispatchClientResponse(JSContextWrapper* wrapper,
 
 // ---- ClientRequestState -------------------------------------------------
 
-struct ClientRequestState {
+struct ClientRequestState : GcOrphanQueue::Orphan {
+    void releaseOnMutator() override;
+
     std::string                        method;
     std::string                        hostname;
     int                                port   = 80;
@@ -728,16 +774,29 @@ struct ClientRequestState {
     proto::ProtoRootSet::Handle        cbPin = proto::ProtoRootSet::kNullHandle;
 };
 
+void ClientRequestState::releaseOnMutator() {
+    // If end() was never called the counter was never incremented; only the pin
+    // (registered in clientRequest) needs releasing. Once end() HAS been called,
+    // clientRequestEndImpl has already handed the pin to the background thread and
+    // set cbPin to kNullHandle, so this is a no-op on that path.
+    if (wrapper && cbPin != proto::ProtoRootSet::kNullHandle) {
+        proto::ProtoRootSet* rs = wrapper->getRootSet();
+        if (rs) rs->remove(cbPin);
+        cbPin = proto::ProtoRootSet::kNullHandle;
+    }
+    delete this;
+}
+
+// This finalizer had no join, but ProtoRootSet::remove alone breaks the contract:
+// it takes the mutex the collector holds during root collection, so it blocks the
+// sweep and publishes to a shared structure from the GC thread. The two paths that
+// already did it correctly -- dispatchClientResponse on the JS thread, and
+// cleanupOnError, which hops through EventLoop::enqueueCallback before touching the
+// root set -- are the model; this is the same hop for the never-sent request.
 void freeClientRequestState(void* p) {
     auto* s = static_cast<ClientRequestState*>(p);
     if (!s) return;
-    // If end() was never called the counter was never incremented; only the
-    // pin (registered in clientRequest) needs releasing here.
-    if (s->wrapper && s->cbPin != proto::ProtoRootSet::kNullHandle) {
-        proto::ProtoRootSet* rs = s->wrapper->getRootSet();
-        if (rs) rs->remove(s->cbPin);
-    }
-    delete s;
+    GcOrphanQueue::post(s);
 }
 
 ClientRequestState* getClientRequestState(proto::ProtoContext* ctx,

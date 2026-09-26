@@ -137,6 +137,8 @@ add_library(protojs_core STATIC
     src/console.cpp
     src/ProtoNativeModule.cpp
     src/ThreadPoolExecutor.cpp
+    src/ThreadProtoContext.cpp
+    src/GcOrphanQueue.cpp
     src/CPUThreadPool.cpp
     src/IOThreadPool.cpp
     src/EventLoop.cpp
