@@ -7,6 +7,25 @@ The normative rule table is `protoCore/docs/EMBEDDER-CONFORMANCE.md`.
 - Run the static half:
   `python3 ../protoCore/scripts/conformance/check_static.py --repo .`
 
+## Regression gate — 2026-09-26, against protoCore 2.5.0 (`df8406a3`)
+
+`build_release` rebuilt **from clean** with **no `-j`** and re-run
+**sequentially**, per this machine's constraints. protoCore 2.5.0 keeps
+`SOVERSION 3`, so a stale protoJS would have linked against the new library
+without complaint — which is exactly why the rebuild is from clean.
+
+| Gate | Result |
+|---|---|
+| `ctest --test-dir build_release < /dev/null` | **34/34** |
+| test262 `built-ins/{Object,Reflect,Proxy}`, `TEST262_CONCURRENCY=1` | **3619 passed** of 3875, 256 failed (1 syntax, 255 semantics), 0 timeout, 0 skipped — **exactly the recorded baseline** |
+
+`ldd build_release/protojs` resolves `libprotoCore.so.3` to
+`../protoCore/build_release/libprotoCore.so.3` (protoCore 2.5.0), never the
+root-owned 1.0.0 at `/usr/local/lib`. **No regression from 2.4.0 to 2.5.0**: the
+only changes under `core/` between the two tags are a `getenv`-gated report at
+`ProtoSpace` teardown and the new `MutableCycles.cpp` translation unit, with the
+`Thread.cpp` and `ProtoMPSCQueue.cpp` changes comment-only.
+
 ## Regression gate — 2026-09-25, against protoCore 2.3.0
 
 Rebuilt from clean with **no `-j`** and re-run **sequentially**, per this
