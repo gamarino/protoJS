@@ -999,8 +999,11 @@ void ensureNumberConstructor(proto::ProtoContext* ctx,
     // Must be stored as a raw method (isMethod() == true), not a wrapped function object.
     const proto::ProtoString* ctorMethodKey = ctx->fromUTF8String("__construct__")->asString(ctx);
     if (ctorMethodKey) {
-        proto::ProtoObject* mCtor2 = const_cast<proto::ProtoObject*>(ctor);
-        const proto::ProtoObject* ctorMethodObj = ctx->fromMethod(mCtor2, numberConstruct);
+        // fromMethod's self is nullptr, not this object: see the comment at
+        // installNonEnumerableMethod in PrototypeUtils.cpp.  Binding a method cell
+        // to the object that then holds it is a permanent cycle through a mutable,
+        // and protoJS never reads the binding (zero asMethodSelf call sites).
+        const proto::ProtoObject* ctorMethodObj = ctx->fromMethod(nullptr, numberConstruct);
         if (ctorMethodObj && ctorMethodObj != PROTO_NONE)
             ctor = ctor->setAttribute(ctx, ctorMethodKey, ctorMethodObj);
     }

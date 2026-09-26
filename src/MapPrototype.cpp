@@ -1398,8 +1398,11 @@ void BuildMapPrototype(proto::ProtoSpace* space, proto::ProtoContext* ctx,
             if (getter) {
                 const proto::ProtoString* nfKey = JSSymbols::nativeFn(ctx);
                 if (nfKey) {
-                    proto::ProtoObject* mGetter = const_cast<proto::ProtoObject*>(getter);
-                    const proto::ProtoObject* raw = ctx->fromMethod(mGetter, mapSizeGetter);
+                    // fromMethod's self is nullptr, not this object: see the comment at
+                    // installNonEnumerableMethod in PrototypeUtils.cpp.  Binding a method cell
+                    // to the object that then holds it is a permanent cycle through a mutable,
+                    // and protoJS never reads the binding (zero asMethodSelf call sites).
+                    const proto::ProtoObject* raw = ctx->fromMethod(nullptr, mapSizeGetter);
                     if (raw) getter = getter->setAttribute(ctx, nfKey, raw);
                 }
                 const proto::ProtoString* lenKey = JSSymbols::length(ctx);
@@ -1546,8 +1549,11 @@ void ensureMapConstructor(proto::ProtoContext* ctx,
                 const proto::ProtoObject* getter = parent ? parent->newChild(ctx, true) : nullptr;
                 if (getter) {
                     const proto::ProtoString* nfKey = JSSymbols::nativeFn(ctx);
-                    proto::ProtoObject* mGetter = const_cast<proto::ProtoObject*>(getter);
-                    const proto::ProtoObject* raw = ctx->fromMethod(mGetter, mapSizeGetter);
+                    // fromMethod's self is nullptr, not this object: see the comment at
+                    // installNonEnumerableMethod in PrototypeUtils.cpp.  Binding a method cell
+                    // to the object that then holds it is a permanent cycle through a mutable,
+                    // and protoJS never reads the binding (zero asMethodSelf call sites).
+                    const proto::ProtoObject* raw = ctx->fromMethod(nullptr, mapSizeGetter);
                     if (nfKey && raw) getter = getter->setAttribute(ctx, nfKey, raw);
                     const proto::ProtoString* lenKey = JSSymbols::length(ctx);
                     if (lenKey) {
@@ -1700,8 +1706,11 @@ void ensureMapConstructor(proto::ProtoContext* ctx,
             if (getter) {
                 const proto::ProtoString* nfKey = JSSymbols::nativeFn(ctx);
                 if (nfKey) {
-                    proto::ProtoObject* mGetter = const_cast<proto::ProtoObject*>(getter);
-                    const proto::ProtoObject* raw = ctx->fromMethod(mGetter, mapSpeciesGetter);
+                    // fromMethod's self is nullptr, not this object: see the comment at
+                    // installNonEnumerableMethod in PrototypeUtils.cpp.  Binding a method cell
+                    // to the object that then holds it is a permanent cycle through a mutable,
+                    // and protoJS never reads the binding (zero asMethodSelf call sites).
+                    const proto::ProtoObject* raw = ctx->fromMethod(nullptr, mapSpeciesGetter);
                     if (raw) getter = getter->setAttribute(ctx, nfKey, raw);
                 }
                 const proto::ProtoString* lenKey = JSSymbols::length(ctx);

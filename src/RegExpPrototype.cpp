@@ -1007,8 +1007,11 @@ static const proto::ProtoObject* installRegExpGetter(
     const proto::ProtoObject* getter = parent
         ? parent->newChild(ctx, true) : ctx->newObject(true);
     if (!getter) return sp;
-    proto::ProtoObject* mGetter = const_cast<proto::ProtoObject*>(getter);
-    const proto::ProtoObject* raw = ctx->fromMethod(mGetter, fn);
+    // fromMethod's self is nullptr, not this object: see the comment at
+    // installNonEnumerableMethod in PrototypeUtils.cpp.  Binding a method cell
+    // to the object that then holds it is a permanent cycle through a mutable,
+    // and protoJS never reads the binding (zero asMethodSelf call sites).
+    const proto::ProtoObject* raw = ctx->fromMethod(nullptr, fn);
     if (raw) getter = getter->setAttribute(ctx, JSSymbols::nativeFn(ctx), raw);
     getter = getter->setAttribute(ctx, JSSymbols::length(ctx), ctx->fromInteger(0LL));
     const proto::ProtoObject* pdlo = ctx->fromUTF8String("__pd_length__");
@@ -1235,8 +1238,11 @@ void ensureRegExpConstructor(proto::ProtoContext* ctx,
                     -> const proto::ProtoObject* { return self; };
                 const proto::ProtoString* nfKey = JSSymbols::nativeFn(ctx);
                 if (nfKey) {
-                    proto::ProtoObject* mGetter = const_cast<proto::ProtoObject*>(getter);
-                    const proto::ProtoObject* raw = ctx->fromMethod(mGetter, regexpSpeciesGetter);
+                    // fromMethod's self is nullptr, not this object: see the comment at
+                    // installNonEnumerableMethod in PrototypeUtils.cpp.  Binding a method cell
+                    // to the object that then holds it is a permanent cycle through a mutable,
+                    // and protoJS never reads the binding (zero asMethodSelf call sites).
+                    const proto::ProtoObject* raw = ctx->fromMethod(nullptr, regexpSpeciesGetter);
                     if (raw) getter = getter->setAttribute(ctx, nfKey, raw);
                 }
                 const proto::ProtoString* lenKey = JSSymbols::length(ctx);

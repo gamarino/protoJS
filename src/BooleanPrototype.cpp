@@ -243,8 +243,11 @@ void ensureBooleanConstructor(proto::ProtoContext* ctx, const proto::ProtoObject
     const proto::ProtoObject* ctorKeyObj = ctx->fromUTF8String("__construct__");
     const proto::ProtoString* ctorKey = ctorKeyObj ? ctorKeyObj->asString(ctx) : nullptr;
     if (ctorKey) {
-        proto::ProtoObject* mCtor = const_cast<proto::ProtoObject*>(ctor);
-        const proto::ProtoObject* ctorMethod = ctx->fromMethod(mCtor, booleanConstruct);
+        // fromMethod's self is nullptr, not this object: see the comment at
+        // installNonEnumerableMethod in PrototypeUtils.cpp.  Binding a method cell
+        // to the object that then holds it is a permanent cycle through a mutable,
+        // and protoJS never reads the binding (zero asMethodSelf call sites).
+        const proto::ProtoObject* ctorMethod = ctx->fromMethod(nullptr, booleanConstruct);
         if (ctorMethod && ctorMethod != PROTO_NONE)
             ctor = ctor->setAttribute(ctx, ctorKey, ctorMethod);
     }

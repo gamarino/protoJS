@@ -1268,64 +1268,69 @@ void ensureTypedArrayConstructors(proto::ProtoContext* ctx,
     const proto::ProtoObject* baseProto = (objProto && objProto != PROTO_NONE)
         ? objProto->newChild(ctx, true)
         : ctx->newObject(true);
+    // Every fromMethod below passes nullptr as self, not baseProto.  fromMethod's
+    // self is a strong, traced reference, so binding each cell to the prototype it
+    // is installed on closed 30-odd permanent cycles through a mutable here alone
+    // (protoCore docs/MemoryModel.md S7).  protoJS never reads the binding: zero
+    // asMethodSelf call sites.  See installNonEnumerableMethod in PrototypeUtils.cpp.
     // Register %TypedArray%.prototype methods (batch 1)
     baseProto = baseProto->setAttribute(ctx, JSSymbols::fill(ctx),
-        ctx->fromMethod(const_cast<proto::ProtoObject*>(baseProto), ta_fill));
+        ctx->fromMethod(nullptr, ta_fill));
     baseProto = baseProto->setAttribute(ctx, JSSymbols::indexOf(ctx),
-        ctx->fromMethod(const_cast<proto::ProtoObject*>(baseProto), ta_indexOf));
+        ctx->fromMethod(nullptr, ta_indexOf));
     baseProto = baseProto->setAttribute(ctx, JSSymbols::lastIndexOf(ctx),
-        ctx->fromMethod(const_cast<proto::ProtoObject*>(baseProto), ta_lastIndexOf));
+        ctx->fromMethod(nullptr, ta_lastIndexOf));
     baseProto = baseProto->setAttribute(ctx, JSSymbols::includes(ctx),
-        ctx->fromMethod(const_cast<proto::ProtoObject*>(baseProto), ta_includes));
+        ctx->fromMethod(nullptr, ta_includes));
     baseProto = baseProto->setAttribute(ctx, JSSymbols::join(ctx),
-        ctx->fromMethod(const_cast<proto::ProtoObject*>(baseProto), ta_join));
+        ctx->fromMethod(nullptr, ta_join));
     baseProto = baseProto->setAttribute(ctx, JSSymbols::reverse(ctx),
-        ctx->fromMethod(const_cast<proto::ProtoObject*>(baseProto), ta_reverse));
+        ctx->fromMethod(nullptr, ta_reverse));
     baseProto = baseProto->setAttribute(ctx, JSSymbols::at(ctx),
-        ctx->fromMethod(const_cast<proto::ProtoObject*>(baseProto), ta_at));
+        ctx->fromMethod(nullptr, ta_at));
     baseProto = baseProto->setAttribute(ctx, JSSymbols::subarray(ctx),
-        ctx->fromMethod(const_cast<proto::ProtoObject*>(baseProto), ta_subarray));
+        ctx->fromMethod(nullptr, ta_subarray));
     baseProto = baseProto->setAttribute(ctx, JSSymbols::copyWithin(ctx),
-        ctx->fromMethod(const_cast<proto::ProtoObject*>(baseProto), ta_copyWithin));
+        ctx->fromMethod(nullptr, ta_copyWithin));
     // Register %TypedArray%.prototype methods (batch 2 — callback-based)
     baseProto = baseProto->setAttribute(ctx, JSSymbols::forEach(ctx),
-        ctx->fromMethod(const_cast<proto::ProtoObject*>(baseProto), ta_forEach));
+        ctx->fromMethod(nullptr, ta_forEach));
     baseProto = baseProto->setAttribute(ctx, JSSymbols::every(ctx),
-        ctx->fromMethod(const_cast<proto::ProtoObject*>(baseProto), ta_every));
+        ctx->fromMethod(nullptr, ta_every));
     baseProto = baseProto->setAttribute(ctx, JSSymbols::some(ctx),
-        ctx->fromMethod(const_cast<proto::ProtoObject*>(baseProto), ta_some));
+        ctx->fromMethod(nullptr, ta_some));
     baseProto = baseProto->setAttribute(ctx, JSSymbols::find(ctx),
-        ctx->fromMethod(const_cast<proto::ProtoObject*>(baseProto), ta_find));
+        ctx->fromMethod(nullptr, ta_find));
     baseProto = baseProto->setAttribute(ctx, JSSymbols::findIndex(ctx),
-        ctx->fromMethod(const_cast<proto::ProtoObject*>(baseProto), ta_findIndex));
+        ctx->fromMethod(nullptr, ta_findIndex));
     baseProto = baseProto->setAttribute(ctx, JSSymbols::map(ctx),
-        ctx->fromMethod(const_cast<proto::ProtoObject*>(baseProto), ta_map));
+        ctx->fromMethod(nullptr, ta_map));
     baseProto = baseProto->setAttribute(ctx, JSSymbols::reduce(ctx),
-        ctx->fromMethod(const_cast<proto::ProtoObject*>(baseProto), ta_reduce));
+        ctx->fromMethod(nullptr, ta_reduce));
     baseProto = baseProto->setAttribute(ctx, JSSymbols::reduceRight(ctx),
-        ctx->fromMethod(const_cast<proto::ProtoObject*>(baseProto), ta_reduceRight));
+        ctx->fromMethod(nullptr, ta_reduceRight));
     baseProto = baseProto->setAttribute(ctx, JSSymbols::sort(ctx),
-        ctx->fromMethod(const_cast<proto::ProtoObject*>(baseProto), ta_sort));
+        ctx->fromMethod(nullptr, ta_sort));
     baseProto = baseProto->setAttribute(ctx, JSSymbols::set(ctx),
-        ctx->fromMethod(const_cast<proto::ProtoObject*>(baseProto), ta_set));
+        ctx->fromMethod(nullptr, ta_set));
     // Register Task 6 prototype additions: property getters + slice
     baseProto = baseProto->setAttribute(ctx, JSSymbols::buffer(ctx),
-        ctx->fromMethod(const_cast<proto::ProtoObject*>(baseProto), ta_get_buffer));
+        ctx->fromMethod(nullptr, ta_get_buffer));
     baseProto = baseProto->setAttribute(ctx, JSSymbols::byteOffset(ctx),
-        ctx->fromMethod(const_cast<proto::ProtoObject*>(baseProto), ta_get_byteOffset));
+        ctx->fromMethod(nullptr, ta_get_byteOffset));
     baseProto = baseProto->setAttribute(ctx, JSSymbols::byteLength(ctx),
-        ctx->fromMethod(const_cast<proto::ProtoObject*>(baseProto), ta_get_byteLength));
+        ctx->fromMethod(nullptr, ta_get_byteLength));
     baseProto = baseProto->setAttribute(ctx, JSSymbols::slice(ctx),
-        ctx->fromMethod(const_cast<proto::ProtoObject*>(baseProto), ta_slice));
+        ctx->fromMethod(nullptr, ta_slice));
     // Register Task 7 iterator protocol methods.
     baseProto = baseProto->setAttribute(ctx, JSSymbols::keys(ctx),
-        ctx->fromMethod(const_cast<proto::ProtoObject*>(baseProto), ta_keys));
+        ctx->fromMethod(nullptr, ta_keys));
     baseProto = baseProto->setAttribute(ctx, JSSymbols::values(ctx),
-        ctx->fromMethod(const_cast<proto::ProtoObject*>(baseProto), ta_values));
+        ctx->fromMethod(nullptr, ta_values));
     baseProto = baseProto->setAttribute(ctx, JSSymbols::entries(ctx),
-        ctx->fromMethod(const_cast<proto::ProtoObject*>(baseProto), ta_entries));
+        ctx->fromMethod(nullptr, ta_entries));
     baseProto = baseProto->setAttribute(ctx, JSSymbols::symbolIterator(ctx),
-        ctx->fromMethod(const_cast<proto::ProtoObject*>(baseProto), ta_values));
+        ctx->fromMethod(nullptr, ta_values));
     s_taBaseProto = baseProto;
 
     // Register each concrete typed array constructor
@@ -1413,9 +1418,9 @@ void ensureTypedArrayConstructors(proto::ProtoContext* ctx,
 
         // Register Task 6 static methods: TypedArray.of() and TypedArray.from()
         ctor = ctor->setAttribute(ctx, JSSymbols::of(ctx),
-            ctx->fromMethod(const_cast<proto::ProtoObject*>(ctor), TA_OF_METHODS[i]));
+            ctx->fromMethod(nullptr, TA_OF_METHODS[i]));
         ctor = ctor->setAttribute(ctx, JSSymbols::from(ctx),
-            ctx->fromMethod(const_cast<proto::ProtoObject*>(ctor), TA_FROM_METHODS[i]));
+            ctx->fromMethod(nullptr, TA_FROM_METHODS[i]));
 
         // Register constructor on global root using the appropriate JSSymbols key
         const proto::ProtoString* globalKey = nullptr;

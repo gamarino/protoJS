@@ -455,53 +455,56 @@ void ensureDataViewConstructor(proto::ProtoContext* ctx,
         ? objProto->newChild(ctx, true)
         : ctx->newObject(true);
 
+    // nullptr, not proto: see the note in TypedArrayPrototype.cpp.  A method cell
+    // bound to the prototype that holds it is a permanent mutable cycle, and the
+    // binding is never read.
     // Register prototype methods.
     proto = proto->setAttribute(ctx, JSSymbols::getInt8(ctx),
-        ctx->fromMethod(const_cast<proto::ProtoObject*>(proto), dv_getInt8));
+        ctx->fromMethod(nullptr, dv_getInt8));
     proto = proto->setAttribute(ctx, JSSymbols::getUint8(ctx),
-        ctx->fromMethod(const_cast<proto::ProtoObject*>(proto), dv_getUint8));
+        ctx->fromMethod(nullptr, dv_getUint8));
     proto = proto->setAttribute(ctx, JSSymbols::getInt16(ctx),
-        ctx->fromMethod(const_cast<proto::ProtoObject*>(proto), dv_getInt16));
+        ctx->fromMethod(nullptr, dv_getInt16));
     proto = proto->setAttribute(ctx, JSSymbols::getUint16(ctx),
-        ctx->fromMethod(const_cast<proto::ProtoObject*>(proto), dv_getUint16));
+        ctx->fromMethod(nullptr, dv_getUint16));
     proto = proto->setAttribute(ctx, JSSymbols::getInt32(ctx),
-        ctx->fromMethod(const_cast<proto::ProtoObject*>(proto), dv_getInt32));
+        ctx->fromMethod(nullptr, dv_getInt32));
     proto = proto->setAttribute(ctx, JSSymbols::getUint32(ctx),
-        ctx->fromMethod(const_cast<proto::ProtoObject*>(proto), dv_getUint32));
+        ctx->fromMethod(nullptr, dv_getUint32));
     proto = proto->setAttribute(ctx, JSSymbols::getFloat32(ctx),
-        ctx->fromMethod(const_cast<proto::ProtoObject*>(proto), dv_getFloat32));
+        ctx->fromMethod(nullptr, dv_getFloat32));
     proto = proto->setAttribute(ctx, JSSymbols::getFloat64(ctx),
-        ctx->fromMethod(const_cast<proto::ProtoObject*>(proto), dv_getFloat64));
+        ctx->fromMethod(nullptr, dv_getFloat64));
     proto = proto->setAttribute(ctx, JSSymbols::getBigInt64(ctx),
-        ctx->fromMethod(const_cast<proto::ProtoObject*>(proto), dv_getBigInt64));
+        ctx->fromMethod(nullptr, dv_getBigInt64));
     proto = proto->setAttribute(ctx, JSSymbols::getBigUint64(ctx),
-        ctx->fromMethod(const_cast<proto::ProtoObject*>(proto), dv_getBigUint64));
+        ctx->fromMethod(nullptr, dv_getBigUint64));
     proto = proto->setAttribute(ctx, JSSymbols::setInt8(ctx),
-        ctx->fromMethod(const_cast<proto::ProtoObject*>(proto), dv_setInt8));
+        ctx->fromMethod(nullptr, dv_setInt8));
     proto = proto->setAttribute(ctx, JSSymbols::setUint8(ctx),
-        ctx->fromMethod(const_cast<proto::ProtoObject*>(proto), dv_setUint8));
+        ctx->fromMethod(nullptr, dv_setUint8));
     proto = proto->setAttribute(ctx, JSSymbols::setInt16(ctx),
-        ctx->fromMethod(const_cast<proto::ProtoObject*>(proto), dv_setInt16));
+        ctx->fromMethod(nullptr, dv_setInt16));
     proto = proto->setAttribute(ctx, JSSymbols::setUint16(ctx),
-        ctx->fromMethod(const_cast<proto::ProtoObject*>(proto), dv_setUint16));
+        ctx->fromMethod(nullptr, dv_setUint16));
     proto = proto->setAttribute(ctx, JSSymbols::setInt32(ctx),
-        ctx->fromMethod(const_cast<proto::ProtoObject*>(proto), dv_setInt32));
+        ctx->fromMethod(nullptr, dv_setInt32));
     proto = proto->setAttribute(ctx, JSSymbols::setUint32(ctx),
-        ctx->fromMethod(const_cast<proto::ProtoObject*>(proto), dv_setUint32));
+        ctx->fromMethod(nullptr, dv_setUint32));
     proto = proto->setAttribute(ctx, JSSymbols::setFloat32(ctx),
-        ctx->fromMethod(const_cast<proto::ProtoObject*>(proto), dv_setFloat32));
+        ctx->fromMethod(nullptr, dv_setFloat32));
     proto = proto->setAttribute(ctx, JSSymbols::setFloat64(ctx),
-        ctx->fromMethod(const_cast<proto::ProtoObject*>(proto), dv_setFloat64));
+        ctx->fromMethod(nullptr, dv_setFloat64));
     proto = proto->setAttribute(ctx, JSSymbols::setBigInt64(ctx),
-        ctx->fromMethod(const_cast<proto::ProtoObject*>(proto), dv_setBigInt64));
+        ctx->fromMethod(nullptr, dv_setBigInt64));
     proto = proto->setAttribute(ctx, JSSymbols::setBigUint64(ctx),
-        ctx->fromMethod(const_cast<proto::ProtoObject*>(proto), dv_setBigUint64));
+        ctx->fromMethod(nullptr, dv_setBigUint64));
     proto = proto->setAttribute(ctx, JSSymbols::buffer(ctx),
-        ctx->fromMethod(const_cast<proto::ProtoObject*>(proto), dv_get_buffer));
+        ctx->fromMethod(nullptr, dv_get_buffer));
     proto = proto->setAttribute(ctx, JSSymbols::byteOffset(ctx),
-        ctx->fromMethod(const_cast<proto::ProtoObject*>(proto), dv_get_byteOffset));
+        ctx->fromMethod(nullptr, dv_get_byteOffset));
     proto = proto->setAttribute(ctx, JSSymbols::byteLength(ctx),
-        ctx->fromMethod(const_cast<proto::ProtoObject*>(proto), dv_get_byteLength));
+        ctx->fromMethod(nullptr, dv_get_byteLength));
     // §25.3.4.18 DataView.prototype[@@toStringTag] = "DataView" with
     // descriptor {writable:false, enumerable:false, configurable:true}
     // → 0x2.  Object.prototype.toString.call(new DataView(buf))

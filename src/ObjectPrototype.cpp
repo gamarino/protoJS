@@ -6177,8 +6177,11 @@ void reinstallObjectProtoAccessor(proto::ProtoContext* ctx) {
         const proto::ProtoObject* wrap = parent
             ? parent->newChild(ctx, true) : ctx->newObject(true);
         if (!wrap) return nullptr;
-        proto::ProtoObject* mWrap = const_cast<proto::ProtoObject*>(wrap);
-        const proto::ProtoObject* raw = ctx->fromMethod(mWrap, fn);
+        // fromMethod's self is nullptr, not this object: see the comment at
+        // installNonEnumerableMethod in PrototypeUtils.cpp.  Binding a method cell
+        // to the object that then holds it is a permanent cycle through a mutable,
+        // and protoJS never reads the binding (zero asMethodSelf call sites).
+        const proto::ProtoObject* raw = ctx->fromMethod(nullptr, fn);
         const proto::ProtoString* nfK = JSSymbols::nativeFn(ctx);
         if (nfK && raw) wrap = wrap->setAttribute(ctx, nfK, raw);
         const proto::ProtoString* lenK = JSSymbols::length(ctx);
@@ -6269,8 +6272,11 @@ const proto::ProtoObject* installObjectInstanceMethods(
             const proto::ProtoObject* wrap = parent
                 ? parent->newChild(ctx, true) : ctx->newObject(true);
             if (!wrap) return nullptr;
-            proto::ProtoObject* mWrap = const_cast<proto::ProtoObject*>(wrap);
-            const proto::ProtoObject* raw = ctx->fromMethod(mWrap, fn);
+            // fromMethod's self is nullptr, not this object: see the comment at
+            // installNonEnumerableMethod in PrototypeUtils.cpp.  Binding a method cell
+            // to the object that then holds it is a permanent cycle through a mutable,
+            // and protoJS never reads the binding (zero asMethodSelf call sites).
+            const proto::ProtoObject* raw = ctx->fromMethod(nullptr, fn);
             const proto::ProtoString* nfK = JSSymbols::nativeFn(ctx);
             if (nfK && raw) wrap = wrap->setAttribute(ctx, nfK, raw);
             const proto::ProtoString* lenK = JSSymbols::length(ctx);

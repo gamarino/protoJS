@@ -25,8 +25,19 @@ const proto::ProtoObject* installNonEnumerableMethod(
     // Store raw ProtoMethod as __native_fn__ (dispatch checks this).
     const proto::ProtoString* nfKey = JSSymbols::nativeFn(ctx);
     if (!nfKey) return proto;  // Cannot register native fn — skip entire install
-    proto::ProtoObject* mMethodObj = const_cast<proto::ProtoObject*>(methodObj);
-    const proto::ProtoObject* rawMethod = ctx->fromMethod(mMethodObj, fn);
+    // self is nullptr, NOT methodObj.  fromMethod's self is a strong, traced
+    // reference (protoCore/headers/protoCore.h), so binding the cell to the very
+    // object it is then installed on closes a reference cycle through a mutable —
+    // and a cycle among mutables is never collected (protoCore
+    // docs/MemoryModel.md S7).  That accounted for about 140 of the 177 cycles a
+    // bare `protojs -e 1` process carried, and the binding was dead: protoJS has
+    // zero asMethodSelf call sites and all 24 asMethod sites pass the real
+    // receiver, so nothing could read it.  FunctionPrototype.cpp:1302 already
+    // does the identical job with nullptr.  The memory saved is negligible —
+    // these objects hang off globalThis and are perennial — but a detector that
+    // reports 140 known-benign cycles is noise, and clearing the benign is what
+    // makes the harmful visible.  Guarded by cli/no-method-self-cycles.
+    const proto::ProtoObject* rawMethod = ctx->fromMethod(nullptr, fn);
     if (rawMethod) methodObj = methodObj->setAttribute(ctx, nfKey, rawMethod);
 
     // Set length: {value: argc, writable: false, enumerable: false, configurable: true}

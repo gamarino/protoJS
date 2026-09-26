@@ -6050,8 +6050,11 @@ void ensureArrayPrototype(proto::ProtoContext* ctx,
             if (getter) {
                 const proto::ProtoString* nfKey = JSSymbols::nativeFn(ctx);
                 if (nfKey) {
-                    proto::ProtoObject* mGetter = const_cast<proto::ProtoObject*>(getter);
-                    const proto::ProtoObject* raw = ctx->fromMethod(mGetter, arraySpeciesGetter);
+                    // fromMethod's self is nullptr, not this object: see the comment at
+                    // installNonEnumerableMethod in PrototypeUtils.cpp.  Binding a method cell
+                    // to the object that then holds it is a permanent cycle through a mutable,
+                    // and protoJS never reads the binding (zero asMethodSelf call sites).
+                    const proto::ProtoObject* raw = ctx->fromMethod(nullptr, arraySpeciesGetter);
                     if (raw) getter = getter->setAttribute(ctx, nfKey, raw);
                 }
                 const proto::ProtoString* lenKey = JSSymbols::length(ctx);

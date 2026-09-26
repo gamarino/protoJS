@@ -3442,7 +3442,10 @@ void ensureStringConstructor(proto::ProtoContext* ctx,
         ? ctorParent->newChild(ctx, true)
         : ctx->newObject(true);
     if (!ctor) return;
-    proto::ProtoObject* mCtor = const_cast<proto::ProtoObject*>(ctor);
+    // fromMethod's self is nullptr, not this object: see the comment at
+    // installNonEnumerableMethod in PrototypeUtils.cpp.  Binding a method cell
+    // to the object that then holds it is a permanent cycle through a mutable,
+    // and protoJS never reads the binding (zero asMethodSelf call sites).
 
     // §17: every built-in method is
     // {writable:true, enumerable:false, configurable:true} (bits 0x3).
