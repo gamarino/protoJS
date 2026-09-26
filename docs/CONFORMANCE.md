@@ -79,6 +79,18 @@ regression**, which is the thing that had to be checked: protoJS reaches
 `ProtoThread::join` at `src/ProtoCoreNativeBindings.cpp:196`, from a CPU-pool
 thread, through a `ProtoContext` fabricated on the stack.
 
+## Correction to a figure in a commit message (2026-09-26)
+
+`f708dc3fc`'s message states "ctest 35/35 with -E `integration|network`, 36/36
+unfiltered". That commit's own tree registers **34 with `-E`** (33 Catch2 plus one CLI
+fixture) and 35 unfiltered: the figure was measured on a working tree that also carried
+the next commit's `cli/test262-regression-gate-self-test`. Both runs were green, and no
+other number in that message is affected. `cd636a492`'s 35/36 is correct for its own
+tree, and every commit from `50fe92b1b` on is 42 with `-E` and 43 unfiltered.
+
+Recorded rather than quietly corrected, because a count that cannot be reproduced from
+the commit it appears in is exactly the kind of figure this repository has been burned by.
+
 ## Known, reported, not fixed (2026-09-26)
 
 Found while auditing the finalizers and the blocking joins, out of scope for that work,
