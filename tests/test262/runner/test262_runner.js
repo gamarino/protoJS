@@ -49,8 +49,24 @@ function getConfig() {
     harnessDir,
     defaultTimeoutMs: cfg.default_timeout_ms || 10000,
     patterns,
-    useProtoEval
+    useProtoEval,
+    // TEST262_LENIENT=1 restores the pre-2026-09 classification (parse-negative
+    // tests always pass, async tests judged by exit code). Kept only so the
+    // historical figures in docs/ can be reproduced.
+    lenient: process.env.TEST262_LENIENT === "1"
   };
+}
+
+// The revision of the Test262 checkout the numbers were measured against. A
+// pass rate without it is not reproducible: the corpus grows every week.
+function getCorpusCommit(root) {
+  try {
+    return require("child_process")
+      .execFileSync("git", ["-C", root, "rev-parse", "HEAD"], { encoding: "utf8" })
+      .trim();
+  } catch (e) {
+    return null;
+  }
 }
 
 function loadSkipList() {
@@ -203,9 +219,13 @@ function buildTestFile(cfg, test) {
   // ES module tests must not be polluted with script-mode harness code.
   // Mixing harness (global script) with module syntax causes SyntaxErrors.
   const isModuleTest = !!(meta.flags && meta.flags.module);
+  // Test262 `flags: [raw]` means the file must run exactly as written: no
+  // harness, no includes and no injected directive prologue. Prepending
+  // assert.js/sta.js changes what such a test measures.
+  const isRawTest = !!(meta.flags && meta.flags.raw);
 
   const parts = [];
-  if (!isModuleTest) {
+  if (!isModuleTest && !isRawTest) {
     const harnessAssert = path.join(cfg.harnessDir, "assert.js");
     const harnessSta = path.join(cfg.harnessDir, "sta.js");
     if (fs.existsSync(harnessAssert)) parts.push(fs.readFileSync(harnessAssert, "utf8"));
@@ -228,7 +248,7 @@ function buildTestFile(cfg, test) {
   // "use strict" MUST be the first statement in the combined file (before harness
   // scripts) so the directive prologue is recognised by the parser. Using push()
   // would place it after 200+ lines of harness code where it has no effect.
-  if (meta.flags && (meta.flags.onlyStrict || meta.flags["onlyStrict"])) {
+  if (!isRawTest && meta.flags && (meta.flags.onlyStrict || meta.flags["onlyStrict"])) {
     parts.unshift('"use strict";');
   }
   parts.push(src);
@@ -239,28 +259,50 @@ function buildTestFile(cfg, test) {
   return { tmpPath, meta, isModuleTest };
 }
 
-function classifyResult(meta, err, stdout, stderr) {
+// Test262's own pass criteria, as implemented here:
+//
+//   * positive test           -> the engine must complete without an error
+//   * positive + flags:[async] -> stdout must carry doneprintHandle.js's
+//                                 "Test262:AsyncTestComplete" marker; the exit
+//                                 code alone says nothing, because $DONE(err)
+//                                 prints "Test262:AsyncTestFailure" and still
+//                                 exits 0
+//   * negative test           -> the engine must report an error whose name
+//                                 matches `negative.type`
+//
+// `lenient` restores the pre-2026-09 behaviour of this runner, which counted
+// every parse-phase negative as a pass and judged async tests by exit code
+// only. It exists so historical figures can be reproduced, not to be reported.
+const ASYNC_PASS_MARKER = "Test262:AsyncTestComplete";
+
+function classifyResult(meta, err, stdout, stderr, lenient) {
+  const msg = (stderr || "") + (stdout || "");
+  const isAsync = !!(meta.flags && meta.flags.async);
+
   if (!meta.negative) {
     // Positive test
-    if (!err) return "passed";
-    const msg = (stderr || "") + (stdout || "");
-    if (/SyntaxError/i.test(msg)) return "failed_syntax";
-    return "failed_semantics";
-  }
-  // Negative test: must fail in the expected phase
-  const msg = (stderr || "") + (stdout || "");
-  const isParseNegative = meta.negative.phase && /parse/i.test(String(meta.negative.phase));
-  if (!err) {
-    // Parser leniency: for parse-negative tests, if the engine accepts the code
-    // (no error), count as passed to avoid failing the suite for parser divergence.
-    if (isParseNegative) return "passed";
-    return "failed_semantics";
-  }
-  // For parse-phase negatives, protojs/protoCore may not surface the error name
-  // in stdout/stderr even though a SyntaxError was thrown. Treat any error as
-  // success in that case.
-  if (isParseNegative) {
+    if (err) {
+      if (/SyntaxError/i.test(msg)) return "failed_syntax";
+      return "failed_semantics";
+    }
+    if (isAsync && !lenient) {
+      // An async test that never signals completion has not passed, whatever
+      // its exit status.
+      return (stdout || "").includes(ASYNC_PASS_MARKER) ? "passed" : "failed_async";
+    }
     return "passed";
+  }
+
+  // Negative test: the engine must reject the source.
+  const isParseNegative =
+    meta.negative.phase && /parse|early|resolution/i.test(String(meta.negative.phase));
+  if (lenient && isParseNegative) {
+    // Historical leniency: parse-negative tests passed unconditionally.
+    return "passed";
+  }
+  if (!err) {
+    // The engine accepted source that Test262 requires it to reject.
+    return "failed_negative";
   }
   // Test262Error is a harness-defined constructor; protoCore correctly throws it
   // but cannot resolve its class name, reporting "(ProtoObject)" instead.
@@ -272,9 +314,12 @@ function classifyResult(meta, err, stdout, stderr) {
     return "passed";
   }
   if (meta.negative.type && !new RegExp(meta.negative.type, "i").test(msg)) {
-    return "failed_semantics";
+    // It failed, but not with the error Test262 asked for.
+    return isParseNegative ? "failed_negative" : "failed_semantics";
   }
-  // We do not distinguish parse vs runtime strictly yet
+  if (!meta.negative.type && isParseNegative && !/Error/i.test(msg)) {
+    return "failed_negative";
+  }
   return "passed";
 }
 
@@ -298,6 +343,10 @@ function runOne(proto, cfg, test) {
     for (const inc of meta.includes) {
       const incPath = path.join(cfg.harnessDir, inc);
       if (fs.existsSync(incPath)) preloads.push("--preload", incPath);
+    }
+    if (meta.flags && meta.flags.async) {
+      const doneHandle = path.join(cfg.harnessDir, "doneprintHandle.js");
+      if (fs.existsSync(doneHandle)) preloads.push("--preload", doneHandle);
     }
     binaryArgs = [...preloads, "--input-type=module", test.full];
   } else {
@@ -337,13 +386,17 @@ function runOne(proto, cfg, test) {
         if (effError && effError.killed) {
           result = "timeout";
         } else {
-          result = classifyResult(meta, effError, outStr, errStr);
+          result = classifyResult(meta, effError, outStr, errStr, cfg.lenient);
         }
         resolve({
           path: test.rel,
           result,
           durationMs,
           negative: meta.negative,
+          // Recorded so a reader can audit which figures depend on which
+          // Test262 metadata (async completion markers, module evaluation,
+          // strict-mode variants) without re-running the suite.
+          flags: Object.keys(meta.flags || {}),
           errorSummary: effError
             ? String(effError.message || "").slice(0, 200)
             : null
@@ -356,6 +409,9 @@ function runOne(proto, cfg, test) {
 }
 
 async function main() {
+  // Measured from process start so the reported wall clock includes corpus
+  // discovery, which is a real cost for anyone reproducing the figure.
+  const t0 = Date.now();
   const cfg = getConfig();
   const proto = getProtoJSBinary();
   if (!fs.existsSync(REPORT_DIR)) fs.mkdirSync(REPORT_DIR, { recursive: true });
@@ -424,15 +480,36 @@ async function main() {
     await Promise.all(Array.from({length: concurrency}, () => worker()));
   }
 
-  const summary = { passed: 0, failed_syntax: 0, failed_semantics: 0, timeout: 0, skipped: 0 };
+  const summary = {
+    passed: 0,
+    failed_syntax: 0,
+    failed_semantics: 0,
+    failed_negative: 0,
+    failed_async: 0,
+    timeout: 0,
+    skipped: 0
+  };
   for (const r of results) {
     if (summary[r.result] !== undefined) summary[r.result]++;
   }
 
+  const wallClockMs = Date.now() - t0;
+  const denominator = results.length - summary.skipped;
+  const passRate = denominator > 0 ? (summary.passed / denominator) * 100 : 0;
+
   const snapshot = {
     generatedAt: new Date().toISOString(),
     patterns: cfg.patterns,
+    corpusRoot: cfg.root,
+    corpusCommit: getCorpusCommit(cfg.root),
+    binary: proto,
+    concurrency,
+    lenientClassification: cfg.lenient,
+    skipListEntries: skipSet.size,
+    wallClockMs,
     total: results.length,
+    denominator,
+    passRatePercent: Number(passRate.toFixed(2)),
     summary,
     results
   };
@@ -441,9 +518,36 @@ async function main() {
   const patternKey = patternKeyRaw.length > 80 ? patternKeyRaw.slice(0, 80) : patternKeyRaw;
   const outPath = path.join(REPORT_DIR, `snapshot-${patternKey}-${Date.now()}.json`);
   fs.writeFileSync(outPath, JSON.stringify(snapshot, null, 2), "utf8");
+
+  // Self-report: a run that does not print the work it did and the figure it
+  // produced invites the figure to be quoted without its denominator.
+  console.log("");
+  console.log("=== Test262 run summary ===");
+  console.log(`patterns          : ${cfg.patterns.join(", ")}`);
+  console.log(`corpus            : ${cfg.root} @ ${snapshot.corpusCommit || "unknown"}`);
+  console.log(`binary            : ${proto}`);
+  console.log(`classification    : ${cfg.lenient ? "LENIENT (historical)" : "strict"}`);
+  console.log(`concurrency       : ${concurrency}`);
+  console.log(`discovered        : ${results.length}`);
+  console.log(`skipped           : ${summary.skipped}`);
+  console.log(`denominator       : ${denominator}`);
+  console.log(`passed            : ${summary.passed}`);
+  console.log(`failed (syntax)   : ${summary.failed_syntax}`);
+  console.log(`failed (semantics): ${summary.failed_semantics}`);
+  console.log(`failed (negative) : ${summary.failed_negative}`);
+  console.log(`failed (async)    : ${summary.failed_async}`);
+  console.log(`timeout           : ${summary.timeout}`);
+  console.log(`pass rate         : ${passRate.toFixed(2)} %`);
+  console.log(`wall clock        : ${(wallClockMs / 1000).toFixed(0)} s`);
   console.log(`Snapshot written to ${path.relative(REPO_ROOT, outPath)}`);
 
-  if (summary.failed_semantics || summary.failed_syntax || summary.timeout) {
+  if (
+    summary.failed_semantics ||
+    summary.failed_syntax ||
+    summary.failed_negative ||
+    summary.failed_async ||
+    summary.timeout
+  ) {
     process.exit(1);
   }
 }

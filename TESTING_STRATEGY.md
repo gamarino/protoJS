@@ -297,7 +297,7 @@ No CI workflow is configured in this repository; the steps above are run locally
 ## Metrics to Track
 
 1. **Unit tests:** CTest pass count.
-2. **Conformance:** Test262 pass rate per pattern (JSON snapshots, `CONFORMANCE_JS.md`).
+2. **Conformance:** one authoritative Test262 pass rate over the whole corpus, with its denominator, corpus commit and exclusion policy (`docs/TEST262_STATUS.md`). Per-pattern rates (JSON snapshots, `CONFORMANCE_JS.md`) are subset diagnostics and are never quoted as the conformance figure.
 3. **Performance:** per-benchmark `time_ms` and the ratios reported by the comparison runners.
 4. **Coverage:** line coverage when built with `ENABLE_COVERAGE`.
 5. **Stability:** crashes and timeouts reported by the Test262 runner.

@@ -22,8 +22,9 @@ Index of the documentation in this repository. Start with the [project README](.
 - [GC_BRIDGING.md](GC_BRIDGING.md) — rules for keeping protoCore objects alive across asynchronous, thread and native-call boundaries.
 - [MIGRATION_QUICKJS_TO_PROTOCORE.md](MIGRATION_QUICKJS_TO_PROTOCORE.md) — status of moving bindings from the QuickJS-side global to the protoCore-native global, the migration pattern, and the remaining steps.
 - [src/runtime/README.md](../src/runtime/README.md) — the protoCore-native bytecode interpreter: compile, specialise, load and run, execution state, components, and threads.
-- [TEST262_STATUS.md](TEST262_STATUS.md) — the latest full Test262 run (`language` and `built-ins`), by family, with run instructions.
-- [CONFORMANCE_JS.md](../CONFORMANCE_JS.md) — Test262 subset measurements, runner methodology and the history of conformance fixes.
+- [TEST262_STATUS.md](TEST262_STATUS.md) — **protoJS's one authoritative Test262 figure**, with its denominator, corpus commit, reproduction command and exclusion policy. Start here for any conformance question.
+- [CONFORMANCE_JS.md](../CONFORMANCE_JS.md) — Test262 **subset** measurements (subordinate to the figure above), runner methodology and the history of conformance fixes.
+- [CONFORMANCE.md](CONFORMANCE.md) — protoCore embedder-conformance status and the fast per-commit test262 regression gate. Its test262 counts are a gate, not a pass rate.
 - [tests/README.md](../tests/README.md) — how to run each test layer (C++ unit, smoke, Test262, integration, conformity).
 - [tests/conformity/README.md](../tests/conformity/README.md) — layout of the conformity test suite and how to run it.
 - [tests/benchmarks/standard/README.md](../tests/benchmarks/standard/README.md) — the standard benchmark suite and its Node.js and QuickJS comparison runners.

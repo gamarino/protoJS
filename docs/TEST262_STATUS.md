@@ -1,14 +1,150 @@
 # Test262 Conformance Status — protoJS
 
-**Last full-suite run:** 2026-06-01 (cycle 5: one bug fix plus 17 further fixes)
+This page holds protoJS's **one authoritative Test262 figure**. Every other
+Test262 number in this repository is historical or a named subset, and says so
+where it appears. If two figures ever disagree again, this one wins.
+
+## Headline figure — as of 2026-09-26
+
+**28,529 of 53,571 tests pass — 53.25 %** of the whole Test262 corpus.
+
+Reproduce it:
+
+```bash
+TEST262_ROOT=../test262 \
+TEST262_CONCURRENCY=1 \
+TEST262_PATTERNS=annexB,built-ins,harness,intl402,language,staging \
+PROTOJS=./build_release/protojs \
+node tests/test262/runner/test262_runner.js
+```
+
+The runner prints the figure, its denominator, the corpus commit and the wall
+clock at the end of the run, and writes the same fields into its JSON snapshot.
+Quote the run, not this page.
+
+| Field | Value |
+|---|---|
+| Date | 2026-09-26 |
+| Corpus | `../test262` at commit `aae8cf6eed6d6c6a203be48c1184bb194880f66b` |
+| Scope | the whole corpus: `annexB`, `built-ins`, `harness`, `intl402`, `language`, `staging` |
+| Discovered | 53,582 files (every `.js` under `test/` that is not a `_FIXTURE`) |
+| Skipped | 11 (the skip list; see below) |
+| Denominator | 53,571 |
+| Passed | **28,529** |
+| Failed — semantics | 22,845 |
+| Failed — syntax | 1,241 |
+| Failed — negative (engine accepted source Test262 requires it to reject) | 7 |
+| Failed — async (no `Test262:AsyncTestComplete`) | 336 |
+| Timeouts (5,000 ms each) | 613 |
+| Pass rate | **53.25 %** |
+| Wall clock | 4,849 s (1 h 21 min), sequential, `TEST262_CONCURRENCY=1` |
+| Binary | `build_release/protojs`, protoJS `0736a0511` plus the strict classification introduced with this measurement |
+| protoCore | 2.5.0 (`df8406a3`), `libprotoCore.so.3` from `../protoCore/build_release`, confirmed by `ldd` |
+
+`TEST262_CONCURRENCY=1` is not a preference. Parallel Test262 runs and parallel
+protoJS builds (`-j` greater than 1) hang the development machine, so the build
+is `-j1` and the run is sequential.
+
+### By directory
+
+| Directory | Denominator | Passed | Pass rate |
+|---|---:|---:|---:|
+| `annexB` | 1,086 | 545 | 50.18 % |
+| `built-ins` | 23,814 | 12,874 | 54.06 % |
+| `harness` | 116 | 87 | 75.00 % |
+| `intl402` | 3,357 | 20 | 0.60 % |
+| `language` | 23,715 | 14,368 | 60.59 % |
+| `staging` | 1,483 | 635 | 42.82 % |
+| **Whole corpus** | **53,571** | **28,529** | **53.25 %** |
+
+Subordinate view, for comparison with engines that publish it: excluding
+`intl402` (no ECMA-402 in protoJS) and `staging` (not normative in Test262),
+**27,874 of 48,731 = 57.20 %**. This is *not* the headline. The headline
+includes both, because leaving them out raises the number without improving the
+engine.
+
+## Exclusion policy
+
+A pass rate whose exclusions are undocumented is not a measurement. These are
+protoJS's, stated in Test262's own terms.
+
+- **Corpus.** Every `.js` file under `test/` whose name does not contain
+  `_FIXTURE` (fixtures are imported by other tests, not tests themselves).
+  Nothing is excluded by directory.
+- **Skip list.** 11 files in `tests/test262/config/skip_proto_eval.json` are
+  skipped and removed from the denominator. They are resizable-`ArrayBuffer`
+  and `for-of` destructuring tests that hang the interpreter.
+- **`negative` tests.** The engine must reject the source *and* report an error
+  whose name matches the `negative.type` in the front matter. A negative test
+  the engine accepts is counted `failed_negative`. Until 2026-09 this runner
+  passed every `phase: parse` negative unconditionally; that leniency is now
+  off by default and only 7 tests were affected, so the corpus of 4,660
+  parse-phase negatives was already being rejected correctly.
+- **`flags: [async]`** (5,624 files). A pass requires
+  `Test262:AsyncTestComplete` on stdout. This matters: `$DONE(err)` prints
+  `Test262:AsyncTestFailure` and still exits 0, so judging async tests by exit
+  status counts their failures as passes. 336 tests are in that state.
+- **`flags: [module]`** (843 files). Evaluated by the QuickJS module evaluator,
+  because protoCore implements no module semantics. They are counted, and a pass
+  is a pass for protoJS as shipped, but it is not a protoCore-interpreter
+  result.
+- **`flags: [raw]`** (32 files). Run with no harness and no injected directive
+  prologue, as Test262 requires.
+- **`includes`** (13,629 files use it). Honoured: each named file is read from
+  `<test262>/harness` and prepended, alongside `assert.js` and `sta.js`. All
+  referenced harness files resolve; none is silently missing.
+- **`features`.** Not consulted. A test requiring a feature protoJS does not
+  implement is run and counted as a failure. Nothing is excluded for being
+  unimplemented — which is why the denominator is the whole corpus.
+- **`staging/`** (1,483 files). Included, although Test262 documents it as not
+  yet normative.
+- **`intl402/`** (3,357 files). Included, although protoJS implements no
+  ECMA-402.
+- **Timeouts.** 5,000 ms per test (`default_timeout_ms`), counted as failures.
+  613 tests time out. 384 of them are in
+  `built-ins/RegExp/property-escapes/generated`, which alone costs about 35
+  minutes of the run; the rest are spread over class, object-literal,
+  async-generator and `for-of` tests. The timeouts, not the pass rate, are what
+  make this measurement slow.
+
+### Known deviation from Test262's execution model
+
+Test262 requires every file without `onlyStrict`, `noStrict`, `raw` or `module`
+to be run **twice** — once as sloppy-mode script, once with a `"use strict"`
+prologue. 49,344 of the 53,582 files are in that class. This runner executes
+each file **once, in sloppy mode**. Strict-mode conformance is therefore
+unmeasured, and an official count of this corpus would have roughly twice this
+denominator. `onlyStrict` is honoured (the directive is placed first, before the
+harness); `noStrict` needs nothing, since sloppy is the default.
+
+### Continuous integration
+
+At 1 h 21 min sequential this measurement does not belong on every push. It is a
+release gate, run on demand. The per-commit gate is the three-pattern regression
+check in [CONFORMANCE.md](CONFORMANCE.md), which takes minutes.
+
+---
+
+## Historical: `language` + `built-ins`, lenient classification (2026-06-01)
+
+**Superseded by the headline above.** This is not protoJS's conformance figure.
+It measured a different corpus (`language` and `built-ins` only, 46,963 tests as
+the corpus stood then), under the pre-2026-09 lenient classification that passed
+every parse-phase negative unconditionally and judged async tests by exit code,
+and it was run with `TEST262_CONCURRENCY=10`, which is no longer safe on this
+machine. It is kept because it was a real measurement and the fix history below
+is indexed against it.
+
 **Snapshot:** `tests/test262/reports/snapshot-language_built-ins-1780352472153.json` (run output; the reports directory is not tracked in git)
 **Binary:** `build_release/protojs` v0.1.0 (commit `00ad7634` on `master`)
-**Scope:** `language` + `built-ins` (46 963 tests)
-**Runner:** `tests/test262/runner/test262_runner.js`, parallel (`TEST262_CONCURRENCY=10`, ~7 min wall)
+**Corpus commit:** not recorded.
 
-This page records the most recent run of the full `language` + `built-ins` suite. The fix lists, class-implementation notes and next steps below describe the state on that date. Later measurements of individual directories (subsets) are in [CONFORMANCE_JS.md](../CONFORMANCE_JS.md).
+To reproduce the lenient classification for comparison, set `TEST262_LENIENT=1`.
+On the 2026-09-26 whole-corpus run it would have reported 28,872 of 53,571
+(53.89 %) instead of 28,529 (53.25 %) — the 7 negative and 336 async tests that
+strict classification does not credit.
 
-## Overall
+## Overall (historical, 2026-06-01)
 
 | | Total | Passed | Failed (syntax) | Failed (semantics) | Timeouts | Skipped | Pass rate |
 |---|---:|---:|---:|---:|---:|---:|---:|
@@ -345,9 +481,14 @@ unsupported-opcode bails as passes.
    Maps still produce empty collections.  Mirror the iterator-direct
    probe pattern from `OP_append` / `Array.from` / `Object.fromEntries`.
 
-## Methodology Notes
+## Methodology notes for the historical 2026-06-01 run
 
-- **Pass rate ≠ ECMA conformance score.** Pass rate is `passed / total` where total includes syntax/semantics failures, timeouts, and skips.
+These describe the 2026-06-01 run only. The current policy is
+[Exclusion policy](#exclusion-policy) above, and it differs: the headline
+denominator excludes skipped tests, negative and async tests are classified
+strictly, and the scope is the whole corpus rather than `language` + `built-ins`.
+
+- **Pass rate ≠ ECMA conformance score.** In the historical run, pass rate is `passed / total` where total includes syntax/semantics failures, timeouts, and skips.
 - **`PROTOCORE_GC_CONTEXT_THRESHOLD=1000000000`** raises the per-context allocation threshold that protoCore uses to trigger a collection (default 10,000 cells; see protoCore's `headers/protoCore.h`). The recorded run set it to reduce collection frequency; it is not a conformance setting.
 - **Skip list:** `tests/test262/config/skip_proto_eval.json` records 11 tests that hang or crash protoJS in ways unrelated to conformance.
 - **Test262 root:** `../test262` by default (`test262_root` in `tests/test262/config/test262_paths.json`).

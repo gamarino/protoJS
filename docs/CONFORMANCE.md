@@ -7,6 +7,14 @@ The normative rule table is `protoCore/docs/EMBEDDER-CONFORMANCE.md`.
 - Run the static half:
   `python3 ../protoCore/scripts/conformance/check_static.py --repo .`
 
+> **The test262 counts on this page are a regression gate, not a conformance
+> figure.** They run three `built-ins` directories to confirm that a protoCore
+> upgrade changed nothing, and they are chosen because they are fast, not because
+> they score well. protoJS's conformance figure is the whole corpus —
+> **28,529 of 53,571, 53.25 %, as of 2026-09-26** — in
+> [TEST262_STATUS.md](TEST262_STATUS.md). Never quote 3 619 / 3 875 as a pass
+> rate.
+
 ## Regression gate — 2026-09-26, against protoCore 2.5.0 (`df8406a3`)
 
 `build_release` rebuilt **from clean** with **no `-j`** and re-run
@@ -18,6 +26,12 @@ without complaint — which is exactly why the rebuild is from clean.
 |---|---|
 | `ctest --test-dir build_release < /dev/null` | **34/34** |
 | test262 `built-ins/{Object,Reflect,Proxy}`, `TEST262_CONCURRENCY=1` | **3619 passed** of 3875, 256 failed (1 syntax, 255 semantics), 0 timeout, 0 skipped — **exactly the recorded baseline** |
+
+Re-verified on 2026-09-26 under the runner's new strict classification (async
+tests must signal completion, parse-negatives must actually be rejected): still
+3619 of 3875, 97 s wall clock. The gate is therefore comparable across the
+change. Its 93.39 % is a property of these three directories, which are among
+protoJS's strongest — the whole corpus is 53.25 %.
 
 `ldd build_release/protojs` resolves `libprotoCore.so.3` to
 `../protoCore/build_release/libprotoCore.so.3` (protoCore 2.5.0), never the
@@ -207,7 +221,13 @@ in the dead file), so rule 5 is not protoJS's risk. C7 must answer for
   outside the interpreter polls: no module, pool or thread body does. That is
   sufficient for rule 1 only while every allocating path runs through the
   interpreter loop.
-- `CONFORMANCE_JS.md:72` documents a *different* ten-pattern test262 built-ins set
-  (9,400 tests, 71.9%) as protoJS's conformance baseline, while the figure this
-  phase was given is the three-pattern 3619. The two coexist and the discrepancy
-  should be settled so one number is authoritative.
+- **Settled on 2026-09-26.** This page's three-pattern 3 619 / 3 875 and
+  `CONFORMANCE_JS.md`'s ten-pattern 9 400 / 71.9 % were two subsets competing to
+  be read as the conformance figure. Neither is. The whole corpus was re-measured
+  from a clean `-j1` build with `TEST262_CONCURRENCY=1` — 28,529 of 53,571,
+  53.25 %, corpus `aae8cf6e` — and that is now the single authoritative figure,
+  documented with its exclusion policy in
+  [TEST262_STATUS.md](TEST262_STATUS.md). The two subsets are kept and relabelled:
+  this one as the per-commit regression gate, the ten-pattern one as a historical
+  subset. Measuring them revealed that the runner had been crediting failing
+  async tests as passes; that is fixed and the 53.25 % figure reflects the fix.

@@ -4,6 +4,52 @@ All notable changes to protoJS are documented in this file.
 
 ## [Unreleased]
 
+### One authoritative Test262 figure, and two classification bugs behind the old ones (2026-09-26)
+
+- protoJS stated at least four Test262 results and no document said which was
+  authoritative: **61.39 %** (`language` + `built-ins`, 2026-06-01), **92.69 %**
+  (an 18-family `built-ins` subset, 2026-06-13), **71.9 %** (a ten-directory
+  `built-ins` subset, 2026-06-04) and **3 619 / 3 875** (a three-directory
+  regression gate, 2026-09-26). `docs/CONFORMANCE.md` had flagged the conflict
+  itself and left it open.
+- Settled by re-measuring the **whole corpus** from a `-j1` build with
+  `TEST262_CONCURRENCY=1`: **28 529 of 53 571 = 53.25 %**, corpus
+  `aae8cf6eed6d6c6a203be48c1184bb194880f66b`, 4 849 s wall clock. That figure,
+  its denominator, its corpus commit, its reproduction command and its full
+  exclusion policy are now in `docs/TEST262_STATUS.md`, and every other figure in
+  the repository is relabelled as historical or as a named subset. Nothing was
+  deleted.
+- Nothing is excluded for being unimplemented: `intl402` (0.60 %) and `staging`
+  (42.82 %) are inside the denominator, and tests requiring absent features are
+  run and counted as failures.
+- Fixed in `tests/test262/runner/test262_runner.js`: **async tests were judged by
+  exit code**, but `doneprintHandle.js` prints `Test262:AsyncTestFailure` and
+  still exits 0, so failing async tests were counted as passes. A pass now
+  requires the `Test262:AsyncTestComplete` marker. 336 tests move from passed to
+  `failed_async`.
+- Fixed: **every `phase: parse` negative test passed unconditionally**, whether
+  the engine rejected the source or not. A negative test must now be rejected
+  with an error matching its declared `negative.type`. Only 7 tests were
+  affected, so protoJS was in fact rejecting the 4 660 parse-phase negatives
+  correctly — but the old rule could not have told us that.
+- Fixed: `flags: [raw]` is honoured (32 tests now run with no harness and no
+  injected directive prologue), and `async`-flagged module tests get
+  `doneprintHandle.js` preloaded.
+- Added: `TEST262_LENIENT=1` reproduces the pre-2026-09 classification, so the
+  historical figures remain reproducible. On the 2026-09-26 corpus it reports
+  53.89 % against strict classification's 53.25 %.
+- Added: every run now prints its patterns, corpus commit, binary, denominator,
+  per-category failure counts, pass rate and wall clock, and writes the same
+  fields into the snapshot, so a quoted figure can always be traced to the run
+  that produced it.
+- Known deviation, now documented rather than silent: Test262 requires each file
+  without `onlyStrict`/`noStrict`/`raw`/`module` to run twice, sloppy and strict.
+  49 344 of the 53 582 files are in that class and this runner runs each once, in
+  sloppy mode, so strict-mode conformance is unmeasured.
+- Note on CI: the whole-corpus run takes 1 h 21 min sequentially, 35 minutes of
+  which is 384 timing-out `built-ins/RegExp/property-escapes` tests. It is a
+  release gate, not a per-commit check.
+
 ### Object integrity levels are per-object again — protoCore 2.0.0 (2026-09-23)
 
 - Fixed: with protoCore 2.0.0, `Object.create(frozenProto)` returned a frozen

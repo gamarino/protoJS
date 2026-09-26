@@ -221,8 +221,44 @@ For details, see [ARCHITECTURE.md](ARCHITECTURE.md) and [src/runtime/README.md](
 
 ### Test262 Conformance
 
-- **Full suite.** The last full Test262 run recorded in [docs/TEST262_STATUS.md](docs/TEST262_STATUS.md) is dated **2026-06-01** and covers the `language` and `built-ins` directories (46 963 tests): **28 830 passed, 61.39 %**. The runner counts a test as passed when protojs exits without an error, so a test that stops at an unsupported opcode before reaching its assertions can count as a pass (see the methodology notes in that document).
-- **Subset.** The last archived per-family measurement, dated **2026-06-13**, covers **18 `built-ins` families** (Array, Boolean, Date, Error, Function, JSON, Map, Math, Number, Object, Promise, Proxy, Reflect, Set, String, Symbol, WeakMap, WeakSet; 11 784 tests): **10 923 passed, 92.69 %**. This is a subset figure, not full-suite conformance.
+protoJS has **one** authoritative Test262 figure. It is the whole corpus, not a subset.
+
+**As of 2026-09-26: 28 529 of 53 571 tests pass — 53.25 %.**
+
+Reproduce it (about 1 h 21 min; the run must be sequential):
+
+```bash
+TEST262_ROOT=../test262 \
+TEST262_CONCURRENCY=1 \
+TEST262_PATTERNS=annexB,built-ins,harness,intl402,language,staging \
+PROTOJS=./build_release/protojs \
+node tests/test262/runner/test262_runner.js
+```
+
+| | |
+|---|---|
+| Corpus | the whole Test262 `test/` tree — `annexB`, `built-ins`, `harness`, `intl402`, `language`, `staging` |
+| Corpus commit | `aae8cf6eed6d6c6a203be48c1184bb194880f66b` |
+| Discovered / skipped / denominator | 53 582 / 11 / **53 571** |
+| Passed | **28 529** (53.25 %) |
+| Failures | 22 845 semantics, 1 241 syntax, 336 async, 7 negative, 613 timeouts |
+| Wall clock | 4 849 s sequential (`TEST262_CONCURRENCY=1`) |
+| protoCore | 2.5.0 (`df8406a3`) |
+
+Nothing is excluded for being unimplemented: `intl402` (0.60 %) and `staging`
+(42.82 %) are in the denominator, and tests requiring features protoJS lacks are
+run and counted as failures. The full exclusion policy — how `negative`,
+`module`, `async` and `raw` tests are treated, and the fact that strict-mode
+variants are not yet run — is in
+[docs/TEST262_STATUS.md](docs/TEST262_STATUS.md). Read it before quoting the
+number.
+
+**Earlier figures, all superseded, none of them the headline:**
+
+- **61.39 %** (28 830 of 46 963, 2026-06-01) — `language` + `built-ins` only, under the runner's older lenient classification. See [docs/TEST262_STATUS.md](docs/TEST262_STATUS.md#historical-language--built-ins-lenient-classification-2026-06-01).
+- **92.69 %** (10 923 of 11 784, 2026-06-13) — a named subset of 18 `built-ins` families. Subset figure, archived in [docs/archive/TEST262_ROUNDS.md](docs/archive/TEST262_ROUNDS.md).
+- **71.9 %** (6 763 of 9 400, 2026-06-04) — a ten-pattern `built-ins` subset, in [CONFORMANCE_JS.md](CONFORMANCE_JS.md).
+- **3 619 of 3 875** (2026-09-26) — the three-pattern `built-ins/{Object,Reflect,Proxy}` **per-commit regression gate**, not a conformance figure. See [docs/CONFORMANCE.md](docs/CONFORMANCE.md).
 
 The detailed history is in [docs/archive/TEST262_ROUNDS.md](docs/archive/TEST262_ROUNDS.md).
 
@@ -254,7 +290,8 @@ To reproduce, build protoJS and run `node tests/benchmarks/run_standard_comparis
 
 **Known gaps:**
 
-- Test262 conformance is 61.39 % on the last full run (see [Test262 Conformance](#test262-conformance)). The remaining failures recorded on 2026-06-13 include insertion-order tracking for attribute storage, real `eval()` execution, the `$262` cross-realm harness, source text of generator and async functions for `Function.prototype.toString`, and resizable `ArrayBuffer` and `SuppressedError` subclassing.
+- Test262 conformance is **53.25 %** of the whole corpus as of 2026-09-26 (see [Test262 Conformance](#test262-conformance)). The largest single gaps: ECMA-402 is not implemented at all (`intl402` passes 0.60 %), 613 tests time out — 384 of them RegExp property escapes — and classes, generators and async functions are incomplete. The failures catalogued on 2026-06-13 also remain: insertion-order tracking for attribute storage, real `eval()` execution, the `$262` cross-realm harness, source text of generator and async functions for `Function.prototype.toString`, and resizable `ArrayBuffer` and `SuppressedError` subclassing.
+- Strict-mode Test262 variants are not run yet: each test file executes once, in sloppy mode, so roughly half of Test262's required executions are unmeasured.
 - npm registry and semver components exist in `src/npm/`, but the `protojs` command line has no package-management command.
 - The interpreter is 15.2× slower than QuickJS and about 95× slower than Node.js on the benchmark reading above.
 

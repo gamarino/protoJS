@@ -1,20 +1,32 @@
 # JavaScript Conformance Report (Test262 subsets)
 
+> **This document holds no headline figure.** protoJS's authoritative Test262
+> result is **28,529 of 53,571 — 53.25 % of the whole corpus, as of 2026-09-26**,
+> and it lives with its denominator, corpus commit, reproduction command and
+> exclusion policy in [docs/TEST262_STATUS.md](docs/TEST262_STATUS.md).
+>
+> Everything below is a **subset** measurement of one directory or family,
+> recorded while that area was being worked on, under the runner's older lenient
+> classification. Each is a real measurement and none is deleted, but no figure
+> in this file is protoJS's conformance number and none should be quoted as one.
+> In particular the ten-pattern **71.9 %** in the coverage list and §1 is a
+> ten-directory `built-ins` subset, not the suite.
+
 **Runtime:** protoJS on the protoCore interpreter.
-**Scope:** Test262 runs restricted to selected directories (subsets), recorded while each area was worked on. For the latest run of the full `language` + `built-ins` suite — 28,830 of 46,963 tests passed (61.39 %) on 2026-06-01 — see [docs/TEST262_STATUS.md](docs/TEST262_STATUS.md).
-**Last updated:** 2026-06-06.
+**Scope:** Test262 runs restricted to selected directories (subsets), recorded while each area was worked on.
+**Last updated:** 2026-09-26 (subordination notice and methodology correction; the subset measurements below are unchanged and still dated 2026-06-06 or earlier).
 
 ## Summary
 
 - The most recent measurement in this report is `built-ins/Array` (3,081 tests) on 2026-06-06: about **2,719 passed (≈ 88.2 %)**. It was obtained by re-running the tests that failed and the tests that passed in the previous full `built-ins/Array` run, not by a new full run.
 - Rows that report complete passes for `built-ins/Array` (3,081 / 3,081 in §1 and §3, recorded in March 2026) and for `language/expressions` (11,093 / 11,093 in §2) are superseded: `built-ins/Array` measured 2,380 / 3,081 on 2026-06-05, and `language/expressions` measured 9,295 / 11,036 in the full run of 2026-04-12 (see [docs/archive/TEST262_STATUS_2026-04.md](docs/archive/TEST262_STATUS_2026-04.md)). The March 2026 full-suite rows in §1 are superseded as well; the full-suite figure of 94.4 % reported on 2026-03-18 was later identified as a false positive. The undated per-directory rows in §3 were not re-measured individually and are kept as historical records.
-- Pass counts depend on the runner's classification rules (§1): tests that exit without an error count as passed, and parse-negative tests that the engine accepts also count as passed.
+- Pass counts depend on the runner's classification rules (§1). Every measurement in this document predates 2026-09-26 and was taken under the **lenient** rules of the time: a test that exited without an error counted as passed, a parse-negative test the engine accepted counted as passed, and an async test was judged by exit code even though `$DONE(err)` exits 0. The runner now classifies strictly by default; `TEST262_LENIENT=1` restores the old behaviour so these figures can be reproduced.
 
 The fixes behind these measurements are summarised in §6 and in [CHANGELOG.md](CHANGELOG.md).
 
 **Coverage data points (oldest first):**
 
-- `built-ins/{Array,Object,String,Number,Math,JSON,Error,NativeErrors,Promise,Boolean}` (2026-06-04): **6 763 / 9 400 passed = 71.9 %** (6 syntax fails, 2 602 semantic fails, 29 timeouts).
+- `built-ins/{Array,Object,String,Number,Math,JSON,Error,NativeErrors,Promise,Boolean}` (2026-06-04): **6 763 / 9 400 passed = 71.9 %** (6 syntax fails, 2 602 semantic fails, 29 timeouts). **Ten-directory `built-ins` subset, not the suite** — this is the figure `docs/CONFORMANCE.md` once cited as a competing baseline; it is subordinate to the whole-corpus headline in `docs/TEST262_STATUS.md`.
 - `built-ins/Array/prototype/{map,filter,every,some}` (2026-06-05, after fix batch 11 and the presence-probe audit): **759 / 895 passed = 84.8 %** (0 syntax, 128 semantic, 8 timeouts). +14 pp on the iteration-method slice attributable to the batch 11 abrupt-completion / ToObject / iterReceiver / strict-equals fixes and the PROTO_NONE presence-probe audit.
 - `built-ins/Array` full pattern (2026-06-05, post 20-fix Array cleanup): **2 380 / 3 081 passed = 77.3 %** (0 syntax, 670 semantic, 31 timeouts).  Snapshot: `snapshot-built-ins-Array-1780675824848.json`.  Reflects the first 20-commit one-fix-per-failure Array package described in CHANGELOG.md.
 - `built-ins/Array` full pattern (2026-06-05, post 2nd 20-fix Array cleanup): **2 414 / 3 081 passed = 78.4 %** (0 syntax, 636 semantic, 31 timeouts).  Snapshot: `snapshot-built-ins-Array-1780677665005.json`.  +1.1 pp from the 2nd long-tail Array package (frozen-length / ToObject / abrupt-propagation / ArraySpeciesCreate-abrupt / sticky-done iterator / unscopables null-proto / arrLen Object-getter ToLength / elemToString ToPrimitive-string).
@@ -39,8 +51,11 @@ Test262 runs use `tests/test262/runner/test262_runner.js`, which:
 
 - Reads `tests/test262/config/test262_paths.json`: the Test262 checkout (`test262_root`, default `../test262`; `TEST262_ROOT` overrides it, and relative paths are resolved from the repository root), the harness directory (`harness`), the per-test timeout (`default_timeout_ms`, 5,000 ms) and the path patterns (`language` and `built-ins`; `TEST262_PATTERNS` overrides them).
 - Runs each script-mode test as a temporary file that contains `harness/assert.js`, `harness/sta.js`, the `includes` listed in the test's YAML front matter, and the test. The binary is `PROTOJS`, or `build/protojs` by default. With `use_proto_eval` enabled (the default configuration) the runner sets `PROTOJS_USE_PROTO_EVAL=1`, which `protojs` does not read, and `PROTOJS_NO_FALLBACK=1`, which makes a protoCore compile failure an error instead of a retry with QuickJS.
-- Classifies each result as `passed`, `failed_syntax`, `failed_semantics`, `timeout` or `skipped`. A test without a `negative` expectation passes when `protojs` completes without reporting an error. Tests listed in `tests/test262/config/skip_proto_eval.json` (11 entries) are skipped.
-- **Parse-negative leniency:** for tests that expect a parse-phase error (YAML `negative: { phase: parse }`), if the engine accepts the code (the process exits with status 0), the runner counts the test as **passed**. This avoids failing the suite on parser divergence (for example QuickJS accepting code that Test262 expects to be invalid), but it means these runs do not measure parse-negative coverage.
+- Classifies each result as `passed`, `failed_syntax`, `failed_semantics`, `failed_negative`, `failed_async`, `timeout` or `skipped`. A test without a `negative` expectation passes when `protojs` completes without reporting an error — and, if it carries `flags: [async]`, only when stdout also shows `Test262:AsyncTestComplete`. Tests listed in `tests/test262/config/skip_proto_eval.json` (11 entries) are skipped.
+- **Parse-negative classification.** Since 2026-09-26 a test that expects a parse-phase error must actually be rejected, with an error whose name matches the declared `negative.type`; otherwise it is `failed_negative`. Before that date the runner counted **every** `phase: parse` negative as passed regardless of what the engine did, so the measurements in this document do not measure parse-negative coverage. `TEST262_LENIENT=1` restores that behaviour for reproducing them.
+- **Async classification.** Since 2026-09-26 an `async`-flagged test must print `Test262:AsyncTestComplete`. The earlier rule — exit code only — credited every `Test262:AsyncTestFailure` as a pass, because `doneprintHandle.js` exits 0 either way.
+- **`flags: [raw]`.** Honoured since 2026-09-26: raw tests run with no harness and no injected `"use strict"`. Earlier runs prepended the harness to them.
+- **Strict-mode variants are not run.** Test262 requires each file without `onlyStrict`/`noStrict`/`raw`/`module` to be executed twice, sloppy and strict. This runner executes it once, sloppy. `onlyStrict` is honoured.
 - **Module tests (`flags: [module]`):** the runner passes each harness file with `--preload`, adds `--input-type=module` and runs the **original** test file, so that relative imports resolve from the test directory. Module code is evaluated by the QuickJS module evaluator, not by the protoCore interpreter (`src/JSContext.cpp`).
 - **Test262Error heuristic:** a thrown harness `Test262Error` is reported by `protojs` as `(ProtoObject)`. The runner accepts that marker as a match for negative tests that expect `Test262Error`.
 - Writes a JSON snapshot for each run to `tests/test262/reports/`. The directory is not tracked in git, so the snapshot names below refer to local run output.
