@@ -390,6 +390,20 @@ elseif(UNIX)
     set(CPACK_DEBIAN_PACKAGE_SECTION "interpreters")
     set(CPACK_DEBIAN_PACKAGE_DEPENDS
         "protocore (>= ${PROTOCORE_MIN_VERSION_FULL}), protocore (<< ${PROTOCORE_NEXT_MAJOR})")
+    # SHLIBDEPS is meant to add a SONAME dependency (libprotoCore.so.N)
+    # derived from the binary's own NEEDED entry, because the version range
+    # above is not an ABI check on its own: a protoCore in range but built
+    # with an older SOVERSION is accepted by dpkg and then fails at load
+    # time (installers-sep2026 report, F4). Verified (in protoClojure, same
+    # mechanism) that it does NOT add that dependency here: protoCore's own
+    # .deb ships no shlibs/symbols file, so dpkg-shlibdeps has nothing to
+    # emit for libprotoCore.so.3 and CPack's default --ignore-missing-info
+    # drops it silently. Left on because it is harmless and adds real
+    # transitive deps (libc6, libstdc++6, ...); closing F4 needs a shlibs or
+    # symbols file in protoCore's own package, not this flag alone. (This is
+    # the CPack DEB path; protoJS's separate packaging/ pipeline is fixed
+    # under D5.)
+    set(CPACK_DEBIAN_PACKAGE_SHLIBDEPS ON)
     set(CPACK_RPM_PACKAGE_NAME "protoJS")
     set(CPACK_RPM_PACKAGE_LICENSE "MIT")
     set(CPACK_RPM_PACKAGE_GROUP "Development/Languages")
