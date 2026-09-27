@@ -1,11 +1,13 @@
 #!/bin/bash
 set -e
 
-# protoCore's major version and its soname move together, so protoJS accepts
-# exactly the 2.x series it was built against.
-MIN_VERSION="2.0.0"
+# protoCore's SOVERSION moved from 2 to 3 in the 2.2.0 release; protoJS is
+# built against SOVERSION 3, so it accepts 2.2.0 up to (but not including)
+# the next major, and rejects anything older, which would provide the wrong
+# soname.
+MIN_VERSION="2.2.0"
 NEXT_MAJOR="3.0.0"
-SONAME="libprotoCore.so.2"
+SONAME="libprotoCore.so.3"
 
 PACKAGE_NAME=""
 # CPack names protoCore's .deb "protocore" (pinned in protoCore's CMakeLists);

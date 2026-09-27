@@ -8,7 +8,7 @@ URL:            https://github.com/gamarino/protoJS
 Source0:        protoJS-%{version}.tar.gz
 
 BuildArch:      x86_64
-Requires:       protoCore >= 2.0.0, protoCore < 3.0.0
+Requires:       protoCore >= 2.2.0, protoCore < 3.0.0
 
 %description
 protoJS is a JavaScript runtime built on the protoCore object model.
@@ -17,9 +17,11 @@ protoJS is a JavaScript runtime built on the protoCore object model.
 %setup -q -n protoJS-%{version}
 
 %pre
-# protoCore's major version and its soname move together, so protoJS accepts
-# exactly the 2.x series it was built against.
-MIN_VERSION="2.0.0"
+# protoCore's SOVERSION moved from 2 to 3 in the 2.2.0 release; protoJS is
+# built against SOVERSION 3, so it accepts 2.2.0 up to (but not including)
+# the next major, and rejects anything older, which would provide the wrong
+# soname.
+MIN_VERSION="2.2.0"
 NEXT_MAJOR="3.0.0"
 PACKAGE_NAME="protoCore"
 
@@ -47,9 +49,9 @@ if [ "$(printf '%s\n%s' "$NEXT_MAJOR" "$INSTALLED_VERSION" | sort -V | head -n1)
 fi
 
 # The package version is metadata; the soname is what the loader will use.
-if ! rpm -ql "$PACKAGE_NAME" | grep -q '/libprotoCore\.so\.2$'; then
-    echo "ERROR: $PACKAGE_NAME $INSTALLED_VERSION does not provide libprotoCore.so.2." >&2
-    echo "protoJS was linked against libprotoCore.so.2 and will not start without it." >&2
+if ! rpm -ql "$PACKAGE_NAME" | grep -q '/libprotoCore\.so\.3$'; then
+    echo "ERROR: $PACKAGE_NAME $INSTALLED_VERSION does not provide libprotoCore.so.3." >&2
+    echo "protoJS was linked against libprotoCore.so.3 and will not start without it." >&2
     exit 1
 fi
 

@@ -2,14 +2,14 @@
 # Build protoJS .deb package for the current machine (Debian/Ubuntu).
 # Run from the protoJS project root. Requires: a built protojs binary, dpkg-deb.
 # The generated .deb checks for the "protocore" package (protoCore .deb from CPack)
-# in the range [2.0.0, 3.0.0) and for the libprotoCore.so.2 soname.
+# in the range [2.2.0, 3.0.0) and for the libprotoCore.so.3 soname.
 
 set -e
 cd "$(dirname "$0")/.."
 : "${VERSION:=0.1.0}"
 : "${MAINTAINER:=Gustavo Marino <gamarino@gmail.com>}"
 : "${PROTOJS_BINARY:=build_release/protojs}"
-: "${PROTOCORE_SONAME:=libprotoCore.so.2}"
+: "${PROTOCORE_SONAME:=libprotoCore.so.3}"
 : "${OUTDIR:=build_release}"
 
 if [ ! -f "$PROTOJS_BINARY" ]; then
@@ -24,7 +24,7 @@ fi
 if ! objdump -p "$PROTOJS_BINARY" | grep -q "NEEDED *$PROTOCORE_SONAME"; then
     echo "ERROR: $PROTOJS_BINARY is not linked against $PROTOCORE_SONAME." >&2
     objdump -p "$PROTOJS_BINARY" | grep "NEEDED *libprotoCore" >&2 || true
-    echo "Rebuild protoJS against protoCore 2.x." >&2
+    echo "Rebuild protoJS against protoCore >= 2.2.0 (SOVERSION 3)." >&2
     exit 1
 fi
 
@@ -43,6 +43,6 @@ chmod 755 "$STAGING/DEBIAN/preinst"
 dpkg-deb --build "$STAGING" "$OUTDIR/protoJS_${VERSION}_amd64.deb"
 echo "Built $OUTDIR/protoJS_${VERSION}_amd64.deb."
 echo "Install with: sudo dpkg -i $OUTDIR/protoJS_${VERSION}_amd64.deb"
-echo "Ensure protoCore 2.x is installed first (package name: protocore)."
+echo "Ensure protoCore >= 2.2.0 is installed first (package name: protocore)."
 echo "Note: do not install this package and the CPack-built \"protojs\" package"
 echo "at the same time; both claim /usr/bin/protojs."

@@ -148,13 +148,89 @@ The template path adds a `preinst` script that checks the installed protoCore's 
 
 ### Platform verification status
 
+Last verified 2026-09-27 against protoJS 0.1.0 and protoCore 2.5.0
+(`PROTOCORE_ABI_SOVERSION 3`), built with `-DPROTOCORE_REQUIRE_PACKAGE=ON` so the
+sibling developer fallback was a hard error, and with no `-j` at any point.
+
 | Platform | Packaging | Status |
 |----------|-----------|--------|
-| Linux | CPack TGZ/DEB/RPM as `protojs`; `packaging/build_deb.sh` as `protoJS` | Both `.deb` files built; extracted and smoke-tested from the package payload |
-| macOS | `packaging/templates/macos/preinstall.template`, CPack DragNDrop | Configured and reviewed, **never built** — no macOS host |
-| Windows | `packaging/templates/windows/protoJS.wxs.template` (WiX v3), CPack NSIS/ZIP | Configured and reviewed, **never built** — no Windows host |
+| Linux / Debian-Ubuntu | CPack TGZ/DEB as `protojs` | **VERIFIED.** The CPack DEB was installed with `dpkg -i` as root in a throwaway `ubuntu:24.04` container and `protojs` ran a script there from `/usr/bin`, outside any repository, with no `LD_LIBRARY_PATH` set. |
+| Linux / Debian-Ubuntu | `packaging/build_deb.sh` as `protoJS` | **NOT BUILT — the script refuses, correctly.** See below. |
+| Linux / Fedora-RHEL | TGZ, RPM | **VERIFIED, with a caveat.** `cpack -G RPM` executed in a throwaway `fedora:41` container and the RPM installed and ran. It required a **writable** source tree; see below. |
+| macOS | `packaging/templates/macos/preinstall.template`, CPack DragNDrop | **UNVERIFIED.** Configured and reviewed only; there is no macOS host here. Review is not verification. |
+| Windows | `packaging/templates/windows/protoJS.wxs.template` (WiX v3), CPack NSIS/ZIP | **UNVERIFIED.** Configured and reviewed only; there is no Windows host here. The WiX condition reads `HKLM\SOFTWARE\protoCore\Soversion`, which protoCore's NSIS installer writes — and that has never run either, so both halves of that check are unverified. |
 
-RPM packaging is configured and reviewed but **never executed**: `rpmbuild` is not installed on the host this was verified on.
+### The hand-built `packaging/` pipeline is pinned to the wrong SONAME
+
+`packaging/build_deb.sh`, `packaging/templates/linux/preinst.template` and
+`packaging/templates/linux/protoJS.spec.template` all hard-code
+`libprotoCore.so.2`, and `control.template` declares
+`Depends: protocore (>= 2.0.0), protocore (<< 3.0.0)`. protoCore is now 2.5.0
+with `PROTOCORE_ABI_SOVERSION 3`, so `build_deb.sh` stops with:
+
+```
+ERROR: build_pkg/protojs is not linked against libprotoCore.so.2.
+  NEEDED               libprotoCore.so.3
+Rebuild protoJS against protoCore 2.x.
+```
+
+The guard works; the constant it checks against is stale. This is worth being
+precise about, because the numbers are inverted relative to reality: as written,
+the `preinst` check would **reject a correct protoCore 2.5.0** and **accept an
+ABI-incompatible 2.1.0**. Until the three files derive the SONAME from
+`PROTOCORE_ABI_SOVERSION` rather than repeating `2`, this pipeline cannot produce
+a usable package. The CPack DEB is unaffected and is the one that was verified.
+
+### Building the RPM needs a writable source tree
+
+`cpack` always runs the `preinstall` target, which depends on `all`, and `all`
+includes the `fixture_addon` target, whose output path is inside the source tree
+(`tests/integration/native_addons/fixture.so`, `CMakeLists.txt:264`). With a
+read-only source checkout the link fails with
+`cannot open output file ...: Read-only file system` and `cpack` fails with it.
+Isolated by building the identical tree twice, read-only and writable: only the
+writable one produced an RPM. Two consequences: an RPM cannot be built in a
+sandboxed build root that mounts the sources read-only, and any protoJS build
+writes a file into its own source tree (it is `.gitignore`d, so the repository
+stays clean).
+
+### Known defect: the DEB dependency floor does not encode the ABI
+
+The `Depends` field is a *version range*, and on its own that range is not an ABI
+check. `PROTOCORE_ABI_SOVERSION` went from `2` to `3` in protoCore **2.2.0**, so
+protoCore 2.0.0 and 2.1.0 carry `libprotoCore.so.2` while 2.2.0 and later carry
+`libprotoCore.so.3`. A floor of ``2.0.0`` therefore admits a protoCore whose
+SONAME this package was not linked against.
+
+This was demonstrated, not argued. A decoy `protocore` 2.1.0 package providing
+only `libprotoCore.so.2` was installed in a container; `dpkg -i` then accepted
+this package, and the installed binary failed to start with
+`libprotoCore.so.3: cannot open shared object file`. The install succeeded and
+the program did not run.
+
+Two things limit the damage, and one closes it:
+
+- At **build** time the failure is loud, not silent. `find_package(protoCore …)`
+  alone does accept a SOVERSION-2 protoCore, but `CMakeLists.txt` follows it with
+  an explicit `protoCore_SOVERSION` assertion against `PROTOCORE_ABI_SOVERSION`,
+  which stops configuration with a `FATAL_ERROR` naming both numbers. Verified by
+  configuring against a complete forged 2.1.0 / SOVERSION 2 prefix.
+- The **RPM** does not have this hole. `rpm` generates
+  `Requires: libprotoCore.so.3()(64bit)` automatically from the linked binary, and
+  that requirement is on the SONAME rather than the version. Verified: the decoy
+  protoCore 2.1.0 does not satisfy it and `rpm -i` refuses.
+- Raising the DEB floor to `2.2.0`, the first protoCore that shipped SOVERSION 3,
+  would make the DEB range agree with the ABI. That is a packaging change for the
+  maintainer to take, and it is not made here.
+
+### Known defect: the DEB does not refresh the shared-library cache
+
+Neither this package nor protoCore's carries a `postinst` or an `ldconfig`
+trigger, so `ldconfig -p` does not list `libprotoCore.so.3` after `dpkg -i`.
+Programs still start, because each binary carries
+`RUNPATH $ORIGIN/../${CMAKE_INSTALL_LIBDIR}` and because the library lands in a
+directory the dynamic loader searches by default, but the cache is misleading.
+Run `ldconfig` after installing. The RPM has no such defect.
 
 ---
 
