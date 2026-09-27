@@ -32,8 +32,8 @@
         <!-- Windows Installer prefixes a raw REG_SZ search result with "#" in
              some cases, so both spellings are accepted; the Windows host task
              determines which one appears and simplifies this. -->
-        <Condition Message="ERROR: protoCore with ABI version 2 was not found. Install protoCore 2.x before installing protoJS.">
-            <![CDATA[Installed OR PROTOCORE_SOVERSION = "#2" OR PROTOCORE_SOVERSION = "2"]]>
+        <Condition Message="ERROR: protoCore with ABI version 3 was not found. Install protoCore >= 2.2.0 before installing protoJS.">
+            <![CDATA[Installed OR PROTOCORE_SOVERSION = "#3" OR PROTOCORE_SOVERSION = "3"]]>
         </Condition>
 
         <Feature Id="ProductFeature" Title="protoJS" Level="1">

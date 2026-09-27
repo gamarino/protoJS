@@ -8,7 +8,7 @@
 # unversioned libprotoCore.dylib symlink would be satisfied by any version.
 # UNVERIFIED: never run - no macOS host (D-I6).
 PROTOCORE_PKG_ID="com.protoCore.pkg"
-PROTOCORE_SOVERSION="2"
+PROTOCORE_SOVERSION="3"
 PROTOCORE_LIB_DIRS="/usr/local/lib /opt/homebrew/lib /opt/local/lib"
 
 echo "Checking for protoCore dependency..."
@@ -27,5 +27,5 @@ fi
 
 # If both fail, abort installation
 echo "ERROR: protoCore with ABI $PROTOCORE_SOVERSION is not installed." >&2
-echo "Install protoCore 2.x before installing protoJS." >&2
+echo "Install protoCore >= 2.2.0 before installing protoJS." >&2
 exit 1
