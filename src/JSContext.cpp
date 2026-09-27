@@ -94,6 +94,9 @@ JSContextWrapper::CurrentScope::~CurrentScope() {
     t_currentWrapper = prev_;
 }
 
+// Collective claim on the process-wide CPU and I/O pools; see JSContext.h.
+std::atomic<size_t> JSContextWrapper::poolOwners_{0};
+
 // See JSContext.h for semantics.
 JSContextWrapper::JSContextWrapper(size_t cpuThreads, size_t ioThreads, double ioFactor) : pSpace() {
     rt = JS_NewRuntime();
@@ -139,19 +142,27 @@ JSContextWrapper::JSContextWrapper(size_t cpuThreads, size_t ioThreads, double i
     // Store pointer to this wrapper in JSContext opaque for GCBridge access
     JS_SetContextOpaque(ctx, this);
     
-    // Initialize thread pools
-    if (cpuThreads > 0) {
-        CPUThreadPool::initialize(cpuThreads);
-    } else {
-        CPUThreadPool::initialize(); // Use default (CPU count)
+    // Initialize the thread pools -- but only if no other wrapper is already
+    // holding them.  They are PROCESS-WIDE singletons (see the comment on
+    // poolOwners_ in JSContext.h): `initialize()` shuts the existing pool down
+    // and replaces it, so an unconditional call here meant that constructing a
+    // `worker_threads` worker's wrapper pulled the main thread's pool out from
+    // under it.  The first live wrapper sizes them; later wrappers share them
+    // and leave the configured sizes alone.
+    if (poolOwners_.fetch_add(1, std::memory_order_acq_rel) == 0) {
+        if (cpuThreads > 0) {
+            CPUThreadPool::initialize(cpuThreads);
+        } else {
+            CPUThreadPool::initialize(); // Use default (CPU count)
+        }
+
+        if (ioThreads > 0) {
+            IOThreadPool::initialize(ioThreads);
+        } else {
+            IOThreadPool::initialize(0, ioFactor); // Use default with factor
+        }
     }
-    
-    if (ioThreads > 0) {
-        IOThreadPool::initialize(ioThreads);
-    } else {
-        IOThreadPool::initialize(0, ioFactor); // Use default with factor
-    }
-    
+
     // Event loop is initialized on first access (singleton)
 }
 
@@ -205,13 +216,27 @@ JSContextWrapper::~JSContextWrapper() {
     // Cleanup GCBridge mappings
     GCBridge::cleanup(ctx);
     
-    // Shutdown thread pools.  Both block -- ThreadPoolExecutor::shutdown waits on
-    // a condition variable until the queue drains and then joins every worker --
-    // and this destructor runs on a registered protoCore thread.  The guard lives
-    // inside ThreadPoolExecutor::shutdown, where it can cover the condition wait
-    // and the joins as one region and protect every caller, not just this one.
-    CPUThreadPool::shutdown();
-    IOThreadPool::shutdown();
+    // Shutdown the thread pools -- but only when this is the LAST live wrapper.
+    // They are PROCESS-WIDE singletons, so an unconditional shutdown here meant
+    // that releasing a `worker_threads` worker's wrapper destroyed the main
+    // thread's pool: the symptom is a main thread whose pool has silently gone
+    // away, after which the next `getInstance()` quietly builds a fresh,
+    // default-sized one and every configured `--cpu-threads`/`--io-threads`
+    // setting is lost.  See the comment on poolOwners_ in JSContext.h.
+    //
+    // Both calls block -- ThreadPoolExecutor::shutdown waits on a condition
+    // variable until the queue drains and then joins every worker -- and this
+    // destructor runs on a registered protoCore thread.  The guard lives inside
+    // ThreadPoolExecutor::shutdown, where it can cover the condition wait and the
+    // joins as one region and protect every caller, not just this one.  The
+    // decrement is deliberately OUTSIDE any lock, and the shutdown is reached with
+    // nothing held: this destructor also runs from `freeWorkerState`, i.e. from a
+    // GC callback, and a lock held across those joins would be one the collector
+    // waits for while a pool worker waits for the collector.
+    if (poolOwners_.fetch_sub(1, std::memory_order_acq_rel) == 1) {
+        CPUThreadPool::shutdown();
+        IOThreadPool::shutdown();
+    }
 
     JS_FreeContext(ctx);
     JS_FreeRuntime(rt);

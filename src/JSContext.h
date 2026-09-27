@@ -7,6 +7,7 @@
 #include <memory>
 #include <string>
 #include <map>
+#include <atomic>
 #include <mutex>
 #include <vector>
 
@@ -238,6 +239,27 @@ private:
     std::string currentScript_;
     /** Always true: eval uses protoCore path (compile-only + loader + interpreter). */
     bool useProtoEval_{true};
+
+    /** How many JSContextWrapper instances are alive, and therefore how many
+     *  hold a claim on the PROCESS-WIDE CPU and I/O thread pools.
+     *
+     *  `CPUThreadPool` and `IOThreadPool` are singletons: `initialize()` shuts the
+     *  existing pool down and replaces it, and `shutdown()` destroys it for
+     *  everybody.  They are not per-wrapper state, so a wrapper must not treat
+     *  them as its own -- a `worker_threads` worker builds its own wrapper, and
+     *  before this counter existed that worker's constructor replaced the main
+     *  thread's pool and its destructor took the replacement away again, leaving
+     *  the main thread's pool silently gone.  Ownership is collective instead:
+     *  the FIRST live wrapper sizes the pools and the LAST one to be destroyed
+     *  shuts them down.
+     *
+     *  Atomic rather than mutex-guarded on purpose.  A wrapper is destroyed from
+     *  `freeWorkerState`, i.e. from a GC callback, while the main thread may be
+     *  inside its own destructor blocking on `ThreadPoolExecutor::shutdown`'s
+     *  joins; a lock held across that join would be a lock the collector waits
+     *  for while a pool worker waits for the collector.  A counter needs no lock.
+     */
+    static std::atomic<size_t> poolOwners_;
 };
 
 } // namespace protojs

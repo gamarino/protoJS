@@ -33,9 +33,11 @@ void ThreadPoolExecutor::shutdown() {
     condition.notify_all();
 
     // Everything below blocks, and the callers that reach it are registered
-    // protoCore threads: ~JSContextWrapper (main thread, and the main thread again
-    // when it releases a worker's wrapper) and CPUThreadPool/IOThreadPool
-    // ::initialize, which shut the previous pool down from the constructing thread.
+    // protoCore threads: ~JSContextWrapper -- only the LAST live wrapper, since
+    // JSContextWrapper::poolOwners_ made ownership of these singletons collective,
+    // but that last one may be the main thread OR the mutator releasing a worker's
+    // wrapper -- and CPUThreadPool/IOThreadPool::initialize, which shut the previous
+    // pool down from the constructing thread.
     // A registered thread that blocks without leaving protoCore's running set is
     // still counted in `runningThreads`, so the stop-the-world quorum can never be
     // met, no collection can start, and every thread that needs memory waits for a

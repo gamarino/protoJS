@@ -390,8 +390,16 @@ void awaitWorkerTeardown(WorkerState* s, proto::ProtoContext* ctx) {
 // root collection; and `workerWrapper.reset()` runs ~JSContextWrapper, which
 // destroys a ProtoRootSet, runs GCBridge::cleanup -- which iterates a
 // ProtoSparseList and dereferences ProtoObject*s, two more things S7 forbids
-// outright -- shuts down the process-wide thread pools, and finally destroys an
-// entire second ProtoSpace. From another space's GC thread, mid-sweep.
+// outright -- and finally destroys an entire second ProtoSpace. From another
+// space's GC thread, mid-sweep.
+//
+// It no longer shuts the process-wide thread pools down, and that was a real bug
+// rather than a cosmetic one: CPUThreadPool and IOThreadPool are singletons, so a
+// worker's wrapper used to replace the main thread's pools when it was built and
+// destroy them when it was released, leaving the main thread with a pool that had
+// silently gone away.  Ownership is now collective -- JSContextWrapper::poolOwners_
+// -- so only the last live wrapper shuts them down.  Pinned by
+// tests/unit/test_context_pool_ownership.cpp.
 void WorkerState::releaseOnMutator() {
     awaitWorkerTeardown(this, nullptr);
     if (mainWrapper && workerPin != proto::ProtoRootSet::kNullHandle) {

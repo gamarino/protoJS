@@ -96,12 +96,32 @@ the commit it appears in is exactly the kind of figure this repository has been 
 Found while auditing the finalizers and the blocking joins, out of scope for that work,
 and recorded here rather than lost:
 
-1. **`~JSContextWrapper` shuts down the PROCESS-WIDE thread pools.**
-   `CPUThreadPool`/`IOThreadPool` are singletons, and `JSContextWrapper`'s constructor
-   calls `initialize()` on both — which shuts the previous pool down and replaces it. So
-   constructing a `worker_threads` worker's wrapper kills the main thread's pool, and
-   destroying any wrapper kills everyone's. It is now at least bracketed and on a mutator
-   thread, but the ownership is wrong.
+1. ~~**`~JSContextWrapper` shuts down the PROCESS-WIDE thread pools.**~~ **FIXED
+   2026-09-26.** `CPUThreadPool`/`IOThreadPool` are singletons, and
+   `JSContextWrapper`'s constructor called `initialize()` on both — which shuts the
+   previous pool down and replaces it — while its destructor called `shutdown()`, which
+   destroys them for everybody. So constructing a `worker_threads` worker's wrapper
+   killed the main thread's pool, and destroying any wrapper killed everyone's. The
+   symptom was silent: `getInstance()` lazily rebuilds a fresh, default-sized pool for
+   whoever asks next, so the main thread still got *a* pool — just not the one it
+   configured, and not the one holding its queued work.
+
+   Ownership is now collective rather than per-wrapper: `JSContextWrapper::poolOwners_`
+   is an atomic count of live wrappers, the first one sizes the pools and the last one
+   to be destroyed shuts them down. Atomic and not mutex-guarded on purpose — a wrapper
+   is destroyed from `freeWorkerState`, i.e. from a GC callback, while the main thread
+   may be inside its own destructor blocking on `ThreadPoolExecutor::shutdown`'s joins,
+   and a lock held across that join would be one the collector waits for while a pool
+   worker waits for the collector.
+
+   Pinned by `tests/unit/test_context_pool_ownership.cpp`, which sizes the main
+   wrapper's pools at `getOptimalThreadCount() + 1` — a size no default sizing can
+   produce on any host — then builds a second wrapper on a helper thread, releases it,
+   and reads the pools' identity, size, shutdown flag and ability to run a task. The
+   two mutations that red it are named in the file's header: dropping the
+   `fetch_add(...) == 0` guard around `initialize()` reds the constructor half,
+   dropping the `fetch_sub(...) == 1` guard around `shutdown()` reds the destructor
+   half. Both were run.
 2. **Three finalizers can only ever run at space teardown.** `net.Server`, `net.Socket`
    and `Worker` each pin the very object that carries their `ExternalPointer`
    (`rs->add(server)` then `server->setAttribute(..., extPtr)`), so the pin keeps the
