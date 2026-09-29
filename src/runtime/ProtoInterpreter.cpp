@@ -16712,8 +16712,11 @@ const proto::ProtoObject* runBytecode(proto::ProtoContext* pContext,
                                         pContext->fromUTF8String(pdks.c_str());
                                     const proto::ProtoString* pdkStr =
                                         pko ? pko->asString(pContext) : nullptr;
-                                    if (pdkStr) {
-                                        // Check descriptor on the current cursor level only.
+                                    if (pdkStr
+                                        && cursor->hasOwnAttribute(pContext, pdkStr) == PROTO_TRUE) {
+                                        // Check descriptor on the current cursor level only:
+                                        // getAttribute walks the chain, so it is guarded by an
+                                        // own-attribute probe.
                                         const proto::ProtoObject* pdv =
                                             cursor->getAttribute(pContext, pdkStr, false);
                                         if (pdv && pdv != PROTO_NONE && pdv->isInteger(pContext)) {

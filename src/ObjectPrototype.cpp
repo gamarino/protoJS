@@ -303,7 +303,12 @@ static void collectOwnKeys(
             const proto::ProtoObject* pko = cbCtx->fromUTF8String(pdKeyStr.c_str());
             const proto::ProtoString* pdk = pko ? pko->asString(cbCtx) : nullptr;
             if (pdk) {
-                const proto::ProtoObject* pdv = s->obj->getAttribute(cbCtx, pdk, false);
+                // Own-only: the descriptor of an own property is never
+                // inherited (getAttribute walks the chain, and e.g.
+                // Function.prototype's __pd_constructor__ would otherwise
+                // hide a function's own `constructor`).
+                const proto::ProtoObject* pdv = s->obj->hasOwnAttribute(cbCtx, pdk) == PROTO_TRUE
+                    ? s->obj->getAttribute(cbCtx, pdk, false) : nullptr;
                 if (pdv && pdv != PROTO_NONE && pdv->isInteger(cbCtx)) {
                     uint8_t bits = static_cast<uint8_t>(pdv->asLong(cbCtx));
                     if (!(bits & 0x4)) return; // not enumerable — skip
@@ -361,7 +366,8 @@ static void collectOwnKeys(
                 const proto::ProtoObject* pko = ctx->fromUTF8String(pdKeyStr.c_str());
                 const proto::ProtoString* pdk = pko ? pko->asString(ctx) : nullptr;
                 if (pdk) {
-                    const proto::ProtoObject* pdv = obj->getAttribute(ctx, pdk, false);
+                    const proto::ProtoObject* pdv = obj->hasOwnAttribute(ctx, pdk) == PROTO_TRUE
+                        ? obj->getAttribute(ctx, pdk, false) : nullptr;
                     if (pdv && pdv != PROTO_NONE && pdv->isInteger(ctx)) {
                         uint8_t bits = static_cast<uint8_t>(pdv->asLong(ctx));
                         if (!(bits & 0x4)) continue; // not enumerable
@@ -5245,8 +5251,11 @@ static const proto::ProtoObject* objectPropertyIsEnumerable(
     const proto::ProtoObject* pdko = ctx->fromUTF8String(pdKeyStr.c_str());
     const proto::ProtoString* pdks = pdko ? pdko->asString(ctx) : nullptr;
     if (pdks) {
-        const proto::ProtoObject* pdAttr = self->getAttribute(ctx, pdks, true);
-        if (pdAttr && pdAttr->isInteger(ctx)) {
+        // Own-only, like the own-property check above: an inherited
+        // descriptor describes the ancestor's property, not this one.
+        const proto::ProtoObject* pdAttr = self->hasOwnAttribute(ctx, pdks) == PROTO_TRUE
+            ? self->getAttribute(ctx, pdks, false) : nullptr;
+        if (pdAttr && pdAttr != PROTO_NONE && pdAttr->isInteger(ctx)) {
             long long bits = pdAttr->asLong(ctx);
             return (bits & 0x4) ? PROTO_TRUE : PROTO_FALSE;
         }
