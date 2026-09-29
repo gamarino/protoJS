@@ -6876,6 +6876,7 @@ void setJSProtoOverride(proto::ProtoContext* ctx,
         t_jsProtoMap.erase(obj);
         return;
     }
+    const proto::ProtoObject* previousOverride = getJSProtoOverride(obj);
     t_jsProtoMap[obj] = proto;
 
     // Skip the protoCore rebind for the null-sentinel case: setParents
@@ -6893,6 +6894,28 @@ void setJSProtoOverride(proto::ProtoContext* ctx,
     if (!parents) return;
     parents = parents->appendLast(ctx, proto);
     if (!parents) return;
+
+    // A bytecode closure's parent chain carries its lexical scope as well
+    // as its prototype: OP_fclosure adds the enclosing call's frame object
+    // and the global root as parents, and captured variables are found by
+    // walking that chain.  Rebinding the chain to [proto] alone detached
+    // the closure from its scope, so after Object.setPrototypeOf(fn, obj),
+    // `fn.__proto__ = obj` or `class D extends Base` every captured
+    // variable read as undefined.  Keep the existing parents behind the
+    // new prototype, dropping only a prototype installed by an earlier
+    // override so that it stops shadowing lookups.
+    const proto::ProtoString* bcKey = JSSymbols::bytecodeId(ctx);
+    const proto::ProtoObject* bcId = bcKey ? obj->getOwnAttributeDirect(ctx, bcKey) : nullptr;
+    if (bcId && bcId != PROTO_NONE) {
+        const proto::ProtoList* current = obj->getParents(ctx);
+        const unsigned long n = current ? current->getSize(ctx) : 0;
+        for (unsigned long i = 0; i < n && parents; ++i) {
+            const proto::ProtoObject* p = current->getAt(ctx, static_cast<int>(i));
+            if (p && p != PROTO_NONE && p != proto && p != previousOverride)
+                parents = parents->appendLast(ctx, p);
+        }
+        if (!parents) return;
+    }
     (void)obj->setParents(ctx, parents);
 }
 
