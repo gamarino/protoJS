@@ -37,6 +37,11 @@ echo "[run_all_tests] protoCore collections..."
 echo "[run_all_tests] Object integrity levels (per-object, never inherited)..."
 "$PROTOJS" tests/integration/basic/object_integrity.js
 
+echo "[run_all_tests] Closure scopes and class constructors..."
+"$PROTOJS" tests/integration/basic/closure_scopes.js
+"$PROTOJS" tests/integration/basic/class_closure.js
+"$PROTOJS" tests/integration/basic/closure_set_prototype.js
+
 echo "[run_all_tests] require() of built-in modules..."
 "$PROTOJS" tests/integration/modules/test_require.js
 

@@ -4,6 +4,57 @@ All notable changes to protoJS are documented in this file.
 
 ## [Unreleased]
 
+### Closures keep their own bindings; class constructors are closures (2026-09-28)
+
+Reported by a student: `new User('Tobias')` on a class exported by a required
+module ran an unrelated function of the requiring script, so the program printed
+its output twice and `greet()` returned `Hi, undefined`. Tracing it uncovered five
+defects, all pre-existing:
+
+- **Class constructors were not closures.** QuickJS pushes a class constructor
+  with `push_const` and expects `define_class` to build the closure; protoJS used
+  the raw constant-pool object. It carried no `__closure_module__` stamp (hence the
+  student's bug), was shared by every evaluation of the class definition, and
+  captured no variables. The loader now lowers that `push_const` to `fclosure`
+  (`lowerClassConstructorPush`, `src/runtime/ProtoBytecodeLoader.cpp`). The five
+  interpreter sites that ran `__fields_init__` in place of the constructor's own
+  field-initialisation code are removed: they made every field initialiser run
+  twice, and a derived class's fields run before `super()` returned.
+- **Captured variables were keyed by name on one frame object per call.**
+  Same-named bindings of sibling blocks and of successive loop iterations
+  overwrote each other (`for (let i…) fs.push(() => i)` gave `3,3,3`), and a
+  function's own `length` / `prototype` shadowed a captured variable of that
+  name. Each closure now records its cells on its own capture scope, its
+  `[[Environment]]`, whose prototype chain is its scope chain
+  (ARCHITECTURE.md §1.3a). `OP_close_loc` now ends a binding as QuickJS does
+  (it searched the wrong index space and did nothing), and a captured parameter
+  shares one cell with the function that declares it.
+- **`setJSProtoOverride` detached closures from their scope.** It rebound the
+  parent chain to `[proto]` alone, so after `Object.setPrototypeOf(fn, obj)`,
+  `fn.__proto__ = obj` or `class D extends Base` every captured variable read as
+  `undefined`. A closure now keeps its existing parents behind the new prototype.
+- **Own-property enumerability was read through the prototype chain.**
+  `propertyIsEnumerable`, `Object.keys` and `for-in` found an ancestor's
+  descriptor for an own property, so `F.constructor = 5` on any function was
+  reported non-enumerable (Function.prototype's `constructor` is).
+- **Asserting JavaScript tests were not run by CI.** They are now registered with
+  CTest under `js/*`, inside the gating `ctest -E "integration|network"`:
+  `closure_scopes`, `class_closure`, `closure_set_prototype`, `object_integrity`,
+  `test_require_file`, `test_require`, `protoCore_collections`.
+
+Measured, sequentially, against the previous build (`96a7c6bc4`), corpus
+`aae8cf6e`:
+
+- `language/statements/{class,for,for-in,for-of,let,const,block}`,
+  `language/expressions/{class,arrow-function,function}` and
+  `language/block-scope` (10 724 tests): 5 961 → 6 041 passed
+  (55.59 % → 56.33 %), 80 fixed, 0 regressions.
+- Per-commit gate `built-ins/{Object,Reflect,Proxy}`: unchanged, 3 619 of 3 875.
+- `perf stat -r 3` cycles: function_calls −3.0 %, object_read_only +2.6 %, a
+  closure-heavy script +1.6 %; tree_traversal and numeric_loop, which create no
+  closures, measured 14–17 % fewer cycles, attributed to code layout rather than
+  to this change.
+
 ### One authoritative Test262 figure, and two classification bugs behind the old ones (2026-09-26)
 
 - protoJS stated at least four Test262 results and no document said which was

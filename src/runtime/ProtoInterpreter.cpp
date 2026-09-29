@@ -477,20 +477,31 @@ namespace {
 // `g_cellMarker` ProtoObject.  `getFirstParent(cell) == g_cellMarker`
 // is an O(1) tag check.
 //
-// Lifecycle:
-//   - OP_close_loc(idx) allocates a cell wrapping the local at `idx`
-//     and stores it in the matching closure-var slot.
-//   - OP_fclosure passes parent's cells to the child via a private
-//     `__captured_cells__` attribute on the child function instance.
-//   - runBytecode populates the child's closure-var slots from
-//     `__captured_cells__`.
+// Capture scopes: a closure's [[Environment]].
+//
+// OP_fclosure promotes every LOCAL / ARG slot the new function captures to a
+// cell (in place, so the declaring function reads and writes the same cell)
+// and records the cells on a CAPTURE SCOPE: an object created for that one
+// closure, whose own attributes map each captured variable's source name to
+// its cell and whose parent is the enclosing call's frame object.  The scope
+// is stamped on the function as `__capture_scope__`; its prototype chain is
+// the closure's scope chain.  At call entry,
+// populateClosureCellsFromInstance copies the cells into the callee's
+// closure-var slots, which OP_get_var_ref / OP_put_var_ref then use by index.
+//
+// One scope per closure, rather than one name table per call, is what lets
+// JavaScript's block scopes and per-iteration bindings coexist: two closures
+// capturing different bindings of the same name each hold their own cell.
+// OP_close_loc ends a binding's lifetime -- it replaces the local's cell with
+// the cell's current value, so the next closure created for that local gets a
+// fresh cell while earlier closures keep theirs.
 //
 // Anything that previously published values to the global object as a
 // faux-closure mechanism is removed; cells make that obsolete.
 
 thread_local const proto::ProtoObject* t_cellMarker = nullptr;
 thread_local const proto::ProtoString* t_cellValueKey = nullptr;
-thread_local const proto::ProtoString* t_capturedCellsKey = nullptr;
+thread_local const proto::ProtoString* t_captureScopeKey = nullptr;
 
 inline const proto::ProtoString* cellValueKey(proto::ProtoContext* ctx) {
     if (!t_cellValueKey)
@@ -498,10 +509,10 @@ inline const proto::ProtoString* cellValueKey(proto::ProtoContext* ctx) {
     return t_cellValueKey;
 }
 
-inline const proto::ProtoString* capturedCellsKey(proto::ProtoContext* ctx) {
-    if (!t_capturedCellsKey)
-        t_capturedCellsKey = proto::ProtoString::createSymbol(ctx, "__captured_cells__");
-    return t_capturedCellsKey;
+inline const proto::ProtoString* captureScopeKey(proto::ProtoContext* ctx) {
+    if (!t_captureScopeKey)
+        t_captureScopeKey = proto::ProtoString::createSymbol(ctx, "__capture_scope__");
+    return t_captureScopeKey;
 }
 
 inline const proto::ProtoObject* cellMarker(proto::ProtoContext* ctx) {
@@ -590,11 +601,17 @@ inline void writeCell(proto::ProtoContext* ctx,
 static void setSlot(proto::ProtoContext* ctx, unsigned int idx, const proto::ProtoObject* val);
 
 // Populate `childCtx`'s closure-var slots from a callable function
-// instance's `__captured_cells__` SparseList (placed there by
-// OP_fclosure).  Called by every site that invokes runBytecode for
-// a user-defined function — it must run BEFORE runBytecode reads the
-// slots, otherwise runBytecode's global-fallback path would see them
-// as still-empty and overwrite with stale globals.
+// instance's capture scope (placed there by OP_fclosure).  Called by every
+// site that invokes runBytecode for a user-defined function -- it must run
+// BEFORE runBytecode reads the slots, otherwise runBytecode's global-fallback
+// path would see them as still-empty and overwrite them with stale globals.
+//
+// LOCAL / ARG / REF captures are OWN attributes of the capture scope, looked
+// up own-only: a chain walk starting at the function would let the function's
+// own `length`, `name` or `prototype` (or anything on Function.prototype)
+// shadow a captured variable of that name.  Global captures are not on the
+// scope; they are still resolved through the function's parent chain, which
+// reaches its module scope.
 inline void populateClosureCellsFromInstance(proto::ProtoContext* childCtx,
                                               const proto::ProtoObject* fnInst,
                                               const ProtoBytecodeModule& nf) {
@@ -602,22 +619,24 @@ inline void populateClosureCellsFromInstance(proto::ProtoContext* childCtx,
     if (nf.closureVarNames.empty()) return;
     const unsigned argC = nf.argCount();
     const unsigned varC = nf.varCount();
-    // Chain-walk model: each closure var was published by OP_fclosure on
-    // the outer's frameObj under its source-level name.  The fnInst has
-    // that frameObj as a parent (added in fclosure), so a regular
-    // getAttribute chain walk reaches the cell without a __captured_cells__
-    // sidecar.  The protoCore AttributeCache memoises the lookup, so the
-    // first invocation pays a walk + populates the cache; later
-    // invocations of the same fnInst (e.g. a callback used in a tight
-    // loop) hit it in O(1).
-    for (size_t i = 0; i < nf.closureVarNames.size(); ++i) {
-        const std::string& cvNm = nf.closureVarNames[i];
-        if (cvNm.empty()) continue;
-        const proto::ProtoString* nmKey =
-            proto::ProtoString::createSymbol(childCtx, cvNm.c_str());
-        if (!nmKey) continue;
-        const proto::ProtoObject* cell =
-            fnInst->getAttribute(childCtx, nmKey, /*chain*/ true);
+    const proto::ProtoString* scopeKey = captureScopeKey(childCtx);
+    const proto::ProtoObject* scope = scopeKey
+        ? fnInst->getOwnAttributeDirect(childCtx, scopeKey) : nullptr;
+    if (scope == PROTO_NONE) scope = nullptr;
+    const proto::ProtoList* symbols = nf.closureSymbols;
+    const unsigned long symbolCount = symbols ? symbols->getSize(childCtx) : 0;
+    for (size_t i = 0; i < nf.closureVarNames.size() && i < symbolCount; ++i) {
+        const proto::ProtoObject* symObj = symbols->getAt(childCtx, static_cast<int>(i));
+        const proto::ProtoString* nmKey = symObj ? symObj->asString(childCtx) : nullptr;
+        if (!nmKey || nf.closureVarNames[i].empty()) continue;
+        const int cvType = (i < nf.closureVarTypes.size()) ? nf.closureVarTypes[i] : -1;
+        const proto::ProtoObject* cell = nullptr;
+        if (cvType == 0 || cvType == 1 || cvType == 2) {
+            // LOCAL / ARG / REF: only ever on the capture scope.
+            if (scope) cell = scope->getOwnAttributeDirect(childCtx, nmKey);
+        } else {
+            cell = fnInst->getAttribute(childCtx, nmKey, /*chain*/ true);
+        }
         if (!cell || cell == PROTO_NONE) continue;
         setSlot(childCtx, argC + varC + static_cast<unsigned>(i), cell);
     }
@@ -2852,6 +2871,57 @@ static const bool s_debugBind  = (std::getenv("PROTO_DEBUG_BIND")  != nullptr);
         ctx->resizeAutomaticLocals(index + 1);
     const_cast<const proto::ProtoObject**>(ctx->getAutomaticLocals())[index] =
         value ? value : PROTO_NONE;
+}
+
+// Build the capture scope of a closure that OP_fclosure / OP_fclosure8 is
+// creating from `nm`, running in the frame whose slots are [args][locals]
+// [closure vars] with the given counts.  Returns nullptr when the closure
+// captures nothing from its enclosing function (only globals, or nothing).
+//
+//   - LOCAL: the enclosing function's local slot is promoted to a cell in
+//     place, unless it already holds one, so the declaring function and every
+//     closure created while that binding lives share one cell.
+//   - ARG: the same, for the argument slot.  get_arg / put_arg / set_arg read
+//     and write through the cell.
+//   - REF: the enclosing function's own closure-var slot already holds the
+//     cell it captured; it is passed on unchanged.
+//
+// See "Capture scopes" at the top of this file.
+static const proto::ProtoObject* captureClosureVars(proto::ProtoContext* ctx,
+                                                    const ProtoBytecodeModule& nm,
+                                                    unsigned argCount, unsigned varCount,
+                                                    const proto::ProtoObject* outerFrame) {
+    if (nm.closureVarNames.empty() || !nm.closureSymbols) return nullptr;
+    const proto::ProtoObject* scope = nullptr;
+    const unsigned long symbolCount = nm.closureSymbols->getSize(ctx);
+    for (size_t i = 0; i < nm.closureVarNames.size() && i < symbolCount; ++i) {
+        const int cvType = (i < nm.closureVarTypes.size()) ? nm.closureVarTypes[i] : -1;
+        const unsigned cvIdx = (i < nm.closureVarIndices.size()) ? nm.closureVarIndices[i] : 0;
+        const proto::ProtoObject* captured = nullptr;
+        if (cvType == 0 /* LOCAL */ || cvType == 1 /* ARG */) {
+            const unsigned slot = (cvType == 0) ? argCount + cvIdx : cvIdx;
+            const proto::ProtoObject* slotVal = getSlot(ctx, slot);
+            if (isCell(ctx, slotVal)) {
+                captured = slotVal;
+            } else {
+                captured = allocCell(ctx, slotVal);
+                if (captured) setSlot(ctx, slot, captured);
+            }
+        } else if (cvType == 2 /* REF */) {
+            captured = getSlot(ctx, argCount + varCount + cvIdx);
+        }
+        if (!captured || captured == PROTO_NONE) continue;
+        const proto::ProtoObject* symObj = nm.closureSymbols->getAt(ctx, static_cast<int>(i));
+        const proto::ProtoString* nmKey = symObj ? symObj->asString(ctx) : nullptr;
+        if (!nmKey) continue;
+        if (!scope) {
+            scope = outerFrame ? outerFrame->newChild(ctx, /*mutable=*/false)
+                               : ctx->newObject(/*mutable=*/false);
+            if (!scope) return nullptr;
+        }
+        scope = scope->setAttribute(ctx, nmKey, captured);
+    }
+    return scope;
 }
 
 [[gnu::always_inline]] static inline void initStack(proto::ProtoContext* ctx) {
@@ -7100,28 +7170,8 @@ const proto::ProtoObject* runBytecode(proto::ProtoContext* pContext,
                     const proto::ProtoObject* newObj = (funcProto && funcProto != PROTO_NONE)
                         ? funcProto->newChild(pContext, true)
                         : pContext->newObject(true);
-                    // Parent's __fields_init__ runs on newObj before its body.
-                    const proto::ProtoObject* fnProto = (protoKey && fn && fn != PROTO_NONE)
-                        ? fn->getAttribute(pContext, protoKey, false) : nullptr;
-                    const proto::ProtoObject* parentFI = nullptr;
-                    {
-                        if (fnProto && fnProto != PROTO_NONE) {
-                            const proto::ProtoString* fiK = JSSymbols::fieldsInit(pContext);
-                            parentFI = fiK
-                                ? fnProto->getAttribute(pContext, fiK, false) : nullptr;
-                            if (parentFI && parentFI != PROTO_NONE) {
-                                const proto::ProtoList* fiArgs = pContext->newList();
-                                callJSFunction(pContext, parentFI, newObj, fiArgs);
-                                if (t_hasCallException) {
-                                    pending_exception = t_callException;
-                                    has_pending_exception = true;
-                                    t_hasCallException = false;
-                                    t_callException = nullptr;
-                                    DISPATCH();
-                                }
-                            }
-                        }
-                    }
+                    // Instance fields are initialised by the constructor
+                    // bodies themselves; see the note in L_OP_call_constructor.
                     const proto::ProtoObject* ret =
                         callJSFunction(pContext, fn, newObj, argList);
                     if (t_hasCallException) {
@@ -7130,39 +7180,6 @@ const proto::ProtoObject* runBytecode(proto::ProtoContext* pContext,
                         t_hasCallException = false;
                         t_callException = nullptr;
                         DISPATCH();
-                    }
-                    // After parent constructor (super) returns, also invoke
-                    // the CURRENT class's __fields_init__ on `this`.  In an
-                    // explicit `constructor(){ super(); ... }`, the
-                    // standard bytecode emits emit_class_field_init after
-                    // OP_apply, but that path requires closure-capture for
-                    // class_fields_init that protoJS doesn't fully resolve;
-                    // direct dispatch here gives equivalent behavior.
-                    {
-                        const proto::ProtoObject* finalForFields = (ret && ret != PROTO_NONE && !ret->isInteger(pContext)
-                            && !ret->isBoolean(pContext) && !ret->isDouble(pContext)
-                            && !ret->asString(pContext) && ret != t_nullSentinel)
-                            ? ret : newObj;
-                        if (t_activeFunc && t_activeFunc != PROTO_NONE && finalForFields) {
-                            const proto::ProtoObject* afProto = protoKey
-                                ? t_activeFunc->getAttribute(pContext, protoKey, false) : nullptr;
-                            if (afProto && afProto != PROTO_NONE) {
-                                const proto::ProtoString* fiK2 = JSSymbols::fieldsInit(pContext);
-                                const proto::ProtoObject* fi2 = fiK2
-                                    ? afProto->getAttribute(pContext, fiK2, false) : nullptr;
-                                if (fi2 && fi2 != PROTO_NONE && fi2 != parentFI) {
-                                    const proto::ProtoList* fi2Args = pContext->newList();
-                                    callJSFunction(pContext, fi2, finalForFields, fi2Args);
-                                    if (t_hasCallException) {
-                                        pending_exception = t_callException;
-                                        has_pending_exception = true;
-                                        t_hasCallException = false;
-                                        t_callException = nullptr;
-                                        DISPATCH();
-                                    }
-                                }
-                            }
-                        }
                     }
                     // If constructor returned a non-undefined object, use it; else newObj.
                     if (ret && ret != PROTO_NONE && !ret->isInteger(pContext) &&
@@ -7376,30 +7393,6 @@ const proto::ProtoObject* runBytecode(proto::ProtoContext* pContext,
                     : pContext->newObject(true);
                 const proto::ProtoList* forwardArgs = t_activeArgs
                     ? t_activeArgs : pContext->newList();
-                // Run parent's __fields_init__ on newObj BEFORE calling the
-                // parent ctor's bytecode — that lets parent's class fields
-                // (e.g. `class A { x = 10 }`) initialise on `this`.
-                {
-                    const proto::ProtoString* parentProtoKey = JSSymbols::prototype(pContext);
-                    const proto::ProtoObject* parentProto = parentProtoKey
-                        ? parent->getAttribute(pContext, parentProtoKey, false) : nullptr;
-                    if (parentProto && parentProto != PROTO_NONE) {
-                        const proto::ProtoString* fiK = JSSymbols::fieldsInit(pContext);
-                        const proto::ProtoObject* fi = fiK
-                            ? parentProto->getAttribute(pContext, fiK, false) : nullptr;
-                        if (fi && fi != PROTO_NONE) {
-                            const proto::ProtoList* fiArgs = pContext->newList();
-                            callJSFunction(pContext, fi, newObj, fiArgs);
-                            if (t_hasCallException) {
-                                pending_exception = t_callException;
-                                has_pending_exception = true;
-                                t_hasCallException = false;
-                                t_callException = nullptr;
-                                DISPATCH();
-                            }
-                        }
-                    }
-                }
                 // Dispatch to parent ctor.  Two paths:
                 //   - JS class ctor with __bytecode_id__ → callJSFunction
                 //   - Native ctor with __construct__ (Number, Boolean,
@@ -7525,32 +7518,9 @@ const proto::ProtoObject* runBytecode(proto::ProtoContext* pContext,
                                     !ret->isBoolean(pContext) && !ret->asString(pContext) &&
                                     ret != t_nullSentinel;
                     const proto::ProtoObject* finalThis = retIsObj ? ret : newObj;
-                    // Run THIS class's __fields_init__ on the resulting `this`.
-                    // The parent's fields were already initialised by the
-                    // callJSFunction above (parent's OP_call_constructor or
-                    // its own OP_init_ctor in a deeper chain).  This class's
-                    // fields live on t_activeFunc.prototype.__fields_init__.
-                    if (t_activeFunc && t_activeFunc != PROTO_NONE && finalThis) {
-                        const proto::ProtoString* protoKeyFI = JSSymbols::prototype(pContext);
-                        const proto::ProtoObject* tProto = protoKeyFI
-                            ? t_activeFunc->getAttribute(pContext, protoKeyFI, false) : nullptr;
-                        if (tProto && tProto != PROTO_NONE) {
-                            const proto::ProtoString* fiK = JSSymbols::fieldsInit(pContext);
-                            const proto::ProtoObject* fi = fiK
-                                ? tProto->getAttribute(pContext, fiK, false) : nullptr;
-                            if (fi && fi != PROTO_NONE) {
-                                const proto::ProtoList* fiArgs = pContext->newList();
-                                callJSFunction(pContext, fi, finalThis, fiArgs);
-                                if (t_hasCallException) {
-                                    pending_exception = t_callException;
-                                    has_pending_exception = true;
-                                    t_hasCallException = false;
-                                    t_callException = nullptr;
-                                    DISPATCH();
-                                }
-                            }
-                        }
-                    }
+                    // This class's fields are initialised by the bytecode
+                    // that follows OP_init_ctor; see the note in
+                    // L_OP_call_constructor.
                     stackPush(pContext, finalThis);
                 }
                 DISPATCH();
@@ -7578,14 +7548,6 @@ const proto::ProtoObject* runBytecode(proto::ProtoContext* pContext,
                 // chain.  Net-zero stack effect.  Records __home_object__
                 // on the method; the value is read by OP_special_object
                 // kind=HOME_OBJECT at the start of the method body.
-                //
-                // Side detection: if the next opcode is NOT OP_define_method
-                // or OP_define_method_computed, this is the
-                // class_fields_init closure (QuickJS emits OP_fclosure +
-                // OP_set_home_object + OP_scope_put_var_init for it).
-                // Stash it on the home (prototype) under __fields_init__
-                // so OP_call_constructor can invoke it when the user
-                // ctor body doesn't (e.g., implicit/empty constructor).
                 if (stackSize(pContext) >= 2) {
                     const proto::ProtoObject* method = stackAt(pContext, 0);
                     const proto::ProtoObject* home   = stackAt(pContext, 1);
@@ -7597,21 +7559,6 @@ const proto::ProtoObject* runBytecode(proto::ProtoContext* pContext,
                             pAutomaticLocals[currentStackBase + _PF().stackTop - 1] =
                                 newMethod ? newMethod : method;
                             updateMapping(pContext, method, newMethod ? newMethod : method);
-                            // Sniff next opcode for fields_init detection.
-                            if (pc < len) {
-                                uint8_t nextOp = buf[pc];
-                                if (nextOp != OP_define_method && nextOp != OP_define_method_computed) {
-                                    const proto::ProtoString* fiK = JSSymbols::fieldsInit(pContext);
-                                    if (fiK) {
-                                        const proto::ProtoObject* newHome = home->setAttribute(pContext, fiK,
-                                            newMethod ? newMethod : method);
-                                        if (newHome && newHome != home) {
-                                            pAutomaticLocals[currentStackBase + _PF().stackTop - 2] = newHome;
-                                            updateMapping(pContext, home, newHome);
-                                        }
-                                    }
-                                }
-                            }
                         }
                     }
                 }
@@ -7855,10 +7802,13 @@ const proto::ProtoObject* runBytecode(proto::ProtoContext* pContext,
                 // present, parent_class is the explicit base class and
                 // parent_proto is base.prototype.
                 //
-                // Minimal implementation: bfunc is already a closure
-                // object (OP_fclosure populated its bytecode_id +
-                // closure cells).  We reuse it directly as the ctor —
-                // augmenting with .prototype and .name only.
+                // bfunc is already a closure: QuickJS pushes the raw ctor
+                // bytecode with OP_push_const, and the loader lowers that
+                // push to OP_fclosure (lowerClassConstructorPush in
+                // ProtoBytecodeLoader.cpp), so each evaluation gets a fresh
+                // ctor with captured variables and a __closure_module__
+                // stamp.  We reuse it directly as the ctor — augmenting
+                // with .prototype and .name only.
                 bool isComputed = (opcode == OP_define_class_computed);
                 if (pc + 5 > len) return PROTO_NONE;
                 uint32_t classAtom = get_u32(buf + pc);
@@ -8395,7 +8345,7 @@ const proto::ProtoObject* runBytecode(proto::ProtoContext* pContext,
             L_OP_get_arg3: {
                 unsigned idx = static_cast<unsigned>(opcode - OP_get_arg0);
                 if (idx < argCount && idx < (argCount + varCount))
-                    stackPush(pContext, getSlot(pContext, idx));
+                    stackPush(pContext, readCell(pContext, getSlot(pContext, idx)));
                 else
                     stackPush(pContext,PROTO_NONE);
                 DISPATCH();
@@ -8408,8 +8358,12 @@ const proto::ProtoObject* runBytecode(proto::ProtoContext* pContext,
                 unsigned idx = static_cast<unsigned>(opcode - OP_put_arg0);
                 const proto::ProtoObject* val = stackTop(pContext);
                 stackPop(pContext);
-                if (idx < argCount && idx < (argCount + varCount))
-                    setSlot(pContext, idx, val);
+                if (idx < argCount && idx < (argCount + varCount)) {
+                    // A captured argument's slot holds its cell.
+                    const proto::ProtoObject* slotVal = getSlot(pContext, idx);
+                    if (isCell(pContext, slotVal)) writeCell(pContext, slotVal, val);
+                    else setSlot(pContext, idx, val);
+                }
                 DISPATCH();
             }
             L_OP_set_arg0: ;
@@ -8419,8 +8373,12 @@ const proto::ProtoObject* runBytecode(proto::ProtoContext* pContext,
                 if (stackEmpty(pContext)) return PROTO_NONE;
                 unsigned idx = static_cast<unsigned>(opcode - OP_set_arg0);
                 const proto::ProtoObject* val = stackTop(pContext);
-                if (idx < argCount && idx < (argCount + varCount))
-                    setSlot(pContext, idx, val);
+                if (idx < argCount && idx < (argCount + varCount)) {
+                    // A captured argument's slot holds its cell.
+                    const proto::ProtoObject* slotVal = getSlot(pContext, idx);
+                    if (isCell(pContext, slotVal)) writeCell(pContext, slotVal, val);
+                    else setSlot(pContext, idx, val);
+                }
                 DISPATCH();
             }
             L_OP_get_var_undef: ;
@@ -8838,43 +8796,24 @@ const proto::ProtoObject* runBytecode(proto::ProtoContext* pContext,
                 DISPATCH();
             }
             L_OP_close_loc: {
-                /* Promote a local variable to a closure cell so inner
-                 * functions can capture it by reference.
+                /* End the lifetime of a captured binding (QuickJS
+                 * close_var_refs): emitted when a block scope whose local
+                 * was captured is left, and between loop iterations for
+                 * per-iteration `let` / `const` bindings.
                  *
-                 * QuickJS emits OP_close_loc(localIdx) when a local is
-                 * captured by an inner function.  We:
-                 *   1. Find the closure-var slot j whose closureVarTypes[j]
-                 *      is JS_CLOSURE_LOCAL with cvIdx[j] == localIdx.
-                 *   2. Allocate a cell wrapping the current local value.
-                 *   3. Store the cell at our own closure-var slot j.
-                 *
-                 * After this, all parent reads / writes of the variable
-                 * (which QuickJS emits as OP_get_var_ref(j) /
-                 * OP_put_var_ref(j)) dereference the cell.  When an inner
-                 * function captures j with cvType=REF, OP_fclosure passes
-                 * the SAME cell pointer to the inner; both sides share
-                 * the cell, so reassignments propagate. */
+                 * The closures created so far hold the local's cell in
+                 * their capture scopes; they keep it.  The local slot gets
+                 * the cell's current value back, so the declaring function
+                 * carries on with a plain value and the next OP_fclosure
+                 * that captures this local promotes a fresh cell -- a new
+                 * binding, as the next iteration or block entry requires. */
                 if (pc + 2 > len) return PROTO_NONE;
                 uint16_t locIndex = get_u16(buf + pc);
                 pc += 2;
-                // Find which closure-var slot maps to this local.
-                int closureSlot = -1;
-                for (size_t i = 0; i < module->closureVarTypes.size(); i++) {
-                    if (module->closureVarTypes[i] == 0 /*LOCAL*/ &&
-                        i < module->closureVarIndices.size() &&
-                        module->closureVarIndices[i] == locIndex) {
-                        closureSlot = static_cast<int>(i);
-                        break;
-                    }
-                }
-                if (closureSlot >= 0) {
-                    const proto::ProtoObject* curVal =
-                        getSlot(pContext, argCount + locIndex);
-                    const proto::ProtoObject* cell = allocCell(pContext, curVal);
-                    if (cell) {
-                        setSlot(pContext, argCount + varCount +
-                                static_cast<unsigned>(closureSlot), cell);
-                    }
+                if (locIndex < varCount) {
+                    const proto::ProtoObject* slotVal = getSlot(pContext, argCount + locIndex);
+                    if (isCell(pContext, slotVal))
+                        setSlot(pContext, argCount + locIndex, readCell(pContext, slotVal));
                 }
                 DISPATCH();
             }
@@ -8961,7 +8900,7 @@ const proto::ProtoObject* runBytecode(proto::ProtoContext* pContext,
                 uint16_t argIndex = get_u16(buf + pc);
                 pc += 2;
                 if (argIndex < argCount && argIndex < (argCount + varCount))
-                    stackPush(pContext, getSlot(pContext, argIndex));
+                    stackPush(pContext, readCell(pContext, getSlot(pContext, argIndex)));
                 else
                     stackPush(pContext,PROTO_NONE);
                 DISPATCH();
@@ -8972,8 +8911,12 @@ const proto::ProtoObject* runBytecode(proto::ProtoContext* pContext,
                 pc += 2;
                 const proto::ProtoObject* val = stackTop(pContext);
                 stackPop(pContext);
-                if (argIndex < argCount && argIndex < (argCount + varCount))
-                    setSlot(pContext, argIndex, val);
+                if (argIndex < argCount && argIndex < (argCount + varCount)) {
+                    // A captured argument's slot holds its cell.
+                    const proto::ProtoObject* slotVal = getSlot(pContext, argIndex);
+                    if (isCell(pContext, slotVal)) writeCell(pContext, slotVal, val);
+                    else setSlot(pContext, argIndex, val);
+                }
                 DISPATCH();
             }
             L_OP_set_arg: {
@@ -8981,8 +8924,12 @@ const proto::ProtoObject* runBytecode(proto::ProtoContext* pContext,
                 uint16_t argIndex = get_u16(buf + pc);
                 pc += 2;
                 const proto::ProtoObject* val = stackTop(pContext);
-                if (argIndex < argCount && argIndex < (argCount + varCount))
-                    setSlot(pContext, argIndex, val);
+                if (argIndex < argCount && argIndex < (argCount + varCount)) {
+                    // A captured argument's slot holds its cell.
+                    const proto::ProtoObject* slotVal = getSlot(pContext, argIndex);
+                    if (isCell(pContext, slotVal)) writeCell(pContext, slotVal, val);
+                    else setSlot(pContext, argIndex, val);
+                }
                 DISPATCH();
             }
             L_OP_set_loc_uninitialized: {
@@ -14281,32 +14228,19 @@ const proto::ProtoObject* runBytecode(proto::ProtoContext* pContext,
                         }
                     }
 
-                    // Instance field initialization: if the func's prototype
-                    // has __fields_init__ (a closure stored by OP_set_home_object
-                    // when QuickJS emitted OP_fclosure + OP_set_home_object +
-                    // OP_scope_put_var_init for the class_fields_init), invoke
-                    // it on newObj before the constructor body.  This bypasses
-                    // the standard scope_get_var class_fields_init + call_method
-                    // mechanism which requires closure-capture analysis that
-                    // protoJS doesn't yet fully implement.
-                    {
-                        const proto::ProtoString* fiK = JSSymbols::fieldsInit(pContext);
-                        const proto::ProtoObject* fieldsInit = (fiK && funcProto && funcProto != PROTO_NONE)
-                            ? funcProto->getAttribute(pContext, fiK, false) : nullptr;
-                        if (fieldsInit && fieldsInit != PROTO_NONE) {
-                            const proto::ProtoList* fiArgs = pContext->newList();
-                            const proto::ProtoObject* fiRet =
-                                callJSFunction(pContext, fieldsInit, newObj, fiArgs);
-                            (void)fiRet;
-                            if (t_hasCallException) {
-                                pending_exception = t_callException;
-                                has_pending_exception = true;
-                                t_hasCallException = false;
-                                t_callException = nullptr;
-                                DISPATCH();
-                            }
-                        }
-                    }
+                    // Instance fields are initialised by the constructor body,
+                    // not here.  QuickJS emits emit_class_field_init into every
+                    // class constructor -- after OP_check_ctor or at the top of
+                    // a base constructor, after OP_init_ctor or after each
+                    // super() call in a derived one -- as a call to the
+                    // class_fields_init closure that the constructor captures.
+                    // Until class constructors became real closures (see
+                    // lowerClassConstructorPush in ProtoBytecodeLoader.cpp)
+                    // that capture failed, and this site, OP_apply and
+                    // OP_init_ctor ran the closure themselves as a stand-in.
+                    // Once the capture worked, the stand-ins ran every field
+                    // initialiser a second time, and a derived class's fields
+                    // ran before super() returned.
 
                     // Publish func + newTarget + args for OP_special_object
                     // and OP_init_ctor inside the constructor body.
@@ -14715,35 +14649,6 @@ const proto::ProtoObject* runBytecode(proto::ProtoContext* pContext,
                         resultIsObject = false;
                 }
                 const proto::ProtoObject* finalCtorThis = resultIsObject ? result : newObj;
-
-                // super() field-init follow-up: if this OP_call_constructor
-                // was emitted by QuickJS as a super() call (t_activeFunc is
-                // the CALLER class, which differs from func = parent class),
-                // also run the caller class's __fields_init__ on the result.
-                // The standard bytecode's emit_class_field_init that should
-                // do this isn't resolving the closure-var reference for
-                // class_fields_init; this direct dispatch fills the gap.
-                if (t_activeFunc && t_activeFunc != PROTO_NONE
-                    && t_activeFunc != func && finalCtorThis) {
-                    const proto::ProtoObject* afProto = protoKey
-                        ? t_activeFunc->getAttribute(pContext, protoKey, false) : nullptr;
-                    if (afProto && afProto != PROTO_NONE && afProto != funcProto) {
-                        const proto::ProtoString* fiK = JSSymbols::fieldsInit(pContext);
-                        const proto::ProtoObject* fi = fiK
-                            ? afProto->getAttribute(pContext, fiK, false) : nullptr;
-                        if (fi && fi != PROTO_NONE) {
-                            const proto::ProtoList* fiArgs = pContext->newList();
-                            callJSFunction(pContext, fi, finalCtorThis, fiArgs);
-                            if (t_hasCallException) {
-                                pending_exception = t_callException;
-                                has_pending_exception = true;
-                                t_hasCallException = false;
-                                t_callException = nullptr;
-                                DISPATCH();
-                            }
-                        }
-                    }
-                }
 
                 stackPush(pContext, finalCtorThis);
                 DISPATCH();
@@ -15519,57 +15424,13 @@ const proto::ProtoObject* runBytecode(proto::ProtoContext* pContext,
                                     fnInst = fnInst->setAttribute(pContext, stK, srcVal);
                             }
                         }
-                        // Closure var capture (chain-walk model): see
-                        // OP_fclosure for the detailed semantics.  Same
-                        // model here — promote LOCAL/ARG to cell, take
-                        // REF as-is, publish on outer's frameObj under
-                        // the source-level name.  No __captured_cells__
-                        // SparseList — the inner fn reaches each cell via
-                        // its prototype-chain walk through outerFrameObj.
-                        if (!nm8.closureVarNames.empty()) {
-                            const proto::ProtoObject* outerFrameForPublish = t_currentFrameObj;
-                            for (size_t cvi = 0; cvi < nm8.closureVarNames.size(); ++cvi) {
-                                int cvType = (cvi < nm8.closureVarTypes.size())
-                                    ? nm8.closureVarTypes[cvi] : -1;
-                                uint16_t cvIdx = (cvi < nm8.closureVarIndices.size())
-                                    ? nm8.closureVarIndices[cvi] : 0;
-                                const proto::ProtoObject* captured = PROTO_NONE;
-                                if (cvType == 1 /* ARG */) {
-                                    const proto::ProtoObject* curVal =
-                                        getSlot(pContext, cvIdx);
-                                    const proto::ProtoObject* cell =
-                                        allocCell(pContext, curVal);
-                                    if (cell) captured = cell;
-                                } else if (cvType == 0 /* LOCAL */) {
-                                    const proto::ProtoObject* slotVal =
-                                        getSlot(pContext, argCount + cvIdx);
-                                    if (isCell(pContext, slotVal)) {
-                                        captured = slotVal;
-                                    } else {
-                                        const proto::ProtoObject* cell =
-                                            allocCell(pContext, slotVal);
-                                        if (cell) {
-                                            setSlot(pContext, argCount + cvIdx, cell);
-                                            captured = cell;
-                                        }
-                                    }
-                                } else if (cvType == 2 /* REF */) {
-                                    captured = getSlot(pContext, argCount + varCount + cvIdx);
-                                } else {
-                                    captured = PROTO_NONE;
-                                }
-                                if (outerFrameForPublish && captured && captured != PROTO_NONE &&
-                                    (cvType == 0 || cvType == 1 || cvType == 2)) {
-                                    const std::string& cvNm = nm8.closureVarNames[cvi];
-                                    if (!cvNm.empty()) {
-                                        const proto::ProtoString* nmKey =
-                                            proto::ProtoString::createSymbol(pContext, cvNm.c_str());
-                                        if (nmKey) {
-                                            outerFrameForPublish->setAttribute(pContext, nmKey, captured);
-                                        }
-                                    }
-                                }
-                            }
+                        // Capture scope: the closure's [[Environment]].  See
+                        // "Capture scopes" at the top of this file.
+                        if (const proto::ProtoObject* captureScope = captureClosureVars(
+                                pContext, nm8, argCount, varCount, t_currentFrameObj)) {
+                            const proto::ProtoString* csKey = captureScopeKey(pContext);
+                            if (csKey)
+                                fnInst = fnInst->setAttribute(pContext, csKey, captureScope);
                         }
                     }
                     stackPush(pContext, fnInst);
@@ -15742,100 +15603,13 @@ const proto::ProtoObject* runBytecode(proto::ProtoContext* pContext,
                                     fnInst2 = fnInst2->setAttribute(pContext, stK, srcVal);
                             }
                         }
-                        // Closure var capture (chain-walk model): promote
-                        // each LOCAL/ARG to a cell, leave REF cells as-is,
-                        // and publish the cell on the outer's frameObj
-                        // under its source-level name.  The inner fn — now
-                        // a chain-walk child of outer's frameObj via the
-                        // addParent above — finds each cell through
-                        // protoCore's regular getAttribute chain walk,
-                        // replacing the legacy __captured_cells__ sidecar.
-                        if (!nm2.closureVarNames.empty()) {
-                            const proto::ProtoObject* outerFrameForPublish = t_currentFrameObj;
-                            for (size_t cvi2 = 0; cvi2 < nm2.closureVarNames.size(); ++cvi2) {
-                                int cvType2 = (cvi2 < nm2.closureVarTypes.size())
-                                    ? nm2.closureVarTypes[cvi2] : -1;
-                                uint16_t cvIdx2 = (cvi2 < nm2.closureVarIndices.size())
-                                    ? nm2.closureVarIndices[cvi2] : 0;
-                                const proto::ProtoObject* captured = PROTO_NONE;
-                                if (cvType2 == 1 /* ARG */) {
-                                    // Allocate a cell wrapping the parent's
-                                    // arg slot so the callee can mutate it
-                                    // back into the parent's view.
-                                    const proto::ProtoObject* curVal =
-                                        getSlot(pContext, cvIdx2);
-                                    const proto::ProtoObject* cell =
-                                        allocCell(pContext, curVal);
-                                    if (cell) {
-                                        // Promote the parent's arg slot to
-                                        // hold the cell so subsequent reads
-                                        // / writes via OP_get_arg / OP_set_arg
-                                        // see the cell — caveat: those ops
-                                        // currently don't dereference cells.
-                                        // For now this matches LOCAL behaviour
-                                        // after OP_close_loc.
-                                        captured = cell;
-                                    }
-                                } else if (cvType2 == 0 /* LOCAL */) {
-                                    // Read the parent's local slot; if it's
-                                    // not yet a cell, lazily promote it by
-                                    // allocating a cell and writing it back
-                                    // to the parent's local slot.  Subsequent
-                                    // OP_fclosure calls in the same parent
-                                    // scope that capture the SAME local will
-                                    // see isCell(slot) = true and reuse the
-                                    // already-promoted cell.  We must NOT
-                                    // search the parent's closureVars for a
-                                    // matching index — closureVarIndices
-                                    // there refer to the GRANDPARENT's slot
-                                    // numbering (where the parent's CV came
-                                    // from), not the parent's local slots.
-                                    const proto::ProtoObject* slotVal =
-                                        getSlot(pContext, argCount + cvIdx2);
-                                    if (isCell(pContext, slotVal)) {
-                                        captured = slotVal;
-                                    } else {
-                                        const proto::ProtoObject* cell =
-                                            allocCell(pContext, slotVal);
-                                        if (cell) {
-                                            setSlot(pContext, argCount + cvIdx2, cell);
-                                            captured = cell;
-                                        }
-                                    }
-                                } else if (cvType2 == 2 /* REF */) {
-                                    // Parent already has the variable as a
-                                    // closure var — its slot holds the cell
-                                    // (assuming the chain has been built
-                                    // correctly).  Pass the cell pointer
-                                    // through unchanged.
-                                    captured = getSlot(pContext, argCount + varCount + cvIdx2);
-                                } else {
-                                    // Global captures: keep raw value.  The
-                                    // callee's runBytecode will fall through
-                                    // to its global-lookup path.  Mark with
-                                    // PROTO_NONE so the SparseList stores it
-                                    // explicitly.
-                                    captured = PROTO_NONE;
-                                }
-                                // Publish the cell on the outer's frameObj
-                                // under the source-level name so the inner
-                                // fn finds it via chain walk on its own
-                                // frameObj (which has outerFrameObj as a
-                                // parent).  LOCAL / ARG / REF only —
-                                // GLOBAL is already reachable via
-                                // moduleScope which is also a parent.
-                                if (outerFrameForPublish && captured && captured != PROTO_NONE &&
-                                    (cvType2 == 0 || cvType2 == 1 || cvType2 == 2)) {
-                                    const std::string& cvNm = nm2.closureVarNames[cvi2];
-                                    if (!cvNm.empty()) {
-                                        const proto::ProtoString* nmKey =
-                                            proto::ProtoString::createSymbol(pContext, cvNm.c_str());
-                                        if (nmKey) {
-                                            outerFrameForPublish->setAttribute(pContext, nmKey, captured);
-                                        }
-                                    }
-                                }
-                            }
+                        // Capture scope: the closure's [[Environment]].  See
+                        // "Capture scopes" at the top of this file.
+                        if (const proto::ProtoObject* captureScope = captureClosureVars(
+                                pContext, nm2, argCount, varCount, t_currentFrameObj)) {
+                            const proto::ProtoString* csKey = captureScopeKey(pContext);
+                            if (csKey)
+                                fnInst2 = fnInst2->setAttribute(pContext, csKey, captureScope);
                         }
                     }
                     stackPush(pContext, fnInst2);
@@ -16938,8 +16712,11 @@ const proto::ProtoObject* runBytecode(proto::ProtoContext* pContext,
                                         pContext->fromUTF8String(pdks.c_str());
                                     const proto::ProtoString* pdkStr =
                                         pko ? pko->asString(pContext) : nullptr;
-                                    if (pdkStr) {
-                                        // Check descriptor on the current cursor level only.
+                                    if (pdkStr
+                                        && cursor->hasOwnAttribute(pContext, pdkStr) == PROTO_TRUE) {
+                                        // Check descriptor on the current cursor level only:
+                                        // getAttribute walks the chain, so it is guarded by an
+                                        // own-attribute probe.
                                         const proto::ProtoObject* pdv =
                                             cursor->getAttribute(pContext, pdkStr, false);
                                         if (pdv && pdv != PROTO_NONE && pdv->isInteger(pContext)) {

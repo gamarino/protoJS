@@ -303,7 +303,12 @@ static void collectOwnKeys(
             const proto::ProtoObject* pko = cbCtx->fromUTF8String(pdKeyStr.c_str());
             const proto::ProtoString* pdk = pko ? pko->asString(cbCtx) : nullptr;
             if (pdk) {
-                const proto::ProtoObject* pdv = s->obj->getAttribute(cbCtx, pdk, false);
+                // Own-only: the descriptor of an own property is never
+                // inherited (getAttribute walks the chain, and e.g.
+                // Function.prototype's __pd_constructor__ would otherwise
+                // hide a function's own `constructor`).
+                const proto::ProtoObject* pdv = s->obj->hasOwnAttribute(cbCtx, pdk) == PROTO_TRUE
+                    ? s->obj->getAttribute(cbCtx, pdk, false) : nullptr;
                 if (pdv && pdv != PROTO_NONE && pdv->isInteger(cbCtx)) {
                     uint8_t bits = static_cast<uint8_t>(pdv->asLong(cbCtx));
                     if (!(bits & 0x4)) return; // not enumerable — skip
@@ -361,7 +366,8 @@ static void collectOwnKeys(
                 const proto::ProtoObject* pko = ctx->fromUTF8String(pdKeyStr.c_str());
                 const proto::ProtoString* pdk = pko ? pko->asString(ctx) : nullptr;
                 if (pdk) {
-                    const proto::ProtoObject* pdv = obj->getAttribute(ctx, pdk, false);
+                    const proto::ProtoObject* pdv = obj->hasOwnAttribute(ctx, pdk) == PROTO_TRUE
+                        ? obj->getAttribute(ctx, pdk, false) : nullptr;
                     if (pdv && pdv != PROTO_NONE && pdv->isInteger(ctx)) {
                         uint8_t bits = static_cast<uint8_t>(pdv->asLong(ctx));
                         if (!(bits & 0x4)) continue; // not enumerable
@@ -5245,8 +5251,11 @@ static const proto::ProtoObject* objectPropertyIsEnumerable(
     const proto::ProtoObject* pdko = ctx->fromUTF8String(pdKeyStr.c_str());
     const proto::ProtoString* pdks = pdko ? pdko->asString(ctx) : nullptr;
     if (pdks) {
-        const proto::ProtoObject* pdAttr = self->getAttribute(ctx, pdks, true);
-        if (pdAttr && pdAttr->isInteger(ctx)) {
+        // Own-only, like the own-property check above: an inherited
+        // descriptor describes the ancestor's property, not this one.
+        const proto::ProtoObject* pdAttr = self->hasOwnAttribute(ctx, pdks) == PROTO_TRUE
+            ? self->getAttribute(ctx, pdks, false) : nullptr;
+        if (pdAttr && pdAttr != PROTO_NONE && pdAttr->isInteger(ctx)) {
             long long bits = pdAttr->asLong(ctx);
             return (bits & 0x4) ? PROTO_TRUE : PROTO_FALSE;
         }
@@ -6876,6 +6885,7 @@ void setJSProtoOverride(proto::ProtoContext* ctx,
         t_jsProtoMap.erase(obj);
         return;
     }
+    const proto::ProtoObject* previousOverride = getJSProtoOverride(obj);
     t_jsProtoMap[obj] = proto;
 
     // Skip the protoCore rebind for the null-sentinel case: setParents
@@ -6893,6 +6903,28 @@ void setJSProtoOverride(proto::ProtoContext* ctx,
     if (!parents) return;
     parents = parents->appendLast(ctx, proto);
     if (!parents) return;
+
+    // A bytecode closure's parent chain carries its lexical scope as well
+    // as its prototype: OP_fclosure adds the enclosing call's frame object
+    // and the global root as parents, and captured variables are found by
+    // walking that chain.  Rebinding the chain to [proto] alone detached
+    // the closure from its scope, so after Object.setPrototypeOf(fn, obj),
+    // `fn.__proto__ = obj` or `class D extends Base` every captured
+    // variable read as undefined.  Keep the existing parents behind the
+    // new prototype, dropping only a prototype installed by an earlier
+    // override so that it stops shadowing lookups.
+    const proto::ProtoString* bcKey = JSSymbols::bytecodeId(ctx);
+    const proto::ProtoObject* bcId = bcKey ? obj->getOwnAttributeDirect(ctx, bcKey) : nullptr;
+    if (bcId && bcId != PROTO_NONE) {
+        const proto::ProtoList* current = obj->getParents(ctx);
+        const unsigned long n = current ? current->getSize(ctx) : 0;
+        for (unsigned long i = 0; i < n && parents; ++i) {
+            const proto::ProtoObject* p = current->getAt(ctx, static_cast<int>(i));
+            if (p && p != PROTO_NONE && p != proto && p != previousOverride)
+                parents = parents->appendLast(ctx, p);
+        }
+        if (!parents) return;
+    }
     (void)obj->setParents(ctx, parents);
 }
 
