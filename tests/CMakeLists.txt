@@ -75,3 +75,25 @@ add_test(NAME cli/blocking-joins-and-finalizers
     COMMAND "${CMAKE_CURRENT_SOURCE_DIR}/cli/blocking-joins-and-finalizers.sh"
             "$<TARGET_FILE:protojs>"
             "${CMAKE_CURRENT_BINARY_DIR}/cli-scratch/joins")
+
+# --- Asserting JavaScript tests ------------------------------------------------
+#
+# Each script checks the values it computes and exits 1 on any failure, so its
+# exit code is the verdict. Until these were registered they ran only from
+# tests/run_all_tests.sh, which CI does not call: the require() test covered
+# exported functions but never an exported class, and nothing gated it anyway.
+# Limited to language and module semantics -- nothing here touches the network
+# or depends on timing. The "js/" prefix keeps them inside the gating
+# `ctest -E "integration|network"` invocation.
+foreach(js_test
+        basic/class_closure
+        basic/closure_scopes
+        basic/closure_set_prototype
+        basic/object_integrity
+        modules/test_require_file
+        modules/test_require
+        collections/protoCore_collections)
+    add_test(NAME js/${js_test}
+        COMMAND "$<TARGET_FILE:protojs>"
+                "${CMAKE_CURRENT_SOURCE_DIR}/integration/${js_test}.js")
+endforeach()
