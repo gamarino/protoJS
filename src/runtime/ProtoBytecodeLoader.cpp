@@ -143,6 +143,49 @@ static void preResolveAllAtoms(JSContext* ctx, ProtoBytecodeModule* mod,
  * functions at every depth.  Each placeholder object in any module's protoCpool
  * carries a `__bytecode_id__` that is a valid index into that flat list.
  */
+/**
+ * Make every class constructor a closure.
+ *
+ * QuickJS emits a class definition as
+ *
+ *     push_const <ctor cpool idx>     (push_const8 after the short-opcode pass)
+ *     define_class <atom> <flags>     (or define_class_computed)
+ *
+ * and its OP_define_class builds the constructor closure itself (js_closure2
+ * over the running frame's var_refs). protoJS's OP_define_class instead
+ * consumes an already-built closure, exactly as OP_fclosure produces for every
+ * other function. Without this lowering it received the raw constant-pool
+ * object, which is shared by every evaluation of the class definition, captures
+ * no variables, and carries no __closure_module__ stamp -- so `new` on a class
+ * exported by a required module resolved the constructor's bytecode ID against
+ * the requiring script's function table and ran an unrelated function.
+ *
+ * Rewriting the push to the same-sized closure opcode (push_const and fclosure
+ * are both 5 bytes with a u32 cpool index; push_const8 and fclosure8 are both
+ * 2 bytes with a u8 index) routes the constructor through the one closure path
+ * the interpreter already has. Only a push that immediately precedes a
+ * define_class is rewritten; no other push_const is touched.
+ */
+static void lowerClassConstructorPush(std::vector<uint8_t>& code) {
+    const uint8_t* sizes = getOpSizes();
+    const size_t len = code.size();
+    size_t pc = 0;
+    size_t prevPc = len; // no previous instruction yet
+    while (pc < len) {
+        const uint8_t op = code[pc];
+        if ((op == OP_define_class || op == OP_define_class_computed) && prevPc < len) {
+            if (code[prevPc] == OP_push_const)
+                code[prevPc] = OP_fclosure;
+            else if (code[prevPc] == OP_push_const8)
+                code[prevPc] = OP_fclosure8;
+        }
+        const uint8_t sz = sizes[op];
+        if (sz == 0) return; // unknown opcode: stop rather than lose alignment
+        prevPc = pc;
+        pc += sz;
+    }
+}
+
 static bool loadBytecodeRecursive(JSContext* ctx,
                                   void* quickjsBytecode,
                                   proto::ProtoContext* pContext,
@@ -168,6 +211,7 @@ static bool loadBytecodeRecursive(JSContext* ctx,
     // unchanged the resulting `specBuf` is a byte-identical copy, so
     // the loader downstream paths see the same bytes either way.
     std::vector<uint8_t> specBuf = specialise(buf, len, getSpecialiseMode());
+    lowerClassConstructorPush(specBuf);
     out->pBytecode = pContext->newByteBuffer(
         reinterpret_cast<const char*>(specBuf.data()),
         static_cast<unsigned long>(specBuf.size()));

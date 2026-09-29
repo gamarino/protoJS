@@ -139,6 +139,29 @@ check("factory returns a callable closure", typeof add10 === "function",
 check("a closure built after load captures its argument",
       safeCall(add10, [5]) === 15, "add10(5) = " + safeCall(add10, [5]));
 
+// --- a class exported by a module -------------------------------------------
+//
+// `new` on an exported class must run the class's own constructor. A
+// constructor resolved against the requiring script's function table instead
+// runs whichever of this script's functions shares its index — observed running
+// check() itself — so the assertions below look at the constructed state.
+
+var cls = require('./fixtures/class_export.js');
+var user = null;
+try { user = new cls.User('Tobias'); } catch (err) { user = err; }
+check("an exported class runs its own constructor",
+      user && user.name === 'Tobias', "name = " + (user && user.name));
+check("methods of an exported class see the constructed state",
+      user && typeof user.greet === "function" && user.greet() === 'Hi, Tobias',
+      "greet() = " + safeCall(user && user.greet && user.greet.bind(user)));
+var admin = null;
+try { admin = new cls.Admin('Root'); } catch (err) { admin = err; }
+check("an exported derived class reaches its base constructor",
+      admin && admin.name === 'Root' && admin.role === 'admin',
+      "name = " + (admin && admin.name) + ", role = " + (admin && admin.role));
+check("instanceof holds across the module boundary",
+      admin instanceof cls.Admin && admin instanceof cls.User);
+
 // --- a require cycle terminates --------------------------------------------
 //
 // The module record is published before the body runs, so cycle_b sees

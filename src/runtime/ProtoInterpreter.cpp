@@ -7170,28 +7170,8 @@ const proto::ProtoObject* runBytecode(proto::ProtoContext* pContext,
                     const proto::ProtoObject* newObj = (funcProto && funcProto != PROTO_NONE)
                         ? funcProto->newChild(pContext, true)
                         : pContext->newObject(true);
-                    // Parent's __fields_init__ runs on newObj before its body.
-                    const proto::ProtoObject* fnProto = (protoKey && fn && fn != PROTO_NONE)
-                        ? fn->getAttribute(pContext, protoKey, false) : nullptr;
-                    const proto::ProtoObject* parentFI = nullptr;
-                    {
-                        if (fnProto && fnProto != PROTO_NONE) {
-                            const proto::ProtoString* fiK = JSSymbols::fieldsInit(pContext);
-                            parentFI = fiK
-                                ? fnProto->getAttribute(pContext, fiK, false) : nullptr;
-                            if (parentFI && parentFI != PROTO_NONE) {
-                                const proto::ProtoList* fiArgs = pContext->newList();
-                                callJSFunction(pContext, parentFI, newObj, fiArgs);
-                                if (t_hasCallException) {
-                                    pending_exception = t_callException;
-                                    has_pending_exception = true;
-                                    t_hasCallException = false;
-                                    t_callException = nullptr;
-                                    DISPATCH();
-                                }
-                            }
-                        }
-                    }
+                    // Instance fields are initialised by the constructor
+                    // bodies themselves; see the note in L_OP_call_constructor.
                     const proto::ProtoObject* ret =
                         callJSFunction(pContext, fn, newObj, argList);
                     if (t_hasCallException) {
@@ -7200,39 +7180,6 @@ const proto::ProtoObject* runBytecode(proto::ProtoContext* pContext,
                         t_hasCallException = false;
                         t_callException = nullptr;
                         DISPATCH();
-                    }
-                    // After parent constructor (super) returns, also invoke
-                    // the CURRENT class's __fields_init__ on `this`.  In an
-                    // explicit `constructor(){ super(); ... }`, the
-                    // standard bytecode emits emit_class_field_init after
-                    // OP_apply, but that path requires closure-capture for
-                    // class_fields_init that protoJS doesn't fully resolve;
-                    // direct dispatch here gives equivalent behavior.
-                    {
-                        const proto::ProtoObject* finalForFields = (ret && ret != PROTO_NONE && !ret->isInteger(pContext)
-                            && !ret->isBoolean(pContext) && !ret->isDouble(pContext)
-                            && !ret->asString(pContext) && ret != t_nullSentinel)
-                            ? ret : newObj;
-                        if (t_activeFunc && t_activeFunc != PROTO_NONE && finalForFields) {
-                            const proto::ProtoObject* afProto = protoKey
-                                ? t_activeFunc->getAttribute(pContext, protoKey, false) : nullptr;
-                            if (afProto && afProto != PROTO_NONE) {
-                                const proto::ProtoString* fiK2 = JSSymbols::fieldsInit(pContext);
-                                const proto::ProtoObject* fi2 = fiK2
-                                    ? afProto->getAttribute(pContext, fiK2, false) : nullptr;
-                                if (fi2 && fi2 != PROTO_NONE && fi2 != parentFI) {
-                                    const proto::ProtoList* fi2Args = pContext->newList();
-                                    callJSFunction(pContext, fi2, finalForFields, fi2Args);
-                                    if (t_hasCallException) {
-                                        pending_exception = t_callException;
-                                        has_pending_exception = true;
-                                        t_hasCallException = false;
-                                        t_callException = nullptr;
-                                        DISPATCH();
-                                    }
-                                }
-                            }
-                        }
                     }
                     // If constructor returned a non-undefined object, use it; else newObj.
                     if (ret && ret != PROTO_NONE && !ret->isInteger(pContext) &&
@@ -7446,30 +7393,6 @@ const proto::ProtoObject* runBytecode(proto::ProtoContext* pContext,
                     : pContext->newObject(true);
                 const proto::ProtoList* forwardArgs = t_activeArgs
                     ? t_activeArgs : pContext->newList();
-                // Run parent's __fields_init__ on newObj BEFORE calling the
-                // parent ctor's bytecode — that lets parent's class fields
-                // (e.g. `class A { x = 10 }`) initialise on `this`.
-                {
-                    const proto::ProtoString* parentProtoKey = JSSymbols::prototype(pContext);
-                    const proto::ProtoObject* parentProto = parentProtoKey
-                        ? parent->getAttribute(pContext, parentProtoKey, false) : nullptr;
-                    if (parentProto && parentProto != PROTO_NONE) {
-                        const proto::ProtoString* fiK = JSSymbols::fieldsInit(pContext);
-                        const proto::ProtoObject* fi = fiK
-                            ? parentProto->getAttribute(pContext, fiK, false) : nullptr;
-                        if (fi && fi != PROTO_NONE) {
-                            const proto::ProtoList* fiArgs = pContext->newList();
-                            callJSFunction(pContext, fi, newObj, fiArgs);
-                            if (t_hasCallException) {
-                                pending_exception = t_callException;
-                                has_pending_exception = true;
-                                t_hasCallException = false;
-                                t_callException = nullptr;
-                                DISPATCH();
-                            }
-                        }
-                    }
-                }
                 // Dispatch to parent ctor.  Two paths:
                 //   - JS class ctor with __bytecode_id__ → callJSFunction
                 //   - Native ctor with __construct__ (Number, Boolean,
@@ -7595,32 +7518,9 @@ const proto::ProtoObject* runBytecode(proto::ProtoContext* pContext,
                                     !ret->isBoolean(pContext) && !ret->asString(pContext) &&
                                     ret != t_nullSentinel;
                     const proto::ProtoObject* finalThis = retIsObj ? ret : newObj;
-                    // Run THIS class's __fields_init__ on the resulting `this`.
-                    // The parent's fields were already initialised by the
-                    // callJSFunction above (parent's OP_call_constructor or
-                    // its own OP_init_ctor in a deeper chain).  This class's
-                    // fields live on t_activeFunc.prototype.__fields_init__.
-                    if (t_activeFunc && t_activeFunc != PROTO_NONE && finalThis) {
-                        const proto::ProtoString* protoKeyFI = JSSymbols::prototype(pContext);
-                        const proto::ProtoObject* tProto = protoKeyFI
-                            ? t_activeFunc->getAttribute(pContext, protoKeyFI, false) : nullptr;
-                        if (tProto && tProto != PROTO_NONE) {
-                            const proto::ProtoString* fiK = JSSymbols::fieldsInit(pContext);
-                            const proto::ProtoObject* fi = fiK
-                                ? tProto->getAttribute(pContext, fiK, false) : nullptr;
-                            if (fi && fi != PROTO_NONE) {
-                                const proto::ProtoList* fiArgs = pContext->newList();
-                                callJSFunction(pContext, fi, finalThis, fiArgs);
-                                if (t_hasCallException) {
-                                    pending_exception = t_callException;
-                                    has_pending_exception = true;
-                                    t_hasCallException = false;
-                                    t_callException = nullptr;
-                                    DISPATCH();
-                                }
-                            }
-                        }
-                    }
+                    // This class's fields are initialised by the bytecode
+                    // that follows OP_init_ctor; see the note in
+                    // L_OP_call_constructor.
                     stackPush(pContext, finalThis);
                 }
                 DISPATCH();
@@ -7648,14 +7548,6 @@ const proto::ProtoObject* runBytecode(proto::ProtoContext* pContext,
                 // chain.  Net-zero stack effect.  Records __home_object__
                 // on the method; the value is read by OP_special_object
                 // kind=HOME_OBJECT at the start of the method body.
-                //
-                // Side detection: if the next opcode is NOT OP_define_method
-                // or OP_define_method_computed, this is the
-                // class_fields_init closure (QuickJS emits OP_fclosure +
-                // OP_set_home_object + OP_scope_put_var_init for it).
-                // Stash it on the home (prototype) under __fields_init__
-                // so OP_call_constructor can invoke it when the user
-                // ctor body doesn't (e.g., implicit/empty constructor).
                 if (stackSize(pContext) >= 2) {
                     const proto::ProtoObject* method = stackAt(pContext, 0);
                     const proto::ProtoObject* home   = stackAt(pContext, 1);
@@ -7667,21 +7559,6 @@ const proto::ProtoObject* runBytecode(proto::ProtoContext* pContext,
                             pAutomaticLocals[currentStackBase + _PF().stackTop - 1] =
                                 newMethod ? newMethod : method;
                             updateMapping(pContext, method, newMethod ? newMethod : method);
-                            // Sniff next opcode for fields_init detection.
-                            if (pc < len) {
-                                uint8_t nextOp = buf[pc];
-                                if (nextOp != OP_define_method && nextOp != OP_define_method_computed) {
-                                    const proto::ProtoString* fiK = JSSymbols::fieldsInit(pContext);
-                                    if (fiK) {
-                                        const proto::ProtoObject* newHome = home->setAttribute(pContext, fiK,
-                                            newMethod ? newMethod : method);
-                                        if (newHome && newHome != home) {
-                                            pAutomaticLocals[currentStackBase + _PF().stackTop - 2] = newHome;
-                                            updateMapping(pContext, home, newHome);
-                                        }
-                                    }
-                                }
-                            }
                         }
                     }
                 }
@@ -7925,10 +7802,13 @@ const proto::ProtoObject* runBytecode(proto::ProtoContext* pContext,
                 // present, parent_class is the explicit base class and
                 // parent_proto is base.prototype.
                 //
-                // Minimal implementation: bfunc is already a closure
-                // object (OP_fclosure populated its bytecode_id +
-                // closure cells).  We reuse it directly as the ctor —
-                // augmenting with .prototype and .name only.
+                // bfunc is already a closure: QuickJS pushes the raw ctor
+                // bytecode with OP_push_const, and the loader lowers that
+                // push to OP_fclosure (lowerClassConstructorPush in
+                // ProtoBytecodeLoader.cpp), so each evaluation gets a fresh
+                // ctor with captured variables and a __closure_module__
+                // stamp.  We reuse it directly as the ctor — augmenting
+                // with .prototype and .name only.
                 bool isComputed = (opcode == OP_define_class_computed);
                 if (pc + 5 > len) return PROTO_NONE;
                 uint32_t classAtom = get_u32(buf + pc);
@@ -14348,32 +14228,19 @@ const proto::ProtoObject* runBytecode(proto::ProtoContext* pContext,
                         }
                     }
 
-                    // Instance field initialization: if the func's prototype
-                    // has __fields_init__ (a closure stored by OP_set_home_object
-                    // when QuickJS emitted OP_fclosure + OP_set_home_object +
-                    // OP_scope_put_var_init for the class_fields_init), invoke
-                    // it on newObj before the constructor body.  This bypasses
-                    // the standard scope_get_var class_fields_init + call_method
-                    // mechanism which requires closure-capture analysis that
-                    // protoJS doesn't yet fully implement.
-                    {
-                        const proto::ProtoString* fiK = JSSymbols::fieldsInit(pContext);
-                        const proto::ProtoObject* fieldsInit = (fiK && funcProto && funcProto != PROTO_NONE)
-                            ? funcProto->getAttribute(pContext, fiK, false) : nullptr;
-                        if (fieldsInit && fieldsInit != PROTO_NONE) {
-                            const proto::ProtoList* fiArgs = pContext->newList();
-                            const proto::ProtoObject* fiRet =
-                                callJSFunction(pContext, fieldsInit, newObj, fiArgs);
-                            (void)fiRet;
-                            if (t_hasCallException) {
-                                pending_exception = t_callException;
-                                has_pending_exception = true;
-                                t_hasCallException = false;
-                                t_callException = nullptr;
-                                DISPATCH();
-                            }
-                        }
-                    }
+                    // Instance fields are initialised by the constructor body,
+                    // not here.  QuickJS emits emit_class_field_init into every
+                    // class constructor -- after OP_check_ctor or at the top of
+                    // a base constructor, after OP_init_ctor or after each
+                    // super() call in a derived one -- as a call to the
+                    // class_fields_init closure that the constructor captures.
+                    // Until class constructors became real closures (see
+                    // lowerClassConstructorPush in ProtoBytecodeLoader.cpp)
+                    // that capture failed, and this site, OP_apply and
+                    // OP_init_ctor ran the closure themselves as a stand-in.
+                    // Once the capture worked, the stand-ins ran every field
+                    // initialiser a second time, and a derived class's fields
+                    // ran before super() returned.
 
                     // Publish func + newTarget + args for OP_special_object
                     // and OP_init_ctor inside the constructor body.
@@ -14782,35 +14649,6 @@ const proto::ProtoObject* runBytecode(proto::ProtoContext* pContext,
                         resultIsObject = false;
                 }
                 const proto::ProtoObject* finalCtorThis = resultIsObject ? result : newObj;
-
-                // super() field-init follow-up: if this OP_call_constructor
-                // was emitted by QuickJS as a super() call (t_activeFunc is
-                // the CALLER class, which differs from func = parent class),
-                // also run the caller class's __fields_init__ on the result.
-                // The standard bytecode's emit_class_field_init that should
-                // do this isn't resolving the closure-var reference for
-                // class_fields_init; this direct dispatch fills the gap.
-                if (t_activeFunc && t_activeFunc != PROTO_NONE
-                    && t_activeFunc != func && finalCtorThis) {
-                    const proto::ProtoObject* afProto = protoKey
-                        ? t_activeFunc->getAttribute(pContext, protoKey, false) : nullptr;
-                    if (afProto && afProto != PROTO_NONE && afProto != funcProto) {
-                        const proto::ProtoString* fiK = JSSymbols::fieldsInit(pContext);
-                        const proto::ProtoObject* fi = fiK
-                            ? afProto->getAttribute(pContext, fiK, false) : nullptr;
-                        if (fi && fi != PROTO_NONE) {
-                            const proto::ProtoList* fiArgs = pContext->newList();
-                            callJSFunction(pContext, fi, finalCtorThis, fiArgs);
-                            if (t_hasCallException) {
-                                pending_exception = t_callException;
-                                has_pending_exception = true;
-                                t_hasCallException = false;
-                                t_callException = nullptr;
-                                DISPATCH();
-                            }
-                        }
-                    }
-                }
 
                 stackPush(pContext, finalCtorThis);
                 DISPATCH();
