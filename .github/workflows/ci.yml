@@ -90,10 +90,10 @@ concurrency:
 
 env:
   PROTOCORE_REPO: numaes/protoCore
-  # protoCore 2.5.0, SOVERSION 3 (master, 2026-09-26).  Bump deliberately.
+  # protoCore 2.6.2 (tag v2.6.2), SOVERSION 3.  Bump deliberately.
   # protoJS declares PROTOCORE_ABI_SOVERSION 3 at CMakeLists.txt:34 and the ldd
   # step below asserts the library actually loaded is this tree's.
-  PROTOCORE_REF: ${{ github.event_name == 'schedule' && 'master' || 'da5f19e2bbb2ed0af85c8960fc27b2d89f505648' }}
+  PROTOCORE_REF: ${{ github.event_name == 'schedule' && 'master' || '752bdb2064d3a2a6f8aa6bc756f107ed395bebd0' }}
   TEST262_REPO: tc39/test262
   # The corpus commit every published protoJS figure was measured against
   # (docs/TEST262_STATUS.md, tests/test262/config/regression_gate_baseline.json).
