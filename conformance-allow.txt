@@ -10,7 +10,7 @@
 # THIS FILE EXITS 1 ON PURPOSE, with ONE uncovered error.  It is left uncovered
 # so the check keeps failing until it is answered.
 #
-#   GCBridge.cpp:676 -- external_finalizer.  A fromExternalPointer with a NULL
+#   GCBridge.cpp:677 -- external_finalizer.  A fromExternalPointer with a NULL
 #   finalizer, whose comment says the pointer is not owned.  Probably legitimate,
 #   but it is a checklist C7 question nobody has answered, and the check says in
 #   its own message that it cannot rule on it.  See docs/CONFORMANCE.md.

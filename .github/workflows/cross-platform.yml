@@ -1,0 +1,107 @@
+name: Cross-platform
+
+# macOS and Windows. Linux is ci.yml's (Test262 gates, the static ratchet, the
+# workspace-protoCore assertion); this workflow builds against an INSTALLED
+# protoCore package (the supported mode on Windows) and runs the Catch2 suite,
+# with the same exclusions as ci.yml's gate.
+
+on:
+  push:
+    branches: [master]
+  pull_request:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+env:
+  PROTOCORE_REPO: numaes/protoCore
+  PROTOCORE_REF: 43b6dc0717e417aa6af1436a45bec187753a8130
+
+jobs:
+  test:
+    name: ${{ matrix.name }}
+    runs-on: ${{ matrix.os }}
+    timeout-minutes: 120
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - name: macOS (Apple clang, arm64)
+            os: macos-14
+            exclude_tests: ''
+          - name: Windows (MSVC, x64)
+            os: windows-2022
+            # A known protoJS defect on every platform (a top-level binding is
+            # lost when a collection runs at top level): intermittent on Linux,
+            # every run on Windows. docs/INSTALLATION.md, "Windows (MSVC)".
+            exclude_tests: '|^cli/blocking-joins-and-finalizers$'
+    defaults:
+      run:
+        shell: bash
+    steps:
+      - name: Check out protoJS
+        uses: actions/checkout@v4
+        with:
+          path: protoJS
+
+      - name: Check out protoCore as a sibling
+        uses: actions/checkout@v4
+        with:
+          repository: ${{ env.PROTOCORE_REPO }}
+          ref: ${{ env.PROTOCORE_REF }}
+          path: protoCore
+
+      - name: Dependencies (macOS)
+        if: runner.os == 'macOS'
+        run: |
+          for f in openssl@3 ninja coreutils; do brew list "$f" >/dev/null 2>&1 || brew install "$f"; done
+          echo "OPENSSL_ROOT_DIR=$(brew --prefix openssl@3)" >> "$GITHUB_ENV"
+          # The test scripts use GNU timeout, which macOS does not ship.
+          echo "$(brew --prefix coreutils)/libexec/gnubin" >> "$GITHUB_PATH"
+
+      - name: Dependencies (Windows)
+        if: runner.os == 'Windows'
+        run: |
+          for d in "C:/Program Files/OpenSSL" "C:/Program Files/OpenSSL-Win64"; do
+            if [ -f "$d/include/openssl/ssl.h" ]; then echo "OPENSSL_ROOT_DIR=$d" >> "$GITHUB_ENV"; break; fi
+          done
+          echo "PROTOJS_PYTHON=$(cygpath -m "$(command -v python)")" >> "$GITHUB_ENV"
+
+      - name: MSVC environment
+        if: runner.os == 'Windows'
+        uses: ilammy/msvc-dev-cmd@v1
+        with:
+          arch: x64
+
+      - name: Build and install protoCore
+        run: |
+          cmake -S protoCore -B protoCore/build -G Ninja -DCMAKE_BUILD_TYPE=Release
+          cmake --build protoCore/build --parallel 4
+          cmake --install protoCore/build --prefix "$GITHUB_WORKSPACE/prefix"
+
+      - name: Configure protoJS
+        working-directory: protoJS
+        run: >
+          cmake -B build -S . -G Ninja -DCMAKE_BUILD_TYPE=Release
+          "-DCMAKE_PREFIX_PATH=$GITHUB_WORKSPACE/prefix"
+          ${OPENSSL_ROOT_DIR:+"-DOPENSSL_ROOT_DIR=$OPENSSL_ROOT_DIR"}
+
+      - name: Build protoJS
+        working-directory: protoJS
+        run: cmake --build build --parallel 4
+
+      - name: Report the registered test count
+        working-directory: protoJS
+        run: |
+          COUNT=$(ctest --test-dir build -N | tail -1)
+          echo "$COUNT"
+          echo "protoJS ctest (${{ runner.os }}): $COUNT" >> "$GITHUB_STEP_SUMMARY"
+
+      - name: Catch2 suite
+        working-directory: protoJS
+        run: ctest --test-dir build -E "integration|network${{ matrix.exclude_tests }}" --output-on-failure --timeout 600 < /dev/null
