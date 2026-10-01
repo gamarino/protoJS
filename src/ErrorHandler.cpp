@@ -302,10 +302,22 @@ const proto::ProtoString* ErrorHandler::getErrorTypeName(proto::ProtoContext* pC
     }
 }
 
+// strerror_r has two signatures: glibc's GNU one returns the message (which
+// may or may not be in the buffer), the XSI one of macOS and the BSDs returns 0
+// and fills the buffer. Overloading on the result takes whichever the C library
+// declares.
+[[maybe_unused]] static const char* strerrorMessage(const char* gnuResult, const char* /*buffer*/) {
+    return gnuResult;
+}
+[[maybe_unused]] static const char* strerrorMessage(int xsiResult, const char* buffer) {
+    return xsiResult == 0 ? buffer : nullptr;
+}
+
 const proto::ProtoString* ErrorHandler::getSystemErrorMessage(proto::ProtoContext* pContext, const proto::ProtoObject* errnoValue) {
     long long errnoVal = errnoValue->asLong(pContext);
     char buffer[256];
-    const char* msg = strerror_r(static_cast<int>(errnoVal), buffer, sizeof(buffer));
+    const char* msg = strerrorMessage(
+        strerror_r(static_cast<int>(errnoVal), buffer, sizeof(buffer)), buffer);
     return pContext->fromUTF8String(msg ? msg : "Unknown error")->asString(pContext);
 }
 
