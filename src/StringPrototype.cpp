@@ -1,3 +1,4 @@
+#include "ProtoCoreTypes.h"
 #include "StringPrototype.h"
 #include "ArrayPrototype.h"
 #include "ArrayElementsStorage.h"
@@ -529,7 +530,7 @@ static bool isRegExp(proto::ProtoContext* ctx, const proto::ProtoObject* obj);
 /** Extract a numeric argument.  NaN → 0; ±Infinity → LLONG extremes. */
 static long long getIntArg(proto::ProtoContext* ctx, const proto::ProtoList* args,
                             unsigned idx, long long defaultVal) {
-    if (!args || static_cast<unsigned long>(args->getSize(ctx)) <= idx) return defaultVal;
+    if (!args || static_cast<proto::proto_ulong>(args->getSize(ctx)) <= idx) return defaultVal;
     const proto::ProtoObject* a = args->getAt(ctx, static_cast<int>(idx));
     if (!a || a == PROTO_NONE) return defaultVal;
     // §22.1.3.20 substring (and the wider slice/substr/indexOf family)
@@ -566,7 +567,7 @@ static long long getIntArg(proto::ProtoContext* ctx, const proto::ProtoList* arg
 /** Extract a string argument (returns empty string if absent / undefined). */
 static std::string getStrArg(proto::ProtoContext* ctx, const proto::ProtoList* args,
                               unsigned idx) {
-    if (!args || static_cast<unsigned long>(args->getSize(ctx)) <= idx) return "";
+    if (!args || static_cast<proto::proto_ulong>(args->getSize(ctx)) <= idx) return "";
     const proto::ProtoObject* a = args->getAt(ctx, static_cast<int>(idx));
     if (!a || a == PROTO_NONE) return "";
     return objToStr(ctx, a);
@@ -578,7 +579,7 @@ static std::string getStrArg(proto::ProtoContext* ctx, const proto::ProtoList* a
  */
 static std::string getStrArgWithUndef(proto::ProtoContext* ctx, const proto::ProtoList* args,
                                        unsigned idx) {
-    if (!args || static_cast<unsigned long>(args->getSize(ctx)) <= idx) return "undefined";
+    if (!args || static_cast<proto::proto_ulong>(args->getSize(ctx)) <= idx) return "undefined";
     const proto::ProtoObject* a = args->getAt(ctx, static_cast<int>(idx));
     if (!a || a == PROTO_NONE || a == getUndefinedSentinel()) return "undefined";
     if (a == getNullSentinel()) return "null";
@@ -794,7 +795,7 @@ const proto::ProtoObject* stringCharCodeAt(
     if (idx == 0) {
         const proto::ProtoString* str = self->asString(ctx);
         if (str) {
-            unsigned long size = str->getSize(ctx);
+            proto::proto_ulong size = str->getSize(ctx);
             if (size == 0) {
                 return ctx->fromDouble(std::numeric_limits<double>::quiet_NaN());
             }
@@ -886,8 +887,8 @@ const proto::ProtoObject* stringConcat(
     // silently dropped).
     std::string result = objToStr(ctx, self);
     if (hasCallException()) return PROTO_NONE;
-    unsigned long argc = args ? static_cast<unsigned long>(args->getSize(ctx)) : 0;
-    for (unsigned long i = 0; i < argc; i++) {
+    proto::proto_ulong argc = args ? static_cast<proto::proto_ulong>(args->getSize(ctx)) : 0;
+    for (proto::proto_ulong i = 0; i < argc; i++) {
         result += objToStr(ctx, args->getAt(ctx, static_cast<int>(i)));
         if (hasCallException()) return PROTO_NONE;
     }
@@ -2726,8 +2727,8 @@ const proto::ProtoObject* stringFromCharCode(
     const proto::ProtoSparseList*)
 {
     std::vector<uint16_t> units;
-    unsigned long argc = args ? static_cast<unsigned long>(args->getSize(ctx)) : 0;
-    for (unsigned long i = 0; i < argc; i++) {
+    proto::proto_ulong argc = args ? static_cast<proto::proto_ulong>(args->getSize(ctx)) : 0;
+    for (proto::proto_ulong i = 0; i < argc; i++) {
         const proto::ProtoObject* a = args->getAt(ctx, static_cast<int>(i));
         long long code = 0;
         if (a && a != PROTO_NONE) {
@@ -2776,8 +2777,8 @@ const proto::ProtoObject* stringFromCodePoint(
     const proto::ProtoSparseList*)
 {
     std::string result;
-    unsigned long argc = args ? static_cast<unsigned long>(args->getSize(ctx)) : 0;
-    for (unsigned long i = 0; i < argc; i++) {
+    proto::proto_ulong argc = args ? static_cast<proto::proto_ulong>(args->getSize(ctx)) : 0;
+    for (proto::proto_ulong i = 0; i < argc; i++) {
         const proto::ProtoObject* a = args->getAt(ctx, static_cast<int>(i));
         // ECMA-262 §22.1.2.2 step 5: each code point must be a
         // non-negative integer < 0x110000. Non-integer doubles,

@@ -1,6 +1,7 @@
 #ifndef PROTOJS_PROTOARGUMENTSADAPTER_H
 #define PROTOJS_PROTOARGUMENTSADAPTER_H
 
+#include "ProtoCoreTypes.h"
 #include "protoCore.h"
 
 namespace protojs {
@@ -31,7 +32,7 @@ public:
     static const proto::ProtoObject* get(
         proto::ProtoContext* ctx,
         const proto::ProtoObject* argsObj,
-        unsigned long index);
+        proto::proto_ulong index);
 
     /**
      * Set the argument value at the given index.
@@ -42,13 +43,13 @@ public:
     static const proto::ProtoObject* set(
         proto::ProtoContext* ctx,
         const proto::ProtoObject* argsObj,
-        unsigned long index,
+        proto::proto_ulong index,
         const proto::ProtoObject* value);
 
     /**
      * Return the logical length of the arguments object.
      */
-    static unsigned long length(
+    static proto::proto_ulong length(
         proto::ProtoContext* ctx,
         const proto::ProtoObject* argsObj);
 
@@ -59,7 +60,7 @@ public:
     static const proto::ProtoObject* setLength(
         proto::ProtoContext* ctx,
         const proto::ProtoObject* argsObj,
-        unsigned long newLen);
+        proto::proto_ulong newLen);
 };
 
 } // namespace protojs

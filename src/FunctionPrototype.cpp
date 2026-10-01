@@ -1,3 +1,4 @@
+#include "ProtoCoreTypes.h"
 #include "FunctionPrototype.h"
 #include "JSContext.h"
 #include "JSSymbols.h"
@@ -276,7 +277,7 @@ static const proto::ProtoObject* fnApply(
             // lookup keeps legacy array-likes working.  Also probe the
             // __get_<i>__ sidecar so accessor getters fire and abrupt
             // completions propagate (apply/get-index-abrupt).
-            const proto::ProtoObject* av = arrayTryFastGet(ctx, argsArray, static_cast<unsigned long>(i));
+            const proto::ProtoObject* av = arrayTryFastGet(ctx, argsArray, static_cast<proto::proto_ulong>(i));
             if (!av) {
                 std::string gks = "__get_" + std::to_string(i) + "__";
                 const proto::ProtoString* gk =

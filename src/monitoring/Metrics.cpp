@@ -1,3 +1,4 @@
+#include "../ProtoCoreTypes.h"
 #include "Metrics.h"
 #include <mutex>
 
@@ -31,7 +32,7 @@ void Metrics::incrementCounter(proto::ProtoContext* pContext, const proto::Proto
     std::lock_guard<std::mutex> lock(metricsMutex);
     const proto::ProtoSparseList* storage = getStorage(pContext, &countersStorage);
     const proto::ProtoString* key = makeKey(pContext, name, labels);
-    unsigned long keyHash = key->getHash(pContext);
+    proto::proto_ulong keyHash = key->getHash(pContext);
     
     const proto::ProtoObject* currentValue = storage->has(pContext, keyHash) 
         ? storage->getAt(pContext, keyHash) 
@@ -52,7 +53,7 @@ const proto::ProtoObject* Metrics::getCounter(proto::ProtoContext* pContext, con
     std::lock_guard<std::mutex> lock(metricsMutex);
     const proto::ProtoSparseList* storage = getStorage(pContext, &countersStorage);
     const proto::ProtoString* key = makeKey(pContext, name, labels);
-    unsigned long keyHash = key->getHash(pContext);
+    proto::proto_ulong keyHash = key->getHash(pContext);
     
     if (storage->has(pContext, keyHash)) {
         const proto::ProtoObject* v = storage->getAt(pContext, keyHash);
@@ -66,7 +67,7 @@ void Metrics::setGauge(proto::ProtoContext* pContext, const proto::ProtoString* 
     std::lock_guard<std::mutex> lock(metricsMutex);
     const proto::ProtoSparseList* storage = getStorage(pContext, &gaugesStorage);
     const proto::ProtoString* key = makeKey(pContext, name, labels);
-    unsigned long keyHash = key->getHash(pContext);
+    proto::proto_ulong keyHash = key->getHash(pContext);
     
     storage = storage->setAt(pContext, keyHash, value);
     setStorage(pContext, &gaugesStorage, storage);
@@ -76,7 +77,7 @@ void Metrics::addGauge(proto::ProtoContext* pContext, const proto::ProtoString* 
     std::lock_guard<std::mutex> lock(metricsMutex);
     const proto::ProtoSparseList* storage = getStorage(pContext, &gaugesStorage);
     const proto::ProtoString* key = makeKey(pContext, name, labels);
-    unsigned long keyHash = key->getHash(pContext);
+    proto::proto_ulong keyHash = key->getHash(pContext);
     
     const proto::ProtoObject* currentValue = storage->has(pContext, keyHash)
         ? storage->getAt(pContext, keyHash)
@@ -97,7 +98,7 @@ const proto::ProtoObject* Metrics::getGauge(proto::ProtoContext* pContext, const
     std::lock_guard<std::mutex> lock(metricsMutex);
     const proto::ProtoSparseList* storage = getStorage(pContext, &gaugesStorage);
     const proto::ProtoString* key = makeKey(pContext, name, labels);
-    unsigned long keyHash = key->getHash(pContext);
+    proto::proto_ulong keyHash = key->getHash(pContext);
     
     if (storage->has(pContext, keyHash)) {
         const proto::ProtoObject* v = storage->getAt(pContext, keyHash);
@@ -111,7 +112,7 @@ void Metrics::recordHistogram(proto::ProtoContext* pContext, const proto::ProtoS
     std::lock_guard<std::mutex> lock(metricsMutex);
     const proto::ProtoSparseList* storage = getStorage(pContext, &histogramsStorage);
     const proto::ProtoString* key = makeKey(pContext, name, labels);
-    unsigned long keyHash = key->getHash(pContext);
+    proto::proto_ulong keyHash = key->getHash(pContext);
     
     // Get or create histogram stats object
     const proto::ProtoObject* statsObj = storage->has(pContext, keyHash)
@@ -132,7 +133,7 @@ void Metrics::recordHistogram(proto::ProtoContext* pContext, const proto::ProtoS
         const proto::ProtoList* defaultBuckets = getDefaultBuckets(pContext);
         const proto::ProtoList* emptyCounts = pContext->newList();
         // Initialize counts list with zeros
-        for (unsigned long i = 0; i < defaultBuckets->getSize(pContext); i++) {
+        for (proto::proto_ulong i = 0; i < defaultBuckets->getSize(pContext); i++) {
             emptyCounts = emptyCounts->appendLast(pContext, pContext->fromInteger(0));
         }
         
@@ -174,7 +175,7 @@ void Metrics::recordHistogram(proto::ProtoContext* pContext, const proto::ProtoS
     
     // Find appropriate bucket and increment
     const proto::ProtoList* newCounts = counts;
-    for (unsigned long i = 0; i < buckets->getSize(pContext); i++) {
+    for (proto::proto_ulong i = 0; i < buckets->getSize(pContext); i++) {
         const proto::ProtoObject* bucketObj = buckets->getAt(pContext, i);
         double bucket = bucketObj->asDouble(pContext);
         if (val <= bucket) {
@@ -197,7 +198,7 @@ HistogramStats Metrics::getHistogram(proto::ProtoContext* pContext, const proto:
     
     const proto::ProtoSparseList* storage = getStorage(pContext, &histogramsStorage);
     const proto::ProtoString* key = makeKey(pContext, name, labels);
-    unsigned long keyHash = key->getHash(pContext);
+    proto::proto_ulong keyHash = key->getHash(pContext);
     
     if (storage->has(pContext, keyHash)) {
         const proto::ProtoObject* statsObj = storage->getAt(pContext, keyHash);

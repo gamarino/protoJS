@@ -1,3 +1,4 @@
+#include "../ProtoCoreTypes.h"
 #include "CommonJSLoader.h"
 #include "ModuleResolver.h"
 #include "ModuleCache.h"
@@ -886,7 +887,7 @@ JSValue CommonJSLoader::executeModule(
             std::string s = std::to_string(i);
             const proto::ProtoObject* o = childCtx.fromUTF8String(s.c_str());
             const proto::ProtoString* ps = o ? o->asString(&childCtx) : nullptr;
-            unsigned long slotK = ps ? static_cast<unsigned long>(ps->getHash(&childCtx)) : 0;
+            proto::proto_ulong slotK = ps ? static_cast<proto::proto_ulong>(ps->getHash(&childCtx)) : 0;
             const proto::ProtoObject* arg = argsList->getAt(&childCtx, i);
             if (childCtx.closureLocals)
                 childCtx.closureLocals = childCtx.closureLocals->setAt(&childCtx, slotK, arg ? arg : PROTO_NONE);

@@ -1,3 +1,4 @@
+#include "ProtoCoreTypes.h"
 #include "JSSymbols.h"
 #include <mutex>
 #include <string>
@@ -279,10 +280,10 @@ const proto::ProtoString* indexKey(proto::ProtoContext* ctx, uint32_t i) {
     return proto::ProtoString::createSymbol(ctx, std::to_string(i).c_str());
 }
 
-std::string getNameFromHash(proto::ProtoContext* ctx, unsigned long hash) {
+std::string getNameFromHash(proto::ProtoContext* ctx, proto::proto_ulong hash) {
     // Build a static hash→name map once, covering all known JSSymbols keys.
     // Any ctx suffices — createSymbol interns at ProtoSpace level.
-    static std::unordered_map<unsigned long, std::string> s_map;
+    static std::unordered_map<proto::proto_ulong, std::string> s_map;
     static std::once_flag s_mapFlag;
     std::call_once(s_mapFlag, [ctx]() {
 #define REGISTER(getter, literal) \

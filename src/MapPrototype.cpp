@@ -1,3 +1,4 @@
+#include "ProtoCoreTypes.h"
 #include "MapPrototype.h"
 #include "ArrayPrototype.h"
 #include "ArrayElementsStorage.h"
@@ -23,24 +24,24 @@ namespace {
 // ---------------------------------------------------------------------------
 // SameValueZero hash — used as bucket index in __map_hash__ ProtoSparseList.
 // ---------------------------------------------------------------------------
-static unsigned long szvHash(proto::ProtoContext* ctx, const proto::ProtoObject* key) {
-    if (!key || key == PROTO_NONE)          return 0UL;
-    if (key == PROTO_TRUE)                  return 1UL;
-    if (key == PROTO_FALSE)                 return 2UL;
+static proto::proto_ulong szvHash(proto::ProtoContext* ctx, const proto::ProtoObject* key) {
+    if (!key || key == PROTO_NONE)          return PROTO_UL(0);
+    if (key == PROTO_TRUE)                  return PROTO_UL(1);
+    if (key == PROTO_FALSE)                 return PROTO_UL(2);
     if (key->isInteger(ctx))
-        return static_cast<unsigned long>(key->asLong(ctx) & 0x7FFFFFFF);
+        return static_cast<proto::proto_ulong>(key->asLong(ctx) & 0x7FFFFFFF);
     if (key->isDouble(ctx) || key->isFloat(ctx)) {
         double d = key->asDouble(ctx);
-        if (std::isnan(d))                  return 3UL;
+        if (std::isnan(d))                  return PROTO_UL(3);
         uint64_t bits; memcpy(&bits, &d, 8);
-        return static_cast<unsigned long>(bits ^ (bits >> 32));
+        return static_cast<proto::proto_ulong>(bits ^ (bits >> 32));
     }
     if (key->isString(ctx)) {
         const proto::ProtoString* ps = key->asString(ctx);
-        return ps ? static_cast<unsigned long>(ps->getHash(ctx)) : 4UL;
+        return ps ? static_cast<proto::proto_ulong>(ps->getHash(ctx)) : PROTO_UL(4);
     }
     // Object / other: pointer identity.
-    return static_cast<unsigned long>(reinterpret_cast<uintptr_t>(key) >> 3);
+    return static_cast<proto::proto_ulong>(reinterpret_cast<uintptr_t>(key) >> 3);
 }
 
 // ---------------------------------------------------------------------------
@@ -133,17 +134,17 @@ static void setMapListInPlace(
     if (ks) mapObj->setAttribute(ctx, ks, list->asObject(ctx));
 }
 
-static long getMapSize(proto::ProtoContext* ctx, const proto::ProtoObject* mapObj) {
+static proto::proto_long getMapSize(proto::ProtoContext* ctx, const proto::ProtoObject* mapObj) {
     const proto::ProtoObject* ko = ctx->fromUTF8String("__map_size__");
     const proto::ProtoString* ks = ko ? ko->asString(ctx) : nullptr;
-    if (!ks || !mapObj || mapObj == PROTO_NONE) return 0L;
+    if (!ks || !mapObj || mapObj == PROTO_NONE) return PROTO_L(0);
     const proto::ProtoObject* v = mapObj->getAttribute(ctx, ks, false);
-    return (v && v != PROTO_NONE && v->isInteger(ctx)) ? v->asLong(ctx) : 0L;
+    return (v && v != PROTO_NONE && v->isInteger(ctx)) ? v->asLong(ctx) : PROTO_L(0);
 }
 
 static void setMapSizeInPlace(proto::ProtoContext* ctx,
                                const proto::ProtoObject* mapObj,
-                               long sz)
+                               proto::proto_long sz)
 {
     const proto::ProtoObject* ko = ctx->fromUTF8String("__map_size__");
     const proto::ProtoString* ks = ko ? ko->asString(ctx) : nullptr;
@@ -158,7 +159,7 @@ static void setMapSizeInPlace(proto::ProtoContext* ctx,
 static bool mapFind(proto::ProtoContext* ctx,
                     const proto::ProtoObject* mapObj,
                     const proto::ProtoObject* key,
-                    unsigned long& foundIdx)
+                    proto::proto_ulong& foundIdx)
 {
     key = normalizeMapKey(ctx, key);
     const proto::ProtoSparseList* keysList = getMapList(ctx, mapObj, "__map_keys__");
@@ -166,11 +167,11 @@ static bool mapFind(proto::ProtoContext* ctx,
     if (!keysList || !hashList) return false;
 
     // Try hash slot first.
-    unsigned long h = szvHash(ctx, key);
+    proto::proto_ulong h = szvHash(ctx, key);
     if (hashList->has(ctx, h)) {
         const proto::ProtoObject* slotObj = hashList->getAt(ctx, h);
         if (slotObj && slotObj != PROTO_NONE && slotObj->isInteger(ctx)) {
-            unsigned long idx = static_cast<unsigned long>(slotObj->asLong(ctx));
+            proto::proto_ulong idx = static_cast<proto::proto_ulong>(slotObj->asLong(ctx));
             if (keysList->has(ctx, idx)) {
                 const proto::ProtoObject* k = keysList->getAt(ctx, idx);
                 if (sameValueZero(ctx, k, key)) { foundIdx = idx; return true; }
@@ -180,7 +181,7 @@ static bool mapFind(proto::ProtoContext* ctx,
     // Fall back to linear scan for hash collisions.
     const proto::ProtoSparseListIterator* it = keysList->getIterator(ctx);
     while (it && it->hasNext(ctx)) {
-        unsigned long idx = it->nextKey(ctx);
+        proto::proto_ulong idx = it->nextKey(ctx);
         const proto::ProtoObject* k = it->nextValue(ctx);
         it = const_cast<proto::ProtoSparseListIterator*>(it)->advance(ctx);
         if (sameValueZero(ctx, k, key)) { foundIdx = idx; return true; }
@@ -209,7 +210,7 @@ static const proto::ProtoObject* mapSet(
     const proto::ProtoSparseList* hashList = getMapList(ctx, self, "__map_hash__");
     if (!keysList || !valsList || !hashList) return self;
 
-    unsigned long existingIdx = 0;
+    proto::proto_ulong existingIdx = 0;
     if (mapFind(ctx, self, key, existingIdx)) {
         // Update value in place.
         setMapListInPlace(ctx, self, "__map_vals__", valsList->setAt(ctx, existingIdx, val));
@@ -221,23 +222,23 @@ static const proto::ProtoObject* mapSet(
     // overwrote the entry that previously sat at slot `size` (e.g.
     // delete 'a' from c,a,b leaves 0=c, 2=b, size=2; re-set 'a' at
     // slot 2 wiped 'b').
-    long sz = getMapSize(ctx, self);
-    unsigned long newIdx = 0;
+    proto::proto_long sz = getMapSize(ctx, self);
+    proto::proto_ulong newIdx = 0;
     bool hasAny = false;
     {
         const proto::ProtoSparseListIterator* it = keysList->getIterator(ctx);
         while (it && it->hasNext(ctx)) {
-            unsigned long slot = it->nextKey(ctx);
+            proto::proto_ulong slot = it->nextKey(ctx);
             (void)it->nextValue(ctx);
             it = const_cast<proto::ProtoSparseListIterator*>(it)->advance(ctx);
             if (!hasAny || slot >= newIdx) newIdx = slot + 1;
             hasAny = true;
         }
     }
-    if (!hasAny) newIdx = static_cast<unsigned long>(sz);
+    if (!hasAny) newIdx = static_cast<proto::proto_ulong>(sz);
     keysList = keysList->setAt(ctx, newIdx, key);
     valsList = valsList->setAt(ctx, newIdx, val);
-    unsigned long h = szvHash(ctx, key);
+    proto::proto_ulong h = szvHash(ctx, key);
     if (!hashList->has(ctx, h))
         hashList = hashList->setAt(ctx, h, ctx->fromInteger(static_cast<long long>(newIdx)));
     setMapListInPlace(ctx, self, "__map_keys__", keysList);
@@ -258,7 +259,7 @@ static const proto::ProtoObject* mapGet(
     if (!requireMapThis(ctx, self)) return PROTO_NONE;
     const proto::ProtoObject* key = (args && args->getSize(ctx) > 0) ? args->getAt(ctx, 0) : PROTO_NONE;
     if (!key) key = PROTO_NONE;
-    unsigned long foundIdx = 0;
+    proto::proto_ulong foundIdx = 0;
     if (!mapFind(ctx, self, key, foundIdx)) return PROTO_NONE;
     const proto::ProtoSparseList* valsList = getMapList(ctx, self, "__map_vals__");
     if (!valsList) return PROTO_NONE;
@@ -277,7 +278,7 @@ static const proto::ProtoObject* mapHas(
     if (!requireMapThis(ctx, self)) return PROTO_NONE;
     const proto::ProtoObject* key = (args && args->getSize(ctx) > 0) ? args->getAt(ctx, 0) : PROTO_NONE;
     if (!key) key = PROTO_NONE;
-    unsigned long foundIdx = 0;
+    proto::proto_ulong foundIdx = 0;
     return mapFind(ctx, self, key, foundIdx) ? PROTO_TRUE : PROTO_FALSE;
 }
 
@@ -293,7 +294,7 @@ static const proto::ProtoObject* mapDelete(
     const proto::ProtoObject* key = (args && args->getSize(ctx) > 0) ? args->getAt(ctx, 0) : PROTO_NONE;
     if (!key) key = PROTO_NONE;
 
-    unsigned long foundIdx = 0;
+    proto::proto_ulong foundIdx = 0;
     if (!mapFind(ctx, self, key, foundIdx)) return PROTO_FALSE;
 
     const proto::ProtoSparseList* keysList = getMapList(ctx, self, "__map_keys__");
@@ -305,15 +306,15 @@ static const proto::ProtoObject* mapDelete(
     valsList = valsList->removeAt(ctx, foundIdx);
 
     // Remove hash slot if it points to this index.
-    unsigned long h = szvHash(ctx, key);
+    proto::proto_ulong h = szvHash(ctx, key);
     if (hashList->has(ctx, h)) {
         const proto::ProtoObject* slotObj = hashList->getAt(ctx, h);
         if (slotObj && slotObj->isInteger(ctx) &&
-            static_cast<unsigned long>(slotObj->asLong(ctx)) == foundIdx)
+            static_cast<proto::proto_ulong>(slotObj->asLong(ctx)) == foundIdx)
             hashList = hashList->removeAt(ctx, h);
     }
 
-    long sz = getMapSize(ctx, self);
+    proto::proto_long sz = getMapSize(ctx, self);
     setMapListInPlace(ctx, self, "__map_keys__", keysList);
     setMapListInPlace(ctx, self, "__map_vals__", valsList);
     setMapListInPlace(ctx, self, "__map_hash__", hashList);
@@ -334,7 +335,7 @@ static const proto::ProtoObject* mapClear(
     setMapListInPlace(ctx, self, "__map_keys__", empty);
     setMapListInPlace(ctx, self, "__map_vals__", empty);
     setMapListInPlace(ctx, self, "__map_hash__", empty);
-    setMapSizeInPlace(ctx, self, 0L);
+    setMapSizeInPlace(ctx, self, PROTO_L(0));
     return PROTO_NONE;
 }
 
@@ -397,16 +398,16 @@ static const proto::ProtoObject* mapForEach(
     // visited; entries deleted before being visited are not; entries
     // re-added after deletion are visited again at a fresh slot.
     // Pre-fix the frozen iterator snapshot missed all three cases.
-    unsigned long pos = 0;
+    proto::proto_ulong pos = 0;
     while (true) {
         const proto::ProtoSparseList* keysList = getMapList(ctx, self, "__map_keys__");
         const proto::ProtoSparseList* valsList = getMapList(ctx, self, "__map_vals__");
         if (!keysList) break;
-        unsigned long highWater = 0;
+        proto::proto_ulong highWater = 0;
         bool anyEntry = false;
         const proto::ProtoSparseListIterator* probe = keysList->getIterator(ctx);
         while (probe && probe->hasNext(ctx)) {
-            unsigned long slot = probe->nextKey(ctx);
+            proto::proto_ulong slot = probe->nextKey(ctx);
             (void)probe->nextValue(ctx);
             probe = const_cast<proto::ProtoSparseListIterator*>(probe)->advance(ctx);
             if (!anyEntry || slot >= highWater) highWater = slot + 1;
@@ -477,7 +478,7 @@ static const proto::ProtoObject* mapIteratorNext(
     // Find the entry with the smallest SparseList index >= pos.
     const proto::ProtoSparseListIterator* it = keysList->getIterator(ctx);
     while (it && it->hasNext(ctx)) {
-        unsigned long slotIdx = it->nextKey(ctx);
+        proto::proto_ulong slotIdx = it->nextKey(ctx);
         const proto::ProtoObject* k = it->nextValue(ctx);
         it = const_cast<proto::ProtoSparseListIterator*>(it)->advance(ctx);
         if (static_cast<long long>(slotIdx) < pos) continue;
@@ -632,7 +633,7 @@ static void mapInsertEntry(proto::ProtoContext* ctx,
     const proto::ProtoSparseList* vl = getMapList(ctx, mapObj, "__map_vals__");
     const proto::ProtoSparseList* hl = getMapList(ctx, mapObj, "__map_hash__");
     if (!kl || !vl || !hl) return;
-    long sz = getMapSize(ctx, mapObj);
+    proto::proto_long sz = getMapSize(ctx, mapObj);
     // ECMA-262 §24.1.3.9: re-adding a key after delete places it at
     // the END of the insertion order. Pre-fix used `ni = size` as the
     // sparse-list slot, but after a removeAt the sparse list still has
@@ -640,20 +641,20 @@ static void mapInsertEntry(proto::ProtoContext* ctx,
     // higher index pre-delete (e.g. delete 'a' from c,a,b leaves
     // 0=c, 2=b, size=2; re-setting 'a' at slot 2 overwrote 'b').
     // Walk the existing keys list and pick max(slotIdx)+1 instead.
-    unsigned long ni = 0;
+    proto::proto_ulong ni = 0;
     bool hasAny = false;
     const proto::ProtoSparseListIterator* it = kl->getIterator(ctx);
     while (it && it->hasNext(ctx)) {
-        unsigned long slot = it->nextKey(ctx);
+        proto::proto_ulong slot = it->nextKey(ctx);
         (void)it->nextValue(ctx);
         it = const_cast<proto::ProtoSparseListIterator*>(it)->advance(ctx);
         if (!hasAny || slot >= ni) ni = slot + 1;
         hasAny = true;
     }
-    if (!hasAny) ni = static_cast<unsigned long>(sz);
+    if (!hasAny) ni = static_cast<proto::proto_ulong>(sz);
     kl = kl->setAt(ctx, ni, key);
     vl = vl->setAt(ctx, ni, val);
-    unsigned long h = szvHash(ctx, key);
+    proto::proto_ulong h = szvHash(ctx, key);
     if (!hl->has(ctx, h))
         hl = hl->setAt(ctx, h, ctx->fromInteger(static_cast<long long>(ni)));
     setMapListInPlace(ctx, mapObj, "__map_keys__", kl);
@@ -679,7 +680,7 @@ static const proto::ProtoObject* mapGetOrInsert(
     if (!defVal) defVal = PROTO_NONE;
     key = normalizeMapKey(ctx, key);
 
-    unsigned long foundIdx = 0;
+    proto::proto_ulong foundIdx = 0;
     if (mapFind(ctx, self, key, foundIdx)) {
         const proto::ProtoSparseList* valsList = getMapList(ctx, self, "__map_vals__");
         if (!valsList) return PROTO_NONE;
@@ -729,7 +730,7 @@ static const proto::ProtoObject* mapGetOrInsertComputed(
     }
 
     key = normalizeMapKey(ctx, key);
-    unsigned long foundIdx = 0;
+    proto::proto_ulong foundIdx = 0;
     if (mapFind(ctx, self, key, foundIdx)) {
         const proto::ProtoSparseList* valsList = getMapList(ctx, self, "__map_vals__");
         if (!valsList) return PROTO_NONE;
@@ -752,7 +753,7 @@ static const proto::ProtoObject* mapGetOrInsertComputed(
     // value at the start (earlier slot) so map.get(key) surfaced the
     // stale insert rather than defVal (built-ins/Map/prototype/
     // getOrInsertComputed/overwrites-mutation-from-callbackfn.js).
-    unsigned long callbackIdx = 0;
+    proto::proto_ulong callbackIdx = 0;
     if (mapFind(ctx, self, key, callbackIdx)) {
         const proto::ProtoSparseList* vl = getMapList(ctx, self, "__map_vals__");
         if (vl) {
@@ -856,7 +857,7 @@ static const proto::ProtoObject* mapGroupBy(
         setMapListInPlace(ctx, result, "__map_keys__", empty);
         setMapListInPlace(ctx, result, "__map_vals__", empty);
         setMapListInPlace(ctx, result, "__map_hash__", empty);
-        setMapSizeInPlace(ctx, result, 0L);
+        setMapSizeInPlace(ctx, result, PROTO_L(0));
     }
 
     // Build the iteration list.  §24.1.2.1 + §7.4.2 GetIteratorFromMethod:
@@ -968,11 +969,11 @@ static const proto::ProtoObject* mapGroupBy(
         if (!lenKs) return result;
         const proto::ProtoObject* lenObj = iterable->getAttribute(ctx, lenKs, true);
         if (!lenObj || lenObj == PROTO_NONE || !lenObj->isInteger(ctx)) return result;
-        long len = lenObj->asLong(ctx);
+        proto::proto_long len = lenObj->asLong(ctx);
         const proto::ProtoList* built = ctx->newList();
-        for (long i = 0; i < len; i++) {
+        for (proto::proto_long i = 0; i < len; i++) {
             const proto::ProtoObject* elem =
-                arrayTryFastGet(ctx, iterable, static_cast<unsigned long>(i));
+                arrayTryFastGet(ctx, iterable, static_cast<proto::proto_ulong>(i));
             if (!elem) {
                 const proto::ProtoString* ik = JSSymbols::indexKey(ctx, static_cast<uint32_t>(i));
                 elem = ik ? iterable->getAttribute(ctx, ik, true) : nullptr;
@@ -982,8 +983,8 @@ static const proto::ProtoObject* mapGroupBy(
         items = built;
     }
 
-    long len = items ? static_cast<long>(items->getSize(ctx)) : 0;
-    for (long i = 0; i < len; i++) {
+    proto::proto_long len = items ? static_cast<proto::proto_long>(items->getSize(ctx)) : 0;
+    for (proto::proto_long i = 0; i < len; i++) {
         const proto::ProtoObject* elem = items->getAt(ctx, static_cast<int>(i));
         if (!elem) elem = PROTO_NONE;
 
@@ -997,7 +998,7 @@ static const proto::ProtoObject* mapGroupBy(
         groupKey = normalizeMapKey(ctx, groupKey);
 
         // Find or create the group array for this key.
-        unsigned long foundIdx = 0;
+        proto::proto_ulong foundIdx = 0;
         if (mapFind(ctx, result, groupKey, foundIdx)) {
             const proto::ProtoSparseList* vl = getMapList(ctx, result, "__map_vals__");
             if (vl && vl->has(ctx, foundIdx)) {
@@ -1032,11 +1033,11 @@ static const proto::ProtoObject* mapGroupBy(
             const proto::ProtoSparseList* vl = getMapList(ctx, result, "__map_vals__");
             const proto::ProtoSparseList* hl = getMapList(ctx, result, "__map_hash__");
             if (!kl || !vl || !hl) continue;
-            long sz = getMapSize(ctx, result);
-            unsigned long ni = static_cast<unsigned long>(sz);
+            proto::proto_long sz = getMapSize(ctx, result);
+            proto::proto_ulong ni = static_cast<proto::proto_ulong>(sz);
             kl = kl->setAt(ctx, ni, groupKey);
             vl = vl->setAt(ctx, ni, arr);
-            unsigned long h = szvHash(ctx, groupKey);
+            proto::proto_ulong h = szvHash(ctx, groupKey);
             if (!hl->has(ctx, h))
                 hl = hl->setAt(ctx, h, ctx->fromInteger(static_cast<long long>(ni)));
             setMapListInPlace(ctx, result, "__map_keys__", kl);
@@ -1064,7 +1065,7 @@ static const proto::ProtoObject* mapConstruct(
     setMapListInPlace(ctx, self, "__map_keys__", emptyList);
     setMapListInPlace(ctx, self, "__map_vals__", emptyList);
     setMapListInPlace(ctx, self, "__map_hash__", emptyList);
-    setMapSizeInPlace(ctx, self, 0L);
+    setMapSizeInPlace(ctx, self, PROTO_L(0));
 
     // If iterable argument provided, call map.set for each [key, value] pair.
     int argc = args ? static_cast<int>(args->getSize(ctx)) : 0;
@@ -1146,7 +1147,7 @@ static const proto::ProtoObject* mapConstruct(
             }
         }
         if (iterable && iterable != PROTO_NONE) {
-            auto readEl = [&](const proto::ProtoObject* arr, long i) -> const proto::ProtoObject* {
+            auto readEl = [&](const proto::ProtoObject* arr, proto::proto_long i) -> const proto::ProtoObject* {
                 if (!arr || arr == PROTO_NONE) return PROTO_NONE;
                 // §7.3.2 Get(O, "0" | "1") fires accessor getters; their
                 // abrupt completion must propagate.  Probe the `__get_<i>__`
@@ -1168,7 +1169,7 @@ static const proto::ProtoObject* mapConstruct(
                     }
                 }
                 const proto::ProtoObject* v =
-                    arrayTryFastGet(ctx, arr, static_cast<unsigned long>(i));
+                    arrayTryFastGet(ctx, arr, static_cast<proto::proto_ulong>(i));
                 if (v) return v;
                 const proto::ProtoString* ik = JSSymbols::indexKey(ctx, static_cast<uint32_t>(i));
                 v = ik ? arr->getAttribute(ctx, ik, true) : nullptr;
@@ -1313,7 +1314,7 @@ static const proto::ProtoObject* mapConstruct(
                 // Array-like fast path: prefer __elements__ native storage;
                 // fall back to length+indexed-attribute reads.
                 const proto::ProtoString* lenKs = JSSymbols::length(ctx);
-                long len = -1;
+                proto::proto_long len = -1;
                 if (lenKs) {
                     const proto::ProtoObject* lenObj = iterable->getAttribute(ctx, lenKs, true);
                     if (lenObj && lenObj != PROTO_NONE && lenObj->isInteger(ctx))
@@ -1321,9 +1322,9 @@ static const proto::ProtoObject* mapConstruct(
                 }
                 if (len < 0) {
                     const proto::ProtoList* els = getArrayElements(ctx, iterable);
-                    if (els) len = static_cast<long>(els->getSize(ctx));
+                    if (els) len = static_cast<proto::proto_long>(els->getSize(ctx));
                 }
-                for (long i = 0; i < len; i++) {
+                for (proto::proto_long i = 0; i < len; i++) {
                     const proto::ProtoObject* pair = readEl(iterable, i);
                     if (!pair || pair == PROTO_NONE) continue;
                     bool isSymPair = false;
@@ -2267,7 +2268,7 @@ static const proto::ProtoObject* weakMapConstruct(
                     "WeakMap: 'set' is not callable"));
                 return PROTO_NONE;
             }
-            auto readEl = [&](const proto::ProtoObject* arr, long i) -> const proto::ProtoObject* {
+            auto readEl = [&](const proto::ProtoObject* arr, proto::proto_long i) -> const proto::ProtoObject* {
                 if (!arr || arr == PROTO_NONE) return PROTO_NONE;
                 // Spec §7.3.2 Get — fire accessor getters via the
                 // __get_<i>__ sidecar before reading the indexed slot.
@@ -2285,7 +2286,7 @@ static const proto::ProtoObject* weakMapConstruct(
                     }
                 }
                 const proto::ProtoObject* v =
-                    arrayTryFastGet(ctx, arr, static_cast<unsigned long>(i));
+                    arrayTryFastGet(ctx, arr, static_cast<proto::proto_ulong>(i));
                 if (v) return v;
                 const proto::ProtoString* ik = JSSymbols::indexKey(ctx, static_cast<uint32_t>(i));
                 v = ik ? arr->getAttribute(ctx, ik, true) : nullptr;
@@ -2413,7 +2414,7 @@ static const proto::ProtoObject* weakMapConstruct(
                 }
             } else {
                 const proto::ProtoString* lenKs = JSSymbols::length(ctx);
-                long len = -1;
+                proto::proto_long len = -1;
                 if (lenKs) {
                     const proto::ProtoObject* lenObj = iterable->getAttribute(ctx, lenKs, true);
                     if (lenObj && lenObj != PROTO_NONE && lenObj->isInteger(ctx))
@@ -2421,9 +2422,9 @@ static const proto::ProtoObject* weakMapConstruct(
                 }
                 if (len < 0) {
                     const proto::ProtoList* els = getArrayElements(ctx, iterable);
-                    if (els) len = static_cast<long>(els->getSize(ctx));
+                    if (els) len = static_cast<proto::proto_long>(els->getSize(ctx));
                 }
-                for (long i = 0; i < len; i++) {
+                for (proto::proto_long i = 0; i < len; i++) {
                     const proto::ProtoObject* pair = readEl(iterable, i);
                     if (!pair || pair == PROTO_NONE) continue;
                     if (pair->isInteger(ctx) || pair->isDouble(ctx)

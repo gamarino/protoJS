@@ -1,3 +1,4 @@
+#include "ProtoCoreTypes.h"
 #include "ProxyBuiltin.h"
 #include "ArrayPrototype.h"
 #include "ArrayElementsStorage.h"
@@ -358,7 +359,7 @@ static const proto::ProtoObject* defaultGet(proto::ProtoContext* ctx,
         for (char c : keyStr) { if (c < '0' || c > '9') { numeric = false; break; } }
         if (numeric && (keyStr.size() == 1 || keyStr[0] != '0')) {
             char* endp = nullptr;
-            unsigned long idx = std::strtoul(keyStr.c_str(), &endp, 10);
+            proto::proto_ulong idx = std::strtoul(keyStr.c_str(), &endp, 10);
             if (endp && *endp == '\0') {
                 const proto::ProtoObject* v = protojs::arrayTryFastGet(ctx, target, idx);
                 if (v && v != PROTO_NONE) return v;
@@ -372,7 +373,7 @@ static const proto::ProtoObject* defaultGet(proto::ProtoContext* ctx,
                             std::string s;
                             ps->toUTF8String(ctx, s);
                             size_t bi = 0;
-                            unsigned long pos = 0;
+                            proto::proto_ulong pos = 0;
                             while (bi < s.size() && pos < idx) {
                                 unsigned char c = static_cast<unsigned char>(s[bi]);
                                 size_t cl = (c < 0x80) ? 1 : (c < 0xE0) ? 2
@@ -728,7 +729,7 @@ const proto::ProtoObject* proxyDispatchHas(proto::ProtoContext* ctx,
         for (char c : keyStr) { if (c < '0' || c > '9') { numeric = false; break; } }
         if (numeric && (keyStr.size() == 1 || keyStr[0] != '0')) {
             char* endp = nullptr;
-            unsigned long idx = std::strtoul(keyStr.c_str(), &endp, 10);
+            proto::proto_ulong idx = std::strtoul(keyStr.c_str(), &endp, 10);
             if (endp && *endp == '\0') {
                 const proto::ProtoObject* v = protojs::arrayTryFastGet(ctx, target, idx);
                 if (v && v != PROTO_NONE) return PROTO_TRUE;
@@ -1008,7 +1009,7 @@ const proto::ProtoObject* proxyDispatchOwnKeys(
         const proto::ProtoSparseListIterator* it2 =
             own ? own->getIterator(ctx) : nullptr;
         while (it2 && it2->hasNext(ctx)) {
-            unsigned long rk = it2->nextKey(ctx);
+            proto::proto_ulong rk = it2->nextKey(ctx);
             it2 = const_cast<proto::ProtoSparseListIterator*>(it2)->advance(ctx);
             const proto::ProtoString* k =
                 reinterpret_cast<const proto::ProtoString*>(rk);

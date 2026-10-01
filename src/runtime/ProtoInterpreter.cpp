@@ -1,3 +1,4 @@
+#include "../ProtoCoreTypes.h"
 #include "ProtoInterpreter.h"
 #include "QuickJSOpcodeEnum.h"
 #include "QuickJSBytecodeExport.h"
@@ -275,7 +276,7 @@ static const proto::ProtoObject* resolvePutFieldOOP(proto::ProtoContext* ctx, co
                     // Truncate __elements__ when present.
                     const proto::ProtoList* els = protojs::getArrayElements(ctx, res);
                     if (els) {
-                        unsigned long sz = els->getSize(ctx);
+                        proto::proto_ulong sz = els->getSize(ctx);
                         if (static_cast<long long>(sz) > newLen) {
                             const proto::ProtoList* trimmed = ctx->newList();
                             for (long long i = 0; i < newLen; ++i)
@@ -289,7 +290,7 @@ static const proto::ProtoObject* resolvePutFieldOOP(proto::ProtoContext* ctx, co
                         std::vector<std::string> keysToDrop;
                         const proto::ProtoSparseListIterator* it = own->getIterator(ctx);
                         while (it && it->hasNext(ctx)) {
-                            unsigned long rawKey = it->nextKey(ctx);
+                            proto::proto_ulong rawKey = it->nextKey(ctx);
                             (void)it->nextValue(ctx);
                             it = const_cast<proto::ProtoSparseListIterator*>(it)->advance(ctx);
                             const proto::ProtoString* propKey =
@@ -624,7 +625,7 @@ inline void populateClosureCellsFromInstance(proto::ProtoContext* childCtx,
         ? fnInst->getOwnAttributeDirect(childCtx, scopeKey) : nullptr;
     if (scope == PROTO_NONE) scope = nullptr;
     const proto::ProtoList* symbols = nf.closureSymbols;
-    const unsigned long symbolCount = symbols ? symbols->getSize(childCtx) : 0;
+    const proto::proto_ulong symbolCount = symbols ? symbols->getSize(childCtx) : 0;
     for (size_t i = 0; i < nf.closureVarNames.size() && i < symbolCount; ++i) {
         const proto::ProtoObject* symObj = symbols->getAt(childCtx, static_cast<int>(i));
         const proto::ProtoString* nmKey = symObj ? symObj->asString(childCtx) : nullptr;
@@ -1413,7 +1414,7 @@ static const proto::ProtoObject* reflectOwnKeys(
     const proto::ProtoSparseListIterator* it = own ? own->getIterator(ctx) : nullptr;
     const proto::ProtoString* isSymKR = JSSymbols::isSymbol(ctx);
     while (it && it->hasNext(ctx)) {
-        unsigned long rawKey = it->nextKey(ctx);
+        proto::proto_ulong rawKey = it->nextKey(ctx);
         it = const_cast<proto::ProtoSparseListIterator*>(it)->advance(ctx);
         const proto::ProtoString* propKey =
             reinterpret_cast<const proto::ProtoString*>(rawKey);
@@ -2775,7 +2776,7 @@ static const proto::ProtoObject* globalDecodeURIComponent(
             }
             char hex[3] = { c1, c2, 0 };
             char* end = nullptr;
-            unsigned long val = std::strtoul(hex, &end, 16);
+            proto::proto_ulong val = std::strtoul(hex, &end, 16);
             if (end == hex + 2) { result += static_cast<char>(val); k += 3; continue; }
         }
         result += s[k++];
@@ -2893,7 +2894,7 @@ static const proto::ProtoObject* captureClosureVars(proto::ProtoContext* ctx,
                                                     const proto::ProtoObject* outerFrame) {
     if (nm.closureVarNames.empty() || !nm.closureSymbols) return nullptr;
     const proto::ProtoObject* scope = nullptr;
-    const unsigned long symbolCount = nm.closureSymbols->getSize(ctx);
+    const proto::proto_ulong symbolCount = nm.closureSymbols->getSize(ctx);
     for (size_t i = 0; i < nm.closureVarNames.size() && i < symbolCount; ++i) {
         const int cvType = (i < nm.closureVarTypes.size()) ? nm.closureVarTypes[i] : -1;
         const unsigned cvIdx = (i < nm.closureVarIndices.size()) ? nm.closureVarIndices[i] : 0;
@@ -2967,7 +2968,7 @@ static const proto::ProtoObject* captureClosureVars(proto::ProtoContext* ctx,
     return ctx->getAutomaticLocals()[f->stackBase + f->stackTop - 1];
 }
 
-[[gnu::always_inline]] static inline unsigned long stackSize(proto::ProtoContext* ctx) {
+[[gnu::always_inline]] static inline proto::proto_ulong stackSize(proto::ProtoContext* ctx) {
     InterpFrame* f = currentFrame(ctx);
     return f ? f->stackTop : 0;
 }
@@ -2977,7 +2978,7 @@ static const proto::ProtoObject* captureClosureVars(proto::ProtoContext* ctx,
 }
 
 /** Get stack element by 0-based index from top (0 = top, 1 = next, ...). */
-[[gnu::always_inline]] static inline const proto::ProtoObject* stackAt(proto::ProtoContext* ctx, unsigned long fromTop) {
+[[gnu::always_inline]] static inline const proto::ProtoObject* stackAt(proto::ProtoContext* ctx, proto::proto_ulong fromTop) {
     InterpFrame* f = currentFrame(ctx);
     if (!f || fromTop >= f->stackTop) return PROTO_NONE;
     return ctx->getAutomaticLocals()[f->stackBase + f->stackTop - 1 - fromTop];
@@ -4483,7 +4484,7 @@ static const proto::ProtoList* snapshotAutomaticLocals(proto::ProtoContext* ctx,
 static void restoreAutomaticLocals(proto::ProtoContext* ctx,
                                      const proto::ProtoList* list) {
     if (!ctx || !list) return;
-    unsigned long n = list->getSize(ctx);
+    proto::proto_ulong n = list->getSize(ctx);
     if (n == 0) return;
     if (ctx->getAutomaticLocalsCount() < n) {
         ctx->resizeAutomaticLocals(static_cast<unsigned int>(n));
@@ -4491,7 +4492,7 @@ static void restoreAutomaticLocals(proto::ProtoContext* ctx,
     const proto::ProtoObject** slots =
         const_cast<const proto::ProtoObject**>(ctx->getAutomaticLocals());
     if (!slots) return;
-    for (unsigned long i = 0; i < n; ++i) {
+    for (proto::proto_ulong i = 0; i < n; ++i) {
         const proto::ProtoObject* v = list->getAt(ctx, static_cast<int>(i));
         slots[i] = v ? v : PROTO_NONE;
     }
@@ -8053,7 +8054,7 @@ const proto::ProtoObject* runBytecode(proto::ProtoContext* pContext,
                     // Mirror QuickJS value-stack semantics: the OP_catch sentinel occupies a
                     // specific slot in the value stack.  When OP_drop removes that slot, the
                     // catch frame it represents is gone — pop it from catch_stack as well.
-                    unsigned long drop_pos = stackSize(pContext) - 1;
+                    proto::proto_ulong drop_pos = stackSize(pContext) - 1;
                     if (!catch_stack.empty() && catch_stack.back().placeholder_stack_pos == drop_pos) {
                         catch_stack.pop_back();
                     }
@@ -9918,7 +9919,7 @@ const proto::ProtoObject* runBytecode(proto::ProtoContext* pContext,
                     // dense array, so spread of `[1,2,3]` was silently
                     // producing no elements).
                     for (long long i = 0; i < apSrcLen && !apError; i++) {
-                        const proto::ProtoObject* v = arrayTryFastGet(pContext, apIterable, static_cast<unsigned long>(i));
+                        const proto::ProtoObject* v = arrayTryFastGet(pContext, apIterable, static_cast<proto::proto_ulong>(i));
                         if (!v) {
                             const proto::ProtoString* ik = JSSymbols::indexKey(pContext, static_cast<uint32_t>(i));
                             v = ik ? apIterable->getAttribute(pContext, ik, false) : PROTO_NONE;
@@ -10087,7 +10088,7 @@ const proto::ProtoObject* runBytecode(proto::ProtoContext* pContext,
                 if (ownAttrs) {
                     const proto::ProtoSparseListIterator* cdpIt = ownAttrs->getIterator(pContext);
                     while (cdpIt && cdpIt->hasNext(pContext)) {
-                        unsigned long attrRawKey = cdpIt->nextKey(pContext);
+                        proto::proto_ulong attrRawKey = cdpIt->nextKey(pContext);
                         const proto::ProtoObject* attrVal = cdpIt->nextValue(pContext);
                         cdpIt = const_cast<proto::ProtoSparseListIterator*>(cdpIt)->advance(pContext);
                         const proto::ProtoString* propKey =
@@ -10805,7 +10806,7 @@ const proto::ProtoObject* runBytecode(proto::ProtoContext* pContext,
                 // Fallback to native ProtoList fast path ONLY if behavior didn't find it
                 // (TypedArrays return PROTO_NONE for out-of-bounds, so this works).
                 if (!val && arrIdxFast >= 0) {
-                    val = arrayTryFastGet(pContext, obj, static_cast<unsigned long>(arrIdxFast));
+                    val = arrayTryFastGet(pContext, obj, static_cast<proto::proto_ulong>(arrIdxFast));
                 }
                 // Array literals >32 elements: QuickJS emits OP_array_from
                 // for the first 32 elements, then OP_define_field for
@@ -11083,7 +11084,7 @@ const proto::ProtoObject* runBytecode(proto::ProtoContext* pContext,
                 if (taType2 != 0xFF && arrIdxFast2 >= 0) {
                     val = typedArrayGetElement(pContext, obj, static_cast<uint32_t>(arrIdxFast2), taType2);
                 } else if (arrIdxFast2 >= 0) {
-                    val = arrayTryFastGet(pContext, obj, static_cast<unsigned long>(arrIdxFast2));
+                    val = arrayTryFastGet(pContext, obj, static_cast<proto::proto_ulong>(arrIdxFast2));
                 }
                 if (!val) {
                     const proto::ProtoString* key = nullptr;
@@ -11170,7 +11171,7 @@ const proto::ProtoObject* runBytecode(proto::ProtoContext* pContext,
                 if (taType3 != 0xFF && arrIdxFast3 >= 0) {
                     val = typedArrayGetElement(pContext, obj, static_cast<uint32_t>(arrIdxFast3), taType3);
                 } else if (arrIdxFast3 >= 0) {
-                    val = arrayTryFastGet(pContext, obj, static_cast<unsigned long>(arrIdxFast3));
+                    val = arrayTryFastGet(pContext, obj, static_cast<proto::proto_ulong>(arrIdxFast3));
                 }
                 if (!val) {
                     const proto::ProtoString* key = nullptr;
@@ -11370,7 +11371,7 @@ const proto::ProtoObject* runBytecode(proto::ProtoContext* pContext,
                     }
                 }
                 if (idxFast >= 0 &&
-                    arrayTryFastSet(pContext, obj, static_cast<unsigned long>(idxFast), value)) {
+                    arrayTryFastSet(pContext, obj, static_cast<proto::proto_ulong>(idxFast), value)) {
                     newObj = obj;
                     goto put_array_el_update_length;
                 }
@@ -13134,7 +13135,7 @@ const proto::ProtoObject* runBytecode(proto::ProtoContext* pContext,
                 int32_t diff = static_cast<int32_t>(get_u32(buf + pc));
                 int handler_pc = pc + diff;
                 pc += 4;
-                unsigned long placeholder_pos = stackSize(pContext);
+                proto::proto_ulong placeholder_pos = stackSize(pContext);
                 catch_stack.push_back({handler_pc, placeholder_pos});
                 stackPush(pContext, PROTO_NONE); // sentinel placeholder (undefined-equivalent)
                 DISPATCH();
@@ -13147,7 +13148,7 @@ const proto::ProtoObject* runBytecode(proto::ProtoContext* pContext,
                 //   sp[-1] = ret_val;
                 // We know the sentinel's position from placeholder_stack_pos.
                 if (!catch_stack.empty()) {
-                    unsigned long placeholder_pos = catch_stack.back().placeholder_stack_pos;
+                    proto::proto_ulong placeholder_pos = catch_stack.back().placeholder_stack_pos;
                     catch_stack.pop_back();
                     if (!stackEmpty(pContext)) {
                         const proto::ProtoObject* ret_val = stackTop(pContext);
@@ -13646,7 +13647,7 @@ const proto::ProtoObject* runBytecode(proto::ProtoContext* pContext,
                                 const proto::ProtoList* els = getArrayElements(pContext, obj);
                                 if (els && idx < static_cast<long long>(els->getSize(pContext))) {
                                     const proto::ProtoList* newEls = els->setAt(pContext,
-                                        static_cast<unsigned long>(idx), PROTO_NONE);
+                                        static_cast<proto::proto_ulong>(idx), PROTO_NONE);
                                     if (newEls) setArrayElements(pContext, obj, newEls);
                                 }
                             }
@@ -14508,8 +14509,8 @@ const proto::ProtoObject* runBytecode(proto::ProtoContext* pContext,
                         if (taAttr->isString(pContext)) {
                             std::string name; taAttr->asString(pContext)->toUTF8String(pContext, name);
                             if (name == "ArrayBuffer") {
-                                unsigned long bl = 0;
-                                if (finalArgc > 0 && argsList->getAt(pContext,0)->isInteger(pContext)) bl = (unsigned long)std::max(0LL, argsList->getAt(pContext,0)->asLong(pContext));
+                                proto::proto_ulong bl = 0;
+                                if (finalArgc > 0 && argsList->getAt(pContext,0)->isInteger(pContext)) bl = (proto::proto_ulong)std::max(0LL, argsList->getAt(pContext,0)->asLong(pContext));
                                 result = createArrayBuffer(pContext, bl);
                             }
                         } else if (taAttr->isInteger(pContext)) {
@@ -15740,7 +15741,7 @@ const proto::ProtoObject* runBytecode(proto::ProtoContext* pContext,
                 const proto::ProtoList* list = pContext->newList();
                 for (uint16_t i = 0; i < count; i++) {
                     const proto::ProtoObject* elem =
-                        stackAt(pContext, static_cast<unsigned long>(count - 1 - i));
+                        stackAt(pContext, static_cast<proto::proto_ulong>(count - 1 - i));
                     list = list->appendLast(pContext, elem ? elem : PROTO_NONE);
                 }
                 for (uint16_t i = 0; i < count; i++) stackPop(pContext);
@@ -15913,14 +15914,14 @@ const proto::ProtoObject* runBytecode(proto::ProtoContext* pContext,
                 // `[a, ...r] = [1,2,3,4]` (rawOffset=2 because
                 // array+idx sit above the iterator state) it corrupted
                 // the iterator state, so the rest array ended up empty.
-                if (stackSize(pContext) < static_cast<unsigned long>(rawOffset) + 3UL)
+                if (stackSize(pContext) < static_cast<proto::proto_ulong>(rawOffset) + PROTO_UL(3))
                     return PROTO_NONE;
                 const proto::ProtoObject* catch_off =
-                    stackAt(pContext, static_cast<unsigned long>(rawOffset));
+                    stackAt(pContext, static_cast<proto::proto_ulong>(rawOffset));
                 const proto::ProtoObject* next_meth =
-                    stackAt(pContext, static_cast<unsigned long>(rawOffset) + 1UL);
+                    stackAt(pContext, static_cast<proto::proto_ulong>(rawOffset) + PROTO_UL(1));
                 const proto::ProtoObject* iterator  =
-                    stackAt(pContext, static_cast<unsigned long>(rawOffset) + 2UL);
+                    stackAt(pContext, static_cast<proto::proto_ulong>(rawOffset) + PROTO_UL(2));
 
                 const proto::ProtoString* slotKey3 = JSSymbols::iterSlot(pContext);
                 const proto::ProtoObject* slotVal = (slotKey3 && iterator && iterator != PROTO_NONE)
@@ -16047,7 +16048,7 @@ const proto::ProtoObject* runBytecode(proto::ProtoContext* pContext,
                     // attributes, so the indexKey getAttribute path
                     // returns nullptr and the rest pattern
                     // `[a,...r] = [1,2,3,4]` produced r = [].
-                    elemVal = arrayTryFastGet(pContext, arrObj, static_cast<unsigned long>(idx2));
+                    elemVal = arrayTryFastGet(pContext, arrObj, static_cast<proto::proto_ulong>(idx2));
                     if (!elemVal) {
                         std::string elemIdxStr = std::to_string(idx2);
                         const proto::ProtoObject* elemIdxObj = pContext->fromUTF8String(elemIdxStr.c_str());
@@ -16598,8 +16599,8 @@ const proto::ProtoObject* runBytecode(proto::ProtoContext* pContext,
                     if (fiIsArray) {
                         const proto::ProtoList* els = getArrayElements(pContext, fiObj);
                         if (els) {
-                            unsigned long n = els->getSize(pContext);
-                            for (unsigned long i = 0; i < n; ++i) {
+                            proto::proto_ulong n = els->getSize(pContext);
+                            for (proto::proto_ulong i = 0; i < n; ++i) {
                                 const proto::ProtoObject* v = els->getAt(pContext, static_cast<int>(i));
                                 if (v && v != PROTO_NONE) {  // skip holes
                                     std::string s = std::to_string(i);
@@ -16652,7 +16653,7 @@ const proto::ProtoObject* runBytecode(proto::ProtoContext* pContext,
                                 std::string s8;
                                 ps->toUTF8String(pContext, s8);
                                 size_t i = 0;
-                                unsigned long u16 = 0;
+                                proto::proto_ulong u16 = 0;
                                 while (i < s8.size()) {
                                     unsigned char c = static_cast<unsigned char>(s8[i]);
                                     size_t cl = (c < 0x80) ? 1 : (c < 0xE0) ? 2 : (c < 0xF0) ? 3 : 4;
@@ -16685,7 +16686,7 @@ const proto::ProtoObject* runBytecode(proto::ProtoContext* pContext,
                         if (fiOwn) {
                             const proto::ProtoSparseListIterator* it = fiOwn->getIterator(pContext);
                             while (it && it->hasNext(pContext)) {
-                                unsigned long rk = it->nextKey(pContext);
+                                proto::proto_ulong rk = it->nextKey(pContext);
                                 it = const_cast<proto::ProtoSparseListIterator*>(it)->advance(pContext);
                                 const proto::ProtoString* pk =
                                     reinterpret_cast<const proto::ProtoString*>(rk);
@@ -17229,7 +17230,7 @@ static const proto::ProtoObject* resumeGenerator(proto::ProtoContext* ctx,
         std::string kpc = "__gen_cc_" + std::to_string(ci) + "_pc__";
         std::string ksp = "__gen_cc_" + std::to_string(ci) + "_sp__";
         restoredCatch.push_back({(int)genGetInt(ctx, iter, kpc.c_str()),
-                                  (unsigned long)genGetInt(ctx, iter, ksp.c_str())});
+                                  (proto::proto_ulong)genGetInt(ctx, iter, ksp.c_str())});
     }
 
     // If mode == 2 (throw): pre-store the throw value on the iterator.
@@ -17421,8 +17422,8 @@ const proto::ProtoObject* callJSFunction(
                 const proto::ProtoObject* argArrJs = protojs::createNewArray(ctx, arrProto);
                 if (argArrJs && args) {
                     const proto::ProtoList* argEls = ctx->newList();
-                    unsigned long sz = args->getSize(ctx);
-                    for (unsigned long i = 0; i < sz; i++)
+                    proto::proto_ulong sz = args->getSize(ctx);
+                    for (proto::proto_ulong i = 0; i < sz; i++)
                         argEls = argEls->appendLast(ctx, args->getAt(ctx, i));
                     protojs::setArrayElements(ctx, argArrJs, argEls);
                 }

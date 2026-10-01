@@ -1,3 +1,4 @@
+#include "../../ProtoCoreTypes.h"
 #include "HTTPModule.h"
 #include "../../ProtoNativeModule.h"
 #include "../../FunctionPrototype.h"
@@ -300,7 +301,7 @@ void appendHeadersFromObject(proto::ProtoContext* ctx,
     if (!own) return;
     const proto::ProtoSparseListIterator* it = own->getIterator(ctx);
     while (it && it->hasNext(ctx)) {
-        unsigned long rawKey = it->nextKey(ctx);
+        proto::proto_ulong rawKey = it->nextKey(ctx);
         const proto::ProtoObject* v = it->nextValue(ctx);
         it = const_cast<proto::ProtoSparseListIterator*>(it)->advance(ctx);
         const proto::ProtoString* k =

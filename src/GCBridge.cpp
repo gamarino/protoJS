@@ -1,3 +1,4 @@
+#include "ProtoCoreTypes.h"
 #include "GCBridge.h"
 #include "JSContext.h"
 #include "JSSymbols.h"
@@ -70,7 +71,7 @@ void GCBridge::registerMapping(JSValue jsVal, const proto::ProtoObject* protoObj
     
     // Create key for JSValue (as string representation of tag)
     const proto::ProtoString* jsKey = createJSValueKey(jsVal, pContext);
-    unsigned long jsKeyHash = jsKey->getHash(pContext);
+    proto::proto_ulong jsKeyHash = jsKey->getHash(pContext);
     
     const proto::ProtoSparseList* newMappings = ctxMappings;
 
@@ -85,7 +86,7 @@ void GCBridge::registerMapping(JSValue jsVal, const proto::ProtoObject* protoObj
                 return;
             }
             if (oldProtoObj && oldProtoObj != PROTO_NONE) {
-                unsigned long oldProtoKey = getProtoObjectKey(oldProtoObj, pContext);
+                proto::proto_ulong oldProtoKey = getProtoObjectKey(oldProtoObj, pContext);
                 newMappings = newMappings->removeAt(pContext, oldProtoKey);
             }
         }
@@ -112,7 +113,7 @@ void GCBridge::registerMapping(JSValue jsVal, const proto::ProtoObject* protoObj
     newMappings = newMappings->setAt(pContext, jsKeyHash, mappingObj);
     
     // 4. Register Proto -> JS mapping
-    unsigned long protoKey = getProtoObjectKey(protoObj, pContext);
+    proto::proto_ulong protoKey = getProtoObjectKey(protoObj, pContext);
     newMappings = newMappings->setAt(pContext, protoKey, jsValWrapper);
     
     setContextMappings(ctx, newMappings, pContext);
@@ -125,7 +126,7 @@ void GCBridge::unregisterMapping(JSValue jsVal, JSContext* ctx) {
 
     const proto::ProtoSparseList* ctxMappings = getContextMappings(ctx, pContext);
     const proto::ProtoString* jsKey = createJSValueKey(jsVal, pContext);
-    unsigned long jsKeyHash = jsKey->getHash(pContext);
+    proto::proto_ulong jsKeyHash = jsKey->getHash(pContext);
     
     if (ctxMappings->has(pContext, jsKeyHash)) {
         const proto::ProtoObject* mappingObj = ctxMappings->getAt(pContext, jsKeyHash);
@@ -157,7 +158,7 @@ void GCBridge::unregisterMapping(JSValue jsVal, JSContext* ctx) {
         
         // Also remove reverse mapping
         if (storedProtoObj && storedProtoObj != PROTO_NONE) {
-            unsigned long protoKey = getProtoObjectKey(storedProtoObj, pContext);
+            proto::proto_ulong protoKey = getProtoObjectKey(storedProtoObj, pContext);
             newMappings = newMappings->removeAt(pContext, protoKey);
         }
         
@@ -172,7 +173,7 @@ const proto::ProtoObject* GCBridge::getProtoObject(JSValue jsVal, JSContext* ctx
 
     const proto::ProtoSparseList* ctxMappings = getContextMappings(ctx, pContext);
     const proto::ProtoString* jsKey = createJSValueKey(jsVal, pContext);
-    unsigned long jsKeyHash = jsKey->getHash(pContext);
+    proto::proto_ulong jsKeyHash = jsKey->getHash(pContext);
     
     if (ctxMappings->has(pContext, jsKeyHash)) {
         const proto::ProtoObject* mappingObj = ctxMappings->getAt(pContext, jsKeyHash);
@@ -190,7 +191,7 @@ JSValue GCBridge::getJSValue(const proto::ProtoObject* protoObj, JSContext* ctx)
     if (!pContext) return JS_NULL;
 
     const proto::ProtoSparseList* ctxMappings = getContextMappings(ctx, pContext);
-    unsigned long protoKey = getProtoObjectKey(protoObj, pContext);
+    proto::proto_ulong protoKey = getProtoObjectKey(protoObj, pContext);
     
     if (ctxMappings->has(pContext, protoKey)) {
         // The value stored is the JSValue wrapper (ExternalPointer)
@@ -213,7 +214,7 @@ void GCBridge::registerRoot(JSValue jsVal, const proto::ProtoObject* protoObj, J
 
     const proto::ProtoSparseList* ctxMappings = getContextMappings(ctx, pContext);
     const proto::ProtoString* jsKey = createJSValueKey(jsVal, pContext);
-    unsigned long jsKeyHash = jsKey->getHash(pContext);
+    proto::proto_ulong jsKeyHash = jsKey->getHash(pContext);
     
     if (ctxMappings->has(pContext, jsKeyHash)) {
         const proto::ProtoObject* mappingObj = ctxMappings->getAt(pContext, jsKeyHash);
@@ -237,7 +238,7 @@ void GCBridge::unregisterRoot(JSValue jsVal, JSContext* ctx) {
 
     const proto::ProtoSparseList* ctxMappings = getContextMappings(ctx, pContext);
     const proto::ProtoString* jsKey = createJSValueKey(jsVal, pContext);
-    unsigned long jsKeyHash = jsKey->getHash(pContext);
+    proto::proto_ulong jsKeyHash = jsKey->getHash(pContext);
     
     if (ctxMappings->has(pContext, jsKeyHash)) {
         const proto::ProtoObject* mappingObj = ctxMappings->getAt(pContext, jsKeyHash);
@@ -258,7 +259,7 @@ void GCBridge::registerWeakRef(JSValue jsVal, const proto::ProtoObject* protoObj
     // Create mapping object marked as weak (similar to registerMapping but with isWeakRef=true)
     const proto::ProtoSparseList* ctxMappings = getContextMappings(ctx, pContext);
     const proto::ProtoString* jsKey = createJSValueKey(jsVal, pContext);
-    unsigned long jsKeyHash = jsKey->getHash(pContext);
+    proto::proto_ulong jsKeyHash = jsKey->getHash(pContext);
     
     const proto::ProtoObject* mappingObj = pContext->newObject(false);
     
@@ -295,7 +296,7 @@ void GCBridge::unregisterWeakRef(JSValue jsVal, JSContext* ctx) {
 
     const proto::ProtoSparseList* ctxMappings = getContextMappings(ctx, pContext);
     const proto::ProtoString* jsKey = createJSValueKey(jsVal, pContext);
-    unsigned long jsKeyHash = jsKey->getHash(pContext);
+    proto::proto_ulong jsKeyHash = jsKey->getHash(pContext);
     
     if (ctxMappings->has(pContext, jsKeyHash)) {
         const proto::ProtoObject* mappingObj = ctxMappings->getAt(pContext, jsKeyHash);
@@ -335,7 +336,7 @@ GCBridge::MemoryLeakReport GCBridge::detectLeaks(JSContext* ctx) {
     const proto::ProtoList* orphanedJS = pContext->newList();
     const proto::ProtoList* orphanedProto = pContext->newList();
     double maxAge = 0.0;
-    unsigned long leakCount = 0;
+    proto::proto_ulong leakCount = 0;
     
     auto now = std::chrono::system_clock::now();
     auto duration = now.time_since_epoch();
@@ -344,7 +345,7 @@ GCBridge::MemoryLeakReport GCBridge::detectLeaks(JSContext* ctx) {
     // Iterate over mappings
     const proto::ProtoSparseListIterator* iter = ctxMappings->getIterator(pContext);
     while (iter && iter->hasNext(pContext)) {
-        unsigned long key = iter->nextKey(pContext);
+        proto::proto_ulong key = iter->nextKey(pContext);
         const proto::ProtoObject* mappingObj = iter->nextValue(pContext);
         
         // Extract data from mapping object
@@ -426,9 +427,9 @@ GCBridge::MemoryStats GCBridge::getMemoryStats(JSContext* ctx) {
     }
 
     const proto::ProtoSparseList* ctxMappings = getContextMappings(ctx, pContext);
-    unsigned long totalMappings = ctxMappings->getSize(pContext);
-    unsigned long rootCount = 0;
-    unsigned long weakCount = 0;
+    proto::proto_ulong totalMappings = ctxMappings->getSize(pContext);
+    proto::proto_ulong rootCount = 0;
+    proto::proto_ulong weakCount = 0;
     
     // Count roots and weak refs
     const proto::ProtoSparseListIterator* iter = ctxMappings->getIterator(pContext);
@@ -586,7 +587,7 @@ const proto::ProtoSparseList* GCBridge::getContextMappings(JSContext* ctx, proto
     }
     
     // Get mappings for this context using JSContext* hash
-    unsigned long ctxHash = reinterpret_cast<uintptr_t>(ctx);
+    proto::proto_ulong ctxHash = reinterpret_cast<uintptr_t>(ctx);
     
     if (contextMappings->has(pContext, ctxHash)) {
         const proto::ProtoObject* wrappedMappings = contextMappings->getAt(pContext, ctxHash);
@@ -623,7 +624,7 @@ const proto::ProtoString* GCBridge::createJSValueKey(JSValue jsVal, proto::Proto
     return pContext->fromUTF8String(oss.str().c_str())->asString(pContext);
 }
 
-unsigned long GCBridge::getProtoObjectKey(const proto::ProtoObject* protoObj, proto::ProtoContext* pContext) {
+proto::proto_ulong GCBridge::getProtoObjectKey(const proto::ProtoObject* protoObj, proto::ProtoContext* pContext) {
     return protoObj->getHash(pContext);
 }
 

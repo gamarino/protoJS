@@ -1,3 +1,4 @@
+#include "../../ProtoCoreTypes.h"
 #include "NetModule.h"
 #include "../../ProtoNativeModule.h"
 #include "../../ArrayElementsStorage.h"
@@ -345,7 +346,7 @@ std::vector<uint8_t> toBytes(proto::ProtoContext* ctx,
     if (!attr || attr == PROTO_NONE) return out;
     const proto::ProtoByteBuffer* bb = attr->asByteBuffer(ctx);
     if (!bb) return out;
-    unsigned long n = bb->getSize(ctx);
+    proto::proto_ulong n = bb->getSize(ctx);
     const char* src = bb->getBuffer(ctx);
     out.assign(src, src + n);
     return out;

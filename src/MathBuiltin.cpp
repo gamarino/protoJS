@@ -1,3 +1,4 @@
+#include "ProtoCoreTypes.h"
 #include "MathBuiltin.h"
 #include "JSSymbols.h"
 #include "ArrayElementsStorage.h"
@@ -171,8 +172,8 @@ static const proto::ProtoObject* mathSumPrecise(
     std::vector<double> partials;
     partials.reserve(8);
 
-    const unsigned long n = static_cast<unsigned long>(els->getSize(ctx));
-    for (unsigned long i = 0; i < n && state != State::NaN_; ++i) {
+    const proto::proto_ulong n = static_cast<proto::proto_ulong>(els->getSize(ctx));
+    for (proto::proto_ulong i = 0; i < n && state != State::NaN_; ++i) {
         const proto::ProtoObject* v = els->getAt(ctx, i);
         // Spec step 6.b: each value MUST be a Number; non-Number → TypeError.
         if (!v || v == PROTO_NONE) {
@@ -331,7 +332,7 @@ static const proto::ProtoObject* mathHypot(
     const proto::ParentLink*, const proto::ProtoList* args,
     const proto::ProtoSparseList*)
 {
-    unsigned long argc = args ? static_cast<unsigned long>(args->getSize(ctx)) : 0;
+    proto::proto_ulong argc = args ? static_cast<proto::proto_ulong>(args->getSize(ctx)) : 0;
     // ECMA-262 §21.3.2.18 step 2: ToNumber every argument in order,
     // propagating any abrupt completion. Pre-fix the impl called
     // argToDouble twice (once for Inf/NaN scan, once for summation)
@@ -340,7 +341,7 @@ static const proto::ProtoObject* mathHypot(
     // touched argument N+1's valueOf too (counter test).
     std::vector<double> coerced;
     coerced.reserve(argc);
-    for (unsigned long i = 0; i < argc; i++) {
+    for (proto::proto_ulong i = 0; i < argc; i++) {
         double v = argToDouble(ctx, args, static_cast<unsigned>(i), 0.0);
         if (hasCallException()) return PROTO_NONE;
         coerced.push_back(v);
@@ -364,7 +365,7 @@ static const proto::ProtoObject* mathMax(
     const proto::ParentLink*, const proto::ProtoList* args,
     const proto::ProtoSparseList*)
 {
-    unsigned long argc = args ? static_cast<unsigned long>(args->getSize(ctx)) : 0;
+    proto::proto_ulong argc = args ? static_cast<proto::proto_ulong>(args->getSize(ctx)) : 0;
     if (argc == 0) return ctx->fromDouble(-std::numeric_limits<double>::infinity());
     // Spec §20.3.2.24 step 1-2: coerce every argument first via ToNumber,
     // even when an early NaN would short-circuit the result. Mathematical
@@ -372,7 +373,7 @@ static const proto::ProtoObject* mathMax(
     bool anyNaN = false;
     double result = -std::numeric_limits<double>::infinity();
     bool sawPositiveZero = false;
-    for (unsigned long i = 0; i < argc; i++) {
+    for (proto::proto_ulong i = 0; i < argc; i++) {
         double v = argToDouble(ctx, args, static_cast<unsigned>(i));
         if (std::isnan(v)) { anyNaN = true; continue; }
         if (v == 0.0 && !std::signbit(v)) sawPositiveZero = true;
@@ -390,12 +391,12 @@ static const proto::ProtoObject* mathMin(
     const proto::ParentLink*, const proto::ProtoList* args,
     const proto::ProtoSparseList*)
 {
-    unsigned long argc = args ? static_cast<unsigned long>(args->getSize(ctx)) : 0;
+    proto::proto_ulong argc = args ? static_cast<proto::proto_ulong>(args->getSize(ctx)) : 0;
     if (argc == 0) return ctx->fromDouble(std::numeric_limits<double>::infinity());
     bool anyNaN = false;
     double result = std::numeric_limits<double>::infinity();
     bool sawNegativeZero = false;
-    for (unsigned long i = 0; i < argc; i++) {
+    for (proto::proto_ulong i = 0; i < argc; i++) {
         double v = argToDouble(ctx, args, static_cast<unsigned>(i));
         if (std::isnan(v)) { anyNaN = true; continue; }
         if (v == 0.0 && std::signbit(v)) sawNegativeZero = true;

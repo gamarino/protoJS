@@ -1,3 +1,4 @@
+#include "ProtoCoreTypes.h"
 #include "console.h"
 #include "ProtoNativeModule.h"
 #include "runtime/ProtoInterpreter.h"
@@ -124,7 +125,7 @@ static void printProtoValue(proto::ProtoContext* ctx, const proto::ProtoObject* 
         const proto::ProtoSparseListIterator* it = attrs->getIterator(ctx);
         bool first = true;
         while (it && it->hasNext(ctx)) {
-            unsigned long hash = it->nextKey(ctx);
+            proto::proto_ulong hash = it->nextKey(ctx);
             const proto::ProtoObject* v = it->nextValue(ctx);
             std::string key = JSSymbols::getNameFromHash(ctx, hash);
             if (key.empty()) {

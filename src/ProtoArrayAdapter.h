@@ -1,6 +1,7 @@
 #ifndef PROTOJS_PROTOARRAYADAPTER_H
 #define PROTOJS_PROTOARRAYADAPTER_H
 
+#include "ProtoCoreTypes.h"
 #include "protoCore.h"
 
 namespace protojs {
@@ -27,7 +28,7 @@ public:
     static const proto::ProtoObject* get(
         proto::ProtoContext* ctx,
         const proto::ProtoObject* arrayObj,
-        unsigned long index);
+        proto::proto_ulong index);
 
     /**
      * Set the element at the given index.
@@ -38,13 +39,13 @@ public:
     static const proto::ProtoObject* set(
         proto::ProtoContext* ctx,
         const proto::ProtoObject* arrayObj,
-        unsigned long index,
+        proto::proto_ulong index,
         const proto::ProtoObject* value);
 
     /**
      * Return the logical length of the array.
      */
-    static unsigned long length(
+    static proto::proto_ulong length(
         proto::ProtoContext* ctx,
         const proto::ProtoObject* arrayObj);
 
@@ -57,7 +58,7 @@ public:
     static const proto::ProtoObject* setLength(
         proto::ProtoContext* ctx,
         const proto::ProtoObject* arrayObj,
-        unsigned long newLen);
+        proto::proto_ulong newLen);
 };
 
 } // namespace protojs

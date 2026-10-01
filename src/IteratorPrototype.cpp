@@ -1,3 +1,4 @@
+#include "ProtoCoreTypes.h"
 #include "IteratorPrototype.h"
 #include "ArrayPrototype.h"
 #include "ArrayElementsStorage.h"
@@ -1287,14 +1288,14 @@ static const proto::ProtoObject* iteratorZipNext(
         return makeIterResult(ctx, getUndefinedSentinel(), true);
     const proto::ProtoList* arr = getArrayElements(ctx, sources);
     if (!arr) return makeIterResult(ctx, getUndefinedSentinel(), true);
-    unsigned long n = arr->getSize(ctx);
+    proto::proto_ulong n = arr->getSize(ctx);
     if (n == 0) return makeIterResult(ctx, getUndefinedSentinel(), true);
     // Build a result array; stop at first exhausted source (shortest).
     const proto::ProtoObject* tuple = createNewArray(ctx, nullptr);
     const proto::ProtoString* isArrK = JSSymbols::isArray(ctx);
     if (isArrK) tuple = tuple->setAttribute(ctx, isArrK, PROTO_TRUE);
     const proto::ProtoList* tEls = ctx->newList();
-    for (unsigned long i = 0; i < n; i++) {
+    for (proto::proto_ulong i = 0; i < n; i++) {
         const proto::ProtoObject* inner = arr->getAt(ctx, static_cast<int>(i));
         if (!inner || inner == PROTO_NONE) return makeIterResult(ctx, getUndefinedSentinel(), true);
         const proto::ProtoObject* nextFn = iterGetNext(ctx, inner, "zip");
@@ -1305,7 +1306,7 @@ static const proto::ProtoObject* iteratorZipNext(
         if (hasCallException()) return PROTO_NONE;
         if (done) {
             // Close remaining inner iterators.
-            for (unsigned long j = 0; j < n; j++) {
+            for (proto::proto_ulong j = 0; j < n; j++) {
                 if (j != i) {
                     const proto::ProtoObject* other = arr->getAt(ctx, static_cast<int>(j));
                     if (other && other != PROTO_NONE) iterClose(ctx, other);
@@ -1348,13 +1349,13 @@ static const proto::ProtoObject* iteratorZip(
     const proto::ProtoString* isArrK = JSSymbols::isArray(ctx);
     if (isArrK) inners = inners->setAttribute(ctx, isArrK, PROTO_TRUE);
     const proto::ProtoList* innersEls = ctx->newList();
-    unsigned long n = outerEls->getSize(ctx);
-    for (unsigned long i = 0; i < n; i++) {
+    proto::proto_ulong n = outerEls->getSize(ctx);
+    for (proto::proto_ulong i = 0; i < n; i++) {
         const proto::ProtoObject* src = outerEls->getAt(ctx, static_cast<int>(i));
         const proto::ProtoObject* inner = getIteratorFor(ctx, src);
         if (!inner) {
             // Close previously-acquired iterators.
-            for (unsigned long j = 0; j < i; j++) {
+            for (proto::proto_ulong j = 0; j < i; j++) {
                 const proto::ProtoObject* prev = innersEls->getAt(ctx, static_cast<int>(j));
                 if (prev && prev != PROTO_NONE) iterClose(ctx, prev);
             }
@@ -1395,9 +1396,9 @@ static const proto::ProtoObject* iteratorZipKeyedNext(
     const proto::ProtoList* keysEls = getArrayElements(ctx, keys);
     const proto::ProtoList* itersEls = getArrayElements(ctx, iters);
     if (!keysEls || !itersEls) return makeIterResult(ctx, getUndefinedSentinel(), true);
-    unsigned long n = keysEls->getSize(ctx);
+    proto::proto_ulong n = keysEls->getSize(ctx);
     const proto::ProtoObject* out = ctx->newObject(true);
-    for (unsigned long i = 0; i < n; i++) {
+    for (proto::proto_ulong i = 0; i < n; i++) {
         const proto::ProtoObject* inner = itersEls->getAt(ctx, static_cast<int>(i));
         if (!inner || inner == PROTO_NONE) return makeIterResult(ctx, getUndefinedSentinel(), true);
         const proto::ProtoObject* nextFn = iterGetNext(ctx, inner, "zipKeyed");
@@ -1407,7 +1408,7 @@ static const proto::ProtoObject* iteratorZipKeyedNext(
         (void)iterStep(ctx, inner, nextFn, &done, &val);
         if (hasCallException()) return PROTO_NONE;
         if (done) {
-            for (unsigned long j = 0; j < n; j++) {
+            for (proto::proto_ulong j = 0; j < n; j++) {
                 if (j != i) {
                     const proto::ProtoObject* other = itersEls->getAt(ctx, static_cast<int>(j));
                     if (other && other != PROTO_NONE) iterClose(ctx, other);
@@ -1454,7 +1455,7 @@ static const proto::ProtoObject* iteratorZipKeyed(
     if (own) {
         const proto::ProtoSparseListIterator* it = own->getIterator(ctx);
         while (it && it->hasNext(ctx)) {
-            unsigned long rawKey = it->nextKey(ctx);
+            proto::proto_ulong rawKey = it->nextKey(ctx);
             const proto::ProtoObject* val = it->nextValue(ctx);
             it = const_cast<proto::ProtoSparseListIterator*>(it)->advance(ctx);
             const proto::ProtoString* propKey =
@@ -1466,8 +1467,8 @@ static const proto::ProtoObject* iteratorZipKeyed(
             const proto::ProtoObject* inner = getIteratorFor(ctx, val);
             if (!inner) {
                 // Close any already-gathered iterators.
-                unsigned long sz = itersEls->getSize(ctx);
-                for (unsigned long j = 0; j < sz; j++) {
+                proto::proto_ulong sz = itersEls->getSize(ctx);
+                for (proto::proto_ulong j = 0; j < sz; j++) {
                     const proto::ProtoObject* prev = itersEls->getAt(ctx, static_cast<int>(j));
                     if (prev && prev != PROTO_NONE) iterClose(ctx, prev);
                 }

@@ -1,3 +1,4 @@
+#include "../ProtoCoreTypes.h"
 #include "ProtoCoreModule.h"
 #include "../TypeBridge.h"
 #include "../JSContext.h"
@@ -262,7 +263,7 @@ JSValue ProtoCoreModule::SetSize(JSContext* ctx, JSValueConst this_val, int argc
     JSContextWrapper* wrapper = getWrapper(ctx);
     proto::ProtoContext* pContext = wrapper->getProtoContext();
     
-    unsigned long size = (*setPtr)->getSize(pContext);
+    proto::proto_ulong size = (*setPtr)->getSize(pContext);
     return JS_NewInt32(ctx, size);
 }
 
@@ -378,7 +379,7 @@ JSValue ProtoCoreModule::MultisetSize(JSContext* ctx, JSValueConst this_val, int
     JSContextWrapper* wrapper = getWrapper(ctx);
     proto::ProtoContext* pContext = wrapper->getProtoContext();
     
-    unsigned long size = (*multisetPtr)->getSize(pContext);
+    proto::proto_ulong size = (*multisetPtr)->getSize(pContext);
     return JS_NewInt32(ctx, size);
 }
 
@@ -484,7 +485,7 @@ JSValue ProtoCoreModule::SparseListSize(JSContext* ctx, JSValueConst this_val, i
     JSContextWrapper* wrapper = getWrapper(ctx);
     proto::ProtoContext* pContext = wrapper->getProtoContext();
     
-    unsigned long size = (*sparseListPtr)->getSize(pContext);
+    proto::proto_ulong size = (*sparseListPtr)->getSize(pContext);
     return JS_NewInt32(ctx, size);
 }
 

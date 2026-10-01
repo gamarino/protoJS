@@ -1,3 +1,4 @@
+#include "ProtoCoreTypes.h"
 #include "ObjectPrototype.h"
 #include "ArrayPrototype.h"
 #include "ProxyBuiltin.h"
@@ -174,12 +175,12 @@ static void collectOwnKeys(
     // string keys.  The attribute callback also flips arrayIndexKey to
     // true so the cb itself does NOT emit those numeric keys (avoids
     // the duplicate).
-    std::vector<unsigned long> arrayIndices;
+    std::vector<proto::proto_ulong> arrayIndices;
     if (isArr) {
         const proto::ProtoList* elsList = getArrayElements(ctx, obj);
         if (elsList) {
-            unsigned long n = elsList->getSize(ctx);
-            for (unsigned long i = 0; i < n; ++i) {
+            proto::proto_ulong n = elsList->getSize(ctx);
+            for (proto::proto_ulong i = 0; i < n; ++i) {
                 const proto::ProtoObject* v = elsList->getAt(ctx, static_cast<int>(i));
                 if (v && v != PROTO_NONE)
                     arrayIndices.push_back(i);
@@ -221,14 +222,14 @@ static void collectOwnKeys(
     // either __elements__ or the sparse own-attribute walk lands here;
     // the post-walk emission step iterates this set in ascending order
     // and probes __pd_<idx>__ / __get_<idx>__ for the live descriptor.
-    std::set<unsigned long> arrayIndexSet(arrayIndices.begin(), arrayIndices.end());
+    std::set<proto::proto_ulong> arrayIndexSet(arrayIndices.begin(), arrayIndices.end());
 
     struct CollectState {
         proto::ProtoContext* ctx;
         const proto::ProtoObject* obj;
         std::vector<std::string>* keys;
         std::vector<const proto::ProtoObject*>* vals;
-        std::set<unsigned long>* arrayIndexSet;
+        std::set<proto::proto_ulong>* arrayIndexSet;
         const proto::ProtoString* lenSymbol;
         bool isArr;
         bool includeNonEnumerable;
@@ -240,7 +241,7 @@ static void collectOwnKeys(
             includeNonEnumerable, mightHaveNonWritable,
             mightHaveAccessors, false};
     auto cb = [](proto::ProtoContext* cbCtx, void* selfV,
-                 unsigned long rawKey, const proto::ProtoObject* val) {
+                 proto::proto_ulong rawKey, const proto::ProtoObject* val) {
         CollectState* s = static_cast<CollectState*>(selfV);
         if (s->aborted) return;
         const proto::ProtoString* propKey =
@@ -285,7 +286,7 @@ static void collectOwnKeys(
             unsigned long long iv = std::strtoull(kstr.c_str(), &iend, 10);
             if (iend && *iend == '\0' && iv < 0xFFFFFFFFULL
                 && std::to_string(iv) == kstr) {
-                s->arrayIndexSet->insert(static_cast<unsigned long>(iv));
+                s->arrayIndexSet->insert(static_cast<proto::proto_ulong>(iv));
                 return;
             }
         }
@@ -343,7 +344,7 @@ static void collectOwnKeys(
         }
     };
     own->processElements(ctx, &state,
-        static_cast<void(*)(proto::ProtoContext*, void*, unsigned long, const proto::ProtoObject*)>(cb));
+        static_cast<void(*)(proto::ProtoContext*, void*, proto::proto_ulong, const proto::ProtoObject*)>(cb));
 
     // Post-walk emission of array indices in ascending numeric order
     // (§7.3.20 OrdinaryOwnPropertyKeys step 2.b).  Probe each candidate
@@ -356,8 +357,8 @@ static void collectOwnKeys(
         if (vals) nonIdxVals.swap(*vals);
 
         const proto::ProtoList* elsList = getArrayElements(ctx, obj);
-        unsigned long elsLen = elsList ? elsList->getSize(ctx) : 0;
-        for (unsigned long idx : arrayIndexSet) {
+        proto::proto_ulong elsLen = elsList ? elsList->getSize(ctx) : 0;
+        for (proto::proto_ulong idx : arrayIndexSet) {
             std::string kstr = std::to_string(idx);
             const proto::ProtoObject* ko = ctx->fromUTF8String(kstr.c_str());
             const proto::ProtoString* propKey = ko ? ko->asString(ctx) : nullptr;
@@ -456,7 +457,7 @@ static const proto::ProtoObject* objectKeys(
             const proto::ProtoString* lenKey = JSSymbols::length(ctx);
             const proto::ProtoString* isArrKey2 = JSSymbols::isArray(ctx);
             const proto::ProtoList* elsList = ctx->newList();
-            unsigned long count = 0;
+            proto::proto_ulong count = 0;
             const proto::ProtoList* keysEls = protojs::getArrayElements(ctx, keysArr);
             size_t n = keysEls ? keysEls->getSize(ctx) : 0;
             for (size_t i = 0; i < n; i++) {
@@ -514,7 +515,7 @@ static const proto::ProtoObject* objectKeys(
         const proto::ProtoString* lenKey = JSSymbols::length(ctx);
         const proto::ProtoString* isArrKey2 = JSSymbols::isArray(ctx);
         const proto::ProtoList* elsList = ctx->newList();
-        unsigned long count = 0;
+        proto::proto_ulong count = 0;
         for (const std::string& ks : targetKeys) {
             const proto::ProtoObject* ko = ctx->fromUTF8String(ks.c_str());
             const proto::ProtoString* kStr = ko ? ko->asString(ctx) : nullptr;
@@ -866,7 +867,7 @@ static const proto::ProtoObject* objectAssign(
                 const proto::ProtoSparseListIterator* tit =
                     tOwn ? tOwn->getIterator(ctx) : nullptr;
                 while (tit && tit->hasNext(ctx)) {
-                    unsigned long rk = tit->nextKey(ctx);
+                    proto::proto_ulong rk = tit->nextKey(ctx);
                     (void)tit->nextValue(ctx);
                     tit = const_cast<proto::ProtoSparseListIterator*>(tit)->advance(ctx);
                     const proto::ProtoString* ks =
@@ -940,7 +941,7 @@ static const proto::ProtoObject* objectAssign(
                             if (c < '0' || c > '9') { numeric = false; break; }
                         if (numeric) {
                             try {
-                                unsigned long idx = std::stoul(ks);
+                                proto::proto_ulong idx = std::stoul(ks);
                                 if (idx < 0xFFFFFFFFu) {
                                     arrayTryFastSet(ctx, target, idx,
                                         val ? val : PROTO_NONE);
@@ -1060,7 +1061,7 @@ static const proto::ProtoObject* objectAssign(
         if (!own) continue;
         const proto::ProtoSparseListIterator* it = own->getIterator(ctx);
         while (it && it->hasNext(ctx)) {
-            unsigned long rawKey = it->nextKey(ctx);
+            proto::proto_ulong rawKey = it->nextKey(ctx);
             const proto::ProtoObject* val = it->nextValue(ctx);
             it = const_cast<proto::ProtoSparseListIterator*>(it)->advance(ctx);
             const proto::ProtoString* propKey =
@@ -1256,7 +1257,7 @@ static const proto::ProtoObject* objectAssign(
                     for (char c : ks) if (c < '0' || c > '9') { numeric = false; break; }
                     if (numeric) {
                         try {
-                            unsigned long idx = std::stoul(ks);
+                            proto::proto_ulong idx = std::stoul(ks);
                             if (idx < 0xFFFFFFFFu) {
                                 protojs::arrayTryFastSet(ctx, target, idx,
                                     effective ? effective : PROTO_NONE);
@@ -1564,7 +1565,7 @@ static const proto::ProtoObject* objectFreeze(
                 const proto::ProtoSparseListIterator* tit =
                     tOwn ? tOwn->getIterator(ctx) : nullptr;
                 while (tit && tit->hasNext(ctx)) {
-                    unsigned long rk = tit->nextKey(ctx);
+                    proto::proto_ulong rk = tit->nextKey(ctx);
                     (void)tit->nextValue(ctx);
                     tit = const_cast<proto::ProtoSparseListIterator*>(tit)->advance(ctx);
                     const proto::ProtoString* ks =
@@ -1638,7 +1639,7 @@ static const proto::ProtoObject* objectFreeze(
             const proto::ProtoSparseListIterator* it = own->getIterator(ctx);
             std::vector<std::string> keysToUpdate;
             while (it && it->hasNext(ctx)) {
-                unsigned long raw = it->nextKey(ctx);
+                proto::proto_ulong raw = it->nextKey(ctx);
                 it = const_cast<proto::ProtoSparseListIterator*>(it)->advance(ctx);
                 const proto::ProtoString* k =
                     reinterpret_cast<const proto::ProtoString*>(raw);
@@ -1734,7 +1735,7 @@ static const proto::ProtoObject* objectIsFrozen(
                 const proto::ProtoSparseListIterator* tit =
                     tOwn ? tOwn->getIterator(ctx) : nullptr;
                 while (tit && tit->hasNext(ctx)) {
-                    unsigned long rk = tit->nextKey(ctx);
+                    proto::proto_ulong rk = tit->nextKey(ctx);
                     (void)tit->nextValue(ctx);
                     tit = const_cast<proto::ProtoSparseListIterator*>(tit)->advance(ctx);
                     const proto::ProtoString* ks =
@@ -1792,7 +1793,7 @@ static const proto::ProtoObject* objectIsFrozen(
         if (own) {
             const proto::ProtoSparseListIterator* it = own->getIterator(ctx);
             while (it && it->hasNext(ctx)) {
-                unsigned long raw = it->nextKey(ctx);
+                proto::proto_ulong raw = it->nextKey(ctx);
                 const proto::ProtoString* k =
                     reinterpret_cast<const proto::ProtoString*>(raw);
                 it = const_cast<proto::ProtoSparseListIterator*>(it)->advance(ctx);
@@ -1883,7 +1884,7 @@ static const proto::ProtoObject* objectSeal(
                 const proto::ProtoSparseListIterator* tit =
                     tOwn ? tOwn->getIterator(ctx) : nullptr;
                 while (tit && tit->hasNext(ctx)) {
-                    unsigned long rk = tit->nextKey(ctx);
+                    proto::proto_ulong rk = tit->nextKey(ctx);
                     (void)tit->nextValue(ctx);
                     tit = const_cast<proto::ProtoSparseListIterator*>(tit)->advance(ctx);
                     const proto::ProtoString* ks =
@@ -1928,7 +1929,7 @@ static const proto::ProtoObject* objectSeal(
             const proto::ProtoSparseListIterator* it = own->getIterator(ctx);
             std::vector<std::string> keysToUpdate;
             while (it && it->hasNext(ctx)) {
-                unsigned long raw = it->nextKey(ctx);
+                proto::proto_ulong raw = it->nextKey(ctx);
                 it = const_cast<proto::ProtoSparseListIterator*>(it)->advance(ctx);
                 const proto::ProtoString* k =
                     reinterpret_cast<const proto::ProtoString*>(raw);
@@ -2016,7 +2017,7 @@ static const proto::ProtoObject* objectIsSealed(
                 const proto::ProtoSparseListIterator* tit =
                     tOwn ? tOwn->getIterator(ctx) : nullptr;
                 while (tit && tit->hasNext(ctx)) {
-                    unsigned long rk = tit->nextKey(ctx);
+                    proto::proto_ulong rk = tit->nextKey(ctx);
                     (void)tit->nextValue(ctx);
                     tit = const_cast<proto::ProtoSparseListIterator*>(tit)->advance(ctx);
                     const proto::ProtoString* ks =
@@ -3047,7 +3048,7 @@ static const proto::ProtoObject* objectDefineProperty(
     
     const proto::ProtoObject* existingBitsObj = (pdk && propExists && target->hasOwnAttribute(ctx, pdk) == PROTO_TRUE) 
         ? target->getAttribute(ctx, pdk, false) : nullptr;
-    long existingBits = (existingBitsObj && existingBitsObj->isInteger(ctx)) ? existingBitsObj->asLong(ctx) : 0x7;
+    proto::proto_long existingBits = (existingBitsObj && existingBitsObj->isInteger(ctx)) ? existingBitsObj->asLong(ctx) : 0x7;
 
     if (propExists && !(existingBits & 0x2)) { // configurable=false (bit 1)
         // ECMA-262 §10.1.6.3 ValidateAndApplyPropertyDescriptor step 3:
@@ -3751,7 +3752,7 @@ static const proto::ProtoObject* objectDefineProperty(
                     std::vector<std::string> keysToDrop;
                     const proto::ProtoSparseListIterator* it = own->getIterator(ctx);
                     while (it && it->hasNext(ctx)) {
-                        unsigned long rawKey = it->nextKey(ctx);
+                        proto::proto_ulong rawKey = it->nextKey(ctx);
                         (void)it->nextValue(ctx);
                         it = const_cast<proto::ProtoSparseListIterator*>(it)->advance(ctx);
                         const proto::ProtoString* propKey =
@@ -3866,7 +3867,7 @@ static const proto::ProtoObject* objectGetOwnPropertyDescriptor(
         const proto::ProtoString* ps = target->asString(ctx);
         std::string sv;
         if (ps) ps->toUTF8String(ctx, sv);
-        unsigned long len = 0;
+        proto::proto_ulong len = 0;
         for (size_t bi = 0; bi < sv.size(); ) {
             unsigned char c = static_cast<unsigned char>(sv[bi]);
             size_t cl = (c < 0x80) ? 1 : (c < 0xE0) ? 2 : (c < 0xF0) ? 3 : 4;
@@ -3893,9 +3894,9 @@ static const proto::ProtoObject* objectGetOwnPropertyDescriptor(
         for (char c : kstr2) { if (c < '0' || c > '9') { numeric = false; break; } }
         if (numeric && (kstr2.size() == 1 || kstr2[0] != '0')) {
             try {
-                unsigned long idx = std::stoul(kstr2);
+                proto::proto_ulong idx = std::stoul(kstr2);
                 if (idx < len) {
-                    size_t i = 0; unsigned long pos = 0;
+                    size_t i = 0; proto::proto_ulong pos = 0;
                     while (i < sv.size() && pos < idx) {
                         unsigned char c = static_cast<unsigned char>(sv[i]);
                         size_t cl = (c < 0x80) ? 1 : (c < 0xE0) ? 2 : (c < 0xF0) ? 3 : 4;
@@ -3993,7 +3994,7 @@ static const proto::ProtoObject* objectGetOwnPropertyDescriptor(
             for (char c : kstr) { if (c < '0' || c > '9') { numeric = false; break; } }
             if (numeric && (kstr.size() == 1 || kstr[0] != '0')) {
                 try {
-                    unsigned long idx = std::stoul(kstr);
+                    proto::proto_ulong idx = std::stoul(kstr);
                     const proto::ProtoObject* v =
                         arrayTryFastGet(ctx, target, idx);
                     if (v && v != PROTO_NONE) { val = v; found = true; }
@@ -4010,14 +4011,14 @@ static const proto::ProtoObject* objectGetOwnPropertyDescriptor(
                     for (char c : kstr) { if (c < '0' || c > '9') { numeric = false; break; } }
                     if (numeric && (kstr.size() == 1 || kstr[0] != '0')) {
                         try {
-                            unsigned long idx = std::stoul(kstr);
+                            proto::proto_ulong idx = std::stoul(kstr);
                             const proto::ProtoString* ps = pv->asString(ctx);
                             if (ps) {
                                 std::string s;
                                 ps->toUTF8String(ctx, s);
                                 // Walk UTF-16 code units.
                                 size_t i = 0;
-                                unsigned long pos = 0;
+                                proto::proto_ulong pos = 0;
                                 while (i < s.size() && pos < idx) {
                                     unsigned char c = static_cast<unsigned char>(s[i]);
                                     size_t cl = (c < 0x80) ? 1 : (c < 0xE0) ? 2 : (c < 0xF0) ? 3 : 4;
@@ -4115,7 +4116,7 @@ static const proto::ProtoObject* objectGetOwnPropertySymbols(
     const proto::ProtoSparseList* own = target->getOwnAttributes(ctx);
     const proto::ProtoSparseListIterator* it = own ? own->getIterator(ctx) : nullptr;
     while (it && it->hasNext(ctx)) {
-        unsigned long rawKey = it->nextKey(ctx);
+        proto::proto_ulong rawKey = it->nextKey(ctx);
         it = const_cast<proto::ProtoSparseListIterator*>(it)->advance(ctx);
         const proto::ProtoString* keyStr = reinterpret_cast<const proto::ProtoString*>(rawKey);
         if (!keyStr) continue;
@@ -4187,7 +4188,7 @@ static const proto::ProtoObject* objectGetOwnPropertyDescriptors(
                 const proto::ProtoSparseListIterator* tit =
                     tOwn ? tOwn->getIterator(ctx) : nullptr;
                 while (tit && tit->hasNext(ctx)) {
-                    unsigned long rk = tit->nextKey(ctx);
+                    proto::proto_ulong rk = tit->nextKey(ctx);
                     (void)tit->nextValue(ctx);
                     tit = const_cast<proto::ProtoSparseListIterator*>(tit)->advance(ctx);
                     const proto::ProtoString* ks =
@@ -4250,7 +4251,7 @@ static const proto::ProtoObject* objectGetOwnPropertyDescriptors(
         const proto::ProtoSparseList* own = target->getOwnAttributes(ctx);
         const proto::ProtoSparseListIterator* it = own ? own->getIterator(ctx) : nullptr;
         while (it && it->hasNext(ctx)) {
-            unsigned long rawKey = it->nextKey(ctx);
+            proto::proto_ulong rawKey = it->nextKey(ctx);
             it = const_cast<proto::ProtoSparseListIterator*>(it)->advance(ctx);
             const proto::ProtoString* keyStr =
                 reinterpret_cast<const proto::ProtoString*>(rawKey);
@@ -4358,7 +4359,7 @@ static const proto::ProtoObject* objectDefineProperties(
                 const proto::ProtoSparseListIterator* tit =
                     tOwn ? tOwn->getIterator(ctx) : nullptr;
                 while (tit && tit->hasNext(ctx)) {
-                    unsigned long rk = tit->nextKey(ctx);
+                    proto::proto_ulong rk = tit->nextKey(ctx);
                     (void)tit->nextValue(ctx);
                     tit = const_cast<proto::ProtoSparseListIterator*>(tit)->advance(ctx);
                     const proto::ProtoString* ks =
@@ -4412,7 +4413,7 @@ static const proto::ProtoObject* objectDefineProperties(
     if (!own) return target;
     const proto::ProtoSparseListIterator* it = own->getIterator(ctx);
     while (it && it->hasNext(ctx)) {
-        unsigned long rawKey = it->nextKey(ctx);
+        proto::proto_ulong rawKey = it->nextKey(ctx);
         const proto::ProtoObject* descObj = it->nextValue(ctx);
         it = const_cast<proto::ProtoSparseListIterator*>(it)->advance(ctx);
         const proto::ProtoString* propKey =
@@ -4541,7 +4542,7 @@ static const proto::ProtoObject* objectFromEntries(
             }
         }
         const proto::ProtoObject* v =
-            arrayTryFastGet(ctx, arr, static_cast<unsigned long>(i));
+            arrayTryFastGet(ctx, arr, static_cast<proto::proto_ulong>(i));
         if (v) return v;
         // String-wrapper entry: `Object('ab')` has __primitive_value__='ab';
         // index 0 → 'a', index 1 → 'b' per §22.1.4 ToObject semantics.
@@ -4929,8 +4930,8 @@ static const proto::ProtoObject* objectGroupBy(
     // Spec: result has null prototype.
     protojs::setJSProtoOverride(ctx, result, getNullSentinel());
 
-    unsigned long n = els->getSize(ctx);
-    for (unsigned long i = 0; i < n; ++i) {
+    proto::proto_ulong n = els->getSize(ctx);
+    for (proto::proto_ulong i = 0; i < n; ++i) {
         const proto::ProtoObject* v = els->getAt(ctx, static_cast<int>(i));
         if (!v || v == PROTO_NONE) continue;  // skip holes
         const proto::ProtoList* cbArgs = ctx->newList();
@@ -6917,8 +6918,8 @@ void setJSProtoOverride(proto::ProtoContext* ctx,
     const proto::ProtoObject* bcId = bcKey ? obj->getOwnAttributeDirect(ctx, bcKey) : nullptr;
     if (bcId && bcId != PROTO_NONE) {
         const proto::ProtoList* current = obj->getParents(ctx);
-        const unsigned long n = current ? current->getSize(ctx) : 0;
-        for (unsigned long i = 0; i < n && parents; ++i) {
+        const proto::proto_ulong n = current ? current->getSize(ctx) : 0;
+        for (proto::proto_ulong i = 0; i < n && parents; ++i) {
             const proto::ProtoObject* p = current->getAt(ctx, static_cast<int>(i));
             if (p && p != PROTO_NONE && p != proto && p != previousOverride)
                 parents = parents->appendLast(ctx, p);

@@ -1,6 +1,8 @@
 #ifndef PROTOJS_GENERATOR_FRAME_H
 #define PROTOJS_GENERATOR_FRAME_H
 
+#include "../ProtoCoreTypes.h"
+
 /**
  * Shared definitions for the generator protocol.
  * CatchFrame is moved here from ProtoInterpreter.cpp so it can be
@@ -16,7 +18,7 @@ namespace protojs {
  */
 struct CatchFrame {
     int           handler_pc;
-    unsigned long placeholder_stack_pos;
+    proto::proto_ulong placeholder_stack_pos;
 };
 
 // ---------------------------------------------------------------------------

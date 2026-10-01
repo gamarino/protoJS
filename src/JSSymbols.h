@@ -1,6 +1,7 @@
 #ifndef PROTOJS_JSSYMBOLS_H
 #define PROTOJS_JSSYMBOLS_H
 
+#include "ProtoCoreTypes.h"
 #include "protoCore.h"
 #include <cstdint>
 #include <string>
@@ -300,7 +301,7 @@ const proto::ProtoString* indexKey(proto::ProtoContext* ctx, uint32_t i);
  * Useful for iterating ProtoSparseList attribute dictionaries.
  * Must be called after at least one symbol has been initialized.
  */
-std::string getNameFromHash(proto::ProtoContext* ctx, unsigned long hash);
+std::string getNameFromHash(proto::ProtoContext* ctx, proto::proto_ulong hash);
 
 } // namespace JSSymbols
 } // namespace protojs

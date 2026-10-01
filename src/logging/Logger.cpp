@@ -1,3 +1,4 @@
+#include "../ProtoCoreTypes.h"
 #include "Logger.h"
 #include <iostream>
 #include <sstream>
@@ -31,7 +32,7 @@ void Logger::setLevel(proto::ProtoContext* pContext, Level level) {
     std::lock_guard<std::mutex> lock(logMutex);
     const proto::ProtoSparseList* storage = getLevelStorage(pContext);
     const proto::ProtoString* levelKey = pContext->fromUTF8String("level")->asString(pContext);
-    unsigned long levelKeyHash = levelKey->getHash(pContext);
+    proto::proto_ulong levelKeyHash = levelKey->getHash(pContext);
     storage = storage->setAt(pContext, levelKeyHash, pContext->fromInteger(static_cast<long long>(level)));
     setLevelStorage(pContext, storage);
 }
@@ -45,7 +46,7 @@ const proto::ProtoObject* Logger::getLevel(proto::ProtoContext* pContext) {
     std::lock_guard<std::mutex> lock(logMutex);
     const proto::ProtoSparseList* storage = getLevelStorage(pContext);
     const proto::ProtoString* levelKey = pContext->fromUTF8String("level")->asString(pContext);
-    unsigned long levelKeyHash = levelKey->getHash(pContext);
+    proto::proto_ulong levelKeyHash = levelKey->getHash(pContext);
     
     if (storage->has(pContext, levelKeyHash)) {
         const proto::ProtoObject* levelObj = storage->getAt(pContext, levelKeyHash);
@@ -76,8 +77,8 @@ void Logger::log(proto::ProtoContext* pContext, Level level, const proto::ProtoS
     std::string outputStr;
     outputStr.reserve(formatted->getSize(pContext) * 4);
     
-    unsigned long size = charList->getSize(pContext);
-    for (unsigned long i = 0; i < size; i++) {
+    proto::proto_ulong size = charList->getSize(pContext);
+    for (proto::proto_ulong i = 0; i < size; i++) {
         const proto::ProtoObject* charObj = charList->getAt(pContext, i);
         unsigned int unicodeChar = charObj->asLong(pContext);
         
@@ -152,7 +153,7 @@ const proto::ProtoString* Logger::formatText(proto::ProtoContext* pContext, Leve
         // Iterate over context and append key=value pairs
         const proto::ProtoSparseListIterator* iter = context->getIterator(pContext);
         while (iter && iter->hasNext(pContext)) {
-            unsigned long key = iter->nextKey(pContext);
+            proto::proto_ulong key = iter->nextKey(pContext);
             const proto::ProtoObject* value = iter->nextValue(pContext);
             // Format as key=value (simplified - would need key lookup)
             // For now, just append value

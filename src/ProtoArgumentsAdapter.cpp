@@ -1,3 +1,4 @@
+#include "ProtoCoreTypes.h"
 #include "ProtoArgumentsAdapter.h"
 #include "JSSymbols.h"
 
@@ -32,7 +33,7 @@ static const ProtoSparseList* getValuesSparse(
     return empty;
 }
 
-static unsigned long getStoredLength(
+static proto::proto_ulong getStoredLength(
     ProtoContext* ctx,
     const ProtoObject* argsObj)
 {
@@ -46,13 +47,13 @@ static unsigned long getStoredLength(
     if (!lenObj || lenObj == PROTO_NONE) {
         return 0;
     }
-    return static_cast<unsigned long>(lenObj->asLong(ctx));
+    return static_cast<proto::proto_ulong>(lenObj->asLong(ctx));
 }
 
 static const ProtoObject* storeLength(
     ProtoContext* ctx,
     const ProtoObject* argsObj,
-    unsigned long newLen)
+    proto::proto_ulong newLen)
 {
     const ProtoString* lengthKey =
         JSSymbols::length(ctx);
@@ -80,7 +81,7 @@ const ProtoObject* ProtoArgumentsAdapter::createArguments(ProtoContext* ctx)
 const ProtoObject* ProtoArgumentsAdapter::get(
     ProtoContext* ctx,
     const ProtoObject* argsObj,
-    unsigned long index)
+    proto::proto_ulong index)
 {
     if (!argsObj) {
         return PROTO_NONE;
@@ -101,7 +102,7 @@ const ProtoObject* ProtoArgumentsAdapter::get(
 const ProtoObject* ProtoArgumentsAdapter::set(
     ProtoContext* ctx,
     const ProtoObject* argsObj,
-    unsigned long index,
+    proto::proto_ulong index,
     const ProtoObject* value)
 {
     if (!argsObj) {
@@ -122,7 +123,7 @@ const ProtoObject* ProtoArgumentsAdapter::set(
     const ProtoObject* updated =
         argsObj->setAttribute(ctx, valuesKey, valuesObj);
 
-    unsigned long currentLen = getStoredLength(ctx, updated);
+    proto::proto_ulong currentLen = getStoredLength(ctx, updated);
     if (index + 1 > currentLen) {
         updated = storeLength(ctx, updated, index + 1);
     }
@@ -130,7 +131,7 @@ const ProtoObject* ProtoArgumentsAdapter::set(
     return updated;
 }
 
-unsigned long ProtoArgumentsAdapter::length(
+proto::proto_ulong ProtoArgumentsAdapter::length(
     ProtoContext* ctx,
     const ProtoObject* argsObj)
 {
@@ -140,7 +141,7 @@ unsigned long ProtoArgumentsAdapter::length(
 const ProtoObject* ProtoArgumentsAdapter::setLength(
     ProtoContext* ctx,
     const ProtoObject* argsObj,
-    unsigned long newLen)
+    proto::proto_ulong newLen)
 {
     if (!argsObj) {
         const ProtoObject* created = createArguments(ctx);

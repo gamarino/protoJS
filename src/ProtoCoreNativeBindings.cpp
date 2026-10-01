@@ -1,3 +1,4 @@
+#include "ProtoCoreTypes.h"
 #include "ProtoCoreNativeBindings.h"
 #include "ProtoDeferred.h"
 #include "ArrayElementsStorage.h"
@@ -283,18 +284,18 @@ const proto::ProtoList* arrayArgElements(proto::ProtoContext* ctx,
 }
 
 bool readIndex(proto::ProtoContext* ctx, const proto::ProtoObject* v,
-                unsigned long& out) {
+                proto::proto_ulong& out) {
     if (!v || v == PROTO_NONE) return false;
     if (v->isInteger(ctx)) {
         long long n = v->asLong(ctx);
         if (n < 0) return false;
-        out = static_cast<unsigned long>(n);
+        out = static_cast<proto::proto_ulong>(n);
         return true;
     }
     if (v->isDouble(ctx) || v->isFloat(ctx)) {
         double d = v->asDouble(ctx);
         if (d < 0 || d != static_cast<double>(static_cast<long long>(d))) return false;
-        out = static_cast<unsigned long>(static_cast<long long>(d));
+        out = static_cast<proto::proto_ulong>(static_cast<long long>(d));
         return true;
     }
     return false;
@@ -316,8 +317,8 @@ const proto::ProtoObject* setConstruct(
         if (init && init != PROTO_NONE && init != getUndefinedSentinel()) {
             const proto::ProtoList* els = arrayArgElements(ctx, args);
             if (!els) return throwTypeError(ctx, "Set expects an array");
-            unsigned long n = els->getSize(ctx);
-            for (unsigned long i = 0; i < n; i++)
+            proto::proto_ulong n = els->getSize(ctx);
+            for (proto::proto_ulong i = 0; i < n; i++)
                 s = s->add(ctx, els->getAt(ctx, static_cast<int>(i)));
         }
     }
@@ -415,8 +416,8 @@ const proto::ProtoObject* multisetConstruct(
         if (init && init != PROTO_NONE && init != getUndefinedSentinel()) {
             const proto::ProtoList* els = arrayArgElements(ctx, args);
             if (!els) return throwTypeError(ctx, "Multiset expects an array");
-            unsigned long n = els->getSize(ctx);
-            for (unsigned long i = 0; i < n; i++)
+            proto::proto_ulong n = els->getSize(ctx);
+            for (proto::proto_ulong i = 0; i < n; i++)
                 m = m->add(ctx, els->getAt(ctx, static_cast<int>(i)));
         }
     }
@@ -528,7 +529,7 @@ const proto::ProtoObject* sparseListSet(
     const proto::ProtoSparseList*) {
     if (!args || args->getSize(ctx) < 2)
         return throwTypeError(ctx, "SparseList.set expects index and value");
-    unsigned long index = 0;
+    proto::proto_ulong index = 0;
     if (!readIndex(ctx, args->getAt(ctx, 0), index))
         return throwTypeError(ctx, "SparseList.set expects a non-negative integer index");
     const proto::ProtoObject* value = args->getAt(ctx, 1);
@@ -555,7 +556,7 @@ const proto::ProtoObject* sparseListGet(
         return throwTypeError(ctx, "SparseList.get expects an index");
     const proto::ProtoSparseList* sl = readSparseList(ctx, self);
     if (!sl) return throwTypeError(ctx, "Invalid SparseList object");
-    unsigned long index = 0;
+    proto::proto_ulong index = 0;
     if (!readIndex(ctx, args->getAt(ctx, 0), index)) {
         const proto::ProtoObject* u = getUndefinedSentinel();
         return u ? u : PROTO_NONE;
@@ -578,7 +579,7 @@ const proto::ProtoObject* sparseListHas(
         return throwTypeError(ctx, "SparseList.has expects an index");
     const proto::ProtoSparseList* sl = readSparseList(ctx, self);
     if (!sl) return throwTypeError(ctx, "Invalid SparseList object");
-    unsigned long index = 0;
+    proto::proto_ulong index = 0;
     if (!readIndex(ctx, args->getAt(ctx, 0), index)) return PROTO_FALSE;
     return sl->has(ctx, index) ? PROTO_TRUE : PROTO_FALSE;
 }

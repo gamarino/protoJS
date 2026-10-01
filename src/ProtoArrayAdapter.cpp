@@ -1,3 +1,4 @@
+#include "ProtoCoreTypes.h"
 #include "ProtoArrayAdapter.h"
 #include "JSSymbols.h"
 
@@ -45,7 +46,7 @@ static const ProtoSparseList* getSparse(
     return empty;
 }
 
-static unsigned long getStoredLength(
+static proto::proto_ulong getStoredLength(
     ProtoContext* ctx,
     const ProtoObject* arrayObj)
 {
@@ -59,13 +60,13 @@ static unsigned long getStoredLength(
     if (!lenObj || lenObj == PROTO_NONE) {
         return 0;
     }
-    return static_cast<unsigned long>(lenObj->asLong(ctx));
+    return static_cast<proto::proto_ulong>(lenObj->asLong(ctx));
 }
 
 static const ProtoObject* storeLength(
     ProtoContext* ctx,
     const ProtoObject* arrayObj,
-    unsigned long newLen)
+    proto::proto_ulong newLen)
 {
     const ProtoString* lengthKey =
         JSSymbols::length(ctx);
@@ -96,7 +97,7 @@ const ProtoObject* ProtoArrayAdapter::createArray(ProtoContext* ctx)
 const ProtoObject* ProtoArrayAdapter::get(
     ProtoContext* ctx,
     const ProtoObject* arrayObj,
-    unsigned long index)
+    proto::proto_ulong index)
 {
     if (!arrayObj) {
         return PROTO_NONE;
@@ -119,7 +120,7 @@ const ProtoObject* ProtoArrayAdapter::get(
 const ProtoObject* ProtoArrayAdapter::set(
     ProtoContext* ctx,
     const ProtoObject* arrayObj,
-    unsigned long index,
+    proto::proto_ulong index,
     const ProtoObject* value)
 {
     if (!arrayObj) {
@@ -141,7 +142,7 @@ const ProtoObject* ProtoArrayAdapter::set(
         arrayObj->setAttribute(ctx, elementsKey, sparseObj);
 
     // Update length if needed.
-    unsigned long currentLen = getStoredLength(ctx, updated);
+    proto::proto_ulong currentLen = getStoredLength(ctx, updated);
     if (index + 1 > currentLen) {
         updated = storeLength(ctx, updated, index + 1);
     }
@@ -149,7 +150,7 @@ const ProtoObject* ProtoArrayAdapter::set(
     return updated;
 }
 
-unsigned long ProtoArrayAdapter::length(
+proto::proto_ulong ProtoArrayAdapter::length(
     ProtoContext* ctx,
     const ProtoObject* arrayObj)
 {
@@ -159,7 +160,7 @@ unsigned long ProtoArrayAdapter::length(
 const ProtoObject* ProtoArrayAdapter::setLength(
     ProtoContext* ctx,
     const ProtoObject* arrayObj,
-    unsigned long newLen)
+    proto::proto_ulong newLen)
 {
     // For now we keep the backing store unchanged and only update the
     // logical length. Elements with index >= newLen may still exist in the

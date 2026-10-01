@@ -1,3 +1,4 @@
+#include "ProtoCoreTypes.h"
 #include "ErrorHandler.h"
 #include "JSContext.h"
 #include <cstring>
@@ -16,8 +17,8 @@ static const char* protoStringToCString(JSContext* ctx, const proto::ProtoString
     std::string result;
     result.reserve(str->getSize(pContext) * 4);
     
-    unsigned long size = charList->getSize(pContext);
-    for (unsigned long i = 0; i < size; i++) {
+    proto::proto_ulong size = charList->getSize(pContext);
+    for (proto::proto_ulong i = 0; i < size; i++) {
         const proto::ProtoObject* charObj = charList->getAt(pContext, i);
         unsigned int unicodeChar = charObj->asLong(pContext);
         

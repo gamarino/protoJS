@@ -20,6 +20,7 @@
 // ArrayPrototype.cpp — keeping them inline lets the optimiser see the
 // fast path (single attribute lookup → list dispatch) at every call site.
 
+#include "ProtoCoreTypes.h"
 #include <protoCore.h>
 #include "JSSymbols.h"
 
@@ -175,7 +176,7 @@ numericArrayIndexOrNeg(proto::ProtoContext* ctx,
 // string-keyed attributes.  Picked to cover all reasonable dense
 // workloads while preventing accidental pad-to-2^32 from blowing the
 // heap when JS code does `arr[2_000_000_000] = x` on an empty array.
-inline constexpr unsigned long kSparseFallbackThreshold = 1u << 22; // 4 Mi entries
+inline constexpr proto::proto_ulong kSparseFallbackThreshold = 1u << 22; // 4 Mi entries
 
 // Try to read `arr[idx]` from native storage.
 //
@@ -189,10 +190,10 @@ inline constexpr unsigned long kSparseFallbackThreshold = 1u << 22; // 4 Mi entr
 inline const proto::ProtoObject*
 arrayTryFastGet(proto::ProtoContext* ctx,
                 const proto::ProtoObject* arr,
-                unsigned long idx) {
+                proto::proto_ulong idx) {
     const proto::ProtoList* els = getArrayElements(ctx, arr);
     if (!els) return nullptr;
-    unsigned long size = els->getSize(ctx);
+    proto::proto_ulong size = els->getSize(ctx);
     if (idx >= size) return PROTO_NONE;
     const proto::ProtoObject* v = els->getAt(ctx, static_cast<int>(idx));
     return v ? v : PROTO_NONE;
@@ -208,11 +209,11 @@ arrayTryFastGet(proto::ProtoContext* ctx,
 inline bool
 arrayTryFastSet(proto::ProtoContext* ctx,
                 const proto::ProtoObject* arr,
-                unsigned long idx,
+                proto::proto_ulong idx,
                 const proto::ProtoObject* val) {
     const proto::ProtoList* els = getArrayElements(ctx, arr);
     if (!els) return false;
-    unsigned long size = els->getSize(ctx);
+    proto::proto_ulong size = els->getSize(ctx);
     const proto::ProtoObject* v = val ? val : PROTO_NONE;
     if (idx == size) {
         els = els->appendLast(ctx, v);
@@ -221,7 +222,7 @@ arrayTryFastSet(proto::ProtoContext* ctx,
     } else {
         // Sparse — pad with PROTO_NONE up to idx, then append.
         if (idx - size > kSparseFallbackThreshold) return false;
-        for (unsigned long i = size; i < idx; ++i) {
+        for (proto::proto_ulong i = size; i < idx; ++i) {
             els = els->appendLast(ctx, PROTO_NONE);
         }
         els = els->appendLast(ctx, v);

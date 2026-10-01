@@ -23,6 +23,7 @@
 // observe parkedThreads == 0 and fail. Deleting it from `shutdownNow` fails the
 // second. Both were run that way before the guards were added.
 
+#include "../../src/ProtoCoreTypes.h"
 #include <catch2/catch_all.hpp>
 
 #include <atomic>
@@ -63,10 +64,10 @@ struct RegisteredThread {
         setThreadProtoContext(previousSlot);
     }
 
-    unsigned long running() const {
+    proto::proto_ulong running() const {
         return space.runningThreads.load(std::memory_order_acquire);
     }
-    unsigned long parked() const {
+    proto::proto_ulong parked() const {
         return space.parkedThreads.load(std::memory_order_acquire);
     }
 };
@@ -140,8 +141,8 @@ TEST_CASE("ThreadPoolExecutor::shutdown parks the calling thread", "[gc][blockin
     // Observed from INSIDE the pool, while the calling thread is stuck in
     // shutdown()'s condition wait -- which is the blocking region that matters, and
     // the one that would be missed by a guard wrapped around the join loop alone.
-    std::atomic<unsigned long> parkedDuringShutdown{0};
-    std::atomic<unsigned long> runningDuringShutdown{0};
+    std::atomic<proto::proto_ulong> parkedDuringShutdown{0};
+    std::atomic<proto::proto_ulong> runningDuringShutdown{0};
     std::atomic<bool> sampled{false};
 
     pool.submit([&]() {
@@ -174,8 +175,8 @@ TEST_CASE("ThreadPoolExecutor::shutdownNow parks the calling thread", "[gc][bloc
 
     ThreadPoolExecutor pool(2, "BlockingRegionTestPoolNow");
 
-    std::atomic<unsigned long> parkedDuringShutdown{0};
-    std::atomic<unsigned long> runningDuringShutdown{0};
+    std::atomic<proto::proto_ulong> parkedDuringShutdown{0};
+    std::atomic<proto::proto_ulong> runningDuringShutdown{0};
     std::atomic<bool> sampled{false};
 
     pool.submit([&]() {

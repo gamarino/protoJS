@@ -1,3 +1,4 @@
+#include "ProtoCoreTypes.h"
 #include "TypeBridge.h"
 #include "runtime/ProtoInterpreter.h"
 #include "GCBridge.h"
@@ -525,8 +526,8 @@ JSValue TypeBridge::toJS(JSContext* ctx, const proto::ProtoObject* obj, proto::P
         std::string result;
         result.reserve(pStr->getSize(pContext) * 4); // Reserve space for UTF-8
 
-        unsigned long size = charList->getSize(pContext);
-        for (unsigned long i = 0; i < size; i++) {
+        proto::proto_ulong size = charList->getSize(pContext);
+        for (proto::proto_ulong i = 0; i < size; i++) {
             const proto::ProtoObject* charObj = charList->getAt(pContext, i);
             // Character is stored as UnicodeChar (unsigned int)
             unsigned int unicodeChar = charObj->asLong(pContext);
@@ -555,8 +556,8 @@ JSValue TypeBridge::toJS(JSContext* ctx, const proto::ProtoObject* obj, proto::P
     // Check for ProtoList
     if (const proto::ProtoList* list = obj->asList(pContext)) {
         JSValue arr = JS_NewArray(ctx);
-        unsigned long size = list->getSize(pContext);
-        for (unsigned long i = 0; i < size; i++) {
+        proto::proto_ulong size = list->getSize(pContext);
+        for (proto::proto_ulong i = 0; i < size; i++) {
             const proto::ProtoObject* item = list->getAt(pContext, i);
             JS_SetPropertyUint32(ctx, arr, i, toJS(ctx, item, pContext));
         }
@@ -567,8 +568,8 @@ JSValue TypeBridge::toJS(JSContext* ctx, const proto::ProtoObject* obj, proto::P
     if (obj->isTuple(pContext)) {
         const proto::ProtoTuple* tuple = obj->asTuple(pContext);
         JSValue arr = JS_NewArray(ctx);
-        unsigned long size = tuple->getSize(pContext);
-        for (unsigned long i = 0; i < size; i++) {
+        proto::proto_ulong size = tuple->getSize(pContext);
+        for (proto::proto_ulong i = 0; i < size; i++) {
             const proto::ProtoObject* item = tuple->getAt(pContext, i);
             JS_SetPropertyUint32(ctx, arr, i, toJS(ctx, item, pContext));
         }

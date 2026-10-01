@@ -1,3 +1,4 @@
+#include "ProtoCoreTypes.h"
 #include "JSONBuiltin.h"
 #include "JSSymbols.h"
 #include "ArrayElementsStorage.h"
@@ -531,7 +532,7 @@ void stringifyRecursive(proto::ProtoContext* ctx,
             const proto::ProtoSparseListIterator* it = attrs->getIterator(ctx);
             while (it && it->hasNext(ctx)) {
                 ScopedRoot r_it(rs, reinterpret_cast<const proto::ProtoObject*>(it));
-                unsigned long hash = it->nextKey(ctx);
+                proto::proto_ulong hash = it->nextKey(ctx);
                 (void)it->nextValue(ctx);
                 std::string key = JSSymbols::getNameFromHash(ctx, hash);
                 if (key.empty()) {
@@ -743,7 +744,7 @@ const proto::ProtoObject* JSONBuiltin::stringify(proto::ProtoContext* ctx,
                 replacer->getAttribute(ctx, isArrKs, false) == PROTO_TRUE;
             if (isArr) {
                 hasFilter = true;
-                long len = 0;
+                proto::proto_long len = 0;
                 const proto::ProtoString* lenK = JSSymbols::length(ctx);
                 if (lenK) {
                     const proto::ProtoObject* lv = replacer->getAttribute(ctx, lenK, false);
@@ -751,8 +752,8 @@ const proto::ProtoObject* JSONBuiltin::stringify(proto::ProtoContext* ctx,
                         len = lv->asLong(ctx);
                 }
                 const proto::ProtoList* els = getArrayElements(ctx, replacer);
-                long elsSize = els ? static_cast<long>(els->getSize(ctx)) : 0;
-                auto fetch = [&](long i) -> const proto::ProtoObject* {
+                proto::proto_long elsSize = els ? static_cast<proto::proto_long>(els->getSize(ctx)) : 0;
+                auto fetch = [&](proto::proto_long i) -> const proto::ProtoObject* {
                     const proto::ProtoObject* v = nullptr;
                     if (els && i < elsSize) {
                         v = els->getAt(ctx, static_cast<int>(i));
@@ -782,7 +783,7 @@ const proto::ProtoObject* JSONBuiltin::stringify(proto::ProtoContext* ctx,
                     }
                     return v ? v : PROTO_NONE;
                 };
-                for (long i = 0; i < len; ++i) {
+                for (proto::proto_long i = 0; i < len; ++i) {
                     const proto::ProtoObject* e = fetch(i);
                     if (!e || e == PROTO_NONE || e == getUndefinedSentinel()
                         || e == getNullSentinel() || e == PROTO_TRUE || e == PROTO_FALSE
@@ -1191,7 +1192,7 @@ static const proto::ProtoObject* internalizeJSONProperty(
             const proto::ProtoSparseListIterator* it =
                 own ? own->getIterator(ctx) : nullptr;
             while (it && it->hasNext(ctx)) {
-                unsigned long rawKey = it->nextKey(ctx);
+                proto::proto_ulong rawKey = it->nextKey(ctx);
                 it = const_cast<proto::ProtoSparseListIterator*>(it)
                         ->advance(ctx);
                 auto* pk =

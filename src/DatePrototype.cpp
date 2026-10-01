@@ -1,3 +1,4 @@
+#include "ProtoCoreTypes.h"
 #include "DatePrototype.h"
 #include "JSContext.h"
 // Notes on the choice of timezone primitives:
@@ -617,7 +618,7 @@ static double parseDateString(const std::string& s) {
 //   1   → numeric → time value; string → parsed; other → NaN
 //   ≥ 2 → multi-component form with local-TZ interpretation
 // Forward declarations consumed by the plain-call path below.
-static std::string formatTZOffset(long offsetSec);
+static std::string formatTZOffset(proto::proto_long offsetSec);
 
 // §21.4.2.1 Date() — when called as a plain function (no `new`), the
 // spec REQUIRES the return value to be `(new Date()).toString()` —
@@ -647,7 +648,7 @@ static const proto::ProtoObject* dateCtorPlainCall(proto::ProtoContext* ctx,
     gmtime_r(&tt, &utcTm);
     std::time_t localEpoch = timegm(&tmv);
     std::time_t utcEpoch = timegm(&utcTm);
-    long offsetSec = static_cast<long>(localEpoch - utcEpoch);
+    proto::proto_long offsetSec = static_cast<proto::proto_long>(localEpoch - utcEpoch);
     std::string tz = formatTZOffset(offsetSec);
     static const char* wd[] = {"Sun","Mon","Tue","Wed","Thu","Fri","Sat"};
     static const char* mo[] = {"Jan","Feb","Mar","Apr","May","Jun",
@@ -1040,7 +1041,7 @@ static const proto::ProtoObject* dateGetTimezoneOffset(proto::ProtoContext* ctx,
     // pretends the broken-down time is UTC.
     std::time_t utcEpoch = timegm(&utcTm);
     std::time_t localEpoch = timegm(&localTm);
-    long diffSec = static_cast<long>(localEpoch - utcEpoch);
+    proto::proto_long diffSec = static_cast<proto::proto_long>(localEpoch - utcEpoch);
     return ctx->fromInteger(-static_cast<long long>(diffSec / 60));
 }
 
@@ -1617,9 +1618,9 @@ static const proto::ProtoObject* dateToUTCString(proto::ProtoContext* ctx,
 
 // Format the TZ offset (in seconds) as "±HHMM".  Shared by
 // toString and toTimeString.
-static std::string formatTZOffset(long offsetSec) {
+static std::string formatTZOffset(proto::proto_long offsetSec) {
     char sign = offsetSec >= 0 ? '+' : '-';
-    long offsetAbs = std::labs(offsetSec);
+    proto::proto_long offsetAbs = std::abs(offsetSec);
     int hh = static_cast<int>(offsetAbs / 3600);
     int mm = static_cast<int>((offsetAbs % 3600) / 60);
     char buf[8];
@@ -1659,7 +1660,7 @@ static const proto::ProtoObject* dateToString(proto::ProtoContext* ctx,
     gmtime_r(&tt, &utcTm);
     std::time_t localEpoch = timegm(&tmv);
     std::time_t utcEpoch = timegm(&utcTm);
-    long offsetSec = static_cast<long>(localEpoch - utcEpoch);
+    proto::proto_long offsetSec = static_cast<proto::proto_long>(localEpoch - utcEpoch);
     std::string tz = formatTZOffset(offsetSec);
     // §21.4.4.41.3 ToDateString — negative years serialize with a leading
     // "-" plus at least four magnitude digits (per the prototype/toString
@@ -1738,7 +1739,7 @@ static const proto::ProtoObject* dateToTimeString(proto::ProtoContext* ctx,
     std::time_t tt = static_cast<std::time_t>(secs);
     std::tm utcTm;
     gmtime_r(&tt, &utcTm);
-    long offsetSec = static_cast<long>(timegm(&tmv) - timegm(&utcTm));
+    proto::proto_long offsetSec = static_cast<proto::proto_long>(timegm(&tmv) - timegm(&utcTm));
     std::string tz = formatTZOffset(offsetSec);
     char buf[64];
     std::snprintf(buf, sizeof(buf),

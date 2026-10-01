@@ -1,3 +1,4 @@
+#include "ProtoCoreTypes.h"
 #include "RegExpStringIterator.h"
 #include "RegExpPrototype.h"
 #include "ArrayPrototype.h"
@@ -235,7 +236,7 @@ const proto::ProtoObject* regexpSymbolMatchAll(
     free(bc);
     const proto::ProtoObject* clone = ctx->newObject(true);
     clone = clone->setAttribute(ctx, JSSymbols::reBytecode(ctx),
-        ctx->fromBuffer(static_cast<unsigned long>(bc_len), bcCopy, true));
+        ctx->fromBuffer(static_cast<proto::proto_ulong>(bc_len), bcCopy, true));
     clone = clone->setAttribute(ctx, JSSymbols::source(ctx),    ctx->fromUTF8String(patternStr.c_str()));
     clone = clone->setAttribute(ctx, JSSymbols::flags(ctx),     ctx->fromUTF8String(flagsStr.c_str()));
     clone = clone->setAttribute(ctx, JSSymbols::lastIndex(ctx), ctx->fromInteger(0));

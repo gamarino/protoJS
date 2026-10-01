@@ -1,3 +1,4 @@
+#include "../../ProtoCoreTypes.h"
 #include "BufferModule.h"
 #include "../../ProtoNativeModule.h"
 #include "../../ArrayElementsStorage.h"
@@ -229,7 +230,7 @@ const proto::ProtoObject* extractBytes(proto::ProtoContext* ctx,
     if (isBufferInstance(ctx, val)) {
         const proto::ProtoByteBuffer* bb = getByteBuffer(ctx, val);
         if (!bb) return nullptr;
-        unsigned long n = bb->getSize(ctx);
+        proto::proto_ulong n = bb->getSize(ctx);
         const char* src = bb->getBuffer(ctx);
         out.assign(src, src + n);
         return val;
@@ -358,7 +359,7 @@ const proto::ProtoObject* bufferToString(
     const proto::ProtoSparseList*) {
     const proto::ProtoByteBuffer* bb = getByteBuffer(ctx, self);
     if (!bb) return ctx ? ctx->fromUTF8String("") : PROTO_NONE;
-    unsigned long size = bb->getSize(ctx);
+    proto::proto_ulong size = bb->getSize(ctx);
     const char* src = bb->getBuffer(ctx);
 
     std::string encoding = "utf8";
@@ -489,7 +490,7 @@ const proto::ProtoObject* bufferIndexOf(
     } else if (a0 && isBufferInstance(ctx, a0)) {
         const proto::ProtoByteBuffer* sb = getByteBuffer(ctx, a0);
         if (sb) {
-            unsigned long n = sb->getSize(ctx);
+            proto::proto_ulong n = sb->getSize(ctx);
             const char* sd = sb->getBuffer(ctx);
             needle.assign(sd, sd + n);
         }

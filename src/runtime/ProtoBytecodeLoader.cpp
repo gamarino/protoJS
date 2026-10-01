@@ -1,3 +1,4 @@
+#include "../ProtoCoreTypes.h"
 #include "ProtoBytecodeModule.h"
 #include "BytecodeSpecialiser.h"
 #include "QuickJSBytecodeExport.h"
@@ -214,7 +215,7 @@ static bool loadBytecodeRecursive(JSContext* ctx,
     lowerClassConstructorPush(specBuf);
     out->pBytecode = pContext->newByteBuffer(
         reinterpret_cast<const char*>(specBuf.data()),
-        static_cast<unsigned long>(specBuf.size()));
+        static_cast<proto::proto_ulong>(specBuf.size()));
     
     out->argCount_ = protojs_bytecode_arg_count(quickjsBytecode);
     out->varCount_ = protojs_bytecode_var_count(quickjsBytecode);

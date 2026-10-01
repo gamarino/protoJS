@@ -1,3 +1,4 @@
+#include "ProtoCoreTypes.h"
 #include "ArrayBufferPrototype.h"
 #include "JSSymbols.h"
 #include "protoCore.h"
@@ -21,7 +22,7 @@ static const proto::ProtoObject* ab_get_byteLength(
     proto::ProtoContext* ctx, const proto::ProtoObject* self,
     const proto::ParentLink*, const proto::ProtoList*, const proto::ProtoSparseList*)
 {
-    unsigned long len = getArrayBufferByteLength(ctx, self);
+    proto::proto_ulong len = getArrayBufferByteLength(ctx, self);
     return ctx->fromInteger(static_cast<long long>(len));
 }
 
@@ -39,7 +40,7 @@ static const proto::ProtoObject* ab_slice(
     const proto::ProtoObject* bufObj = self->getAttribute(ctx, dataKey, false);
     if (!bufObj || bufObj == PROTO_NONE) return PROTO_NONE;
 
-    unsigned long srcLen = getArrayBufferByteLength(ctx, self);
+    proto::proto_ulong srcLen = getArrayBufferByteLength(ctx, self);
     void* srcRaw = getArrayBufferRawPtr(ctx, self);
 
     // Parse begin argument.
@@ -72,7 +73,7 @@ static const proto::ProtoObject* ab_slice(
 
     long long newLen = std::max(0LL, iEnd - iBegin);
 
-    const proto::ProtoObject* newAb = createArrayBuffer(ctx, static_cast<unsigned long>(newLen));
+    const proto::ProtoObject* newAb = createArrayBuffer(ctx, static_cast<proto::proto_ulong>(newLen));
     if (!newAb || newAb == PROTO_NONE) return PROTO_NONE;
 
     if (newLen > 0) {
@@ -118,7 +119,7 @@ static const proto::ProtoObject* ab_isView(
 // ---------------------------------------------------------------------------
 
 const proto::ProtoObject* createArrayBuffer(proto::ProtoContext* ctx,
-                                            unsigned long byteLength) {
+                                            proto::proto_ulong byteLength) {
     if (!ctx) return PROTO_NONE;
 
     // Create instance inheriting from ArrayBuffer.prototype (if available).
@@ -153,7 +154,7 @@ void* getArrayBufferRawPtr(proto::ProtoContext* ctx, const proto::ProtoObject* a
     return bufObj->getRawPointerIfExternalBuffer(ctx);
 }
 
-unsigned long getArrayBufferByteLength(proto::ProtoContext* ctx, const proto::ProtoObject* ab) {
+proto::proto_ulong getArrayBufferByteLength(proto::ProtoContext* ctx, const proto::ProtoObject* ab) {
     if (!ctx || !ab || ab == PROTO_NONE) return 0;
     const proto::ProtoString* dataKey = JSSymbols::abData(ctx);
     if (!dataKey) return 0;

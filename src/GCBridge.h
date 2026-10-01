@@ -1,6 +1,7 @@
 #ifndef PROTOJS_GCBRIDGE_H
 #define PROTOJS_GCBRIDGE_H
 
+#include "ProtoCoreTypes.h"
 #include "quickjs.h"
 #include "protoCore.h"
 #include <mutex>
@@ -178,7 +179,7 @@ private:
     /**
      * @brief Create a key for ProtoObject (use its hash)
      */
-    static unsigned long getProtoObjectKey(const proto::ProtoObject* protoObj, proto::ProtoContext* pContext);
+    static proto::proto_ulong getProtoObjectKey(const proto::ProtoObject* protoObj, proto::ProtoContext* pContext);
 
     /**
      * @brief Get pointer from ProtoExternalPointer (helper)

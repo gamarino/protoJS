@@ -1,3 +1,4 @@
+#include "ProtoCoreTypes.h"
 #include "JSContext.h"
 #include "protoCore.h"
 #include "Deferred.h"
@@ -460,7 +461,7 @@ int main(int argc, char** argv) {
                   << (censusSpace ? censusSpace->getGCCycleCount() : 0)
                   << " reclaimed-last=" << (censusSpace
                         ? censusSpace->reclaimedLastCycle.load(std::memory_order_relaxed)
-                        : 0UL)
+                        : PROTO_UL(0))
                   << " orphans-posted=" << protojs::GcOrphanQueue::postedTotal()
                   << " orphans-released=" << protojs::GcOrphanQueue::releasedTotal()
                   << std::endl;

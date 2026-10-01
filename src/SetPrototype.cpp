@@ -1,3 +1,4 @@
+#include "ProtoCoreTypes.h"
 #include "SetPrototype.h"
 #include "ArrayPrototype.h"
 #include "ArrayElementsStorage.h"
@@ -123,17 +124,17 @@ static void setSetOrderInPlace(proto::ProtoContext* ctx,
     if (ks) setObj->setAttribute(ctx, ks, order->asObject(ctx));
 }
 
-static long getSetSize(proto::ProtoContext* ctx, const proto::ProtoObject* setObj) {
+static proto::proto_long getSetSize(proto::ProtoContext* ctx, const proto::ProtoObject* setObj) {
     const proto::ProtoObject* ko = ctx->fromUTF8String("__set_size__");
     const proto::ProtoString* ks = ko ? ko->asString(ctx) : nullptr;
-    if (!ks || !setObj || setObj == PROTO_NONE) return 0L;
+    if (!ks || !setObj || setObj == PROTO_NONE) return PROTO_L(0);
     const proto::ProtoObject* v = setObj->getAttribute(ctx, ks, false);
-    return (v && v != PROTO_NONE && v->isInteger(ctx)) ? v->asLong(ctx) : 0L;
+    return (v && v != PROTO_NONE && v->isInteger(ctx)) ? v->asLong(ctx) : PROTO_L(0);
 }
 
 static void setSetSizeInPlace(proto::ProtoContext* ctx,
                                const proto::ProtoObject* setObj,
-                               long sz)
+                               proto::proto_long sz)
 {
     const proto::ProtoObject* ko = ctx->fromUTF8String("__set_size__");
     const proto::ProtoString* ks = ko ? ko->asString(ctx) : nullptr;
@@ -362,24 +363,24 @@ static const proto::ProtoObject* setAdd(
 
     const proto::ProtoSet* core  = getSetCore(ctx, self);
     const proto::ProtoSparseList* order = getSetOrder(ctx, self);
-    long sz = getSetSize(ctx, self);
+    proto::proto_long sz = getSetSize(ctx, self);
     if (core)  setSetCoreInPlace(ctx, self, core->add(ctx, val));
     if (order) {
         // Pick max(slot)+1, not size — ProtoSparseList::removeAt
         // leaves holes after Set.delete, so 'size' may already be
         // occupied. Pre-fix `add` after a `delete` of a middle entry
         // wiped the entry that previously sat at slot `size`.
-        unsigned long newIdx = 0;
+        proto::proto_ulong newIdx = 0;
         bool hasAny = false;
         const proto::ProtoSparseListIterator* it = order->getIterator(ctx);
         while (it && it->hasNext(ctx)) {
-            unsigned long slot = it->nextKey(ctx);
+            proto::proto_ulong slot = it->nextKey(ctx);
             (void)it->nextValue(ctx);
             it = const_cast<proto::ProtoSparseListIterator*>(it)->advance(ctx);
             if (!hasAny || slot >= newIdx) newIdx = slot + 1;
             hasAny = true;
         }
-        if (!hasAny) newIdx = static_cast<unsigned long>(sz);
+        if (!hasAny) newIdx = static_cast<proto::proto_ulong>(sz);
         setSetOrderInPlace(ctx, self, order->setAt(ctx, newIdx, val));
     }
     setSetSizeInPlace(ctx, self, sz + 1);
@@ -418,7 +419,7 @@ static const proto::ProtoObject* setDeleteFn(
 
     const proto::ProtoSet* core  = getSetCore(ctx, self);
     const proto::ProtoSparseList* order = getSetOrder(ctx, self);
-    long sz = getSetSize(ctx, self);
+    proto::proto_long sz = getSetSize(ctx, self);
 
     if (core) setSetCoreInPlace(ctx, self, core->remove(ctx, val));
 
@@ -426,7 +427,7 @@ static const proto::ProtoObject* setDeleteFn(
     if (order) {
         const proto::ProtoSparseListIterator* it = order->getIterator(ctx);
         while (it && it->hasNext(ctx)) {
-            unsigned long idx = it->nextKey(ctx);
+            proto::proto_ulong idx = it->nextKey(ctx);
             const proto::ProtoObject* existing = it->nextValue(ctx);
             it = const_cast<proto::ProtoSparseListIterator*>(it)->advance(ctx);
             if (setSVZ(ctx, existing, val)) {
@@ -451,7 +452,7 @@ static const proto::ProtoObject* setClear(
     if (!requireSetThis(ctx, self)) return PROTO_NONE;
     setSetCoreInPlace(ctx, self, ctx->newSet());
     setSetOrderInPlace(ctx, self, ctx->newSparseList());
-    setSetSizeInPlace(ctx, self, 0L);
+    setSetSizeInPlace(ctx, self, PROTO_L(0));
     return PROTO_NONE;
 }
 
@@ -524,15 +525,15 @@ static const proto::ProtoObject* setForEach(
     // slot above pos and the loop discovers it on the next iteration.
     // Deletions hole-punch the slot (ProtoSparseList::removeAt) so
     // order->has(pos) yields false and we skip them.
-    unsigned long pos = 0;
+    proto::proto_ulong pos = 0;
     while (true) {
         const proto::ProtoSparseList* order = getSetOrder(ctx, self);
         if (!order) break;
-        unsigned long highWater = 0;
+        proto::proto_ulong highWater = 0;
         bool anyEntry = false;
         const proto::ProtoSparseListIterator* probe = order->getIterator(ctx);
         while (probe && probe->hasNext(ctx)) {
-            unsigned long slot = probe->nextKey(ctx);
+            proto::proto_ulong slot = probe->nextKey(ctx);
             (void)probe->nextValue(ctx);
             probe = const_cast<proto::ProtoSparseListIterator*>(probe)->advance(ctx);
             if (!anyEntry || slot >= highWater) highWater = slot + 1;
@@ -613,7 +614,7 @@ static const proto::ProtoObject* setIteratorNext(
 
     const proto::ProtoSparseListIterator* it = order->getIterator(ctx);
     while (it && it->hasNext(ctx)) {
-        unsigned long slotIdx = it->nextKey(ctx);
+        proto::proto_ulong slotIdx = it->nextKey(ctx);
         const proto::ProtoObject* v = it->nextValue(ctx);
         it = const_cast<proto::ProtoSparseListIterator*>(it)->advance(ctx);
         if (static_cast<long long>(slotIdx) < pos) continue;
@@ -757,7 +758,7 @@ static const proto::ProtoObject* setConstruct(
 
     setSetCoreInPlace(ctx, self, ctx->newSet());
     setSetOrderInPlace(ctx, self, ctx->newSparseList());
-    setSetSizeInPlace(ctx, self, 0L);
+    setSetSizeInPlace(ctx, self, PROTO_L(0));
 
     int argc = args ? static_cast<int>(args->getSize(ctx)) : 0;
     if (argc > 0) {
@@ -858,10 +859,10 @@ static const proto::ProtoObject* setConstruct(
                         if (!setContains(ctx, self, val)) {
                             const proto::ProtoSet* core = getSetCore(ctx, self);
                             const proto::ProtoSparseList* order = getSetOrder(ctx, self);
-                            long sz = getSetSize(ctx, self);
+                            proto::proto_long sz = getSetSize(ctx, self);
                             if (core) setSetCoreInPlace(ctx, self, core->add(ctx, val));
                             if (order) setSetOrderInPlace(ctx, self,
-                                order->setAt(ctx, static_cast<unsigned long>(sz), val));
+                                order->setAt(ctx, static_cast<proto::proto_ulong>(sz), val));
                             setSetSizeInPlace(ctx, self, sz + 1);
                         }
                         i += len;
@@ -869,9 +870,9 @@ static const proto::ProtoObject* setConstruct(
                 }
                 return self;
             }
-            auto readIndex = [&](long i) -> const proto::ProtoObject* {
+            auto readIndex = [&](proto::proto_long i) -> const proto::ProtoObject* {
                 const proto::ProtoObject* v =
-                    arrayTryFastGet(ctx, iterable, static_cast<unsigned long>(i));
+                    arrayTryFastGet(ctx, iterable, static_cast<proto::proto_ulong>(i));
                 if (v) return v;
                 const proto::ProtoString* ik = JSSymbols::indexKey(ctx, static_cast<uint32_t>(i));
                 v = ik ? iterable->getAttribute(ctx, ik, true) : nullptr;
@@ -977,7 +978,7 @@ static const proto::ProtoObject* setConstruct(
                 }
             } else {
                 const proto::ProtoString* lenKs = JSSymbols::length(ctx);
-                long len = -1;
+                proto::proto_long len = -1;
                 if (lenKs) {
                     const proto::ProtoObject* lenObj = iterable->getAttribute(ctx, lenKs, true);
                     if (lenObj && lenObj != PROTO_NONE && lenObj->isInteger(ctx))
@@ -985,9 +986,9 @@ static const proto::ProtoObject* setConstruct(
                 }
                 if (len < 0) {
                     const proto::ProtoList* els = getArrayElements(ctx, iterable);
-                    if (els) len = static_cast<long>(els->getSize(ctx));
+                    if (els) len = static_cast<proto::proto_long>(els->getSize(ctx));
                 }
-                for (long i = 0; i < len; i++) {
+                for (proto::proto_long i = 0; i < len; i++) {
                     const proto::ProtoObject* val = readIndex(i);
                     const proto::ProtoList* addArgs = ctx->newList();
                     addArgs = addArgs->appendLast(ctx, val);
@@ -1011,7 +1012,7 @@ static const proto::ProtoObject* makeEmptySet(proto::ProtoContext* ctx)
     if (!s) return PROTO_NONE;
     setSetCoreInPlace(ctx, s, ctx->newSet());
     setSetOrderInPlace(ctx, s, ctx->newSparseList());
-    setSetSizeInPlace(ctx, s, 0L);
+    setSetSizeInPlace(ctx, s, PROTO_L(0));
     return s;
 }
 
@@ -1024,10 +1025,10 @@ static void setAddValue(proto::ProtoContext* ctx,
     if (setContains(ctx, setObj, val)) return;
     const proto::ProtoSet* core  = getSetCore(ctx, setObj);
     const proto::ProtoSparseList* order = getSetOrder(ctx, setObj);
-    long sz = getSetSize(ctx, setObj);
+    proto::proto_long sz = getSetSize(ctx, setObj);
     if (core)  setSetCoreInPlace(ctx, setObj, core->add(ctx, val));
     if (order) setSetOrderInPlace(ctx, setObj,
-                   order->setAt(ctx, static_cast<unsigned long>(sz), val));
+                   order->setAt(ctx, static_cast<proto::proto_ulong>(sz), val));
     setSetSizeInPlace(ctx, setObj, sz + 1);
 }
 
@@ -1053,8 +1054,8 @@ static void setAddAllFrom(proto::ProtoContext* ctx,
     if (!lenKs) return;
     const proto::ProtoObject* lenObj = other->getAttribute(ctx, lenKs, true);
     if (!lenObj || lenObj == PROTO_NONE || !lenObj->isInteger(ctx)) return;
-    long len = lenObj->asLong(ctx);
-    for (long i = 0; i < len; i++) {
+    proto::proto_long len = lenObj->asLong(ctx);
+    for (proto::proto_long i = 0; i < len; i++) {
         const proto::ProtoString* ik = JSSymbols::indexKey(ctx, static_cast<uint32_t>(i));
         if (!ik) continue;
         const proto::ProtoObject* v = other->getAttribute(ctx, ik, true);
@@ -1293,8 +1294,8 @@ static const proto::ProtoObject* setIntersection(
     // intersection re-queried .size, firing the user's `get size()`
     // a second time (test262 set-like-class-order asserts one call
     // per operation).
-    long selfSize = getSetSize(ctx, self);
-    long otherSize = static_cast<long>(otherSizeD);
+    proto::proto_long selfSize = getSetSize(ctx, self);
+    proto::proto_long otherSize = static_cast<proto::proto_long>(otherSizeD);
     if (otherSize >= 0 && selfSize > otherSize) {
         bool ok = iterateSetLikeKeys(ctx, other,
             [&](const proto::ProtoObject* v) -> bool {
@@ -1334,7 +1335,7 @@ static const proto::ProtoObject* setDifference(
     if (!result || result == PROTO_NONE) return PROTO_NONE;
     const proto::ProtoSparseList* order = getSetOrder(ctx, self);
     if (!order) return result;
-    long thisSize = getSetSize(ctx, self);
+    proto::proto_long thisSize = getSetSize(ctx, self);
     if (static_cast<double>(thisSize) <= otherSize) {
         const proto::ProtoSparseListIterator* it = order->getIterator(ctx);
         while (it && it->hasNext(ctx)) {
@@ -1421,7 +1422,7 @@ static const proto::ProtoObject* setIsSubsetOf(
     // Pre-fix the impl iterated self unconditionally, calling
     // other.has — the test set-like-class-order fixture asserts the
     // early bail-out fires without ever invoking the user's has.
-    long thisSize = getSetSize(ctx, self);
+    proto::proto_long thisSize = getSetSize(ctx, self);
     if (static_cast<double>(thisSize) > otherSize) return PROTO_FALSE;
     const proto::ProtoSparseList* order = getSetOrder(ctx, self);
     if (!order) return PROTO_TRUE;
@@ -1437,8 +1438,8 @@ static const proto::ProtoObject* setIsSubsetOf(
             snapshot = snapshot->appendLast(ctx, v ? v : PROTO_NONE);
         }
     }
-    unsigned long n = snapshot->getSize(ctx);
-    for (unsigned long i = 0; i < n; ++i) {
+    proto::proto_ulong n = snapshot->getSize(ctx);
+    for (proto::proto_ulong i = 0; i < n; ++i) {
         const proto::ProtoObject* v = snapshot->getAt(ctx, static_cast<int>(i));
         if (!v) v = PROTO_NONE;
         if (!setContains(ctx, self, v)) continue; // skip deleted entries
@@ -1460,7 +1461,7 @@ static const proto::ProtoObject* setIsSupersetOf(
     const proto::ProtoObject* keysFn = nullptr;
     if (!getSetRecord(ctx, other, "isSupersetOf", &otherSize, nullptr, &keysFn))
         return PROTO_NONE;
-    long thisSize = getSetSize(ctx, self);
+    proto::proto_long thisSize = getSetSize(ctx, self);
     if (static_cast<double>(thisSize) < otherSize) return PROTO_FALSE;
     bool isSuperset = true;
     bool ok = iterateSetLikeKeys(ctx, other,
@@ -1488,7 +1489,7 @@ static const proto::ProtoObject* setIsDisjointFrom(
         return PROTO_NONE;
     const proto::ProtoSparseList* order = getSetOrder(ctx, self);
     if (!order) return PROTO_TRUE;
-    long thisSize = getSetSize(ctx, self);
+    proto::proto_long thisSize = getSetSize(ctx, self);
     if (static_cast<double>(thisSize) <= otherSize) {
         // §24.2.4.4 step 6: snapshot this's keys BEFORE invoking the
         // other set-like's has().  An "evil" set-like can mutate the
@@ -1507,8 +1508,8 @@ static const proto::ProtoObject* setIsDisjointFrom(
                 snapshot = snapshot->appendLast(ctx, v ? v : PROTO_NONE);
             }
         }
-        unsigned long n = snapshot->getSize(ctx);
-        for (unsigned long i = 0; i < n; ++i) {
+        proto::proto_ulong n = snapshot->getSize(ctx);
+        for (proto::proto_ulong i = 0; i < n; ++i) {
             const proto::ProtoObject* v = snapshot->getAt(ctx, static_cast<int>(i));
             if (!v) v = PROTO_NONE;
             // §24.2.4.4 step 6.b — re-check membership on the live

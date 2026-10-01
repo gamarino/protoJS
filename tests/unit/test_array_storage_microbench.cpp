@@ -22,6 +22,7 @@
 // Output prints absolute milliseconds — read off the ratios to validate
 // the redesign before committing to a multi-file refactor.
 
+#include "../../src/ProtoCoreTypes.h"
 #include <catch2/catch_all.hpp>
 #include <chrono>
 #include <cstdio>
@@ -77,9 +78,9 @@ TEST_CASE("Array storage microbench (push N elements)", "[.bench]") {
             list = list->appendLast(ctx, ctx->fromInteger(i));
         }
         double elapsed = ms_since(t0);
-        std::printf("[bench B] ProtoList::appendLast x%d: %.1f ms (%.3f us/op) — final size %lu\n",
+        std::printf("[bench B] ProtoList::appendLast x%d: %.1f ms (%.3f us/op) — final size %" PROTO_FMT_U "\n",
                     N, elapsed, elapsed * 1000.0 / N,
-                    static_cast<unsigned long>(list->getSize(ctx)));
+                    static_cast<proto::proto_ulong>(list->getSize(ctx)));
     }
 
     SECTION("C: hybrid — mutable obj + __elements__ ProtoList") {

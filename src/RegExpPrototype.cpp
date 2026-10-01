@@ -1,3 +1,4 @@
+#include "ProtoCoreTypes.h"
 #include "RegExpPrototype.h"
 #include "RegExpStringIterator.h"
 #include "ArrayPrototype.h"
@@ -460,7 +461,7 @@ const proto::ProtoObject* regexpConstructor(
     char* bcCopy = new char[bc_len];
     std::memcpy(bcCopy, bc, static_cast<size_t>(bc_len));
     free(bc);
-    obj = obj->setAttribute(ctx, bcKey, ctx->fromBuffer(static_cast<unsigned long>(bc_len), bcCopy, true));
+    obj = obj->setAttribute(ctx, bcKey, ctx->fromBuffer(static_cast<proto::proto_ulong>(bc_len), bcCopy, true));
     // Per §22.2.3.2.5 EscapeRegExpPattern: the public `source` value is
     // the escaped pattern that round-trips through `/` + src + `/` lexer
     // parsing.  Pre-fix we stored the raw pattern, so `new RegExp('/').source`

@@ -1,3 +1,4 @@
+#include "../../ProtoCoreTypes.h"
 #include "CryptoModule.h"
 #include "../../ProtoNativeModule.h"
 #include "../../FunctionPrototype.h"
@@ -800,7 +801,7 @@ const proto::ProtoObject* generateKeyPairImpl(
         return PROTO_NONE;
     }
     char* pubData = nullptr;
-    long pubLen = BIO_get_mem_data(pubBio, &pubData);
+    proto::proto_long pubLen = BIO_get_mem_data(pubBio, &pubData);
     std::string pubPem(pubData, static_cast<size_t>(pubLen));
     BIO_free(pubBio);
 
@@ -813,7 +814,7 @@ const proto::ProtoObject* generateKeyPairImpl(
         return PROTO_NONE;
     }
     char* privData = nullptr;
-    long privLen = BIO_get_mem_data(privBio, &privData);
+    proto::proto_long privLen = BIO_get_mem_data(privBio, &privData);
     std::string privPem(privData, static_cast<size_t>(privLen));
     BIO_free(privBio);
 
