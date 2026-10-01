@@ -32,6 +32,19 @@ extern "C" {
 #include "../TypeBridge.h"
 #include "protoCore.h"
 #include <cerrno>
+
+// The dispatch loop jumps through a table of label addresses (GCC's and
+// Clang's computed goto). MSVC has no such extension: there the same table is
+// a switch over the opcode (PROTOJS_DISPATCH_TARGETS below), and the branch
+// hints are plain conditions.
+#if defined(_MSC_VER) && !defined(__clang__)
+#define PROTOJS_COMPUTED_GOTO 0
+#define PROTOJS_NOINLINE __declspec(noinline)
+#define __builtin_expect(x, expected) (x)
+#else
+#define PROTOJS_COMPUTED_GOTO 1
+#define PROTOJS_NOINLINE __attribute__((noinline))
+#endif
 #include <cmath>
 #include <cstring>
 #include <cstdlib>
@@ -334,7 +347,7 @@ static const proto::ProtoObject* resolveElementOOP(proto::ProtoContext* ctx, con
     return behavior->getElement(ctx, obj, index);
 }
 
-__attribute__((noinline))
+PROTOJS_NOINLINE
 static const proto::ProtoObject* resolvePutElementOOP(proto::ProtoContext* ctx, const proto::ProtoObject* obj, uint32_t index, const proto::ProtoObject* val) {
     if (!obj || obj == PROTO_NONE) return obj;
     const auto& reg = protojs::BehaviorRegistry::instance();
@@ -6480,6 +6493,242 @@ const proto::ProtoObject* runBytecode(proto::ProtoContext* pContext,
     // never has to test for nullptr — unimplemented opcodes route to the
     // diagnostic L_default handler the same way as if the slot had been
     // explicitly assigned to it.  Saves one branch per dispatch.
+    // Every opcode with a handler, as (opcode byte, handler label). With
+    // computed goto the list fills dispatch_table below; under MSVC, which
+    // has no computed goto, it is the switch at protojs_dispatch_switch.
+    #define PROTOJS_DISPATCH_TARGETS(X) \
+    X(244 /*OP_PROTO_ACC_LOC8_LOC8*/,      L_OP_proto_acc_loc8_loc8) \
+    X(245 /*OP_PROTO_LT_LOC8_LOC8_JFALSE*/, L_OP_proto_lt_loc8_loc8_jfalse) \
+    X(246 /*OP_PROTO_LT_LOC_VAR_JFALSE*/,   L_OP_proto_lt_loc_var_jfalse) \
+    X(OP_add, L_OP_add) \
+    X(OP_add_loc, L_OP_add_loc) \
+    X(OP_and, L_OP_and) \
+    X(OP_append, L_OP_append) \
+    X(OP_array_from, L_OP_array_from) \
+    X(OP_await, L_OP_await) \
+    X(OP_call, L_OP_call) \
+    X(OP_call0, L_OP_call0) \
+    X(OP_call1, L_OP_call1) \
+    X(OP_call2, L_OP_call2) \
+    X(OP_call3, L_OP_call3) \
+    X(OP_call_constructor, L_OP_call_constructor) \
+    X(OP_define_class, L_OP_define_class) \
+    X(OP_define_class_computed, L_OP_define_class_computed) \
+    X(OP_check_ctor, L_OP_check_ctor) \
+    X(OP_check_ctor_return, L_OP_check_ctor_return) \
+    X(OP_init_ctor, L_OP_init_ctor) \
+    X(OP_regexp, L_OP_regexp) \
+    X(OP_eval, L_OP_eval) \
+    X(OP_check_brand, L_OP_check_brand) \
+    X(OP_add_brand, L_OP_add_brand) \
+    X(OP_set_home_object, L_OP_set_home_object) \
+    X(OP_get_super, L_OP_get_super) \
+    X(OP_get_super_value, L_OP_get_super_value) \
+    X(OP_put_super_value, L_OP_put_super_value) \
+    X(OP_private_symbol, L_OP_private_symbol) \
+    X(OP_set_proto, L_OP_set_proto) \
+    X(OP_get_private_field, L_OP_get_private_field) \
+    X(OP_put_private_field, L_OP_put_private_field) \
+    X(OP_define_private_field, L_OP_define_private_field) \
+    X(OP_call_method, L_OP_call_method) \
+    X(OP_apply, L_OP_apply) \
+    X(OP_catch, L_OP_catch) \
+    X(OP_close_loc, L_OP_close_loc) \
+    X(OP_copy_data_properties, L_OP_copy_data_properties) \
+    X(OP_dec, L_OP_dec) \
+    X(OP_dec_loc, L_OP_dec_loc) \
+    X(OP_define_array_el, L_OP_define_array_el) \
+    X(OP_define_field, L_OP_define_field) \
+    X(OP_define_method, L_OP_define_method) \
+    X(OP_define_method_computed, L_OP_define_method_computed) \
+    X(OP_delete, L_OP_delete) \
+    X(OP_div, L_OP_div) \
+    X(OP_drop, L_OP_drop) \
+    X(OP_dup, L_OP_dup) \
+    X(OP_dup1, L_OP_dup1) \
+    X(OP_dup2, L_OP_dup2) \
+    X(OP_dup3, L_OP_dup3) \
+    X(OP_eq, L_OP_eq) \
+    X(OP_fclosure, L_OP_fclosure) \
+    X(OP_fclosure8, L_OP_fclosure8) \
+    X(OP_for_await_of_next, L_OP_for_await_of_next) \
+    X(OP_for_await_of_start, L_OP_for_await_of_start) \
+    X(OP_for_in_next, L_OP_for_in_next) \
+    X(OP_for_in_start, L_OP_for_in_start) \
+    X(OP_for_of_next, L_OP_for_of_next) \
+    X(OP_for_of_start, L_OP_for_of_start) \
+    X(OP_get_arg, L_OP_get_arg) \
+    X(OP_get_arg0, L_OP_get_arg0) \
+    X(OP_get_arg1, L_OP_get_arg1) \
+    X(OP_get_arg2, L_OP_get_arg2) \
+    X(OP_get_arg3, L_OP_get_arg3) \
+    X(OP_get_array_el, L_OP_get_array_el) \
+    X(OP_get_array_el2, L_OP_get_array_el2) \
+    X(OP_get_array_el3, L_OP_get_array_el3) \
+    X(OP_get_field, L_OP_get_field) \
+    X(OP_get_field2, L_OP_get_field2) \
+    X(OP_get_length, L_OP_get_length) \
+    X(OP_get_loc, L_OP_get_loc) \
+    X(OP_get_loc0, L_OP_get_loc0) \
+    X(OP_get_loc1, L_OP_get_loc1) \
+    X(OP_get_loc2, L_OP_get_loc2) \
+    X(OP_get_loc3, L_OP_get_loc3) \
+    X(OP_get_loc8, L_OP_get_loc8) \
+    X(OP_get_loc_check, L_OP_get_loc_check) \
+    X(OP_get_loc_checkthis, L_OP_get_loc_checkthis) \
+    X(OP_get_var, L_OP_get_var) \
+    X(OP_get_var_ref, L_OP_get_var_ref) \
+    X(OP_get_var_ref0, L_OP_get_var_ref0) \
+    X(OP_get_var_ref1, L_OP_get_var_ref1) \
+    X(OP_get_var_ref2, L_OP_get_var_ref2) \
+    X(OP_get_var_ref3, L_OP_get_var_ref3) \
+    X(OP_get_var_ref_check, L_OP_get_var_ref_check) \
+    X(OP_get_var_undef, L_OP_get_var_undef) \
+    X(OP_gosub, L_OP_gosub) \
+    X(OP_goto, L_OP_goto) \
+    X(OP_goto16, L_OP_goto16) \
+    X(OP_goto8, L_OP_goto8) \
+    X(OP_gt, L_OP_gt) \
+    X(OP_gte, L_OP_gte) \
+    X(OP_if_false, L_OP_if_false) \
+    X(OP_if_false8, L_OP_if_false8) \
+    X(OP_if_true, L_OP_if_true) \
+    X(OP_if_true8, L_OP_if_true8) \
+    X(OP_in, L_OP_in) \
+    X(OP_inc, L_OP_inc) \
+    X(OP_inc_loc, L_OP_inc_loc) \
+    X(OP_initial_yield, L_OP_initial_yield) \
+    X(OP_insert2, L_OP_insert2) \
+    X(OP_insert3, L_OP_insert3) \
+    X(OP_insert4, L_OP_insert4) \
+    X(OP_instanceof, L_OP_instanceof) \
+    X(OP_is_null, L_OP_is_null) \
+    X(OP_is_undefined, L_OP_is_undefined) \
+    X(OP_is_undefined_or_null, L_OP_is_undefined_or_null) \
+    X(OP_iterator_call, L_OP_iterator_call) \
+    X(OP_iterator_check_object, L_OP_iterator_check_object) \
+    X(OP_iterator_close, L_OP_iterator_close) \
+    X(OP_iterator_get_value_done, L_OP_iterator_get_value_done) \
+    X(OP_iterator_next, L_OP_iterator_next) \
+    X(OP_lnot, L_OP_lnot) \
+    X(OP_lt, L_OP_lt) \
+    X(OP_lte, L_OP_lte) \
+    X(OP_mod, L_OP_mod) \
+    X(OP_mul, L_OP_mul) \
+    X(OP_neg, L_OP_neg) \
+    X(OP_neq, L_OP_neq) \
+    X(OP_nip, L_OP_nip) \
+    X(OP_nip1, L_OP_nip1) \
+    X(OP_nip_catch, L_OP_nip_catch) \
+    X(OP_nop, L_OP_nop) \
+    X(OP_not, L_OP_not) \
+    X(OP_null, L_OP_null) \
+    X(OP_object, L_OP_object) \
+    X(OP_or, L_OP_or) \
+    X(OP_perm3, L_OP_perm3) \
+    X(OP_perm4, L_OP_perm4) \
+    X(OP_perm5, L_OP_perm5) \
+    X(OP_plus, L_OP_plus) \
+    X(OP_post_dec, L_OP_post_dec) \
+    X(OP_post_inc, L_OP_post_inc) \
+    X(OP_pow, L_OP_pow) \
+    X(OP_push_0, L_OP_push_0) \
+    X(OP_push_1, L_OP_push_1) \
+    X(OP_push_2, L_OP_push_2) \
+    X(OP_push_3, L_OP_push_3) \
+    X(OP_push_4, L_OP_push_4) \
+    X(OP_push_5, L_OP_push_5) \
+    X(OP_push_6, L_OP_push_6) \
+    X(OP_push_7, L_OP_push_7) \
+    X(OP_push_atom_value, L_OP_push_atom_value) \
+    X(OP_push_const, L_OP_push_const) \
+    X(OP_push_const8, L_OP_push_const8) \
+    X(OP_push_empty_string, L_OP_push_empty_string) \
+    X(OP_push_false, L_OP_push_false) \
+    X(OP_push_i16, L_OP_push_i16) \
+    X(OP_push_i32, L_OP_push_i32) \
+    X(OP_push_bigint_i32, L_OP_push_bigint_i32) \
+    X(OP_push_i8, L_OP_push_i8) \
+    X(OP_push_minus1, L_OP_push_minus1) \
+    X(OP_push_this, L_OP_push_this) \
+    X(OP_push_true, L_OP_push_true) \
+    X(OP_put_arg, L_OP_put_arg) \
+    X(OP_put_arg0, L_OP_put_arg0) \
+    X(OP_put_arg1, L_OP_put_arg1) \
+    X(OP_put_arg2, L_OP_put_arg2) \
+    X(OP_put_arg3, L_OP_put_arg3) \
+    X(OP_put_array_el, L_OP_put_array_el) \
+    X(OP_put_field, L_OP_put_field) \
+    X(OP_put_loc, L_OP_put_loc) \
+    X(OP_put_loc0, L_OP_put_loc0) \
+    X(OP_put_loc1, L_OP_put_loc1) \
+    X(OP_put_loc2, L_OP_put_loc2) \
+    X(OP_put_loc3, L_OP_put_loc3) \
+    X(OP_put_loc8, L_OP_put_loc8) \
+    X(OP_put_loc_check, L_OP_put_loc_check) \
+    X(OP_put_loc_check_init, L_OP_put_loc_check_init) \
+    X(OP_put_var, L_OP_put_var) \
+    X(OP_put_var_init, L_OP_put_var_init) \
+    X(OP_put_var_ref, L_OP_put_var_ref) \
+    X(OP_put_var_ref0, L_OP_put_var_ref0) \
+    X(OP_put_var_ref1, L_OP_put_var_ref1) \
+    X(OP_put_var_ref2, L_OP_put_var_ref2) \
+    X(OP_put_var_ref3, L_OP_put_var_ref3) \
+    X(OP_put_var_ref_check, L_OP_put_var_ref_check) \
+    X(OP_put_var_ref_check_init, L_OP_put_var_ref_check_init) \
+    X(OP_rest, L_OP_rest) \
+    X(OP_ret, L_OP_ret) \
+    X(OP_return, L_OP_return) \
+    X(OP_return_async, L_OP_return_async) \
+    X(OP_return_undef, L_OP_return_undef) \
+    X(OP_rot3l, L_OP_rot3l) \
+    X(OP_rot3r, L_OP_rot3r) \
+    X(OP_rot4l, L_OP_rot4l) \
+    X(OP_rot5l, L_OP_rot5l) \
+    X(OP_sar, L_OP_sar) \
+    X(OP_set_arg, L_OP_set_arg) \
+    X(OP_set_arg0, L_OP_set_arg0) \
+    X(OP_set_arg1, L_OP_set_arg1) \
+    X(OP_set_arg2, L_OP_set_arg2) \
+    X(OP_set_arg3, L_OP_set_arg3) \
+    X(OP_set_loc, L_OP_set_loc) \
+    X(OP_set_loc0, L_OP_set_loc0) \
+    X(OP_set_loc1, L_OP_set_loc1) \
+    X(OP_set_loc2, L_OP_set_loc2) \
+    X(OP_set_loc3, L_OP_set_loc3) \
+    X(OP_set_loc8, L_OP_set_loc8) \
+    X(OP_set_loc_check, L_OP_set_loc_check) \
+    X(OP_set_loc_uninitialized, L_OP_set_loc_uninitialized) \
+    X(OP_set_name, L_OP_set_name) \
+    X(OP_set_name_computed, L_OP_set_name_computed) \
+    X(OP_set_var_ref, L_OP_set_var_ref) \
+    X(OP_set_var_ref0, L_OP_set_var_ref0) \
+    X(OP_set_var_ref1, L_OP_set_var_ref1) \
+    X(OP_set_var_ref2, L_OP_set_var_ref2) \
+    X(OP_set_var_ref3, L_OP_set_var_ref3) \
+    X(OP_shl, L_OP_shl) \
+    X(OP_shr, L_OP_shr) \
+    X(OP_special_object, L_OP_special_object) \
+    X(OP_strict_eq, L_OP_strict_eq) \
+    X(OP_strict_neq, L_OP_strict_neq) \
+    X(OP_sub, L_OP_sub) \
+    X(OP_swap, L_OP_swap) \
+    X(OP_swap2, L_OP_swap2) \
+    X(OP_tail_call, L_OP_tail_call) \
+    X(OP_tail_call_method, L_OP_tail_call_method) \
+    X(OP_throw, L_OP_throw) \
+    X(OP_throw_error, L_OP_throw_error) \
+    X(OP_to_object, L_OP_to_object) \
+    X(OP_to_propkey, L_OP_to_propkey) \
+    X(OP_typeof, L_OP_typeof) \
+    X(OP_typeof_is_function, L_OP_typeof_is_function) \
+    X(OP_typeof_is_undefined, L_OP_typeof_is_undefined) \
+    X(OP_undefined, L_OP_undefined) \
+    X(OP_xor, L_OP_xor) \
+    X(OP_yield, L_OP_yield) \
+    X(OP_yield_star, L_OP_yield_star)
+
+#if PROTOJS_COMPUTED_GOTO
     static const void* dispatch_table[256];
     static std::atomic<bool> dispatch_table_initialized{false};
     static std::mutex dispatch_table_init_mutex;
@@ -6493,239 +6742,13 @@ const proto::ProtoObject* runBytecode(proto::ProtoContext* pContext,
     // Disabled unless `PROTOJS_SPECIALISER=nop|compact` rewrites the
     // bytecode to use them; the unmodified bytecode stream never carries
     // these bytes.
-    dispatch_table[244 /*OP_PROTO_ACC_LOC8_LOC8*/]      = &&L_OP_proto_acc_loc8_loc8;
-    dispatch_table[245 /*OP_PROTO_LT_LOC8_LOC8_JFALSE*/] = &&L_OP_proto_lt_loc8_loc8_jfalse;
-    dispatch_table[246 /*OP_PROTO_LT_LOC_VAR_JFALSE*/]   = &&L_OP_proto_lt_loc_var_jfalse;
-    dispatch_table[OP_add] = &&L_OP_add;
-    dispatch_table[OP_add_loc] = &&L_OP_add_loc;
-    dispatch_table[OP_and] = &&L_OP_and;
-    dispatch_table[OP_append] = &&L_OP_append;
-    dispatch_table[OP_array_from] = &&L_OP_array_from;
-    dispatch_table[OP_await] = &&L_OP_await;
-    dispatch_table[OP_call] = &&L_OP_call;
-    dispatch_table[OP_call0] = &&L_OP_call0;
-    dispatch_table[OP_call1] = &&L_OP_call1;
-    dispatch_table[OP_call2] = &&L_OP_call2;
-    dispatch_table[OP_call3] = &&L_OP_call3;
-    dispatch_table[OP_call_constructor] = &&L_OP_call_constructor;
-    dispatch_table[OP_define_class] = &&L_OP_define_class;
-    dispatch_table[OP_define_class_computed] = &&L_OP_define_class_computed;
-    dispatch_table[OP_check_ctor] = &&L_OP_check_ctor;
-    dispatch_table[OP_check_ctor_return] = &&L_OP_check_ctor_return;
-    dispatch_table[OP_init_ctor] = &&L_OP_init_ctor;
-    dispatch_table[OP_regexp] = &&L_OP_regexp;
-    dispatch_table[OP_eval] = &&L_OP_eval;
-    dispatch_table[OP_check_brand] = &&L_OP_check_brand;
-    dispatch_table[OP_add_brand] = &&L_OP_add_brand;
-    dispatch_table[OP_set_home_object] = &&L_OP_set_home_object;
-    dispatch_table[OP_get_super] = &&L_OP_get_super;
-    dispatch_table[OP_get_super_value] = &&L_OP_get_super_value;
-    dispatch_table[OP_put_super_value] = &&L_OP_put_super_value;
-    dispatch_table[OP_private_symbol] = &&L_OP_private_symbol;
-    dispatch_table[OP_set_proto] = &&L_OP_set_proto;
-    dispatch_table[OP_get_private_field] = &&L_OP_get_private_field;
-    dispatch_table[OP_put_private_field] = &&L_OP_put_private_field;
-    dispatch_table[OP_define_private_field] = &&L_OP_define_private_field;
-    dispatch_table[OP_call_method] = &&L_OP_call_method;
-    dispatch_table[OP_apply] = &&L_OP_apply;
-    dispatch_table[OP_catch] = &&L_OP_catch;
-    dispatch_table[OP_close_loc] = &&L_OP_close_loc;
-    dispatch_table[OP_copy_data_properties] = &&L_OP_copy_data_properties;
-    dispatch_table[OP_dec] = &&L_OP_dec;
-    dispatch_table[OP_dec_loc] = &&L_OP_dec_loc;
-    dispatch_table[OP_define_array_el] = &&L_OP_define_array_el;
-    dispatch_table[OP_define_field] = &&L_OP_define_field;
-    dispatch_table[OP_define_method] = &&L_OP_define_method;
-    dispatch_table[OP_define_method_computed] = &&L_OP_define_method_computed;
-    dispatch_table[OP_delete] = &&L_OP_delete;
-    dispatch_table[OP_div] = &&L_OP_div;
-    dispatch_table[OP_drop] = &&L_OP_drop;
-    dispatch_table[OP_dup] = &&L_OP_dup;
-    dispatch_table[OP_dup1] = &&L_OP_dup1;
-    dispatch_table[OP_dup2] = &&L_OP_dup2;
-    dispatch_table[OP_dup3] = &&L_OP_dup3;
-    dispatch_table[OP_eq] = &&L_OP_eq;
-    dispatch_table[OP_fclosure] = &&L_OP_fclosure;
-    dispatch_table[OP_fclosure8] = &&L_OP_fclosure8;
-    dispatch_table[OP_for_await_of_next] = &&L_OP_for_await_of_next;
-    dispatch_table[OP_for_await_of_start] = &&L_OP_for_await_of_start;
-    dispatch_table[OP_for_in_next] = &&L_OP_for_in_next;
-    dispatch_table[OP_for_in_start] = &&L_OP_for_in_start;
-    dispatch_table[OP_for_of_next] = &&L_OP_for_of_next;
-    dispatch_table[OP_for_of_start] = &&L_OP_for_of_start;
-    dispatch_table[OP_get_arg] = &&L_OP_get_arg;
-    dispatch_table[OP_get_arg0] = &&L_OP_get_arg0;
-    dispatch_table[OP_get_arg1] = &&L_OP_get_arg1;
-    dispatch_table[OP_get_arg2] = &&L_OP_get_arg2;
-    dispatch_table[OP_get_arg3] = &&L_OP_get_arg3;
-    dispatch_table[OP_get_array_el] = &&L_OP_get_array_el;
-    dispatch_table[OP_get_array_el2] = &&L_OP_get_array_el2;
-    dispatch_table[OP_get_array_el3] = &&L_OP_get_array_el3;
-    dispatch_table[OP_get_field] = &&L_OP_get_field;
-    dispatch_table[OP_get_field2] = &&L_OP_get_field2;
-    dispatch_table[OP_get_length] = &&L_OP_get_length;
-    dispatch_table[OP_get_loc] = &&L_OP_get_loc;
-    dispatch_table[OP_get_loc0] = &&L_OP_get_loc0;
-    dispatch_table[OP_get_loc1] = &&L_OP_get_loc1;
-    dispatch_table[OP_get_loc2] = &&L_OP_get_loc2;
-    dispatch_table[OP_get_loc3] = &&L_OP_get_loc3;
-    dispatch_table[OP_get_loc8] = &&L_OP_get_loc8;
-    dispatch_table[OP_get_loc_check] = &&L_OP_get_loc_check;
-    dispatch_table[OP_get_loc_checkthis] = &&L_OP_get_loc_checkthis;
-    dispatch_table[OP_get_var] = &&L_OP_get_var;
-    dispatch_table[OP_get_var_ref] = &&L_OP_get_var_ref;
-    dispatch_table[OP_get_var_ref0] = &&L_OP_get_var_ref0;
-    dispatch_table[OP_get_var_ref1] = &&L_OP_get_var_ref1;
-    dispatch_table[OP_get_var_ref2] = &&L_OP_get_var_ref2;
-    dispatch_table[OP_get_var_ref3] = &&L_OP_get_var_ref3;
-    dispatch_table[OP_get_var_ref_check] = &&L_OP_get_var_ref_check;
-    dispatch_table[OP_get_var_undef] = &&L_OP_get_var_undef;
-    dispatch_table[OP_gosub] = &&L_OP_gosub;
-    dispatch_table[OP_goto] = &&L_OP_goto;
-    dispatch_table[OP_goto16] = &&L_OP_goto16;
-    dispatch_table[OP_goto8] = &&L_OP_goto8;
-    dispatch_table[OP_gt] = &&L_OP_gt;
-    dispatch_table[OP_gte] = &&L_OP_gte;
-    dispatch_table[OP_if_false] = &&L_OP_if_false;
-    dispatch_table[OP_if_false8] = &&L_OP_if_false8;
-    dispatch_table[OP_if_true] = &&L_OP_if_true;
-    dispatch_table[OP_if_true8] = &&L_OP_if_true8;
-    dispatch_table[OP_in] = &&L_OP_in;
-    dispatch_table[OP_inc] = &&L_OP_inc;
-    dispatch_table[OP_inc_loc] = &&L_OP_inc_loc;
-    dispatch_table[OP_initial_yield] = &&L_OP_initial_yield;
-    dispatch_table[OP_insert2] = &&L_OP_insert2;
-    dispatch_table[OP_insert3] = &&L_OP_insert3;
-    dispatch_table[OP_insert4] = &&L_OP_insert4;
-    dispatch_table[OP_instanceof] = &&L_OP_instanceof;
-    dispatch_table[OP_is_null] = &&L_OP_is_null;
-    dispatch_table[OP_is_undefined] = &&L_OP_is_undefined;
-    dispatch_table[OP_is_undefined_or_null] = &&L_OP_is_undefined_or_null;
-    dispatch_table[OP_iterator_call] = &&L_OP_iterator_call;
-    dispatch_table[OP_iterator_check_object] = &&L_OP_iterator_check_object;
-    dispatch_table[OP_iterator_close] = &&L_OP_iterator_close;
-    dispatch_table[OP_iterator_get_value_done] = &&L_OP_iterator_get_value_done;
-    dispatch_table[OP_iterator_next] = &&L_OP_iterator_next;
-    dispatch_table[OP_lnot] = &&L_OP_lnot;
-    dispatch_table[OP_lt] = &&L_OP_lt;
-    dispatch_table[OP_lte] = &&L_OP_lte;
-    dispatch_table[OP_mod] = &&L_OP_mod;
-    dispatch_table[OP_mul] = &&L_OP_mul;
-    dispatch_table[OP_neg] = &&L_OP_neg;
-    dispatch_table[OP_neq] = &&L_OP_neq;
-    dispatch_table[OP_nip] = &&L_OP_nip;
-    dispatch_table[OP_nip1] = &&L_OP_nip1;
-    dispatch_table[OP_nip_catch] = &&L_OP_nip_catch;
-    dispatch_table[OP_nop] = &&L_OP_nop;
-    dispatch_table[OP_not] = &&L_OP_not;
-    dispatch_table[OP_null] = &&L_OP_null;
-    dispatch_table[OP_object] = &&L_OP_object;
-    dispatch_table[OP_or] = &&L_OP_or;
-    dispatch_table[OP_perm3] = &&L_OP_perm3;
-    dispatch_table[OP_perm4] = &&L_OP_perm4;
-    dispatch_table[OP_perm5] = &&L_OP_perm5;
-    dispatch_table[OP_plus] = &&L_OP_plus;
-    dispatch_table[OP_post_dec] = &&L_OP_post_dec;
-    dispatch_table[OP_post_inc] = &&L_OP_post_inc;
-    dispatch_table[OP_pow] = &&L_OP_pow;
-    dispatch_table[OP_push_0] = &&L_OP_push_0;
-    dispatch_table[OP_push_1] = &&L_OP_push_1;
-    dispatch_table[OP_push_2] = &&L_OP_push_2;
-    dispatch_table[OP_push_3] = &&L_OP_push_3;
-    dispatch_table[OP_push_4] = &&L_OP_push_4;
-    dispatch_table[OP_push_5] = &&L_OP_push_5;
-    dispatch_table[OP_push_6] = &&L_OP_push_6;
-    dispatch_table[OP_push_7] = &&L_OP_push_7;
-    dispatch_table[OP_push_atom_value] = &&L_OP_push_atom_value;
-    dispatch_table[OP_push_const] = &&L_OP_push_const;
-    dispatch_table[OP_push_const8] = &&L_OP_push_const8;
-    dispatch_table[OP_push_empty_string] = &&L_OP_push_empty_string;
-    dispatch_table[OP_push_false] = &&L_OP_push_false;
-    dispatch_table[OP_push_i16] = &&L_OP_push_i16;
-    dispatch_table[OP_push_i32] = &&L_OP_push_i32;
-    dispatch_table[OP_push_bigint_i32] = &&L_OP_push_bigint_i32;
-    dispatch_table[OP_push_i8] = &&L_OP_push_i8;
-    dispatch_table[OP_push_minus1] = &&L_OP_push_minus1;
-    dispatch_table[OP_push_this] = &&L_OP_push_this;
-    dispatch_table[OP_push_true] = &&L_OP_push_true;
-    dispatch_table[OP_put_arg] = &&L_OP_put_arg;
-    dispatch_table[OP_put_arg0] = &&L_OP_put_arg0;
-    dispatch_table[OP_put_arg1] = &&L_OP_put_arg1;
-    dispatch_table[OP_put_arg2] = &&L_OP_put_arg2;
-    dispatch_table[OP_put_arg3] = &&L_OP_put_arg3;
-    dispatch_table[OP_put_array_el] = &&L_OP_put_array_el;
-    dispatch_table[OP_put_field] = &&L_OP_put_field;
-    dispatch_table[OP_put_loc] = &&L_OP_put_loc;
-    dispatch_table[OP_put_loc0] = &&L_OP_put_loc0;
-    dispatch_table[OP_put_loc1] = &&L_OP_put_loc1;
-    dispatch_table[OP_put_loc2] = &&L_OP_put_loc2;
-    dispatch_table[OP_put_loc3] = &&L_OP_put_loc3;
-    dispatch_table[OP_put_loc8] = &&L_OP_put_loc8;
-    dispatch_table[OP_put_loc_check] = &&L_OP_put_loc_check;
-    dispatch_table[OP_put_loc_check_init] = &&L_OP_put_loc_check_init;
-    dispatch_table[OP_put_var] = &&L_OP_put_var;
-    dispatch_table[OP_put_var_init] = &&L_OP_put_var_init;
-    dispatch_table[OP_put_var_ref] = &&L_OP_put_var_ref;
-    dispatch_table[OP_put_var_ref0] = &&L_OP_put_var_ref0;
-    dispatch_table[OP_put_var_ref1] = &&L_OP_put_var_ref1;
-    dispatch_table[OP_put_var_ref2] = &&L_OP_put_var_ref2;
-    dispatch_table[OP_put_var_ref3] = &&L_OP_put_var_ref3;
-    dispatch_table[OP_put_var_ref_check] = &&L_OP_put_var_ref_check;
-    dispatch_table[OP_put_var_ref_check_init] = &&L_OP_put_var_ref_check_init;
-    dispatch_table[OP_rest] = &&L_OP_rest;
-    dispatch_table[OP_ret] = &&L_OP_ret;
-    dispatch_table[OP_return] = &&L_OP_return;
-    dispatch_table[OP_return_async] = &&L_OP_return_async;
-    dispatch_table[OP_return_undef] = &&L_OP_return_undef;
-    dispatch_table[OP_rot3l] = &&L_OP_rot3l;
-    dispatch_table[OP_rot3r] = &&L_OP_rot3r;
-    dispatch_table[OP_rot4l] = &&L_OP_rot4l;
-    dispatch_table[OP_rot5l] = &&L_OP_rot5l;
-    dispatch_table[OP_sar] = &&L_OP_sar;
-    dispatch_table[OP_set_arg] = &&L_OP_set_arg;
-    dispatch_table[OP_set_arg0] = &&L_OP_set_arg0;
-    dispatch_table[OP_set_arg1] = &&L_OP_set_arg1;
-    dispatch_table[OP_set_arg2] = &&L_OP_set_arg2;
-    dispatch_table[OP_set_arg3] = &&L_OP_set_arg3;
-    dispatch_table[OP_set_loc] = &&L_OP_set_loc;
-    dispatch_table[OP_set_loc0] = &&L_OP_set_loc0;
-    dispatch_table[OP_set_loc1] = &&L_OP_set_loc1;
-    dispatch_table[OP_set_loc2] = &&L_OP_set_loc2;
-    dispatch_table[OP_set_loc3] = &&L_OP_set_loc3;
-    dispatch_table[OP_set_loc8] = &&L_OP_set_loc8;
-    dispatch_table[OP_set_loc_check] = &&L_OP_set_loc_check;
-    dispatch_table[OP_set_loc_uninitialized] = &&L_OP_set_loc_uninitialized;
-    dispatch_table[OP_set_name] = &&L_OP_set_name;
-    dispatch_table[OP_set_name_computed] = &&L_OP_set_name_computed;
-    dispatch_table[OP_set_var_ref] = &&L_OP_set_var_ref;
-    dispatch_table[OP_set_var_ref0] = &&L_OP_set_var_ref0;
-    dispatch_table[OP_set_var_ref1] = &&L_OP_set_var_ref1;
-    dispatch_table[OP_set_var_ref2] = &&L_OP_set_var_ref2;
-    dispatch_table[OP_set_var_ref3] = &&L_OP_set_var_ref3;
-    dispatch_table[OP_shl] = &&L_OP_shl;
-    dispatch_table[OP_shr] = &&L_OP_shr;
-    dispatch_table[OP_special_object] = &&L_OP_special_object;
-    dispatch_table[OP_strict_eq] = &&L_OP_strict_eq;
-    dispatch_table[OP_strict_neq] = &&L_OP_strict_neq;
-    dispatch_table[OP_sub] = &&L_OP_sub;
-    dispatch_table[OP_swap] = &&L_OP_swap;
-    dispatch_table[OP_swap2] = &&L_OP_swap2;
-    dispatch_table[OP_tail_call] = &&L_OP_tail_call;
-    dispatch_table[OP_tail_call_method] = &&L_OP_tail_call_method;
-    dispatch_table[OP_throw] = &&L_OP_throw;
-    dispatch_table[OP_throw_error] = &&L_OP_throw_error;
-    dispatch_table[OP_to_object] = &&L_OP_to_object;
-    dispatch_table[OP_to_propkey] = &&L_OP_to_propkey;
-    dispatch_table[OP_typeof] = &&L_OP_typeof;
-    dispatch_table[OP_typeof_is_function] = &&L_OP_typeof_is_function;
-    dispatch_table[OP_typeof_is_undefined] = &&L_OP_typeof_is_undefined;
-    dispatch_table[OP_undefined] = &&L_OP_undefined;
-    dispatch_table[OP_xor] = &&L_OP_xor;
-    dispatch_table[OP_yield] = &&L_OP_yield;
-    dispatch_table[OP_yield_star] = &&L_OP_yield_star;
+    #define PROTOJS_DISPATCH_ASSIGN(op, label) dispatch_table[op] = &&label;
+    PROTOJS_DISPATCH_TARGETS(PROTOJS_DISPATCH_ASSIGN)
+    #undef PROTOJS_DISPATCH_ASSIGN
     dispatch_table_initialized.store(true, std::memory_order_release);
     }   // close inner DCLP check
     }   // close outer "not initialized" branch
+#endif // PROTOJS_COMPUTED_GOTO
 
     // globalObj is recomputed on every dispatch because some opcodes
     // (top-level `var` set, OP_put_field on the global root) re-bind
@@ -6779,12 +6802,17 @@ const proto::ProtoObject* runBytecode(proto::ProtoContext* pContext,
      * dispatch-bound benches (numeric_loop, tight inner loops) this is
      * a measurable win (~5-8 % wall).
      */
+#if PROTOJS_COMPUTED_GOTO
+    #define PROTOJS_DISPATCH_JUMP() goto *dispatch_table[opcode]
+#else
+    #define PROTOJS_DISPATCH_JUMP() goto protojs_dispatch_switch
+#endif
     #define DISPATCH() do { \
         if (__builtin_expect((++t_dispatchCount & 1023) == 0, 0)) pContext->safepoint(); \
         if (__builtin_expect(has_pending_exception, 0)) goto handle_exception_label; \
         if (__builtin_expect(pc < 0 || pc >= len, 0)) goto exit_dispatch; \
         opcode = (int)(unsigned char)buf[pc++]; \
-        goto *dispatch_table[opcode]; \
+        PROTOJS_DISPATCH_JUMP(); \
     } while(0)
 
     /* Refresh globalObj from *pGlobalRoot — call from sites that read or
@@ -17168,20 +17196,40 @@ const proto::ProtoObject* runBytecode(proto::ProtoContext* pContext,
                     if (__builtin_expect(pc < 0 || pc >= len, 0)) goto exit_dispatch;
                     globalObj = (pGlobalRoot && *pGlobalRoot) ? *pGlobalRoot : PROTO_NONE;
                     opcode = (int)(unsigned char)buf[pc++];
+#if PROTOJS_COMPUTED_GOTO
                     {
                         const void* tgt = dispatch_table[opcode];
                         if (__builtin_expect(tgt == nullptr, 0)) goto L_default;
                         goto *tgt;
                     }
+#else
+                    goto protojs_dispatch_switch;
+#endif
                 } else {
                     if (outException) *outException = pending_exception;
                     return PROTO_NONE;
                 }
             }
 
+#if !PROTOJS_COMPUTED_GOTO
+            // MSVC: the dispatch table as a switch. Every DISPATCH() comes
+            // here with the next opcode; the compiler turns the switch into
+            // one indexed jump. Unlisted opcodes go to L_default, as the
+            // table's pre-filled slots do.
+            protojs_dispatch_switch:
+            switch (opcode) {
+                #define PROTOJS_DISPATCH_CASE(op, label) case op: goto label;
+                PROTOJS_DISPATCH_TARGETS(PROTOJS_DISPATCH_CASE)
+                #undef PROTOJS_DISPATCH_CASE
+                default: goto L_default;
+            }
+#endif
+
             exit_dispatch: ;
     }
     #undef DISPATCH
+    #undef PROTOJS_DISPATCH_JUMP
+    #undef PROTOJS_DISPATCH_TARGETS
     return PROTO_NONE;
 }
 
