@@ -68,7 +68,7 @@ int init_impl(proto::ProtoContext* ctx, const proto::ProtoObject* module) {
 
 extern "C" {
 
-ProtoJSNativeModuleInfo protojs_native_module_info(
+PROTOJS_ADDON_EXPORT ProtoJSNativeModuleInfo protojs_native_module_info(
     PROTOJS_ABI_VERSION,
     "simple_addon",
     "1.0.0",

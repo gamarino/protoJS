@@ -9,6 +9,36 @@ set(CMAKE_C_STANDARD 99)
 
 include(GNUInstallDirs)
 
+# Compiler and platform differences, gathered here so the targets below read the
+# same on every platform. Outside Windows these are the libraries and options the
+# build always used.
+if(MSVC)
+    # Sources are UTF-8; the interpreter and QuickJS need more sections than the
+    # default object format allows.
+    add_compile_options(/utf-8 /bigobj)
+    # M_PI & co. from <cmath>; the POSIX names of the C runtime without
+    # deprecation warnings.
+    add_compile_definitions(_USE_MATH_DEFINES _CRT_SECURE_NO_WARNINGS _CRT_NONSTDC_NO_WARNINGS)
+endif()
+if(WIN32)
+    # Native stack reservation of protojs and its threads (see target protojs).
+    set(PROTOJS_WINDOWS_STACK_BYTES 67108864)
+    # <windows.h> without min/max macros and without the old Winsock 1 header.
+    add_compile_definitions(NOMINMAX WIN32_LEAN_AND_MEAN)
+    # Threads, dynamic loading and libm come with the C/C++ runtime and the
+    # Windows API; sockets are Winsock (ws2_32), process information is psapi,
+    # and OpenSSL is found as a package (its DLLs are copied next to protojs).
+    find_package(OpenSSL REQUIRED)
+    set(PROTOJS_SYSTEM_LIBS OpenSSL::SSL OpenSSL::Crypto ws2_32 iphlpapi psapi)
+    # Windows has no rpath: a program finds its DLLs next to itself, so every
+    # executable and DLL of the build goes to one directory.
+    if(NOT CMAKE_RUNTIME_OUTPUT_DIRECTORY)
+        set(CMAKE_RUNTIME_OUTPUT_DIRECTORY "${CMAKE_BINARY_DIR}/bin")
+    endif()
+else()
+    set(PROTOJS_SYSTEM_LIBS pthread dl m ssl crypto)
+endif()
+
 set(QUICKJS_DIR ${CMAKE_CURRENT_SOURCE_DIR}/deps/quickjs)
 
 # --- protoCore -----------------------------------------------------------------
@@ -58,7 +88,26 @@ if(protoCore_FOUND)
     include_directories(${PROTOCORE_INCLUDE_DIRS})
     message(STATUS "protoJS: installed protoCore ${protoCore_VERSION} "
                    "(SOVERSION ${protoCore_SOVERSION}) from ${protoCore_DIR}")
+    if(APPLE)
+        # libprotoCore's install name is @rpath/...: name the package's library
+        # directory in the build tree's rpath, or protojs and the tests built
+        # against a package outside dyld's default paths cannot start.
+        get_target_property(_protoCore_location protoCore::protoCore LOCATION)
+        get_filename_component(_protoCore_libdir "${_protoCore_location}" DIRECTORY)
+        list(APPEND CMAKE_BUILD_RPATH "${_protoCore_libdir}")
+        unset(_protoCore_location)
+        unset(_protoCore_libdir)
+    endif()
 else()
+    if(WIN32)
+        # The developer fallback finds a shared object by its soname, which a
+        # Windows DLL does not have: on Windows protoJS builds against an
+        # installed protoCore package only.
+        message(FATAL_ERROR
+            "No protoCore >= ${PROTOCORE_MIN_VERSION_FULL} CMake package was found. "
+            "On Windows install protoCore (cmake --install of its build) and pass "
+            "its prefix: -DCMAKE_PREFIX_PATH=<prefix> or -DPROTO_CORE_PREFIX=<prefix>.")
+    endif()
     set(_protoCore_where "")
     if(DEFINED PROTO_CORE_PREFIX)
         set(_protoCore_where " under ${PROTO_CORE_PREFIX}")
@@ -232,12 +281,32 @@ add_library(protojs_core STATIC
 target_link_libraries(protojs_core
     PUBLIC
     ${PROTOCORE_LIBRARY}
-    pthread
-    dl
-    m
-    ssl
-    crypto
+    ${PROTOJS_SYSTEM_LIBS}
 )
+
+if(WIN32)
+    # The native-module ABI is exported by protojs.exe (PROTOJS_ABI_API).
+    target_compile_definitions(protojs_core PUBLIC PROTOJS_BUILDING_RUNTIME)
+    # Windows finds a DLL next to the program that loads it. Copy the DLLs
+    # protojs needs -- protoCore and OpenSSL -- into the build's bin/, so protojs
+    # and the tests run in place. A target protojs_core depends on, not a
+    # post-build step: the unit tests are run to list their cases as soon as
+    # they are linked.
+    set(PROTOJS_RUNTIME_DLLS "")
+    if(TARGET ${PROTOCORE_LIBRARY})
+        list(APPEND PROTOJS_RUNTIME_DLLS "$<TARGET_FILE:${PROTOCORE_LIBRARY}>")
+    endif()
+    get_filename_component(PROTOJS_OPENSSL_BIN "${OPENSSL_INCLUDE_DIR}/../bin" ABSOLUTE)
+    file(GLOB PROTOJS_OPENSSL_DLLS
+        "${PROTOJS_OPENSSL_BIN}/libcrypto*.dll" "${PROTOJS_OPENSSL_BIN}/libssl*.dll")
+    list(APPEND PROTOJS_RUNTIME_DLLS ${PROTOJS_OPENSSL_DLLS})
+    add_custom_target(protojs_runtime_dlls
+        COMMAND ${CMAKE_COMMAND} -E make_directory "${CMAKE_RUNTIME_OUTPUT_DIRECTORY}"
+        COMMAND ${CMAKE_COMMAND} -E copy_if_different ${PROTOJS_RUNTIME_DLLS}
+                "${CMAKE_RUNTIME_OUTPUT_DIRECTORY}"
+        VERBATIM)
+    add_dependencies(protojs_core protojs_runtime_dlls)
+endif()
 
 # Main Executable (only main.cpp; everything else lives in protojs_core)
 add_executable(protojs src/main.cpp)
@@ -245,7 +314,28 @@ add_executable(protojs src/main.cpp)
 # Link Libs (protoCore is the official name of the shared library)
 # -rdynamic: export symbols so dlopen'd native addons can resolve QuickJS/protoCore symbols
 target_link_libraries(protojs PRIVATE protojs_core)
-target_link_options(protojs PRIVATE -rdynamic)
+if(WIN32)
+    # A DLL cannot see the symbols of the program that loads it. protojs exports
+    # the native-module ABI (protojs_make_function & co., marked PROTOJS_ABI_API in
+    # src/native/NativeModuleABI.h) and the build writes protojs.lib, which addons
+    # link against together with protoCore.lib.
+    set_target_properties(protojs PROPERTIES ENABLE_EXPORTS ON)
+    # The interpreter recurses on the native stack: every JavaScript call is a
+    # runBytecode frame. Linux gives the main thread 8 MiB; Windows reserves
+    # 1 MiB unless the program asks for more, and threads created without an
+    # explicit size get the same reservation. MSVC also gives runBytecode a
+    # frame six times GCC's (about 46 KiB against 7.7 KiB: it does not share
+    # stack slots between the handlers' block-scoped locals), so the same
+    # recursion depth as on Linux takes about 48 MiB. The reservation is address
+    # space; pages are committed only as the stack grows.
+    target_link_options(protojs PRIVATE /STACK:${PROTOJS_WINDOWS_STACK_BYTES})
+    # UTF-8 process code page: argv, getenv and paths are UTF-8 as elsewhere.
+    target_sources(protojs PRIVATE src/windows/utf8.manifest)
+    set(PROTOJS_ADDON_LIBS protojs ${PROTOCORE_LIBRARY})
+else()
+    target_link_options(protojs PRIVATE -rdynamic)
+    set(PROTOJS_ADDON_LIBS dl)
+endif()
 
 # Build settings for protoCore
 # protoCore must be built as a shared library first (libprotoCore.so / .dylib / .dll).
@@ -262,8 +352,10 @@ set_target_properties(simple_addon PROPERTIES
     PREFIX ""
     OUTPUT_NAME "simple"
     LIBRARY_OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR}/tests/native_addons/simple
+    # A DLL is a RUNTIME artifact on Windows.
+    RUNTIME_OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR}/tests/native_addons/simple
 )
-target_link_libraries(simple_addon PRIVATE dl)
+target_link_libraries(simple_addon PRIVATE ${PROTOJS_ADDON_LIBS})
 
 # Fixture addon for resolution-order test (output next to fixture.js)
 add_library(fixture_addon SHARED tests/native_addons/fixture/fixture_addon.cpp)
@@ -275,8 +367,9 @@ set_target_properties(fixture_addon PROPERTIES
     PREFIX ""
     OUTPUT_NAME "fixture"
     LIBRARY_OUTPUT_DIRECTORY ${CMAKE_SOURCE_DIR}/tests/integration/native_addons
+    RUNTIME_OUTPUT_DIRECTORY ${CMAKE_SOURCE_DIR}/tests/integration/native_addons
 )
-target_link_libraries(fixture_addon PRIVATE dl)
+target_link_libraries(fixture_addon PRIVATE ${PROTOJS_ADDON_LIBS})
 
 # --- Install RPATH: installed binary finds libprotoCore without LD_LIBRARY_PATH ---
 if(UNIX)
@@ -289,10 +382,21 @@ if(UNIX)
 endif()
 
 # --- Install rules ---
+# On Windows protojs.lib, the import library native addons link against, is the
+# executable's ARCHIVE artifact; an executable has none on Linux and macOS.
 install(TARGETS protojs
     RUNTIME DESTINATION ${CMAKE_INSTALL_BINDIR}
+    ARCHIVE DESTINATION ${CMAKE_INSTALL_LIBDIR}
     COMPONENT protoJS
 )
+# OpenSSL is a DLL on Windows: install it next to protojs.exe, where Windows
+# looks for it. (protoCore is a package of its own and installs its DLL into its
+# own prefix's bin/.)
+if(WIN32 AND PROTOJS_OPENSSL_DLLS)
+    install(FILES ${PROTOJS_OPENSSL_DLLS}
+        DESTINATION ${CMAKE_INSTALL_BINDIR}
+        COMPONENT protoJS)
+endif()
 
 # Testing Framework (Catch2)
 option(BUILD_TESTING "Build the testing tree" ON)
@@ -415,9 +519,20 @@ elseif(UNIX)
     set(CPACK_RPM_PACKAGE_REQUIRES
         "protoCore >= ${PROTOCORE_MIN_VERSION_FULL}, protoCore < ${PROTOCORE_NEXT_MAJOR}")
 elseif(WIN32)
-    # Windows NSIS installer + plain ZIP.
-    # UNVERIFIED: configured and reviewed, never built - no Windows host (D-I6).
-    set(CPACK_GENERATOR "NSIS;ZIP")
+    # Plain ZIP, plus an NSIS installer when makensis is present: cpack aborts
+    # the whole run when one generator's tool is missing.
+    # The ZIP is verified on Windows 11 (protojs.exe, protojs.lib and the
+    # OpenSSL DLLs); the NSIS installer is not (no NSIS on that host). Neither
+    # carries protoCore.dll: protoCore is a package of its own, and its bin/
+    # must be on PATH, as a shared library's directory is on Linux.
+    set(CPACK_GENERATOR "ZIP")
+    find_program(PROTOJS_MAKENSIS_EXECUTABLE makensis)
+    if(PROTOJS_MAKENSIS_EXECUTABLE)
+        list(APPEND CPACK_GENERATOR "NSIS")
+        message(STATUS "CPack: NSIS generator enabled (makensis found)")
+    else()
+        message(STATUS "CPack: NSIS generator disabled (makensis not found)")
+    endif()
     set(CPACK_NSIS_PACKAGE_NAME "protoJS")
 endif()
 

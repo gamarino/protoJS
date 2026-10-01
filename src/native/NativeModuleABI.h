@@ -25,6 +25,31 @@
 
 #define PROTOJS_ABI_VERSION 2
 
+/*
+ * Symbol visibility across the runtime/addon boundary.
+ *
+ * On Linux and macOS protojs is linked with -rdynamic and an addon resolves the
+ * protojs_* functions from the running program; an addon's
+ * protojs_native_module_info is visible by default. Both macros are empty there.
+ *
+ * On Windows a DLL sees only what a module exports by name: protojs.exe exports
+ * the protojs_* functions (PROTOJS_ABI_API, dllexport while building the runtime,
+ * dllimport in an addon, which links protojs.lib), and an addon must export its
+ * module information:
+ *   extern "C" PROTOJS_ADDON_EXPORT ProtoJSNativeModuleInfo protojs_native_module_info(...);
+ */
+#if defined(_WIN32)
+#  if defined(PROTOJS_BUILDING_RUNTIME)
+#    define PROTOJS_ABI_API __declspec(dllexport)
+#  else
+#    define PROTOJS_ABI_API __declspec(dllimport)
+#  endif
+#  define PROTOJS_ADDON_EXPORT __declspec(dllexport)
+#else
+#  define PROTOJS_ABI_API
+#  define PROTOJS_ADDON_EXPORT
+#endif
+
 namespace protojs {
 
 /**
@@ -102,7 +127,7 @@ extern "C" {
  * Wrap a native function so that JavaScript can call it and so that it
  * carries `name` and `length`. Returns nullptr on failure.
  */
-const proto::ProtoObject* protojs_make_function(proto::ProtoContext* context,
+PROTOJS_ABI_API const proto::ProtoObject* protojs_make_function(proto::ProtoContext* context,
                                                 protojs::ProtoJSNativeFunction fn,
                                                 const char* name,
                                                 int length);
@@ -110,7 +135,7 @@ const proto::ProtoObject* protojs_make_function(proto::ProtoContext* context,
 /**
  * Set `module.exports.<name> = value`. Returns 0 on success.
  */
-int protojs_set_export(proto::ProtoContext* context,
+PROTOJS_ABI_API int protojs_set_export(proto::ProtoContext* context,
                        const proto::ProtoObject* module,
                        const char* name,
                        const proto::ProtoObject* value);
@@ -118,14 +143,14 @@ int protojs_set_export(proto::ProtoContext* context,
 /**
  * Return `module.exports`, or nullptr when it cannot be read.
  */
-const proto::ProtoObject* protojs_get_exports(proto::ProtoContext* context,
+PROTOJS_ABI_API const proto::ProtoObject* protojs_get_exports(proto::ProtoContext* context,
                                               const proto::ProtoObject* module);
 
 /**
  * Replace `module.exports` wholesale, the equivalent of
  * `module.exports = value`. Returns 0 on success.
  */
-int protojs_set_exports_object(proto::ProtoContext* context,
+PROTOJS_ABI_API int protojs_set_exports_object(proto::ProtoContext* context,
                                const proto::ProtoObject* module,
                                const proto::ProtoObject* exports);
 
@@ -134,7 +159,7 @@ int protojs_set_exports_object(proto::ProtoContext* context,
  * return PROTO_NONE immediately afterwards. `type` is an error constructor
  * name such as "TypeError" or "RangeError".
  */
-void protojs_throw(proto::ProtoContext* context,
+PROTOJS_ABI_API void protojs_throw(proto::ProtoContext* context,
                    const char* type,
                    const char* message);
 

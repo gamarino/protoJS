@@ -67,7 +67,7 @@ BASE_ARGS=(
 )
 
 write_snapshot "$SCRATCH/truth.json" "$PIN" 5 "${BASE_ARGS[@]}"
-python3 "$GATE" --snapshot "$SCRATCH/truth.json" --baseline "$SCRATCH/baseline.json" \
+"${PROTOJS_PYTHON:-python3}" "$GATE" --snapshot "$SCRATCH/truth.json" --baseline "$SCRATCH/baseline.json" \
         --update > "$SCRATCH/update.log" 2>&1
 if [ $? -ne 0 ]; then
     echo "FAIL [setup]: --update did not succeed"; cat "$SCRATCH/update.log"; exit 1
@@ -85,7 +85,7 @@ fi
 # $1 case name, $2 snapshot, $3 expected exit, $4 expected substring
 check() {
     local name="$1" snap="$2" want_rc="$3" want_text="$4" out rc
-    out=$(python3 "$GATE" --snapshot "$snap" --baseline "$SCRATCH/baseline.json" 2>&1)
+    out=$("${PROTOJS_PYTHON:-python3}" "$GATE" --snapshot "$snap" --baseline "$SCRATCH/baseline.json" 2>&1)
     rc=$?
     if [ "$rc" -ne "$want_rc" ]; then
         echo "FAIL [$name]: exit $rc, expected $want_rc"

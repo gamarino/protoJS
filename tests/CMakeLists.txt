@@ -24,6 +24,12 @@ if(TEST_SOURCES)
         PROTOJS_TEST_PROJECT_ROOT="${CMAKE_SOURCE_DIR}"
     )
 
+    if(WIN32)
+        # As protojs itself: UTF-8 process code page and the same stack.
+        target_sources(protojs_tests PRIVATE ${CMAKE_SOURCE_DIR}/src/windows/utf8.manifest)
+        target_link_options(protojs_tests PRIVATE /STACK:${PROTOJS_WINDOWS_STACK_BYTES})
+    endif()
+
     # Add tests to CTest
     include(Catch)
     catch_discover_tests(protojs_tests)
@@ -41,21 +47,48 @@ endif()
 # `ctest -E "integration|network"`, and a fixture excluded from the gate is not a
 # gate.
 
+# The fixtures are bash scripts. Windows cannot run a script directly, so there
+# they run through the bash of Git for Windows (not System32's bash.exe, which is
+# WSL); elsewhere the prefix is empty and the script is the command. The Python
+# fixture uses the interpreter CMake finds, which is python3 outside Windows.
+if(WIN32)
+    find_program(PROTOJS_BASH bash HINTS "C:/Program Files/Git/bin" "C:/Program Files/Git/usr/bin"
+                 NO_DEFAULT_PATH)
+    if(NOT PROTOJS_BASH)
+        find_program(PROTOJS_BASH bash)
+    endif()
+    set(PROTOJS_SH "${PROTOJS_BASH}")
+    find_package(Python3 COMPONENTS Interpreter)
+    if(Python3_FOUND)
+        set(PROTOJS_PYTHON "${Python3_EXECUTABLE}")
+    else()
+        set(PROTOJS_PYTHON python)
+    endif()
+else()
+    set(PROTOJS_SH "")
+    set(PROTOJS_PYTHON python3)
+endif()
+
 # Proves the Test262 regression gate can go red. Needs no protojs binary and no
 # corpus: it feeds the gate synthetic snapshots, which is what lets it assert the
 # cases a real run cannot produce on demand -- notably a commit that repairs one
 # test and breaks another, which leaves the pass rate unchanged.
 add_test(NAME cli/test262-regression-gate-self-test
-    COMMAND "${CMAKE_CURRENT_SOURCE_DIR}/cli/test262-regression-gate-self-test.sh"
+    COMMAND ${PROTOJS_SH} "${CMAKE_CURRENT_SOURCE_DIR}/cli/test262-regression-gate-self-test.sh"
             "${CMAKE_SOURCE_DIR}"
             "${CMAKE_CURRENT_BINARY_DIR}/cli-scratch/regression-gate")
+if(WIN32)
+    # "python3" is the Microsoft Store stub on Windows; name the interpreter.
+    set_tests_properties(cli/test262-regression-gate-self-test PROPERTIES
+        ENVIRONMENT "PROTOJS_PYTHON=${PROTOJS_PYTHON}")
+endif()
 
 # Asserts that no native method cell is bound to the object that holds it, which
 # would be a permanent reference cycle through a mutable. Needs the real binary,
 # because the cells under test are created while the global object is built and
 # that setup lives in src/main.cpp, outside protojs_core.
 add_test(NAME cli/no-method-self-cycles
-    COMMAND "${CMAKE_CURRENT_SOURCE_DIR}/cli/no-method-self-cycles.sh"
+    COMMAND ${PROTOJS_SH} "${CMAKE_CURRENT_SOURCE_DIR}/cli/no-method-self-cycles.sh"
             "$<TARGET_FILE:protojs>"
             "${CMAKE_CURRENT_BINARY_DIR}/cli-scratch/method-cycles")
 
@@ -65,14 +98,14 @@ add_test(NAME cli/no-method-self-cycles
 # what the original net finalizers needed: their join was in teardownServer, not in
 # the finalizer body.
 add_test(NAME cli/finalizers-do-not-block
-    COMMAND python3 "${CMAKE_CURRENT_SOURCE_DIR}/cli/finalizers_do_not_block.py"
+    COMMAND ${PROTOJS_PYTHON} "${CMAKE_CURRENT_SOURCE_DIR}/cli/finalizers_do_not_block.py"
                     "${CMAKE_SOURCE_DIR}")
 
 # End-to-end coverage of the reworked teardown paths under a heap ceiling: seven
 # cases, each asserting the value its program computed and, where it can be
 # established, that collection really ran while the program waited. Takes about 2 s.
 add_test(NAME cli/blocking-joins-and-finalizers
-    COMMAND "${CMAKE_CURRENT_SOURCE_DIR}/cli/blocking-joins-and-finalizers.sh"
+    COMMAND ${PROTOJS_SH} "${CMAKE_CURRENT_SOURCE_DIR}/cli/blocking-joins-and-finalizers.sh"
             "$<TARGET_FILE:protojs>"
             "${CMAKE_CURRENT_BINARY_DIR}/cli-scratch/joins")
 

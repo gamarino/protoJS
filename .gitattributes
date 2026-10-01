@@ -1,0 +1,10 @@
+# Files whose line endings are part of their meaning stay LF in every checkout,
+# including Windows with core.autocrlf=true: bash rejects a script with CRLF
+# line endings, and a JavaScript template literal or test expectation spanning
+# lines would carry the CRs.
+*.sh   text eol=lf
+*.js   text eol=lf
+*.mjs  text eol=lf
+*.cjs  text eol=lf
+*.json text eol=lf
+*.py   text eol=lf

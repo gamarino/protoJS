@@ -14,8 +14,11 @@
              branch: CPACK_NSIS_EXTRA_INSTALL_COMMANDS). Before that, nothing in
              protoCore wrote this key and the search below could never succeed.
              A Windows DLL carries no soname, so Soversion is the only ABI
-             statement available and is what this condition tests.
-             UNVERIFIED: never built - no Windows host (D-I6). -->
+             statement available and is what this condition tests. protoCore
+             builds on Windows from 2.7.0, so any protoCore found here is one.
+             protojs.exe loads protoCore.dll by name: protoCore's bin\ must be
+             on PATH (its installer does not add it).
+             UNVERIFIED: never built - no WiX on the Windows host. -->
         <Property Id="PROTOCORE_SOVERSION">
             <RegistrySearch Id="ProtoCoreSoversionSearch" Root="HKLM"
                             Key="SOFTWARE\protoCore" Name="Soversion" Type="raw" />
@@ -32,7 +35,7 @@
         <!-- Windows Installer prefixes a raw REG_SZ search result with "#" in
              some cases, so both spellings are accepted; the Windows host task
              determines which one appears and simplifies this. -->
-        <Condition Message="ERROR: protoCore with ABI version 3 was not found. Install protoCore >= 2.2.0 before installing protoJS.">
+        <Condition Message="ERROR: protoCore with ABI version 3 was not found. Install protoCore >= 2.7.0 before installing protoJS.">
             <![CDATA[Installed OR PROTOCORE_SOVERSION = "#3" OR PROTOCORE_SOVERSION = "3"]]>
         </Condition>
 
@@ -54,6 +57,10 @@
         <ComponentGroup Id="ProductComponents" Directory="INSTALLFOLDER">
             <Component Id="protojs.exe" Guid="PUT-GUID-HERE-2" Win64="yes">
                 <File Id="protojs.exe" Source="protojs.exe" KeyPath="yes" />
+                <!-- OpenSSL 3, which protojs.exe links (cmake --install puts
+                     these two DLLs next to it). -->
+                <File Id="libcrypto.dll" Source="libcrypto-3-x64.dll" />
+                <File Id="libssl.dll" Source="libssl-3-x64.dll" />
             </Component>
         </ComponentGroup>
 
