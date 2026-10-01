@@ -43,9 +43,9 @@ Four language runtimes (protoJS, protoPython, protoST, protoClojure) and protoCp
 
 ## 📋 Requirements
 
-- A **C++20** compiler (the build uses GCC/Clang options such as `-rdynamic`)
+- A **C++20** compiler: GCC or Clang, or MSVC (Visual Studio 2022) on Windows
 - **CMake** 3.16 or later
-- The **protoCore** shared library (`libprotoCore`), built from source or installed under a prefix
+- The **protoCore** shared library, **2.7.0 or newer** (`libprotoCore`), built from source or installed under a prefix
 - **OpenSSL** (`libssl`, `libcrypto`), **pthread** and **libdl**, which `protojs` links against
 - For the unit tests: **Catch2** v3; if CMake does not find it, the build downloads v3.5.2 with `FetchContent`
 
@@ -68,7 +68,7 @@ cmake --install build --prefix "$HOME/.local"
 |---|---|---|
 | Linux | `DEB`, `RPM`, `TGZ` | DEB depends on `protocore`; RPM requires `protoCore` |
 | macOS | `DragNDrop` | — |
-| Windows | `NSIS`, `ZIP` | — |
+| Windows | `ZIP` (and `NSIS` when `makensis` is found) | — |
 
 Run `cpack` in the build directory (or `cmake --build build --target package`). With CPack's default file naming, the Linux packages are `protojs-0.1.0-Linux.deb`, `protojs-0.1.0-Linux.rpm` and `protojs-0.1.0-Linux.tar.gz`.
 
@@ -102,6 +102,13 @@ Useful configuration options:
 | `-DPROTO_CORE_PREFIX=<prefix>` | Use an installed protoCore (`<prefix>/lib` or `lib64`, and `<prefix>/include/protoCore.h`) instead of the sibling checkout |
 | `-DBUILD_TESTING=OFF` | Skip the unit-test executable and the Catch2 dependency |
 | `-DENABLE_COVERAGE=ON` | Compile with coverage instrumentation |
+
+On **Windows**, protoJS builds natively with Visual Studio 2022 (MSVC) against
+an installed protoCore package and runs scripts, `-e` and the REPL from
+`cmd.exe` or PowerShell; the steps, and what differs there (binary standard
+streams, drive-letter paths, `.dll` addons that link `protojs.lib`, no
+`cluster.fork()`), are in
+[docs/INSTALLATION.md — Windows (MSVC)](docs/INSTALLATION.md#windows-msvc).
 
 ---
 

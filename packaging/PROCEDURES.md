@@ -138,7 +138,7 @@ productbuild --package protoJS-core.pkg \
 
 ### 2.4 Windows (.msi)
 
-`protoJS.wxs.template` is a WiX v3 source for an x64 MSI that installs `protojs.exe` under `Program Files\protoJS`, adds that directory to `PATH`, and refuses to install unless the registry key `HKLM\SOFTWARE\protoCore` or the file `[ProgramFiles64Folder]protoCore\protoCore.dll` exists. Its GUID placeholders (`PUT-GUID-HERE-1` to `PUT-GUID-HERE-3`) must be replaced before use. The template cannot be used until protoJS builds on Windows, which the current build files do not support.
+`protoJS.wxs.template` is a WiX v3 source for an x64 MSI that installs `protojs.exe` under `Program Files\protoJS`, adds that directory to `PATH`, and refuses to install unless the registry key `HKLM\SOFTWARE\protoCore` or the file `[ProgramFiles64Folder]protoCore\protoCore.dll` exists. Its GUID placeholders (`PUT-GUID-HERE-1` to `PUT-GUID-HERE-3`) must be replaced before use. protoJS builds on Windows (see docs/INSTALLATION.md, "Windows (MSVC)"); the template asks for protoCore 2.7.0 and carries the OpenSSL DLLs `cmake --install` puts next to `protojs.exe`, but it has not been built (no WiX on the Windows host).
 
 ---
 

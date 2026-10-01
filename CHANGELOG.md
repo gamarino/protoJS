@@ -4,6 +4,43 @@ All notable changes to protoJS are documented in this file.
 
 ## [Unreleased]
 
+### Added — Windows (MSVC), 2026-10-01
+
+- **Native Windows build.** protoJS builds with Visual Studio 2022 (MSVC
+  19.44) against an installed protoCore 2.7.0 package; `protojs` runs
+  scripts, `-e` and the REPL natively and installs with `cmake --install`
+  (or `cpack -G ZIP`). 50 of 51 tests pass on Windows 11; the one left is a
+  protoJS bug Linux shares (a top-level binding lost to a collection at top
+  level), which Windows' timing hits every run. A 7,316-test Test262 subset
+  gives the same results as Linux test by test, except four tests that time
+  out on Linux. Every Windows difference is behind `WIN32` / `_MSC_VER`; on
+  Linux the suite and the warning count are as on master. See
+  docs/INSTALLATION.md, "Windows (MSVC)".
+- QuickJS (`deps/quickjs`) compiles with MSVC. Two enum bit-fields are
+  `uint8_t` there: MSVC reads an enum bit-field as signed, which made every
+  top-level binding read as `undefined` after its first use.
+- The interpreter dispatches through a switch under MSVC, which has no
+  computed goto; the dispatch table is one list (`PROTOJS_DISPATCH_TARGETS`)
+  either way.
+- `src/platform/`: the POSIX calls the runtime uses (files, paths, time,
+  sockets, processes, `dlopen`) on Windows, with the same contracts.
+- Native addons on Windows link `protojs.lib` and export
+  `protojs_native_module_info` with `PROTOJS_ADDON_EXPORT`.
+- `.gitattributes` keeps `*.sh`, `*.js`, `*.json` and `*.py` LF on every
+  platform.
+
+### Changed
+
+- **protoCore 2.7.0 is the floor** (it was 2.0). protoJS spells protoCore's
+  64-bit integers `proto::proto_long` / `proto::proto_ulong`, which protoCore
+  declares from 2.7.0; they are `long` / `unsigned long` on Linux and macOS,
+  so types and ABI there are unchanged. CI is pinned to protoCore v2.7.0.
+
+### Fixed
+
+- `ErrorHandler::getSystemErrorMessage` compiled only against glibc's GNU
+  `strerror_r`; it now takes the XSI signature of macOS and the BSDs too.
+
 ### Closures keep their own bindings; class constructors are closures (2026-09-28)
 
 Reported by a student: `new User('Tobias')` on a class exported by a required

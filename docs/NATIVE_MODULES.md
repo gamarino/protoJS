@@ -91,7 +91,7 @@ int init_impl(proto::ProtoContext* ctx, const proto::ProtoObject* module) {
 
 extern "C" {
 
-ProtoJSNativeModuleInfo protojs_native_module_info(
+PROTOJS_ADDON_EXPORT ProtoJSNativeModuleInfo protojs_native_module_info(
     PROTOJS_ABI_VERSION,
     "my_addon",
     "1.0.0",
@@ -116,6 +116,7 @@ console.log(m.sum(2, 3));
 - **Headers:** protoJS `src/` and the protoCore source directory with its `headers/` subdirectory. QuickJS headers are **not** needed: an ABI v2 addon contains no QuickJS type, and the two test addons are built without that include directory.
 - **Linking:** build a shared library and do not link QuickJS or protoCore into it; the protoCore symbols and the `protojs_*` helpers are resolved at load time from the `protojs` executable, which is linked with `-rdynamic` (`CMakeLists.txt`).
 - **File name:** the resolver looks for `<name>.so` (or `.node`, `.protojs`), not `lib<name>.so`. The test addons set `PREFIX ""` in CMake for this reason.
+- **Windows:** an addon is `<name>.dll`. A DLL cannot see the symbols of the program that loads it, so there an addon links `protojs.lib` (the import library of `protojs.exe`, installed in `<prefix>/lib`) and `protoCore.lib`, and must export its module information: declare it `PROTOJS_ADDON_EXPORT`, as above (the macro is empty on Linux and macOS). The `protojs_*` helpers are declared `PROTOJS_ABI_API`, which is `dllimport` in an addon.
 
 ## Reference
 
