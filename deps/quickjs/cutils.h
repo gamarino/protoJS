@@ -29,11 +29,44 @@
 #include <string.h>
 #include <inttypes.h>
 
+#if defined(_MSC_VER) && !defined(__clang__)
+/* protoJS: MSVC has neither GCC attributes nor its builtins. The attributes
+   used here are hints or diagnostics (format, unused, noinline), except
+   'packed', which the structs below get from #pragma pack instead. */
+#include <intrin.h>
+#include <malloc.h> /* alloca */
+#include <math.h>
+#include <time.h>
+#define likely(x)       (x)
+#define unlikely(x)     (x)
+#define force_inline __forceinline
+#define no_inline __declspec(noinline)
+#define __maybe_unused
+#define __attribute__(x)
+#define __attribute(x)
+/* <sys/time.h> is POSIX: the two callers in quickjs.c want the UTC time. */
+#ifndef _WINSOCKAPI_ /* winsock.h declares the same struct */
+struct timeval {
+    long tv_sec;
+    long tv_usec;
+};
+#endif
+static inline int gettimeofday(struct timeval *tv, void *tz)
+{
+    struct timespec ts;
+    (void)tz;
+    timespec_get(&ts, TIME_UTC);
+    tv->tv_sec = (long)ts.tv_sec;
+    tv->tv_usec = (long)(ts.tv_nsec / 1000);
+    return 0;
+}
+#else
 #define likely(x)       __builtin_expect(!!(x), 1)
 #define unlikely(x)     __builtin_expect(!!(x), 0)
 #define force_inline inline __attribute__((always_inline))
 #define no_inline __attribute__((noinline))
 #define __maybe_unused __attribute__((unused))
+#endif
 
 #define xglue(x, y) x ## y
 #define glue(x, y) xglue(x, y)
@@ -128,27 +161,54 @@ static inline int64_t min_int64(int64_t a, int64_t b)
 /* WARNING: undefined if a = 0 */
 static inline int clz32(unsigned int a)
 {
+#if defined(_MSC_VER) && !defined(__clang__)
+    unsigned long i;
+    _BitScanReverse(&i, a);
+    return 31 - (int)i;
+#else
     return __builtin_clz(a);
+#endif
 }
 
 /* WARNING: undefined if a = 0 */
 static inline int clz64(uint64_t a)
 {
+#if defined(_MSC_VER) && !defined(__clang__)
+    unsigned long i;
+    _BitScanReverse64(&i, a);
+    return 63 - (int)i;
+#else
     return __builtin_clzll(a);
+#endif
 }
 
 /* WARNING: undefined if a = 0 */
 static inline int ctz32(unsigned int a)
 {
+#if defined(_MSC_VER) && !defined(__clang__)
+    unsigned long i;
+    _BitScanForward(&i, a);
+    return (int)i;
+#else
     return __builtin_ctz(a);
+#endif
 }
 
 /* WARNING: undefined if a = 0 */
 static inline int ctz64(uint64_t a)
 {
+#if defined(_MSC_VER) && !defined(__clang__)
+    unsigned long i;
+    _BitScanForward64(&i, a);
+    return (int)i;
+#else
     return __builtin_ctzll(a);
+#endif
 }
 
+#if defined(_MSC_VER) && !defined(__clang__)
+#pragma pack(push, 1)
+#endif
 struct __attribute__((packed)) packed_u64 {
     uint64_t v;
 };
@@ -160,6 +220,9 @@ struct __attribute__((packed)) packed_u32 {
 struct __attribute__((packed)) packed_u16 {
     uint16_t v;
 };
+#if defined(_MSC_VER) && !defined(__clang__)
+#pragma pack(pop)
+#endif
 
 static inline uint64_t get_u64(const uint8_t *tab)
 {

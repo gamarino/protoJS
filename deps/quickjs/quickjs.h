@@ -47,6 +47,15 @@ extern "C" {
 
 #define JS_BOOL int
 
+/* protoJS: a cast between JSValue and JSValueConst. The two differ only under
+   CONFIG_CHECK_JSVALUE; elsewhere the cast is to the same struct type, which
+   GCC and Clang accept but MSVC rejects, so there the value is used as is. */
+#if defined(_MSC_VER) && !defined(__clang__) && !defined(CONFIG_CHECK_JSVALUE)
+#define JS_CAST_VALUE(type, v) (v)
+#else
+#define JS_CAST_VALUE(type, v) ((type)(v))
+#endif
+
 typedef struct JSRuntime JSRuntime;
 typedef struct JSContext JSContext;
 typedef struct JSClass JSClass;
@@ -241,12 +250,42 @@ typedef struct JSValue {
 #define JS_VALUE_GET_SHORT_BIG_INT(v) ((v).u.short_big_int)
 #define JS_VALUE_GET_PTR(v) ((v).u.ptr)
 
+#if defined(__cplusplus) && defined(_MSC_VER) && !defined(__clang__)
+/* protoJS: MSVC's C++ has no compound literals; these build the same values. */
+#include <math.h> /* NAN */
+static inline JSValue JS_MKVAL_msvc(int64_t tag, int32_t val)
+{
+    JSValue v;
+    v.u.ptr = 0;
+    v.u.int32 = val;
+    v.tag = tag;
+    return v;
+}
+static inline JSValue JS_MKPTR_msvc(int64_t tag, void *p)
+{
+    JSValue v;
+    v.u.ptr = p;
+    v.tag = tag;
+    return v;
+}
+static inline JSValue JS_NAN_msvc(void)
+{
+    JSValue v;
+    v.u.float64 = JS_FLOAT64_NAN;
+    v.tag = JS_TAG_FLOAT64;
+    return v;
+}
+#define JS_MKVAL(tag, val) JS_MKVAL_msvc(tag, val)
+#define JS_MKPTR(tag, p) JS_MKPTR_msvc(tag, p)
+#define JS_NAN JS_NAN_msvc()
+#else
 #define JS_MKVAL(tag, val) (JSValue){ (JSValueUnion){ .int32 = val }, tag }
 #define JS_MKPTR(tag, p) (JSValue){ (JSValueUnion){ .ptr = p }, tag }
 
-#define JS_TAG_IS_FLOAT64(tag) ((unsigned)(tag) == JS_TAG_FLOAT64)
-
 #define JS_NAN (JSValue){ .u.float64 = JS_FLOAT64_NAN, JS_TAG_FLOAT64 }
+#endif
+
+#define JS_TAG_IS_FLOAT64(tag) ((unsigned)(tag) == JS_TAG_FLOAT64)
 
 static inline JSValue __JS_NewFloat64(JSContext *ctx, double d)
 {
@@ -701,7 +740,7 @@ static inline JSValue JS_DupValue(JSContext *ctx, JSValueConst v)
         JSRefCountHeader *p = (JSRefCountHeader *)JS_VALUE_GET_PTR(v);
         p->ref_count++;
     }
-    return (JSValue)v;
+    return JS_CAST_VALUE(JSValue, v);
 }
 
 static inline JSValue JS_DupValueRT(JSRuntime *rt, JSValueConst v)
@@ -710,7 +749,7 @@ static inline JSValue JS_DupValueRT(JSRuntime *rt, JSValueConst v)
         JSRefCountHeader *p = (JSRefCountHeader *)JS_VALUE_GET_PTR(v);
         p->ref_count++;
     }
-    return (JSValue)v;
+    return JS_CAST_VALUE(JSValue, v);
 }
 
 JS_BOOL JS_StrictEq(JSContext *ctx, JSValueConst op1, JSValueConst op2);
