@@ -1,5 +1,5 @@
 #include "DynamicLibraryLoader.h"
-#include <dlfcn.h>
+#include "../platform/DynamicLibrary.h"
 #include <iostream>
 
 namespace protojs {

@@ -3,15 +3,23 @@
 #include "../ArrayElementsStorage.h"
 #include "../ArrayPrototype.h"
 #include <cstdlib>
+#if defined(_WIN32)
+#include "../platform/Posix.h"
+#else
 #include <unistd.h>
 #include <sys/utsname.h>
+#endif
 #include <limits.h>
 #include <string>
+#include <vector>
+#include <cwchar>
 
+#if !defined(_WIN32)
 // `environ` is the POSIX env-variable table; it lives in the global
 // (libc) namespace, so the extern must be declared OUTSIDE protojs's
 // anonymous namespace or the linker resolves it as a private symbol.
 extern char** environ;
+#endif
 
 namespace protojs {
 
@@ -22,6 +30,9 @@ namespace {
 // every getter call.
 std::string& cachedPlatform() {
     static std::string s = []() -> std::string {
+#if defined(_WIN32)
+        return "win32";
+#else
         struct utsname uts;
         if (uname(&uts) != 0) return "unknown";
         std::string sysname(uts.sysname);
@@ -30,12 +41,24 @@ std::string& cachedPlatform() {
         if (sysname.find("WIN") != std::string::npos ||
             sysname == "Windows") return "win32";
         return sysname;
+#endif
     }();
     return s;
 }
 
 std::string& cachedArch() {
     static std::string s = []() -> std::string {
+#if defined(_WIN32)
+        SYSTEM_INFO si;
+        ::GetNativeSystemInfo(&si);
+        switch (si.wProcessorArchitecture) {
+            case PROCESSOR_ARCHITECTURE_AMD64: return "x64";
+            case PROCESSOR_ARCHITECTURE_ARM64: return "arm64";
+            case PROCESSOR_ARCHITECTURE_INTEL: return "ia32";
+            case PROCESSOR_ARCHITECTURE_ARM:   return "arm";
+            default:                           return "unknown";
+        }
+#else
         struct utsname uts;
         if (uname(&uts) != 0) return "unknown";
         std::string machine(uts.machine);
@@ -43,6 +66,7 @@ std::string& cachedArch() {
         if (machine == "i386" || machine == "i686")    return "ia32";
         if (machine.find("arm") != std::string::npos)   return "arm";
         return machine;
+#endif
     }();
     return s;
 }
@@ -54,10 +78,18 @@ const proto::ProtoObject* processCwd(
     const proto::ProtoList* /*args*/,
     const proto::ProtoSparseList*) {
     if (!ctx) return PROTO_NONE;
+#if defined(_WIN32)
+    if (wchar_t* wd = ::_wgetcwd(nullptr, 0)) {
+        const std::string cwd = platform::narrow(wd);
+        std::free(wd);
+        return ctx->fromUTF8String(cwd.c_str());
+    }
+#else
     char buf[PATH_MAX];
     if (getcwd(buf, sizeof(buf)) != nullptr) {
         return ctx->fromUTF8String(buf);
     }
+#endif
     return ctx->fromUTF8String("");
 }
 
@@ -123,10 +155,24 @@ const proto::ProtoObject* buildEnvObject(proto::ProtoContext* ctx) {
     if (!ctx) return PROTO_NONE;
     const proto::ProtoObject* env = ctx->newObject(/*mutable=*/true);
     if (!env) return PROTO_NONE;
+#if defined(_WIN32)
+    // The environment block in UTF-16, converted to protoJS's UTF-8. Entries
+    // whose name starts with '=' are the per-drive current directories.
+    std::vector<std::string> entries;
+    if (wchar_t* block = ::GetEnvironmentStringsW()) {
+        for (const wchar_t* p = block; *p; p += std::wcslen(p) + 1)
+            entries.push_back(platform::narrow(p));
+        ::FreeEnvironmentStringsW(block);
+    }
+    for (const std::string& entry : entries) {
+        size_t eq = entry.find('=');
+        if (eq == std::string::npos || eq == 0) continue;
+#else
     for (char** e = environ; e && *e; ++e) {
         std::string entry(*e);
         size_t eq = entry.find('=');
         if (eq == std::string::npos) continue;
+#endif
         std::string key = entry.substr(0, eq);
         std::string val = entry.substr(eq + 1);
         const proto::ProtoString* k =

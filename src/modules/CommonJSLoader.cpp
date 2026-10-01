@@ -436,7 +436,7 @@ JSValue CommonJSLoader::require(
     }
     
     // JavaScript module: read source and evaluate
-    std::ifstream file(resolved.filePath);
+    std::ifstream file(resolved.filePath, std::ios::binary);
     if (!file.is_open()) {
         return JS_ThrowTypeError(ctx, "%s", ("Cannot open module: " + resolved.filePath).c_str());
     }
@@ -617,7 +617,7 @@ static const proto::ProtoObject* executeFileModuleNative(
         }
     }
 
-    std::ifstream file(filePath);
+    std::ifstream file(filePath, std::ios::binary);
     if (!file.is_open()) {
         throwModuleError(pCtx, "Error", "Cannot open module '" + filePath + "'");
         return PROTO_NONE;

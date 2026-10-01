@@ -3,11 +3,12 @@
 #include "../../FunctionPrototype.h"
 #include "../../JSSymbols.h"
 #include "../../runtime/ProtoInterpreter.h"
-#include <sys/socket.h>
-#include <netinet/in.h>
-#include <arpa/inet.h>
+#include "../../platform/Sockets.h"
+#if defined(_WIN32)
+#include <iphlpapi.h> // if_nametoindex
+#else
 #include <net/if.h>
-#include <unistd.h>
+#endif
 #include <cstring>
 #include <string>
 
@@ -122,7 +123,7 @@ const proto::ProtoObject* socketCloseImpl(
     const proto::ProtoSparseList*) {
     int fd = getFd(ctx, self);
     if (fd >= 0) {
-        ::close(fd);
+        platform::closeSocket(fd);
         if (self) self->setAttribute(ctx, fdKey(ctx), ctx->fromInteger(-1));
     }
     return PROTO_NONE;
@@ -168,7 +169,7 @@ const proto::ProtoObject* socketAddMembershipImpl(
             mreq6.ipv6mr_interface = idx;
         }
         if (setsockopt(fd, IPPROTO_IPV6, IPV6_JOIN_GROUP,
-                        &mreq6, sizeof(mreq6)) != 0) {
+                        reinterpret_cast<const char*>(&mreq6), sizeof(mreq6)) != 0) {
             return PROTO_FALSE;
         }
         return PROTO_TRUE;
@@ -189,7 +190,7 @@ const proto::ProtoObject* socketAddMembershipImpl(
         return PROTO_NONE;
     }
     if (setsockopt(fd, IPPROTO_IP, IP_ADD_MEMBERSHIP,
-                    &mreq, sizeof(mreq)) != 0) {
+                    reinterpret_cast<const char*>(&mreq), sizeof(mreq)) != 0) {
         return PROTO_FALSE;
     }
     return PROTO_TRUE;
@@ -204,7 +205,7 @@ const proto::ProtoObject* socketSetBroadcastImpl(
     int fd = getFd(ctx, self);
     if (fd < 0 || !args || args->getSize(ctx) == 0) return PROTO_FALSE;
     int on = (args->getAt(ctx, 0) == PROTO_TRUE) ? 1 : 0;
-    return (setsockopt(fd, SOL_SOCKET, SO_BROADCAST, &on, sizeof(on)) == 0)
+    return (setsockopt(fd, SOL_SOCKET, SO_BROADCAST, reinterpret_cast<const char*>(&on), sizeof(on)) == 0)
         ? PROTO_TRUE : PROTO_FALSE;
 }
 

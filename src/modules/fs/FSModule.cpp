@@ -11,9 +11,7 @@
 #include <filesystem>
 #include <fstream>
 #include <sstream>
-#include <dirent.h>
-#include <sys/stat.h>
-#include <unistd.h>
+#include "../../platform/Posix.h"
 #include <cstdio>
 #include <stdexcept>
 #include <string>
@@ -45,7 +43,7 @@ const proto::ProtoObject* argAt(proto::ProtoContext* ctx,
 
 // Build a `Stats`-like object matching Node's minimal surface.
 const proto::ProtoObject* buildStatsObject(proto::ProtoContext* ctx,
-                                            const struct stat& st) {
+                                            const platform::StatBuf& st) {
     const proto::ProtoObject* obj = ctx->newObject(/*mutable=*/true);
     auto setI = [&](const char* k, long long v) {
         const proto::ProtoString* sk = ctx->fromUTF8String(k)->asString(ctx);
@@ -204,8 +202,8 @@ const proto::ProtoObject* promisesStat(
     std::string path;
     if (!argString(ctx, args, 0, path)) return PROTO_NONE;
     return runAsync(ctx, [path]() {
-        struct stat st;
-        if (stat(path.c_str(), &st) != 0) {
+        platform::StatBuf st;
+        if (platform::statPath(path.c_str(), &st) != 0) {
             throw std::runtime_error("Cannot stat file: " + path);
         }
         return [st](proto::ProtoContext* c) -> const proto::ProtoObject* {
@@ -304,8 +302,8 @@ const proto::ProtoObject* statSyncImpl(
     const proto::ProtoSparseList*) {
     std::string path;
     if (!argString(ctx, args, 0, path)) return PROTO_NONE;
-    struct stat st;
-    if (stat(path.c_str(), &st) != 0) return PROTO_NONE;
+    platform::StatBuf st;
+    if (platform::statPath(path.c_str(), &st) != 0) return PROTO_NONE;
     return buildStatsObject(ctx, st);
 }
 
@@ -317,7 +315,7 @@ const proto::ProtoObject* unlinkSyncImpl(
     const proto::ProtoSparseList*) {
     std::string path;
     if (!argString(ctx, args, 0, path)) return PROTO_FALSE;
-    if (unlink(path.c_str()) != 0) return PROTO_FALSE;
+    if (platform::unlinkPath(path.c_str()) != 0) return PROTO_FALSE;
     return PROTO_NONE;
 }
 
@@ -329,7 +327,7 @@ const proto::ProtoObject* rmdirSyncImpl(
     const proto::ProtoSparseList*) {
     std::string path;
     if (!argString(ctx, args, 0, path)) return PROTO_FALSE;
-    if (rmdir(path.c_str()) != 0) return PROTO_FALSE;
+    if (platform::rmdirPath(path.c_str()) != 0) return PROTO_FALSE;
     return PROTO_NONE;
 }
 

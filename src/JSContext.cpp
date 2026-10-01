@@ -24,6 +24,7 @@
 #include <iostream>
 #include <fstream>
 #include <sstream>
+#include "platform/Posix.h"
 
 namespace protojs {
 
@@ -33,7 +34,7 @@ namespace protojs {
  */
 static char* protojs_normalize_module(JSContext* ctx, const char* base_name,
                                       const char* name, void* /*opaque*/) {
-    if (name[0] == '/') {
+    if (platform::isAbsolutePath(name)) {
         // Already absolute — canonicalize in place.
         char buf[PATH_MAX];
         if (realpath(name, buf)) return js_strdup(ctx, buf);
@@ -41,7 +42,7 @@ static char* protojs_normalize_module(JSContext* ctx, const char* base_name,
     }
     std::string base(base_name ? base_name : "");
     std::string joined;
-    size_t slash = base.rfind('/');
+    size_t slash = base.find_last_of(platform::kPathSeparators);
     if (slash != std::string::npos) {
         joined = base.substr(0, slash + 1) + name;
     } else {
@@ -62,7 +63,7 @@ static char* protojs_normalize_module(JSContext* ctx, const char* base_name,
  */
 static JSModuleDef* protojs_load_module(JSContext* ctx, const char* module_name,
                                         void* /*opaque*/) {
-    std::ifstream file(module_name);
+    std::ifstream file(module_name, std::ios::binary);
     if (!file.is_open()) {
         JS_ThrowReferenceError(ctx, "could not load module '%s'", module_name);
         return nullptr;

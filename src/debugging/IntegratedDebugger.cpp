@@ -7,10 +7,7 @@
 #include <sstream>
 #include <iostream>
 #include <string>
-#include <sys/socket.h>
-#include <netinet/in.h>
-#include <arpa/inet.h>
-#include <unistd.h>
+#include "../platform/Sockets.h"
 #include <cstring>
 
 namespace protojs {
@@ -213,14 +210,14 @@ void IntegratedDebugger::cdpServerThread(int port) {
     int serverSocket = socket(AF_INET, SOCK_STREAM, 0);
     if (serverSocket < 0) return;
     int opt = 1;
-    setsockopt(serverSocket, SOL_SOCKET, SO_REUSEADDR, &opt, sizeof(opt));
+    setsockopt(serverSocket, SOL_SOCKET, SO_REUSEADDR, reinterpret_cast<const char*>(&opt), sizeof(opt));
     sockaddr_in address{};
     address.sin_family = AF_INET;
     address.sin_addr.s_addr = INADDR_ANY;
     address.sin_port = htons(port);
     if (bind(serverSocket, reinterpret_cast<sockaddr*>(&address),
              sizeof(address)) < 0 || listen(serverSocket, 1) < 0) {
-        close(serverSocket);
+        platform::closeSocket(serverSocket);
         return;
     }
     while (serverRunning.load()) {
@@ -237,9 +234,9 @@ void IntegratedDebugger::cdpServerThread(int port) {
             std::string response = processCDPRequest("", message);
             send(clientSocket, response.c_str(), response.length(), 0);
         }
-        close(clientSocket);
+        platform::closeSocket(clientSocket);
     }
-    close(serverSocket);
+    platform::closeSocket(serverSocket);
 }
 
 std::string IntegratedDebugger::processCDPRequest(const std::string&,

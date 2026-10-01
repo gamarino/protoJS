@@ -27,6 +27,7 @@
 #include <limits>
 #include <sstream>
 #include <string>
+#include "platform/Posix.h"
 
 namespace protojs {
 
@@ -594,7 +595,7 @@ static double parseDateString(const std::string& s) {
         epoch = timegm(&tmv);
     } else {
         tmv.tm_isdst = -1;
-        epoch = mktime(&tmv);
+        epoch = platform::mktime(&tmv);
     }
     if (epoch == static_cast<std::time_t>(-1)) return std::nan("");
     double t = static_cast<double>(epoch) * 1000.0 + ms;
@@ -794,7 +795,7 @@ static const proto::ProtoObject* dateCtorCall(proto::ProtoContext* ctx,
             tmv.tm_min  = static_cast<int>(min);
             tmv.tm_sec  = static_cast<int>(sec);
             tmv.tm_isdst = -1;
-            std::time_t epoch = mktime(&tmv);
+            std::time_t epoch = platform::mktime(&tmv);
             if (epoch == static_cast<std::time_t>(-1)) {
                 t = std::nan("");
             } else {
@@ -1079,7 +1080,7 @@ static double composeTime(const std::tm& tmIn, int ms, bool utc) {
         epoch = timegm(&tm);
     } else {
         tm.tm_isdst = -1;  // let mktime infer DST
-        epoch = mktime(&tm);
+        epoch = platform::mktime(&tm);
     }
     if (epoch == static_cast<std::time_t>(-1)) return std::nan("");
     return static_cast<double>(epoch) * 1000.0 + static_cast<double>(ms);

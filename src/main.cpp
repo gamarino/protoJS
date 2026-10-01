@@ -41,6 +41,26 @@
 #include <chrono>
 #include <vector>
 
+#if defined(_WIN32)
+#include <fcntl.h>
+#include <io.h>
+#include <windows.h>
+#endif
+
+// Windows: the standard streams carry exactly the bytes the program writes, as
+// on Linux and macOS (no "\n" -> "\r\n" translation), and a console shows and
+// reads them as UTF-8. The process code page is UTF-8 through the manifest
+// (src/windows/utf8.manifest), so argv, getenv and paths are UTF-8 too.
+static void prepareStandardStreams() {
+#if defined(_WIN32)
+    _setmode(_fileno(stdin), _O_BINARY);
+    _setmode(_fileno(stdout), _O_BINARY);
+    _setmode(_fileno(stderr), _O_BINARY);
+    SetConsoleOutputCP(CP_UTF8);
+    SetConsoleCP(CP_UTF8);
+#endif
+}
+
 // JSON.stringify / JSON.parse polyfill, prepended to user code in the
 // protoCore eval path.  ProtoInterpreter installs an empty `JSON` stub
 // on the protoCore-side global; QuickJS's native JSON is not plumbed
@@ -244,6 +264,7 @@ void printUsage(const char* programName) {
 }
 
 int main(int argc, char** argv) {
+    prepareStandardStreams();
     if (argc < 2) {
         printUsage(argv[0]);
         return 1;
@@ -293,7 +314,7 @@ int main(int argc, char** argv) {
             preloadFiles.push_back(argv[++i]);
         } else if (arg[0] != '-') {
             filename = arg;
-            std::ifstream file(filename);
+            std::ifstream file(filename, std::ios::binary);
             if (!file.is_open()) {
                 std::cerr << "Could not open file: " << filename << std::endl;
                 return 1;
@@ -374,7 +395,7 @@ int main(int argc, char** argv) {
 
     // Evaluate preload files as scripts to set up globals (e.g., harness for test262).
     for (const auto& preload : preloadFiles) {
-        std::ifstream pf(preload);
+        std::ifstream pf(preload, std::ios::binary);
         if (!pf.is_open()) {
             std::cerr << "Could not open preload file: " << preload << std::endl;
             return 1;

@@ -7,6 +7,7 @@
 #include <algorithm>
 #include <mutex>
 #include <future>
+#include "../platform/Posix.h"
 
 namespace protojs {
 

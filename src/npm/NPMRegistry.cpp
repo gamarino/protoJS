@@ -1,11 +1,7 @@
 #include "NPMRegistry.h"
 #include "Semver.h"
 #include "JsonParser.h"
-#include <sys/socket.h>
-#include <netinet/in.h>
-#include <arpa/inet.h>
-#include <netdb.h>
-#include <unistd.h>
+#include "../platform/Sockets.h"
 #include <sstream>
 #include <fstream>
 #include <filesystem>
@@ -51,7 +47,7 @@ namespace {
         ~TlsConn() {
             if (ssl) { SSL_shutdown(ssl); SSL_free(ssl); }
             if (ctx) SSL_CTX_free(ctx);
-            if (sock >= 0) close(sock);
+            if (sock >= 0) platform::closeSocket(sock);
         }
     };
 
@@ -66,7 +62,7 @@ namespace {
         addr.sin_port = htons(static_cast<uint16_t>(port));
         memcpy(&addr.sin_addr, he->h_addr_list[0], static_cast<size_t>(he->h_length));
         if (connect(out.sock, reinterpret_cast<struct sockaddr*>(&addr), sizeof(addr)) < 0) {
-            close(out.sock);
+            platform::closeSocket(out.sock);
             out.sock = -1;
             return false;
         }
@@ -98,13 +94,13 @@ namespace {
         addr.sin_port = htons(static_cast<uint16_t>(port));
         memcpy(&addr.sin_addr, he->h_addr_list[0], static_cast<size_t>(he->h_length));
         if (connect(sock, reinterpret_cast<struct sockaddr*>(&addr), sizeof(addr)) < 0) {
-            close(sock);
+            platform::closeSocket(sock);
             return "";
         }
         std::ostringstream req;
         req << "GET " << path << " HTTP/1.1\r\nHost: " << host << "\r\nUser-Agent: protoJS/0.6.0\r\nAccept: application/json\r\nConnection: close\r\n\r\n";
         std::string reqStr = req.str();
-        if (send(sock, reqStr.c_str(), reqStr.size(), 0) < 0) { close(sock); return ""; }
+        if (send(sock, reqStr.c_str(), reqStr.size(), 0) < 0) { platform::closeSocket(sock); return ""; }
         std::string response;
         char buf[4096];
         ssize_t n;
@@ -112,7 +108,7 @@ namespace {
             buf[n] = '\0';
             response += buf;
         }
-        close(sock);
+        platform::closeSocket(sock);
         size_t bodyStart = response.find("\r\n\r\n");
         if (bodyStart != std::string::npos) return response.substr(bodyStart + 4);
         return response;
@@ -235,14 +231,14 @@ bool NPMRegistry::httpDownload(const std::string& url, const std::string& target
     int sock = socket(AF_INET, SOCK_STREAM, 0);
     if (sock < 0) return false;
     struct hostent* he = gethostbyname(host.c_str());
-    if (!he) { close(sock); return false; }
+    if (!he) { platform::closeSocket(sock); return false; }
     struct sockaddr_in addr;
     memset(&addr, 0, sizeof(addr));
     addr.sin_family = AF_INET;
     addr.sin_port = htons(static_cast<uint16_t>(port));
     memcpy(&addr.sin_addr, he->h_addr_list[0], static_cast<size_t>(he->h_length));
-    if (connect(sock, reinterpret_cast<struct sockaddr*>(&addr), sizeof(addr)) < 0) { close(sock); return false; }
-    if (send(sock, reqStr.c_str(), reqStr.size(), 0) < 0) { close(sock); return false; }
+    if (connect(sock, reinterpret_cast<struct sockaddr*>(&addr), sizeof(addr)) < 0) { platform::closeSocket(sock); return false; }
+    if (send(sock, reqStr.c_str(), reqStr.size(), 0) < 0) { platform::closeSocket(sock); return false; }
     std::string headers;
     char buf[4096];
     ssize_t n;
@@ -254,7 +250,7 @@ bool NPMRegistry::httpDownload(const std::string& url, const std::string& target
             size_t bodyStart = sep + 4;
             size_t contentLength = parseContentLength(headers.substr(0, sep));
             std::ofstream f(targetPath, std::ios::binary);
-            if (!f) { close(sock); return false; }
+            if (!f) { platform::closeSocket(sock); return false; }
             std::string body = headers.substr(bodyStart);
             size_t totalReceived = body.size();
             f.write(body.c_str(), body.size());
@@ -266,11 +262,11 @@ bool NPMRegistry::httpDownload(const std::string& url, const std::string& target
                 totalReceived += static_cast<size_t>(n);
                 progress(totalReceived, contentLength > 0 ? contentLength : 0);
             }
-            close(sock);
+            platform::closeSocket(sock);
             return true;
         }
     }
-    close(sock);
+    platform::closeSocket(sock);
     return false;
 }
 

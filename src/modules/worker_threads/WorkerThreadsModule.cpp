@@ -784,7 +784,7 @@ void workerThreadEntry(WorkerState* state) {
     // Read and eval the file.  Eval is QuickJS-side here because the
     // wrapper.eval entry point is still the QuickJS eval; protoCore
     // path is selected via setUseProtoEval(true) (already done).
-    std::ifstream file(state->filename);
+    std::ifstream file(state->filename, std::ios::binary);
     if (!file.is_open()) {
         emitOnWorker(state->mainWrapper, state->workerPin, "error",
                      "Cannot open file: " + state->filename, true);

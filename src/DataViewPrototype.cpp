@@ -4,6 +4,7 @@
 #include "protoCore.h"
 #include <cstring>
 #include <cstdint>
+#include <cstdlib>
 
 namespace protojs {
 
@@ -58,8 +59,14 @@ static long long dvGetByteOffset(proto::ProtoContext* ctx, const proto::ProtoLis
 
 // Byte-swap helpers.
 static uint16_t bswap16(uint16_t v) { return static_cast<uint16_t>((v >> 8) | (v << 8)); }
+#if defined(_MSC_VER) && !defined(__clang__)
+// <cstdlib> declares the byte-swap intrinsics.
+static uint32_t bswap32(uint32_t v) { return _byteswap_ulong(v); }
+static uint64_t bswap64(uint64_t v) { return _byteswap_uint64(v); }
+#else
 static uint32_t bswap32(uint32_t v) { return __builtin_bswap32(v); }
 static uint64_t bswap64(uint64_t v) { return __builtin_bswap64(v); }
+#endif
 
 // ---- get methods --------------------------------------------------------
 static const proto::ProtoObject* dv_getInt8(

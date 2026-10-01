@@ -4,6 +4,7 @@
 #include <cstring>
 #include <cerrno>
 #include <functional>
+#include "platform/Posix.h"
 
 namespace protojs {
 

@@ -13,11 +13,10 @@
 #include "../../runtime/ProtoBytecodeModule.h"
 #include "../buffer/BufferModule.h"
 #include "../events/EventsModule.h"
-#include <sys/socket.h>
-#include <netinet/in.h>
-#include <arpa/inet.h>
-#include <unistd.h>
+#include "../../platform/Sockets.h"
+#if !defined(_WIN32)
 #include <fcntl.h>
+#endif
 #include <atomic>
 #include <thread>
 #include <string>
@@ -221,7 +220,7 @@ bool requestServerTeardown(ServerState* s) {
     bool wasListening = s->listening.exchange(false);
     s->closed.store(true);
     int fd = s->socketFd.exchange(-1);
-    if (fd >= 0) { ::shutdown(fd, SHUT_RDWR); ::close(fd); }
+    if (fd >= 0) { ::shutdown(fd, SHUT_RDWR); platform::closeSocket(fd); }
     return wasListening;
 }
 
@@ -241,7 +240,7 @@ bool requestSocketTeardown(SocketState* s) {
     bool wasReading = s->connected.exchange(false);
     s->destroyed.store(true);
     int fd = s->socketFd.exchange(-1);
-    if (fd >= 0) { ::shutdown(fd, SHUT_RDWR); ::close(fd); }
+    if (fd >= 0) { ::shutdown(fd, SHUT_RDWR); platform::closeSocket(fd); }
     return wasReading;
 }
 
@@ -430,7 +429,7 @@ const proto::ProtoObject* socketWriteImpl(
     ssize_t sent;
     {
         proto::ProtoContext::UnmanagedScope u(ctx);
-        sent = ::send(fd, bytes.data(), bytes.size(), 0);
+        sent = ::send(fd, reinterpret_cast<const char*>(bytes.data()), bytes.size(), 0);
     }
     return (sent > 0) ? PROTO_TRUE : PROTO_FALSE;
 }
@@ -528,7 +527,7 @@ const proto::ProtoObject* socketConnectImpl(
         addr.sin_addr.s_addr = htonl(INADDR_LOOPBACK);
     }
     if (::connect(fd, reinterpret_cast<sockaddr*>(&addr), sizeof(addr)) < 0) {
-        ::close(fd);
+        platform::closeSocket(fd);
         return self;
     }
     s->socketFd.store(fd);
@@ -766,23 +765,27 @@ const proto::ProtoObject* serverListenImpl(
 
     int fd = ::socket(AF_INET, SOCK_STREAM, 0);
     if (fd < 0) return self;
+#if !defined(_WIN32)
+    // On Windows SO_REUSEADDR would let a second server take a port in use;
+    // reusing a port in TIME_WAIT, what it buys here, is Windows' default.
     int opt = 1;
     ::setsockopt(fd, SOL_SOCKET, SO_REUSEADDR, &opt, sizeof(opt));
+#endif
     sockaddr_in addr{};
     addr.sin_family = AF_INET;
     addr.sin_port = htons(static_cast<uint16_t>(port));
     if (host == "0.0.0.0" || host.empty()) {
         addr.sin_addr.s_addr = INADDR_ANY;
     } else if (inet_pton(AF_INET, host.c_str(), &addr.sin_addr) <= 0) {
-        ::close(fd);
+        platform::closeSocket(fd);
         return self;
     }
     if (::bind(fd, reinterpret_cast<sockaddr*>(&addr), sizeof(addr)) < 0) {
-        ::close(fd);
+        platform::closeSocket(fd);
         return self;
     }
     if (::listen(fd, 128) < 0) {
-        ::close(fd);
+        platform::closeSocket(fd);
         return self;
     }
     // If port=0 was requested, recover the OS-assigned port.
@@ -824,25 +827,25 @@ const proto::ProtoObject* serverListenImpl(
                     JSContextWrapper::CurrentScope ws(wrapper);
                     proto::ProtoContext* mctx = wrapper->getProtoContext();
                     if (!mctx) {
-                        ::close(cfd);
+                        platform::closeSocket(cfd);
                         return;
                     }
                     proto::ProtoRootSet* rs = wrapper->getRootSet();
                     const proto::ProtoObject* server =
                         rs ? rs->resolve(pin) : nullptr;
                     if (!server || server == PROTO_NONE) {
-                        ::close(cfd);
+                        platform::closeSocket(cfd);
                         return;
                     }
                     const proto::ProtoObject* sock = makeSocketInstance(
                         wrapper, mctx, wrapper->getNativeGlobal());
                     if (!sock || sock == PROTO_NONE) {
-                        ::close(cfd);
+                        platform::closeSocket(cfd);
                         return;
                     }
                     SocketState* sst = getSocketState(mctx, sock);
                     if (!sst) {
-                        ::close(cfd);
+                        platform::closeSocket(cfd);
                         return;
                     }
                     sst->socketFd.store(cfd);

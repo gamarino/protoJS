@@ -40,7 +40,7 @@ JSValue ESModuleLoader::loadModule(
     }
     
     // Read source
-    std::ifstream file(resolved.filePath);
+    std::ifstream file(resolved.filePath, std::ios::binary);
     if (!file.is_open()) {
         return JS_ThrowTypeError(ctx, "%s", ("Cannot open module: " + resolved.filePath).c_str());
     }

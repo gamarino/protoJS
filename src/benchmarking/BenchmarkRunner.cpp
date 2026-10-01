@@ -5,8 +5,13 @@
 #include <cstdlib>
 #include <cmath>
 #include <algorithm>
+#if defined(_WIN32)
+#include "../platform/Posix.h"
+#include <psapi.h>
+#else
 #include <sys/resource.h>
 #include <unistd.h>
+#endif
 
 namespace protojs {
 
@@ -224,11 +229,20 @@ double BenchmarkRunner::executeBenchmark(const std::string& scriptPath, const st
 }
 
 size_t BenchmarkRunner::getMemoryUsage() {
+#if defined(_WIN32)
+    // Peak working set: the counterpart of ru_maxrss.
+    PROCESS_MEMORY_COUNTERS pmc;
+    if (::GetProcessMemoryInfo(::GetCurrentProcess(), &pmc, sizeof(pmc))) {
+        return static_cast<size_t>(pmc.PeakWorkingSetSize);
+    }
+    return 0;
+#else
     struct rusage usage;
     if (getrusage(RUSAGE_SELF, &usage) == 0) {
         return usage.ru_maxrss * 1024; // Convert KB to bytes
     }
     return 0;
+#endif
 }
 
 std::vector<std::string> BenchmarkRunner::detectRegressions(const std::vector<BenchmarkResult>& current, const std::vector<BenchmarkResult>& baseline, double thresholdPercent) {

@@ -7,9 +7,7 @@
 #include "../../JSContext.h"
 #include "../../runtime/ProtoInterpreter.h"
 #include "../../runtime/ProtoBytecodeModule.h"
-#include <netdb.h>
-#include <sys/socket.h>
-#include <arpa/inet.h>
+#include "../../platform/Sockets.h"
 #include <string>
 #include <cstring>
 
@@ -261,7 +259,7 @@ const proto::ProtoObject* dnsReverse(
     if (inet_pton(AF_INET, ipStr.c_str(), &sa.sin_addr) <= 0) {
         return makeIpArray(ctx, {});
     }
-    struct hostent* he = gethostbyaddr(&sa.sin_addr, sizeof(sa.sin_addr), AF_INET);
+    struct hostent* he = gethostbyaddr(reinterpret_cast<const char*>(&sa.sin_addr), sizeof(sa.sin_addr), AF_INET);
     if (!he || !he->h_name) return makeIpArray(ctx, {});
     return makeIpArray(ctx, {std::string(he->h_name)});
 }

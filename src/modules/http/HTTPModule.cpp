@@ -9,12 +9,10 @@
 #include "../../ThreadProtoContext.h"
 #include "../../runtime/ProtoInterpreter.h"
 #include "../../runtime/ProtoBytecodeModule.h"
-#include <sys/socket.h>
-#include <netinet/in.h>
-#include <arpa/inet.h>
-#include <netdb.h>
-#include <unistd.h>
+#include "../../platform/Sockets.h"
+#if !defined(_WIN32)
 #include <fcntl.h>
+#endif
 #include <atomic>
 #include <cctype>
 #include <thread>
@@ -126,7 +124,7 @@ bool requestServerTeardown(ServerState* s) {
     const bool wasListening = s->listening.exchange(false);
     if (s->socketFd >= 0) {
         ::shutdown(s->socketFd, SHUT_RDWR);
-        ::close(s->socketFd);
+        platform::closeSocket(s->socketFd);
         s->socketFd = -1;
     }
     return wasListening;
@@ -362,11 +360,11 @@ const proto::ProtoObject* responseEnd(
     std::string out = resp.str();
     {
         proto::ProtoContext::UnmanagedScope u(ctx);
-        ssize_t wn = ::write(clientFd, out.data(), out.size());
+        ssize_t wn = platform::writeSocket(clientFd, out.data(), out.size());
         (void)wn;
     }
     self->setAttribute(ctx, keyHeadersSent(ctx), PROTO_TRUE);
-    ::close(clientFd);
+    platform::closeSocket(clientFd);
     self->setAttribute(ctx, keyClientFD(ctx), ctx->fromInteger(-1));
     return self;
 }
@@ -424,13 +422,13 @@ void dispatchRequest(JSContextWrapper* wrapper,
                       ParsedRequest req,
                       int clientFd) {
     if (!wrapper) {
-        if (clientFd >= 0) ::close(clientFd);
+        if (clientFd >= 0) platform::closeSocket(clientFd);
         return;
     }
     JSContextWrapper::CurrentScope ws(wrapper);
     proto::ProtoContext* ctx = wrapper->getProtoContext();
     if (!ctx) {
-        if (clientFd >= 0) ::close(clientFd);
+        if (clientFd >= 0) platform::closeSocket(clientFd);
         return;
     }
     proto::ProtoRootSet* rs = wrapper->getRootSet();
@@ -476,7 +474,7 @@ void dispatchRequest(JSContextWrapper* wrapper,
 
     if (!listener || listener == PROTO_NONE) {
         // No request listener — close the connection.
-        if (clientFd >= 0) ::close(clientFd);
+        if (clientFd >= 0) platform::closeSocket(clientFd);
         return;
     }
     const proto::ProtoList* cbArgs = ctx->newList()
@@ -508,19 +506,23 @@ const proto::ProtoObject* serverListen(
 
     int fd = ::socket(AF_INET, SOCK_STREAM, 0);
     if (fd < 0) return PROTO_NONE;
+#if !defined(_WIN32)
+    // On Windows SO_REUSEADDR would let a second server take a port in use;
+    // reusing a port in TIME_WAIT, what it buys here, is Windows' default.
     int opt = 1;
     ::setsockopt(fd, SOL_SOCKET, SO_REUSEADDR, &opt, sizeof(opt));
+#endif
 
     sockaddr_in addr{};
     addr.sin_family = AF_INET;
     addr.sin_addr.s_addr = INADDR_ANY;
     addr.sin_port = htons(static_cast<uint16_t>(port));
     if (::bind(fd, reinterpret_cast<sockaddr*>(&addr), sizeof(addr)) < 0) {
-        ::close(fd);
+        platform::closeSocket(fd);
         return PROTO_NONE;
     }
     if (::listen(fd, 16) < 0) {
-        ::close(fd);
+        platform::closeSocket(fd);
         return PROTO_NONE;
     }
 
@@ -546,9 +548,9 @@ const proto::ProtoObject* serverListen(
                 continue;
             }
             char buf[4096];
-            ssize_t n = ::read(cfd, buf, sizeof(buf) - 1);
+            ssize_t n = platform::readSocket(cfd, buf, sizeof(buf) - 1);
             if (n <= 0) {
-                ::close(cfd);
+                platform::closeSocket(cfd);
                 continue;
             }
             buf[n] = '\0';
@@ -893,7 +895,7 @@ const proto::ProtoObject* clientRequestEndImpl(
         }
 
         if (::connect(fd, reinterpret_cast<sockaddr*>(&addr), sizeof(addr)) != 0) {
-            ::close(fd);
+            platform::closeSocket(fd);
             cleanupOnError();
             return;
         }
@@ -902,7 +904,7 @@ const proto::ProtoObject* clientRequestEndImpl(
         const char* buf = wireRequest.data();
         size_t remaining = wireRequest.size();
         while (remaining > 0) {
-            ssize_t n = ::write(fd, buf, remaining);
+            ssize_t n = platform::writeSocket(fd, buf, remaining);
             if (n <= 0) break;
             buf += n;
             remaining -= static_cast<size_t>(n);
@@ -912,11 +914,11 @@ const proto::ProtoObject* clientRequestEndImpl(
         std::string rawResponse;
         char chunk[4096];
         for (;;) {
-            ssize_t n = ::read(fd, chunk, sizeof(chunk));
+            ssize_t n = platform::readSocket(fd, chunk, sizeof(chunk));
             if (n <= 0) break;
             rawResponse.append(chunk, static_cast<size_t>(n));
         }
-        ::close(fd);
+        platform::closeSocket(fd);
 
         ParsedResponse resp = parseHttpResponse(rawResponse);
 

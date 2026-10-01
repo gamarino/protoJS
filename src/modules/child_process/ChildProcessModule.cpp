@@ -4,9 +4,14 @@
 #include "../../ArrayPrototype.h"
 #include "../../FunctionPrototype.h"
 #include "../../JSSymbols.h"
+#if defined(_WIN32)
+#include "../../platform/Process.h"
+#include <csignal>
+#else
 #include <unistd.h>
 #include <sys/wait.h>
 #include <signal.h>
+#endif
 #include <string>
 #include <vector>
 #include <cstring>
@@ -49,7 +54,11 @@ const proto::ProtoObject* childKill(
         if (a && a->isInteger(ctx)) sig = static_cast<int>(a->asLong(ctx));
     }
     int pid = getIntAttr(ctx, self, pidKey(ctx));
+#if defined(_WIN32)
+    if (pid > 0) platform::killProcess(pid, sig);
+#else
     if (pid > 0) ::kill(pid, sig);
+#endif
     return PROTO_NONE;
 }
 
@@ -114,6 +123,10 @@ const proto::ProtoObject* spawnImpl(
             }
         }
     }
+#if defined(_WIN32)
+    pid_t pid = platform::spawnProcess(argv);
+    if (pid < 0) return PROTO_NONE;
+#else
     pid_t pid = ::fork();
     if (pid < 0) return PROTO_NONE;
     if (pid == 0) {
@@ -123,6 +136,7 @@ const proto::ProtoObject* spawnImpl(
         execvp(command.c_str(), cargv.data());
         _exit(127);
     }
+#endif
     return makeChildInstance(ctx, pid);
 }
 
@@ -134,12 +148,17 @@ const proto::ProtoObject* execImpl(
     const proto::ProtoSparseList*) {
     std::string line;
     if (!argString(ctx, args, 0, line)) return PROTO_NONE;
+#if defined(_WIN32)
+    pid_t pid = platform::spawnShell(line);
+    if (pid < 0) return PROTO_NONE;
+#else
     pid_t pid = ::fork();
     if (pid < 0) return PROTO_NONE;
     if (pid == 0) {
         execl("/bin/sh", "/bin/sh", "-c", line.c_str(), nullptr);
         _exit(127);
     }
+#endif
     return makeChildInstance(ctx, pid);
 }
 

@@ -163,7 +163,7 @@ const proto::ProtoObject* ioWriteFileAsync(
 }  // namespace
 
 std::string IOModule::readFileSync(const std::string& path) {
-    std::ifstream file(path);
+    std::ifstream file(path, std::ios::binary);
     if (!file.is_open()) {
         throw std::runtime_error("Could not open file: " + path);
     }
@@ -174,7 +174,7 @@ std::string IOModule::readFileSync(const std::string& path) {
 
 bool IOModule::writeFileSync(const std::string& path,
                               const std::string& content) {
-    std::ofstream file(path);
+    std::ofstream file(path, std::ios::binary);
     if (!file.is_open()) {
         throw std::runtime_error("Could not open file for writing: " + path);
     }

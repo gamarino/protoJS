@@ -4,8 +4,7 @@
 #include <filesystem>
 #include <algorithm>
 #include <cstring>
-#include <sys/stat.h>
-#include <unistd.h>
+#include "../platform/Posix.h"
 
 #ifdef _WIN32
 #define PROTOJS_LIB_EXT ".dll"
@@ -60,7 +59,7 @@ ResolveResult ModuleResolver::resolve(
     }
     
     // Check if specifier is absolute path
-    if (specifier[0] == '/') {
+    if (platform::isAbsolutePath(specifier)) {
         result.filePath = normalizePath(specifier);
         if (isFile(result.filePath)) {
             setTypeFromPath(result);
@@ -124,23 +123,23 @@ ResolveResult ModuleResolver::resolve(
 }
 
 bool ModuleResolver::isFile(const std::string& path) {
-    struct stat st;
-    if (stat(path.c_str(), &st) == 0) {
+    platform::StatBuf st;
+    if (platform::statPath(path.c_str(), &st) == 0) {
         return S_ISREG(st.st_mode);
     }
     return false;
 }
 
 bool ModuleResolver::isDirectory(const std::string& path) {
-    struct stat st;
-    if (stat(path.c_str(), &st) == 0) {
+    platform::StatBuf st;
+    if (platform::statPath(path.c_str(), &st) == 0) {
         return S_ISDIR(st.st_mode);
     }
     return false;
 }
 
 std::string ModuleResolver::getDirectory(const std::string& filePath) {
-    size_t lastSlash = filePath.find_last_of('/');
+    size_t lastSlash = filePath.find_last_of(platform::kPathSeparators);
     if (lastSlash == std::string::npos) {
         return ".";
     }
@@ -149,7 +148,7 @@ std::string ModuleResolver::getDirectory(const std::string& filePath) {
 
 std::string ModuleResolver::normalizePath(const std::string& path) {
     try {
-        return fs::canonical(fs::path(path)).string();
+        return fs::canonical(fs::path(path)).generic_string();
     } catch (...) {
         // If canonical fails, try to normalize manually
         std::string normalized = path;
@@ -174,7 +173,7 @@ std::string ModuleResolver::findPackageJson(const std::string& dir) {
         }
         
         // Move to parent directory
-        size_t lastSlash = current.find_last_of('/');
+        size_t lastSlash = current.find_last_of(platform::kPathSeparators);
         if (lastSlash == std::string::npos) {
             break;
         }
@@ -286,7 +285,7 @@ ResolveResult ModuleResolver::resolveNodeModules(
         }
         
         // Move to parent directory
-        size_t lastSlash = current.find_last_of('/');
+        size_t lastSlash = current.find_last_of(platform::kPathSeparators);
         if (lastSlash == std::string::npos) {
             break;
         }

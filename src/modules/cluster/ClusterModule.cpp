@@ -2,10 +2,15 @@
 #include "../../ProtoNativeModule.h"
 #include "../../FunctionPrototype.h"
 #include "../../JSSymbols.h"
+#if defined(_WIN32)
+#include "../../platform/Process.h"
+#include <csignal>
+#else
 #include <unistd.h>
 #include <signal.h>
 #include <sys/wait.h>
 #include <sys/socket.h>
+#endif
 #include <atomic>
 
 namespace protojs {
@@ -96,7 +101,11 @@ const proto::ProtoObject* workerKill(
         if (a && a->isInteger(ctx)) sig = static_cast<int>(a->asLong(ctx));
     }
     int pid = getIntAttr(ctx, self, pidKey(ctx));
+#if defined(_WIN32)
+    if (pid > 0) platform::killProcess(pid, sig);
+#else
     if (pid > 0) ::kill(pid, sig);
+#endif
     return PROTO_NONE;
 }
 
@@ -157,6 +166,10 @@ const proto::ProtoObject* clusterFork(
     const proto::ProtoList* /*args*/,
     const proto::ProtoSparseList*) {
     if (!ctx || !is_master_process.load()) return PROTO_NONE;
+#if defined(_WIN32)
+    // Windows has no fork(): cluster workers are not available there.
+    return PROTO_NONE;
+#else
     int sv[2];
     if (socketpair(AF_UNIX, SOCK_STREAM, 0, sv) < 0) return PROTO_NONE;
 
@@ -189,6 +202,7 @@ const proto::ProtoObject* clusterFork(
     worker->setAttribute(ctx, ipcWriteKey(ctx),
         ctx->fromInteger(sv[1]));
     return worker;
+#endif
 }
 
 }  // namespace
