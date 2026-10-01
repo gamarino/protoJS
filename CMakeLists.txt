@@ -35,6 +35,11 @@ if(WIN32)
     if(NOT CMAKE_RUNTIME_OUTPUT_DIRECTORY)
         set(CMAKE_RUNTIME_OUTPUT_DIRECTORY "${CMAKE_BINARY_DIR}/bin")
     endif()
+elseif(APPLE)
+    # Homebrew's OpenSSL is not on the default include or library path, so it
+    # is found as a package (OPENSSL_ROOT_DIR=$(brew --prefix openssl@3)).
+    find_package(OpenSSL REQUIRED)
+    set(PROTOJS_SYSTEM_LIBS pthread dl m OpenSSL::SSL OpenSSL::Crypto)
 else()
     set(PROTOJS_SYSTEM_LIBS pthread dl m ssl crypto)
 endif()
