@@ -33,14 +33,8 @@ jobs:
         include:
           - name: macOS (Apple clang, arm64)
             os: macos-14
-            # The same known defect as on Windows below.
-            exclude_tests: '|^cli/blocking-joins-and-finalizers$'
           - name: Windows (MSVC, x64)
             os: windows-2022
-            # A known protoJS defect on every platform (a top-level binding is
-            # lost when a collection runs at top level): intermittent on Linux,
-            # every run on Windows and macOS. docs/INSTALLATION.md, "Windows (MSVC)".
-            exclude_tests: '|^cli/blocking-joins-and-finalizers$'
     defaults:
       run:
         shell: bash
@@ -105,4 +99,4 @@ jobs:
 
       - name: Catch2 suite
         working-directory: protoJS
-        run: ctest --test-dir build -E "integration|network${{ matrix.exclude_tests }}" --output-on-failure --timeout 600 < /dev/null
+        run: ctest --test-dir build -E "integration|network" --output-on-failure --timeout 600 < /dev/null

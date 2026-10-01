@@ -162,13 +162,12 @@ How Windows differs, by design:
 
 Test status (protoCore 2.7.0, MSVC 19.44, Windows 11):
 
-- `ctest`: 50 of 51 pass. The script fixtures run through Git for Windows'
-  `bash` and the Python ones through the interpreter CMake finds. The one
-  failure, the `worker-terminate` case of `cli/blocking-joins-and-finalizers`,
-  is a protoJS bug Linux has as well: a top-level binding can be lost when a
-  collection runs while the program is at top level. It fails about one run in
-  fifteen on Linux, and every run on Windows, whose timing always puts a
-  collection there.
+- `ctest`: 52 of 52 pass. The script fixtures run through Git for Windows'
+  `bash` and the Python ones through the interpreter CMake finds. The
+  `worker-terminate` case of `cli/blocking-joins-and-finalizers` used to fail
+  every run here (and about one run in fifteen on Linux): a top-level binding
+  was lost when a collection ran at top level. That is fixed (see the
+  changelog) and pinned by `cli/toplevel-bindings-survive-gc`.
 - Test262, on a 7,316-test subset (`built-ins/Array`, `String`, `JSON`,
   `Math`, `Number`, `Map`, `Promise`, `Date`, `language/types`,
   `language/literals`): 6,325 pass on Windows against 6,324 on Linux. The

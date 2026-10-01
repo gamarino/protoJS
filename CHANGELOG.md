@@ -4,14 +4,38 @@ All notable changes to protoJS are documented in this file.
 
 ## [Unreleased]
 
+### Fixed — top-level bindings survive a collection (2026-10-01)
+
+- **The module scope was not a GC root.** Since the 2026-06-16 scope-chain
+  change, a script's top-level `var` / `let` / `const` live in a mutable child of
+  the global (the module scope) that the interpreter creates on the root
+  module's first run and stores in `*pGlobalRoot`, i.e. the wrapper's
+  `nativeGlobalRoot_`. That C++ member was the only reference to the scope's
+  handle: nothing in the heap points at it (a parent does not reference its
+  children). Once the eval frame's young generation was handed to the
+  collector, the next cycle swept the handle and released its mutables-table
+  entry, so every top-level binding read back as `undefined` while built-ins
+  kept working, and a reused cell crashed the process. Linux lost it in about
+  1 run in 15; Windows and macOS in every run. `JSContextWrapper` now pins
+  whatever `nativeGlobalRoot_` points at in its root set
+  (`rootNativeGlobal`), and the interpreter splits the global only when the
+  root slot is that member. Regression test:
+  `cli/toplevel-bindings-survive-gc` (50 runs under a heap ceiling).
+- **Proxy marker keys were cached heap strings.** `targetKey` / `handlerKey`
+  (`src/ProxyBuiltin.cpp`) cached a `fromUTF8String` result in a process-wide
+  static: a collectable cell of whichever context asked first, possibly a
+  worker's space that `terminate()` destroys. `isProxy` then hashed freed
+  memory. They are perennial symbols now. Together with the item above this
+  is what made `cli/blocking-joins-and-finalizers` (`worker-terminate`) fail;
+  it now runs on macOS and Windows CI again.
+
 ### Added — Windows (MSVC), 2026-10-01
 
 - **Native Windows build.** protoJS builds with Visual Studio 2022 (MSVC
   19.44) against an installed protoCore 2.7.0 package; `protojs` runs
   scripts, `-e` and the REPL natively and installs with `cmake --install`
-  (or `cpack -G ZIP`). 50 of 51 tests pass on Windows 11; the one left is a
-  protoJS bug Linux shares (a top-level binding lost to a collection at top
-  level), which Windows' timing hits every run. A 7,316-test Test262 subset
+  (or `cpack -G ZIP`). All tests pass on Windows 11 (the one that failed, a
+  top-level binding lost to a collection, is fixed above). A 7,316-test Test262 subset
   gives the same results as Linux test by test, except four tests that time
   out on Linux. Every Windows difference is behind `WIN32` / `_MSC_VER`; on
   Linux the suite and the warning count are as on master. See

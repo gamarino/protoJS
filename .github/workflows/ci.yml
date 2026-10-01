@@ -231,9 +231,10 @@ jobs:
         # No `-j`: the pool and event-loop cases spawn their own threads, and this
         # family has already been burned by saturating a small runner.
         #
-        # The suite includes four CLI fixtures registered directly with CTest, the
-        # slowest of which (cli/blocking-joins-and-finalizers) runs seven end-to-end
-        # cases under a heap ceiling in about 2 s. It binds localhost ports in the
+        # The suite includes five CLI fixtures registered directly with CTest. The
+        # slowest, cli/toplevel-bindings-survive-gc, runs one program 60 times
+        # under a heap ceiling (about 20 s); cli/blocking-joins-and-finalizers runs
+        # seven end-to-end cases under one in about 2 s and binds localhost ports in the
         # 18841-18844 range; if a runner ever has those in use, that is what to look
         # at first.
         working-directory: protoJS
