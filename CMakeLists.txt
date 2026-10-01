@@ -341,6 +341,14 @@ else()
     target_link_options(protojs PRIVATE -rdynamic)
     set(PROTOJS_ADDON_LIBS dl)
 endif()
+# An addon's protoCore and protojs_* symbols are resolved from the protojs that
+# loads it. Linux allows a shared library undefined symbols; macOS refuses them
+# unless the link says they are looked up at load time.
+if(APPLE)
+    set(PROTOJS_ADDON_LINK_OPTIONS "LINKER:-undefined,dynamic_lookup")
+else()
+    set(PROTOJS_ADDON_LINK_OPTIONS "")
+endif()
 
 # Build settings for protoCore
 # protoCore must be built as a shared library first (libprotoCore.so / .dylib / .dll).
@@ -361,6 +369,7 @@ set_target_properties(simple_addon PROPERTIES
     RUNTIME_OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR}/tests/native_addons/simple
 )
 target_link_libraries(simple_addon PRIVATE ${PROTOJS_ADDON_LIBS})
+target_link_options(simple_addon PRIVATE ${PROTOJS_ADDON_LINK_OPTIONS})
 
 # Fixture addon for resolution-order test (output next to fixture.js)
 add_library(fixture_addon SHARED tests/native_addons/fixture/fixture_addon.cpp)
@@ -375,6 +384,7 @@ set_target_properties(fixture_addon PROPERTIES
     RUNTIME_OUTPUT_DIRECTORY ${CMAKE_SOURCE_DIR}/tests/integration/native_addons
 )
 target_link_libraries(fixture_addon PRIVATE ${PROTOJS_ADDON_LIBS})
+target_link_options(fixture_addon PRIVATE ${PROTOJS_ADDON_LINK_OPTIONS})
 
 # --- Install RPATH: installed binary finds libprotoCore without LD_LIBRARY_PATH ---
 if(UNIX)
