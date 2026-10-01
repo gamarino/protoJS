@@ -11,21 +11,22 @@
 
 namespace protojs {
 
-// Sidecar key names for the proxy markers.  Auto-interned by
-// setAttribute on first use; subsequent lookups hit the symbol table
-// directly.
+// Sidecar key names for the proxy markers.  Each is cached in a process-wide
+// static, so it must be a perennial symbol (createSymbol allocates with a null
+// context and is never collected).  It used to be a plain heap string from
+// fromUTF8String: a young cell of whichever context asked first -- possibly a
+// worker's, in a space that terminate() destroys -- so once that cell was
+// collected every isProxy() hashed freed memory (setAttribute / hasOwnAttribute
+// intern a COPY of a heap-string key; they cannot repair the cached pointer).
+// Seen as a crash in computeContentHash under worker_threads + a heap ceiling.
 static const proto::ProtoString* targetKey(proto::ProtoContext* ctx) {
-    static const proto::ProtoString* k = nullptr;
-    if (k) return k;
-    const proto::ProtoObject* o = ctx->fromUTF8String("__proxy_target__");
-    k = o ? o->asString(ctx) : nullptr;
+    static const proto::ProtoString* const k =
+        proto::ProtoString::createSymbol(ctx, "__proxy_target__");
     return k;
 }
 static const proto::ProtoString* handlerKey(proto::ProtoContext* ctx) {
-    static const proto::ProtoString* k = nullptr;
-    if (k) return k;
-    const proto::ProtoObject* o = ctx->fromUTF8String("__proxy_handler__");
-    k = o ? o->asString(ctx) : nullptr;
+    static const proto::ProtoString* const k =
+        proto::ProtoString::createSymbol(ctx, "__proxy_handler__");
     return k;
 }
 
