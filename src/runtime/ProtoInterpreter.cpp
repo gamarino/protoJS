@@ -37,10 +37,18 @@ extern "C" {
 // Clang's computed goto). MSVC has no such extension: there the same table is
 // a switch over the opcode (PROTOJS_DISPATCH_TARGETS below), and the branch
 // hints are plain conditions.
+//
+// Clang provides computed goto but refuses this loop: an indirect goto may
+// reach every label, and Clang rejects one that would cross the
+// initialisation of a local (GCC accepts it). So Clang (macOS) takes the
+// switch as well; GCC (Linux) keeps the label table.
 #if defined(_MSC_VER) && !defined(__clang__)
 #define PROTOJS_COMPUTED_GOTO 0
 #define PROTOJS_NOINLINE __declspec(noinline)
 #define __builtin_expect(x, expected) (x)
+#elif defined(__clang__)
+#define PROTOJS_COMPUTED_GOTO 0
+#define PROTOJS_NOINLINE __attribute__((noinline))
 #else
 #define PROTOJS_COMPUTED_GOTO 1
 #define PROTOJS_NOINLINE __attribute__((noinline))
