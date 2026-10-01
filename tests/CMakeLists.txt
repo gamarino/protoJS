@@ -109,6 +109,18 @@ add_test(NAME cli/blocking-joins-and-finalizers
             "$<TARGET_FILE:protojs>"
             "${CMAKE_CURRENT_BINARY_DIR}/cli-scratch/joins")
 
+# Top-level bindings (var/let/const) must survive a collection that runs while the
+# script is executing and after it has returned. They live in the interpreter's
+# module scope, which nothing in the heap references; until the wrapper pinned it,
+# a collection swept it and the bindings read back as undefined (or the process
+# crashed). The failure was intermittent on Linux, so the program runs 50 times
+# under a heap ceiling, plus 10 runs of the after-eval case. Takes about 20 s.
+add_test(NAME cli/toplevel-bindings-survive-gc
+    COMMAND ${PROTOJS_SH} "${CMAKE_CURRENT_SOURCE_DIR}/cli/toplevel-bindings-survive-gc.sh"
+            "$<TARGET_FILE:protojs>"
+            "${CMAKE_CURRENT_BINARY_DIR}/cli-scratch/toplevel-bindings"
+            50)
+
 # --- Asserting JavaScript tests ------------------------------------------------
 #
 # Each script checks the values it computes and exits 1 on any failure, so its

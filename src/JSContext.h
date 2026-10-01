@@ -168,7 +168,30 @@ public:
     /**
      * @brief Update the native global (called after module init mutates it).
      */
-    void updateNativeGlobal(const proto::ProtoObject* g) { nativeGlobalRoot_ = g; }
+    void updateNativeGlobal(const proto::ProtoObject* g) {
+        nativeGlobalRoot_ = g;
+        rootNativeGlobal();
+    }
+
+    /**
+     * @brief Keep the object nativeGlobalRoot_ currently points at reachable
+     * by the collector, for the lifetime of the wrapper.
+     *
+     * nativeGlobalRoot_ is a C++ member, which the GC does not scan. What it
+     * points at is not always reachable by any other path: after the
+     * interpreter's module-scope split (runBytecode) it is the module scope, a
+     * mutable child of the global that holds every top-level binding and that
+     * nothing else references -- a parent does not reference its children.
+     * Unpinned, its handle was swept as soon as the eval frame's young
+     * generation was handed to the collector, its entry in the mutables table
+     * was released, and the top-level bindings read back as undefined.
+     *
+     * Pins the current object in the wrapper's root set and releases the pin
+     * on the previous one; a no-op when the pointer has not changed. Called
+     * wherever the pointer is re-bound: getNativeGlobal, updateNativeGlobal,
+     * the module-scope split, and after each top-level run as a backstop.
+     */
+    void rootNativeGlobal();
 
     /**
      * @brief Pointer to a pointer of the native global, suitable for passing
@@ -211,6 +234,9 @@ private:
 
     /** Phase 6: ProtoCore-native global root; built lazily, updated when interpreter mutates global. */
     mutable const proto::ProtoObject* nativeGlobalRoot_{nullptr};
+    /** The object rootNativeGlobal last pinned, and its handle in rootSet_. */
+    const proto::ProtoObject* nativeGlobalPinned_{nullptr};
+    proto::ProtoRootSet::Handle nativeGlobalHandle_{0};
     /** Most-recent top-level bytecode module — used by async callbacks
      * (setImmediate, Deferred, worker-thread completion) to look up
      * function bcIds after eval has returned.  Type-erased to keep the

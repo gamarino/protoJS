@@ -172,7 +172,8 @@ const proto::ProtoObject* JSContextWrapper::getNativeGlobal() {
     if (!jsPrototypes_.object || !pContext) return nullptr;
     /* Build a blank global object; converted modules register onto it explicitly. */
     nativeGlobalRoot_ = jsPrototypes_.object->newChild(pContext, true);
-    
+    rootNativeGlobal();
+
     // Inject missing ES5 globals
     const proto::ProtoString* infinityStr = proto::ProtoString::createSymbol(pContext, "Infinity");
     const proto::ProtoString* nanStr = proto::ProtoString::createSymbol(pContext, "NaN");
@@ -188,6 +189,21 @@ const proto::ProtoObject* JSContextWrapper::getNativeGlobal() {
     }
     
     return nativeGlobalRoot_;
+}
+
+void JSContextWrapper::rootNativeGlobal() {
+    const proto::ProtoObject* g = nativeGlobalRoot_;
+    if (g == nativeGlobalPinned_) return;
+    proto::ProtoRootSet* rs = getRootSet();
+    if (!rs) return;
+    // Pin the new object before releasing the old one, so that there is no
+    // moment at which neither is a root: the old one is the new one's parent
+    // after the module-scope split, and a cycle may start between the calls.
+    const proto::ProtoRootSet::Handle h =
+        (g && g != PROTO_NONE) ? rs->add(g) : proto::ProtoRootSet::kNullHandle;
+    if (nativeGlobalHandle_ != proto::ProtoRootSet::kNullHandle) rs->remove(nativeGlobalHandle_);
+    nativeGlobalHandle_ = h;
+    nativeGlobalPinned_ = g;
 }
 
 proto::ProtoRootSet* JSContextWrapper::getRootSet() {
@@ -414,6 +430,9 @@ JSValue JSContextWrapper::eval(const std::string& code, const std::string& filen
                                          globalObj, nullptr,
                                          &nativeGlobalRoot_, &exception);
                 frameCtx.returnValue = result;
+                // The run may have re-bound nativeGlobalRoot_; it must stay a
+                // root once this frame is gone (see rootNativeGlobal).
+                rootNativeGlobal();
 
                 if (exception && exception != PROTO_NONE) {
                     // Format exception from ProtoObject for error reporting.
@@ -592,6 +611,7 @@ const proto::ProtoObject* JSContextWrapper::evalIsolatedToProto(
         protojs::runBytecode(&frameCtx, modPtr,
                              globalObj, nullptr,
                              &nativeGlobalRoot_, &exception);
+    rootNativeGlobal();
 
     // Keep the module alive for the wrapper's lifetime so any closure
     // the eval produced (e.g. a Function-ctor result) can resolve its

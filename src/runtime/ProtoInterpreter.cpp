@@ -6023,14 +6023,32 @@ const proto::ProtoObject* runBytecode(proto::ProtoContext* pContext,
     // on a top-level let.  Only the ROOT module triggers the split — nested
     // bytecode invocations (function bodies) inherit the moduleScope via
     // pGlobalRoot and must skip re-splitting to avoid O(calls²) work.
-    if (module == t_rootModule && pGlobalRoot && *pGlobalRoot) {
+    //
+    // The moduleScope is referenced only through *pGlobalRoot, a C++ pointer
+    // the collector does not scan, and nothing in the heap references it: a
+    // parent does not reference its children.  Its handle starts as a young
+    // cell of this frame's context, which protects it only until the context's
+    // allocation threshold hands the young generation over; the next cycle
+    // then swept the handle and released its mutables-table entry, and every
+    // top-level binding read back as undefined (a crash once the cell was
+    // reused).  So the split is done only where the root slot has an owner
+    // that can keep the scope a root for as long as the slot points at it:
+    // the current wrapper's nativeGlobalRoot_, which it pins in its root set.
+    // A run against any other root slot (a loader's local) keeps its bindings
+    // on the object the caller owns, as it did before the split existed.
+    // tests/cli/toplevel-bindings-survive-gc.sh is the regression test.
+    JSContextWrapper* const splitOwner = JSContextWrapper::current();
+    if (module == t_rootModule && pGlobalRoot && *pGlobalRoot && splitOwner
+        && pGlobalRoot == splitOwner->getNativeGlobalRootPtr()) {
         static const proto::ProtoString* s_scopedKey =
             proto::ProtoString::createSymbol(pContext, "__module_scoped__");
         if (s_scopedKey && (*pGlobalRoot)->hasOwnAttribute(pContext, s_scopedKey) != PROTO_TRUE) {
             const proto::ProtoObject* moduleScope = (*pGlobalRoot)->newChild(pContext, true);
             if (moduleScope) {
-                moduleScope = moduleScope->setAttribute(pContext, s_scopedKey, PROTO_TRUE);
                 *pGlobalRoot = moduleScope;
+                splitOwner->rootNativeGlobal();
+                // setAttribute on a mutable keeps the handle; no re-pin needed.
+                *pGlobalRoot = moduleScope->setAttribute(pContext, s_scopedKey, PROTO_TRUE);
             }
         }
     }
