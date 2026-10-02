@@ -146,6 +146,22 @@ add_test(NAME cli/child-kill-signal0
             "$<TARGET_FILE:protojs>"
             "${CMAKE_CURRENT_BINARY_DIR}/cli-scratch/child-kill-signal0")
 
+# An exception that crosses a module boundary is the one thrown: caught by the
+# caller's try statement or, uncaught, reported with exit status 1 (CommonJS and
+# ES modules).
+add_test(NAME cli/cross-module-exceptions
+    COMMAND ${PROTOJS_SH} "${CMAKE_CURRENT_SOURCE_DIR}/cli/cross-module-exceptions.sh"
+            "$<TARGET_FILE:protojs>"
+            "${CMAKE_CURRENT_BINARY_DIR}/cli-scratch/cross-module-exceptions")
+
+# process.exit(code) at top level and from event callbacks (setImmediate, a
+# promise reaction, an I/O completion, a worker's 'exit' handler) ends the
+# process with that code after flushing what the program wrote.
+add_test(NAME cli/process-exit
+    COMMAND ${PROTOJS_SH} "${CMAKE_CURRENT_SOURCE_DIR}/cli/process-exit.sh"
+            "$<TARGET_FILE:protojs>"
+            "${CMAKE_CURRENT_BINARY_DIR}/cli-scratch/process-exit")
+
 # --- Asserting JavaScript tests ------------------------------------------------
 #
 # Each script checks the values it computes and exits 1 on any failure, so its
@@ -163,7 +179,10 @@ foreach(js_test
         basic/closure_set_prototype
         basic/object_integrity
         basic/symbol_key_order
+        basic/native_function_prototype
+        basic/regexp_global_advance
         modules/test_require_file
+        modules/test_cross_module_exception
         modules/test_require
         collections/protoCore_collections
         workers/deep_recursion
