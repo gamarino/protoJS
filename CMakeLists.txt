@@ -27,9 +27,10 @@ if(WIN32)
     add_compile_definitions(NOMINMAX WIN32_LEAN_AND_MEAN)
     # Threads, dynamic loading and libm come with the C/C++ runtime and the
     # Windows API; sockets are Winsock (ws2_32), process information is psapi,
-    # and OpenSSL is found as a package (its DLLs are copied next to protojs).
+    # the event loop's timer resolution is winmm (timeBeginPeriod), and OpenSSL
+    # is found as a package (its DLLs are copied next to protojs).
     find_package(OpenSSL REQUIRED)
-    set(PROTOJS_SYSTEM_LIBS OpenSSL::SSL OpenSSL::Crypto ws2_32 iphlpapi psapi)
+    set(PROTOJS_SYSTEM_LIBS OpenSSL::SSL OpenSSL::Crypto ws2_32 iphlpapi psapi winmm)
     # Windows has no rpath: a program finds its DLLs next to itself, so every
     # executable and DLL of the build goes to one directory.
     if(NOT CMAKE_RUNTIME_OUTPUT_DIRECTORY)
@@ -335,6 +336,10 @@ if(WIN32)
     # recursion depth as on Linux takes about 48 MiB. The reservation is address
     # space; pages are committed only as the stack grows.
     target_link_options(protojs PRIVATE /STACK:${PROTOJS_WINDOWS_STACK_BYTES})
+    # The threads that run JavaScript (workers, protoCore threads) get the same
+    # reservation: src/main.cpp, configureThreadStacks.
+    target_compile_definitions(protojs PRIVATE
+        PROTOJS_MAIN_STACK_BYTES=${PROTOJS_WINDOWS_STACK_BYTES})
     # UTF-8 process code page: argv, getenv and paths are UTF-8 as elsewhere.
     target_sources(protojs PRIVATE src/windows/utf8.manifest)
     set(PROTOJS_ADDON_LIBS protojs ${PROTOCORE_LIBRARY})

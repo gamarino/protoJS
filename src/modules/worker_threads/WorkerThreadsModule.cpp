@@ -12,6 +12,7 @@
 #include "../../runtime/ProtoInterpreter.h"
 #include "../../runtime/ProtoBytecodeModule.h"
 #include "../events/EventsModule.h"
+#include "../../platform/SizedThread.h"
 #include "../../console.h"
 #include <fstream>
 #include <sstream>
@@ -350,7 +351,10 @@ struct WorkerState : GcOrphanQueue::Orphan {
     proto::ProtoRootSet::Handle workerPin{
         proto::ProtoRootSet::kNullHandle};
     std::unique_ptr<JSContextWrapper> workerWrapper;
-    std::thread thread;
+    // The worker runs JavaScript, so it gets the main thread's stack
+    // (platform::jsThreadStackBytes), not the platform's default for a new
+    // thread -- 512 KiB on macOS. See src/platform/SizedThread.h.
+    platform::SizedThread thread;
     std::string filename;
     std::string workerDataJson;
     std::atomic<bool> terminated{false};
@@ -876,7 +880,14 @@ const proto::ProtoObject* workerConstructor(
     worker->setAttribute(ctx, keyWorkerState(ctx), extPtr);
 
     g_activeWorkers.fetch_add(1);
-    state->thread = std::thread([state]() { workerThreadEntry(state); });
+    if (!state->thread.start(platform::jsThreadStackBytes(),
+                             [state]() { workerThreadEntry(state); })) {
+        // As std::thread's constructor, which threw std::system_error here.
+        g_activeWorkers.fetch_sub(1);
+        signalNativeException(makeNativeError(ctx, "Error",
+            "Worker: could not create the worker thread"));
+        return PROTO_NONE;
+    }
     return worker;
 }
 

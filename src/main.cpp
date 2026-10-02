@@ -31,6 +31,7 @@
 #include "memory/MemoryAnalyzer.h"
 #include "debugging/IntegratedDebugger.h"
 #include "repl/REPL.h"
+#include "platform/SizedThread.h"
 #include "quickjs.h"
 #include <iostream>
 #include <fstream>
@@ -45,21 +46,90 @@
 #include <fcntl.h>
 #include <io.h>
 #include <windows.h>
+#include <timeapi.h>
 #endif
 
 // Windows: the standard streams carry exactly the bytes the program writes, as
 // on Linux and macOS (no "\n" -> "\r\n" translation), and a console shows and
 // reads them as UTF-8. The process code page is UTF-8 through the manifest
 // (src/windows/utf8.manifest), so argv, getenv and paths are UTF-8 too.
+//
+// The console's code pages belong to the console, not to this process: they
+// outlive it and every later program in the same window inherits them. They are
+// restored at exit (std::atexit; a normal return from main and exit() both run
+// it), so cmd.exe is left as protojs found it.
+#if defined(_WIN32)
+static UINT g_savedConsoleCP = 0;
+static UINT g_savedConsoleOutputCP = 0;
+static void restoreConsoleCodePages() {
+    if (g_savedConsoleCP != 0) SetConsoleCP(g_savedConsoleCP);
+    if (g_savedConsoleOutputCP != 0) SetConsoleOutputCP(g_savedConsoleOutputCP);
+}
+#endif
 static void prepareStandardStreams() {
 #if defined(_WIN32)
     _setmode(_fileno(stdin), _O_BINARY);
     _setmode(_fileno(stdout), _O_BINARY);
     _setmode(_fileno(stderr), _O_BINARY);
+    // GetConsoleCP returns 0 when the process has no console (redirected, or a
+    // service): then there is nothing to change and nothing to restore.
+    g_savedConsoleCP = GetConsoleCP();
+    g_savedConsoleOutputCP = GetConsoleOutputCP();
+    if (g_savedConsoleCP != 0 || g_savedConsoleOutputCP != 0) {
+        std::atexit(restoreConsoleCodePages);
+    }
     SetConsoleOutputCP(CP_UTF8);
     SetConsoleCP(CP_UTF8);
 #endif
 }
+
+// The native stack of every thread that runs JavaScript: the reservation the
+// main thread itself gets. Every JavaScript call is a runBytecode frame on the
+// native stack, so a thread with less stack than the main thread runs out of it
+// at a depth the main thread reaches easily (macOS gives a new thread 512 KiB).
+// Windows: the /STACK reservation of protojs.exe (CMakeLists.txt). Elsewhere:
+// what protoCore reports for this thread (protoCore 2.9.0 and later), and the
+// 8 MiB Linux and macOS give a main thread by default otherwise.
+static size_t mainThreadStackBytes() {
+#if defined(PROTOJS_MAIN_STACK_BYTES)
+    return static_cast<size_t>(PROTOJS_MAIN_STACK_BYTES);
+#else
+    size_t bytes = 0;
+#if defined(PROTOCORE_HAS_CURRENT_THREAD_STACK_BYTES)
+    bytes = proto::ProtoSpace::currentThreadStackBytes();
+#endif
+    const size_t kDefault = static_cast<size_t>(8) * 1024 * 1024;
+    return bytes >= kDefault ? bytes : kDefault;
+#endif
+}
+
+// Threads protoCore creates (ProtoSpace::newThread) and worker_threads' workers
+// get the main thread's stack. setThreadStackBytes exists from protoCore 2.8.0
+// (honoured on macOS) and is honoured everywhere from 2.9.0; workers do not
+// depend on it (src/platform/SizedThread.h).
+static void configureThreadStacks() {
+    const size_t bytes = mainThreadStackBytes();
+    protojs::platform::setJsThreadStackBytes(bytes);
+#if defined(PROTOCORE_HAS_THREAD_STACK_BYTES)
+    proto::ProtoSpace::setThreadStackBytes(bytes);
+#endif
+}
+
+// Windows wakes a sleeping thread on the system timer, every 15.6 ms by default,
+// so the event loop's 10 ms poll took 15.6 ms or more per turn. While the loop
+// waits for work the timer runs at 1 ms (timeBeginPeriod), and it is put back
+// as soon as the loop ends, as Microsoft asks of a program that raises it.
+struct EventLoopTimerResolution {
+#if defined(_WIN32)
+    bool raised = false;
+    void raise() { if (!raised) raised = timeBeginPeriod(1) == TIMERR_NOERROR; }
+    void lower() { if (raised) { timeEndPeriod(1); raised = false; } }
+    ~EventLoopTimerResolution() { lower(); }
+#else
+    void raise() {}
+    void lower() {}
+#endif
+};
 
 // JSON.stringify / JSON.parse polyfill, prepended to user code in the
 // protoCore eval path.  ProtoInterpreter installs an empty `JSON` stub
@@ -265,6 +335,7 @@ void printUsage(const char* programName) {
 
 int main(int argc, char** argv) {
     prepareStandardStreams();
+    configureThreadStacks();
     if (argc < 2) {
         printUsage(argv[0]);
         return 1;
@@ -448,6 +519,7 @@ int main(int argc, char** argv) {
     proto::ProtoSpace* censusSpace = wrapper.getProtoSpace();
     const bool gcStats = std::getenv("PROTOJS_GC_STATS") != nullptr;
 
+    EventLoopTimerResolution timerResolution;
     while (protojs::EventLoop::getInstance().hasPendingCallbacks() ||
            protojs::GcOrphanQueue::pending() > 0 ||
            protojs::WorkerThreadsModule::getActiveWorkerCount() > 0 ||
@@ -457,6 +529,7 @@ int main(int argc, char** argv) {
            protojs::HTTPModule::getActiveClientCount() > 0 ||
            protojs::NetModule::getActiveCount() > 0) {
         protojs::EventLoop::getInstance().processCallbacks();
+        timerResolution.raise();
         {
             proto::ProtoContext::UnmanagedScope u(wrapper.getProtoContext());
             std::this_thread::sleep_for(std::chrono::milliseconds(10));
@@ -468,6 +541,8 @@ int main(int argc, char** argv) {
             break;
         }
     }
+
+    timerResolution.lower();
 
     // Process any remaining callbacks one more time
     protojs::EventLoop::getInstance().processCallbacks();
