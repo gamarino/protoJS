@@ -23,7 +23,8 @@
 // `path` module (test/parallel/test-path-*.js, Node.js v22.20.0, MIT
 // licence, notice above), adapted only where they reach for Node's test
 // harness. This module stands in for that harness: `assert` (the subset the
-// path tests use) and `common` (isWindows and invalidArgTypeHelper). Each
+// path and util tests use) and `common` (isWindows and invalidArgTypeHelper).
+// tests/integration/util uses it as well. Each
 // test calls done() last, which prints how many assertions ran; the first
 // failing assertion throws, so the process exits non-zero. Every file also
 // runs unchanged under Node itself, which is how the adaptation is checked.
@@ -87,17 +88,26 @@ assert.match = function(string, regexp, message) {
 };
 
 // assert.throws(fn, { code, name, message }): every listed property of the
-// thrown error must be equal.
+// thrown error must be equal, or match when the expected value is a RegExp.
+// assert.throws(fn, /re/): String(error) must match, as in Node.
 function checkThrown(threw, error, expected) {
   count++;
   if (!threw) fail('expected the function to throw');
+  if (expected instanceof RegExp) {
+    if (!expected.test(String(error)))
+      fail('thrown error ' + show(String(error)) + ' does not match ' + expected);
+    return;
+  }
   if (expected) {
     const keys = Object.keys(expected);
     for (let i = 0; i < keys.length; i++) {
       const k = keys[i];
       const got = error === null || error === undefined ? undefined : error[k];
-      if (got !== expected[k]) {
-        fail('thrown error .' + k + ': expected ' + show(expected[k]) +
+      const want = expected[k];
+      const ok = want instanceof RegExp ? typeof got === 'string' && want.test(got)
+                                        : got === want;
+      if (!ok) {
+        fail('thrown error .' + k + ': expected ' + show(want) +
              ', got ' + show(got));
       }
     }

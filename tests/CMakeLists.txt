@@ -199,6 +199,23 @@ foreach(js_test
                 "${CMAKE_CURRENT_SOURCE_DIR}/integration/${js_test}.js")
 endforeach()
 
+# util.format / util.inspect: Node.js's own test/parallel/test-util-format.js,
+# adapted like the path tests below (the cases protoJS cannot run are commented
+# out, each with the reason).
+add_test(NAME js/util/test-util-format
+    COMMAND "$<TARGET_FILE:protojs>"
+            "${CMAKE_CURRENT_SOURCE_DIR}/integration/util/test-util-format.js")
+
+# The fs callback API (fs.readFile(path, cb) and siblings). The checks run in
+# callbacks, so the test must also print its final line: a callback that never
+# runs would otherwise end the process with status 0.
+add_test(NAME js/fs/test_fs_callbacks
+    COMMAND "$<TARGET_FILE:protojs>"
+            "${CMAKE_CURRENT_SOURCE_DIR}/integration/fs/test_fs_callbacks.js")
+set_tests_properties(js/fs/test_fs_callbacks PROPERTIES
+    PASS_REGULAR_EXPRESSION "test_fs_callbacks: all [0-9]+ checks passed"
+    FAIL_REGULAR_EXPRESSION "FAILED|Uncaught exception")
+
 # tests/conformity: the asserting conformity scripts (each throws on the first
 # failed check, so a non-zero exit is the verdict). Platform-independent, so they
 # run on Linux, macOS and Windows alike.
