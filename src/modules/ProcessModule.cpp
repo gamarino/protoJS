@@ -2,6 +2,7 @@
 #include "../ProtoNativeModule.h"
 #include "../ArrayElementsStorage.h"
 #include "../ArrayPrototype.h"
+#include "../platform/ProcessExit.h"
 #include <cstdlib>
 #if defined(_WIN32)
 #include "../platform/Posix.h"
@@ -126,8 +127,10 @@ const proto::ProtoObject* processExit(
             exitCode = static_cast<int>(a->asLong(ctx));
         }
     }
-    std::exit(exitCode);
-    return PROTO_NONE;  // unreachable
+    // Not std::exit: this runs inside the interpreter, with the thread pools
+    // and the collector running, and exit()'s static destructors crashed
+    // against them. See platform/ProcessExit.h.
+    platform::exitNow(exitCode);
 }
 
 // Build a ProtoCore-native Array object whose `__elements__` is a

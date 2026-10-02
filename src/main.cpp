@@ -31,6 +31,7 @@
 #include "memory/MemoryAnalyzer.h"
 #include "debugging/IntegratedDebugger.h"
 #include "repl/REPL.h"
+#include "platform/ProcessExit.h"
 #include "platform/SizedThread.h"
 #include "quickjs.h"
 #include <iostream>
@@ -56,8 +57,8 @@
 //
 // The console's code pages belong to the console, not to this process: they
 // outlive it and every later program in the same window inherits them. They are
-// restored at exit (std::atexit; a normal return from main and exit() both run
-// it), so cmd.exe is left as protojs found it.
+// restored at exit (platform::addExitHook: a normal return from main, exit()
+// and process.exit all run it), so cmd.exe is left as protojs found it.
 #if defined(_WIN32)
 static UINT g_savedConsoleCP = 0;
 static UINT g_savedConsoleOutputCP = 0;
@@ -76,7 +77,7 @@ static void prepareStandardStreams() {
     g_savedConsoleCP = GetConsoleCP();
     g_savedConsoleOutputCP = GetConsoleOutputCP();
     if (g_savedConsoleCP != 0 || g_savedConsoleOutputCP != 0) {
-        std::atexit(restoreConsoleCodePages);
+        protojs::platform::addExitHook(restoreConsoleCodePages);
     }
     SetConsoleOutputCP(CP_UTF8);
     SetConsoleCP(CP_UTF8);

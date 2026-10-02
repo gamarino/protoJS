@@ -77,7 +77,7 @@ Timer functions such as `setTimeout` and `setInterval` are not installed.
 | `process.cwd()` | Current working directory. |
 | `process.platform()` | A function (not a property) returning `"linux"`, `"darwin"`, `"win32"` or the raw `uname` system name. |
 | `process.arch()` | A function returning `"x64"`, `"ia32"`, `"arm"` or the raw `uname` machine name. |
-| `process.exit(code)` | Exits immediately with `code` if it is an integer, otherwise with 0. |
+| `process.exit(code)` | Exits immediately with `code` if it is an integer, otherwise with 0, from any point including event callbacks: the standard streams are flushed first, and pending asynchronous work is abandoned (as in Node). |
 
 ```javascript
 console.log(process.argv.length, process.platform(), process.arch(), process.cwd());
