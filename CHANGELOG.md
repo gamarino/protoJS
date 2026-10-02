@@ -50,6 +50,16 @@ All notable changes to protoJS are documented in this file.
   (`src/platform/SizedThread.h`), and protoJS calls protoCore's
   `ProtoSpace::setThreadStackBytes` with the same size at start-up (protoCore
   2.8.0 and later). Test: `js/workers/deep_recursion`.
+- **Symbol-keyed properties in one order on every platform.** A
+  symbol-keyed property was stored under `@@sym#<the symbol's address>`, and
+  reports of symbol keys followed the addresses of those names, which differ
+  by platform (Test262's order tests failed on macOS and Windows only) and are
+  not unique once a collected symbol's address is reused. The name is now
+  `@@sym#<creation number>`, and `getOwnPropertySymbols`, `Reflect.ownKeys`,
+  `Object.assign` and the proxy fallbacks of `seal`/`freeze`/`isSealed`/
+  `isFrozen`/`getOwnPropertyDescriptors`/`defineProperties` report symbols by
+  creation, after the string keys, with array indices first. Test:
+  `js/basic/symbol_key_order`.
 - **Windows details.** The console code pages are restored at exit; the
   event loop raises the system timer to 1 ms (`timeBeginPeriod`) while it
   waits, instead of polling at the default 15.6 ms; QuickJS's time source on
@@ -75,6 +85,34 @@ All notable changes to protoJS are documented in this file.
   directory with a system-only `PATH`, and an informational dispatch timing.
 - More asserting fixtures are registered with CTest (crypto, Deferred, native
   addons, `tests/conformity`), so they run on all three platforms.
+- MSVC `/W3`: the 79 conversion warnings it reported in protoJS's sources are
+  fixed by type (no behaviour change).
+- `regression_gate.py --layout-dependent`: on macOS and Windows the tests in
+  `tests/test262/config/layout_dependent_tests.json` (two, each with the CI
+  run that showed it diverging) are reported but not gated; see "Known
+  defects" below. Linux does not use the list.
+
+### Known defects found by the review (2026-10-02), not fixed
+
+- **Property enumeration order** follows the addresses of the interned key
+  names, not insertion order (`o.zeta = 1; o.alpha = 2; o.mid = 3` gives
+  `Object.keys(o)` = `mid, zeta, alpha`); the addresses depend on the
+  allocator's history and differ between platforms. Fixing it needs
+  insertion-ordered attributes in protoCore's object model.
+  docs/TEST262_STATUS.md, "Property enumeration order".
+- Functions of native modules (`fs.readFileSync`, `path.join`, ...) have no
+  `call`, `apply` or `bind`: `ProtoNativeModule::addMethod` builds them before
+  `Function.prototype` exists.
+- `RegExp.prototype[Symbol.replace]` with a global regex skips one character
+  after every match (`'a//b/c'.replace(/\//g, 'Q')` gives `aQ/bQc`), and
+  `exec` with `lastIndex` past the end reads out of bounds
+  (`'/'.replace(/\//g, 'Q')` crashes): `src/RegExpPrototype.cpp`.
+- An exception thrown by a function of one module and caught by a `try` in
+  another module is lost or replaced.
+- `process.exit()` called from an event callback (a worker's `exit` handler)
+  crashes the process on the way out.
+The `path` fixtures work around the second, third and fourth without
+dropping an assertion (each change is marked `protoJS:`).
 
 ### Fixed — top-level bindings survive a collection (2026-10-01)
 
