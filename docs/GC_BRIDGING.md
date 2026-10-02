@@ -99,6 +99,20 @@ exactly once; removing a stale handle whose slot has since been reused is a
 silent no-op because the generation no longer matches, and `resolve` returns
 `nullptr` for such a handle.
 
+## Many short-lived references: one pinned holder
+
+When a component keeps an unbounded, fast-changing set of objects alive -- the
+job queue (`src/MicrotaskQueue.h`) holds every queued promise job, and the
+unhandled-rejection list of the current turn -- it does not take a root-set
+handle per object. It pins ONE mutable holder object for its lifetime and
+keeps the set as `ProtoList`s in the holder's attributes. Adding is an
+`appendLast` and a `setAttribute`; dropping a batch is replacing the attribute.
+A batch being processed stays reachable as another attribute of the holder
+(`__mtq_draining__`) until it has been processed, because a list that is only
+in a C++ local is not a root. Promise reactions follow the same rule from the
+other side: a promise's pending reactions are part of its own record, and
+settling queues the reaction jobs before it publishes the settled record.
+
 ## Blocking calls on a registered protoCore thread
 
 A registered protoCore thread that blocks without leaving the running set is still

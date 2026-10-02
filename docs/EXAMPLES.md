@@ -41,6 +41,44 @@ d.then((value) => console.log("sum:", value));
 console.log("scheduled");   // printed before "sum: ..."
 ```
 
+## Promises and async functions
+
+Promise reactions run as microtasks, after the synchronous code and before the
+next event-loop callback; `await` suspends the async function. This prints the
+lines in the order of their numbers, as Node does:
+
+```javascript
+console.log("1 sync start");
+Promise.resolve("value").then((v) => console.log("3 reaction:", v));
+
+let resolveLater;
+const pending = new Promise((resolve) => { resolveLater = resolve; });
+pending.then((v) => console.log("4 resolved later:", v));
+resolveLater("later");
+
+async function work() {
+    await null;                          // suspends; the caller goes on
+    throw new Error("boom");             // rejects work()'s promise
+}
+work().catch((e) => console.log("5 rejected:", e.message));
+
+setImmediate(() => console.log("6 next macrotask"));
+console.log("2 sync end");
+```
+
+An async function can await a `Deferred` or an `fs.promises` call:
+
+```javascript
+const fs = require("fs");
+
+async function main() {
+    const text = await fs.promises.readFile(__filename);
+    const doubled = await new Deferred(() => text.length * 2);
+    console.log("length x 2:", doubled);
+}
+main();
+```
+
 ## `setImmediate`
 
 ```javascript

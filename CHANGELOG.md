@@ -4,6 +4,62 @@ All notable changes to protoJS are documented in this file.
 
 ## [Unreleased]
 
+### Changed — Promises and async functions follow ECMA-262 (2026-10-02)
+
+Promises used a "synchronous model": `then()` on a settled promise ran its
+callback inside `then()`, `then()` on a pending promise stored nothing (a later
+resolve never ran it), and `await` unwrapped a settled promise in place and
+read a pending one as `undefined`, so an async function never suspended and a
+`throw` after an `await` escaped to the caller instead of rejecting.
+
+- **A job queue per thread** (`src/MicrotaskQueue.h`). Promise reactions run
+  as jobs, drained first in, first out, after the main script, after every
+  event-loop callback (before the next one), after each REPL input and at the
+  end of a worker's script. `queueMicrotask` is installed. The order of
+  reactions, thenable adoption (two extra jobs), `await`, `finally` and the
+  combinators matches Node: `tests/integration/promises/*.expected` are Node's
+  output for the fixtures (`cli/promise-fixtures`).
+- **Promise internals per §27.2**: reaction lists, `[[PromiseIsHandled]]`,
+  resolve functions with `[[AlreadyResolved]]`, thenables adopted through
+  NewPromiseResolveThenableJob (any object with a callable `then`, a
+  `Deferred` included), SpeciesConstructor and NewPromiseCapability for
+  subclasses, and `Promise.all` / `allSettled` / `any` / `race` over the
+  iterator protocol with element functions; `Promise.withResolvers` and
+  `Promise.try` complete the statics.
+- **`await` suspends.** The activation is saved in a continuation and resumed
+  from a job; a throw before or after an `await` rejects the function's
+  promise. Async arrows and methods alike.
+- **Async generators** queue `next` / `return` / `throw` and serve them in
+  order (§27.6.3); `for await ... of` accepts async and sync iterables;
+  `yield*` delegates to async iterators.
+- **Generators keep `for-of` state across `yield`**: a `for (x of iterable)`
+  loop that yields inside its body stopped after the first value.
+- **Unhandled rejections** are reported at the end of the microtask checkpoint
+  in which they happened, as Node does: a handler attached by a later job of
+  the same checkpoint is in time, one attached in a later macrotask is not.
+  The REPL reports without exiting.
+- **Leak fixed.** Every `new Promise` registered itself on the global object
+  for the rest of the process. 100,000 rejected-and-handled promises now run
+  in a 96 MB heap ceiling with a 109 MB peak resident set
+  (`cli/promise-rejections-bounded-memory`); before, they ran out of memory.
+- **`fs.promises` returns Promises**, settled from the event-loop callback of
+  the pool work and rejected with an `Error` (it returned a `Deferred`
+  rejected with a string).
+- **Cross-thread entry point** for native producers:
+  `MicrotaskQueue::enqueueFromAnyThread` runs a C++ continuation on the
+  owner thread as a microtask (`tests/unit/test_microtask_queue.cpp`).
+- **Performance.** `tests/benchmarks/async/await_loop.js` (202,000 awaits and
+  100,000 reactions on settled promises, which the old model also computed
+  correctly): 11.96 G cycles and 2.55 s, against 19.56 G cycles and 3.80 s
+  for the synchronous model (`perf stat -r 3`, Linux x86-64, GCC 13). The
+  dispatch benchmarks: `call_fib` 4.52 G against 4.44 G cycles (+2.0 %),
+  `loop_sum` 4.43 G against 4.78 G (-7 %, a layout effect: it executes 2.3 %
+  more instructions). `pending_chains.js` (reactions on pending promises
+  settled from macrotasks) has no "before": the old model never ran them.
+
+Remaining differences from Node are listed in
+[docs/API_REFERENCE.md](docs/API_REFERENCE.md#promises-and-async-functions).
+
 ### Fixed — GC safety under the heap ceiling, lazy function prototypes, `new`, `events` (2026-10-02)
 
 The default heap ceiling (below) makes protoCore's collector free cells, and

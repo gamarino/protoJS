@@ -36,6 +36,7 @@ Four language runtimes (protoJS, protoPython, protoST, protoClojure) and protoCp
 - **protoCore data structures.** Array elements are stored in protoCore's immutable `ProtoList` and updated by structural sharing; strings are protoCore ropes.
 - **Native threads.** `protoCore.runInThread` runs a registered C++ worker on a new protoCore thread that shares the same object space, without serialising arguments or results.
 - **Garbage collection** is provided by protoCore's collector.
+- **Promises and async functions per ECMA-262.** Promise reactions run as jobs on a per-thread microtask queue, drained after the main script and after every event-loop callback, in the order Node runs them; `await` suspends the async function and resumes it from a job; async generators queue their requests; an unhandled rejection ends the process with status 1. See [Promises and async functions](docs/API_REFERENCE.md#promises-and-async-functions).
 - **Node.js-style modules** (`fs`, `path`, `http`, `net`, `stream`, `events`, `crypto`, `worker_threads`, and others) and developer tools (memory analyzer, profiler, Chrome DevTools Protocol debugger) implemented in C++.
 - **Command-line interface** with Node.js-style flags and an interactive REPL.
 
@@ -145,7 +146,7 @@ All options are parsed by `src/main.cpp`.
 
 Without arguments, protojs prints its usage and exits with status 1. When options are given but no script, `-e` or `-c`, it starts the REPL: the prompt is `> `, incomplete input continues on a `... ` prompt, and `.help` and `.exit` (or `.quit`) are available.
 
-After the main evaluation, protojs keeps processing the event loop while there are pending callbacks, `Deferred` instances, worker threads, HTTP servers or clients, or `net` handles, for up to 180 seconds. The exit status is 1 if the main evaluation threw and 0 otherwise.
+After the main evaluation, protojs keeps processing the event loop while there are pending callbacks, `Deferred` instances, worker threads, HTTP servers or clients, `net` handles or pending `fs` operations, for up to 180 seconds. The microtask queue (promise reactions, `await` continuations, `queueMicrotask`) is drained after the main evaluation and after every callback; a pending promise alone does not keep the process alive. The exit status is 1 if the main evaluation threw or a promise rejection went unhandled, and 0 otherwise.
 
 ### Examples
 
@@ -293,13 +294,13 @@ To reproduce, build protoJS and run `node tests/benchmarks/run_standard_comparis
 **Available:**
 
 - Script, inline and ES module evaluation on the protoCore interpreter; the REPL.
-- Globals installed on the protoCore-native global object: `console`, `JSON`, `globalThis`, `Deferred`, `protoCore` (`Set`, `Multiset`, `SparseList`, `Tuple`, `ImmutableObject`, `MutableObject`, `isImmutable`, `makeImmutable`, `makeMutable`, `runInThread`), `process`, `io`, `require`, `fs`, `path`, `url`, `http`, `events`, `stream`, `util`, `crypto` (linked against OpenSSL), `Buffer`, `net`, `worker_threads`, `cluster`, `dgram`, `child_process`, `dns`, `memory`, `profiler` and `debugger`. These modules are native C++ implementations; their coverage of the Node.js API varies and has not been measured.
+- Globals installed on the protoCore-native global object: `console`, `JSON`, `globalThis`, `Promise`, `queueMicrotask`, `Deferred`, `protoCore` (`Set`, `Multiset`, `SparseList`, `Tuple`, `ImmutableObject`, `MutableObject`, `isImmutable`, `makeImmutable`, `makeMutable`, `runInThread`), `process`, `io`, `require`, `fs`, `path`, `url`, `http`, `events`, `stream`, `util`, `crypto` (linked against OpenSSL), `Buffer`, `net`, `worker_threads`, `cluster`, `dgram`, `child_process`, `dns`, `memory`, `profiler` and `debugger`. These modules are native C++ implementations; their coverage of the Node.js API varies and has not been measured.
 - A CommonJS `require()` loader for JavaScript files and native addons (`.node`, `.so`/`.dylib`/`.dll`, `.protojs`); see [docs/NATIVE_MODULES.md](docs/NATIVE_MODULES.md).
 - C++ unit tests (Catch2) for the thread pools, event loop, npm registry client, semver handling, benchmark runner and Node.js test runner.
 
 **Known gaps:**
 
-- Test262 conformance is **53.25 %** of the whole corpus as of 2026-09-26 (see [Test262 Conformance](#test262-conformance)). The largest single gaps: ECMA-402 is not implemented at all (`intl402` passes 0.60 %), 613 tests time out — 384 of them RegExp property escapes — and classes, generators and async functions are incomplete. The failures catalogued on 2026-06-13 also remain: insertion-order tracking for attribute storage, real `eval()` execution, the `$262` cross-realm harness, source text of generator and async functions for `Function.prototype.toString`, and resizable `ArrayBuffer` and `SuppressedError` subclassing.
+- Test262 conformance is **53.25 %** of the whole corpus as of 2026-09-26 (see [Test262 Conformance](#test262-conformance)). The largest single gaps: ECMA-402 is not implemented at all (`intl402` passes 0.60 %), 613 tests time out — 384 of them RegExp property escapes — and classes and generators are incomplete (async functions and async generators follow the specification's job order since 2026-10; their remaining differences are listed in [Promises and async functions](docs/API_REFERENCE.md#promises-and-async-functions)). The failures catalogued on 2026-06-13 also remain: insertion-order tracking for attribute storage, real `eval()` execution, the `$262` cross-realm harness, source text of generator and async functions for `Function.prototype.toString`, and resizable `ArrayBuffer` and `SuppressedError` subclassing.
 - Strict-mode Test262 variants are not run yet: each test file executes once, in sloppy mode, so roughly half of Test262's required executions are unmeasured.
 - npm registry and semver components exist in `src/npm/`, but the `protojs` command line has no package-management command.
 - The interpreter is 15.2× slower than QuickJS and about 95× slower than Node.js on the benchmark reading above.

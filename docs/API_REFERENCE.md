@@ -32,7 +32,7 @@ protojs [options] -e "<code>"
 - An unknown option or an unreadable script file prints an error and exits with status 1.
 - If the main script throws, the error is printed and the exit status is 1; work the script queued (`setImmediate`, I/O callbacks) does not run.
 - An exception that escapes an event-loop callback (`setImmediate`, an `fs`, `dns`, `http`, `net` or worker callback, a `Deferred` reaction) is printed as `Uncaught exception in <where>: <error>` and ends the process with status 1 at once, as in Node.
-- A rejected `Promise` that no handler has claimed by the end of the turn that rejected it (the main script, or one callback) is printed as `Uncaught (in promise) <error>` and ends the process with status 1 -- Node's default since v15. `then`/`catch`/`finally`, `await` and the `Promise` combinators count as handlers.
+- A rejected `Promise` that no handler has claimed by the end of the microtask checkpoint in which it was rejected (the checkpoint after the main script, or after one callback; see [Promises and async functions](#promises-and-async-functions)) is printed as `Uncaught (in promise) <error>` and ends the process with status 1 -- Node's default since v15. A handler attached by a later job of the same checkpoint is in time; one attached in a later macrotask is not. `then`/`catch`/`finally`, `await` and the `Promise` combinators count as handlers. The REPL prints the message and goes on.
 - If the live objects fill the heap ceiling (see `PROTOCORE_HEAP_LIMIT_CELLS` below), `protojs: out of memory: ...` is printed and the exit status is 3.
 
 ### Environment variables
@@ -57,6 +57,8 @@ protojs [options] -e "<code>"
 | `performance` | `src/console.cpp` | `performance.now()` |
 | `JSON` | `src/JSONBuiltin.cpp` | `JSON.parse`, `JSON.stringify` |
 | `setImmediate` | `src/EventLoopBindings.cpp` | `setImmediate(callback)` runs `callback` on a later event-loop turn |
+| `Promise` | `src/PromisePrototype.cpp` | ECMA-262 promises: `then`, `catch`, `finally`, `Promise.resolve`, `reject`, `all`, `allSettled`, `any`, `race`, `withResolvers`, `try`, `Symbol.species`. See [Promises and async functions](#promises-and-async-functions) |
+| `queueMicrotask` | `src/PromisePrototype.cpp` | `queueMicrotask(callback)` queues `callback` as a microtask; an exception it throws is uncaught |
 | `Deferred` | `src/ProtoDeferred.cpp` | Promise-like object. `new Deferred(fn)` and `Deferred(fn)` both work; `fn` takes no arguments, its return value fulfils and a thrown value rejects. `then(onFulfilled, onRejected)` and `catch(onRejected)` return the same instance. See [DEFERRED_USAGE.md](DEFERRED_USAGE.md) |
 | `protoCore` | `src/ProtoCoreNativeBindings.cpp` | protoCore collections (`Set`, `Multiset`, `SparseList`, `Tuple`), the mutability helpers (`ImmutableObject`, `MutableObject`, `isImmutable`, `makeImmutable`, `makeMutable`) and `runInThread`; see [PROTOCORE_MODULE.md](PROTOCORE_MODULE.md) |
 | `io` | `src/modules/IOModule.cpp` | Simple file I/O; see below |
@@ -69,6 +71,61 @@ protojs [options] -e "<code>"
 | `__filename`, `__dirname`, `__protojs__` | `src/main.cpp` | Path of the main script, its directory, and `true` |
 
 Timer functions such as `setTimeout` and `setInterval` are not installed.
+
+---
+
+## Promises and async functions
+
+Promises, async functions and async generators follow ECMA-262 §27.2-§27.7,
+with the job order Node shows (`tests/integration/promises/*.expected` are
+Node's own output for the fixtures, checked by `cli/promise-fixtures`).
+
+- **Jobs.** A promise reaction never runs inside `then()` or inside the call
+  that settles the promise: it is queued as a job on the thread's microtask
+  queue (`src/MicrotaskQueue.h`). The queue is drained -- jobs queued by jobs
+  included, first in, first out -- after the main script, after every
+  event-loop callback (`setImmediate`, I/O, worker messages) before the next
+  one, and after each REPL input. A worker has its own queue. `queueMicrotask`
+  adds a callback to it. Pending promises alone do not keep the process alive,
+  as in Node.
+- **Thenables.** Resolving a promise with an object whose `then` is callable
+  -- another promise, a `Deferred`, any thenable -- calls that `then` from a
+  job, so it costs the two extra jobs the specification prescribes; resolving
+  a promise with itself rejects it with a `TypeError`.
+- **`await`** suspends the async function: the caller continues, and the
+  function resumes from a job once the awaited value settles (one job for a
+  plain value or a native promise). A `throw` -- before or after the first
+  `await` -- rejects the function's promise; `return` resolves it, adopting a
+  returned promise. Async arrow functions and async methods behave the same.
+- **Async generators** queue `next` / `return` / `throw` requests and serve
+  them in order; `for await ... of` accepts async iterables and sync
+  iterables (whose values are awaited); `yield*` delegates to an async
+  iterator.
+- **Native APIs.** `fs.promises` functions return promises settled from an
+  event-loop callback, so their reactions run in the checkpoint after it.
+  `Deferred` keeps its own model (see [DEFERRED_USAGE.md](DEFERRED_USAGE.md));
+  as a thenable it can be awaited and passed to the combinators.
+- **Unhandled rejections** are reported at the end of the checkpoint (see
+  [Command line](#command-line)).
+
+Known differences from Node:
+
+- `process.on('unhandledRejection')` and `'rejectionHandled'` are not
+  available (`process` is not an event emitter); an unhandled rejection
+  always ends the process with status 1 (Node's default).
+- Errors carry no stack, so the report is `Uncaught (in promise) Name:
+  message` rather than Node's stack trace.
+- When a `for await` loop is left early (`break`, `return`, an exception), the
+  iterator's `return()` is called but its result is not awaited.
+- An async generator object's prototype is the shared
+  `%AsyncGeneratorPrototype%`, not the generator function's own `prototype`
+  object.
+- ES module code (`--input-type=module`) is evaluated by QuickJS, with
+  QuickJS's own promises and job queue, drained once after the module's
+  evaluation; top-level `await` works there as before. The job queue described
+  here is the one of scripts, which run on the protoCore interpreter.
+- Properties of iterator results and settled records are enumerated in
+  protoJS's key order (`done` before `value`), not insertion order.
 
 ---
 
@@ -149,7 +206,7 @@ Synchronous functions: `readFileSync`, `writeFileSync`, `readdirSync`,
 `mkdirSync`, `statSync`, `unlinkSync`, `rmdirSync`, `renameSync`,
 `copyFileSync`; they return `undefined` or `false` on failure instead of
 throwing. `fs.promises` has `readFile`, `writeFile`, `readdir`, `mkdir` and
-`stat`, which return a `Deferred`.
+`stat`, which return a `Promise`, rejected with an `Error` on failure.
 
 The callback forms follow Node's API:
 
