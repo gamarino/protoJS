@@ -30,7 +30,7 @@ Behaviour, as implemented in `src/ProtoDeferred.cpp`:
 - `catch(callback)` registers a rejection callback. A `catch` registered after the Deferred has already been rejected still runs, on a later turn.
 - `then` and `catch` return the **same** Deferred, not a new one. Calls can be chained on that object, but a callback's return value is not passed to the next callback.
 - An exception thrown by the constructor's function **rejects** the Deferred, and the thrown value reaches the rejection handlers unchanged — an `Error` object, or a primitive such as `throw 42`. Rejections also come from native operations that return a Deferred, such as `protoCore.runInThread` when the thread cannot be created, or `io.readFileAsync` / `io.writeFileAsync` when the I/O operation fails.
-- An exception thrown by a `then` or `catch` callback is reported on stderr as `Uncaught exception in Deferred callback: <Name: message>`. It does not settle any other Deferred and does not disturb the native call that runs next.
+- An exception thrown by a `then` or `catch` callback, and not caught inside it, is reported on stderr as `Uncaught exception in Deferred callback: <Name: message>` and ends the process with exit status 1 at once (work still queued does not run), as an exception escaping any event-loop callback does in Node. It does not settle any other Deferred.
 - A rejection with no registered handler is silent: there is no unhandled-rejection warning.
 
 ## Process lifetime

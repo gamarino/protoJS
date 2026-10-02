@@ -8,6 +8,12 @@
 //   - a callback that threw left the interpreter's pending-exception flag set
 //     for whatever native code ran next.
 //
+// A `then` callback that throws now ends the process with status 1, as an
+// exception escaping any event-loop callback does in Node; that case lives in
+// tests/cli/uncaught-errors.sh (deferred-reaction-throw), which also checks
+// that nothing queued runs after it.  This script keeps the checks that later
+// native calls and Deferreds work on the turns after a callback.
+//
 // Asserting test: prints the failures and exits 1 when anything is wrong.
 // Run: protojs tests/integration/deferred/test_deferred_reject.js
 
@@ -101,10 +107,14 @@ dTwoArgOk.then(
     function (e) { mark("twoArgUnexpectedReject", e); }
 );
 
-// ---- A callback that throws must not corrupt later work ------------------
+// ---- Later work after callbacks have run -----------------------------------
+// (A callback that throws is fatal: see tests/cli/uncaught-errors.sh.)
 
-var dThrowingCallback = new Deferred(function () { return 1; });
-dThrowingCallback.then(function () { throw new Error("callback blows up"); });
+var dCallbackRan = new Deferred(function () { return 1; });
+dCallbackRan.then(function () {
+    // Thrown and caught inside the callback: nothing escapes it.
+    try { throw new Error("caught inside the callback"); } catch (e) { mark("caughtInCallback", e.message); }
+});
 
 // ---- Watchdog ------------------------------------------------------------
 // Deferred callbacks run on later event-loop turns. Chain setImmediate hops,
@@ -123,8 +133,8 @@ function step() {
         dPrim['catch'](function (e) { mark("lateCatch", e); });
     }
 
-    // After the throwing callback has run, native calls and new Deferreds
-    // must still work (no stale pending-exception flag).
+    // After the callbacks have run, native calls and new Deferreds must
+    // still work (no stale pending-exception flag).
     if (hops === 20) {
         var parsed = null;
         try {
@@ -171,9 +181,11 @@ function finish() {
     check("catch attached after rejection still fires", seen.lateCatch === 42,
           "got " + seen.lateCatch);
 
-    check("native calls work after a callback threw", seen.jsonAfterThrow === 1,
+    check("an exception caught inside a callback stays there",
+          seen.caughtInCallback === "caught inside the callback", "got " + seen.caughtInCallback);
+    check("native calls work after the callbacks", seen.jsonAfterThrow === 1,
           "got " + seen.jsonAfterThrow);
-    check("a later Deferred still resolves after a callback threw",
+    check("a later Deferred still resolves after the callbacks",
           seen.deferredAfterThrow === 99, "got " + seen.deferredAfterThrow);
 
     if (failures.length) {

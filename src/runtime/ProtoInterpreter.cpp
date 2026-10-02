@@ -17270,7 +17270,10 @@ const proto::ProtoObject* runBytecode(proto::ProtoContext* pContext,
                         awaitVal = getPromiseValuePublic(pContext, awaitVal);
                         if (!awaitVal) awaitVal = PROTO_NONE;
                     } else if (promSt == 2) {
-                        // Rejected: throw the rejection reason.
+                        // Rejected: throw the rejection reason.  Awaiting
+                        // is a handler (Await performs PerformPromiseThen),
+                        // so the rejection is no longer unhandled.
+                        markPromiseHandled(pContext, awaitVal);
                         const proto::ProtoObject* reason = getPromiseValuePublic(pContext, awaitVal);
                         pending_exception = reason ? reason : PROTO_NONE;
                         has_pending_exception = true;

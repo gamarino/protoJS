@@ -484,6 +484,19 @@ int main(int argc, char** argv) {
 
     JSValue result = wrapper.eval(code, filename, inputTypeModule);
 
+    // An exception that escaped the main script ends the process, as in Node:
+    // eval has already reported it, and work the script queued must not run.
+    // exitNow, not return: worker and I/O threads may still be running.
+    if (JS_IsException(result)) {
+        JS_FreeValue(wrapper.getJSContext(), result);
+        protojs::platform::exitNow(1);
+    }
+    // The end of the first turn: a rejection nobody handled is fatal. Every
+    // later turn (each event-loop callback) ends with the same checks.
+    protojs::endOfTurnChecks(wrapper.getProtoContext());
+    protojs::EventLoop::getInstance().setEndOfTurnHook([&wrapper]() {
+        protojs::endOfTurnChecks(wrapper.getProtoContext());
+    });
 
     // Print result if -p flag is set
     if (printResult && !JS_IsException(result) && !JS_IsUndefined(result)) {

@@ -4,8 +4,10 @@
 #include "ObjectPrototype.h"
 #include "protoCore.h"
 #include "runtime/ProtoInterpreter.h"
+#include "JSContext.h"
 #include <cstdio>
 #include <string>
+#include <unordered_map>
 #include <vector>
 
 namespace protojs {
@@ -171,6 +173,7 @@ static const proto::ProtoObject* makeSettledPromise(
     p = setAttr(ctx, p, "__promise_state__", ctx->fromInteger(static_cast<long long>(state)));
     p = setAttr(ctx, p, "__promise_value__", value ? value : PROTO_NONE);
     p = attachPromiseMethods(ctx, p);
+    if (state == 2) trackPromiseRejection(ctx, p);
     return p;
 }
 
@@ -230,6 +233,10 @@ static const proto::ProtoObject* promiseThen(
 
     int state = getPromiseState(ctx, self);
     const proto::ProtoObject* value = getPromiseValue(ctx, self);
+    // §27.2.5.4.1 PerformPromiseThen step 12: a rejected promise gains a
+    // handler here (HostPromiseRejectionTracker(promise, "handle")).  The
+    // rejection then belongs to the promise this call returns.
+    if (state == 2) markPromiseHandled(ctx, self);
 
     // §27.2.1.4 / §27.2.1.7 PerformPromiseThen: if onFulfilled /
     // onRejected aren't callable, fall back to identity / thrower so
@@ -388,7 +395,17 @@ static const proto::ProtoObject* promiseFinally(
         if (!callable && bcK && thenFn->hasAttribute(ctx, bcK) == PROTO_TRUE) callable = true;
         const proto::ProtoString* nfK = JSSymbols::nativeFn(ctx);
         if (!callable && nfK && thenFn->hasAttribute(ctx, nfK) == PROTO_TRUE) callable = true;
-        if (callable) {
+        // The built-in then: take the native path below, which keeps the
+        // settled state.  Handing onFinally to then() as both reactions (as
+        // this did) made it the rejection handler, so finally() turned a
+        // rejection into a fulfilment with onFinally's return value.
+        bool builtinThen = false;
+        if (callable && nfK) {
+            const proto::ProtoObject* nf = thenFn->getAttribute(ctx, nfK, false);
+            builtinThen = nf && nf != PROTO_NONE && nf->isMethod(ctx)
+                && nf->asMethod(ctx) == &promiseThen;
+        }
+        if (callable && !builtinThen) {
             const proto::ProtoList* cbArgs = ctx->newList();
             cbArgs = cbArgs->appendLast(ctx, onFinally);
             cbArgs = cbArgs->appendLast(ctx, onFinally);
@@ -398,10 +415,13 @@ static const proto::ProtoObject* promiseFinally(
 
     int state = getPromiseState(ctx, self);
     const proto::ProtoObject* value = getPromiseValue(ctx, self);
+    if (state == 2) markPromiseHandled(ctx, self);
 
-    if (onFinally && onFinally != PROTO_NONE) {
+    if (onFinally && onFinally != PROTO_NONE && onFinally != getUndefinedSentinel()) {
         const proto::ProtoList* cbArgs = ctx->newList();
         callJSFunction(ctx, onFinally, PROTO_NONE, cbArgs);
+        // A throw from onFinally replaces the outcome (§27.2.5.3.1 step 8).
+        if (hasCallException()) return PROTO_NONE;
     }
 
     return makeSettledPromise(ctx, state, value);
@@ -614,7 +634,10 @@ static const proto::ProtoObject* promiseAll(
         const proto::ProtoObject* item = items[i];
         if (isPromise(ctx, item)) {
             int st = getPromiseState(ctx, item);
-            if (st == 2) return makeSettledPromise(ctx, 2, getPromiseValue(ctx, item));
+            if (st == 2) {
+                markPromiseHandled(ctx, item);
+                return makeSettledPromise(ctx, 2, getPromiseValue(ctx, item));
+            }
             if (st == 1) item = getPromiseValue(ctx, item);
             else         item = PROTO_NONE; // pending → undefined
         }
@@ -657,6 +680,7 @@ static const proto::ProtoObject* promiseAllSettled(
         if (isPromise(ctx, item)) {
             st  = getPromiseState(ctx, item);
             val = getPromiseValue(ctx, item);
+            if (st == 2) markPromiseHandled(ctx, item);
             if (st == 0) { st = 1; val = PROTO_NONE; }
         }
 
@@ -702,7 +726,11 @@ static const proto::ProtoObject* promiseRace(
     for (const auto& item : items) {
         if (isPromise(ctx, item)) {
             int st = getPromiseState(ctx, item);
-            if (st != 0) return item;
+            // The race result is a new promise (§27.2.4.5): the item's
+            // rejection is handled by the race, and the result's own
+            // rejection is tracked separately.
+            if (st == 2) markPromiseHandled(ctx, item);
+            if (st != 0) return makeSettledPromise(ctx, st, getPromiseValue(ctx, item));
         } else {
             return makeSettledPromise(ctx, 1, item);
         }
@@ -741,6 +769,7 @@ static const proto::ProtoObject* promiseAny(
             int st = getPromiseState(ctx, item);
             if (st == 1) return makeSettledPromise(ctx, 1, getPromiseValue(ctx, item));
             if (st == 2) {
+                markPromiseHandled(ctx, item);
                 const proto::ProtoString* ik = JSSymbols::indexKey(ctx, static_cast<uint32_t>(i));
                 if (ik) errorsArr = errorsArr->setAttribute(ctx, ik, getPromiseValue(ctx, item));
             } else {
@@ -837,6 +866,7 @@ static const proto::ProtoObject* promiseRejectNative(
     cell = setAttr(ctx, cell, "__promise_state__", ctx->fromInteger(2LL));
     cell = setAttr(ctx, cell, "__promise_value__", reason);
     *gr = (*gr)->setAttribute(ctx, cks, cell);
+    trackPromiseRejection(ctx, cell);
     return PROTO_NONE;
 }
 
@@ -1236,6 +1266,67 @@ const proto::ProtoObject* getPromiseValuePublic(proto::ProtoContext* ctx,
                                                  const proto::ProtoObject* p)
 {
     return getPromiseValue(ctx, p);
+}
+
+// ---------------------------------------------------------------------------
+// Unhandled-rejection tracking.
+//
+// Per thread, because promises are created and settled on the thread that runs
+// the script; the host checks the main thread's record.  The map owns one
+// root-set pin per rejected promise that has no handler yet: rejections are
+// either handled within the turn (the pin lives for a few operations) or end
+// the process, so the map stays small.
+// ---------------------------------------------------------------------------
+namespace {
+
+struct UnhandledRejections {
+    struct Entry {
+        proto::ProtoRootSet* rootSet;
+        proto::ProtoRootSet::Handle pin;
+        unsigned long long order;
+    };
+    std::unordered_map<const proto::ProtoObject*, Entry> pending;
+    unsigned long long nextOrder = 0;
+};
+
+thread_local UnhandledRejections t_unhandled;
+
+}  // namespace
+
+void trackPromiseRejection(proto::ProtoContext* /*ctx*/, const proto::ProtoObject* p) {
+    if (!p || p == PROTO_NONE) return;
+    JSContextWrapper* w = JSContextWrapper::current();
+    proto::ProtoRootSet* rs = w ? w->getRootSet() : nullptr;
+    if (!rs) return;  // No host turn to report it at.
+    if (t_unhandled.pending.count(p)) return;
+    t_unhandled.pending.emplace(p, UnhandledRejections::Entry{
+        rs, rs->add(p), t_unhandled.nextOrder++});
+}
+
+void markPromiseHandled(proto::ProtoContext* /*ctx*/, const proto::ProtoObject* p) {
+    if (t_unhandled.pending.empty()) return;
+    auto it = t_unhandled.pending.find(p);
+    if (it == t_unhandled.pending.end()) return;
+    if (it->second.rootSet) it->second.rootSet->remove(it->second.pin);
+    t_unhandled.pending.erase(it);
+}
+
+bool takeUnhandledRejection(proto::ProtoContext* ctx, const proto::ProtoObject*& reason) {
+    if (t_unhandled.pending.empty()) return false;
+    // Report the earliest rejection, as Node does.
+    const proto::ProtoObject* first = nullptr;
+    unsigned long long firstOrder = 0;
+    for (const auto& kv : t_unhandled.pending) {
+        if (!first || kv.second.order < firstOrder) {
+            first = kv.first;
+            firstOrder = kv.second.order;
+        }
+    }
+    reason = first ? getPromiseValue(ctx, first) : PROTO_NONE;
+    for (auto& kv : t_unhandled.pending)
+        if (kv.second.rootSet) kv.second.rootSet->remove(kv.second.pin);
+    t_unhandled.pending.clear();
+    return true;
 }
 
 } // namespace protojs

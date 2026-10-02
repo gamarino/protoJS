@@ -162,6 +162,14 @@ add_test(NAME cli/process-exit
             "$<TARGET_FILE:protojs>"
             "${CMAKE_CURRENT_BINARY_DIR}/cli-scratch/process-exit")
 
+# An exception that escapes an event-loop callback, or a promise rejection no
+# handler has claimed by the end of its turn, ends the process with status 1 (as
+# in Node); handled rejections and caught exceptions do not.
+add_test(NAME cli/uncaught-errors
+    COMMAND ${PROTOJS_SH} "${CMAKE_CURRENT_SOURCE_DIR}/cli/uncaught-errors.sh"
+            "$<TARGET_FILE:protojs>"
+            "${CMAKE_CURRENT_BINARY_DIR}/cli-scratch/uncaught-errors")
+
 # --- Asserting JavaScript tests ------------------------------------------------
 #
 # Each script checks the values it computes and exits 1 on any failure, so its

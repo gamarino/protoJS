@@ -3,9 +3,12 @@
 #include "FunctionPrototype.h"
 #include "JSContext.h"
 #include "JSSymbols.h"
+#include "PromisePrototype.h"
+#include "platform/ProcessExit.h"
 #include "runtime/ProtoInterpreter.h"
 #include "runtime/ProtoBytecodeModule.h"
 #include <atomic>
+#include <cstdio>
 #include <iostream>
 #include <string>
 
@@ -58,18 +61,27 @@ bool isCallableValue(proto::ProtoContext* ctx, const proto::ProtoObject* v) {
     return false;
 }
 
-// Consume and report an exception left behind by a user callback.
-//
-// callJSFunction reports a throw by setting a thread-local flag and returning
-// PROTO_NONE.  Nothing in the event loop consumes that flag, so leaving it set
-// made the next native call on this thread believe that IT had thrown.  Every
-// site that invokes a user callback must drain it.  Declared in
-// ProtoDeferred.h for the other modules that invoke callbacks (fs).
-void drainCallbackException(proto::ProtoContext* ctx, const char* where) {
-    if (!hasCallException()) return;
-    const proto::ProtoObject* exc = consumeCallException();
+namespace {
+
+// "<name>: <message>" for an Error-like value; the value itself for a string or
+// a number; "Error" when nothing describes it.
+std::string describeThrownValue(proto::ProtoContext* ctx, const proto::ProtoObject* exc) {
     std::string errStr;
-    if (ctx && exc && exc != PROTO_NONE) {
+    if (!exc || exc == PROTO_NONE) return "undefined";
+    if (ctx) {
+        if (exc->isString(ctx)) {
+            exc->asString(ctx)->toUTF8String(ctx, errStr);
+            return errStr;
+        }
+        if (exc->isInteger(ctx)) return std::to_string(exc->asLong(ctx));
+        if (exc->isDouble(ctx)) {
+            char buf[40];
+            std::snprintf(buf, sizeof(buf), "%.15g", exc->asDouble(ctx));
+            return buf;
+        }
+        if (exc == getUndefinedSentinel()) return "undefined";
+        if (exc == getNullSentinel()) return "null";
+        if (exc->isBoolean(ctx)) return exc == PROTO_TRUE ? "true" : "false";
         const proto::ProtoString* nameKey = JSSymbols::name(ctx);
         if (nameKey) {
             const proto::ProtoObject* nv = exc->getAttribute(ctx, nameKey, true);
@@ -88,11 +100,40 @@ void drainCallbackException(proto::ProtoContext* ctx, const char* where) {
                 }
             }
         }
-        if (errStr.empty() && exc->isString(ctx))
-            exc->asString(ctx)->toUTF8String(ctx, errStr);
     }
     if (errStr.empty()) errStr = "Error";
-    std::cerr << "Uncaught exception in " << where << ": " << errStr << std::endl;
+    return errStr;
+}
+
+}  // namespace
+
+// Consume and report an exception left behind by a user callback.
+//
+// callJSFunction reports a throw by setting a thread-local flag and returning
+// PROTO_NONE.  Nothing in the event loop consumes that flag, so leaving it set
+// made the next native call on this thread believe that IT had thrown.  Every
+// site that invokes a user callback must drain it.  Declared in
+// ProtoDeferred.h for the other modules that invoke callbacks (fs).
+//
+// The exception reached the top of a callback, so nothing will catch it: as in
+// Node, the process ends with status 1.  Pre-fix the message was printed and
+// the program carried on to exit with status 0.
+void drainCallbackException(proto::ProtoContext* ctx, const char* where) {
+    if (!hasCallException()) return;
+    const proto::ProtoObject* exc = consumeCallException();
+    std::cerr << "Uncaught exception in " << where << ": "
+              << describeThrownValue(ctx, exc) << std::endl;
+    platform::exitNow(1);
+}
+
+void endOfTurnChecks(proto::ProtoContext* ctx) {
+    drainCallbackException(ctx, "event-loop callback");
+    const proto::ProtoObject* reason = nullptr;
+    if (takeUnhandledRejection(ctx, reason)) {
+        std::cerr << "Uncaught (in promise) " << describeThrownValue(ctx, reason)
+                  << std::endl;
+        platform::exitNow(1);
+    }
 }
 
 namespace {

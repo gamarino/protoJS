@@ -52,6 +52,16 @@ public:
      */
     bool hasPendingCallbacks() const;
 
+    /**
+     * @brief Install the end-of-turn hook, run after every callback.
+     *
+     * The host uses it to apply what Node does at the end of each turn: an
+     * exception a callback left uncaught, or a promise rejection nobody
+     * handled, ends the process (see endOfTurnChecks in ProtoDeferred.h).
+     * Main thread only, like processCallbacks.
+     */
+    void setEndOfTurnHook(std::function<void()> hook);
+
 private:
     EventLoop() = default;
     ~EventLoop() = default;
@@ -64,6 +74,7 @@ private:
     mutable std::mutex queueMutex;
     std::condition_variable condition;
     std::atomic<bool> running{false};
+    std::function<void()> endOfTurnHook;
 };
 
 } // namespace protojs
