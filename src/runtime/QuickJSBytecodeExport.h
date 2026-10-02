@@ -68,6 +68,15 @@ const char* protojs_bytecode_func_name(struct JSContext* ctx, void* bytecode);
 /** Return 1 if the function is an arrow function (no own this/new.target binding), 0 otherwise. */
 int protojs_bytecode_is_arrow(void* bytecode);
 
+/** Return 1 if the function has [[Construct]]: an ordinary `function` or a
+ *  class constructor; 0 for arrows, methods, accessors, generators and async
+ *  functions. */
+int protojs_bytecode_is_constructor(void* bytecode);
+
+/** Return 1 for an ordinary `function` (declaration or expression of kind
+ *  normal): the functions given a `prototype` object, created lazily. */
+int protojs_bytecode_has_prototype(void* bytecode);
+
 /** Return the function kind: 0=normal, 1=generator, 2=async, 3=async-generator. */
 int protojs_bytecode_func_kind(void* bytecode);
 

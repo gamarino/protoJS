@@ -207,6 +207,17 @@ add_test(NAME cli/closure-loop-bounded-memory
             "${CMAKE_CURRENT_BINARY_DIR}/cli-scratch/closure-loop-bounded-memory")
 set_tests_properties(cli/closure-loop-bounded-memory PROPERTIES TIMEOUT 1200)
 
+# The same with an ordinary `function` expression, whose `prototype` object
+# (and the cycle fn.prototype.constructor === fn it brings) is now created only
+# on first need (src/runtime/LazyPrototype.h). Before that, every such closure
+# was retained and the loop filled the default ceiling.
+add_test(NAME cli/function-closure-loop-bounded-memory
+    COMMAND ${PROTOJS_PYTHON} "${CMAKE_CURRENT_SOURCE_DIR}/cli/closure_loop_bounded_memory.py"
+            "$<TARGET_FILE:protojs>"
+            "${CMAKE_CURRENT_BINARY_DIR}/cli-scratch/function-closure-loop-bounded-memory"
+            function)
+set_tests_properties(cli/function-closure-loop-bounded-memory PROPERTIES TIMEOUT 1200)
+
 # --- Asserting JavaScript tests ------------------------------------------------
 #
 # Each script checks the values it computes and exits 1 on any failure, so its
@@ -224,6 +235,8 @@ foreach(js_test
         basic/class_closure
         basic/closure_scopes
         basic/closure_set_prototype
+        basic/lazy_function_prototype
+        basic/new_non_constructor
         basic/object_integrity
         basic/symbol_key_order
         basic/native_function_prototype

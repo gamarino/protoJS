@@ -7,6 +7,7 @@
 #include "ProxyBuiltin.h"
 #include "ObjectPrototype.h"
 #include "runtime/ProtoInterpreter.h"
+#include "runtime/LazyPrototype.h"
 #include "JSSymbols.h"
 #include "protoCore.h"
 #include <algorithm>
@@ -1184,14 +1185,9 @@ static const proto::ProtoObject* arraySpeciesCreate(
 
     bool isBytecodeFn = false;
     if (!hasNativeCtor && C) {
-        const proto::ProtoString* bcK = JSSymbols::bytecodeId(ctx);
-        if (bcK && C->hasAttribute(ctx, bcK) == PROTO_TRUE) {
-            const proto::ProtoObject* arrowKO = ctx->fromUTF8String("__is_arrow__");
-            const proto::ProtoString* arrowK = arrowKO ? arrowKO->asString(ctx) : nullptr;
-            if (!arrowK || C->getAttribute(ctx, arrowK, false) != PROTO_TRUE) {
-                isBytecodeFn = true;
-            }
-        }
+        // A bytecode closure with [[Construct]] (not an arrow, method,
+        // generator or async function).
+        isBytecodeFn = isBytecodeConstructor(ctx, C);
     }
 
     // §22.1.3.1.1 step 9: If IsConstructor(C) is false, throw TypeError.
@@ -1224,6 +1220,7 @@ static const proto::ProtoObject* arraySpeciesCreate(
     if (hasNativeCtor || isBytecodeFn) {
         // Create newObj as child of C.prototype
         const proto::ProtoString* protoKey = JSSymbols::prototype(ctx);
+        materializeLazyPrototype(ctx, C);  // runtime/LazyPrototype.h
         const proto::ProtoObject* proto = C->getAttribute(ctx, protoKey, true);
         const proto::ProtoObject* newObj = (proto && proto != PROTO_NONE) ? proto->newChild(ctx, true) : ctx->newObject(true);
 
@@ -5291,19 +5288,13 @@ static const proto::ProtoObject* arrayFrom(
         }
         if ((!ctorFn || ctorFn == PROTO_NONE)
             && self && self != PROTO_NONE && self != getUndefinedSentinel()) {
-            const proto::ProtoString* bcK = JSSymbols::bytecodeId(ctx);
-            if (bcK && self->hasAttribute(ctx, bcK) == PROTO_TRUE) {
-                const proto::ProtoObject* arrowKO = ctx->fromUTF8String("__is_arrow__");
-                const proto::ProtoString* arrowK = arrowKO ? arrowKO->asString(ctx) : nullptr;
-                if (!arrowK || self->getAttribute(ctx, arrowK, false) != PROTO_TRUE) {
-                    isBytecodeFn = true;
-                }
-            }
+            isBytecodeFn = isBytecodeConstructor(ctx, self);
         }
     }
     bool hasCtor = (ctorFn && ctorFn != PROTO_NONE) || isBytecodeFn;
     auto constructC = [&](long long lenArg, bool withLen) -> const proto::ProtoObject* {
         const proto::ProtoString* protoKey = JSSymbols::prototype(ctx);
+        materializeLazyPrototype(ctx, self);  // runtime/LazyPrototype.h
         const proto::ProtoObject* cProto = protoKey
             ? self->getAttribute(ctx, protoKey, false) : nullptr;
         const proto::ProtoObject* res = (cProto && cProto != PROTO_NONE)
@@ -5681,19 +5672,13 @@ static const proto::ProtoObject* arrayOf(
 
     bool isBytecodeFn = false;
     if (self && self != PROTO_NONE) {
-        const proto::ProtoString* bcK = JSSymbols::bytecodeId(ctx);
-        if (bcK && self->hasAttribute(ctx, bcK) == PROTO_TRUE) {
-            // Arrow functions are NOT constructible per §10.2.2.
-            const proto::ProtoObject* arrowKO = ctx->fromUTF8String("__is_arrow__");
-            const proto::ProtoString* arrowK = arrowKO ? arrowKO->asString(ctx) : nullptr;
-            if (!arrowK || self->getAttribute(ctx, arrowK, false) != PROTO_TRUE) {
-                isBytecodeFn = true;
-            }
-        }
+        // Only a bytecode closure with [[Construct]] (§10.2.5).
+        isBytecodeFn = isBytecodeConstructor(ctx, self);
     }
 
     if (hasNativeCtor || isBytecodeFn) {
         const proto::ProtoString* protoKey = JSSymbols::prototype(ctx);
+        materializeLazyPrototype(ctx, self);  // runtime/LazyPrototype.h
         const proto::ProtoObject* proto = protoKey
             ? self->getAttribute(ctx, protoKey, true) : nullptr;
         result = (proto && proto != PROTO_NONE)

@@ -1,5 +1,6 @@
 #include "ProtoCoreTypes.h"
 #include "ObjectPrototype.h"
+#include "runtime/LazyPrototype.h"
 #include "ArrayPrototype.h"
 #include "ProxyBuiltin.h"
 #include "ArrayElementsStorage.h"
@@ -65,6 +66,8 @@ static void collectOwnKeys(
     bool includeNonEnumerable = false)
 {
     if (!obj || obj == PROTO_NONE) return;
+    // Own-key enumeration observes `prototype` (runtime/LazyPrototype.h).
+    materializeLazyPrototype(ctx, obj);
 
     // ECMA-262 §19.1.2.16: ToObject(string) yields a String wrapper whose
     // own enumerable keys are the character indices "0".."n-1". A primitive
@@ -1534,6 +1537,8 @@ static const proto::ProtoObject* objectFreeze(
     const proto::ProtoObject* obj = args->getAt(ctx, 0);
     if (!obj || obj == PROTO_NONE) return PROTO_NONE;
     if (isPrimitive(ctx, obj)) return obj;
+    // The integrity level covers `prototype` too (runtime/LazyPrototype.h).
+    materializeLazyPrototype(ctx, obj);
     // §20.1.2.6 step 2: SetIntegrityLevel(O, "frozen") begins with
     // O.[[PreventExtensions]]() and aborts (TypeError) when it returns
     // false.  Forward to the Proxy preventExtensions trap before adding
@@ -1730,6 +1735,7 @@ static const proto::ProtoObject* objectIsFrozen(
     const proto::ProtoObject* obj = args->getAt(ctx, 0);
     if (!obj || obj == PROTO_NONE) return PROTO_TRUE; // undefined/null are frozen
     if (isPrimitive(ctx, obj)) return PROTO_TRUE; // primitives are frozen
+    materializeLazyPrototype(ctx, obj);  // runtime/LazyPrototype.h
 
     // \xc2\xa710.5.5 + \xc2\xa710.5.11: Proxy [[IsExtensible]] / [[OwnPropertyKeys]]
     // dispatch through the traps.  TestIntegrityLevel reads each
@@ -1857,6 +1863,8 @@ static const proto::ProtoObject* objectSeal(
     const proto::ProtoObject* obj = args->getAt(ctx, 0);
     if (!obj || obj == PROTO_NONE) return PROTO_NONE;
     if (isPrimitive(ctx, obj)) return obj;
+    // The integrity level covers `prototype` too (runtime/LazyPrototype.h).
+    materializeLazyPrototype(ctx, obj);
     // §20.1.2.20 step 2: SetIntegrityLevel(O, "sealed") calls
     // O.[[PreventExtensions]]() first and aborts with TypeError when
     // the result is false — same pattern as Object.freeze.
@@ -2022,6 +2030,7 @@ static const proto::ProtoObject* objectIsSealed(
     const proto::ProtoObject* obj = args->getAt(ctx, 0);
     if (!obj || obj == PROTO_NONE) return PROTO_TRUE;
     if (isPrimitive(ctx, obj)) return PROTO_TRUE;
+    materializeLazyPrototype(ctx, obj);  // runtime/LazyPrototype.h
 
     // Same Proxy ownKeys / gOPD trap-firing pass as isFrozen — see the
     // matching note there for the rationale.
@@ -2094,6 +2103,8 @@ static const proto::ProtoObject* objectPreventExtensions(
     const proto::ProtoObject* obj = args->getAt(ctx, 0);
     if (!obj || obj == PROTO_NONE) return PROTO_NONE;
     if (isPrimitive(ctx, obj)) return obj;
+    // The integrity level covers `prototype` too (runtime/LazyPrototype.h).
+    materializeLazyPrototype(ctx, obj);
 
     // §20.1.2.16 step 2: call [[PreventExtensions]] and throw TypeError
     // when it returns false.  Proxy invariant: the handler may veto by
@@ -2841,6 +2852,7 @@ static const proto::ProtoObject* objectDefineProperty(
     const proto::ProtoObject* propNameObj = args->getAt(ctx, 1);
     const proto::ProtoString* k = coercePropNameToKey(ctx, propNameObj);
     if (!k) return target;
+    materializeLazyPrototypeForKey(ctx, target, k);  // runtime/LazyPrototype.h
 
     if (!desc || desc == PROTO_NONE || desc == getNullSentinel() || desc == getUndefinedSentinel() ||
         desc->isBoolean(ctx) || desc->isInteger(ctx) ||
@@ -3876,6 +3888,7 @@ static const proto::ProtoObject* objectGetOwnPropertyDescriptor(
 
     const proto::ProtoString* k = coercePropNameToKey(ctx, propNameObj);
     if (!k) return PROTO_NONE;
+    materializeLazyPrototypeForKey(ctx, target, k);  // runtime/LazyPrototype.h
 
     // Proxy override per §10.5.5 [[GetOwnProperty]]: route through the
     // handler.getOwnPropertyDescriptor trap, with the spec's
@@ -4828,6 +4841,7 @@ static const proto::ProtoObject* objectHasOwn(
     const proto::ProtoString* strKey = coercePropNameToKey(ctx, key);
     if (hasCallException()) return PROTO_NONE;
     if (!strKey) return PROTO_FALSE;
+    materializeLazyPrototypeForKey(ctx, obj, strKey);  // runtime/LazyPrototype.h
     std::string keyStr;
     strKey->toUTF8String(ctx, keyStr);
     // hasOwnAttribute returns PROTO_TRUE if own, PROTO_FALSE if inherited, nullptr if absent
@@ -5030,6 +5044,7 @@ static const proto::ProtoObject* objectHasOwnProperty(
     if (!key) key = getUndefinedSentinel();
     const proto::ProtoString* k = coercePropNameToKey(ctx, key);
     if (hasCallException()) return PROTO_NONE;
+    materializeLazyPrototypeForKey(ctx, self, k);  // runtime/LazyPrototype.h
     // Step 2: ToObject(this) — null / undefined now throw post key coercion.
     if (!self || self == PROTO_NONE
         || self == getNullSentinel() || self == getUndefinedSentinel()) {

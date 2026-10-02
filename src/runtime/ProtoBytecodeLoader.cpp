@@ -227,6 +227,8 @@ static bool loadBytecodeRecursive(JSContext* ctx,
     }
     out->isStrict = protojs_bytecode_is_strict(quickjsBytecode) != 0;
     out->isArrow  = protojs_bytecode_is_arrow(quickjsBytecode) != 0;
+    out->isConstructor = protojs_bytecode_is_constructor(quickjsBytecode) != 0;
+    out->hasLazyPrototype = protojs_bytecode_has_prototype(quickjsBytecode) != 0;
     {
         // func_kind: 0=normal, 1=generator, 2=async, 3=async-generator
         int fk = protojs_bytecode_func_kind(quickjsBytecode);

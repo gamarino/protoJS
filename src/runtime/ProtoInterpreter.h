@@ -56,6 +56,14 @@ const proto::ProtoObject* callJSFunction(
  * Returns the thread-local null sentinel — the ProtoObject that represents JS null.
  * Returns nullptr if called before runBytecode has been entered on this thread.
  */
+/**
+ * IsConstructor (ECMA-262 §7.2.4) for a bytecode closure: true for an ordinary
+ * `function` or a class constructor, false for an arrow function, method,
+ * accessor, generator or async function, and false for anything that is not a
+ * bytecode closure.
+ */
+bool isBytecodeConstructor(proto::ProtoContext* ctx, const proto::ProtoObject* fn);
+
 const proto::ProtoObject* getNullSentinel();
 const proto::ProtoObject* getUndefinedSentinel();
 

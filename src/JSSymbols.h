@@ -192,6 +192,9 @@ const proto::ProtoString* integrity(proto::ProtoContext* ctx);         // "__int
 // protojs::getJSProtoOverride, ObjectPrototype.h).
 const proto::ProtoString* protoOverride(proto::ProtoContext* ctx);     // "__js_proto_override__"
 
+// Marks an ordinary function whose `prototype` object has not been created yet
+// (runtime/LazyPrototype.h).
+const proto::ProtoString* lazyPrototype(proto::ProtoContext* ctx);     // "__lazy_prototype__"
 
 // ---- TypedArray / ArrayBuffer / DataView internal keys ------------------
 const proto::ProtoString* abData(proto::ProtoContext* ctx);         // "__ab_data__"

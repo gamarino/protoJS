@@ -1,5 +1,6 @@
 #include "ProtoCoreTypes.h"
 #include "ProxyBuiltin.h"
+#include "runtime/LazyPrototype.h"
 #include "ArrayPrototype.h"
 #include "ArrayElementsStorage.h"
 #include "ObjectPrototype.h"
@@ -329,6 +330,7 @@ static const proto::ProtoObject* defaultGet(proto::ProtoContext* ctx,
                                               const proto::ProtoString* key,
                                               const proto::ProtoObject* receiver = nullptr) {
     if (!target || target == PROTO_NONE || !key) return PROTO_NONE;
+    materializeLazyPrototypeForKey(ctx, target, key);  // runtime/LazyPrototype.h
     // Accessor sidecar probe.  §10.1.8.1 [[Get]] step 8.c: when the
     // own property is an accessor, invoke its getter with `Receiver`
     // (not target) as `this`.  Pre-fix the bind always used target,
@@ -668,6 +670,7 @@ const proto::ProtoObject* proxyDispatchHas(proto::ProtoContext* ctx,
             "Cannot perform 'has' on a proxy that has been revoked"));
         return PROTO_FALSE;
     }
+    materializeLazyPrototypeForKey(ctx, target, propKey);  // runtime/LazyPrototype.h
     const proto::ProtoObject* handler = proxyHandler(ctx, proxy);
     const proto::ProtoObject* trap = lookupTrap(ctx, handler, "has");
     if (trap) {
@@ -762,6 +765,7 @@ const proto::ProtoObject* proxyDispatchDelete(proto::ProtoContext* ctx,
             "Cannot perform 'deleteProperty' on a proxy that has been revoked"));
         return PROTO_FALSE;
     }
+    materializeLazyPrototypeForKey(ctx, target, propKey);  // runtime/LazyPrototype.h
     const proto::ProtoObject* handler = proxyHandler(ctx, proxy);
     const proto::ProtoObject* trap = lookupTrap(ctx, handler, "deleteProperty");
     if (trap) {

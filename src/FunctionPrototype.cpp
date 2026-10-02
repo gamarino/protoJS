@@ -1,5 +1,6 @@
 #include "ProtoCoreTypes.h"
 #include "FunctionPrototype.h"
+#include "runtime/LazyPrototype.h"
 #include "JSContext.h"
 #include "JSSymbols.h"
 #include "ObjectPrototype.h"
@@ -489,6 +490,7 @@ static const proto::ProtoObject* fnHasInstance(
     // sidecar first so the accessor abrupt propagates verbatim.
     const proto::ProtoString* protoKey = JSSymbols::prototype(ctx);
     if (!protoKey) return PROTO_FALSE;
+    materializeLazyPrototype(ctx, self);  // runtime/LazyPrototype.h
     const proto::ProtoObject* P = nullptr;
     {
         const proto::ProtoObject* gko = ctx->fromUTF8String("__get_prototype__");

@@ -650,6 +650,7 @@ typedef struct JSFunctionBytecode {
     uint8_t read_only_bytecode : 1;
     uint8_t is_direct_or_indirect_eval : 1; /* used by JS_GetScriptOrModuleName() */
     uint8_t is_arrow : 1; /* true if arrow function (protojs extension) */
+    uint8_t is_class_constructor : 1; /* true for a class constructor (protojs extension) */
     /* XXX: 9 bits available */
     uint8_t *byte_code_buf; /* (self pointer) */
     int byte_code_len;
@@ -35688,6 +35689,8 @@ static JSValue js_create_function(JSContext *ctx, JSFunctionDef *fd)
     b->is_direct_or_indirect_eval = (fd->eval_type == JS_EVAL_TYPE_DIRECT ||
                                      fd->eval_type == JS_EVAL_TYPE_INDIRECT);
     b->is_arrow = (fd->func_type == JS_PARSE_FUNC_ARROW);
+    b->is_class_constructor = (fd->func_type == JS_PARSE_FUNC_CLASS_CONSTRUCTOR ||
+                               fd->func_type == JS_PARSE_FUNC_DERIVED_CLASS_CONSTRUCTOR);
     b->realm = JS_DupContext(ctx);
 
     add_gc_object(ctx->rt, &b->header, JS_GC_OBJ_TYPE_FUNCTION_BYTECODE);
@@ -37274,6 +37277,7 @@ static int JS_WriteFunctionTag(BCWriterState *s, JSValueConst obj)
     bc_set_flags(&flags, &idx, b->has_debug, 1);
     bc_set_flags(&flags, &idx, b->is_direct_or_indirect_eval, 1);
     bc_set_flags(&flags, &idx, b->is_arrow, 1);
+    bc_set_flags(&flags, &idx, b->is_class_constructor, 1);
     assert(idx <= 16);
     bc_put_u16(s, flags);
     bc_put_u8(s, b->js_mode);
@@ -38200,6 +38204,7 @@ static JSValue JS_ReadFunctionTag(BCReaderState *s)
     bc.has_debug = bc_get_flags(v16, &idx, 1);
     bc.is_direct_or_indirect_eval = bc_get_flags(v16, &idx, 1);
     bc.is_arrow = bc_get_flags(v16, &idx, 1);
+    bc.is_class_constructor = bc_get_flags(v16, &idx, 1);
     bc.read_only_bytecode = s->is_rom_data;
     if (bc_get_u8(s, &v8))
         goto fail;
@@ -59756,6 +59761,24 @@ const char* protojs_bytecode_func_name(JSContext *ctx, void *bytecode) {
 int protojs_bytecode_is_arrow(void *bytecode) {
     JSFunctionBytecode *b = (JSFunctionBytecode *)bytecode;
     return b->is_arrow ? 1 : 0;
+}
+
+/* 1 if the function has a [[Construct]] internal method: an ordinary
+ * `function` (QuickJS's has_prototype: declarations and expressions of kind
+ * normal) or a class constructor. Arrow functions, methods, getters, setters,
+ * generators and async functions are not constructors (ECMA-262 §10.2.5
+ * MakeConstructor is applied only to those two). */
+int protojs_bytecode_is_constructor(void *bytecode) {
+    JSFunctionBytecode *b = (JSFunctionBytecode *)bytecode;
+    return (b->has_prototype || b->is_class_constructor) ? 1 : 0;
+}
+
+/* 1 for an ordinary `function` (declaration or expression, kind normal):
+ * the functions MakeConstructor gives a `prototype` object. QuickJS creates
+ * that object lazily for them, and so does protoJS. */
+int protojs_bytecode_has_prototype(void *bytecode) {
+    JSFunctionBytecode *b = (JSFunctionBytecode *)bytecode;
+    return b->has_prototype ? 1 : 0;
 }
 
 int protojs_bytecode_func_kind(void *bytecode) {

@@ -7,6 +7,7 @@
 #include "../JSSymbols.h"
 #include "../ArrayElementsStorage.h"
 #include "GcScopedCache.h"
+#include "LazyPrototype.h"
 #include "../ArrayPrototype.h"
 #include "../StringPrototype.h"
 #include "../RegExpPrototype.h"
@@ -106,6 +107,7 @@ extern thread_local const proto::ProtoObject* t_undefinedSentinel;
 
 static const proto::ProtoObject* resolveFieldOOP(proto::ProtoContext* ctx, const proto::ProtoObject* obj, const proto::ProtoString* key) {
     if (!obj || !key || obj == PROTO_NONE) return PROTO_NONE;
+    protojs::materializeLazyPrototypeForKey(ctx, obj, key);  // LazyPrototype.h
     const auto& reg = protojs::BehaviorRegistry::instance();
     const protojs::JSObjectBehavior* behavior = reg.resolve(ctx, obj);
     const proto::ProtoObject* res;
@@ -156,6 +158,7 @@ static const proto::ProtoObject* resolveFieldOOP(proto::ProtoContext* ctx, const
 
 static const proto::ProtoObject* resolvePutFieldOOP(proto::ProtoContext* ctx, const proto::ProtoObject* obj, const proto::ProtoString* key, const proto::ProtoObject* val, bool isStrict = false) {
     if (!obj || obj == PROTO_NONE || !key) return obj;
+    protojs::materializeLazyPrototypeForKey(ctx, obj, key);  // LazyPrototype.h
 
     // Per-target hint: when Object.defineProperty has stamped
     // __has_accessor_props__ on any object reachable through the
@@ -1056,15 +1059,9 @@ static const proto::ProtoObject* reflectConstruct(
         // wider proto-from-ctor-realm family).
         const proto::ProtoString* icK = JSSymbols::isConstructor(ctx);
         if (icK && t->getAttribute(ctx, icK, false) == PROTO_TRUE) return true;
-        const proto::ProtoString* bcK = JSSymbols::bytecodeId(ctx);
-        if (bcK && t->hasAttribute(ctx, bcK) == PROTO_TRUE) {
-            // Bytecode function — constructible UNLESS it's an arrow.
-            const proto::ProtoObject* arrowKO = ctx->fromUTF8String("__is_arrow__");
-            const proto::ProtoString* arrowK = arrowKO ? arrowKO->asString(ctx) : nullptr;
-            if (arrowK && t->getAttribute(ctx, arrowK, false) == PROTO_TRUE) return false;
-            return true;
-        }
-        return false;
+        // A bytecode closure: constructible only if it has [[Construct]]
+        // (an ordinary function or a class constructor).
+        return isBytecodeConstructor(ctx, t);
     };
     if (!isConstructible(target) || !isConstructible(newTarget)) {
         signalNativeException(makeNativeError(ctx, "TypeError",
@@ -1085,6 +1082,7 @@ static const proto::ProtoObject* reflectConstruct(
     // For __construct__-style constructors, allocate a fresh receiver
     // parented at target.prototype and invoke the method on it.
     const proto::ProtoString* protoKey = JSSymbols::prototype(ctx);
+    protojs::materializeLazyPrototype(ctx, newTarget);  // LazyPrototype.h
     const proto::ProtoObject* proto = protoKey
         ? newTarget->getAttribute(ctx, protoKey, false) : nullptr;
     const proto::ProtoObject* newObj = (proto && proto != PROTO_NONE)
@@ -1170,6 +1168,7 @@ static const proto::ProtoObject* reflectHas(
     if (!k && key->isInteger(ctx))
         k = JSSymbols::indexKey(ctx, static_cast<uint32_t>(key->asLong(ctx)));
     if (!k) return PROTO_FALSE;
+    protojs::materializeLazyPrototypeForKey(ctx, target, k);  // LazyPrototype.h
     if (protojs::isProxy(ctx, target))
         return protojs::proxyDispatchHas(ctx, target, k);
     const proto::ProtoObject* v = target->getAttribute(ctx, k, true);
@@ -1191,6 +1190,7 @@ static const proto::ProtoObject* reflectGet(
     if (!k && key->isInteger(ctx))
         k = JSSymbols::indexKey(ctx, static_cast<uint32_t>(key->asLong(ctx)));
     if (!k) return PROTO_NONE;
+    protojs::materializeLazyPrototypeForKey(ctx, target, k);  // LazyPrototype.h
     // Proxy receiver → dispatch to handler.get if present.
     if (protojs::isProxy(ctx, target)) {
         const proto::ProtoObject* recv = (args->getSize(ctx) > 2)
@@ -1280,6 +1280,7 @@ static const proto::ProtoObject* reflectSet(
     if (!k && key->isInteger(ctx))
         k = JSSymbols::indexKey(ctx, static_cast<uint32_t>(key->asLong(ctx)));
     if (!k) return PROTO_FALSE;
+    protojs::materializeLazyPrototypeForKey(ctx, target, k);  // LazyPrototype.h
     // Proxy receiver → dispatch to handler.set if present.
     if (protojs::isProxy(ctx, target))
         return protojs::proxyDispatchSet(ctx, target, k, value, receiver);
@@ -1371,6 +1372,8 @@ static const proto::ProtoObject* reflectOwnKeys(
         }
         if (!target) return PROTO_NONE;
     }
+    // Own-key enumeration observes `prototype` (LazyPrototype.h).
+    protojs::materializeLazyPrototype(ctx, target);
 
     // Build a real JS array (with __elements__ + __is_array__ + Array
     // prototype). Pre-fix this returned PROTO_NONE, so any caller doing
@@ -1524,6 +1527,7 @@ static const proto::ProtoObject* reflectDeleteProperty(
     if (!k && key->isInteger(ctx))
         k = JSSymbols::indexKey(ctx, static_cast<uint32_t>(key->asLong(ctx)));
     if (!k) return PROTO_FALSE;
+    protojs::materializeLazyPrototypeForKey(ctx, target, k);  // LazyPrototype.h
     if (protojs::isProxy(ctx, target))
         return protojs::proxyDispatchDelete(ctx, target, k);
     // §10.1.10 step 5: own non-configurable data / accessor descriptor
@@ -3895,6 +3899,7 @@ static const ProtoBytecodeModule* resolveNestedFunction(
     return nullptr;
 }
 
+
 // ---------------------------------------------------------------------------
 // setNWCDescriptor — store the property-descriptor sidecar key __pd_<prop>__
 // with bits = 0x2 (configurable only: not writable, not enumerable).
@@ -4335,6 +4340,20 @@ static const proto::ProtoObject* makeError(proto::ProtoContext* ctx,
 }
 
 } // namespace
+
+// IsConstructor (§7.2.4) for a bytecode closure: an ordinary `function` or a
+// class constructor has [[Construct]]; an arrow function, a method, an
+// accessor, a generator or an async function does not (§10.2.5 applies
+// MakeConstructor only to the first two), so `new` and Reflect.construct must
+// throw a TypeError for them. Read from the function's bytecode, so the
+// closure carries nothing extra. False for anything that is not a bytecode
+// closure.
+bool isBytecodeConstructor(proto::ProtoContext* ctx, const proto::ProtoObject* fn) {
+    const int id = getBytecodeId(ctx, fn);
+    if (id < 0) return false;
+    const ProtoBytecodeModule* nf = resolveNestedFunction(ctx, fn, id, nullptr);
+    return !nf || nf->isConstructor;
+}
 
 /**
  * @brief Syncs an immutable ProtoObject update back to its associated JSValue in GCBridge.
@@ -7189,6 +7208,7 @@ const proto::ProtoObject* runBytecode(proto::ProtoContext* pContext,
                     const proto::ProtoObject* ntForProto =
                         (t_activeNewTgt && t_activeNewTgt != PROTO_NONE)
                             ? t_activeNewTgt : fn;
+                    protojs::materializeLazyPrototype(pContext, ntForProto);  // LazyPrototype.h
                     const proto::ProtoObject* funcProto = (protoKey && ntForProto && ntForProto != PROTO_NONE)
                         ? ntForProto->getAttribute(pContext, protoKey, false) : nullptr;
                     const proto::ProtoObject* newObj = (funcProto && funcProto != PROTO_NONE)
@@ -7410,6 +7430,7 @@ const proto::ProtoObject* runBytecode(proto::ProtoContext* pContext,
                 const proto::ProtoObject* ntForProto =
                     (t_activeNewTgt && t_activeNewTgt != PROTO_NONE)
                         ? t_activeNewTgt : parent;
+                protojs::materializeLazyPrototype(pContext, ntForProto);  // LazyPrototype.h
                 const proto::ProtoObject* tgtProto = protoKey
                     ? ntForProto->getAttribute(pContext, protoKey, false) : nullptr;
                 const proto::ProtoObject* newObj = (tgtProto && tgtProto != PROTO_NONE)
@@ -7863,6 +7884,7 @@ const proto::ProtoObject* runBytecode(proto::ProtoContext* pContext,
                         nullHeritage = true;
                     } else if (parentClass && parentClass != PROTO_NONE) {
                         const proto::ProtoString* protoKey = JSSymbols::prototype(pContext);
+                        protojs::materializeLazyPrototype(pContext, parentClass);  // LazyPrototype.h
                         if (protoKey) {
                             // Spec Get(parentValue, "prototype"): invoke an
                             // accessor (getter) if one is installed via
@@ -9118,6 +9140,7 @@ const proto::ProtoObject* runBytecode(proto::ProtoContext* pContext,
                     has_pending_exception = true;
                     DISPATCH();
                 }
+                protojs::materializeLazyPrototypeForKey(pContext, obj, name);  // LazyPrototype.h
                 // string.length is handled by the dedicated OP_get_length
                 // opcode that QuickJS emits for `.length` accesses; no
                 // length fast path needed here.  The rare `s["length"]`
@@ -9249,6 +9272,7 @@ const proto::ProtoObject* runBytecode(proto::ProtoContext* pContext,
                     DISPATCH();
                 }
 
+                protojs::materializeLazyPrototypeForKey(pContext, obj, key);  // LazyPrototype.h
                 // string.length is handled by the dedicated OP_get_length
                 // opcode; no length fast path needed here.
 
@@ -9342,6 +9366,7 @@ const proto::ProtoObject* runBytecode(proto::ProtoContext* pContext,
                 stackPop(pContext);
                 const proto::ProtoString* key = resolveAtom(mod, pContext, atomIndex);
                 if (!key || !obj) { DISPATCH(); }
+                protojs::materializeLazyPrototypeForKey(pContext, obj, key);  // LazyPrototype.h
                 // §10.1.9 OrdinarySet on a primitive receiver: ToObject
                 // materialises a transient wrapper, the set happens on
                 // that wrapper, the wrapper is discarded.  Net effect:
@@ -10985,6 +11010,7 @@ const proto::ProtoObject* runBytecode(proto::ProtoContext* pContext,
                             }
                         }
                     }
+                    protojs::materializeLazyPrototypeForKey(pContext, obj, key);  // LazyPrototype.h
                     if (obj && key) {
                         // §10.1.8 OrdinaryGet: own descriptor wins over
                         // anything inherited.  Walk own-first so a data
@@ -11207,6 +11233,7 @@ const proto::ProtoObject* runBytecode(proto::ProtoContext* pContext,
                         }
                         key = keyObj ? keyObj->asString(pContext) : nullptr;
                     }
+                    protojs::materializeLazyPrototypeForKey(pContext, obj, key);  // LazyPrototype.h
                     val = (obj && key) ? obj->getAttribute(pContext, key, true) : PROTO_NONE;
                     REFRESH_INTERP_STATE();
                     if ((!val || val == PROTO_NONE) && key) {
@@ -11291,6 +11318,7 @@ const proto::ProtoObject* runBytecode(proto::ProtoContext* pContext,
                         REFRESH_INTERP_STATE();
                         key = keyObj ? keyObj->asString(pContext) : nullptr;
                     }
+                    protojs::materializeLazyPrototypeForKey(pContext, obj, key);  // LazyPrototype.h
                     val = (obj && key) ? obj->getAttribute(pContext, key, true) : PROTO_NONE;
                     if ((!val || val == PROTO_NONE) && key) {
                         std::string keyStrGAE3;
@@ -11524,6 +11552,7 @@ const proto::ProtoObject* runBytecode(proto::ProtoContext* pContext,
                         const proto::ProtoObject* keyObj = toString(pContext, index);
                         key = keyObj ? ensureInternedOOP(pContext, keyObj) : nullptr;
                     }
+                    protojs::materializeLazyPrototypeForKey(pContext, obj, key);  // LazyPrototype.h
                     if (key) {
                         // §10.1.9.2 step 2.c — add-to-non-extensible
                         // also covers bracket-access string and Symbol
@@ -13478,6 +13507,7 @@ const proto::ProtoObject* runBytecode(proto::ProtoContext* pContext,
                     DISPATCH();
                 }
                 const proto::ProtoString* protoKey = JSSymbols::prototype(pContext);
+                protojs::materializeLazyPrototype(pContext, func);  // LazyPrototype.h
                 const proto::ProtoObject* protoObj = func ? func->getAttribute(pContext, protoKey, false) : nullptr;
                 // Spec §13.10.2 step 5: If Type(F.[[Prototype]]) is not Object → throw TypeError.
                 // We only throw if protoObj is a primitive (not null/undefined — PROTO_NONE — which
@@ -13589,6 +13619,7 @@ const proto::ProtoObject* runBytecode(proto::ProtoContext* pContext,
                     const proto::ProtoObject* keyObj = toString(pContext, keyVal);
                     key = keyObj ? keyObj->asString(pContext) : nullptr;
                 }
+                protojs::materializeLazyPrototypeForKey(pContext, obj, key);  // LazyPrototype.h
                 // Proxy receiver → dispatch to handler.has.
                 if (key && protojs::isProxy(pContext, obj)) {
                     const proto::ProtoObject* r = protojs::proxyDispatchHas(pContext, obj, key);
@@ -13702,6 +13733,7 @@ const proto::ProtoObject* runBytecode(proto::ProtoContext* pContext,
                     const proto::ProtoObject* keyObj = toString(pContext, keyVal);
                     key = keyObj ? keyObj->asString(pContext) : nullptr;
                 }
+                protojs::materializeLazyPrototypeForKey(pContext, obj, key);  // LazyPrototype.h
                 // §10.5.10 [[Delete]] on a Proxy dispatches the
                 // deleteProperty trap.  Pre-fix OP_delete walked the
                 // raw protoCore attribute layer, so a Proxy with a
@@ -14310,10 +14342,12 @@ const proto::ProtoObject* runBytecode(proto::ProtoContext* pContext,
                 // newTarget=B (the original new B()).  newObj must inherit
                 // B.prototype so methods on B.prototype are visible.
                 const proto::ProtoString* protoKey = JSSymbols::prototype(pContext);
+                protojs::materializeLazyPrototype(pContext, func);  // LazyPrototype.h
                 const proto::ProtoObject* funcProto = (protoKey && func && func != PROTO_NONE)
                     ? func->getAttribute(pContext, protoKey, false) : nullptr;
                 const proto::ProtoObject* newTgtForProto =
                     (newTarget && newTarget != PROTO_NONE) ? newTarget : func;
+                protojs::materializeLazyPrototype(pContext, newTgtForProto);
                 const proto::ProtoObject* tgtProto = (protoKey && newTgtForProto && newTgtForProto != PROTO_NONE)
                     ? newTgtForProto->getAttribute(pContext, protoKey, false) : nullptr;
                 if (!tgtProto || tgtProto == PROTO_NONE) tgtProto = funcProto;
@@ -14343,6 +14377,17 @@ const proto::ProtoObject* runBytecode(proto::ProtoContext* pContext,
                 // JS function.  Mirror the dispatch L_OP_call performs
                 // at line 13657 so the resolution paths agree.
                 resolved = resolveNestedFunction(pContext, func, bcId, module);
+
+                // §13.3.5.1.1 EvaluateNew step 5 / §7.2.4 IsConstructor: an
+                // arrow function, method, accessor, generator or async
+                // function has no [[Construct]].  Pre-fix `new arrow()` ran
+                // the body with a fresh `this` and returned an object.
+                if (resolved && !resolved->isConstructor) {
+                    pending_exception = makeError(pContext, "TypeError",
+                        "function is not a constructor", pGlobalRoot);
+                    has_pending_exception = true;
+                    DISPATCH();
+                }
 
                 if (resolved) {
                     // §9.1.13 OrdinaryCreateFromConstructor does NOT stamp
@@ -15488,8 +15533,16 @@ const proto::ProtoObject* runBytecode(proto::ProtoContext* pContext,
                     // one and why a generator's has no constructor.
                     const bool needsProto8 = !nm8Ptr
                         || !(nm8Ptr->isArrow || (nm8Ptr->isAsync && !nm8Ptr->isGenerator));
+                    // An ordinary function's prototype is created on first
+                    // need: see L_OP_fclosure and runtime/LazyPrototype.h.
+                    const bool lazyProto8 = nm8Ptr && nm8Ptr->hasLazyPrototype;
                     const proto::ProtoObject* fnDefProto8 = nullptr;
-                    if (needsProto8) {
+                    if (lazyProto8) {
+                        if (const proto::ProtoString* pdks = JSSymbols::pdPrototype(pContext))
+                            fnInst = fnInst->setAttribute(pContext, pdks, pContext->fromInteger(0x1LL));
+                        if (const proto::ProtoString* lpk = JSSymbols::lazyPrototype(pContext))
+                            fnInst = fnInst->setAttribute(pContext, lpk, PROTO_TRUE);
+                    } else if (needsProto8) {
                         const proto::ProtoObject* objProtoFc8 =
                             (pContext->space && pContext->space->objectPrototype)
                                 ? pContext->space->objectPrototype : nullptr;
@@ -15659,8 +15712,8 @@ const proto::ProtoObject* runBytecode(proto::ProtoContext* pContext,
                     // objects, and protoCore never collects a cycle among
                     // mutables (protoCore docs/MemoryModel.md §7), so every
                     // closure that has the pair is retained for the life of
-                    // the process.  An ordinary `function` still gets the pair,
-                    // as the specification requires.
+                    // the process.  An ordinary `function` gets the pair, as
+                    // the specification requires, but only on first need.
                     //
                     // fn.prototype must inherit Object.prototype so instances
                     // produced by `new f()` carry hasOwnProperty/toString/etc.
@@ -15668,8 +15721,22 @@ const proto::ProtoObject* runBytecode(proto::ProtoContext* pContext,
                     // with no parent, so `new F().hasOwnProperty(...)` threw.
                     const bool needsProto2 = !nm2Ptr
                         || !(nm2Ptr->isArrow || (nm2Ptr->isAsync && !nm2Ptr->isGenerator));
+                    // An ordinary function (a declaration or expression of
+                    // kind normal) gets its prototype object -- and with it
+                    // the cycle fn.prototype.constructor === fn -- only when
+                    // something first needs it, as in QuickJS: the closure
+                    // is born with the property's descriptor and the
+                    // __lazy_prototype__ marker (runtime/LazyPrototype.h).
+                    // A function that never touches `prototype` forms no
+                    // cycle and is collected.
+                    const bool lazyProto2 = nm2Ptr && nm2Ptr->hasLazyPrototype;
                     const proto::ProtoObject* fnDefProto = nullptr;
-                    if (needsProto2) {
+                    if (lazyProto2) {
+                        if (const proto::ProtoString* pdks2 = JSSymbols::pdPrototype(pContext))
+                            fnInst2 = fnInst2->setAttribute(pContext, pdks2, pContext->fromInteger(0x1LL));
+                        if (const proto::ProtoString* lpk2 = JSSymbols::lazyPrototype(pContext))
+                            fnInst2 = fnInst2->setAttribute(pContext, lpk2, PROTO_TRUE);
+                    } else if (needsProto2) {
                         const proto::ProtoObject* objProtoFc =
                             (pContext->space && pContext->space->objectPrototype)
                                 ? pContext->space->objectPrototype : nullptr;

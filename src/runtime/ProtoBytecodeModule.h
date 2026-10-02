@@ -85,6 +85,12 @@ struct ProtoBytecodeModule {
     bool isArrow{false};
     bool isAsync{false};
     bool isGenerator{false};
+    // Has [[Construct]]: an ordinary `function` or a class constructor; false
+    // for arrows, methods, accessors, generators and async functions.
+    bool isConstructor{true};
+    // An ordinary `function`: its `prototype` object is created on first
+    // need (runtime/LazyPrototype.h).
+    bool hasLazyPrototype{false};
 
     /** True iff the bytecode reads the call-time argument list — set when
      *  the body contains OP_special_object kind=0/1 (arguments object),

@@ -13,11 +13,14 @@ memory if smaller; PROTOCORE_HEAP_LIMIT_CELLS overrides it).
 A ceiling alone was not enough: every closure carried fn.prototype, whose
 `constructor` points back at the closure, and protoCore never collects a cycle
 among mutable objects (protoCore docs/MemoryModel.md section 7). Arrow
-functions have no `prototype` (ECMA-262 15.3), and no longer get one, so an
-arrow closure is collectable. The loop below therefore uses an arrow function
-that captures the loop's own local -- the shape of a callback created per
-iteration. An ordinary `function` expression still carries the specified
-prototype pair and is still retained; see CHANGELOG.md.
+functions have no `prototype` (ECMA-262 15.3), and no longer get one. An
+ordinary `function` has one, but it is now created only when something first
+needs it (src/runtime/LazyPrototype.h), as QuickJS does, so a function that
+never touches `prototype` forms no cycle either.
+
+The loop creates a closure per iteration that captures the loop's own local --
+the shape of a callback created per iteration: an arrow function by default,
+an ordinary `function` expression with the `function` argument.
 
 What this checks
 ----------------
@@ -31,7 +34,7 @@ machine. Peak memory is the kernel's figure where there is one (getrusage on
 Linux and macOS, PeakWorkingSetSize on Windows), combined with the samples
 taken while polling.
 
-Usage: closure_loop_bounded_memory.py <path-to-protojs> <scratch-dir>
+Usage: closure_loop_bounded_memory.py <path-to-protojs> <scratch-dir> [arrow|function]
 """
 import os
 import subprocess
@@ -39,6 +42,8 @@ import sys
 import time
 
 ITERATIONS = 2_000_000
+KINDS = {"arrow": "(x) => x + i",
+         "function": "function (x) { return x + i; }"}
 EXPECTED = "closure-loop: %d closures, sum %d" % (
     ITERATIONS, ITERATIONS + ITERATIONS * (ITERATIONS - 1) // 2)
 PEAK_LIMIT_MB = 1024     # the default ceiling is 640 MB of cells
@@ -49,13 +54,13 @@ SCRIPT = """
 function run(n) {
     var sum = 0;
     for (var i = 0; i < n; i++) {
-        var f = (x) => x + i;
+        var f = %s;
         sum += f(1);
     }
     return sum;
 }
 console.log('closure-loop: ' + %d + ' closures, sum ' + run(%d));
-""" % (ITERATIONS, ITERATIONS)
+"""
 
 
 def rss_mb_linux(pid):
@@ -108,14 +113,15 @@ def windows_memory_mb(handle):
 
 
 def main():
-    if len(sys.argv) != 3:
+    if len(sys.argv) not in (3, 4) or (len(sys.argv) == 4 and sys.argv[3] not in KINDS):
         print(__doc__.strip().splitlines()[-1])
         return 2
     protojs, scratch = sys.argv[1], sys.argv[2]
+    kind = sys.argv[3] if len(sys.argv) == 4 else "arrow"
     os.makedirs(scratch, exist_ok=True)
-    script = os.path.join(scratch, "closure_loop.js")
+    script = os.path.join(scratch, "closure_loop_%s.js" % kind)
     with open(script, "w") as f:
-        f.write(SCRIPT)
+        f.write(SCRIPT % (KINDS[kind], ITERATIONS, ITERATIONS))
 
     env = dict(os.environ)
     env.pop("PROTOCORE_HEAP_LIMIT_CELLS", None)   # the default policy is under test
@@ -173,8 +179,8 @@ def main():
         kernel_peak = ru / 1048576.0 if sys.platform == "darwin" else ru / 1024.0
     peak = max(sampled_peak, kernel_peak)
 
-    print("closure loop: %d iterations, status %d, %.1f s, peak resident set %.0f MB"
-          % (ITERATIONS, status, elapsed, peak))
+    print("closure loop (%s): %d iterations, status %d, %.1f s, peak resident set %.0f MB"
+          % (kind, ITERATIONS, status, elapsed, peak))
     failed = False
     if killed_for:
         print("FAIL: killed: " + killed_for)
@@ -192,7 +198,7 @@ def main():
         if err:
             print("standard error:\n" + err)
         return 1
-    print("PASS: %d closures in bounded memory" % ITERATIONS)
+    print("PASS: %d %s closures in bounded memory" % (ITERATIONS, kind))
     return 0
 
 
