@@ -98,7 +98,9 @@ guard page can grow the stack: about a dozen page touches on every JavaScript
 call. The same mechanism appears in GCC's computed-goto build on Ubuntu
 (`-fstack-clash-protection` probes the first page). The stack depth this
 allows is covered in [INSTALLATION.md](INSTALLATION.md#windows-msvc) (64 MiB
-reserved; about 1,400 nested calls).
+reserved; 700 nested calls succeed and 720 do not, measured on the CI runner on
+2026-10-02, which puts a JavaScript call at about 90 KiB of stack in the MSVC
+build).
 
 **Not done: shrinking the MSVC frame.** It would mean moving the handlers'
 large locals out of `runBytecode` (to the heap or a per-thread scratch area)
