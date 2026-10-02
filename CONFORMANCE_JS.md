@@ -1,7 +1,7 @@
 # JavaScript Conformance Report (Test262 subsets)
 
 > **This document holds no headline figure.** protoJS's authoritative Test262
-> result is **28,529 of 53,571 — 53.25 % of the whole corpus, as of 2026-09-26**,
+> result is **32,373 of 53,571 — 60.43 % of the whole corpus, as of 2026-10-02**,
 > and it lives with its denominator, corpus commit, reproduction command and
 > exclusion policy in [docs/TEST262_STATUS.md](docs/TEST262_STATUS.md).
 >

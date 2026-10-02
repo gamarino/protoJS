@@ -12,7 +12,7 @@ The normative rule table is `protoCore/docs/EMBEDDER-CONFORMANCE.md`.
 > figure.** They run three `built-ins` directories to confirm that a protoCore
 > upgrade changed nothing, and they are chosen because they are fast, not because
 > they score well. protoJS's conformance figure is the whole corpus —
-> **28,529 of 53,571, 53.25 %, as of 2026-09-26** — in
+> **32,373 of 53,571, 60.43 %, as of 2026-10-02** — in
 > [TEST262_STATUS.md](TEST262_STATUS.md). Never quote 3 619 / 3 875 as a pass
 > rate.
 
@@ -54,7 +54,7 @@ Re-verified on 2026-09-26 under the runner's new strict classification (async
 tests must signal completion, parse-negatives must actually be rejected): still
 3619 of 3875, 97 s wall clock. The gate is therefore comparable across the
 change. Its 93.39 % is a property of these three directories, which are among
-protoJS's strongest — the whole corpus is 53.25 %.
+protoJS's strongest — the whole corpus was 53.25 % then (60.43 % as of 2026-10-02).
 
 `ldd build_release/protojs` resolves `libprotoCore.so.3` to
 `../protoCore/build_release/libprotoCore.so.3` (protoCore 2.5.0), never the
