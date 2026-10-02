@@ -84,6 +84,18 @@ void performPromiseThenInternal(proto::ProtoContext* ctx,
                                 const proto::ProtoObject* onFulfilled = PROTO_NONE,
                                 const proto::ProtoObject* onRejected = PROTO_NONE);
 
+/**
+ * Await(value) for the interpreter (§27.7.5.3): arrange for `continuation` to
+ * be resumed (kReactAwait) once PromiseResolve(%Promise%, value) settles.
+ * Equivalent to creating that promise and calling PerformPromiseThen on it,
+ * in the same order of observable steps, but without allocating a promise
+ * when `value` is a primitive, a non-thenable object, or a %Promise% instance.
+ * Returns false with the exception signalled when reading
+ * `value.constructor` throws (the await then throws synchronously).
+ */
+bool performAwait(proto::ProtoContext* ctx, const proto::ProtoObject* value,
+                  const proto::ProtoObject* continuation);
+
 /** A fulfilled / rejected promise (for natives that produce settled results). */
 const proto::ProtoObject* makeResolvedPromise(proto::ProtoContext* ctx,
                                                const proto::ProtoObject* value);

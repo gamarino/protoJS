@@ -716,7 +716,7 @@ thread_local const proto::ProtoObject*              t_genIterator       = nullpt
 // ---------------------------------------------------------------------------
 // Async functions and async generators: the handshake between runBytecode
 // (the public entry, which owns an async activation's completion) and
-// runBytecodeImpl (the dispatch loop).  See "Async functions" above
+// the dispatch loop.  See "Async functions and async generators" above
 // runBytecode.
 //
 //   t_asyncEntry*   set by runBytecode for a fresh call of an async function
@@ -4650,7 +4650,7 @@ enum ContinuationField {
 // L_OP_for_of_start), outside the [locals][operand stack] window that
 // snapshotAutomaticLocals copies.  Collect the ones in use as (index, value)
 // pairs, or nullptr when there are none.
-static const proto::ProtoList* snapshotHighSlots(proto::ProtoContext* ctx) {
+static PROTOJS_NOINLINE const proto::ProtoList* snapshotHighSlots(proto::ProtoContext* ctx) {
     const unsigned int count = ctx->getAutomaticLocalsCount();
     if (count <= 0x10000u) return nullptr;
     const proto::ProtoObject* const* slots = ctx->getAutomaticLocals();
@@ -4666,7 +4666,7 @@ static const proto::ProtoList* snapshotHighSlots(proto::ProtoContext* ctx) {
     return list;
 }
 
-static void restoreHighSlots(proto::ProtoContext* ctx, const proto::ProtoList* list) {
+static PROTOJS_NOINLINE void restoreHighSlots(proto::ProtoContext* ctx, const proto::ProtoList* list) {
     if (!list) return;
     const proto::proto_ulong n = list->getSize(ctx);
     for (proto::proto_ulong i = 0; i + 1 < n; i += 2) {
@@ -4677,7 +4677,7 @@ static void restoreHighSlots(proto::ProtoContext* ctx, const proto::ProtoList* l
     }
 }
 
-static const proto::ProtoList* encodeCatchStack(proto::ProtoContext* ctx,
+static PROTOJS_NOINLINE const proto::ProtoList* encodeCatchStack(proto::ProtoContext* ctx,
                                                 const std::vector<CatchFrame>& frames) {
     const proto::ProtoList* list = ctx->newList();
     for (const CatchFrame& f : frames) {
@@ -4687,7 +4687,7 @@ static const proto::ProtoList* encodeCatchStack(proto::ProtoContext* ctx,
     return list;
 }
 
-static void decodeCatchStack(proto::ProtoContext* ctx, const proto::ProtoList* list,
+static PROTOJS_NOINLINE void decodeCatchStack(proto::ProtoContext* ctx, const proto::ProtoList* list,
                              std::vector<CatchFrame>& out) {
     out.clear();
     if (!list) return;
@@ -4700,7 +4700,7 @@ static void decodeCatchStack(proto::ProtoContext* ctx, const proto::ProtoList* l
     }
 }
 
-static const proto::ProtoObject* contField(proto::ProtoContext* ctx,
+static PROTOJS_NOINLINE const proto::ProtoObject* contField(proto::ProtoContext* ctx,
                                            const proto::ProtoObject* cont, int field) {
     const proto::ProtoList* l = (cont && cont != PROTO_NONE) ? cont->asList(ctx) : nullptr;
     if (!l || static_cast<proto::proto_ulong>(field) >= l->getSize(ctx)) return PROTO_NONE;
@@ -4708,19 +4708,19 @@ static const proto::ProtoObject* contField(proto::ProtoContext* ctx,
     return v ? v : PROTO_NONE;
 }
 
-static long long contInt(proto::ProtoContext* ctx, const proto::ProtoObject* cont, int field) {
+static PROTOJS_NOINLINE long long contInt(proto::ProtoContext* ctx, const proto::ProtoObject* cont, int field) {
     const proto::ProtoObject* v = contField(ctx, cont, field);
     return (v && v->isInteger(ctx)) ? v->asLong(ctx) : 0;
 }
 
-static const proto::ProtoList* contList(proto::ProtoContext* ctx,
+static PROTOJS_NOINLINE const proto::ProtoList* contList(proto::ProtoContext* ctx,
                                         const proto::ProtoObject* cont, int field) {
     const proto::ProtoObject* v = contField(ctx, cont, field);
     return (v && v != PROTO_NONE) ? v->asList(ctx) : nullptr;
 }
 
 // Record the running activation of `ctx` (the frame of the async body).
-static const proto::ProtoObject* makeContinuation(proto::ProtoContext* ctx, int kind,
+static PROTOJS_NOINLINE const proto::ProtoObject* makeContinuation(proto::ProtoContext* ctx, int kind,
                                                   const proto::ProtoObject* owner,
                                                   const ProtoBytecodeModule* mod, int pc,
                                                   int site, const proto::ProtoObject* thisObj,
@@ -4753,34 +4753,141 @@ enum AsyncGenState {
     kGenSuspendedStart = 0, kGenSuspendedYield = 1, kGenExecuting = 2,
     kGenAwaitingReturn = 3, kGenCompleted = 4
 };
-static const proto::ProtoObject* asyncGenObjectCreate(proto::ProtoContext* ctx);
-static void asyncGenSetContinuation(proto::ProtoContext* ctx, const proto::ProtoObject* gen,
+static PROTOJS_NOINLINE const proto::ProtoObject* asyncGenObjectCreate(proto::ProtoContext* ctx);
+static PROTOJS_NOINLINE void asyncGenSetContinuation(proto::ProtoContext* ctx, const proto::ProtoObject* gen,
                                     const proto::ProtoObject* cont, int state);
-static void asyncGenSetState(proto::ProtoContext* ctx, const proto::ProtoObject* gen, int state);
+static PROTOJS_NOINLINE void asyncGenSetState(proto::ProtoContext* ctx, const proto::ProtoObject* gen, int state);
 // AsyncGeneratorCompleteStep: settle the first request; false when none.
-static bool asyncGenCompleteStep(proto::ProtoContext* ctx, const proto::ProtoObject* gen,
+static PROTOJS_NOINLINE bool asyncGenCompleteStep(proto::ProtoContext* ctx, const proto::ProtoObject* gen,
                                  int completion, const proto::ProtoObject* value, bool done);
 // The first queued request's [completion, value], or false when none.
-static bool asyncGenFirstRequest(proto::ProtoContext* ctx, const proto::ProtoObject* gen,
+static PROTOJS_NOINLINE bool asyncGenFirstRequest(proto::ProtoContext* ctx, const proto::ProtoObject* gen,
                                  int& completion, const proto::ProtoObject*& value);
-static const proto::ProtoObject* createAsyncFromSyncIterator(proto::ProtoContext* ctx,
+static PROTOJS_NOINLINE const proto::ProtoObject* createAsyncFromSyncIterator(proto::ProtoContext* ctx,
                                                              const proto::ProtoObject* syncIter,
                                                              const proto::ProtoObject* syncNext);
 
-static const proto::ProtoObject* runBytecodeImpl(proto::ProtoContext* pContext,
-                                                 const ProtoBytecodeModule* module,
-                                                 const proto::ProtoObject* thisObj,
-                                                 const proto::ProtoList* args,
-                                                 const proto::ProtoObject** pGlobalRoot,
-                                                 const proto::ProtoObject** outException);
+// Out-of-line parts of the async opcode handlers.  They are kept out of
+// runBytecode on purpose: MSVC gives every block-scoped local of the dispatch
+// function its own stack slot, so code inlined into it grows the frame of
+// every JavaScript call (docs/PERFORMANCE_DISPATCH.md).
 
-static const proto::ProtoObject* runBytecodeImpl(proto::ProtoContext* pContext,
+// Restore a suspended async activation's frame from its continuation.
+static PROTOJS_NOINLINE void restoreAsyncActivation(proto::ProtoContext* ctx,
+                                                    const proto::ProtoObject* cont,
+                                                    std::vector<CatchFrame>& catchStack,
+                                                    int& pc, unsigned int& stackTop) {
+    pc = static_cast<int>(contInt(ctx, cont, kContPc));
+    const proto::ProtoObject* clObj = contField(ctx, cont, kContClosureLocals);
+    const proto::ProtoSparseList* sl =
+        (clObj && clObj != PROTO_NONE) ? clObj->asSparseList(ctx) : nullptr;
+    if (sl) ctx->closureLocals = sl;
+    if (const proto::ProtoList* slots = contList(ctx, cont, kContSlots))
+        restoreAutomaticLocals(ctx, slots);
+    restoreHighSlots(ctx, contList(ctx, cont, kContHighSlots));
+    decodeCatchStack(ctx, contList(ctx, cont, kContCatch), catchStack);
+    stackTop = static_cast<unsigned int>(contInt(ctx, cont, kContStackTop));
+}
+
+// GetIterator(obj, async) for for-await and yield* in async generators:
+// obj[Symbol.asyncIterator](), or the sync iterator wrapped by
+// CreateAsyncFromSyncIterator.  Returns the iterator and its next method, or
+// nullptr with the exception in `exception`.
+static PROTOJS_NOINLINE const proto::ProtoObject* getAsyncIteratorRecord(
+        proto::ProtoContext* ctx, const proto::ProtoObject* iterable,
+        const proto::ProtoObject*& nextMethod, const proto::ProtoObject*& exception,
+        const proto::ProtoObject* const* globalRoot) {
+    nextMethod = PROTO_NONE;
+    auto fail = [&](const char* message) -> const proto::ProtoObject* {
+        exception = makeNativeError(ctx, "TypeError", message, globalRoot);
+        return nullptr;
+    };
+    auto failPending = [&]() -> const proto::ProtoObject* {
+        exception = t_callException ? t_callException : PROTO_NONE;
+        t_hasCallException = false;
+        t_callException = nullptr;
+        return nullptr;
+    };
+    const bool isStr = iterable && iterable != PROTO_NONE && iterable->isString(ctx);
+    if (!jsIsObject(ctx, iterable) && !isStr) return fail("object is not async iterable");
+    const proto::ProtoObject* asyncMethod = jsIsObject(ctx, iterable)
+        ? jsGetProperty(ctx, iterable, "Symbol.asyncIterator") : PROTO_NONE;
+    if (t_hasCallException) return failPending();
+    if (jsIsCallable(ctx, asyncMethod)) {
+        const proto::ProtoObject* it = callJSFunction(ctx, asyncMethod, iterable, ctx->newList());
+        if (t_hasCallException) return failPending();
+        if (!jsIsObject(ctx, it))
+            return fail("Result of the Symbol.asyncIterator method is not an object");
+        nextMethod = jsGetProperty(ctx, it, "next");
+        if (t_hasCallException) return failPending();
+        return it;
+    }
+    const proto::ProtoObject* syncMethod = jsGetProperty(ctx, iterable, "Symbol.iterator");
+    if (t_hasCallException) return failPending();
+    if (!jsIsCallable(ctx, syncMethod)) return fail("object is not async iterable");
+    const proto::ProtoObject* syncIter = callJSFunction(ctx, syncMethod, iterable, ctx->newList());
+    if (t_hasCallException) return failPending();
+    if (!jsIsObject(ctx, syncIter))
+        return fail("Result of the Symbol.iterator method is not an object");
+    const proto::ProtoObject* syncNext = jsGetProperty(ctx, syncIter, "next");
+    if (t_hasCallException) return failPending();
+    const proto::ProtoObject* it = createAsyncFromSyncIterator(ctx, syncIter, syncNext);
+    nextMethod = jsGetProperty(ctx, it, "next");
+    if (t_hasCallException) return failPending();
+    return it;
+}
+
+// OP_iterator_call on a plain iterator record (QuickJS semantics): calls
+// throw() (flags bit 0) or return() on `iter`, with `sent` unless flags bit 1.
+// Returns false when the method is absent (the value stays), true when it was
+// called (its result in `result`); an exception is left pending.
+static PROTOJS_NOINLINE bool callIteratorMethodPlain(proto::ProtoContext* ctx,
+                                                     const proto::ProtoObject* iter,
+                                                     int flags, const proto::ProtoObject* sent,
+                                                     const proto::ProtoObject*& result) {
+    result = PROTO_NONE;
+    const proto::ProtoObject* method = jsGetProperty(ctx, iter, (flags & 1) ? "throw" : "return");
+    if (t_hasCallException) return true;
+    if (!method || method == PROTO_NONE || method == t_undefinedSentinel || method == t_nullSentinel)
+        return false;
+    const proto::ProtoList* margs = ctx->newList();
+    if (!(flags & 2)) margs = margs->appendLast(ctx, sent ? sent : PROTO_NONE);
+    result = callJSFunction(ctx, method, iter, margs);
+    return true;
+}
+
+// IteratorClose of a plain iterator record (for await): calls return() when
+// there is one; its result is not awaited.  An exception is left pending.
+static PROTOJS_NOINLINE void closePlainIterator(proto::ProtoContext* ctx,
+                                                const proto::ProtoObject* iter) {
+    const proto::ProtoObject* ret = jsGetProperty(ctx, iter, "return");
+    if (!t_hasCallException && jsIsCallable(ctx, ret))
+        callJSFunction(ctx, ret, iter, ctx->newList());
+}
+
+// A fresh call of an async function or async generator: owns the activation's
+// completion and runs the body through runBytecode (defined after it).
+static const proto::ProtoObject* startAsyncActivation(proto::ProtoContext* pContext,
+                                                      const ProtoBytecodeModule* module,
+                                                      const proto::ProtoObject* thisObj,
+                                                      const proto::ProtoList* args,
+                                                      const proto::ProtoObject** pGlobalRoot,
+                                                      const proto::ProtoObject** outException);
+
+const proto::ProtoObject* runBytecode(proto::ProtoContext* pContext,
                                       const ProtoBytecodeModule* module,
                                       const proto::ProtoObject* thisObj,
                                       const proto::ProtoList* args,
                                       const proto::ProtoObject** pGlobalRoot,
                                       const proto::ProtoObject** outException) {
     if (!pContext || !module || !module->pBytecode) return PROTO_NONE;
+    // An async function or async generator called afresh: startAsyncActivation
+    // sets up its completion and re-enters here with the entry handshake set
+    // (a resume arrives with t_asyncResumeCont set).  One predictable branch
+    // for every other call.
+    if (__builtin_expect(module->isAsync, 0)
+            && t_asyncEntryKind == kAsyncNone && !t_asyncResumeCont)
+        return startAsyncActivation(pContext, module, thisObj, args, pGlobalRoot, outException);
     const uint8_t* buf = reinterpret_cast<const uint8_t*>(module->pBytecode->getBuffer(pContext));
     int len = static_cast<int>(module->pBytecode->getSize(pContext));
     if (!buf || len <= 0) return PROTO_NONE;
@@ -4827,7 +4934,8 @@ static const proto::ProtoObject* runBytecodeImpl(proto::ProtoContext* pContext,
     // -----------------------------------------------------------------------
     int pc = 0;
 
-    // Async activation of this call (see "Async functions" above): the owner
+    // Async activation of this call (see "Async functions and async
+    // generators" above runBytecode): the owner
     // is the async function's promise or the async generator object.  It is
     // also kept in a frame slot (below) so the collector sees it.
     const proto::ProtoObject* asyncOwner = nullptr;
@@ -4863,19 +4971,8 @@ static const proto::ProtoObject* runBytecodeImpl(proto::ProtoContext* pContext,
     bool                      gen_resume_active   = false;
     if (async_resume_cont) {
         // Resume a suspended async activation from its continuation.
-        pc = static_cast<int>(contInt(pContext, async_resume_cont, kContPc));
-        {
-            const proto::ProtoObject* clObj = contField(pContext, async_resume_cont, kContClosureLocals);
-            const proto::ProtoSparseList* sl =
-                (clObj && clObj != PROTO_NONE) ? clObj->asSparseList(pContext) : nullptr;
-            if (sl) pContext->closureLocals = sl;
-        }
-        if (const proto::ProtoList* sl2 = contList(pContext, async_resume_cont, kContSlots))
-            restoreAutomaticLocals(pContext, sl2);
-        restoreHighSlots(pContext, contList(pContext, async_resume_cont, kContHighSlots));
-        decodeCatchStack(pContext, contList(pContext, async_resume_cont, kContCatch), catch_stack);
-        async_resume_stack_top =
-            static_cast<unsigned int>(contInt(pContext, async_resume_cont, kContStackTop));
+        restoreAsyncActivation(pContext, async_resume_cont, catch_stack, pc,
+                               async_resume_stack_top);
     } else if (t_genResumePc >= 0) {
         pc = t_genResumePc;
         t_genResumePc = -1;
@@ -16626,12 +16723,8 @@ static const proto::ProtoObject* runBytecodeImpl(proto::ProtoContext* pContext,
                         slotKeyPC ? iterObjCL->getAttribute(pContext, slotKeyPC, false) : PROTO_NONE;
                     if ((!slotPC || slotPC == PROTO_NONE || !slotPC->isInteger(pContext))
                             && jsIsObject(pContext, iterObjCL)) {
-                        const proto::ProtoObject* retPC = jsGetProperty(pContext, iterObjCL, "return");
+                        closePlainIterator(pContext, iterObjCL);
                         REFRESH_INTERP_STATE();
-                        if (!t_hasCallException && jsIsCallable(pContext, retPC)) {
-                            callJSFunction(pContext, retPC, iterObjCL, pContext->newList());
-                            REFRESH_INTERP_STATE();
-                        }
                         if (t_hasCallException) {
                             pending_exception = t_callException;
                             has_pending_exception = true;
@@ -16895,8 +16988,9 @@ static const proto::ProtoObject* runBytecodeImpl(proto::ProtoContext* pContext,
                     const proto::ProtoObject* slotPI = (slotKeyPI && iterObjIC && iterObjIC != PROTO_NONE)
                         ? iterObjIC->getAttribute(pContext, slotKeyPI, false) : PROTO_NONE;
                     if (!slotPI || slotPI == PROTO_NONE || !slotPI->isInteger(pContext)) {
-                        const proto::ProtoObject* method = jsGetProperty(pContext, iterObjIC,
-                            (icFlags & 1) ? "throw" : "return");
+                        const proto::ProtoObject* mRes = PROTO_NONE;
+                        const bool called = callIteratorMethodPlain(pContext, iterObjIC, icFlags,
+                                                                    sentIC, mRes);
                         REFRESH_INTERP_STATE();
                         stackPush(pContext, iterObjIC);
                         stackPush(pContext, nextMethodIC);
@@ -16908,25 +17002,9 @@ static const proto::ProtoObject* runBytecodeImpl(proto::ProtoContext* pContext,
                             t_callException = nullptr;
                             DISPATCH();
                         }
-                        if (!method || method == PROTO_NONE || method == t_undefinedSentinel
-                                || method == t_nullSentinel) {
-                            stackPush(pContext, sentIC ? sentIC : PROTO_NONE);
-                            stackPush(pContext, PROTO_TRUE);
-                            DISPATCH();
-                        }
-                        const proto::ProtoList* mArgs = pContext->newList();
-                        if (!(icFlags & 2)) mArgs = mArgs->appendLast(pContext, sentIC ? sentIC : PROTO_NONE);
-                        const proto::ProtoObject* mRes = callJSFunction(pContext, method, iterObjIC, mArgs);
-                        REFRESH_INTERP_STATE();
-                        if (t_hasCallException) {
-                            pending_exception = t_callException;
-                            has_pending_exception = true;
-                            t_hasCallException = false;
-                            t_callException = nullptr;
-                            DISPATCH();
-                        }
-                        stackPush(pContext, mRes ? mRes : PROTO_NONE);
-                        stackPush(pContext, PROTO_FALSE);
+                        stackPush(pContext, called ? (mRes ? mRes : PROTO_NONE)
+                                                   : (sentIC ? sentIC : PROTO_NONE));
+                        stackPush(pContext, called ? PROTO_FALSE : PROTO_TRUE);
                         DISPATCH();
                     }
                 }
@@ -17767,19 +17845,20 @@ static const proto::ProtoObject* runBytecodeImpl(proto::ProtoContext* pContext,
                     stackPush(pContext, awaitVal);
                     DISPATCH();
                 }
-                const proto::ProtoObject* awaited = promiseResolveIntrinsic(pContext, awaitVal);
-                REFRESH_INTERP_STATE();
-                if (t_hasCallException || !awaited) {
+                // The continuation is recorded first: a getter that
+                // PromiseResolve runs cannot change the frame's slots (a
+                // captured variable lives in a cell the snapshot shares).
+                const proto::ProtoObject* cont = makeContinuation(
+                    pContext, asyncKind, asyncOwner, mod, pc, kSiteAwait,
+                    thisObj, args, catch_stack);
+                if (!performAwait(pContext, awaitVal, cont)) {
+                    REFRESH_INTERP_STATE();
                     pending_exception = t_hasCallException ? t_callException : PROTO_NONE;
                     has_pending_exception = true;
                     t_hasCallException = false;
                     t_callException = nullptr;
                     DISPATCH();
                 }
-                const proto::ProtoObject* cont = makeContinuation(
-                    pContext, asyncKind, asyncOwner, mod, pc, kSiteAwait,
-                    thisObj, args, catch_stack);
-                performPromiseThenInternal(pContext, awaited, kReactAwait, cont);
                 t_asyncSuspended = true;
                 return asyncOwner ? asyncOwner : PROTO_NONE;
             }
@@ -17816,68 +17895,18 @@ static const proto::ProtoObject* runBytecodeImpl(proto::ProtoContext* pContext,
             L_OP_for_await_of_start: {
                 const proto::ProtoObject* iterable = PROTO_NONE;
                 if (!stackEmpty(pContext)) { iterable = stackTop(pContext); stackPop(pContext); }
-                auto raiseCall = [&]() {
-                    pending_exception = t_callException ? t_callException : PROTO_NONE;
-                    has_pending_exception = true;
-                    t_hasCallException = false;
-                    t_callException = nullptr;
-                };
-                if (!jsIsObject(pContext, iterable) && !(iterable && iterable != PROTO_NONE
-                        && iterable->isString(pContext))) {
-                    pending_exception = makeError(pContext, "TypeError",
-                        "object is not async iterable", pGlobalRoot);
+                const proto::ProtoObject* faNextMethod = PROTO_NONE;
+                const proto::ProtoObject* faException = PROTO_NONE;
+                const proto::ProtoObject* faIterator = getAsyncIteratorRecord(
+                    pContext, iterable, faNextMethod, faException, pGlobalRoot);
+                REFRESH_INTERP_STATE();
+                if (!faIterator) {
+                    pending_exception = faException;
                     has_pending_exception = true;
                     DISPATCH();
                 }
-                const proto::ProtoObject* iterator = PROTO_NONE;
-                const proto::ProtoObject* nextMethod = PROTO_NONE;
-                const proto::ProtoObject* asyncMethod = jsIsObject(pContext, iterable)
-                    ? jsGetProperty(pContext, iterable, "Symbol.asyncIterator") : PROTO_NONE;
-                REFRESH_INTERP_STATE();
-                if (t_hasCallException) { raiseCall(); DISPATCH(); }
-                if (jsIsCallable(pContext, asyncMethod)) {
-                    iterator = callJSFunction(pContext, asyncMethod, iterable, pContext->newList());
-                    REFRESH_INTERP_STATE();
-                    if (t_hasCallException) { raiseCall(); DISPATCH(); }
-                    if (!jsIsObject(pContext, iterator)) {
-                        pending_exception = makeError(pContext, "TypeError",
-                            "Result of the Symbol.asyncIterator method is not an object", pGlobalRoot);
-                        has_pending_exception = true;
-                        DISPATCH();
-                    }
-                    nextMethod = jsGetProperty(pContext, iterator, "next");
-                    REFRESH_INTERP_STATE();
-                    if (t_hasCallException) { raiseCall(); DISPATCH(); }
-                } else {
-                    const proto::ProtoObject* syncMethod =
-                        jsGetProperty(pContext, iterable, "Symbol.iterator");
-                    REFRESH_INTERP_STATE();
-                    if (t_hasCallException) { raiseCall(); DISPATCH(); }
-                    if (!jsIsCallable(pContext, syncMethod)) {
-                        pending_exception = makeError(pContext, "TypeError",
-                            "object is not async iterable", pGlobalRoot);
-                        has_pending_exception = true;
-                        DISPATCH();
-                    }
-                    const proto::ProtoObject* syncIter =
-                        callJSFunction(pContext, syncMethod, iterable, pContext->newList());
-                    REFRESH_INTERP_STATE();
-                    if (t_hasCallException) { raiseCall(); DISPATCH(); }
-                    if (!jsIsObject(pContext, syncIter)) {
-                        pending_exception = makeError(pContext, "TypeError",
-                            "Result of the Symbol.iterator method is not an object", pGlobalRoot);
-                        has_pending_exception = true;
-                        DISPATCH();
-                    }
-                    const proto::ProtoObject* syncNext = jsGetProperty(pContext, syncIter, "next");
-                    REFRESH_INTERP_STATE();
-                    if (t_hasCallException) { raiseCall(); DISPATCH(); }
-                    iterator = createAsyncFromSyncIterator(pContext, syncIter, syncNext);
-                    nextMethod = jsGetProperty(pContext, iterator, "next");
-                    REFRESH_INTERP_STATE();
-                }
-                stackPush(pContext, iterator);
-                stackPush(pContext, nextMethod ? nextMethod : PROTO_NONE);
+                stackPush(pContext, faIterator);
+                stackPush(pContext, faNextMethod ? faNextMethod : PROTO_NONE);
                 stackPush(pContext, pContext->fromInteger(0LL));
                 DISPATCH();
             }
@@ -18091,9 +18120,8 @@ static const proto::ProtoObject* generatorThrow(proto::ProtoContext* ctx,
 
 
 // ---------------------------------------------------------------------------
-// runBytecode: the public entry.  Ordinary functions go straight to the
-// dispatch loop; async functions and async generators are wrapped as
-// described in "Async functions" above runBytecodeImpl.
+// Completion of async activations (see "Async functions and async
+// generators" above runBytecode).
 // ---------------------------------------------------------------------------
 
 // Settle an async function's promise with the completion of its body.
@@ -18118,15 +18146,12 @@ static void finishAsyncGenerator(proto::ProtoContext* ctx, const proto::ProtoObj
     asyncGenDrainQueue(ctx, gen);
 }
 
-const proto::ProtoObject* runBytecode(proto::ProtoContext* pContext,
-                                      const ProtoBytecodeModule* module,
-                                      const proto::ProtoObject* thisObj,
-                                      const proto::ProtoList* args,
-                                      const proto::ProtoObject** pGlobalRoot,
-                                      const proto::ProtoObject** outException) {
-    if (!module || !module->isAsync)
-        return runBytecodeImpl(pContext, module, thisObj, args, pGlobalRoot, outException);
-
+static const proto::ProtoObject* startAsyncActivation(proto::ProtoContext* pContext,
+                                                      const ProtoBytecodeModule* module,
+                                                      const proto::ProtoObject* thisObj,
+                                                      const proto::ProtoList* args,
+                                                      const proto::ProtoObject** pGlobalRoot,
+                                                      const proto::ProtoObject** outException) {
     if (module->isGenerator) {
         // The body runs up to its initial yield, which creates and returns
         // the generator object; a throw while binding the parameters
@@ -18134,7 +18159,7 @@ const proto::ProtoObject* runBytecode(proto::ProtoContext* pContext,
         t_asyncEntryKind = kAsyncGenerator;
         t_asyncEntryOwner = nullptr;
         const proto::ProtoObject* r =
-            runBytecodeImpl(pContext, module, thisObj, args, pGlobalRoot, outException);
+            runBytecode(pContext, module, thisObj, args, pGlobalRoot, outException);
         t_asyncSuspended = false;
         return r;
     }
@@ -18146,7 +18171,7 @@ const proto::ProtoObject* runBytecode(proto::ProtoContext* pContext,
     t_asyncEntryOwner = promise;
     const proto::ProtoObject* exception = nullptr;
     const proto::ProtoObject* r =
-        runBytecodeImpl(pContext, module, thisObj, args, pGlobalRoot, &exception);
+        runBytecode(pContext, module, thisObj, args, pGlobalRoot, &exception);
     if (t_asyncSuspended) {
         t_asyncSuspended = false;
         return promise;
@@ -18184,7 +18209,7 @@ static void resumeContinuation(proto::ProtoContext* ctx, const proto::ProtoObjec
     t_asyncResumeValue = value ? value : PROTO_NONE;
     t_asyncResumeCompletion = completion;
     const proto::ProtoObject* exception = nullptr;
-    const proto::ProtoObject* r = runBytecodeImpl(&childCtx, mod, thisObj, args,
+    const proto::ProtoObject* r = runBytecode(&childCtx, mod, thisObj, args,
                                                   t_currentGlobalRoot, &exception);
     t_activeFunc = prevFunc;
     t_activeNewTgt = prevNewTgt;
@@ -18233,11 +18258,11 @@ static int asyncGenState(proto::ProtoContext* ctx, const proto::ProtoObject* gen
     return (st && st->isInteger(ctx)) ? static_cast<int>(st->asLong(ctx)) : kGenCompleted;
 }
 
-static void asyncGenSetState(proto::ProtoContext* ctx, const proto::ProtoObject* gen, int state) {
+static PROTOJS_NOINLINE void asyncGenSetState(proto::ProtoContext* ctx, const proto::ProtoObject* gen, int state) {
     gen->setAttribute(ctx, agKey(ctx, kAgState), ctx->fromInteger(state));
 }
 
-static void asyncGenSetContinuation(proto::ProtoContext* ctx, const proto::ProtoObject* gen,
+static PROTOJS_NOINLINE void asyncGenSetContinuation(proto::ProtoContext* ctx, const proto::ProtoObject* gen,
                                     const proto::ProtoObject* cont, int state) {
     gen->setAttribute(ctx, agKey(ctx, kAgCont), cont ? cont : PROTO_NONE);
     asyncGenSetState(ctx, gen, state);
@@ -18248,7 +18273,7 @@ static const proto::ProtoList* asyncGenQueue(proto::ProtoContext* ctx, const pro
     return (q && q != PROTO_NONE) ? q->asList(ctx) : nullptr;
 }
 
-static bool asyncGenFirstRequest(proto::ProtoContext* ctx, const proto::ProtoObject* gen,
+static PROTOJS_NOINLINE bool asyncGenFirstRequest(proto::ProtoContext* ctx, const proto::ProtoObject* gen,
                                  int& completion, const proto::ProtoObject*& value) {
     const proto::ProtoList* q = asyncGenQueue(ctx, gen);
     if (!q || q->getSize(ctx) == 0) return false;
@@ -18262,7 +18287,7 @@ static bool asyncGenFirstRequest(proto::ProtoContext* ctx, const proto::ProtoObj
     return true;
 }
 
-static bool asyncGenCompleteStep(proto::ProtoContext* ctx, const proto::ProtoObject* gen,
+static PROTOJS_NOINLINE bool asyncGenCompleteStep(proto::ProtoContext* ctx, const proto::ProtoObject* gen,
                                  int completion, const proto::ProtoObject* value, bool done) {
     const proto::ProtoList* q = asyncGenQueue(ctx, gen);
     if (!q || q->getSize(ctx) == 0) return false;
@@ -18439,7 +18464,7 @@ static const proto::ProtoObject* asyncGeneratorPrototype(proto::ProtoContext* ct
     return cache.keep(ctx, proto);
 }
 
-static const proto::ProtoObject* asyncGenObjectCreate(proto::ProtoContext* ctx) {
+static PROTOJS_NOINLINE const proto::ProtoObject* asyncGenObjectCreate(proto::ProtoContext* ctx) {
     const proto::ProtoObject* proto = asyncGeneratorPrototype(ctx);
     const proto::ProtoObject* gen = proto ? proto->newChild(ctx, true) : ctx->newObject(true);
     gen->setAttribute(ctx, agKey(ctx, kAgQueue), ctx->newList()->asObject(ctx));
@@ -18542,7 +18567,7 @@ static const proto::ProtoObject* afsThrow(proto::ProtoContext* ctx, const proto:
     return afsMethod(ctx, self, args, kCompletionThrow);
 }
 
-static const proto::ProtoObject* createAsyncFromSyncIterator(proto::ProtoContext* ctx,
+static PROTOJS_NOINLINE const proto::ProtoObject* createAsyncFromSyncIterator(proto::ProtoContext* ctx,
                                                              const proto::ProtoObject* syncIter,
                                                              const proto::ProtoObject* syncNext) {
     static thread_local PinnedBuiltin cache;

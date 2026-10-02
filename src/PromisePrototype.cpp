@@ -1214,6 +1214,53 @@ const proto::ProtoObject* promiseResolveIntrinsic(proto::ProtoContext* ctx,
     return promiseResolveWith(ctx, C, value ? value : undef());
 }
 
+bool performAwait(proto::ProtoContext* ctx, const proto::ProtoObject* value,
+                  const proto::ProtoObject* continuation) {
+    if (!value) value = undef();
+    auto reaction = [&]() {
+        const proto::ProtoObject* items[4] = {
+            ctx->fromInteger(kReactAwait), continuation, PROTO_NONE, PROTO_NONE};
+        return ctx->newList(4, items)->asObject(ctx);
+    };
+    // A primitive: PromiseResolve makes a promise fulfilled with it, and
+    // PerformPromiseThen on a fulfilled promise queues the reaction job.
+    if (!isObjectValue(ctx, value)) {
+        enqueueReactionJob(ctx, reaction(), value, kFulfilled);
+        return true;
+    }
+    if (isPromise(ctx, value)) {
+        const proto::ProtoObject* xC = jsGet(ctx, value, JSSymbols::constructor(ctx),
+                                             keyConstructorGetter(ctx));
+        if (hasCallException()) return false;
+        const proto::ProtoObject* C = intrinsicPromiseCtor(ctx);
+        if (C && xC == C) {
+            // PromiseResolve returns the promise itself.
+            performThen(ctx, value, kReactAwait, continuation, PROTO_NONE, PROTO_NONE);
+            return true;
+        }
+    }
+    // Any other object: PromiseResolve resolves a new promise with it, which
+    // reads `then` now.  A throwing getter rejects that promise; a callable
+    // `then` makes it adopt the thenable through a job; otherwise the promise
+    // is fulfilled with the object.
+    const proto::ProtoObject* thenAction = jsGet(ctx, value, keyThen(ctx), keyThenGetter(ctx));
+    const proto::ProtoObject* e = PROTO_NONE;
+    if (takeException(e)) {
+        enqueueReactionJob(ctx, reaction(), e, kRejected);
+        return true;
+    }
+    if (!isCallable(ctx, thenAction)) {
+        enqueueReactionJob(ctx, reaction(), value, kFulfilled);
+        return true;
+    }
+    const proto::ProtoObject* p = newPromise(ctx);
+    const proto::ProtoObject* items[4] = {
+        ctx->fromInteger(MicrotaskQueue::kResolveThenableJob), p, value, thenAction};
+    enqueueJob(ctx, items, 4);
+    performThen(ctx, p, kReactAwait, continuation, PROTO_NONE, PROTO_NONE);
+    return true;
+}
+
 void performPromiseThenInternal(proto::ProtoContext* ctx, const proto::ProtoObject* promise,
                                 PromiseReactionKind kind, const proto::ProtoObject* target,
                                 const proto::ProtoObject* onFulfilled,
