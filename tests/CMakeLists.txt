@@ -28,6 +28,7 @@ if(TEST_SOURCES)
         # As protojs itself: UTF-8 process code page and the same stack.
         target_sources(protojs_tests PRIVATE ${CMAKE_SOURCE_DIR}/src/windows/utf8.manifest)
         target_link_options(protojs_tests PRIVATE /STACK:${PROTOJS_WINDOWS_STACK_BYTES})
+        target_compile_options(protojs_tests PRIVATE ${PROTOJS_MSVC_WARNINGS})
     endif()
 
     # Add tests to CTest

@@ -291,6 +291,20 @@ target_link_libraries(protojs_core
     ${PROTOJS_SYSTEM_LIBS}
 )
 
+# MSVC warns at /W1 unless told otherwise (CMake no longer adds /W3 by default).
+# protoJS's own sources build at /W3; the vendored QuickJS sources keep the
+# default, since they are not clean at /W3 and are not protoJS's to restyle.
+# PROTOJS_MSVC_WARNINGS is applied to protoJS's other targets below.
+if(MSVC)
+    set(PROTOJS_MSVC_WARNINGS /W3)
+    get_target_property(_protojs_core_sources protojs_core SOURCES)
+    list(REMOVE_ITEM _protojs_core_sources ${QUICKJS_SRCS})
+    set_property(SOURCE ${_protojs_core_sources} APPEND PROPERTY COMPILE_OPTIONS ${PROTOJS_MSVC_WARNINGS})
+    unset(_protojs_core_sources)
+else()
+    set(PROTOJS_MSVC_WARNINGS "")
+endif()
+
 if(WIN32)
     # The native-module ABI is exported by protojs.exe (PROTOJS_ABI_API).
     target_compile_definitions(protojs_core PUBLIC PROTOJS_BUILDING_RUNTIME)
@@ -317,6 +331,7 @@ endif()
 
 # Main Executable (only main.cpp; everything else lives in protojs_core)
 add_executable(protojs src/main.cpp)
+target_compile_options(protojs PRIVATE ${PROTOJS_MSVC_WARNINGS})
 
 # Link Libs (protoCore is the official name of the shared library)
 # -rdynamic: export symbols so dlopen'd native addons can resolve QuickJS/protoCore symbols
@@ -375,6 +390,7 @@ set_target_properties(simple_addon PROPERTIES
     RUNTIME_OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR}/tests/native_addons/simple
 )
 target_link_libraries(simple_addon PRIVATE ${PROTOJS_ADDON_LIBS})
+target_compile_options(simple_addon PRIVATE ${PROTOJS_MSVC_WARNINGS})
 target_link_options(simple_addon PRIVATE ${PROTOJS_ADDON_LINK_OPTIONS})
 
 # Fixture addon for resolution-order test (output next to fixture.js)
@@ -390,6 +406,7 @@ set_target_properties(fixture_addon PROPERTIES
     RUNTIME_OUTPUT_DIRECTORY ${CMAKE_SOURCE_DIR}/tests/integration/native_addons
 )
 target_link_libraries(fixture_addon PRIVATE ${PROTOJS_ADDON_LIBS})
+target_compile_options(fixture_addon PRIVATE ${PROTOJS_MSVC_WARNINGS})
 target_link_options(fixture_addon PRIVATE ${PROTOJS_ADDON_LINK_OPTIONS})
 
 # --- Install RPATH: installed binary finds libprotoCore without LD_LIBRARY_PATH ---

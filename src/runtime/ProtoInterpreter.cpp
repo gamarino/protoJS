@@ -42,16 +42,36 @@ extern "C" {
 // reach every label, and Clang rejects one that would cross the
 // initialisation of a local (GCC accepts it). So Clang (macOS) takes the
 // switch as well; GCC (Linux) keeps the label table.
+//
+// PROTOJS_COMPUTED_GOTO may be set from the build (-DPROTOJS_COMPUTED_GOTO=0)
+// to build GCC with the switch, which is how the two dispatches are compared
+// on one compiler (docs/PERFORMANCE_DISPATCH.md).
+//
+// PROTOJS_ALWAYS_INLINE: the dispatch loop's slot and stack accessors must be
+// inlined into runBytecode. GCC and Clang take [[gnu::always_inline]]; MSVC
+// ignores that attribute and needs __forceinline.
 #if defined(_MSC_VER) && !defined(__clang__)
+#ifndef PROTOJS_COMPUTED_GOTO
 #define PROTOJS_COMPUTED_GOTO 0
+#endif
 #define PROTOJS_NOINLINE __declspec(noinline)
+#define PROTOJS_ALWAYS_INLINE __forceinline
 #define __builtin_expect(x, expected) (x)
 #elif defined(__clang__)
+#ifndef PROTOJS_COMPUTED_GOTO
 #define PROTOJS_COMPUTED_GOTO 0
+#endif
 #define PROTOJS_NOINLINE __attribute__((noinline))
+#define PROTOJS_ALWAYS_INLINE inline __attribute__((always_inline))
 #else
+#ifndef PROTOJS_COMPUTED_GOTO
 #define PROTOJS_COMPUTED_GOTO 1
+#endif
 #define PROTOJS_NOINLINE __attribute__((noinline))
+#define PROTOJS_ALWAYS_INLINE inline __attribute__((always_inline))
+#endif
+#if PROTOJS_COMPUTED_GOTO && defined(_MSC_VER) && !defined(__clang__)
+#error "MSVC has no computed goto: PROTOJS_COMPUTED_GOTO must be 0"
 #endif
 #include <cmath>
 #include <cstring>
@@ -2858,23 +2878,23 @@ static thread_local std::vector<InterpFrame> t_interpFrames;
 static const bool s_debugSlots = (std::getenv("PROTO_DEBUG_SLOTS") != nullptr);
 static const bool s_debugBind  = (std::getenv("PROTO_DEBUG_BIND")  != nullptr);
 
-[[gnu::always_inline]] static inline bool debugSlotsEnabled() { return s_debugSlots; }
-[[gnu::always_inline]] static inline bool debugBindEnabled()  { return s_debugBind;  }
+static PROTOJS_ALWAYS_INLINE bool debugSlotsEnabled() { return s_debugSlots; }
+static PROTOJS_ALWAYS_INLINE bool debugBindEnabled()  { return s_debugBind;  }
 
-[[gnu::always_inline]] static inline InterpFrame* currentFrame(proto::ProtoContext* ctx) {
+static PROTOJS_ALWAYS_INLINE InterpFrame* currentFrame(proto::ProtoContext* ctx) {
     if (t_interpFrames.empty()) return nullptr;
     InterpFrame* f = &t_interpFrames.back();
     return (f->ctx == ctx) ? f : nullptr;
 }
 
-// Each helper kept as `[[gnu::always_inline]] inline static` so its
-// body is replicated at every call site inside runBytecode.  All
+// Each helper is declared `static PROTOJS_ALWAYS_INLINE` (always_inline,
+// or __forceinline under MSVC) so its body is replicated at every call site inside runBytecode.  All
 // safety guards (NULL ctx, bounds, mt-frame mismatch) are preserved
 // — the inlining is purely about removing call/ret overhead.  The
 // 568 in-loop call sites each get an icache-resident copy; the two
 // out-of-loop sites (lines 379 / 3538) also benefit but pay nothing
 // since they were already cold.
-[[gnu::always_inline]] static inline const proto::ProtoObject* getSlot(proto::ProtoContext* ctx, unsigned int index) {
+static PROTOJS_ALWAYS_INLINE const proto::ProtoObject* getSlot(proto::ProtoContext* ctx, unsigned int index) {
     if (!ctx) return PROTO_NONE;
     if (index >= ctx->getAutomaticLocalsCount()) return PROTO_NONE;
     const proto::ProtoObject* v = ctx->getAutomaticLocals()[index];
@@ -2884,7 +2904,7 @@ static const bool s_debugBind  = (std::getenv("PROTO_DEBUG_BIND")  != nullptr);
     return (v && v != PROTO_NONE) ? v : PROTO_NONE;
 }
 
-[[gnu::always_inline]] static inline void setSlot(proto::ProtoContext* ctx, unsigned int index, const proto::ProtoObject* value) {
+static PROTOJS_ALWAYS_INLINE void setSlot(proto::ProtoContext* ctx, unsigned int index, const proto::ProtoObject* value) {
     if (!ctx) return;
     if (debugSlotsEnabled()) {
         printf("[DEBUG] setSlot(%p, %u, %p)\n", ctx, index, value);
@@ -2946,12 +2966,12 @@ static const proto::ProtoObject* captureClosureVars(proto::ProtoContext* ctx,
     return scope;
 }
 
-[[gnu::always_inline]] static inline void initStack(proto::ProtoContext* ctx) {
+static PROTOJS_ALWAYS_INLINE void initStack(proto::ProtoContext* ctx) {
     InterpFrame* f = currentFrame(ctx);
     if (f) f->stackTop = 0;
 }
 
-[[gnu::always_inline]] static inline void stackPush(proto::ProtoContext* ctx, const proto::ProtoObject* value) {
+static PROTOJS_ALWAYS_INLINE void stackPush(proto::ProtoContext* ctx, const proto::ProtoObject* value) {
     if (!ctx) return;
     InterpFrame* f = currentFrame(ctx);
     if (!f) return;
@@ -2973,7 +2993,7 @@ static const proto::ProtoObject* captureClosureVars(proto::ProtoContext* ctx,
     f->stackTop++;
 }
 
-[[gnu::always_inline]] static inline void stackPop(proto::ProtoContext* ctx) {
+static PROTOJS_ALWAYS_INLINE void stackPop(proto::ProtoContext* ctx) {
     InterpFrame* f = currentFrame(ctx);
     if (!f || f->stackTop == 0) return;
     f->stackTop--;
@@ -2983,23 +3003,23 @@ static const proto::ProtoObject* captureClosureVars(proto::ProtoContext* ctx,
         const_cast<const proto::ProtoObject**>(ctx->getAutomaticLocals())[idx] = PROTO_NONE;
 }
 
-[[gnu::always_inline]] static inline const proto::ProtoObject* stackTop(proto::ProtoContext* ctx) {
+static PROTOJS_ALWAYS_INLINE const proto::ProtoObject* stackTop(proto::ProtoContext* ctx) {
     InterpFrame* f = currentFrame(ctx);
     if (!f || f->stackTop == 0) return PROTO_NONE;
     return ctx->getAutomaticLocals()[f->stackBase + f->stackTop - 1];
 }
 
-[[gnu::always_inline]] static inline proto::proto_ulong stackSize(proto::ProtoContext* ctx) {
+static PROTOJS_ALWAYS_INLINE proto::proto_ulong stackSize(proto::ProtoContext* ctx) {
     InterpFrame* f = currentFrame(ctx);
     return f ? f->stackTop : 0;
 }
 
-[[gnu::always_inline]] static inline bool stackEmpty(proto::ProtoContext* ctx) {
+static PROTOJS_ALWAYS_INLINE bool stackEmpty(proto::ProtoContext* ctx) {
     return stackSize(ctx) == 0;
 }
 
 /** Get stack element by 0-based index from top (0 = top, 1 = next, ...). */
-[[gnu::always_inline]] static inline const proto::ProtoObject* stackAt(proto::ProtoContext* ctx, proto::proto_ulong fromTop) {
+static PROTOJS_ALWAYS_INLINE const proto::ProtoObject* stackAt(proto::ProtoContext* ctx, proto::proto_ulong fromTop) {
     InterpFrame* f = currentFrame(ctx);
     if (!f || fromTop >= f->stackTop) return PROTO_NONE;
     return ctx->getAutomaticLocals()[f->stackBase + f->stackTop - 1 - fromTop];
