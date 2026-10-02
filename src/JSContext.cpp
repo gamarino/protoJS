@@ -26,6 +26,9 @@
 #include <fstream>
 #include <sstream>
 #include "platform/Posix.h"
+#include "platform/ProcessExit.h"
+#include <algorithm>
+#include <cstdio>
 
 namespace protojs {
 
@@ -81,6 +84,71 @@ static JSModuleDef* protojs_load_module(JSContext* ctx, const char* module_name,
     return static_cast<JSModuleDef*>(JS_VALUE_GET_PTR(val));
 }
 
+// ---------------------------------------------------------------------------
+// Memory policy -- the same as protoST's (protoST src/runtime/STRuntime.cpp,
+// configureHeap).
+//
+// protoCore's collector defers work until it is needed: it runs in parallel
+// and triggers as the heap approaches the configured ceiling. With no ceiling
+// it is never needed, so garbage is never reclaimed during a run: a loop that
+// created 1,000,000 closures exhausted the machine's memory. Every space
+// protoJS creates (the main one and each worker's) therefore gets a hard
+// ceiling by default: 10M cells (640 MB of 64-byte cells), or a quarter of
+// physical memory if that is smaller. An explicit PROTOCORE_HEAP_LIMIT_CELLS,
+// which protoCore has already applied when the space was constructed, takes
+// precedence (0 disables the ceiling).
+//
+// A live set that itself reaches the ceiling is reported by protoCore through
+// outOfMemoryCallback, after which it would abort; protoJS ends the process
+// first, with a message naming the variable that raises the limit and exit
+// status 3, so running out of memory never leaves a core dump.
+// ---------------------------------------------------------------------------
+namespace {
+
+constexpr long long kHeapCellBytes = 64;
+constexpr long long kDefaultHardCells = 10'000'000;  // 640 MB of cells
+
+long long configuredHardCells() {
+    if (const char* env = std::getenv("PROTOCORE_HEAP_LIMIT_CELLS"))
+        return std::atoll(env);
+    long long cells = kDefaultHardCells;
+#if defined(_WIN32)
+    MEMORYSTATUSEX status;
+    status.dwLength = sizeof(status);
+    if (::GlobalMemoryStatusEx(&status) && status.ullTotalPhys > 0)
+        cells = std::min(cells,
+            static_cast<long long>(status.ullTotalPhys / 4 / kHeapCellBytes));
+#elif defined(_SC_PHYS_PAGES) && defined(_SC_PAGESIZE)
+    const long pages = ::sysconf(_SC_PHYS_PAGES);
+    const long pageSize = ::sysconf(_SC_PAGESIZE);
+    if (pages > 0 && pageSize > 0)
+        cells = std::min(cells,
+            static_cast<long long>(pages) * pageSize / 4 / kHeapCellBytes);
+#endif
+    return std::min<long long>(cells, INT_MAX);
+}
+
+proto::ProtoObject* reportOutOfMemory(proto::ProtoContext*) {
+    const long long cells = configuredHardCells();
+    std::fflush(stdout);
+    std::fprintf(stderr,
+        "protojs: out of memory: the live objects fill the heap limit of %lld cells "
+        "(%lld MB) and the last collections reclaimed nothing. To allow more, set "
+        "PROTOCORE_HEAP_LIMIT_CELLS (each cell is 64 bytes), e.g. "
+        "PROTOCORE_HEAP_LIMIT_CELLS=%lld for %lld MB.\n",
+        cells, cells * kHeapCellBytes / 1000000, cells * 4,
+        cells * 4 * kHeapCellBytes / 1000000);
+    platform::exitNow(3);
+}
+
+void configureHeap(proto::ProtoSpace& space) {
+    space.outOfMemoryCallback = reportOutOfMemory;
+    if (std::getenv("PROTOCORE_HEAP_LIMIT_CELLS")) return;
+    space.setHeapLimits(0, static_cast<int>(configuredHardCells()));
+}
+
+}  // namespace
+
 static thread_local JSContextWrapper* t_currentWrapper = nullptr;
 
 JSContextWrapper* JSContextWrapper::current() {
@@ -101,6 +169,7 @@ std::atomic<size_t> JSContextWrapper::poolOwners_{0};
 
 // See JSContext.h for semantics.
 JSContextWrapper::JSContextWrapper(size_t cpuThreads, size_t ioThreads, double ioFactor) : pSpace() {
+    configureHeap(pSpace);
     rt = JS_NewRuntime();
     ctx = JS_NewContext(rt);
     

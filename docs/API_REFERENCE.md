@@ -30,7 +30,10 @@ protojs [options] -e "<code>"
 - With no arguments, `protojs` prints the usage text and exits with status 1.
 - With options but no script and no `-e`, `protojs` starts an interactive REPL.
 - An unknown option or an unreadable script file prints an error and exits with status 1.
-- If the main script throws, the exit status is 1.
+- If the main script throws, the error is printed and the exit status is 1; work the script queued (`setImmediate`, I/O callbacks) does not run.
+- An exception that escapes an event-loop callback (`setImmediate`, an `fs`, `dns`, `http`, `net` or worker callback, a `Deferred` reaction) is printed as `Uncaught exception in <where>: <error>` and ends the process with status 1 at once, as in Node.
+- A rejected `Promise` that no handler has claimed by the end of the turn that rejected it (the main script, or one callback) is printed as `Uncaught (in promise) <error>` and ends the process with status 1 -- Node's default since v15. `then`/`catch`/`finally`, `await` and the `Promise` combinators count as handlers.
+- If the live objects fill the heap ceiling (see `PROTOCORE_HEAP_LIMIT_CELLS` below), `protojs: out of memory: ...` is printed and the exit status is 3.
 
 ### Environment variables
 
@@ -39,6 +42,7 @@ protojs [options] -e "<code>"
 | `PROTOJS_NO_FALLBACK` | `src/JSContext.cpp` | When the protoCore compile step fails, `protojs` normally prints `[protojs] compile failed, fallback to QuickJS eval` and evaluates the code with QuickJS. Set to `1` to report the error instead. |
 | `PROTOJS_SPECIALISER` | `src/runtime/BytecodeSpecialiser.cpp` | Bytecode specialiser mode: `compact` (default), `nop` or `off`. |
 | `PROTOCORE_GC_CONTEXT_THRESHOLD` | protoCore | Per-context allocation threshold used by protoCore's garbage collector trigger. |
+| `PROTOCORE_HEAP_LIMIT_CELLS` | protoCore, `src/JSContext.cpp` | The heap ceiling, in 64-byte cells, of each protoCore space (the main one and each worker's). protoCore's collector runs as the heap approaches the ceiling, so without one nothing is reclaimed during a run. Default: 10,000,000 cells (640 MB), or a quarter of physical memory if that is smaller -- the same policy as protoST. `0` removes the ceiling. |
 
 `PROTOJS_USE_PROTO_EVAL`, which some test scripts set, is not read by `protojs`.
 

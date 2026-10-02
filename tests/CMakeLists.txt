@@ -170,6 +170,15 @@ add_test(NAME cli/uncaught-errors
             "$<TARGET_FILE:protojs>"
             "${CMAKE_CURRENT_BINARY_DIR}/cli-scratch/uncaught-errors")
 
+# A loop creating 2,000,000 closures under the default heap ceiling: must print
+# the right sum with a bounded peak resident set (the script kills the run at a
+# safety cap so a regression cannot exhaust the machine). About a minute.
+add_test(NAME cli/closure-loop-bounded-memory
+    COMMAND ${PROTOJS_PYTHON} "${CMAKE_CURRENT_SOURCE_DIR}/cli/closure_loop_bounded_memory.py"
+            "$<TARGET_FILE:protojs>"
+            "${CMAKE_CURRENT_BINARY_DIR}/cli-scratch/closure-loop-bounded-memory")
+set_tests_properties(cli/closure-loop-bounded-memory PROPERTIES TIMEOUT 1200)
+
 # --- Asserting JavaScript tests ------------------------------------------------
 #
 # Each script checks the values it computes and exits 1 on any failure, so its

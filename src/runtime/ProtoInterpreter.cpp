@@ -3925,9 +3925,17 @@ static void setNWCDescriptor(proto::ProtoContext* ctx,
                              const std::string& propName)
 {
     if (!ctx || !obj) return;
-    std::string pdKeyStr = "__pd_" + propName + "__";
-    const proto::ProtoObject* pko = ctx->fromUTF8String(pdKeyStr.c_str());
-    const proto::ProtoString* pdk = pko ? pko->asString(ctx) : nullptr;
+    // name and length are stamped on every closure: use their interned
+    // sidecar keys.  Building "__pd_<prop>__" with fromUTF8String allocated a
+    // fresh string per call.
+    const proto::ProtoString* pdk = nullptr;
+    if (propName == "name") pdk = protojs::JSSymbols::pdName(ctx);
+    else if (propName == "length") pdk = protojs::JSSymbols::pdLength(ctx);
+    else {
+        std::string pdKeyStr = "__pd_" + propName + "__";
+        const proto::ProtoObject* pko = ctx->fromUTF8String(pdKeyStr.c_str());
+        pdk = pko ? pko->asString(ctx) : nullptr;
+    }
     if (pdk) obj = obj->setAttribute(ctx, pdk, ctx->fromInteger(0x2LL));
     // Hot-path hint: every NWC descriptor leaves writable=false AND
     // enumerable=false.  Without __has_nonwritable_props__ set on the
@@ -3940,7 +3948,8 @@ static void setNWCDescriptor(proto::ProtoContext* ctx,
     // already done by wrapNativeFunction (for built-in static methods)
     // and Object.defineProperty (for user-installed descriptors).
     const proto::ProtoString* hnw = protojs::JSSymbols::hasNonWritableProps(ctx);
-    if (hnw) obj = obj->setAttribute(ctx, hnw, PROTO_TRUE);
+    if (hnw && obj->hasOwnAttribute(ctx, hnw) != PROTO_TRUE)
+        obj = obj->setAttribute(ctx, hnw, PROTO_TRUE);
 }
 
 /** Native ProtoMethod for Error.isError(value) — stage-4 proposal,
@@ -15510,46 +15519,14 @@ const proto::ProtoObject* runBytecode(proto::ProtoContext* pContext,
                     const proto::ProtoObject* fp8 = (gr8 && *gr8 && fpKey8)
                         ? (*gr8)->getAttribute(pContext, fpKey8, false) : nullptr;
                     const proto::ProtoObject* fnInst = (fp8 && fp8 != PROTO_NONE)
-                        ? fp8->newChild(pContext, true)
-                        : pContext->newObject(true);
+                        ? fp8->newChild(pContext, false)
+                        : pContext->newObject(false);
                     // outer-frameObj + moduleScope as extra parents — see
                     // L_OP_fclosure for rationale.
                     const proto::ProtoObject* outerFrameForCapture8 =
                         getOrCreateFrameObj(pContext, gr8);
-                    if (outerFrameForCapture8 && outerFrameForCapture8 != fp8 &&
-                        (!gr8 || outerFrameForCapture8 != *gr8)) {
-                        fnInst = fnInst->addParent(pContext, outerFrameForCapture8);
-                    }
-                    if (gr8 && *gr8 && *gr8 != fp8) {
-                        fnInst = fnInst->addParent(pContext, *gr8);
-                    }
                     fnInst = fnInst->setAttribute(pContext, JSSymbols::bytecodeId(pContext),
                         pContext->fromInteger(static_cast<long long>(fnBcId8)));
-                    // fn.prototype inherits Object.prototype (see L_OP_fclosure for rationale).
-                    const proto::ProtoObject* objProtoFc8 =
-                        (pContext->space && pContext->space->objectPrototype)
-                            ? pContext->space->objectPrototype : nullptr;
-                    const proto::ProtoObject* fnDefProto8 = objProtoFc8
-                        ? objProtoFc8->newChild(pContext, true)
-                        : pContext->newObject(true);
-                    fnInst = fnInst->setAttribute(pContext, JSSymbols::prototype(pContext), fnDefProto8);
-                    // Spec: fn.prototype is {writable:true, enumerable:false, configurable:false}
-                    // bits: 0x1=writable, 0x2=configurable, 0x4=enumerable → 0x1 only.
-                    {
-                        const proto::ProtoString* pdks = JSSymbols::pdPrototype(pContext);
-                        if (pdks) fnInst = fnInst->setAttribute(pContext, pdks, pContext->fromInteger(0x1LL));
-                    }
-                    // §10.2.5: fn.prototype.constructor === fn with
-                    // descriptor 0x3.  Mirrors the L_OP_fclosure path.
-                    {
-                        const proto::ProtoString* ctorKey = JSSymbols::constructor(pContext);
-                        if (ctorKey) {
-                            fnDefProto8 = fnDefProto8->setAttribute(pContext, ctorKey, fnInst);
-                            const proto::ProtoString* pdck = JSSymbols::pdConstructor(pContext);
-                            if (pdck) fnDefProto8 = fnDefProto8->setAttribute(pContext, pdck,
-                                pContext->fromInteger(0x3LL));
-                        }
-                    }
                     // Resolve function metadata against the module that owns
                     // this bytecode's function table — see the matching note
                     // in OP_fclosure (32-bit immediate variant).
@@ -15562,6 +15539,26 @@ const proto::ProtoObject* runBytecode(proto::ProtoContext* pContext,
                     else if (fnBcId8 >= 0 && t_rootModule &&
                             static_cast<size_t>(fnBcId8) < t_rootModule->nestedFunctions.size())
                         nm8Ptr = &t_rootModule->nestedFunctions[static_cast<size_t>(fnBcId8)];
+                    // fn.prototype: see L_OP_fclosure for which functions get
+                    // one and why a generator's has no constructor.
+                    const bool needsProto8 = !nm8Ptr
+                        || !(nm8Ptr->isArrow || (nm8Ptr->isAsync && !nm8Ptr->isGenerator));
+                    const proto::ProtoObject* fnDefProto8 = nullptr;
+                    if (needsProto8) {
+                        const proto::ProtoObject* objProtoFc8 =
+                            (pContext->space && pContext->space->objectPrototype)
+                                ? pContext->space->objectPrototype : nullptr;
+                        fnDefProto8 = objProtoFc8
+                            ? objProtoFc8->newChild(pContext, true)
+                            : pContext->newObject(true);
+                        fnInst = fnInst->setAttribute(pContext, JSSymbols::prototype(pContext), fnDefProto8);
+                        // Spec: fn.prototype is {writable:true, enumerable:false, configurable:false}
+                        // bits: 0x1=writable, 0x2=configurable, 0x4=enumerable → 0x1 only.
+                        {
+                            const proto::ProtoString* pdks = JSSymbols::pdPrototype(pContext);
+                            if (pdks) fnInst = fnInst->setAttribute(pContext, pdks, pContext->fromInteger(0x1LL));
+                        }
+                    }
                     // Every closure carries its function table, whichever
                     // module created it.  See L_OP_fclosure.
                     if (ownerTable8) {
@@ -15573,11 +15570,8 @@ const proto::ProtoObject* runBytecode(proto::ProtoContext* pContext,
                     }
                     if (nm8Ptr) {
                         const ProtoBytecodeModule& nm8 = *nm8Ptr;
-                        if (!nm8.funcName.empty()) {
-                            const proto::ProtoObject* nameVal = pContext->fromUTF8String(nm8.funcName.c_str());
-                            if (nameVal)
-                                fnInst = fnInst->setAttribute(pContext, JSSymbols::name(pContext), nameVal);
-                        }
+                        if (nm8.funcNameValue)
+                            fnInst = fnInst->setAttribute(pContext, JSSymbols::name(pContext), nm8.funcNameValue);
                         // Spec: fn.name is {writable:false, enumerable:false, configurable:true}
                         setNWCDescriptor(pContext, fnInst, "name");
                         const proto::ProtoString* lenKey8 = JSSymbols::length(pContext);
@@ -15611,14 +15605,9 @@ const proto::ProtoObject* runBytecode(proto::ProtoContext* pContext,
                         // immediate variant gets the same treatment so a
                         // function declared with the short cpool index also
                         // surfaces real source.
-                        if (!nm8.funcSource.empty()) {
+                        if (nm8.funcSourceValue) {
                             const proto::ProtoString* stK = JSSymbols::sourceText(pContext);
-                            if (stK) {
-                                const proto::ProtoObject* srcVal =
-                                    pContext->fromUTF8String(nm8.funcSource.c_str());
-                                if (srcVal)
-                                    fnInst = fnInst->setAttribute(pContext, stK, srcVal);
-                            }
+                            if (stK) fnInst = fnInst->setAttribute(pContext, stK, nm8.funcSourceValue);
                         }
                         // Capture scope: the closure's [[Environment]].  See
                         // "Capture scopes" at the top of this file.
@@ -15627,6 +15616,34 @@ const proto::ProtoObject* runBytecode(proto::ProtoContext* pContext,
                             const proto::ProtoString* csKey = captureScopeKey(pContext);
                             if (csKey)
                                 fnInst = fnInst->setAttribute(pContext, csKey, captureScope);
+                        }
+                    }
+                    // Every attribute above was written while the function
+                    // object was still immutable, so the closure is born with
+                    // them: clone(true) makes the mutable function object from
+                    // that state in one step.  Built as a mutable from the
+                    // start, each of the dozen writes published a whole new
+                    // state into protoCore's mutable table.
+                    fnInst = fnInst->clone(pContext, true);
+                    // The scope parents are added to the mutable object, so
+                    // that its birth parent -- what getPrototype reports --
+                    // stays Function.prototype.
+                    if (outerFrameForCapture8 && outerFrameForCapture8 != fp8 &&
+                        (!gr8 || outerFrameForCapture8 != *gr8)) {
+                        fnInst = fnInst->addParent(pContext, outerFrameForCapture8);
+                    }
+                    if (gr8 && *gr8 && *gr8 != fp8) {
+                        fnInst = fnInst->addParent(pContext, *gr8);
+                    }
+                    // §10.2.5: fn.prototype.constructor === fn with
+                    // descriptor 0x3.  Mirrors the L_OP_fclosure path.
+                    if (fnDefProto8 && !(nm8Ptr && nm8Ptr->isGenerator)) {
+                        const proto::ProtoString* ctorKey = JSSymbols::constructor(pContext);
+                        if (ctorKey) {
+                            fnDefProto8 = fnDefProto8->setAttribute(pContext, ctorKey, fnInst);
+                            const proto::ProtoString* pdck = JSSymbols::pdConstructor(pContext);
+                            if (pdck) fnDefProto8 = fnDefProto8->setAttribute(pContext, pdck,
+                                pContext->fromInteger(0x3LL));
                         }
                     }
                     stackPush(pContext, fnInst);
@@ -15649,8 +15666,8 @@ const proto::ProtoObject* runBytecode(proto::ProtoContext* pContext,
                     const proto::ProtoObject* fp2 = (gr2 && *gr2 && fpKey2)
                         ? (*gr2)->getAttribute(pContext, fpKey2, false) : nullptr;
                     const proto::ProtoObject* fnInst2 = (fp2 && fp2 != PROTO_NONE)
-                        ? fp2->newChild(pContext, true)
-                        : pContext->newObject(true);
+                        ? fp2->newChild(pContext, false)
+                        : pContext->newObject(false);
                     // Lexical scope chain: parents = [Function.prototype,
                     // outer-frameObj?, moduleScope].  outer-frameObj is
                     // materialised lazily — only when fclosure runs at
@@ -15660,49 +15677,8 @@ const proto::ProtoObject* runBytecode(proto::ProtoContext* pContext,
                     // instanceof / f.call|bind|apply are unaffected.
                     const proto::ProtoObject* outerFrameForCapture =
                         getOrCreateFrameObj(pContext, gr2);
-                    if (outerFrameForCapture && outerFrameForCapture != fp2 &&
-                        (!gr2 || outerFrameForCapture != *gr2)) {
-                        fnInst2 = fnInst2->addParent(pContext, outerFrameForCapture);
-                    }
-                    if (gr2 && *gr2 && *gr2 != fp2) {
-                        fnInst2 = fnInst2->addParent(pContext, *gr2);
-                    }
                     fnInst2 = fnInst2->setAttribute(pContext, JSSymbols::bytecodeId(pContext),
                         pContext->fromInteger(static_cast<long long>(fnBcId2)));
-                    // fn.prototype must inherit Object.prototype so instances
-                    // produced by `new f()` carry hasOwnProperty/toString/etc.
-                    // Pre-fix the default prototype was a raw newObject(true)
-                    // with no parent, so `new F().hasOwnProperty(...)` threw.
-                    const proto::ProtoObject* objProtoFc =
-                        (pContext->space && pContext->space->objectPrototype)
-                            ? pContext->space->objectPrototype : nullptr;
-                    const proto::ProtoObject* fnDefProto = objProtoFc
-                        ? objProtoFc->newChild(pContext, true)
-                        : pContext->newObject(true);
-                    fnInst2 = fnInst2->setAttribute(pContext, JSSymbols::prototype(pContext), fnDefProto);
-                    // Spec: fn.prototype is {writable:true, enumerable:false, configurable:false}
-                    {
-                        const proto::ProtoString* pdks2 = JSSymbols::pdPrototype(pContext);
-                        if (pdks2) fnInst2 = fnInst2->setAttribute(pContext, pdks2, pContext->fromInteger(0x1LL));
-                    }
-                    // §10.2.5: fn.prototype.constructor === fn, with
-                    // descriptor {writable:true, enumerable:false,
-                    // configurable:true} → 0x3.  Pre-fix user functions
-                    // had no constructor backref so
-                    // \`(new f()).constructor\` walked through Object
-                    // .prototype.constructor and returned Object.
-                    // fnDefProto is mutable (newChild true), so setAttribute
-                    // mutates in place; fnInst2's own identity is
-                    // unaffected.
-                    {
-                        const proto::ProtoString* ctorKey = JSSymbols::constructor(pContext);
-                        if (ctorKey) {
-                            fnDefProto = fnDefProto->setAttribute(pContext, ctorKey, fnInst2);
-                            const proto::ProtoString* pdck = JSSymbols::pdConstructor(pContext);
-                            if (pdck) fnDefProto = fnDefProto->setAttribute(pContext, pdck,
-                                pContext->fromInteger(0x3LL));
-                        }
-                    }
                     // Resolve function metadata against the module that owns
                     // this bytecode's function table.
                     //
@@ -15728,6 +15704,40 @@ const proto::ProtoObject* runBytecode(proto::ProtoContext* pContext,
                     else if (fnBcId2 >= 0 && t_rootModule &&
                             static_cast<size_t>(fnBcId2) < t_rootModule->nestedFunctions.size())
                         nm2Ptr = &t_rootModule->nestedFunctions[static_cast<size_t>(fnBcId2)];
+                    // fn.prototype.  Only functions that can be constructors
+                    // get one (§10.2.5 MakeConstructor): arrow functions and
+                    // async functions have no `prototype` property at all, and
+                    // a generator's prototype object has no `constructor`
+                    // (§15.5.4).  Besides being the specified shape, this is
+                    // what lets such closures be collected: fn.prototype and
+                    // fn.prototype.constructor make a cycle of two mutable
+                    // objects, and protoCore never collects a cycle among
+                    // mutables (protoCore docs/MemoryModel.md §7), so every
+                    // closure that has the pair is retained for the life of
+                    // the process.  An ordinary `function` still gets the pair,
+                    // as the specification requires.
+                    //
+                    // fn.prototype must inherit Object.prototype so instances
+                    // produced by `new f()` carry hasOwnProperty/toString/etc.
+                    // Pre-fix the default prototype was a raw newObject(true)
+                    // with no parent, so `new F().hasOwnProperty(...)` threw.
+                    const bool needsProto2 = !nm2Ptr
+                        || !(nm2Ptr->isArrow || (nm2Ptr->isAsync && !nm2Ptr->isGenerator));
+                    const proto::ProtoObject* fnDefProto = nullptr;
+                    if (needsProto2) {
+                        const proto::ProtoObject* objProtoFc =
+                            (pContext->space && pContext->space->objectPrototype)
+                                ? pContext->space->objectPrototype : nullptr;
+                        fnDefProto = objProtoFc
+                            ? objProtoFc->newChild(pContext, true)
+                            : pContext->newObject(true);
+                        fnInst2 = fnInst2->setAttribute(pContext, JSSymbols::prototype(pContext), fnDefProto);
+                        // Spec: fn.prototype is {writable:true, enumerable:false, configurable:false}
+                        {
+                            const proto::ProtoString* pdks2 = JSSymbols::pdPrototype(pContext);
+                            if (pdks2) fnInst2 = fnInst2->setAttribute(pContext, pdks2, pContext->fromInteger(0x1LL));
+                        }
+                    }
                     // Every closure carries its function table: a bytecode ID
                     // means nothing without it.  A closure that leaves the
                     // module that created it -- a file module's exports, or a
@@ -15753,11 +15763,8 @@ const proto::ProtoObject* runBytecode(proto::ProtoContext* pContext,
                         // Attach native metadata object for rooting and fast access.
                         if (nm2.metadata)
                             fnInst2 = fnInst2->setAttribute(pContext, JSSymbols::metadata(pContext), nm2.metadata);
-                        if (!nm2.funcName.empty()) {
-                            const proto::ProtoObject* nameVal2 = pContext->fromUTF8String(nm2.funcName.c_str());
-                            if (nameVal2)
-                                fnInst2 = fnInst2->setAttribute(pContext, JSSymbols::name(pContext), nameVal2);
-                        }
+                        if (nm2.funcNameValue)
+                            fnInst2 = fnInst2->setAttribute(pContext, JSSymbols::name(pContext), nm2.funcNameValue);
                         // Spec: fn.name is {writable:false, enumerable:false, configurable:true}
                         setNWCDescriptor(pContext, fnInst2, "name");
                         const proto::ProtoString* lenKey2 = JSSymbols::length(pContext);
@@ -15791,14 +15798,9 @@ const proto::ProtoObject* runBytecode(proto::ProtoContext* pContext,
                         // spec-default "function name() { [native code] }"
                         // template.  Empty when the bytecode lacks debug
                         // info (top-level frames, builtins).
-                        if (!nm2.funcSource.empty()) {
+                        if (nm2.funcSourceValue) {
                             const proto::ProtoString* stK = JSSymbols::sourceText(pContext);
-                            if (stK) {
-                                const proto::ProtoObject* srcVal =
-                                    pContext->fromUTF8String(nm2.funcSource.c_str());
-                                if (srcVal)
-                                    fnInst2 = fnInst2->setAttribute(pContext, stK, srcVal);
-                            }
+                            if (stK) fnInst2 = fnInst2->setAttribute(pContext, stK, nm2.funcSourceValue);
                         }
                         // Capture scope: the closure's [[Environment]].  See
                         // "Capture scopes" at the top of this file.
@@ -15807,6 +15809,43 @@ const proto::ProtoObject* runBytecode(proto::ProtoContext* pContext,
                             const proto::ProtoString* csKey = captureScopeKey(pContext);
                             if (csKey)
                                 fnInst2 = fnInst2->setAttribute(pContext, csKey, captureScope);
+                        }
+                    }
+                    // Every attribute above was written while the function
+                    // object was still immutable, so the closure is born with
+                    // them: clone(true) makes the mutable function object from
+                    // that state in one step.  Built as a mutable from the
+                    // start, each of the dozen writes published a whole new
+                    // state into protoCore's mutable table.
+                    fnInst2 = fnInst2->clone(pContext, true);
+                    // The scope parents (see the comment where
+                    // outerFrameForCapture is computed) are added to the
+                    // mutable object, so that its birth parent -- what
+                    // getPrototype reports -- stays Function.prototype.
+                    if (outerFrameForCapture && outerFrameForCapture != fp2 &&
+                        (!gr2 || outerFrameForCapture != *gr2)) {
+                        fnInst2 = fnInst2->addParent(pContext, outerFrameForCapture);
+                    }
+                    if (gr2 && *gr2 && *gr2 != fp2) {
+                        fnInst2 = fnInst2->addParent(pContext, *gr2);
+                    }
+                    // §10.2.5: fn.prototype.constructor === fn, with
+                    // descriptor {writable:true, enumerable:false,
+                    // configurable:true} → 0x3.  Pre-fix user functions
+                    // had no constructor backref so
+                    // `(new f()).constructor` walked through Object
+                    // .prototype.constructor and returned Object.
+                    // Written after the clone: the back-reference must be
+                    // the closure's final (mutable) identity.  fnDefProto is
+                    // mutable (newChild true), so setAttribute mutates it in
+                    // place.
+                    if (fnDefProto && !(nm2Ptr && nm2Ptr->isGenerator)) {
+                        const proto::ProtoString* ctorKey = JSSymbols::constructor(pContext);
+                        if (ctorKey) {
+                            fnDefProto = fnDefProto->setAttribute(pContext, ctorKey, fnInst2);
+                            const proto::ProtoString* pdck = JSSymbols::pdConstructor(pContext);
+                            if (pdck) fnDefProto = fnDefProto->setAttribute(pContext, pdck,
+                                pContext->fromInteger(0x3LL));
                         }
                     }
                     stackPush(pContext, fnInst2);

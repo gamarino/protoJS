@@ -350,6 +350,16 @@ static bool loadBytecodeRecursive(JSContext* ctx,
     meta = meta->setAttribute(pContext, JSSymbols::closureSymbols(pContext), out->closureSymbols->asObject(pContext));
     meta = meta->setAttribute(pContext, JSSymbols::parameterNames(pContext), out->parameterNames->asObject(pContext));
     meta = meta->setAttribute(pContext, JSSymbols::bytecode(pContext), out->pBytecode->asObject(pContext));
+    // The function's name and source text as strings, made once here instead
+    // of once per closure; the metadata keeps them alive.
+    out->funcNameValue = out->funcName.empty()
+        ? nullptr : pContext->fromUTF8String(out->funcName.c_str());
+    if (out->funcNameValue)
+        meta = meta->setAttribute(pContext, JSSymbols::name(pContext), out->funcNameValue);
+    out->funcSourceValue = out->funcSource.empty()
+        ? nullptr : pContext->fromUTF8String(out->funcSource.c_str());
+    if (out->funcSourceValue)
+        meta = meta->setAttribute(pContext, JSSymbols::sourceText(pContext), out->funcSourceValue);
     out->metadata = meta;
 
     return true;

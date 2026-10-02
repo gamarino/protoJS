@@ -148,6 +148,10 @@ A Deferred runs its function on the main thread's event loop, one at a time. For
 
 ## Performance and threads
 
+### "protojs: out of memory: the live objects fill the heap limit ..."
+
+The objects the program still holds fill the heap ceiling (by default 10,000,000 cells, 640 MB, or a quarter of physical memory if that is smaller), and collections reclaim nothing more. Raise it with `PROTOCORE_HEAP_LIMIT_CELLS` (the message suggests a value); `0` removes it. One known source of retention, other than live data: protoCore never collects a cycle among mutable objects ([protoCore docs/MemoryModel.md](https://github.com/numaes/protoCore/blob/master/docs/MemoryModel.md) section 7), and every ordinary `function` closure is one -- `f.prototype.constructor === f` -- so a loop that creates millions of `function` expressions keeps all of them. Arrow functions and async functions have no `prototype` and are collected; prefer them for closures created in a loop.
+
 ### Many threads or high memory use during I/O-heavy scripts
 
 The I/O pool defaults to three threads per hardware thread. Reduce it with `--io-threads N` or `--io-threads-factor F`. See [THREAD_POOLS.md](THREAD_POOLS.md).

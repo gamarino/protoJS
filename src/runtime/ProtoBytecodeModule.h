@@ -109,6 +109,13 @@ struct ProtoBytecodeModule {
      *  string is directly usable as toString output. */
     std::string funcSource;
 
+    /** funcName and funcSource as protoCore strings, built once at load time
+     *  (null when empty) and rooted through `metadata`.  OP_fclosure stamps
+     *  these on every closure instead of building a fresh string per closure
+     *  (strings are values, so every closure of the function can share one). */
+    const proto::ProtoObject* funcNameValue{nullptr};
+    const proto::ProtoObject* funcSourceValue{nullptr};
+
     unsigned argCount() const { return argCount_; }
     unsigned varCount() const { return varCount_; }
     unsigned stackSize() const { return stackSize_; }

@@ -4,6 +4,58 @@ All notable changes to protoJS are documented in this file.
 
 ## [Unreleased]
 
+### Fixed — closure memory, array elisions, uncaught errors, dns keep-alive (2026-10-02)
+
+- **Memory is reclaimed during a run.** protoCore's collector runs as the heap
+  approaches a configured ceiling, and protoJS configured none, so nothing a
+  program discarded was reclaimed before exit: each closure cost about 19 KB,
+  and a 1,000,000-iteration closure loop exhausted the machine. Every protoCore
+  space protoJS creates now gets protoST's default ceiling -- 10,000,000 cells
+  (640 MB), or a quarter of physical memory if smaller;
+  `PROTOCORE_HEAP_LIMIT_CELLS` overrides it, `0` removes it. A live set that
+  fills the ceiling prints `protojs: out of memory: ...` and exits with status 3.
+- **Closures cost less, and arrow and async closures are collectable.** Arrow
+  and async functions no longer get a `prototype` object (they have none in the
+  specification), and a generator's prototype no longer has a `constructor`.
+  Besides the shape, this matters for memory: `f.prototype.constructor === f`
+  is a cycle of two mutable objects, which protoCore never collects
+  (protoCore docs/MemoryModel.md section 7). A closure is now built as an
+  immutable object and made mutable once (`clone`), instead of publishing a
+  new state for each of its dozen attributes; its name and source text are
+  strings made once per function, not per closure; the `name`/`length`
+  descriptor keys are interned. Measured (40,000 closures, no ceiling,
+  including the loop's own cost): `function` closures 19.1 -> 13.3 KB each,
+  arrow closures 19.9 -> 10.0 KB. A 2,000,000-iteration arrow-closure loop
+  now finishes with a 646 MB peak under the default ceiling (before: about
+  40 GB needed). **Still retained:** ordinary `function` closures, whose
+  prototype pair is required; a lazily created `prototype` would remove that
+  cycle and is not done yet. Test: `cli/closure-loop-bounded-memory`.
+- **Locals captured by a closure** were corrupted by `i++`, `i--`,
+  `i = i + 1` and `s += x` (the `inc_loc`, `dec_loc`, `add_loc` and fused
+  `proto_acc_loc8_loc8` opcodes read the cell as the number): NaN, a
+  "Cannot convert object to primitive value" TypeError, or a loop over a
+  captured `var` counter that ran once. Test: `js/basic/captured_local_update`.
+- **Array literals with holes.** `[1,,3].length` was 1: elements after the
+  first elision (and past the first 32) were stored beside the array's element
+  list instead of in it. `OP_dup1` was implemented as `dup2`, so `[, ...x]` and
+  `[...x, ,]` evaluated to a number; a spread after an elision lost the
+  elision; a spread of an array with holes produced holes instead of
+  `undefined`; `var u; 0 in [u]` was false. Test: `js/basic/array_elisions`.
+- **Uncaught errors end the process with status 1.** An exception escaping an
+  event-loop callback was printed (or, for `setImmediate`, dropped) and the
+  process exited with 0; an unhandled promise rejection was not reported;
+  queued work still ran after the main script threw. Now, as in Node, the
+  error is printed and the process exits with 1 at once, and a rejection no
+  handler claims by the end of its turn prints `Uncaught (in promise) ...` and
+  exits with 1. A `Deferred` reaction that throws is therefore fatal too
+  (docs/DEFERRED_USAGE.md). `Promise.prototype.finally` no longer turns a
+  rejection into a fulfilment, and `Promise.race` returns a new promise.
+  Test: `cli/uncaught-errors` (15 cases, checked against Node).
+- **A pending `dns.lookup` keeps the process alive** until its callback has
+  run (the callback's error is `null` on success). `EventLoop` gained a
+  pending-operation count for native modules. Test:
+  `js/dns/test_dns_lookup_callback`.
+
 ### Added — `util.format` / `util.inspect` and the `fs` callback API (2026-10-02)
 
 - **`util.format` interprets format specifiers.** It returned a string first
