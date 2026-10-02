@@ -10,11 +10,11 @@ gen 3
 gen finally
 gen start
 gen finally
-queued [{"value":1,"done":false},{"value":2,"done":false},{"value":3,"done":false},{"value":"ret","done":true},{"done":true}]
+queued 1/false 2/false 3/false "ret"/true undefined/true
 gen start
-first {"value":1,"done":false}
-return {"value":"early","done":true}
-after return {"done":true}
+first 1/false
+return "early"/true
+after return undefined/true
 gen start
 throw thrown in
 gen start

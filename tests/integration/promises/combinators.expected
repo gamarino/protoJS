@@ -12,6 +12,6 @@ tick3
 race fulfilled "jobs"
 all fulfilled ["slow",1,"jobs","now"]
 all-reject rejected Error:late failure
-allSettled fulfilled [{"status":"fulfilled","value":"ok"},{"status":"rejected","reason":"no"},{"status":"fulfilled","value":3}]
+allSettled fulfilled [fulfilled:"ok",rejected:"no",fulfilled:3]
 any fulfilled "winner"
 any-none rejected AggregateError:All promises were rejected errors=["x","y"]

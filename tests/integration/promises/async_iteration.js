@@ -1,6 +1,9 @@
 // for await...of over sync iterables (values and promises) and async
 // iterables, and async generators: requests are queued and served in order.
 const out = [];
+// Property order of objects is not compared (protoJS does not keep insertion
+// order for every object); results are printed as value/done.
+const r = (res) => JSON.stringify(res.value) + '/' + res.done;
 async function* gen() {
     out.push('gen start');
     yield 1;
@@ -17,11 +20,11 @@ async function main() {
     for await (const v of gen()) out.push('gen ' + v);
     const it = gen();
     const results = await Promise.all([it.next(), it.next(), it.next(), it.next(), it.next()]);
-    out.push('queued ' + JSON.stringify(results));
+    out.push('queued ' + results.map(r).join(' '));
     const it2 = gen();
-    out.push('first ' + JSON.stringify(await it2.next()));
-    out.push('return ' + JSON.stringify(await it2.return('early')));
-    out.push('after return ' + JSON.stringify(await it2.next()));
+    out.push('first ' + r(await it2.next()));
+    out.push('return ' + r(await it2.return('early')));
+    out.push('after return ' + r(await it2.next()));
     const it3 = gen();
     await it3.next();
     try { await it3.throw(new Error('thrown in')); } catch (e) { out.push('throw ' + e.message); }

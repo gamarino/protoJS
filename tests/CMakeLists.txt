@@ -154,10 +154,13 @@ set_tests_properties(cli/gc-stale-caches PROPERTIES TIMEOUT 900)
 
 # gc-promises: pending reactions, queued jobs and async functions suspended at
 # an await are reachable only from the job queue and the promises themselves;
-# the collector must see all of them. Three runs under a small ceiling.
+# the collector must see all of them. Three runs under a small ceiling: the
+# 3000 pending promise groups need between 600,000 and 800,000 cells at the
+# peak (measured: 600,000 runs out of memory), and 800,000 makes the collector
+# run about a hundred times per run.
 add_test(NAME cli/gc-promises
     COMMAND ${PROTOJS_SH} "${CMAKE_CURRENT_SOURCE_DIR}/cli/gc-stress.sh"
-            "$<TARGET_FILE:protojs>" 3 400000
+            "$<TARGET_FILE:protojs>" 3 800000
             "${CMAKE_CURRENT_SOURCE_DIR}/integration/gc/pending_promises.js")
 set_tests_properties(cli/gc-promises PROPERTIES TIMEOUT 900)
 

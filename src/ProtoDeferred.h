@@ -98,6 +98,14 @@ void drainCallbackException(proto::ProtoContext* ctx, const char* where);
 void endOfTurnChecks(proto::ProtoContext* ctx);
 
 /**
+ * Report a promise rejection no handler claimed by the end of its microtask
+ * checkpoint: "Uncaught (in promise) <name>: <message>" on stderr, then, when
+ * `fatal`, end the process with status 1 (Node's default).
+ */
+void reportUnhandledRejection(proto::ProtoContext* ctx, const proto::ProtoObject* reason,
+                              bool fatal);
+
+/**
  * Whether a value is callable: a raw ProtoMethod, a wrapped native function, a
  * bytecode closure or a bound function.
  */

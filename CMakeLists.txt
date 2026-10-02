@@ -256,6 +256,7 @@ add_library(protojs_core STATIC
     src/ObjectPrototype.cpp
     src/FunctionPrototype.cpp
     src/PromisePrototype.cpp
+    src/MicrotaskQueue.cpp
     src/JSPrototypes.cpp
     src/ProtoArrayAdapter.cpp
     src/ProtoArgumentsAdapter.cpp

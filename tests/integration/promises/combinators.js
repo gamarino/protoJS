@@ -4,6 +4,13 @@ const later = (v, fail) => new Promise((res, rej) => setImmediate(() => fail ? r
 const afterJobs = (v) => Promise.resolve().then(() => v).then(x => x);
 const out = [];
 const done = [];
+// Settled records print as status:value (property order is not compared).
+function show(v) {
+    if (Array.isArray(v)) return '[' + v.map(show).join(',') + ']';
+    if (v && typeof v === 'object' && 'status' in v)
+        return v.status + ':' + JSON.stringify(v.status === 'fulfilled' ? v.value : v.reason);
+    return JSON.stringify(v);
+}
 // Engines word their own TypeError messages differently: report only the name.
 function describe(e) {
     if (e instanceof TypeError) return e.name;
@@ -12,7 +19,7 @@ function describe(e) {
     return e;
 }
 function report(name, p) {
-    done.push(p.then(v => out.push(name + ' fulfilled ' + JSON.stringify(v)),
+    done.push(p.then(v => out.push(name + ' fulfilled ' + show(v)),
                      e => out.push(name + ' rejected ' + describe(e))));
 }
 report('all', Promise.all([later('slow'), 1, afterJobs('jobs'), Promise.resolve('now')]));

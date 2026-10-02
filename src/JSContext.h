@@ -14,6 +14,7 @@
 namespace protojs {
 
 struct ProtoBytecodeModule;  // forward — owned via unique_ptr below
+class MicrotaskQueue;        // forward — owned via unique_ptr below
 
 
 class JSContextWrapper {
@@ -222,6 +223,12 @@ public:
     proto::ProtoRootSet* getRootSet();
 
     /**
+     * @brief This wrapper's ECMAScript job queue (promise reactions, await
+     * continuations, queueMicrotask callbacks).  See MicrotaskQueue.h.
+     */
+    MicrotaskQueue& microtasks() { return *microtasks_; }
+
+    /**
      * @brief Get the per-context CommonJS module cache.
      */
     std::map<std::string, JSValue>& getCJSCache() { return cjsCache_; }
@@ -256,6 +263,9 @@ private:
     /** ProtoCore-side root set for pinning async-callback receivers
      *  across event-loop hops; lazy-init, destroyed on wrapper destruction. */
     proto::ProtoRootSet* rootSet_{nullptr};
+    /** The job queue (microtasks) of this agent; created in the constructor,
+     *  destroyed before the root set its holder is pinned in. */
+    std::unique_ptr<MicrotaskQueue> microtasks_;
     JSRuntime* rt;
     JSContext* ctx;
     proto::ProtoSpace pSpace;

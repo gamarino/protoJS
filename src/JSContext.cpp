@@ -2,6 +2,7 @@
 #include "CPUThreadPool.h"
 #include "IOThreadPool.h"
 #include "EventLoop.h"
+#include "MicrotaskQueue.h"
 #include "GCBridge.h"
 #include "ExecutionEngine.h"
 #include "JSONBuiltin.h"
@@ -176,6 +177,9 @@ JSContextWrapper::JSContextWrapper(size_t cpuThreads, size_t ioThreads, double i
     // Initialize protoCore root context
     pContext = pSpace.rootContext;
 
+    // The job queue of this agent (promise reactions, await continuations).
+    microtasks_ = std::make_unique<MicrotaskQueue>(this);
+
     // Record this context as the constructing thread's.  `pSpace`'s constructor
     // has just adopted this thread as that space's main thread and counted it in
     // `runningThreads`, so this is the context whose parked/running accounting
@@ -295,6 +299,9 @@ proto::ProtoRootSet* JSContextWrapper::getRootSet() {
 }
 
 JSContextWrapper::~JSContextWrapper() {
+    // The job queue first: its holder is pinned in the root set released next.
+    microtasks_.reset();
+
     // Release the async-callback root set before tearing down the
     // protoCore space (the space owns the set and will free orphans
     // in its destructor, but explicit cleanup is cheaper and clearer).
@@ -498,11 +505,18 @@ JSValue JSContextWrapper::eval(const std::string& code, const std::string& filen
             } else {
                 // Pin the root module's metadata in the root set so it's not collected.
                 // This deep-roots the entire constant pool and nested functions via metadata links.
+                //
+                // The previous top-level module (an earlier REPL input) is
+                // kept, not freed: a closure it created, or an async function
+                // of it suspended at an await, still names its bytecode, and
+                // the continuation resumes from a later job.
                 proto::ProtoRootSet* rs = getRootSet();
-                if (rs) {
-                    if (rootModuleHandle_) rs->remove(rootModuleHandle_);
-                    rootModuleHandle_ = rs->add(modPtr->metadata);
+                if (rootModuleStorage_) {
+                    subEvalModules_.push_back(std::move(rootModuleStorage_));
+                    subEvalHandles_.push_back(rootModuleHandle_);
+                    rootModuleHandle_ = proto::ProtoRootSet::kNullHandle;
                 }
+                if (rs) rootModuleHandle_ = rs->add(modPtr->metadata);
 
                 rootModule_ = modPtr;
                 rootModuleStorage_ = std::move(modulePtr);
@@ -563,6 +577,11 @@ JSValue JSContextWrapper::eval(const std::string& code, const std::string& filen
                     hadError = true;
                     val = JS_EXCEPTION;
                 } else {
+                    // The script has completed: perform the microtask
+                    // checkpoint that follows it (MicrotaskQueue.h).  Inside
+                    // a nested eval the interpreter is still running and the
+                    // checkpoint is a no-op.
+                    microtasks_->checkpoint(&frameCtx);
                     val = TypeBridge::toJS(ctx, result, &frameCtx);
                 }
             }
