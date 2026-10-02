@@ -5,6 +5,7 @@
 #include "GCBridge.h"
 #include "ExecutionEngine.h"
 #include "JSONBuiltin.h"
+#include "FunctionPrototype.h"
 
 #include "debugging/IntegratedDebugger.h"
 #include "JSPrototypes.h"
@@ -187,7 +188,19 @@ const proto::ProtoObject* JSContextWrapper::getNativeGlobal() {
     if (undefSentinel) {
         nativeGlobalRoot_ = nativeGlobalRoot_->setAttribute(pContext, undefinedStr, undefSentinel);
     }
-    
+
+    // Function.prototype exists from the moment the global does. Every native
+    // function wrapper -- ProtoNativeModule::addMethod, wrapNativeFunction --
+    // takes the space's method prototype as its [[Prototype]], and the native
+    // modules (path, fs, util, ...) are built on this global before the first
+    // script runs, i.e. before the interpreter's own global initialisation
+    // would create Function.prototype. Until then the method prototype is
+    // Object.prototype, so those functions had no call, apply or bind and
+    // were not instances of Function. ensureFunctionPrototype is idempotent:
+    // the interpreter's later call finds it in place and returns.
+    protojs::ensureFunctionPrototype(pContext, &nativeGlobalRoot_);
+    rootNativeGlobal();
+
     return nativeGlobalRoot_;
 }
 

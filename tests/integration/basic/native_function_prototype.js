@@ -44,7 +44,7 @@ attempt('fs.readFileSync.bind(fs)', function () {
     var read = fs.readFileSync.bind(fs);
     return read(__filename, 'utf8').indexOf('native_function_prototype') >= 0;
 }, true);
-attempt('util.format.apply', function () { return util.format.apply(util, ['%s-%s', 1, 2]); }, '1-2');
+attempt('path.basename.apply', function () { return path.posix.basename.apply(path.posix, ['/a/b.js', '.js']); }, 'b');
 
 if (failures.length) {
     for (var i = 0; i < failures.length; i++) console.log("FAIL: " + failures[i]);
