@@ -317,9 +317,64 @@ if(WIN32)
     if(TARGET ${PROTOCORE_LIBRARY})
         list(APPEND PROTOJS_RUNTIME_DLLS "$<TARGET_FILE:${PROTOCORE_LIBRARY}>")
     endif()
-    get_filename_component(PROTOJS_OPENSSL_BIN "${OPENSSL_INCLUDE_DIR}/../bin" ABSOLUTE)
-    file(GLOB PROTOJS_OPENSSL_DLLS
-        "${PROTOJS_OPENSSL_BIN}/libcrypto*.dll" "${PROTOJS_OPENSSL_BIN}/libssl*.dll")
+    # The OpenSSL DLLs are named by OpenSSL's ABI and the architecture --
+    # libcrypto-3-x64.dll for 3.x, libcrypto-1_1-x64.dll for 1.1 -- so the names
+    # follow from the version FindOpenSSL found. A missing DLL fails here, at
+    # configure time, rather than leaving a package without it (a glob would
+    # have matched nothing, or a stray DLL of another version).
+    get_filename_component(PROTOJS_OPENSSL_ROOT "${OPENSSL_INCLUDE_DIR}/.." ABSOLUTE)
+    set(PROTOJS_OPENSSL_BIN "${PROTOJS_OPENSSL_ROOT}/bin")
+    if(NOT OPENSSL_VERSION MATCHES "^([0-9]+)\\.([0-9]+)")
+        message(FATAL_ERROR "protoJS: cannot read the OpenSSL version ('${OPENSSL_VERSION}')")
+    endif()
+    if(CMAKE_MATCH_1 GREATER_EQUAL 3)
+        set(_openssl_abi "${CMAKE_MATCH_1}")
+    else()
+        set(_openssl_abi "${CMAKE_MATCH_1}_${CMAKE_MATCH_2}")
+    endif()
+    if(CMAKE_CXX_COMPILER_ARCHITECTURE_ID STREQUAL "ARM64")
+        set(_openssl_arch "-arm64")
+    elseif(CMAKE_SIZEOF_VOID_P EQUAL 8)
+        set(_openssl_arch "-x64")
+    else()
+        set(_openssl_arch "")
+    endif()
+    set(PROTOJS_OPENSSL_DLLS
+        "${PROTOJS_OPENSSL_BIN}/libcrypto-${_openssl_abi}${_openssl_arch}.dll"
+        "${PROTOJS_OPENSSL_BIN}/libssl-${_openssl_abi}${_openssl_arch}.dll")
+    foreach(_dll IN LISTS PROTOJS_OPENSSL_DLLS)
+        if(NOT EXISTS "${_dll}")
+            message(FATAL_ERROR
+                "protoJS: OpenSSL ${OPENSSL_VERSION} was found at ${PROTOJS_OPENSSL_ROOT}, "
+                "but its DLL ${_dll} is not there. Point OPENSSL_ROOT_DIR at an OpenSSL "
+                "installation that has its headers, import libraries and DLLs.")
+        endif()
+    endforeach()
+    message(STATUS "protoJS: OpenSSL ${OPENSSL_VERSION} DLLs: ${PROTOJS_OPENSSL_DLLS}")
+    # Shipping the DLLs means shipping their licence. The distribution's own
+    # file when it has one; otherwise, for OpenSSL 3 (Apache License 2.0), the
+    # copy in packaging/windows. OpenSSL 1.1's licence differs and has no copy
+    # here, so its file must be found or named.
+    set(PROTOJS_OPENSSL_LICENSE_FILE "" CACHE FILEPATH
+        "OpenSSL licence file shipped with the OpenSSL DLLs (found automatically when empty)")
+    if(NOT PROTOJS_OPENSSL_LICENSE_FILE)
+        file(GLOB _openssl_licenses
+            "${PROTOJS_OPENSSL_ROOT}/[Ll][Ii][Cc][Ee][Nn][Ss][Ee]*"
+            "${PROTOJS_OPENSSL_ROOT}/share/doc/openssl/[Ll][Ii][Cc][Ee][Nn][Ss][Ee]*")
+        if(_openssl_licenses)
+            list(GET _openssl_licenses 0 PROTOJS_OPENSSL_LICENSE_FILE)
+        elseif(_openssl_abi STREQUAL "3")
+            set(PROTOJS_OPENSSL_LICENSE_FILE "${CMAKE_CURRENT_SOURCE_DIR}/packaging/windows/OpenSSL-3-LICENSE.txt")
+        else()
+            message(FATAL_ERROR
+                "protoJS: no licence file for OpenSSL ${OPENSSL_VERSION} under ${PROTOJS_OPENSSL_ROOT}; "
+                "pass -DPROTOJS_OPENSSL_LICENSE_FILE=<path>.")
+        endif()
+    endif()
+    message(STATUS "protoJS: OpenSSL licence shipped: ${PROTOJS_OPENSSL_LICENSE_FILE}")
+    unset(_openssl_abi)
+    unset(_openssl_arch)
+    unset(_openssl_licenses)
     list(APPEND PROTOJS_RUNTIME_DLLS ${PROTOJS_OPENSSL_DLLS})
     add_custom_target(protojs_runtime_dlls
         COMMAND ${CMAKE_COMMAND} -E make_directory "${CMAKE_RUNTIME_OUTPUT_DIRECTORY}"
@@ -427,13 +482,31 @@ install(TARGETS protojs
     ARCHIVE DESTINATION ${CMAKE_INSTALL_LIBDIR}
     COMPONENT protoJS
 )
-# OpenSSL is a DLL on Windows: install it next to protojs.exe, where Windows
-# looks for it. (protoCore is a package of its own and installs its DLL into its
-# own prefix's bin/.)
-if(WIN32 AND PROTOJS_OPENSSL_DLLS)
+# Windows finds a program's DLLs next to it, so an installed (or unzipped)
+# protojs.exe is self-contained only with every DLL it loads beside it:
+#   * protoCore's, taken from the imported target, whatever it is named
+#     (protoCore.dll, or protoCore-3.dll from protoCore 2.9.0 on);
+#   * OpenSSL's, with OpenSSL's licence;
+#   * the Visual C++ runtime (msvcp140.dll, vcruntime140*.dll), app-local, by
+#     InstallRequiredSystemLibraries -- a machine without the VC++
+#     redistributable runs protojs.exe all the same.
+# CPack packages the protoJS component only, so every one of these is in it.
+if(WIN32)
+    if(TARGET ${PROTOCORE_LIBRARY})
+        install(FILES "$<TARGET_FILE:${PROTOCORE_LIBRARY}>"
+            DESTINATION ${CMAKE_INSTALL_BINDIR}
+            COMPONENT protoJS)
+    endif()
     install(FILES ${PROTOJS_OPENSSL_DLLS}
         DESTINATION ${CMAKE_INSTALL_BINDIR}
         COMPONENT protoJS)
+    install(FILES "${PROTOJS_OPENSSL_LICENSE_FILE}"
+        DESTINATION ${CMAKE_INSTALL_DATADIR}/doc/protojs
+        RENAME OpenSSL-LICENSE.txt
+        COMPONENT protoJS)
+    set(CMAKE_INSTALL_SYSTEM_RUNTIME_DESTINATION ${CMAKE_INSTALL_BINDIR})
+    set(CMAKE_INSTALL_SYSTEM_RUNTIME_COMPONENT protoJS)
+    include(InstallRequiredSystemLibraries)
 endif()
 
 # Testing Framework (Catch2)
@@ -558,11 +631,12 @@ elseif(UNIX)
         "protoCore >= ${PROTOCORE_MIN_VERSION_FULL}, protoCore < ${PROTOCORE_NEXT_MAJOR}")
 elseif(WIN32)
     # Plain ZIP, plus an NSIS installer when makensis is present: cpack aborts
-    # the whole run when one generator's tool is missing.
-    # The ZIP is verified on Windows 11 (protojs.exe, protojs.lib and the
-    # OpenSSL DLLs); the NSIS installer is not (no NSIS on that host). Neither
-    # carries protoCore.dll: protoCore is a package of its own, and its bin/
-    # must be on PATH, as a shared library's directory is on Linux.
+    # the whole run when one generator's tool is missing. Both carry
+    # protojs.exe, protojs.lib, the protoCore and OpenSSL DLLs, OpenSSL's
+    # licence and the Visual C++ runtime (install rules above). CI
+    # (cross-platform.yml) builds the ZIP, unpacks it into an empty directory
+    # and runs protojs.exe there with a system-only PATH; the NSIS installer is
+    # not exercised by CI.
     set(CPACK_GENERATOR "ZIP")
     find_program(PROTOJS_MAKENSIS_EXECUTABLE makensis)
     if(PROTOJS_MAKENSIS_EXECUTABLE)
