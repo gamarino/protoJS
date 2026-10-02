@@ -100,6 +100,15 @@ const proto::ProtoObject* resolveBuiltinModule(proto::ProtoContext* pCtx,
     if (bare.rfind("node:", 0) == 0) bare = bare.substr(5);
     if (bare.empty()) return nullptr;
     if (bare == "buffer") return bufferModuleObject(pCtx);
+    // 'path/posix' and 'path/win32' are path.posix and path.win32, as in Node.
+    if (bare == "path/posix" || bare == "path/win32") {
+        const proto::ProtoObject* path = nativeGlobalLookup(pCtx, "path");
+        const proto::ProtoObject* nameObj = pCtx->fromUTF8String(bare.c_str() + 5);
+        const proto::ProtoString* key = nameObj ? nameObj->asString(pCtx) : nullptr;
+        if (!path || !key) return nullptr;
+        const proto::ProtoObject* v = path->getAttribute(pCtx, key, false);
+        return (v && v != PROTO_NONE) ? v : nullptr;
+    }
     if (!isBuiltinModuleName(bare)) return nullptr;
     return nativeGlobalLookup(pCtx, bare.c_str());
 }

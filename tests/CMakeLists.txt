@@ -191,3 +191,30 @@ foreach(conf_test
         COMMAND "$<TARGET_FILE:protojs>"
                 "${CMAKE_CURRENT_SOURCE_DIR}/conformity/${conf_test}.js")
 endforeach()
+
+# tests/integration/path: Node.js's own tests of the `path` module
+# (test/parallel/test-path-*.js), adapted to run without Node's harness (see
+# tests/integration/path/node_shim.js). path.win32 and path.posix are lexical,
+# so both are exercised on every platform; the tests that depend on the default
+# `path` check that it is path.win32 on Windows and path.posix elsewhere.
+foreach(path_test
+        test-path
+        test-path-basename
+        test-path-dirname
+        test-path-extname
+        test-path-isabsolute
+        test-path-join
+        test-path-makelong
+        test-path-normalize
+        test-path-parse-format
+        test-path-posix-exists
+        test-path-posix-relative-on-windows
+        test-path-relative
+        test-path-resolve
+        test-path-win32-exists
+        test-path-win32-normalize-device-names
+        test-path-zero-length-strings)
+    add_test(NAME js/path/${path_test}
+        COMMAND "$<TARGET_FILE:protojs>"
+                "${CMAKE_CURRENT_SOURCE_DIR}/integration/path/${path_test}.js")
+endforeach()

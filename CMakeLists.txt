@@ -213,6 +213,7 @@ add_library(protojs_core STATIC
     src/modules/IOModule.cpp
     src/modules/ProcessModule.cpp
     src/modules/path/PathModule.cpp
+    src/modules/path/PathAlgorithms.cpp
     src/modules/fs/FSModule.cpp
     src/modules/url/URLModule.cpp
     src/modules/http/HTTPModule.cpp
