@@ -1,4 +1,5 @@
 #include "ProtoCoreTypes.h"
+#include "runtime/PinnedBuiltin.h"
 #include "RegExpStringIterator.h"
 #include "RegExpPrototype.h"
 #include "ArrayPrototype.h"
@@ -125,10 +126,13 @@ static int parseFlagsLocal(const std::string& f) {
 // Carries next, [@@iterator] returning this, and
 // [@@toStringTag] = "RegExp String Iterator".  Inherits from
 // %IteratorPrototype% so [@@toStringTag] cascade ends at "Iterator".
-static const proto::ProtoObject* s_regexpStringIteratorProto = nullptr;
+// Made on first use; pinned for the wrapper's life (runtime/PinnedBuiltin.h):
+// a static is not a root, and nothing else references the prototype once
+// every iterator made from it has been collected.
+static thread_local PinnedBuiltin s_regexpStringIteratorProtoCache;
 
 static const proto::ProtoObject* getRegExpStringIteratorProto(proto::ProtoContext* ctx) {
-    if (s_regexpStringIteratorProto) return s_regexpStringIteratorProto;
+    if (const proto::ProtoObject* cached = s_regexpStringIteratorProtoCache.get(ctx)) return cached;
     const proto::ProtoObject* iterProto = getIteratorPrototype(ctx);
     const proto::ProtoObject* parent = iterProto ? iterProto
         : (ctx->space ? ctx->space->objectPrototype : nullptr);
@@ -174,7 +178,7 @@ static const proto::ProtoObject* getRegExpStringIteratorProto(proto::ProtoContex
     const proto::ProtoString* hnwK = JSSymbols::hasNonWritableProps(ctx);
     if (hnwK) proto = proto->setAttribute(ctx, hnwK, PROTO_TRUE);
 
-    s_regexpStringIteratorProto = proto;
+    proto = s_regexpStringIteratorProtoCache.keep(ctx, proto);
     return proto;
 }
 

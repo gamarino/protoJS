@@ -138,16 +138,18 @@ set_tests_properties(cli/gc-frame-garbage PROPERTIES TIMEOUT 300)
 
 # gc-stale-caches: caches and registries that held cell addresses the collector
 # did not see -- the [[Prototype]] override map, the key-interning and
-# numeric-index caches, the per-object behaviour cache, the symbol registries.
-# Freed addresses are reused at random moments, so every script runs 10 times.
-# About 70 s.
+# numeric-index caches, the per-object behaviour cache, the symbol registries
+# -- and built-in prototypes made on first use and cached in a static. Freed
+# addresses are reused at random moments, so every script runs 10 times.
+# About 90 s.
 add_test(NAME cli/gc-stale-caches
     COMMAND ${PROTOJS_SH} "${CMAKE_CURRENT_SOURCE_DIR}/cli/gc-stress.sh"
             "$<TARGET_FILE:protojs>" 10 400000
             "${CMAKE_CURRENT_SOURCE_DIR}/integration/gc/stale_proto_override.js"
             "${CMAKE_CURRENT_SOURCE_DIR}/integration/gc/stale_key_caches.js"
             "${CMAKE_CURRENT_SOURCE_DIR}/integration/gc/stale_behavior_cache.js"
-            "${CMAKE_CURRENT_SOURCE_DIR}/integration/gc/stale_symbol_registry.js")
+            "${CMAKE_CURRENT_SOURCE_DIR}/integration/gc/stale_symbol_registry.js"
+            "${CMAKE_CURRENT_SOURCE_DIR}/integration/gc/collected_builtin_prototypes.js")
 set_tests_properties(cli/gc-stale-caches PROPERTIES TIMEOUT 900)
 
 # The REPL reads lines that may end in "\r\n" (a Windows console, or input piped

@@ -1,4 +1,5 @@
 #include "../../ProtoCoreTypes.h"
+#include "../../runtime/PinnedBuiltin.h"
 #include "HTTPModule.h"
 #include "../../ProtoNativeModule.h"
 #include "../../FunctionPrototype.h"
@@ -228,14 +229,14 @@ const proto::ProtoObject* incomingGetHeader(
 }
 
 const proto::ProtoObject* getIncomingProto(proto::ProtoContext* ctx) {
-    static const proto::ProtoObject* proto = nullptr;
-    if (proto) return proto;
+    // Made on first use; pinned for the wrapper's life (runtime/PinnedBuiltin.h).
+    static thread_local PinnedBuiltin protoCache;
+    if (const proto::ProtoObject* cached = protoCache.get(ctx)) return cached;
     static const NativeEntry entries[] = {
         {"getHeader", incomingGetHeader},
         NATIVE_MODULE_END
     };
-    proto = ProtoNativeModule::buildModule(ctx, entries, 1);
-    return proto;
+    return protoCache.keep(ctx, ProtoNativeModule::buildModule(ctx, entries, 1));
 }
 
 // ---- ServerResponse methods --------------------------------------------
@@ -370,16 +371,16 @@ const proto::ProtoObject* responseEnd(
 }
 
 const proto::ProtoObject* getResponseProto(proto::ProtoContext* ctx) {
-    static const proto::ProtoObject* proto = nullptr;
-    if (proto) return proto;
+    // Made on first use; pinned for the wrapper's life (runtime/PinnedBuiltin.h).
+    static thread_local PinnedBuiltin protoCache;
+    if (const proto::ProtoObject* cached = protoCache.get(ctx)) return cached;
     static const NativeEntry entries[] = {
         {"writeHead", responseWriteHead},
         {"write",     responseWrite},
         {"end",       responseEnd},
         NATIVE_MODULE_END
     };
-    proto = ProtoNativeModule::buildModule(ctx, entries, 3);
-    return proto;
+    return protoCache.keep(ctx, ProtoNativeModule::buildModule(ctx, entries, 3));
 }
 
 // ---- HTTP wire parsing (used by accept loop) ---------------------------
@@ -599,15 +600,15 @@ const proto::ProtoObject* serverClose(
 }
 
 const proto::ProtoObject* getServerProto(proto::ProtoContext* ctx) {
-    static const proto::ProtoObject* proto = nullptr;
-    if (proto) return proto;
+    // Made on first use; pinned for the wrapper's life (runtime/PinnedBuiltin.h).
+    static thread_local PinnedBuiltin protoCache;
+    if (const proto::ProtoObject* cached = protoCache.get(ctx)) return cached;
     static const NativeEntry entries[] = {
         {"listen", serverListen},
         {"close",  serverClose},
         NATIVE_MODULE_END
     };
-    proto = ProtoNativeModule::buildModule(ctx, entries, 2);
-    return proto;
+    return protoCache.keep(ctx, ProtoNativeModule::buildModule(ctx, entries, 2));
 }
 
 // ---- Parsed HTTP response -----------------------------------------------
@@ -683,14 +684,14 @@ const proto::ProtoObject* clientResponseOnImpl(
 }
 
 const proto::ProtoObject* getClientResponseProto(proto::ProtoContext* ctx) {
-    static const proto::ProtoObject* crproto = nullptr;
-    if (crproto) return crproto;
+    // Made on first use; pinned for the wrapper's life (runtime/PinnedBuiltin.h).
+    static thread_local PinnedBuiltin crprotoCache;
+    if (const proto::ProtoObject* cached = crprotoCache.get(ctx)) return cached;
     static const NativeEntry entries[] = {
         {"on", clientResponseOnImpl},
         NATIVE_MODULE_END
     };
-    crproto = ProtoNativeModule::buildModule(ctx, entries, 1);
-    return crproto;
+    return crprotoCache.keep(ctx, ProtoNativeModule::buildModule(ctx, entries, 1));
 }
 
 // ---- dispatchClientResponse ---------------------------------------------
@@ -932,15 +933,15 @@ const proto::ProtoObject* clientRequestEndImpl(
 }
 
 const proto::ProtoObject* getClientRequestProto(proto::ProtoContext* ctx) {
-    static const proto::ProtoObject* crqproto = nullptr;
-    if (crqproto) return crqproto;
+    // Made on first use; pinned for the wrapper's life (runtime/PinnedBuiltin.h).
+    static thread_local PinnedBuiltin crqprotoCache;
+    if (const proto::ProtoObject* cached = crqprotoCache.get(ctx)) return cached;
     static const NativeEntry entries[] = {
         {"write", clientRequestWriteImpl},
         {"end",   clientRequestEndImpl},
         NATIVE_MODULE_END
     };
-    crqproto = ProtoNativeModule::buildModule(ctx, entries, 2);
-    return crqproto;
+    return crqprotoCache.keep(ctx, ProtoNativeModule::buildModule(ctx, entries, 2));
 }
 
 // ---- Module-level functions --------------------------------------------

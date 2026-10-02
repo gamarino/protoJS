@@ -1,4 +1,5 @@
 #include "ProtoDeferred.h"
+#include "runtime/PinnedBuiltin.h"
 #include "EventLoop.h"
 #include "FunctionPrototype.h"
 #include "JSContext.h"
@@ -448,10 +449,12 @@ const proto::ProtoObject* deferredCatch(
 }
 
 // Build the prototype object that all Deferred instances inherit from.
-// Cached per-thread because we only need one canonical prototype.
+// Made once per wrapper and pinned for its life (runtime/PinnedBuiltin.h): a
+// static is not a root, and nothing else references the prototype once every
+// Deferred made from it has been collected.
 const proto::ProtoObject* deferredPrototypeObject(proto::ProtoContext* ctx) {
-    static thread_local const proto::ProtoObject* proto = nullptr;
-    if (proto) return proto;
+    static thread_local PinnedBuiltin protoCache;
+    if (const proto::ProtoObject* cached = protoCache.get(ctx)) return cached;
     const proto::ProtoObject* p = ctx->newObject(/*mutable=*/true);
     if (!p) return nullptr;
     auto installMethod = [&](const char* name, proto::ProtoMethod fn) {
@@ -464,8 +467,7 @@ const proto::ProtoObject* deferredPrototypeObject(proto::ProtoContext* ctx) {
     };
     installMethod("then",  deferredThen);
     installMethod("catch", deferredCatch);
-    proto = p;
-    return p;
+    return protoCache.keep(ctx, p);
 }
 
 }  // namespace

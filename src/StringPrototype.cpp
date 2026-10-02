@@ -1,4 +1,5 @@
 #include "ProtoCoreTypes.h"
+#include "runtime/PinnedBuiltin.h"
 #include "StringPrototype.h"
 #include "ArrayPrototype.h"
 #include "ArrayElementsStorage.h"
@@ -3020,10 +3021,13 @@ static const proto::ProtoObject* stringIteratorNext(
 // carries Symbol.toStringTag = "String Iterator" with descriptor
 // {writable:false, enumerable:false, configurable:true} (sidecar bits
 // 0x2).
-static const proto::ProtoObject* s_stringIteratorProto = nullptr;
+// Made on first use; pinned for the wrapper's life (runtime/PinnedBuiltin.h):
+// a static is not a root, and nothing else references the prototype once
+// every iterator made from it has been collected.
+static thread_local PinnedBuiltin s_stringIteratorProtoCache;
 
 static const proto::ProtoObject* getStringIteratorProto(proto::ProtoContext* ctx) {
-    if (s_stringIteratorProto) return s_stringIteratorProto;
+    if (const proto::ProtoObject* cached = s_stringIteratorProtoCache.get(ctx)) return cached;
     // Chain to %IteratorPrototype% per §22.2.5.1 so the iterator's
     // grandparent surfaces [@@iterator] returning this and
     // [@@toStringTag] = "Iterator".
@@ -3079,7 +3083,7 @@ static const proto::ProtoObject* getStringIteratorProto(proto::ProtoContext* ctx
             }
         }
     }
-    s_stringIteratorProto = proto;
+    proto = s_stringIteratorProtoCache.keep(ctx, proto);
     return proto;
 }
 

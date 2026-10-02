@@ -1,4 +1,5 @@
 #include "ProtoCoreTypes.h"
+#include "runtime/PinnedBuiltin.h"
 #include "MapPrototype.h"
 #include "ArrayPrototype.h"
 #include "ArrayElementsStorage.h"
@@ -529,10 +530,13 @@ static const proto::ProtoObject* mapIteratorNext(
 // @@toStringTag = "Map Iterator" and a shared next slot.  Chained to
 // %IteratorPrototype% so the [@@iterator] returning-this and
 // [@@toStringTag] = "Iterator" cascade reach the iterator instance.
-static const proto::ProtoObject* s_mapIteratorProto = nullptr;
+// Made on first use; pinned for the wrapper's life (runtime/PinnedBuiltin.h):
+// a static is not a root, and nothing else references the prototype once
+// every iterator made from it has been collected.
+static thread_local PinnedBuiltin s_mapIteratorProtoCache;
 
 static const proto::ProtoObject* getMapIteratorProto(proto::ProtoContext* ctx) {
-    if (s_mapIteratorProto) return s_mapIteratorProto;
+    if (const proto::ProtoObject* cached = s_mapIteratorProtoCache.get(ctx)) return cached;
     const proto::ProtoObject* iterProto = protojs::getIteratorPrototype(ctx);
     const proto::ProtoObject* parent = iterProto ? iterProto
         : (ctx->space ? ctx->space->objectPrototype : nullptr);
@@ -578,7 +582,7 @@ static const proto::ProtoObject* getMapIteratorProto(proto::ProtoContext* ctx) {
     const proto::ProtoString* hnwK = JSSymbols::hasNonWritableProps(ctx);
     if (hnwK) proto = proto->setAttribute(ctx, hnwK, PROTO_TRUE);
 
-    s_mapIteratorProto = proto;
+    proto = s_mapIteratorProtoCache.keep(ctx, proto);
     return proto;
 }
 

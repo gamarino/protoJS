@@ -1,4 +1,5 @@
 #include "../../ProtoCoreTypes.h"
+#include "../../runtime/PinnedBuiltin.h"
 #include "WorkerThreadsModule.h"
 #include "../../ProtoNativeModule.h"
 #include "../../ArrayElementsStorage.h"
@@ -569,8 +570,9 @@ const proto::ProtoObject* workerTerminate(
 }
 
 const proto::ProtoObject* getWorkerProto(proto::ProtoContext* ctx) {
-    static const proto::ProtoObject* proto = nullptr;
-    if (proto) return proto;
+    // Made on first use; pinned for the wrapper's life (runtime/PinnedBuiltin.h).
+    static thread_local PinnedBuiltin protoCache;
+    if (const proto::ProtoObject* cached = protoCache.get(ctx)) return cached;
     static const NativeEntry entries[] = {
         {"on",           workerOn},
         {"emit",         workerEmit},
@@ -578,8 +580,7 @@ const proto::ProtoObject* getWorkerProto(proto::ProtoContext* ctx) {
         {"terminate",    workerTerminate},
         NATIVE_MODULE_END
     };
-    proto = ProtoNativeModule::buildModule(ctx, entries, 4);
-    return proto;
+    return protoCache.keep(ctx, ProtoNativeModule::buildModule(ctx, entries, 4));
 }
 
 // ---- Worker side: parentPort.postMessage -------------------------------
@@ -628,14 +629,14 @@ const proto::ProtoObject* parentPortPostMessage(
 }
 
 const proto::ProtoObject* getParentPortProto(proto::ProtoContext* ctx) {
-    static thread_local const proto::ProtoObject* proto = nullptr;
-    if (proto) return proto;
+    // Made on first use; pinned for the wrapper's life (runtime/PinnedBuiltin.h).
+    static thread_local PinnedBuiltin protoCache;
+    if (const proto::ProtoObject* cached = protoCache.get(ctx)) return cached;
     static const NativeEntry entries[] = {
         {"postMessage", parentPortPostMessage},
         NATIVE_MODULE_END
     };
-    proto = ProtoNativeModule::buildModule(ctx, entries, 1);
-    return proto;
+    return protoCache.keep(ctx, ProtoNativeModule::buildModule(ctx, entries, 1));
 }
 
 // ---- Worker thread body ------------------------------------------------
@@ -734,15 +735,17 @@ void workerThreadEntry(WorkerState* state) {
                 return invokeEEMethod(c, s, "emit", a);
             }
         };
-        // Use thread-local cached shims to avoid rebuilding per thread.
-        static thread_local const proto::ProtoObject* ppShimsProto = nullptr;
+        // Shims built once per thread and pinned for the wrapper's life
+        // (runtime/PinnedBuiltin.h): a static is not a root.
+        static thread_local PinnedBuiltin ppShimsProtoCache;
+        const proto::ProtoObject* ppShimsProto = ppShimsProtoCache.get(wctx);
         if (!ppShimsProto) {
             static const NativeEntry e[] = {
                 {"on",   Shim::on_},
                 {"emit", Shim::emit_},
                 NATIVE_MODULE_END
             };
-            ppShimsProto = ProtoNativeModule::buildModule(wctx, e, 2);
+            ppShimsProto = ppShimsProtoCache.keep(wctx, ProtoNativeModule::buildModule(wctx, e, 2));
         }
         if (ppShimsProto) {
             // Copy the on/emit methods onto parentPort directly.

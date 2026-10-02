@@ -1,4 +1,5 @@
 #include "ProtoCoreTypes.h"
+#include "runtime/PinnedBuiltin.h"
 #include "ArrayPrototype.h"
 #include "ArrayElementsStorage.h"
 #include "FunctionPrototype.h"
@@ -5062,10 +5063,13 @@ static const proto::ProtoObject* arrayIteratorNext(
 // child of Object.prototype, so Object.getPrototypeOf(iter)[Symbol
 // .toStringTag] surfaced undefined (built-ins/ArrayIteratorPrototype/
 // Symbol.toStringTag/property-descriptor).
-static const proto::ProtoObject* s_arrayIteratorProto = nullptr;
+// Made on first use; pinned for the wrapper's life (runtime/PinnedBuiltin.h):
+// a static is not a root, and nothing else references the prototype once
+// every iterator made from it has been collected.
+static thread_local PinnedBuiltin s_arrayIteratorProtoCache;
 
 static const proto::ProtoObject* getArrayIteratorProto(proto::ProtoContext* ctx) {
-    if (s_arrayIteratorProto) return s_arrayIteratorProto;
+    if (const proto::ProtoObject* cached = s_arrayIteratorProtoCache.get(ctx)) return cached;
     // Chain to %IteratorPrototype% (§22.1.5.2) so Object.getPrototypeOf
     // of an Array Iterator returns %ArrayIteratorPrototype% whose own
     // prototype carries [@@iterator] and [@@toStringTag] = "Iterator".
@@ -5127,8 +5131,8 @@ static const proto::ProtoObject* getArrayIteratorProto(proto::ProtoContext* ctx)
     // reads and fails without this stamp.
     const proto::ProtoString* hnwK = JSSymbols::hasNonWritableProps(ctx);
     if (hnwK) proto = proto->setAttribute(ctx, hnwK, PROTO_TRUE);
-    s_arrayIteratorProto = proto;
-    return s_arrayIteratorProto;
+    proto = s_arrayIteratorProtoCache.keep(ctx, proto);
+    return proto;
 }
 
 static const proto::ProtoObject* makeArrayIterator(

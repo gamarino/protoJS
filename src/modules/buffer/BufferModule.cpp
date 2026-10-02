@@ -1,4 +1,5 @@
 #include "../../ProtoCoreTypes.h"
+#include "../../runtime/PinnedBuiltin.h"
 #include "BufferModule.h"
 #include "../../ProtoNativeModule.h"
 #include "../../ArrayElementsStorage.h"
@@ -528,8 +529,9 @@ const proto::ProtoObject* bufferIncludes(
 }
 
 const proto::ProtoObject* getBufferProto(proto::ProtoContext* ctx) {
-    static const proto::ProtoObject* proto = nullptr;
-    if (proto) return proto;
+    // Made on first use; pinned for the wrapper's life (runtime/PinnedBuiltin.h).
+    static thread_local PinnedBuiltin protoCache;
+    if (const proto::ProtoObject* cached = protoCache.get(ctx)) return cached;
     static const NativeEntry entries[] = {
         {"toString", bufferToString},
         {"slice",    bufferSlice},
@@ -539,8 +541,7 @@ const proto::ProtoObject* getBufferProto(proto::ProtoContext* ctx) {
         {"includes", bufferIncludes},
         NATIVE_MODULE_END
     };
-    proto = ProtoNativeModule::buildModule(ctx, entries, 6);
-    return proto;
+    return protoCache.keep(ctx, ProtoNativeModule::buildModule(ctx, entries, 6));
 }
 
 }  // namespace

@@ -1,4 +1,5 @@
 #include "ProtoCoreTypes.h"
+#include "runtime/PinnedBuiltin.h"
 #include "IteratorPrototype.h"
 #include "ArrayPrototype.h"
 #include "ArrayElementsStorage.h"
@@ -962,8 +963,9 @@ static void installHelper(proto::ProtoContext* ctx,
 }
 
 const proto::ProtoObject* getIteratorPrototype(proto::ProtoContext* ctx) {
-    static const proto::ProtoObject* s_iteratorProto = nullptr;
-    if (s_iteratorProto) return s_iteratorProto;
+    // Made on first use; pinned for the wrapper's life (runtime/PinnedBuiltin.h).
+    static thread_local PinnedBuiltin s_iteratorProtoCache;
+    if (const proto::ProtoObject* cached = s_iteratorProtoCache.get(ctx)) return cached;
     if (!ctx) return nullptr;
     proto::ProtoObject* objProto =
         ctx->space ? ctx->space->objectPrototype : nullptr;
@@ -1064,8 +1066,7 @@ const proto::ProtoObject* getIteratorPrototype(proto::ProtoContext* ctx) {
         }
     }
 
-    s_iteratorProto = proto;
-    return s_iteratorProto;
+    return s_iteratorProtoCache.keep(ctx, proto);
 }
 
 // ---------------------------------------------------------------------------

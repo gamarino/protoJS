@@ -1,4 +1,5 @@
 #include "ProtoCoreTypes.h"
+#include "runtime/PinnedBuiltin.h"
 #include "SetPrototype.h"
 #include "ArrayPrototype.h"
 #include "ArrayElementsStorage.h"
@@ -654,10 +655,13 @@ static const proto::ProtoObject* setIteratorNext(
 
 // %SetIteratorPrototype% per §24.2.5.2 — shared with @@toStringTag =
 // "Set Iterator" and a shared next, chained to %IteratorPrototype%.
-static const proto::ProtoObject* s_setIteratorProto = nullptr;
+// Made on first use; pinned for the wrapper's life (runtime/PinnedBuiltin.h):
+// a static is not a root, and nothing else references the prototype once
+// every iterator made from it has been collected.
+static thread_local PinnedBuiltin s_setIteratorProtoCache;
 
 static const proto::ProtoObject* getSetIteratorProto(proto::ProtoContext* ctx) {
-    if (s_setIteratorProto) return s_setIteratorProto;
+    if (const proto::ProtoObject* cached = s_setIteratorProtoCache.get(ctx)) return cached;
     const proto::ProtoObject* iterProto = protojs::getIteratorPrototype(ctx);
     const proto::ProtoObject* parent = iterProto ? iterProto
         : (ctx->space ? ctx->space->objectPrototype : nullptr);
@@ -703,7 +707,7 @@ static const proto::ProtoObject* getSetIteratorProto(proto::ProtoContext* ctx) {
     const proto::ProtoString* hnwK = JSSymbols::hasNonWritableProps(ctx);
     if (hnwK) proto = proto->setAttribute(ctx, hnwK, PROTO_TRUE);
 
-    s_setIteratorProto = proto;
+    proto = s_setIteratorProtoCache.keep(ctx, proto);
     return proto;
 }
 

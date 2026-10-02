@@ -1,4 +1,5 @@
 #include "../../ProtoCoreTypes.h"
+#include "../../runtime/PinnedBuiltin.h"
 #include "NetModule.h"
 #include "../../ProtoNativeModule.h"
 #include "../../ArrayElementsStorage.h"
@@ -568,8 +569,9 @@ const proto::ProtoObject* socketConnectImpl(
 }
 
 const proto::ProtoObject* getSocketProto(proto::ProtoContext* ctx) {
-    static const proto::ProtoObject* proto = nullptr;
-    if (proto) return proto;
+    // Made on first use; pinned for the wrapper's life (runtime/PinnedBuiltin.h).
+    static thread_local PinnedBuiltin protoCache;
+    if (const proto::ProtoObject* cached = protoCache.get(ctx)) return cached;
     static const NativeEntry entries[] = {
         {"on",       socketOnImpl},
         {"emit",     socketEmitImpl},
@@ -580,8 +582,7 @@ const proto::ProtoObject* getSocketProto(proto::ProtoContext* ctx) {
         {"address",  socketAddressImpl},
         NATIVE_MODULE_END
     };
-    proto = ProtoNativeModule::buildModule(ctx, entries, 7);
-    return proto;
+    return protoCache.keep(ctx, ProtoNativeModule::buildModule(ctx, entries, 7));
 }
 
 const proto::ProtoObject* makeSocketInstance(
@@ -887,8 +888,9 @@ const proto::ProtoObject* serverListenImpl(
 }
 
 const proto::ProtoObject* getServerProto(proto::ProtoContext* ctx) {
-    static const proto::ProtoObject* proto = nullptr;
-    if (proto) return proto;
+    // Made on first use; pinned for the wrapper's life (runtime/PinnedBuiltin.h).
+    static thread_local PinnedBuiltin protoCache;
+    if (const proto::ProtoObject* cached = protoCache.get(ctx)) return cached;
     static const NativeEntry entries[] = {
         {"on",      serverOnImpl},
         {"emit",    serverEmitImpl},
@@ -897,8 +899,7 @@ const proto::ProtoObject* getServerProto(proto::ProtoContext* ctx) {
         {"address", serverAddressImpl},
         NATIVE_MODULE_END
     };
-    proto = ProtoNativeModule::buildModule(ctx, entries, 5);
-    return proto;
+    return protoCache.keep(ctx, ProtoNativeModule::buildModule(ctx, entries, 5));
 }
 
 // ---- Module-level: createServer / createConnection --------------------

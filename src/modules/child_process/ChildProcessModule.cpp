@@ -1,4 +1,5 @@
 #include "ChildProcessModule.h"
+#include "../../runtime/PinnedBuiltin.h"
 #include "../../ProtoNativeModule.h"
 #include "../../ArrayElementsStorage.h"
 #include "../../ArrayPrototype.h"
@@ -76,15 +77,15 @@ const proto::ProtoObject* childSend(
 }
 
 const proto::ProtoObject* getChildProto(proto::ProtoContext* ctx) {
-    static const proto::ProtoObject* proto = nullptr;
-    if (proto) return proto;
+    // Made on first use; pinned for the wrapper's life (runtime/PinnedBuiltin.h).
+    static thread_local PinnedBuiltin protoCache;
+    if (const proto::ProtoObject* cached = protoCache.get(ctx)) return cached;
     static const NativeEntry entries[] = {
         {"kill", childKill},
         {"send", childSend},
         NATIVE_MODULE_END
     };
-    proto = ProtoNativeModule::buildModule(ctx, entries, 2);
-    return proto;
+    return protoCache.keep(ctx, ProtoNativeModule::buildModule(ctx, entries, 2));
 }
 
 const proto::ProtoObject* makeChildInstance(proto::ProtoContext* ctx,
