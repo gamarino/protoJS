@@ -37,10 +37,14 @@ for script in "$DIR"/*.js; do
     elif [ -s "$TMP/$name.err" ]; then
         reason="unexpected standard error"
     elif [ -f "$DIR/$name.expected" ]; then
-        if ! diff -u "$DIR/$name.expected" "$TMP/$name.out" > "$TMP/$name.diff"; then
+        # Line endings are not compared: a Windows checkout may give the
+        # .expected files CRLF endings.
+        tr -d '\r' < "$DIR/$name.expected" > "$TMP/$name.exp"
+        tr -d '\r' < "$TMP/$name.out" > "$TMP/$name.got"
+        if ! diff -u "$TMP/$name.exp" "$TMP/$name.got" > "$TMP/$name.diff"; then
             reason="output differs from Node's"
         fi
-    elif ! grep -qxF "$name: all checks passed" "$TMP/$name.out"; then
+    elif ! tr -d '\r' < "$TMP/$name.out" | grep -qxF "$name: all checks passed"; then
         reason="did not print '$name: all checks passed'"
     fi
     if [ -n "$reason" ]; then

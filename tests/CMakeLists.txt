@@ -272,12 +272,14 @@ foreach(js_test
         basic/symbol_key_order
         basic/native_function_prototype
         basic/regexp_global_advance
+        basic/generator_for_of_yield
         modules/test_require_file
         modules/test_cross_module_exception
         modules/test_require
         modules/test_events
         collections/protoCore_collections
         workers/deep_recursion
+        workers/promises_in_worker
         crypto/test_crypto_cipher
         crypto/test_crypto_keygen
         crypto/test_crypto_sign
