@@ -4,6 +4,62 @@ All notable changes to protoJS are documented in this file.
 
 ## [Unreleased]
 
+### Fixed — GC safety under the heap ceiling, lazy function prototypes, `new`, `events` (2026-10-02)
+
+The default heap ceiling (below) makes protoCore's collector free cells, and
+reuse their addresses, during ordinary programs. That exposed defects that had
+been invisible while nothing was ever freed.
+
+- **The collector reclaims what a long-running frame discards.** The GCC
+  build dispatched opcodes with a computed goto, which does not run the
+  destructors of the scopes it leaves; handlers that dispatched from inside a
+  `CriticalSection` leaked it, and with the frame's critical-section depth
+  above zero its young generation was never handed to the collector. Writing
+  one array element 1,000,000 times exited with "out of memory ... reclaimed
+  nothing" at any ceiling; `x = [i]` in a loop overshot a 19 MB ceiling to
+  1.3 GB. Dispatch is now a plain `goto` to one `switch` on every compiler (as
+  Clang and MSVC already did); it costs GCC no more than the label table
+  (docs/PERFORMANCE_DISPATCH.md), and `PROTOJS_COMPUTED_GOTO=1` is now a
+  compile error. Test: `cli/gc-frame-garbage`.
+- **No cache or registry holds a cell address the collector cannot see.**
+  Every C++ map, set, array and static keyed by or holding a protoCore cell was
+  audited. A fresh `{}` at the address of a collected `Object.create(null)`
+  reported a `null` prototype (about a third of fresh objects under a 25 MB
+  ceiling, with crashes); a computed key read another property's value
+  (`o['unrelated853']` returned `o.property*`'s); `Object.getOwnPropertySymbols`
+  returned symbols that had been collected; `new Set([1]).values()` was built
+  on a collected prototype and lost `next()` or crashed. Now: the
+  `[[Prototype]]` override is the object's own internal attribute; the
+  key-interning, numeric-index, accessor-key, literal-index and per-object
+  behaviour caches are emptied at each collection cycle
+  (`src/runtime/GcScopedCache.h`); the symbol registries and `Symbol.for`'s
+  registry are pinned protoCore objects, one per wrapper (every `Symbol()`
+  value is retained for the wrapper's life, as its interned storage key
+  already was; `Symbol.for` is no longer shared between workers); built-in
+  prototypes made on first use (iterator, Deferred and native-module
+  prototypes) are pinned (`src/runtime/PinnedBuiltin.h`). Test:
+  `cli/gc-stale-caches`, 10 runs of each of five scripts in
+  `tests/integration/gc/` under a 25 MB ceiling.
+- **Ordinary `function` closures are collectable.** Their `prototype` object,
+  and with it the cycle `f.prototype.constructor === f` that protoCore never
+  collects, is now created the first time anything can observe it, as in
+  QuickJS (`src/runtime/LazyPrototype.h`): any access naming `prototype`,
+  `new`, `instanceof`, `class extends`, `Reflect.construct`, own-key
+  enumeration and the integrity operations. 2,000,000 `function` closures now
+  run under the default ceiling with a 645 MB peak (before: out of memory),
+  and under a 64 MB ceiling in 76 MB. Tests:
+  `cli/function-closure-loop-bounded-memory`, `js/basic/lazy_function_prototype`
+  (41 observations, each on a fresh function).
+- **`new` on a non-constructor throws a `TypeError`.** Arrow functions,
+  methods, accessors, generators and async functions were run as constructors
+  by `new` and `Reflect.construct`. Test: `js/basic/new_non_constructor`.
+- **`require('events')` is the `EventEmitter` constructor**, with
+  `EventEmitter.EventEmitter === EventEmitter`, as in Node; `once()` runs once
+  (it was an alias of `on()`); added `off`, `addListener`,
+  `removeAllListeners`, `listenerCount`, `listeners`, `setMaxListeners`,
+  `getMaxListeners`; an unhandled `'error'` event is thrown. Test:
+  `js/modules/test_events`.
+
 ### Fixed — closure memory, array elisions, uncaught errors, dns keep-alive (2026-10-02)
 
 - **Memory is reclaimed during a run.** protoCore's collector runs as the heap
@@ -27,9 +83,9 @@ All notable changes to protoJS are documented in this file.
   including the loop's own cost): `function` closures 19.1 -> 13.3 KB each,
   arrow closures 19.9 -> 10.0 KB. A 2,000,000-iteration arrow-closure loop
   now finishes with a 646 MB peak under the default ceiling (before: about
-  40 GB needed). **Still retained:** ordinary `function` closures, whose
-  prototype pair is required; a lazily created `prototype` would remove that
-  cycle and is not done yet. Test: `cli/closure-loop-bounded-memory`.
+  40 GB needed). Ordinary `function` closures were still retained by their
+  prototype pair; see the entry above for the lazily created `prototype`.
+  Test: `cli/closure-loop-bounded-memory`.
 - **Locals captured by a closure** were corrupted by `i++`, `i--`,
   `i = i + 1` and `s += x` (the `inc_loc`, `dec_loc`, `add_loc` and fused
   `proto_acc_loc8_loc8` opcodes read the cell as the number): NaN, a
