@@ -150,10 +150,12 @@ jobs:
         # Printed, not asserted: MSVC builds protoJS's own targets at /W3.
         working-directory: protoJS
         run: |
-          N=$(grep -E "warning (C[0-9]+|:)" build.log | grep -v "deps[/\\\\]quickjs" | sort -u | wc -l | tr -d ' ')
+          # grep finds nothing on a clean build; that is not an error here.
+          { grep -E "warning (C[0-9]+|:)" build.log || true; } | { grep -v "deps[/\\\\]quickjs" || true; } | sort -u > warnings.txt
+          N=$(wc -l < warnings.txt | tr -d ' ')
           echo "compiler warnings outside deps/quickjs: $N"
-          echo "compiler warnings outside deps/quickjs (${{ runner.os }}): $N" >> "$GITHUB_STEP_SUMMARY"
-          grep -E "warning (C[0-9]+|:)" build.log | grep -v "deps[/\\\\]quickjs" | sort -u | head -50 || true
+          echo "compiler warnings outside deps/quickjs (${{ matrix.name }}): $N" >> "$GITHUB_STEP_SUMMARY"
+          head -100 warnings.txt
 
       - name: Locate protojs
         working-directory: protoJS
