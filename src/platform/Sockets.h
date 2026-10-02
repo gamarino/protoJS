@@ -53,6 +53,23 @@ static const WinsockStartup winsockStartup;
 // A socket handle fits in an int on Windows (its high bits are always zero),
 // which is what lets the sources keep int descriptors.
 inline int closeSocket(int fd) { return ::closesocket(static_cast<SOCKET>(fd)); }
+
+// socket() and accept() that a child process does not inherit. A Winsock
+// socket is inheritable by default, so a child started while a server listened
+// would hold its port; WSA_FLAG_NO_HANDLE_INHERIT (Windows 7 SP1) creates it
+// otherwise, and an accepted socket is made non-inheritable explicitly.
+// WSA_FLAG_OVERLAPPED is what socket() itself passes. -1 on failure, as POSIX.
+inline int openSocket(int af, int type, int protocol) {
+    const SOCKET s = ::WSASocketW(af, type, protocol, nullptr, 0,
+                                  WSA_FLAG_OVERLAPPED | WSA_FLAG_NO_HANDLE_INHERIT);
+    return s == INVALID_SOCKET ? -1 : static_cast<int>(s);
+}
+inline int acceptSocket(int fd, sockaddr* addr, socklen_t* len) {
+    const SOCKET s = ::accept(static_cast<SOCKET>(fd), addr, len);
+    if (s == INVALID_SOCKET) return -1;
+    ::SetHandleInformation(reinterpret_cast<HANDLE>(s), HANDLE_FLAG_INHERIT, 0);
+    return static_cast<int>(s);
+}
 inline ssize_t readSocket(int fd, void* buf, std::size_t len) {
     return ::recv(static_cast<SOCKET>(fd), static_cast<char*>(buf), static_cast<int>(len), 0);
 }
@@ -69,11 +86,25 @@ inline ssize_t writeSocket(int fd, const void* buf, std::size_t len) {
 #include <netinet/in.h>
 #include <arpa/inet.h>
 #include <netdb.h>
+#include <fcntl.h>
 #include <unistd.h>
 
 namespace protojs::platform {
 
 inline int closeSocket(int fd) { return ::close(fd); }
+
+// socket() and accept() whose descriptor a child process does not inherit:
+// close-on-exec, so a program child_process starts never holds a server's port.
+inline int openSocket(int af, int type, int protocol) {
+    const int fd = ::socket(af, type, protocol);
+    if (fd >= 0) ::fcntl(fd, F_SETFD, FD_CLOEXEC);
+    return fd;
+}
+inline int acceptSocket(int fd, sockaddr* addr, socklen_t* len) {
+    const int c = ::accept(fd, addr, len);
+    if (c >= 0) ::fcntl(c, F_SETFD, FD_CLOEXEC);
+    return c;
+}
 inline ssize_t readSocket(int fd, void* buf, std::size_t len) { return ::read(fd, buf, len); }
 inline ssize_t writeSocket(int fd, const void* buf, std::size_t len) { return ::write(fd, buf, len); }
 

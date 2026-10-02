@@ -207,7 +207,7 @@ bool IntegratedDebugger::checkBreakpoint(const std::string& scriptId,
 }
 
 void IntegratedDebugger::cdpServerThread(int port) {
-    int serverSocket = socket(AF_INET, SOCK_STREAM, 0);
+    int serverSocket = platform::openSocket(AF_INET, SOCK_STREAM, 0);
     if (serverSocket < 0) return;
     int opt = 1;
     setsockopt(serverSocket, SOL_SOCKET, SO_REUSEADDR, reinterpret_cast<const char*>(&opt), sizeof(opt));
@@ -223,7 +223,7 @@ void IntegratedDebugger::cdpServerThread(int port) {
     while (serverRunning.load()) {
         sockaddr_in clientAddr{};
         socklen_t clientLen = sizeof(clientAddr);
-        int clientSocket = accept(serverSocket,
+        int clientSocket = platform::acceptSocket(serverSocket,
             reinterpret_cast<sockaddr*>(&clientAddr), &clientLen);
         if (clientSocket < 0) continue;
         char buffer[4096];

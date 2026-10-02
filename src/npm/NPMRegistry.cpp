@@ -54,7 +54,7 @@ namespace {
     bool tlsConnect(const std::string& host, int port, TlsConn& out) {
         struct hostent* he = gethostbyname(host.c_str());
         if (!he) return false;
-        out.sock = socket(AF_INET, SOCK_STREAM, 0);
+        out.sock = platform::openSocket(AF_INET, SOCK_STREAM, 0);
         if (out.sock < 0) return false;
         struct sockaddr_in addr;
         memset(&addr, 0, sizeof(addr));
@@ -86,7 +86,7 @@ namespace {
     std::string tcpGet(const std::string& host, int port, const std::string& path) {
         struct hostent* he = gethostbyname(host.c_str());
         if (!he) return "";
-        int sock = socket(AF_INET, SOCK_STREAM, 0);
+        int sock = platform::openSocket(AF_INET, SOCK_STREAM, 0);
         if (sock < 0) return "";
         struct sockaddr_in addr;
         memset(&addr, 0, sizeof(addr));
@@ -228,7 +228,7 @@ bool NPMRegistry::httpDownload(const std::string& url, const std::string& target
     }
 #endif
 
-    int sock = socket(AF_INET, SOCK_STREAM, 0);
+    int sock = platform::openSocket(AF_INET, SOCK_STREAM, 0);
     if (sock < 0) return false;
     struct hostent* he = gethostbyname(host.c_str());
     if (!he) { platform::closeSocket(sock); return false; }

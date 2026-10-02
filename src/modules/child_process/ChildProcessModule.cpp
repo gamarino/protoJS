@@ -54,12 +54,15 @@ const proto::ProtoObject* childKill(
         if (a && a->isInteger(ctx)) sig = static_cast<int>(a->asLong(ctx));
     }
     int pid = getIntAttr(ctx, self, pidKey(ctx));
+    if (pid <= 0) return PROTO_FALSE;
+    // Node's subprocess.kill(): true when the signal was delivered. Signal 0
+    // delivers nothing and only checks that the child exists.
 #if defined(_WIN32)
-    if (pid > 0) platform::killProcess(pid, sig);
+    const int rc = platform::killProcess(pid, sig);
 #else
-    if (pid > 0) ::kill(pid, sig);
+    const int rc = ::kill(pid, sig);
 #endif
-    return PROTO_NONE;
+    return rc == 0 ? PROTO_TRUE : PROTO_FALSE;
 }
 
 const proto::ProtoObject* childSend(

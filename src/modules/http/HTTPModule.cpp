@@ -504,7 +504,7 @@ const proto::ProtoObject* serverListen(
     if (!state) return PROTO_NONE;
     if (state->listening.load()) return self;
 
-    int fd = ::socket(AF_INET, SOCK_STREAM, 0);
+    int fd = platform::openSocket(AF_INET, SOCK_STREAM, 0);
     if (fd < 0) return PROTO_NONE;
 #if !defined(_WIN32)
     // On Windows SO_REUSEADDR would let a second server take a port in use;
@@ -541,7 +541,7 @@ const proto::ProtoObject* serverListen(
         while (state->listening.load()) {
             sockaddr_in client{};
             socklen_t cl = sizeof(client);
-            int cfd = ::accept(state->socketFd,
+            int cfd = platform::acceptSocket(state->socketFd,
                                 reinterpret_cast<sockaddr*>(&client), &cl);
             if (cfd < 0) {
                 if (!state->listening.load()) break;
@@ -888,7 +888,7 @@ const proto::ProtoObject* clientRequestEndImpl(
             addr.sin_addr = *reinterpret_cast<in_addr*>(he->h_addr_list[0]);
         }
 
-        int fd = ::socket(AF_INET, SOCK_STREAM, 0);
+        int fd = platform::openSocket(AF_INET, SOCK_STREAM, 0);
         if (fd < 0) {
             cleanupOnError();
             return;

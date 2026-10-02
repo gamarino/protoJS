@@ -517,7 +517,7 @@ const proto::ProtoObject* socketConnectImpl(
         }
     }
 
-    int fd = ::socket(AF_INET, SOCK_STREAM, 0);
+    int fd = platform::openSocket(AF_INET, SOCK_STREAM, 0);
     if (fd < 0) return self;
     sockaddr_in addr{};
     addr.sin_family = AF_INET;
@@ -763,7 +763,7 @@ const proto::ProtoObject* serverListenImpl(
         }
     }
 
-    int fd = ::socket(AF_INET, SOCK_STREAM, 0);
+    int fd = platform::openSocket(AF_INET, SOCK_STREAM, 0);
     if (fd < 0) return self;
 #if !defined(_WIN32)
     // On Windows SO_REUSEADDR would let a second server take a port in use;
@@ -810,7 +810,7 @@ const proto::ProtoObject* serverListenImpl(
         while (s->listening.load() && !s->closed.load()) {
             sockaddr_in client{};
             socklen_t clen = sizeof(client);
-            int cfd = ::accept(s->socketFd.load(),
+            int cfd = platform::acceptSocket(s->socketFd.load(),
                                  reinterpret_cast<sockaddr*>(&client),
                                  &clen);
             if (cfd < 0) {

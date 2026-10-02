@@ -263,7 +263,7 @@ const proto::ProtoObject* createSocketImpl(
     std::string type = "udp4";
     argString(ctx, args, 0, type);
     int family = (type == "udp6") ? AF_INET6 : AF_INET;
-    int fd = socket(family, SOCK_DGRAM, 0);
+    int fd = platform::openSocket(family, SOCK_DGRAM, 0);
     if (fd < 0) return PROTO_NONE;
     const proto::ProtoObject* proto = getSocketProto(ctx);
     const proto::ProtoObject* sock = proto
