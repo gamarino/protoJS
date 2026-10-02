@@ -15444,11 +15444,9 @@ const proto::ProtoObject* runBytecode(proto::ProtoContext* pContext,
                     else if (fnBcId8 >= 0 && t_rootModule &&
                             static_cast<size_t>(fnBcId8) < t_rootModule->nestedFunctions.size())
                         nm8Ptr = &t_rootModule->nestedFunctions[static_cast<size_t>(fnBcId8)];
-                    // A closure that escapes the module that created it — a
-                    // file module's exports — must carry its function table
-                    // with it: at call time neither the running module nor
-                    // t_rootModule points at it.  See L_OP_fclosure.
-                    if (ownerTable8 && ownerTable8 != t_rootModule) {
+                    // Every closure carries its function table, whichever
+                    // module created it.  See L_OP_fclosure.
+                    if (ownerTable8) {
                         const proto::ProtoString* cmKey8 = JSSymbols::closureModule(pContext);
                         if (cmKey8)
                             fnInst = fnInst->setAttribute(pContext, cmKey8,
@@ -15612,18 +15610,19 @@ const proto::ProtoObject* runBytecode(proto::ProtoContext* pContext,
                     else if (fnBcId2 >= 0 && t_rootModule &&
                             static_cast<size_t>(fnBcId2) < t_rootModule->nestedFunctions.size())
                         nm2Ptr = &t_rootModule->nestedFunctions[static_cast<size_t>(fnBcId2)];
-                    // A closure that escapes the module that created it — a
-                    // file module's exports, or anything a required module
-                    // returns — must carry its function table with it: at call
-                    // time the dispatcher sees the CALLER's module and root,
-                    // neither of which can resolve this ID.  The three
-                    // dispatch sites already consult __closure_module__ first,
-                    // so stamping it here is what makes exported functions
-                    // callable.  Stamping only when the table is not
-                    // t_rootModule leaves the ordinary in-script case — where
-                    // the existing fallback already resolves correctly — free
-                    // of the extra attribute and the extra write.
-                    if (ownerTable2 && ownerTable2 != t_rootModule) {
+                    // Every closure carries its function table: a bytecode ID
+                    // means nothing without it.  A closure that leaves the
+                    // module that created it -- a file module's exports, or a
+                    // callback the main script hands to a required module --
+                    // is called where the dispatcher sees the CALLER's module,
+                    // and resolving the ID there either misses ("is not a
+                    // function") or, when the index is in range, runs an
+                    // unrelated function of the caller's module.  Stamping
+                    // only closures whose table was not t_rootModule left the
+                    // main script's closures unstamped, so a callback passed
+                    // to a required module ran one of that module's functions
+                    // instead: its exceptions were lost or replaced.
+                    if (ownerTable2) {
                         const proto::ProtoString* cmKey2 = JSSymbols::closureModule(pContext);
                         if (cmKey2)
                             fnInst2 = fnInst2->setAttribute(pContext, cmKey2,
@@ -17582,24 +17581,12 @@ const proto::ProtoObject* callJSFunction(
     // Function('return 1;')() returned 1 (OP_call performs the
     // closure-module lookup; callJSFunction did not).
     int bcId = getBytecodeId(ctx, fn);
-    const ProtoBytecodeModule* resolveMod = nullptr;
-    if (bcId >= 0) {
-        const ProtoBytecodeModule* ownerMod = getClosureModule(ctx, fn);
-        if (ownerMod && static_cast<size_t>(bcId) < ownerMod->nestedFunctions.size())
-            resolveMod = ownerMod;
-    }
-    if (!resolveMod) {
-        resolveMod =
-            (bcId >= 0 && t_currentModule &&
-               static_cast<size_t>(bcId) < t_currentModule->nestedFunctions.size())
-                ? t_currentModule
-            : (bcId >= 0 && t_rootModule &&
-               static_cast<size_t>(bcId) < t_rootModule->nestedFunctions.size())
-                ? t_rootModule
-            : nullptr;
-    }
-    if (resolveMod) {
-        const ProtoBytecodeModule& nf = resolveMod->nestedFunctions[bcId];
+    // The same resolution as every bytecode dispatch site: the closure's own
+    // function table first (resolveNestedFunction).
+    const ProtoBytecodeModule* resolved =
+        resolveNestedFunction(ctx, fn, bcId, t_currentModule);
+    if (resolved) {
+        const ProtoBytecodeModule& nf = *resolved;
         // Arrow functions use the lexical this captured at closure-creation time.
         const proto::ProtoObject* effectiveThis = thisVal ? thisVal : PROTO_NONE;
         if (nf.isArrow) {
