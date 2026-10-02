@@ -4,6 +4,58 @@ All notable changes to protoJS are documented in this file.
 
 ## [Unreleased]
 
+### Added — `util.format` / `util.inspect` and the `fs` callback API (2026-10-02)
+
+- **`util.format` interprets format specifiers.** It returned a string first
+  argument as it was, so `util.format('%s:%d', 'a', 42)` gave `'%s:%d'`.
+  `util.format`, `util.formatWithOptions` (new) and `util.inspect` are now a
+  port of Node's `lib/internal/util/inspect.js`: `%s %d %i %f %j %o %O %c %%`,
+  extra arguments, `inspect`'s depth, compaction, line breaking, array
+  grouping, circular references (`<ref *1>`, `[Circular *1]`), class and
+  null-prototype prefixes, `Map`, `Set`, `Date`, `RegExp`, functions, classes
+  and errors. Written in JavaScript (`src/modules/util/inspect.js`), embedded
+  in the binary at build time and compiled on first use. Test:
+  `js/util/test-util-format`, Node's own `test-util-format.js` with 171
+  assertions; the cases left out, and why, are listed in the test and in
+  docs/API_REFERENCE.md (key order, error stacks, colours, numeric separators,
+  and three conversions that lose the sign of zero -- `Number(' -0.000')`,
+  `parseInt(-0.5)`, `parseFloat('-0.0')` give `0`).
+- **`fs.readFile(path[, options], callback)`** and the callback forms of
+  `writeFile`, `appendFile`, `stat`, `readdir`, `unlink`, `rmdir` and `mkdir`
+  (`{ recursive: true }` passes the first directory created). The operation
+  runs on the I/O pool and the callback runs on the event loop, never before
+  the call returns, with `(err)` or `(null, result)`; `err` is an `Error` with
+  Node's `code`, `errno`, `syscall`, `path` and message. Invalid arguments
+  throw `ERR_INVALID_ARG_TYPE` synchronously; the process waits for pending
+  callbacks. Data is a string (no `Buffer` results yet). Test:
+  `js/fs/test_fs_callbacks`.
+- `makeNativeError` takes the global to read the error prototype from, for
+  errors built on the event loop outside any interpreter frame; without it
+  they were plain objects, not `instanceof Error`.
+
+### Measured — the cost of stamping every closure with its function table
+
+`OP_fclosure` now writes `__closure_module__` on every closure (below, "Exceptions
+cross module boundaries"). Creating a closure costs about 2.3 % more
+instructions on a benchmark that does little else (cycles within noise);
+function calls execute 2.4-5.8 % fewer instructions. docs/PERFORMANCE_NOTES.md;
+the benchmarks `function_calls`, `tree_traversal` and the new
+`dispatch/closure_create` now check the values they compute.
+
+### Known defects found while porting `util.format` (2026-10-02), not fixed
+
+- **An array literal with a hole has the wrong length**: `[1,,3].length` is 1,
+  and the elements after the hole are lost.
+- **Creating a closure is expensive**: about 20 KB of heap per closure in
+  `closure_create`, not reclaimed during the run (docs/PERFORMANCE_NOTES.md).
+- **An exception thrown by an event-loop callback does not fail the
+  process**: an `fs` callback's is reported on stderr, a `setImmediate` or
+  `dns.lookup` callback's is not reported at all, and the exit status is 0.
+- **A pending `dns.lookup` callback does not keep the process alive**: the
+  drain loop in `main.cpp` does not count it, so a script that ends right
+  after the call may exit before the callback runs.
+- `String(obj)` does not call `obj[Symbol.toPrimitive]`.
+
 ### Fixed — interpreter defects found by the Windows-port review (2026-10-02)
 
 The `path` fixtures had worked around the first three; they are Node's tests

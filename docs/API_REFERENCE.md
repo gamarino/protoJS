@@ -103,6 +103,89 @@ io.readFileAsync("output.txt").then((text) => console.log("async:", text));
 
 ---
 
+## `util`
+
+| Function | Description |
+|----------|-------------|
+| `util.format(format, ...args)` | Node's `util.format`: `%s`, `%d`, `%i`, `%f`, `%j`, `%o`, `%O`, `%c` and `%%`; arguments left over are appended, separated by spaces, strings as they are and other values through `util.inspect`. |
+| `util.formatWithOptions(options, format, ...args)` | The same, with `util.inspect` options; a non-object `options` throws a `TypeError` with `code: 'ERR_INVALID_ARG_TYPE'`. |
+| `util.inspect(value[, options])` | Node's `util.inspect`. Options: `depth` (default 2; `null` or `Infinity` for no limit), `compact` (default 3), `breakLength` (default 80), `maxArrayLength`, `maxStringLength`, `sorted`, `showHidden`, `customInspect` (objects with a `Symbol.for('nodejs.util.inspect.custom')` method). The legacy form `inspect(value, showHidden, depth)` is accepted. |
+| `util.promisify(fn)` | A stub that returns `undefined`. |
+| `util.types.isArray`, `isString`, `isNumber`, `isObject`, `isFunction`, `isDate` | Type predicates. |
+
+`inspect`, `format` and `formatWithOptions` are a port of Node's
+`lib/internal/util/inspect.js` (`src/modules/util/inspect.js`, embedded in the
+binary). What they print matches Node, checked by Node's own
+`test-util-format.js` (`tests/integration/util/test-util-format.js`), except:
+
+- Object keys are printed in protoJS's key order, which is not always insertion
+  order ([TEST262_STATUS.md](TEST262_STATUS.md)), so an object with several keys
+  may print them in another order than Node.
+- Errors carry no stack in protoJS, so an error prints as `[Error: message]`,
+  which is what Node prints for an error without a stack.
+- Not supported: `colors` (accepted and ignored), `numericSeparator`,
+  `showProxy`, `getters`, the boxed-primitive (`[Number: 3]`), typed-array,
+  `ArrayBuffer`, `Promise`, `WeakMap`/`WeakSet` and iterator forms, async and
+  generator function labels, and the class name of an object whose prototype
+  is null (`[Foo: null prototype]` prints as `[Object: null prototype]`).
+  `util.inspect.custom` and `util.inspect.defaultOptions` are not exposed; use
+  `Symbol.for('nodejs.util.inspect.custom')`.
+- `%d`, `%i` and `%f` print `0` where Node prints `-0` for a string such as
+  `'-0.0'` and for `%i` of a negative fraction: protoJS's `Number`,
+  `parseInt` and `parseFloat` lose the sign of zero there.
+
+`console.log` does not go through `util.format`: it does not interpret format
+specifiers, and prints objects in its own shorter form.
+
+---
+
+## `fs`
+
+Synchronous functions: `readFileSync`, `writeFileSync`, `readdirSync`,
+`mkdirSync`, `statSync`, `unlinkSync`, `rmdirSync`, `renameSync`,
+`copyFileSync`; they return `undefined` or `false` on failure instead of
+throwing. `fs.promises` has `readFile`, `writeFile`, `readdir`, `mkdir` and
+`stat`, which return a `Deferred`.
+
+The callback forms follow Node's API:
+
+| Function | Callback receives |
+|----------|-------------------|
+| `fs.readFile(path[, options], callback)` | `(err, data)`, `data` a string |
+| `fs.writeFile(file, data[, options], callback)` | `(err)`; `options.flag` starting with `a` appends |
+| `fs.appendFile(path, data[, options], callback)` | `(err)` |
+| `fs.stat(path[, options], callback)` | `(err, stats)` |
+| `fs.readdir(path[, options], callback)` | `(err, names)`, in the order the system returns them |
+| `fs.mkdir(path[, options], callback)` | `(err)`; with `{ recursive: true }`, `(err, first)`, the first directory created or `undefined` |
+| `fs.unlink(path, callback)` | `(err)` |
+| `fs.rmdir(path[, options], callback)` | `(err)` |
+
+The operation runs on the I/O thread pool and the callback is invoked on the
+event loop, never before the call returns; the process waits for pending
+callbacks before it exits. On failure `err` is an `Error` with Node's `code`
+(`ENOENT`, `EEXIST`, `EISDIR`, `ENOTDIR`, `ENOTEMPTY`, `EACCES`, ...), `errno`,
+`syscall`, `path` and message, e.g. `ENOENT: no such file or directory, open
+'/x'`. Invalid arguments -- a missing callback, a path that is not a string --
+throw a `TypeError` with `code: 'ERR_INVALID_ARG_TYPE'` synchronously. An
+exception thrown by the callback is reported on stderr as `Uncaught exception
+in fs callback: ...`; it does not end the process.
+
+Differences from Node:
+
+- `data` is always a string (the file read as UTF-8), whatever the encoding
+  option: protoJS's `fs` has no `Buffer` results yet, as for `readFileSync`.
+  `writeFile` and `appendFile` accept string data only.
+- Paths are strings: file descriptors, `Buffer` and `URL` paths are not
+  supported. `readdir`'s `withFileTypes` and `rmdir`'s `recursive` are not
+  supported.
+- `stats` is the object `statSync` returns: `size`, `mtime` (milliseconds),
+  and `isFile` / `isDirectory` as booleans, not methods.
+- `errno` is the negated C `errno`, which is Node's value on Linux and macOS;
+  on Windows Node reports libuv's own numbers (`ENOENT` is -4058) and protoJS
+  the C runtime's (-2). `code`, `syscall`, `path` and the message are the same.
+
+---
+
 ## `require`
 
 `require(specifier)` returns the module's exports. For a bare specifier it tries, in order: the built-in module names, protoCore's module discovery, and file-based resolution including `node_modules`. Relative and absolute specifiers use file-based resolution only; native addons are loaded first when several candidate files exist.
