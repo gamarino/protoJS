@@ -12,10 +12,11 @@ name: Cross-platform
 #     with the SAME expected-failures baseline and the same accounting as
 #     Linux (tests/test262/runner/regression_gate.py): a test that fails here
 #     and passes on Linux is a regression of this platform, and the reverse is a
-#     stale baseline. The one exception is the short, evidence-based list in
-#     tests/test262/config/layout_dependent_tests.json: tests whose verdict
-#     depends on property enumeration order, which follows key addresses
-#     (docs/TEST262_STATUS.md). They run and are reported, not gated;
+#     stale baseline. It GATES on macOS. On Windows it runs and reports the
+#     same diff but does not gate (see the step), because there the verdict of
+#     the tests that observe property enumeration order changes from run to
+#     run of the same commit (docs/TEST262_STATUS.md, "Property enumeration
+#     order");
 #   * a timing of two dispatch-bound benchmarks (printed, never asserted).
 #
 # Windows also builds the ZIP package, unpacks it into an empty directory and
@@ -181,6 +182,20 @@ jobs:
       - name: Test262 regression gate, built-ins/{Object,Reflect,Proxy}
         # The script, the baseline and the accounting of ci.yml's Linux gate:
         # the set of non-passing tests must equal the recorded one exactly.
+        #
+        # A gate on macOS; a report on Windows. protoJS enumerates string keys
+        # in the order of the interned key names' addresses, not insertion
+        # order. On Linux and macOS that order is the same from run to run; on
+        # Windows it is not (most likely because Windows randomises where each
+        # OS allocation lands, not only the base), and the order-observing
+        # tests change verdict
+        # between runs of one commit: fe611bd94 passed exactly in run
+        # 36973056352 and failed defineProperties/15.2.3.7-6-a-93-1 and -93-3
+        # in run 36973932562. A gate that changes its verdict without a change
+        # in the code is not a gate, so on Windows the diff is printed and put
+        # in the summary, and the step does not fail the job, until property
+        # order is insertion order (a protoCore object-model change).
+        continue-on-error: ${{ runner.os == 'Windows' }}
         working-directory: protoJS
         env:
           TEST262_CONCURRENCY: '1'
@@ -188,8 +203,7 @@ jobs:
           set +e
           "$PROTOJS_PY" tests/test262/runner/regression_gate.py \
             --binary "$PROTOJS_BIN" \
-            --corpus ../test262 \
-            --layout-dependent tests/test262/config/layout_dependent_tests.json > gate.log 2>&1
+            --corpus ../test262 > gate.log 2>&1
           STATUS=$?
           set -e
           sed -n '/=== Test262 regression gate/,$p' gate.log

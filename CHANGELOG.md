@@ -87,10 +87,9 @@ All notable changes to protoJS are documented in this file.
   addons, `tests/conformity`), so they run on all three platforms.
 - MSVC `/W3`: the 79 conversion warnings it reported in protoJS's sources are
   fixed by type (no behaviour change).
-- `regression_gate.py --layout-dependent`: on macOS and Windows the tests in
-  `tests/test262/config/layout_dependent_tests.json` (two, each with the CI
-  run that showed it diverging) are reported but not gated; see "Known
-  defects" below. Linux does not use the list.
+- The cross-platform Test262 gate is enforced on macOS and reported, not
+  enforced, on Windows: there the order-observing tests change verdict between
+  runs of the same commit (see "Known defects" below).
 
 ### Known defects found by the review (2026-10-02), not fixed
 
@@ -98,8 +97,9 @@ All notable changes to protoJS are documented in this file.
   names, not insertion order (`o.zeta = 1; o.alpha = 2; o.mid = 3` gives
   `Object.keys(o)` = `mid, zeta, alpha`); the addresses depend on the
   allocator's history and differ between platforms. Fixing it needs
-  insertion-ordered attributes in protoCore's object model.
-  docs/TEST262_STATUS.md, "Property enumeration order".
+  insertion-ordered attributes in protoCore's object model. On Windows the
+  order also changes from run to run (most likely allocation-address
+  randomisation; inferred, not traced). docs/TEST262_STATUS.md, "Property enumeration order".
 - Functions of native modules (`fs.readFileSync`, `path.join`, ...) have no
   `call`, `apply` or `bind`: `ProtoNativeModule::addMethod` builds them before
   `Function.prototype` exists.

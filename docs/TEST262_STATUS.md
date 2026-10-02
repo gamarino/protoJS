@@ -125,7 +125,10 @@ check in [CONFORMANCE.md](CONFORMANCE.md), which takes minutes. Since
 2026-10-02 the same gate, with the same Linux baseline, also runs on macOS 14
 (arm64, Apple clang) and Windows Server 2022 (MSVC), in
 `.github/workflows/cross-platform.yml`; on 2026-10-02 it gave 3,619 of 3,875
-on macOS, exactly the Linux failure set (cross-platform run 36971824910).
+on macOS, exactly the Linux failure set, in three runs out of three, and on
+Windows between 3,617 and 3,619 -- the difference always in tests that
+observe property order (below), which is why it gates on macOS and only
+reports on Windows.
 The whole-corpus figure above is Linux only; no CI job measures it on macOS or
 Windows. (A 7,316-test subset run once by hand on a Windows 11 host during the
 port -- 6,325 passing against 6,324 on Linux -- is recorded in the changelog;
@@ -149,12 +152,16 @@ Symbol-keyed properties are not affected: since 2026-10-02 every report of
 symbol keys orders them by the symbols' creation, after the string keys and
 with array indices first, the same on every platform.
 
-The per-commit gate's baseline is recorded on Linux. On macOS and Windows the
-tests listed in `tests/test262/config/layout_dependent_tests.json` -- each one
-with the run in which it diverged -- are run and reported but not gated
-(`regression_gate.py --layout-dependent`); every other test is gated exactly
-as on Linux. As of 2026-10-02 the list holds two tests, both diverging on
-Windows only.
+On Linux and macOS the order is the same from run to run, so the per-commit
+gate's Linux baseline gates both. On Windows it is not -- most likely because
+Windows randomises where each OS allocation lands, so the relative order of
+protoCore's memory chunks changes per process (an inference; not traced) --
+and the tests that observe key order
+change verdict between two runs of the same commit (fe611bd94: exact baseline
+in cross-platform run 36973056352; `defineProperties/15.2.3.7-6-a-93-1` and
+`-93-3` failing in run 36973932562). The Windows jobs therefore run the gate
+and report its diff, but do not fail on it, until property order is insertion
+order.
 
 ---
 

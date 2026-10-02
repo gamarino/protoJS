@@ -206,11 +206,12 @@ Windows Server 2022 (MSVC, x64) twice -- against protoCore 2.8.0 and against
   platforms.
 - Test262: the per-commit regression gate (`built-ins/Object`, `Reflect`,
   `Proxy`; 3,875 tests) with the Linux expected-failures baseline. macOS gives
-  the Linux failure set exactly. Windows differs only in tests whose verdict
-  depends on property enumeration order, which follows key addresses and so
-  the platform's allocator ([TEST262_STATUS.md](TEST262_STATUS.md#property-enumeration-order));
-  those, listed with the run that showed them, are reported and not gated.
-  The whole corpus is measured on Linux only.
+  the Linux failure set exactly and is gated. Windows gives 3,617 to 3,619,
+  the difference always in tests that observe property enumeration order,
+  which follows key addresses and on Windows changes from run to run
+  ([TEST262_STATUS.md](TEST262_STATUS.md#property-enumeration-order)); there
+  the gate's diff is reported, not enforced. The whole corpus is measured on
+  Linux only.
 - The ZIP is built, unpacked into an empty directory and run with a PATH
   holding only the Windows system directories.
 

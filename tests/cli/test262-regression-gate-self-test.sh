@@ -13,8 +13,6 @@
 #   3. a test that failed at the baseline now passing       -> exit 1, named
 #   4. the corpus at a different commit                     -> exit 2 (premise)
 #   5. a different denominator                              -> exit 2 (premise)
-#   6. with --layout-dependent: a listed test diverging        -> exit 0, reported
-#   7. with --layout-dependent: an unlisted test regressing    -> exit 1, named
 #
 # Cases 2 and 3 are the whole reason the gate is a set diff rather than a
 # percentage: mutate one result each way and the pass rate is unchanged to two
@@ -84,12 +82,10 @@ if grep -q 'a/skipped.js' "$SCRATCH/baseline.json"; then
     exit 1
 fi
 
-# $1 case name, $2 snapshot, $3 expected exit, $4 expected substring,
-# $5.. extra gate arguments
+# $1 case name, $2 snapshot, $3 expected exit, $4 expected substring
 check() {
     local name="$1" snap="$2" want_rc="$3" want_text="$4" out rc
-    shift 4
-    out=$("${PROTOJS_PYTHON:-python3}" "$GATE" --snapshot "$snap" --baseline "$SCRATCH/baseline.json" "$@" 2>&1)
+    out=$("${PROTOJS_PYTHON:-python3}" "$GATE" --snapshot "$snap" --baseline "$SCRATCH/baseline.json" 2>&1)
     rc=$?
     if [ "$rc" -ne "$want_rc" ]; then
         echo "FAIL [$name]: exit $rc, expected $want_rc"
@@ -138,24 +134,8 @@ check "corpus-not-pinned" "$SCRATCH/othercommit.json" 2 "The corpus must be pinn
 write_snapshot "$SCRATCH/otherdenom.json" "$PIN" 7 "${BASE_ARGS[@]}"
 check "denominator-moved" "$SCRATCH/otherdenom.json" 2 "not comparable"
 
-# The layout-dependent list (macOS and Windows): a listed test that
-#    diverges is reported and not gated, in both directions; an unlisted test
-#    that regresses still fails the gate. The list can therefore never hide a
-#    regression it does not name.
-printf '{"tests": [{"path": "a/pass2.js"}, {"path": "a/fail_syn.js"}]}\n' > "$SCRATCH/layout.json"
-write_snapshot "$SCRATCH/layout-diverged.json" "$PIN" 5 \
-    "a/pass1.js:passed" "a/pass2.js:failed_semantics" "a/pass3.js:passed" \
-    "a/fail_sem.js:failed_semantics" "a/fail_syn.js:passed" "a/skipped.js:skipped"
-check "layout-dependent-listed" "$SCRATCH/layout-diverged.json" 0 \
-    "LAYOUT-DEPENDENT fails here, passes on Linux: a/pass2.js" --layout-dependent "$SCRATCH/layout.json"
-write_snapshot "$SCRATCH/layout-regressed.json" "$PIN" 5 \
-    "a/pass1.js:failed_semantics" "a/pass2.js:failed_semantics" "a/pass3.js:passed" \
-    "a/fail_sem.js:failed_semantics" "a/fail_syn.js:failed_syntax" "a/skipped.js:skipped"
-check "layout-dependent-unlisted" "$SCRATCH/layout-regressed.json" 1 \
-    "REGRESSION (passed before, fails now): a/pass1.js" --layout-dependent "$SCRATCH/layout.json"
-
 if [ "$failures" -ne 0 ]; then
-    echo "FAIL: $failures of 8 regression-gate cases failed"
+    echo "FAIL: $failures of 6 regression-gate cases failed"
     exit 1
 fi
 echo OK
