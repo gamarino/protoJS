@@ -4,6 +4,50 @@ All notable changes to protoJS are documented in this file.
 
 ## [Unreleased]
 
+### Fixed — interpreter defects found by the Windows-port review (2026-10-02)
+
+The `path` fixtures had worked around the first three; they are Node's tests
+again (`fn.apply`, `s.replace(/c/g, r)`, the shim's own `assert.throws`).
+
+- **Native module functions are functions.** `path.join`, `fs.readFileSync`,
+  `console.log`, ... had no `call`, `apply` or `bind` and were not
+  `instanceof Function`: every native wrapper takes the space's method
+  prototype as its `[[Prototype]]`, and the native modules are built before
+  the first script runs, when that prototype was still `Object.prototype`.
+  `Function.prototype` is now created together with the native global
+  (`JSContextWrapper::getNativeGlobal`), so everything built on it inherits
+  from it. Test: `js/basic/native_function_prototype`.
+- **Global RegExp walks advance as specified.** `@@replace` (so `replace` and
+  `replaceAll`) advanced `lastIndex` by one after every match that ended where
+  `lastIndex` already was -- i.e. after every match -- and skipped the next
+  character (`'a//b/c'.replace(/\//g, 'Q')` gave `aQ/bQc`); only an empty
+  match advances, by `AdvanceStringIndex` (a whole surrogate pair under `/u`
+  or `/v`). `@@match` did not advance after an empty match at all
+  (`'xyz'.match(/(?:)/g)` had 1 element instead of 4) and returned
+  `undefined` instead of `null` when nothing matched; `matchAll` and `split`
+  advanced by one code unit under `/u`. `exec` with `lastIndex` past the end
+  read beyond the string (`'/'.replace(/\//g, 'Q')` crashed,
+  `'abc'.replace(/x*/g, '-')` never ended); it now returns `null` and resets
+  `lastIndex` to 0. Test: `js/basic/regexp_global_advance`.
+- **Exceptions cross module boundaries.** A function is named by its index in
+  its module's function table, and a closure records the table -- except
+  closures created by the main script, which were resolved against the
+  running module's table. A callback the main script passed to a required
+  module therefore ran one of that module's functions instead: an exception it
+  threw was lost (or replaced by "is not a function"), uncaught it was not
+  reported, and the exit status was 0. Every closure now records its table,
+  and `callJSFunction` resolves through the same function as the other
+  dispatch sites. Tests: `js/modules/test_cross_module_exception`,
+  `cli/cross-module-exceptions`.
+- **`process.exit()` ends the process cleanly.** It called `exit()`, whose
+  static destructors shut the thread pools down underneath the running
+  runtime: the process died with SIGSEGV instead of the requested code, from
+  a callback and at top level alike. It now flushes the standard streams,
+  runs the exit hooks (the Windows console code pages) and ends the process
+  (`src/platform/ProcessExit.h`); pending asynchronous work is abandoned, as
+  in Node. Test: `cli/process-exit` (top level, `setImmediate`, a promise
+  reaction, an I/O completion, a worker's `exit` handler).
+
 ### Fixed — Windows-port review (2026-10-02)
 
 - **REPL commands on Windows.** The standard streams are binary, so a console
@@ -93,9 +137,9 @@ All notable changes to protoJS are documented in this file.
   fixed by type (no behaviour change).
 - The cross-platform Test262 gate is enforced on macOS and reported, not
   enforced, on Windows: there the order-observing tests change verdict between
-  runs of the same commit (see "Known defects" below).
+  runs of the same commit (see "Known defect" below).
 
-### Known defects found by the review (2026-10-02), not fixed
+### Known defect found by the review (2026-10-02), not fixed
 
 - **Property enumeration order** follows the addresses of the interned key
   names, not insertion order (`o.zeta = 1; o.alpha = 2; o.mid = 3` gives
@@ -104,19 +148,6 @@ All notable changes to protoJS are documented in this file.
   insertion-ordered attributes in protoCore's object model. On Windows the
   order also changes from run to run (most likely allocation-address
   randomisation; inferred, not traced). docs/TEST262_STATUS.md, "Property enumeration order".
-- Functions of native modules (`fs.readFileSync`, `path.join`, ...) have no
-  `call`, `apply` or `bind`: `ProtoNativeModule::addMethod` builds them before
-  `Function.prototype` exists.
-- `RegExp.prototype[Symbol.replace]` with a global regex skips one character
-  after every match (`'a//b/c'.replace(/\//g, 'Q')` gives `aQ/bQc`), and
-  `exec` with `lastIndex` past the end reads out of bounds
-  (`'/'.replace(/\//g, 'Q')` crashes): `src/RegExpPrototype.cpp`.
-- An exception thrown by a function of one module and caught by a `try` in
-  another module is lost or replaced.
-- `process.exit()` called from an event callback (a worker's `exit` handler)
-  crashes the process on the way out.
-The `path` fixtures work around the second, third and fourth without
-dropping an assertion (each change is marked `protoJS:`).
 
 ### Fixed — top-level bindings survive a collection (2026-10-01)
 

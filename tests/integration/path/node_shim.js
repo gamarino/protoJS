@@ -88,12 +88,6 @@ assert.match = function(string, regexp, message) {
 
 // assert.throws(fn, { code, name, message }): every listed property of the
 // thrown error must be equal.
-//
-// The try/catch lives in throwsIn(), which a test file instantiates with its
-// own try/catch (see below), because protoJS loses an exception thrown by a
-// function of one module and caught by a try statement of another: the catch
-// block never sees it, or sees an unrelated error. Inside one module the
-// exception is caught as it must be. Node runs this shim unchanged.
 function checkThrown(threw, error, expected) {
   count++;
   if (!threw) fail('expected the function to throw');
@@ -109,10 +103,7 @@ function checkThrown(threw, error, expected) {
     }
   }
 }
-assert.checkThrown = checkThrown;
 
-// The default assert.throws, correct wherever the callback and this try
-// statement need not cross a module boundary.
 assert.throws = function(fn, expected) {
   let threw = false;
   let error;

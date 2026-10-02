@@ -2,11 +2,6 @@
 // node_shim.js for the notice). Node's test harness is replaced by
 // ./node_shim.js; every other change is marked 'protoJS:'.
 'use strict';
-// protoJS: `fn(...args)` instead of `fn.apply(null, args)`: protoJS's native
-// module functions do not inherit Function.prototype (no call/apply/bind).
-// protoJS: `s.split(c).join(r)` instead of `s.replace(/c/g, r)`: a global
-// RegExp replace in protoJS skips the character after each match and crashes
-// when the last match ends the string (RegExpPrototype.cpp).
 const common = require('./node_shim').common;
 const assert = require('./node_shim').assert;
 const path = require('path');
@@ -60,13 +55,13 @@ const resolveTests = [
 ];
 resolveTests.forEach(([resolve, tests]) => {
   tests.forEach(([test, expected]) => {
-    const actual = resolve(...test);
+    const actual = resolve.apply(null, test);
     let actualAlt;
     const os = resolve === path.win32.resolve ? 'win32' : 'posix';
     if (resolve === path.win32.resolve && !common.isWindows)
-      actualAlt = actual.split('\\').join('/');
+      actualAlt = actual.replace(backslashRE, '/');
     else if (resolve !== path.win32.resolve && common.isWindows)
-      actualAlt = actual.split('/').join('\\');
+      actualAlt = actual.replace(slashRE, '\\');
 
     const message =
       `path.${os}.resolve(${test.map(JSON.stringify).join(',')})\n  expect=${

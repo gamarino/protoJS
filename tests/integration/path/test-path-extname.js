@@ -2,9 +2,6 @@
 // node_shim.js for the notice). Node's test harness is replaced by
 // ./node_shim.js; every other change is marked 'protoJS:'.
 'use strict';
-// protoJS: `s.split(c).join(r)` instead of `s.replace(/c/g, r)`: a global
-// RegExp replace in protoJS skips the character after each match and crashes
-// when the last match ends the string (RegExpPrototype.cpp).
 const assert = require('./node_shim').assert;
 const path = require('path');
 
@@ -64,7 +61,7 @@ for (const testPath of testPaths) {
     let input = testPath[0];
     let os;
     if (extname === path.win32.extname) {
-      input = input.split('/').join('\\');
+      input = input.replace(slashRE, '\\');
       os = 'win32';
     } else {
       os = 'posix';
@@ -75,7 +72,7 @@ for (const testPath of testPaths) {
     if (actual !== expected)
       failures.push(`\n${message}`);
   }
-  const input = `C:${testPath[0].split('/').join('\\')}`;
+  const input = `C:${testPath[0].replace(slashRE, '\\')}`;
   const actual = path.win32.extname(input);
   const message = `path.win32.extname(${JSON.stringify(input)})\n  expect=${
     JSON.stringify(expected)}\n  actual=${JSON.stringify(actual)}`;

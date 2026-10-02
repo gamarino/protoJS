@@ -23,25 +23,8 @@
 // node_shim.js for the notice). Node's test harness is replaced by
 // ./node_shim.js; every other change is marked 'protoJS:'.
 'use strict';
-// protoJS: `fn(...args)` instead of `fn.apply(null, args)`: protoJS's native
-// module functions do not inherit Function.prototype (no call/apply/bind).
 const common = require('./node_shim').common;
 const assert = require('./node_shim').assert;
-// protoJS: assert.throws is redefined here so that its try statement is in
-// the same module as the functions that throw. protoJS loses an exception
-// thrown in one module and caught by a try statement in another (see
-// node_shim.js); the checks are still the shim's (assert.checkThrown).
-assert.throws = function(fn, expected) {
-  let threw = false;
-  let error;
-  try {
-    fn();
-  } catch (e) {
-    threw = true;
-    error = e;
-  }
-  assert.checkThrown(threw, error, expected);
-};
 const path = require('path');
 
 const winPaths = [
@@ -195,7 +178,7 @@ assert.strictEqual(failures.length, 0, failures.join(''));
 function checkErrors(path) {
   errors.forEach(({ method, input }) => {
     assert.throws(() => {
-      path[method](...input);
+      path[method].apply(path, input);
     }, {
       code: 'ERR_INVALID_ARG_TYPE',
       name: 'TypeError'
