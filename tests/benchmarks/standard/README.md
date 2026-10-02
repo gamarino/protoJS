@@ -5,6 +5,7 @@ Self-contained benchmark scripts used to compare protoJS with Node.js and with a
 - uses only common ECMAScript features and no `require`, so it runs unchanged under `protojs`, `node` and QuickJS;
 - repeats its workload several times (`ITERATIONS`) and takes the median time measured inside the script;
 - prints one final line `__BENCH_RESULT__<json>` whose `time_ms` field the runners read, so that process start-up time is not measured.
+- `function_calls.js` and `tree_traversal.js` also report the value they computed (`state`, `sum`) in that line and throw when it is wrong, so a crash or an early stop cannot pass for a fast run.
 
 ## Benchmarks
 

@@ -28,5 +28,12 @@ for (var k = 0; k < ITERATIONS; k++) {
 }
 times.sort(function(a, b) { return a - b; });
 var median = times[Math.floor(ITERATIONS / 2)];
-var result = { name: 'tree_traversal', time_ms: median, iterations: ITERATIONS, depth: DEPTH };
+// The benchmark reports the sum it computed and checks it, so a crash or an
+// early stop cannot pass for a fast run: S(0) = 1, S(d) = d + 2 * S(d - 1).
+var expectedSum = 1;
+for (var d = 1; d <= DEPTH; d++) expectedSum = d + 2 * expectedSum;
+if (sum !== expectedSum) {
+    throw new Error('tree_traversal: sum = ' + sum + ', expected ' + expectedSum);
+}
+var result = { name: 'tree_traversal', time_ms: median, iterations: ITERATIONS, depth: DEPTH, sum: sum };
 console.log('__BENCH_RESULT__' + JSON.stringify(result));

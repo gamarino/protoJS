@@ -26,8 +26,12 @@ for (let k = 0; k < ITERATIONS; k++) {
 times.sort(function (a, b) { return a - b; });
 const median = times[Math.floor(ITERATIONS / 2)];
 
-// Prevent dead code elimination of the final state
-if (state === 0) console.log("State zero");
+// The benchmark reports the value it computed and checks it, so a crash or an
+// early stop cannot pass for a fast run: state starts at 1 and every call adds 1.
+const expectedState = 1 + ITERATIONS * CALLS;
+if (state !== expectedState) {
+    throw new Error('function_calls: state = ' + state + ', expected ' + expectedState);
+}
 
-const result = { name: 'function_calls', time_ms: median, iterations: ITERATIONS, calls: CALLS };
+const result = { name: 'function_calls', time_ms: median, iterations: ITERATIONS, calls: CALLS, state: state };
 console.log('__BENCH_RESULT__' + JSON.stringify(result));
