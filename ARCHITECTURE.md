@@ -224,10 +224,10 @@ static JSValue TypeBridge::toJS(
 
 **`Deferred` on the protoCore-native global** (`src/ProtoDeferred.cpp`):
 
-1. `new Deferred(workerFn)` creates a pending instance and schedules `workerFn` on the next event-loop turn, on the main thread.
-2. The function's return value fulfils the Deferred; a thrown exception rejects it.
-3. `.then(cb)` and `.catch(cb)` register callbacks, which are drained through the EventLoop.
-4. `workerFn` and the instance are pinned in the wrapper's root set until the callback runs.
+1. `new Deferred(workerFn)` creates a promise whose prototype is `Deferred.prototype` (a child of `Promise.prototype`) and queues `workerFn` on the wrapper's Deferred pool (`src/DeferredPool.cpp`): ProtoThreads of the same space, started on first use, as many as the CPU pool.
+2. A pool thread runs `workerFn` with the owner wrapper current, its own `JSContextWrapper::ThreadView` (global-root slot, QuickJS context, protoCore context) and its own job queue, after adopting the owner's identity objects (`src/runtime/ThreadIdentity.h`). Objects are shared, not copied.
+3. The outcome goes back through `MicrotaskQueue::enqueueFromAnyThread`; the Deferred is resolved or rejected on the owner thread as a microtask, and its reactions are ordinary promise jobs there.
+4. `workerFn`, the Deferred and the outcome are pinned in the wrapper's root set until the Deferred is settled.
 
 **`protoCore.runInThread(workerName, args)`** (`src/ProtoCoreNativeBindings.cpp`):
 

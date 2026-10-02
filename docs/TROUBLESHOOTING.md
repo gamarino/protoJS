@@ -140,9 +140,20 @@ The Deferred constructor needs a callable argument. `Deferred()` and
 that nothing could settle, and the process waited out the 180-second event-loop
 timeout before exiting.
 
-### Deferreds do not run in parallel
+### `Error: setImmediate() is not available inside a Deferred function`
 
-A Deferred runs its function on the main thread's event loop, one at a time. For parallel CPU work use `protoCore.runInThread`, or `worker_threads`.
+A Deferred's function runs on a pool thread and computes; it cannot schedule
+work on the caller's event loop, load modules or start workers
+(`setImmediate`, `require`, `new Worker` throw there). Require modules before
+creating the Deferred, and schedule follow-up work in its `then` callback,
+which runs on the calling thread. See [DEFERRED_USAGE.md](DEFERRED_USAGE.md).
+
+### A counter updated by several Deferreds comes out too small
+
+Each write to a shared object is atomic, but `x.n = x.n + 1` is a read and a
+write: two Deferreds doing it at once can lose an update. Return values and
+combine them on the calling thread, or use `protoCore.Set` / `Multiset` /
+`SparseList`, which do not lose updates. See [DEFERRED_USAGE.md](DEFERRED_USAGE.md).
 
 ---
 

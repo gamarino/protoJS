@@ -247,6 +247,20 @@ ProtoJS is a JavaScript runtime that leverages protoCore as the foundation for o
 
 **Status:** ✅ **IMPLEMENTED & VERIFIED**
 
+> **Correction (2026-10-02).** This status did not stay true. Parallel
+> Deferred was implemented on the QuickJS-based runtime (c2a9ffaf7, bytecode
+> transfer; 33d12b2b3, workers and Deferred as ProtoThreads), but when the
+> runtime moved to the protoCore interpreter, 29bd97423 (2026-04-26)
+> re-implemented `Deferred` to run its function on the event loop's next turn,
+> on the main thread: from then until 2026-10-02 a Deferred did not run in
+> parallel, and the "verified" claim was not re-checked. Parallel execution
+> was restored on the protoCore interpreter on branch
+> `feature/parallel-deferred` (a pool of protoCore threads of the same space,
+> sharing objects without copying); see
+> [docs/DEFERRED_USAGE.md](../DEFERRED_USAGE.md) and
+> `benchmarks/reports/2026-10-02-parallel-deferred.md`. The bytecode
+> serialisation described below is not used by that implementation.
+
 **Architecture Features:**
 - ✅ **ThreadPoolExecutor** (generic reusable pool)
   - Thread-safe task queue

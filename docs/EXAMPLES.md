@@ -26,7 +26,7 @@ for (let i = 0; i < TASKS; i++) {
 
 ## Deferred
 
-The function runs on a later event-loop turn of the main thread, receives no arguments, and its return value fulfils the Deferred. See [DEFERRED_USAGE.md](DEFERRED_USAGE.md).
+The function runs in parallel on a thread of the Deferred pool, receives no arguments, and its return value fulfils the Deferred, a promise of the calling thread. See [DEFERRED_USAGE.md](DEFERRED_USAGE.md).
 
 ```javascript
 const d = new Deferred(() => {

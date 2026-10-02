@@ -34,6 +34,7 @@ Four language runtimes (protoJS, protoPython, protoST, protoClojure) and protoCp
 
 - **protoCore execution path.** QuickJS (vendored in `deps/quickjs/`) compiles source to bytecode; `src/runtime/` loads that bytecode and executes it on a protoCore-native interpreter. There is no QuickJS interpreter fallback (see [src/runtime/README.md](src/runtime/README.md)).
 - **protoCore data structures.** Array elements are stored in protoCore's immutable `ProtoList` and updated by structural sharing; strings are protoCore ropes.
+- **Parallel JavaScript with `Deferred`.** `new Promise(executor)` runs on the calling thread; `new Deferred(fn)` runs `fn` on a pool of protoCore threads of the same object space, sharing the script's objects without copying (immutable values directly, mutable objects as atomic references to immutable snapshots), and settles as an ordinary promise on the calling thread. No new syntax: the constructor chooses. See [docs/DEFERRED_USAGE.md](docs/DEFERRED_USAGE.md) and the [benchmarks against Node.js worker_threads](benchmarks/reports/2026-10-02-parallel-deferred.md).
 - **Native threads.** `protoCore.runInThread` runs a registered C++ worker on a new protoCore thread that shares the same object space, without serialising arguments or results.
 - **Garbage collection** is provided by protoCore's collector.
 - **Promises and async functions per ECMA-262.** Promise reactions run as jobs on a per-thread microtask queue, drained after the main script and after every event-loop callback, in the order Node runs them; `await` suspends the async function and resumes it from a job; async generators queue their requests; an unhandled rejection ends the process with status 1. See [Promises and async functions](docs/API_REFERENCE.md#promises-and-async-functions).
@@ -155,8 +156,9 @@ Globals and asynchronous work:
 ```javascript
 console.log("Hello from protoJS!");
 
-// Deferred: the function runs on a later turn of the event loop;
-// its return value fulfils the Deferred and an exception rejects it.
+// Deferred: the function runs in parallel on a pool thread, sharing the
+// script's objects; its return value fulfils the Deferred (a promise of the
+// calling thread) and an exception rejects it.
 new Deferred(() => 6 * 7)
     .then((value) => console.log("Deferred result:", value))
     .catch((error) => console.log("Deferred failed:", error));

@@ -8,7 +8,7 @@ Index of the documentation in this repository. Start with the [project README](.
 - [INSTALLATION.md](INSTALLATION.md) — building and installing protoJS and its protoCore dependency from source, and building packages locally (no prebuilt packages are published).
 - [API_REFERENCE.md](API_REFERENCE.md) — command-line options, environment variables, and the globals installed for scripts.
 - [EXAMPLES.md](EXAMPLES.md) — short example scripts.
-- [DEFERRED_USAGE.md](DEFERRED_USAGE.md) — `Deferred`, protoJS's promise-like object, whose function runs on the main thread's event loop.
+- [DEFERRED_USAGE.md](DEFERRED_USAGE.md) — `Deferred`, a promise whose function runs in parallel on a pool of protoCore threads sharing the script's objects.
 - [PROTOCORE_MODULE.md](PROTOCORE_MODULE.md) — the `protoCore` global: `runInThread` for native work on protoCore threads, and the collection helpers not yet reachable from scripts.
 - [NATIVE_MODULES.md](NATIVE_MODULES.md) — loading native C++ addon modules through `require()`.
 - [THREAD_POOLS.md](THREAD_POOLS.md) — the CPU and I/O thread pools and their options.
