@@ -5,6 +5,10 @@
 #include <string>
 #include <vector>
 
+#if defined(_WIN32)
+#include "../platform/Posix.h" // <windows.h>, widen/narrow
+#endif
+
 namespace protojs {
 
 void REPL::start(JSContext* ctx) {
@@ -27,16 +31,26 @@ void REPL::start(JSContext* ctx) {
         }
 
         std::string line;
+        bool haveLine;
         {
             proto::ProtoContext::UnmanagedScope u(pctx);
-            line = readLine();
+            haveLine = readLine(line);
+        }
+        if (!haveLine) {
+            // End of input (a closed pipe, Ctrl+D, or Ctrl+Z at a Windows
+            // console): leave as Node's REPL does, after a final newline so
+            // the shell prompt does not follow ours on the same line.
+            std::cout << std::endl;
+            return;
         }
         if (line.empty() && lineCount == 0) {
             continue;
         }
         
         if (lineCount == 0 && isSpecialCommand(line)) {
-            handleSpecialCommand(ctx, line);
+            if (handleSpecialCommand(ctx, line)) {
+                return;
+            }
             continue;
         }
         
@@ -74,10 +88,45 @@ void REPL::start(JSContext* ctx) {
     }
 }
 
-std::string REPL::readLine() {
-    std::string line;
-    std::getline(std::cin, line);
-    return line;
+bool REPL::readLine(std::string& line) {
+    line.clear();
+#if defined(_WIN32)
+    // A console is read as UTF-16 and converted to UTF-8, so non-ASCII input
+    // works whatever the console's code page; the narrow C runtime read would
+    // hand over code-page bytes (or nothing, for characters outside it).
+    HANDLE in = ::GetStdHandle(STD_INPUT_HANDLE);
+    DWORD mode = 0;
+    if (in != INVALID_HANDLE_VALUE && in != nullptr && ::GetConsoleMode(in, &mode)) {
+        std::wstring wline;
+        wchar_t buf[512];
+        for (;;) {
+            DWORD got = 0;
+            if (!::ReadConsoleW(in, buf, static_cast<DWORD>(sizeof(buf) / sizeof(buf[0])), &got,
+                                nullptr) || got == 0) {
+                if (wline.empty()) return false;
+                break;
+            }
+            wline.append(buf, got);
+            if (wline.back() == L'\n') break;
+        }
+        // Ctrl+Z at the start of a line is the console's end of input.
+        if (!wline.empty() && wline[0] == 0x1A) return false;
+        line = protojs::platform::narrow(wline);
+    } else
+#endif
+    {
+        if (!std::getline(std::cin, line)) {
+            if (line.empty()) return false;
+        }
+    }
+    // A line may end in "\r\n": a Windows console, or input piped from a
+    // Windows program, through standard streams that are binary on every
+    // platform (main.cpp, prepareStandardStreams). The terminator is not part
+    // of the line, or ".exit\r" would not be ".exit" and "\r" not blank.
+    while (!line.empty() && (line.back() == '\n' || line.back() == '\r')) {
+        line.pop_back();
+    }
+    return true;
 }
 
 bool REPL::isCompleteInput(const std::string& input) {
@@ -125,10 +174,13 @@ bool REPL::isSpecialCommand(const std::string& input) {
     return input.length() > 0 && input[0] == '.';
 }
 
-void REPL::handleSpecialCommand(JSContext* ctx, const std::string& command) {
+bool REPL::handleSpecialCommand(JSContext* /*ctx*/, const std::string& command) {
     if (command == ".exit" || command == ".quit") {
+        // Return to main() instead of calling exit(): exit() ran the static
+        // destructors while the runtime's threads and the protoCore space were
+        // still alive, and the process crashed on the way out.
         std::cout << "Exiting REPL" << std::endl;
-        exit(0);
+        return true;
     } else if (command == ".help") {
         std::cout << "Special commands:" << std::endl;
         std::cout << "  .help    Show this help" << std::endl;
@@ -140,6 +192,7 @@ void REPL::handleSpecialCommand(JSContext* ctx, const std::string& command) {
     } else {
         std::cout << "Unknown command: " << command << std::endl;
     }
+    return false;
 }
 
 } // namespace protojs
