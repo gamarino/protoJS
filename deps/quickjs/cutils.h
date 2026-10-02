@@ -44,28 +44,34 @@
 #define __maybe_unused
 #define __attribute__(x)
 #define __attribute(x)
-/* <sys/time.h> is POSIX: the two callers in quickjs.c want the UTC time. */
-#ifndef _WINSOCKAPI_ /* winsock.h declares the same struct */
-struct timeval {
-    long tv_sec;
-    long tv_usec;
-};
-#endif
-static inline int gettimeofday(struct timeval *tv, void *tz)
-{
-    struct timespec ts;
-    (void)tz;
-    timespec_get(&ts, TIME_UTC);
-    tv->tv_sec = (long)ts.tv_sec;
-    tv->tv_usec = (long)(ts.tv_nsec / 1000);
-    return 0;
-}
 #else
 #define likely(x)       __builtin_expect(!!(x), 1)
 #define unlikely(x)     __builtin_expect(!!(x), 0)
 #define force_inline inline __attribute__((always_inline))
 #define no_inline __attribute__((noinline))
 #define __maybe_unused __attribute__((unused))
+#endif
+
+/* protoJS: the UTC time in microseconds since 1970, for the two callers in
+   quickjs.c (Date.now and the Math.random seed). gettimeofday is POSIX; MSVC
+   has timespec_get, whose tv_sec is a 64-bit time_t. (A struct timeval shim
+   would carry a 32-bit long tv_sec on Windows -- winsock's own struct timeval
+   is declared so -- and overflow in 2038.) */
+#if defined(_MSC_VER) && !defined(__clang__)
+static inline int64_t js_utc_time_us(void)
+{
+    struct timespec ts;
+    timespec_get(&ts, TIME_UTC);
+    return (int64_t)ts.tv_sec * 1000000 + (int64_t)(ts.tv_nsec / 1000);
+}
+#else
+#include <sys/time.h>
+static inline int64_t js_utc_time_us(void)
+{
+    struct timeval tv;
+    gettimeofday(&tv, NULL);
+    return (int64_t)tv.tv_sec * 1000000 + tv.tv_usec;
+}
 #endif
 
 #define xglue(x, y) x ## y
