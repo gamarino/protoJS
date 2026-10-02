@@ -36,12 +36,9 @@ var dErr = new Deferred(function () {
 });
 dErr['catch'](function (e) { rejectedWith = e && e.message; });
 
-var hops = 0;
+// Deferreds run on pool threads: wait for them to settle, not for a number of
+// event-loop hops (which says nothing about when work on other threads ends).
 function step() {
-    if (++hops < 20) {
-        setImmediate(step);
-        return;
-    }
     check("fulfils with the value returned by the function",
           fulfilledWith === 499500, "got " + fulfilledWith);
     check("rejects with the error thrown by the function",
@@ -57,4 +54,7 @@ function step() {
     console.log("test_deferred_basic: all checks passed");
 }
 
-setImmediate(step);
+Promise.allSettled([d, dErr]).then(function () {
+    // The reactions registered above ran before this one.
+    step();
+});
