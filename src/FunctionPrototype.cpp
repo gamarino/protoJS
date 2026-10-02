@@ -537,7 +537,7 @@ static const proto::ProtoObject* fnHasInstance(
             next = protojs::proxyDispatchGetPrototypeOf(ctx, cur);
             if (hasCallException()) return PROTO_NONE;
         } else {
-            next = protojs::getJSProtoOverride(cur);
+            next = protojs::getJSProtoOverride(ctx, cur);
             if (!next) next = cur->getPrototype(ctx);
         }
         if (!next || next == PROTO_NONE || next == getNullSentinel())

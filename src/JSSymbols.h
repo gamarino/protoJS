@@ -187,6 +187,12 @@ const proto::ProtoString* hasNonWritableProps(proto::ProtoContext* ctx); // "__h
 // which probe own attributes only.
 const proto::ProtoString* integrity(proto::ProtoContext* ctx);         // "__integrity__"
 
+// The JS [[Prototype]] recorded by Object.create(null) / Object.setPrototypeOf /
+// class definitions, as an OWN attribute of the object it belongs to (read with
+// protojs::getJSProtoOverride, ObjectPrototype.h).
+const proto::ProtoString* protoOverride(proto::ProtoContext* ctx);     // "__js_proto_override__"
+
+
 // ---- TypedArray / ArrayBuffer / DataView internal keys ------------------
 const proto::ProtoString* abData(proto::ProtoContext* ctx);         // "__ab_data__"
 const proto::ProtoString* abDetached(proto::ProtoContext* ctx);     // "__ab_detached__"

@@ -1,4 +1,5 @@
 #include "BehaviorRegistry.h"
+#include "GcScopedCache.h"
 #include <map>
 #include <unordered_map>
 #include <vector>
@@ -123,6 +124,12 @@ namespace protojs {
     namespace {
         struct ObjCacheSlot { const proto::ProtoObject* obj; const JSObjectBehavior* behavior; };
         thread_local ObjCacheSlot t_objCache[256];
+        // The slots are keyed by object address. Once an object is collected
+        // its cell is reused, and a fresh ordinary object at that address
+        // would inherit the dead one's behaviour (a frozen object's, which
+        // silently drops writes). The slots are therefore emptied whenever a
+        // collection has started since the last resolve (GcScopedCache.h).
+        thread_local GcCycleWatch t_objCacheCycle;
 
         // Integrity behaviours are not keyed on a prototype: the level is
         // per-object own state (see ObjectPrototype.h), so resolve() reads
@@ -159,6 +166,9 @@ namespace protojs {
             return defaultBehavior.get();
         }
 
+        if (t_objCacheCycle.changed(ctx)) {
+            for (auto& slot : t_objCache) slot = ObjCacheSlot{nullptr, nullptr};
+        }
         size_t objIdx = objCacheIdx(obj);
         if (t_objCache[objIdx].obj == obj && t_objCache[objIdx].behavior) {
             return t_objCache[objIdx].behavior;

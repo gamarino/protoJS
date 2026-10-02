@@ -28,10 +28,13 @@ void ensureObjectConstructor(proto::ProtoContext* ctx,
 
 /**
  * Return the explicit JS [[Prototype]] override for obj, as set by
- * Object.setPrototypeOf(). Returns nullptr when no override exists.
- * Used by the for-in walk in ProtoInterpreter to honour setPrototypeOf.
+ * Object.create(null) / Object.setPrototypeOf() / class definitions.
+ * Returns nullptr when no override exists. The override is the object's own
+ * internal state (see ObjectPrototype.cpp, "JS [[Prototype]] overrides"), so it
+ * lives and dies with the object.
  */
-const proto::ProtoObject* getJSProtoOverride(const proto::ProtoObject* obj);
+const proto::ProtoObject* getJSProtoOverride(proto::ProtoContext* ctx,
+                                             const proto::ProtoObject* obj);
 
 /**
  * ToPropertyKey(V): coerce any JS value to a ProtoString property key by
@@ -50,8 +53,17 @@ const proto::ProtoString* toPropertyKey(proto::ProtoContext* ctx,
  * the internal string-keyed attribute name back to the originating
  * Symbol value.
  */
-void registerSymbolByStrKey(const std::string& key, const proto::ProtoObject* sym);
-const proto::ProtoObject* lookupSymbolByStrKey(const std::string& key);
+void registerSymbolByStrKey(proto::ProtoContext* ctx, const std::string& key,
+                            const proto::ProtoObject* sym);
+const proto::ProtoObject* lookupSymbolByStrKey(proto::ProtoContext* ctx, const std::string& key);
+
+/**
+ * Symbol.for's registry (ECMA-262 GlobalSymbolRegistry), one per wrapper (so
+ * one per worker), retained for the wrapper's life like the map above.
+ */
+const proto::ProtoObject* symbolForRegistryGet(proto::ProtoContext* ctx, const std::string& key);
+void symbolForRegistrySet(proto::ProtoContext* ctx, const std::string& key,
+                          const proto::ProtoObject* sym);
 
 /**
  * Symbol-keyed properties are stored under an interned attribute name
@@ -83,19 +95,19 @@ void orderOwnPropertyKeys(std::vector<std::string>& keys);
 void sortSymbolsByCreation(proto::ProtoContext* ctx, std::vector<const proto::ProtoObject*>& syms);
 
 /**
- * Record an explicit JS [[Prototype]] override for obj. Used by OP_define_class
- * so Object.getPrototypeOf(DerivedClass) === ParentClass.
- * Pass nullptr to clear any prior override (equivalent to "no override").
+ * Record an explicit JS [[Prototype]] override for obj without touching its
+ * protoCore parent chain. Pass nullptr to clear any prior override.
  */
-void setJSProtoOverride(const proto::ProtoObject* obj,
-                        const proto::ProtoObject* proto);
+void setJSProtoOverrideOnly(proto::ProtoContext* ctx,
+                            const proto::ProtoObject* obj,
+                            const proto::ProtoObject* proto);
 
 /**
  * Same as setJSProtoOverride above, but ALSO rebinds the protoCore parent
  * chain via ProtoObject::setParents when obj is mutable.  Result: the
  * native protoCore walk that backs every getAttribute already sees the
  * new prototype — `resolveFieldOOP`'s extension fallback via
- * `t_jsProtoMap` only ever fires for the immutable edge case.
+ * the recorded override only ever matters for the immutable edge case.
  *
  * For null sentinel (`Object.setPrototypeOf(o, null)`), only the map is
  * updated — emptying the parent list would expose protoCore's internal

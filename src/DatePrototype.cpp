@@ -2118,7 +2118,7 @@ void ensureDateConstructor(proto::ProtoContext* ctx,
         //      Function.prototype, but our impl reports objectPrototype.
         // addParent(methodPrototype) plugs (1) by adding a second
         // C++ parent that resolveFieldOOP's chain walk sees.  To fix
-        // (2) we ALSO install a t_jsProtoMap override so the
+        // (2) we ALSO record a JS [[Prototype]] override so the
         // JS-visible [[Prototype]] points at Function.prototype — the
         // R49 resolveFieldOOP fix (commit 5884845c3) walks the C++
         // parent chain when probing for overrides, so the override

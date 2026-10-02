@@ -23,6 +23,7 @@
 #include "ProtoCoreTypes.h"
 #include <protoCore.h>
 #include "JSSymbols.h"
+#include "runtime/GcScopedCache.h"
 
 #include <string>
 #include <unordered_map>
@@ -134,16 +135,14 @@ numericArrayIndexOrNeg(proto::ProtoContext* ctx,
         // for as long as they're reachable, which they are for the
         // whole iteration.
         //
-        // Cache validation: the second-and-subsequent calls compare
-        // pointers only — no content check.  The risk that motivated
-        // the comment in `ensureInterned` (GC freeing a rope cell and
-        // the arena reusing the slot for a fresh rope with different
-        // content) does NOT apply here: we don't pin anything; if the
-        // key was freed it was unreachable, so no future call site
-        // would still hold the same pointer to look up a stale entry.
-        // The cache lifetime is the thread's lifetime; on thread exit
-        // it dies harmlessly.
-        static thread_local std::unordered_map<const proto::ProtoString*, long long> s_numIdxCache;
+        // GC safety: the key is a cell address, and a collected string's
+        // cell is reused by new strings with other content, so an entry
+        // must not outlive a collection (a reused address would read the
+        // dead string's verdict: a named key taken for an index, or the
+        // reverse). GcScopedCache empties the map whenever a collection
+        // has started since the last access; see runtime/GcScopedCache.h.
+        static thread_local GcScopedCache<const proto::ProtoString*, long long> s_numIdxCacheHolder;
+        auto& s_numIdxCache = s_numIdxCacheHolder.get(ctx);
         auto it = s_numIdxCache.find(s);
         if (it != s_numIdxCache.end()) return it->second;
 

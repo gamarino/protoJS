@@ -66,7 +66,7 @@ static const proto::ProtoObject* propKeyToTrapArg(proto::ProtoContext* ctx,
     std::string ks; propKey->toUTF8String(ctx, ks);
     if (ks.size() >= 6 && ks[0]=='@' && ks[1]=='@'
         && ks[2]=='s' && ks[3]=='y' && ks[4]=='m' && ks[5]=='#') {
-        const proto::ProtoObject* sym = lookupSymbolByStrKey(ks);
+        const proto::ProtoObject* sym = lookupSymbolByStrKey(ctx, ks);
         if (sym) return sym;
     }
     return propKey->asObject(ctx);
@@ -1127,7 +1127,7 @@ const proto::ProtoObject* proxyDispatchGetPrototypeOf(
                 tp = proxyDispatchGetPrototypeOf(ctx, target);
                 if (hasCallException()) return PROTO_NONE;
             } else {
-                const proto::ProtoObject* over = getJSProtoOverride(target);
+                const proto::ProtoObject* over = getJSProtoOverride(ctx, target);
                 tp = over ? over : target->getPrototype(ctx);
                 if (!tp || tp == PROTO_NONE) tp = getNullSentinel();
             }
@@ -1149,7 +1149,7 @@ const proto::ProtoObject* proxyDispatchGetPrototypeOf(
     // gPO-chained `null prototype` test (Proxy/getPrototypeOf/trap-
     // is-null-target-is-proxy.js).
     if (isProxy(ctx, target)) return proxyDispatchGetPrototypeOf(ctx, target);
-    const proto::ProtoObject* over = getJSProtoOverride(target);
+    const proto::ProtoObject* over = getJSProtoOverride(ctx, target);
     if (over) return over;
     const proto::ProtoObject* p = target->getPrototype(ctx);
     return (p && p != PROTO_NONE) ? p : getNullSentinel();
@@ -1230,7 +1230,7 @@ const proto::ProtoObject* proxyDispatchSetPrototypeOf(
         targetProto = proxyDispatchGetPrototypeOf(ctx, target);
         if (hasCallException()) return PROTO_NONE;
     } else {
-        const proto::ProtoObject* over = getJSProtoOverride(target);
+        const proto::ProtoObject* over = getJSProtoOverride(ctx, target);
         if (over) targetProto = over;
         else {
             const proto::ProtoObject* tp = target->getPrototype(ctx);

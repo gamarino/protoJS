@@ -6,6 +6,7 @@
 #include "BehaviorRegistry.h"
 #include "../JSSymbols.h"
 #include "../ArrayElementsStorage.h"
+#include "GcScopedCache.h"
 #include "../ArrayPrototype.h"
 #include "../StringPrototype.h"
 #include "../RegExpPrototype.h"
@@ -113,7 +114,7 @@ static const proto::ProtoObject* resolveFieldOOP(proto::ProtoContext* ctx, const
     } else {
         res = behavior->getField(ctx, obj, key);
     }
-    // Extend the chain via t_jsProtoMap when the protoCore walk did not
+    // Extend the chain via the recorded JS [[Prototype]] override when the protoCore walk did not
     // find the attribute.  Object.setPrototypeOf / OP_define_class register
     // [[Prototype]] overrides here that the protoCore parent walk cannot
     // see.  Also walk forward from each successive override so that
@@ -121,7 +122,7 @@ static const proto::ProtoObject* resolveFieldOOP(proto::ProtoContext* ctx, const
     // include Object.prototype (e.g. String.prototype / Array.prototype
     // built off protoCore's stringPrototype / arrayPrototype) still
     // route lookups onto Object.prototype's own attributes.  Pre-fix the
-    // fallback only consulted obj's direct t_jsProtoMap entry; for a
+    // fallback only consulted obj's direct recorded override; for a
     // \`new String('abc')\` receiver the direct entry was absent so the
     // walk stopped at String.prototype (toString / valueOf resolve) and
     // never reached Object.prototype's hasOwnProperty / isPrototypeOf /
@@ -131,7 +132,7 @@ static const proto::ProtoObject* resolveFieldOOP(proto::ProtoContext* ctx, const
         const proto::ProtoObject* cur = obj;
         for (int depth = 0; depth < 100; ++depth) {
             const proto::ProtoObject* override =
-                protojs::getJSProtoOverride(cur);
+                protojs::getJSProtoOverride(ctx, cur);
             if (override && override != PROTO_NONE
                 && override != t_nullSentinel) {
                 res = override->getAttribute(ctx, key, true);
@@ -142,7 +143,7 @@ static const proto::ProtoObject* resolveFieldOOP(proto::ProtoContext* ctx, const
             // No override on cur — advance one step up the C++ chain so
             // the next iteration can probe its override.  This is the
             // missing piece: when cur is the obj's parent (e.g.
-            // String.prototype), its t_jsProtoMap entry maps to
+            // String.prototype), its recorded override is
             // Object.prototype but the previous code never reached this
             // probe.  getPrototype() returns the C++ parent.
             const proto::ProtoObject* parent = cur->getPrototype(ctx);
@@ -423,41 +424,28 @@ static const proto::ProtoString* ensureInterned(proto::ProtoContext* ctx, const 
     // SAME 100 rope pointers cycle through, so the cache lookup
     // short-circuits every subsequent call with zero allocation.
     //
-    // Cache safety: a rope freed by the GC and replaced at the same
-    // arena slot by a different-content rope would NOT corrupt this
-    // cache, because no caller can still hold the stale pointer — if
-    // they do, the rope wasn't reclaimed and the cache entry is
-    // still valid.  This is the assumption the existing
-    // t_getterSymCache / t_setterSymCache (line 6040) also rely on,
-    // and which the OP_define_field isNumericKey cache uses.
-    static thread_local std::unordered_map<const proto::ProtoString*, const proto::ProtoString*> s_internCache;
+    // GC safety: the key is the rope's cell address. A rope freed by the
+    // collector has its cell reused by a rope with other content, and that
+    // rope would then read the dead rope's symbol -- o['unrelated12'] read
+    // o.property7. (The argument that no caller can still hold a freed
+    // pointer is true and beside the point: the caller holds the NEW
+    // string, at the old address.) GcScopedCache empties the map whenever a
+    // collection has started since the last access, which is before any
+    // cell it refers to can be freed and reused; see GcScopedCache.h.
+    static thread_local GcScopedCache<const proto::ProtoString*, const proto::ProtoString*> s_internCacheHolder;
+    auto& s_internCache = s_internCacheHolder.get(ctx);
     {
         auto it = s_internCache.find(s);
         if (it != s_internCache.end()) return it->second;
     }
 
-    // Routing through createSymbol every call: protoCore's SymbolTable
-    // already deduplicates by content via a 64-shard concurrent
-    // hash, so the per-thread pointer-keyed cache that used to live
-    // here was a micro-optimisation, not load-bearing.  The cache
-    // was unsafe under churn: when the GC freed a rope cell and the
-    // arena reused the slot for a fresh rope with different content,
-    // a hash collision returned the stale symbol — keys ended up
-    // installed under the wrong slot, manifested as obj['k17'] = 17
-    // becoming obj['k_other'] = 17 in object_property-style loops.
-    //
-    // A safe re-introduction (validate every hit by cmp_to_string
-    // against the cached symbol) was measured 2026-06-07 — it sped
-    // object_read_only by ~16% but slowed json_transform by 20% and
-    // string_insert_middle by ~7%, for a net geomean regression of
-    // 9% (22.91x → 24.93x vs QuickJS).  The fundamental issue is
-    // that the validation cmp_to_string costs as much as the
-    // toUTF8String it would skip, so on every cache miss the bench
-    // pays the comparison for nothing, and many real benchmarks see
-    // mostly unique keys.  Any future re-introduction must (a) avoid
-    // the per-hit content compare (e.g. by relying on a generation
-    // token from protoCore's GC) and (b) be measured against the
-    // full bench suite, not just object benches.
+    // History: this pointer-keyed cache was removed once because a rope
+    // freed by the collector and reused for a rope with other content read
+    // the stale symbol (obj['k17'] = 17 landed as obj['k_other'] = 17), and
+    // re-introduced later without a guard. Validating each hit by content
+    // costs as much as the toUTF8String it skips (measured 2026-06-07: a 9%
+    // geomean regression). The collection-cycle scope above is the
+    // generation token that note asked for: it costs one load per call.
     std::string utf8;
     s->toUTF8String(ctx, utf8);
     const proto::ProtoString* result =
@@ -1468,7 +1456,7 @@ static const proto::ProtoObject* reflectOwnKeys(
         // return-on-corresponding-order.js asserted Symbol identity).
         if (ks.size() >= 6 && ks[0]=='@' && ks[1]=='@'
             && ks[2]=='s' && ks[3]=='y' && ks[4]=='m' && ks[5]=='#') {
-            const proto::ProtoObject* sym = protojs::lookupSymbolByStrKey(ks);
+            const proto::ProtoObject* sym = protojs::lookupSymbolByStrKey(ctx, ks);
             if (sym) symKeys.push_back(sym);
             continue;
         }
@@ -1586,7 +1574,7 @@ static const proto::ProtoObject* reflectGetPrototypeOf(
             // §10.5.1 step 8: if target is non-extensible, the result must
             // SameValue target.[[GetPrototypeOf]]().
             if (inner && protojs::jsIsNonExtensible(ctx, inner)) {
-                const proto::ProtoObject* override_ = protojs::getJSProtoOverride(inner);
+                const proto::ProtoObject* override_ = protojs::getJSProtoOverride(ctx, inner);
                 const proto::ProtoObject* actual = override_
                     ? override_
                     : ((inner->getPrototype(ctx) && inner->getPrototype(ctx) != PROTO_NONE)
@@ -1606,7 +1594,7 @@ static const proto::ProtoObject* reflectGetPrototypeOf(
         target = protojs::proxyTarget(ctx, target);
         if (!target) return PROTO_NONE;
     }
-    const proto::ProtoObject* override_ = protojs::getJSProtoOverride(target);
+    const proto::ProtoObject* override_ = protojs::getJSProtoOverride(ctx, target);
     if (override_) return override_;
     const proto::ProtoObject* p = target->getPrototype(ctx);
     return (p && p != PROTO_NONE) ? p : getNullSentinel();
@@ -1978,7 +1966,7 @@ static const proto::ProtoObject* reflectSetPrototypeOf(
         {
             if (protojs::jsIsNonExtensible(ctx, target)) {
                 const proto::ProtoObject* override =
-                    protojs::getJSProtoOverride(target);
+                    protojs::getJSProtoOverride(ctx, target);
                 const proto::ProtoObject* current = (override && override != PROTO_NONE)
                     ? override : target->getPrototype(ctx);
                 if (current != proto) return PROTO_FALSE;
@@ -1996,7 +1984,7 @@ static const proto::ProtoObject* reflectSetPrototypeOf(
             while (walk && walk != PROTO_NONE && walk != getNullSentinel() && depth < 1024) {
                 if (walk == target) return PROTO_FALSE;
                 const proto::ProtoObject* override =
-                    protojs::getJSProtoOverride(walk);
+                    protojs::getJSProtoOverride(ctx, walk);
                 if (override && override != PROTO_NONE) {
                     walk = override;
                 } else {
@@ -2058,12 +2046,14 @@ static const proto::ProtoObject* symbolFor(
             }
         }
     }
-    // Use a process-static map.
-    static std::mutex regMtx;
-    static std::unordered_map<std::string, const proto::ProtoObject*> reg;
-    std::lock_guard<std::mutex> lock(regMtx);
-    auto it = reg.find(keyStr);
-    if (it != reg.end()) return it->second;
+    // The registry is per wrapper and pinned (ObjectPrototype.cpp, "Pinned
+    // registries"). It used to be a process-static C++ map: invisible to the
+    // collector, so a registered symbol nothing else referenced was collected
+    // and Symbol.for returned a dangling pointer; shared between workers,
+    // whose spaces cannot share objects; and guarded by a mutex held across
+    // allocation, which can stall a stop-the-world pause.
+    if (const proto::ProtoObject* known = protojs::symbolForRegistryGet(ctx, keyStr))
+        return known;
     // Build a fresh symbol-like cell, parented at Symbol.prototype so
     // accessor methods (description getter, toString, etc.) reach
     // every Symbol instance.
@@ -2096,7 +2086,7 @@ static const proto::ProtoObject* symbolFor(
         const proto::ProtoString* regK = regObj ? regObj->asString(ctx) : nullptr;
         if (regK) sym = sym->setAttribute(ctx, regK, PROTO_TRUE);
     }
-    reg[keyStr] = sym;
+    if (sym) protojs::symbolForRegistrySet(ctx, keyStr, sym);
     return sym ? sym : PROTO_NONE;
 }
 
@@ -2212,7 +2202,7 @@ static const proto::ProtoObject* symbolConstructor(
                 // Object.getOwnPropertySymbols / Reflect.ownKeys can
                 // translate the internal @@sym#<n> attribute name
                 // back to its Symbol identity.
-                protojs::registerSymbolByStrKey(std::string(buf), sym);
+                protojs::registerSymbolByStrKey(ctx, std::string(buf), sym);
             }
         }
     }
@@ -5932,7 +5922,7 @@ const proto::ProtoObject* runBytecode(proto::ProtoContext* pContext,
     // though they were observably identical (same hasOwnProperty,
     // same toString, etc.). Pin the JS-visible parent of every known
     // builtin prototype to the post-update Object.prototype via the
-    // t_jsProtoMap override table — that's how Object.getPrototypeOf
+    // recorded JS [[Prototype]] override — that's how Object.getPrototypeOf
     // already resolves user-applied setPrototypeOf calls.  The
     // protoCore chain walk still finds the old snapshot's own
     // attributes, but observably Array.prototype.__proto__ now
@@ -5991,7 +5981,7 @@ const proto::ProtoObject* runBytecode(proto::ProtoContext* pContext,
                 // inherit from Error.prototype; everything else from
                 // Object.prototype.  Pre-fix this loop uniformly bound
                 // every builtin ctor.prototype's __proto__ to
-                // Object.prototype — the bug was masked by t_jsProtoMap's
+                // Object.prototype — the bug was masked by the recorded override's
                 // read fallback firing only on chain miss, leaving the
                 // natural protoCore parent chain in place for
                 // `new TypeError() instanceof Error` (test262
@@ -6330,11 +6320,17 @@ const proto::ProtoObject* runBytecode(proto::ProtoContext* pContext,
      * Two caches: one for getter sidecars, one for setter sidecars.  Both
      * keyed on the property-name ProtoString pointer.
      */
-    static thread_local std::unordered_map<const proto::ProtoString*, const proto::ProtoString*> t_getterSymCache;
-    static thread_local std::unordered_map<const proto::ProtoString*, const proto::ProtoString*> t_setterSymCache;
+    // GC safety: a computed key is not always interned, and the cached
+    // value is a heap string, so neither may outlive a collection (a reused
+    // key address would find another property's accessor). GcScopedCache
+    // empties both maps whenever a collection has started since the last
+    // access; see GcScopedCache.h.
+    static thread_local GcScopedCache<const proto::ProtoString*, const proto::ProtoString*> t_getterSymCacheHolder;
+    static thread_local GcScopedCache<const proto::ProtoString*, const proto::ProtoString*> t_setterSymCacheHolder;
 
     auto getterSymbolFor = [&](const proto::ProtoString* key) -> const proto::ProtoString* {
         if (!key) return nullptr;
+        auto& t_getterSymCache = t_getterSymCacheHolder.get(pContext);
         auto it = t_getterSymCache.find(key);
         if (it != t_getterSymCache.end()) return it->second;
         std::string keyStr;
@@ -6347,6 +6343,7 @@ const proto::ProtoObject* runBytecode(proto::ProtoContext* pContext,
     };
     auto setterSymbolFor = [&](const proto::ProtoString* key) -> const proto::ProtoString* {
         if (!key) return nullptr;
+        auto& t_setterSymCache = t_setterSymCacheHolder.get(pContext);
         auto it = t_setterSymCache.find(key);
         if (it != t_setterSymCache.end()) return it->second;
         std::string keyStr;
@@ -8049,7 +8046,7 @@ const proto::ProtoObject* runBytecode(proto::ProtoContext* pContext,
                                 (funcCtor && funcCtor != PROTO_NONE && protoKey2)
                                     ? funcCtor->getAttribute(pContext, protoKey2, false) : nullptr;
                             if (fProto && fProto != PROTO_NONE)
-                                protojs::setJSProtoOverride(ctor, fProto);
+                                protojs::setJSProtoOverrideOnly(pContext, ctor, fProto);
                         }
                     }
                 }
@@ -9164,7 +9161,7 @@ const proto::ProtoObject* runBytecode(proto::ProtoContext* pContext,
                     && name && obj && obj != PROTO_NONE
                     && obj->hasOwnAttribute(pContext, name) != PROTO_TRUE) {
                     auto advance = [&](const proto::ProtoObject* o) -> const proto::ProtoObject* {
-                        const proto::ProtoObject* over = protojs::getJSProtoOverride(o);
+                        const proto::ProtoObject* over = protojs::getJSProtoOverride(pContext, o);
                         if (over) return over;
                         return o->getPrototype(pContext);
                     };
@@ -9305,7 +9302,7 @@ const proto::ProtoObject* runBytecode(proto::ProtoContext* pContext,
                     && key && obj && obj != PROTO_NONE
                     && obj->hasOwnAttribute(pContext, key) != PROTO_TRUE) {
                     auto advance = [&](const proto::ProtoObject* o) -> const proto::ProtoObject* {
-                        const proto::ProtoObject* over = protojs::getJSProtoOverride(o);
+                        const proto::ProtoObject* over = protojs::getJSProtoOverride(pContext, o);
                         if (over) return over;
                         return o->getPrototype(pContext);
                     };
@@ -9461,7 +9458,7 @@ const proto::ProtoObject* runBytecode(proto::ProtoContext* pContext,
                     }
                     if (!hasOwnAccessor) {
                         auto advance = [&](const proto::ProtoObject* o) -> const proto::ProtoObject* {
-                            const proto::ProtoObject* over = protojs::getJSProtoOverride(o);
+                            const proto::ProtoObject* over = protojs::getJSProtoOverride(pContext, o);
                             if (over) return over;
                             return o->getPrototype(pContext);
                         };
@@ -9697,8 +9694,12 @@ const proto::ProtoObject* runBytecode(proto::ProtoContext* pContext,
                     // (isString is false for them, so numericArrayIndexOrNeg
                     // does not apply): parse the canonical array index
                     // once per key and cache it per thread.
-                    static thread_local std::unordered_map<const proto::ProtoString*, long long>
-                        s_literalIndexCache;
+                    // Constant-pool keys of an eval'd or Function()-built
+                    // module are not perennial, so the map is scoped to a
+                    // collection cycle (GcScopedCache.h).
+                    static thread_local GcScopedCache<const proto::ProtoString*, long long>
+                        s_literalIndexCacheHolder;
+                    auto& s_literalIndexCache = s_literalIndexCacheHolder.get(pContext);
                     long long litIdx;
                     auto litIt = s_literalIndexCache.find(key);
                     if (litIt != s_literalIndexCache.end()) {
@@ -9750,7 +9751,10 @@ const proto::ProtoObject* runBytecode(proto::ProtoContext* pContext,
                         // which fired for EVERY object-literal property
                         // (~80 K objects × 3 props = 240 K calls on
                         // tree_traversal).
-                        static thread_local std::unordered_map<const proto::ProtoString*, bool> s_isNumericCache;
+                        // Scoped to a collection cycle like the literal
+                        // index cache above (GcScopedCache.h).
+                        static thread_local GcScopedCache<const proto::ProtoString*, bool> s_isNumericCacheHolder;
+                        auto& s_isNumericCache = s_isNumericCacheHolder.get(pContext);
                         bool isNumericKey;
                         auto it = s_isNumericCache.find(key);
                         if (it != s_isNumericCache.end()) {
@@ -11091,7 +11095,7 @@ const proto::ProtoObject* runBytecode(proto::ProtoContext* pContext,
                         // `Object.create(plainObjectProxy)[0]` returns 1.
                         if ((!val || val == PROTO_NONE) && key) {
                             const proto::ProtoObject* cursor =
-                                protojs::getJSProtoOverride(obj);
+                                protojs::getJSProtoOverride(pContext, obj);
                             if (!cursor) cursor = obj->getPrototype(pContext);
                             int guard = 32;
                             while (guard-- > 0 && cursor && cursor != PROTO_NONE
@@ -11112,7 +11116,7 @@ const proto::ProtoObject* runBytecode(proto::ProtoContext* pContext,
                                     break;
                                 }
                                 const proto::ProtoObject* next =
-                                    protojs::getJSProtoOverride(cursor);
+                                    protojs::getJSProtoOverride(pContext, cursor);
                                 if (!next) next = cursor->getPrototype(pContext);
                                 if (!next || next == cursor) break;
                                 cursor = next;
@@ -13212,7 +13216,7 @@ const proto::ProtoObject* runBytecode(proto::ProtoContext* pContext,
                 // `Object.create(functionProxy).length` returns 1.
                 if (obj && (!len_val || len_val == PROTO_NONE) && lk) {
                     const proto::ProtoObject* cursor =
-                        protojs::getJSProtoOverride(obj);
+                        protojs::getJSProtoOverride(pContext, obj);
                     if (!cursor) cursor = obj->getPrototype(pContext);
                     int guard = 32;
                     while (guard-- > 0 && cursor && cursor != PROTO_NONE
@@ -13232,7 +13236,7 @@ const proto::ProtoObject* runBytecode(proto::ProtoContext* pContext,
                             break;
                         }
                         const proto::ProtoObject* next =
-                            protojs::getJSProtoOverride(cursor);
+                            protojs::getJSProtoOverride(pContext, cursor);
                         if (!next) next = cursor->getPrototype(pContext);
                         if (!next || next == cursor) break;
                         cursor = next;
@@ -13537,7 +13541,7 @@ const proto::ProtoObject* runBytecode(proto::ProtoContext* pContext,
                             }
                         } else {
                             const proto::ProtoObject* over =
-                                protojs::getJSProtoOverride(cursor);
+                                protojs::getJSProtoOverride(pContext, cursor);
                             next = over ? over : cursor->getPrototype(pContext);
                         }
                         if (!next || next == PROTO_NONE
@@ -13657,7 +13661,7 @@ const proto::ProtoObject* runBytecode(proto::ProtoContext* pContext,
                 // Proxy/has/call-{in-prototype,object-create}.js).
                 if (hasResult != PROTO_TRUE && key) {
                     auto advance = [&](const proto::ProtoObject* o) -> const proto::ProtoObject* {
-                        const proto::ProtoObject* over = protojs::getJSProtoOverride(o);
+                        const proto::ProtoObject* over = protojs::getJSProtoOverride(pContext, o);
                         if (over) return over;
                         return o->getPrototype(pContext);
                     };
@@ -16917,7 +16921,7 @@ const proto::ProtoObject* runBytecode(proto::ProtoContext* pContext,
                         // Advance to the next prototype level.
                         // Prefer an explicit JS [[Prototype]] override (set via
                         // Object.setPrototypeOf) before falling back to the C++ parent chain.
-                        const proto::ProtoObject* next = getJSProtoOverride(cursor);
+                        const proto::ProtoObject* next = getJSProtoOverride(pContext, cursor);
                         if (!next) next = cursor->getPrototype(pContext);
                         if (!next || next == PROTO_NONE || next == t_nullSentinel) break;
                         cursor = next;

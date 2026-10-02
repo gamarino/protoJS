@@ -1336,10 +1336,6 @@ static const proto::ProtoObject* objectDefineProperty(
     const proto::ProtoList* args,
     const proto::ProtoSparseList*);
 
-// Forward decl — defined further below; objectCreate / objectSetPrototypeOf
-// both consult/update this thread-local map.
-extern thread_local std::unordered_map<const proto::ProtoObject*,
-                                       const proto::ProtoObject*> t_jsProtoMap;
 
 // Reverse map: per-instance __symbol_str_key__ string ("@@sym#<n>")
 // to the originating Symbol() value.  Populated when Symbol() runs via
@@ -1383,10 +1379,10 @@ static const proto::ProtoObject* objectCreate(
     const proto::ProtoObject* result;
     if (protoArg == nullSent) {
         // Object.create(null) → plain object with no prototype.
-        // Record the override in t_jsProtoMap so Object.getPrototypeOf
+        // Record the override so Object.getPrototypeOf
         // returns null (not the protoCore-default Object.prototype).
         result = ctx->newObject(true);
-        if (result) t_jsProtoMap[result] = getNullSentinel();
+        if (result) setJSProtoOverrideOnly(ctx, result, getNullSentinel());
     } else {
         // Object.create(proto) → child inheriting from proto
         result = protoArg->newChild(ctx, true);
@@ -1500,13 +1496,6 @@ static const proto::ProtoObject* objectCreate(
 // exports them to the interpreter, ProxyBuiltin, ArrayPrototype and
 // BehaviorRegistry; ObjectPrototype.h's declarations are in scope here.
 
-// Map from a JS object to its explicitly-overridden [[Prototype]], set by
-// Object.setPrototypeOf(). protoCore objects are immutable so we cannot change
-// the C++ parent pointer; we track the override out-of-band instead.
-// Objects in this map are always reachable (the map itself holds the reference),
-// so the GC will not reclaim them while the override is active.
-thread_local std::unordered_map<const proto::ProtoObject*,
-                                       const proto::ProtoObject*> t_jsProtoMap;
 
 // Returns true if obj is a JS primitive (not a plain object or array).
 // JS null is represented as t_nullSentinel (a real ProtoObject cell), so we
@@ -2387,8 +2376,7 @@ static const proto::ProtoObject* objectGetPrototypeOf(
     }
     // Check for an explicit JS prototype override first.
     {
-        auto it = t_jsProtoMap.find(obj);
-        if (it != t_jsProtoMap.end()) return it->second;
+        if (const proto::ProtoObject* ov = getJSProtoOverride(ctx, obj)) return ov;
     }
     // Fall back to the C++ (protoCore) parent chain.
     const proto::ProtoObject* proto = obj->getPrototype(ctx);
@@ -2505,9 +2493,8 @@ static const proto::ProtoObject* objectSetPrototypeOf(
     {
         if (jsIsNonExtensible(ctx, obj)) {
             const proto::ProtoObject* current = nullptr;
-            auto ovrIt = t_jsProtoMap.find(obj);
-            if (ovrIt != t_jsProtoMap.end()) current = ovrIt->second;
-            else current = obj->getPrototype(ctx);
+            current = getJSProtoOverride(ctx, obj);
+            if (!current) current = obj->getPrototype(ctx);
             const proto::ProtoObject* requested = proto;
             if (proto == getNullSentinel()) requested = getNullSentinel();
             if (current != requested) {
@@ -2541,15 +2528,15 @@ static const proto::ProtoObject* objectSetPrototypeOf(
                 return PROTO_NONE;
             }
             // Walk: jsProtoMap override first, then protoCore parent.
-            auto it = t_jsProtoMap.find(p);
-            hop = (it != t_jsProtoMap.end()) ? it->second : p->getPrototype(ctx);
+            hop = getJSProtoOverride(ctx, p);
+            if (!hop) hop = p->getPrototype(ctx);
             if (!hop || hop == p) break;  // stop at fixed point
             p = hop;
         }
         // 3-arg form: in addition to writing the map, rebinds the
         // protoCore parent chain via ProtoObject::setParents.  Read
         // paths through resolveFieldOOP see the new prototype natively
-        // and no longer fall through to the t_jsProtoMap extension.
+        // and no longer fall through to the recorded-override extension.
         setJSProtoOverride(ctx, obj, proto);
     }
     // Spec: returns the modified object.
@@ -4163,7 +4150,7 @@ static const proto::ProtoObject* objectGetOwnPropertySymbols(
         std::string ks; keyStr->toUTF8String(ctx, ks);
         if (ks.size() >= 6 && ks[0]=='@' && ks[1]=='@'
             && ks[2]=='s' && ks[3]=='y' && ks[4]=='m' && ks[5]=='#') {
-            const proto::ProtoObject* sym = lookupSymbolByStrKey(ks);
+            const proto::ProtoObject* sym = lookupSymbolByStrKey(ctx, ks);
             if (sym) found.push_back(sym);
             continue;
         }
@@ -5920,9 +5907,8 @@ static const proto::ProtoObject* objectLookupGetter(
         // C++ parent — pre-fix the walk took the wrong branch when
         // an intermediate Proxy was reached through Object.create.
         const proto::ProtoObject* nx = nullptr;
-        auto it = t_jsProtoMap.find(curr);
-        if (it != t_jsProtoMap.end()) nx = it->second;
-        else                          nx = curr->getPrototype(ctx);
+        nx = getJSProtoOverride(ctx, curr);
+        if (!nx) nx = curr->getPrototype(ctx);
         if (!nx || nx == PROTO_NONE || nx == getNullSentinel()) break;
         curr = nx;
     }
@@ -5993,9 +5979,8 @@ static const proto::ProtoObject* objectLookupSetter(
         // parent.  Pre-fix used getFirstParent which missed the
         // Object.create / Object.setPrototypeOf rebind.
         const proto::ProtoObject* nx = nullptr;
-        auto it = t_jsProtoMap.find(curr);
-        if (it != t_jsProtoMap.end()) nx = it->second;
-        else                          nx = curr->getPrototype(ctx);
+        nx = getJSProtoOverride(ctx, curr);
+        if (!nx) nx = curr->getPrototype(ctx);
         if (!nx || nx == PROTO_NONE || nx == getNullSentinel()) break;
         curr = nx;
     }
@@ -6042,15 +6027,14 @@ static const proto::ProtoObject* objectIsPrototypeOf(
     // we walked the raw C++ parent chain and missed:
     //   - Proxy receivers (the trap never fired; arg-is-proxy test).
     //   - JS-side [[Prototype]] overrides set by Object.setPrototypeOf
-    //     (rebinds live in t_jsProtoMap, not the C++ chain).
+    //     (rebinds live in the recorded override, not the C++ chain).
     auto advance = [&](const proto::ProtoObject* o) -> const proto::ProtoObject* {
         if (isProxy(ctx, o)) {
             const proto::ProtoObject* nx = proxyDispatchGetPrototypeOf(ctx, o);
             if (hasCallException()) return nullptr;
             return nx;
         }
-        auto it = t_jsProtoMap.find(o);
-        if (it != t_jsProtoMap.end()) return it->second;
+        if (const proto::ProtoObject* ov = getJSProtoOverride(ctx, o)) return ov;
         return o->getPrototype(ctx);
     };
     const proto::ProtoObject* curr = advance(arg);
@@ -6084,14 +6068,13 @@ static const proto::ProtoObject* protoAccessorGetter(
     }
     // §B.2.2.1 step 2: return O.[[GetPrototypeOf]]().  When O is a
     // Proxy, this routes through the handler.getPrototypeOf trap;
-    // pre-fix protoAccessorGetter read t_jsProtoMap / getPrototype
+    // pre-fix protoAccessorGetter read the recorded override / getPrototype
     // directly, bypassing the trap and silently dropping the throw
     // (built-ins/Object/prototype/__proto__/get-abrupt.js).
     if (isProxy(gctx, gself)) {
         return proxyDispatchGetPrototypeOf(gctx, gself);
     }
-    auto it = t_jsProtoMap.find(gself);
-    if (it != t_jsProtoMap.end()) return it->second;
+    if (const proto::ProtoObject* ov = getJSProtoOverride(gctx, gself)) return ov;
     const proto::ProtoObject* p = gself->getPrototype(gctx);
     return (p && p != PROTO_NONE) ? p : getNullSentinel();
 }
@@ -6154,9 +6137,8 @@ static const proto::ProtoObject* protoAccessorSetter(
     {
         if (jsIsNonExtensible(sctx, sself)) {
             const proto::ProtoObject* curr = nullptr;
-            auto it2 = t_jsProtoMap.find(sself);
-            if (it2 != t_jsProtoMap.end()) curr = it2->second;
-            else                          curr = sself->getPrototype(sctx);
+            curr = getJSProtoOverride(sctx, sself);
+            if (!curr) curr = sself->getPrototype(sctx);
             if (!curr || curr == PROTO_NONE) curr = getNullSentinel();
             if (curr != proto) {
                 signalNativeException(makeNativeError(sctx, "TypeError",
@@ -6174,8 +6156,7 @@ static const proto::ProtoObject* protoAccessorSetter(
                     "Cyclic __proto__ value"));
                 return PROTO_NONE;
             }
-            auto it = t_jsProtoMap.find(p);
-            if (it != t_jsProtoMap.end()) { p = it->second; continue; }
+            if (const proto::ProtoObject* ov = getJSProtoOverride(sctx, p)) { p = ov; continue; }
             p = p->getPrototype(sctx);
         }
     }
@@ -6906,22 +6887,107 @@ void ensureObjectConstructor(proto::ProtoContext* ctx,
     }
 }
 
-const proto::ProtoObject* getJSProtoOverride(const proto::ProtoObject* obj)
-{
-    if (!obj) return nullptr;
-    auto it = t_jsProtoMap.find(obj);
-    return (it != t_jsProtoMap.end()) ? it->second : nullptr;
+// ---------------------------------------------------------------------------
+// JS [[Prototype]] overrides.
+//
+// The override is the object's own state: an internal own attribute
+// (__js_proto_override__, read with own-attribute probes only, so a child never
+// inherits it, and filtered from every JS-visible enumeration like every
+// "__name__" key). It used to live in a thread-local C++ map keyed by the
+// object's address. The collector does not see a C++ map, so the entry outlived
+// its object: once the object was collected and its cell reused, a brand-new
+// `{}` at that address reported the dead object's prototype -- under a small
+// heap ceiling about a third of fresh objects did -- and a prototype referenced
+// only from the map could itself be collected while still being returned.
+// tests/integration/gc/stale_proto_override.js is the regression test.
+//
+// An immutable object cannot take a new attribute without becoming a different
+// object, and the override must keep the object's identity. The rare immutable
+// receiver (built-in objects made at start-up) is recorded in a side table
+// instead, and that table keeps both the object and its prototype alive through
+// one pinned root -- an object that can never be collected can never have its
+// address reused, and the number of such entries is the number of overrides
+// ever applied to immutable objects, which is small and does not grow with a
+// program's allocation.
+// ---------------------------------------------------------------------------
+namespace {
+
+struct ImmutableProtoOverrides {
+    const proto::ProtoSpace* space = nullptr;
+    proto::ProtoRootSet* rootSet = nullptr;
+    std::unordered_map<const proto::ProtoObject*, const proto::ProtoObject*> map;
+    // Every object and prototype in `map`, pinned through one handle.
+    const proto::ProtoList* pinned = nullptr;
+    proto::ProtoRootSet::Handle handle = proto::ProtoRootSet::kNullHandle;
+};
+thread_local ImmutableProtoOverrides t_immutableProtoOverrides;
+
+// The side table for ctx's space, or nullptr when it belongs to another space
+// (a table made for a space that is gone is dropped, never read).
+ImmutableProtoOverrides* immutableOverridesFor(proto::ProtoContext* ctx, bool forWrite) {
+    ImmutableProtoOverrides& t = t_immutableProtoOverrides;
+    if (!ctx || !ctx->space) return nullptr;
+    JSContextWrapper* w = JSContextWrapper::current();
+    proto::ProtoRootSet* rs = w ? w->getRootSet() : nullptr;
+    if (t.space == ctx->space && t.rootSet == rs && rs) return &t;
+    if (!forWrite || !rs) return nullptr;
+    t.map.clear();
+    t.pinned = nullptr;
+    t.handle = proto::ProtoRootSet::kNullHandle;  // belonged to the old root set
+    t.space = ctx->space;
+    t.rootSet = rs;
+    return &t;
 }
 
-void setJSProtoOverride(const proto::ProtoObject* obj,
-                        const proto::ProtoObject* proto)
+void pinImmutableOverride(proto::ProtoContext* ctx, ImmutableProtoOverrides& t,
+                          const proto::ProtoObject* obj, const proto::ProtoObject* proto) {
+    const proto::ProtoList* list = t.pinned ? t.pinned : ctx->newList();
+    if (!list) return;
+    list = list->appendLast(ctx, obj);
+    if (list && proto::ProtoObject::isCellPointer(proto)) list = list->appendLast(ctx, proto);
+    if (!list) return;
+    const proto::ProtoRootSet::Handle h = t.rootSet->add(list->asObject(ctx));
+    if (t.handle != proto::ProtoRootSet::kNullHandle) t.rootSet->remove(t.handle);
+    t.pinned = list;
+    t.handle = h;
+}
+
+}  // namespace
+
+const proto::ProtoObject* getJSProtoOverride(proto::ProtoContext* ctx,
+                                             const proto::ProtoObject* obj)
 {
-    if (!obj) return;
-    if (proto == nullptr) {
-        t_jsProtoMap.erase(obj);
-        return;
-    }
-    t_jsProtoMap[obj] = proto;
+    if (!ctx || !obj || obj == PROTO_NONE) return nullptr;
+    const proto::ProtoString* k = JSSymbols::protoOverride(ctx);
+    if (!k) return nullptr;
+    // nullptr for a missing key and for a non-object receiver (tagged
+    // integers, strings); PROTO_NONE is a cleared override.
+    const proto::ProtoObject* v = obj->getOwnAttributeDirect(ctx, k);
+    if (v && v != PROTO_NONE) return v;
+    if (t_immutableProtoOverrides.map.empty()) return nullptr;
+    ImmutableProtoOverrides* t = immutableOverridesFor(ctx, false);
+    if (!t) return nullptr;
+    auto it = t->map.find(obj);
+    return it != t->map.end() ? it->second : nullptr;
+}
+
+void setJSProtoOverrideOnly(proto::ProtoContext* ctx,
+                            const proto::ProtoObject* obj,
+                            const proto::ProtoObject* proto)
+{
+    if (!ctx || !obj || obj == PROTO_NONE) return;
+    const proto::ProtoString* k = JSSymbols::protoOverride(ctx);
+    if (!k) return;
+    const proto::ProtoObject* value = proto ? proto : PROTO_NONE;
+    // A mutable object takes the attribute in place and keeps its identity.
+    if (obj->setAttribute(ctx, k, value) == obj) return;
+    // Immutable: the side table (see above). The object returned by
+    // setAttribute is a copy nobody references, and is collected.
+    ImmutableProtoOverrides* t = immutableOverridesFor(ctx, true);
+    if (!t) return;
+    if (proto == nullptr) { t->map.erase(obj); return; }
+    t->map[obj] = proto;
+    pinImmutableOverride(ctx, *t, obj, proto);
 }
 
 void setJSProtoOverride(proto::ProtoContext* ctx,
@@ -6929,16 +6995,12 @@ void setJSProtoOverride(proto::ProtoContext* ctx,
                         const proto::ProtoObject* proto)
 {
     if (!obj) return;
-    // The legacy map is still updated as a safety net for any read
-    // path that has not yet been migrated.  When all sites are
-    // converted, the map writes here can be removed and the map type
-    // itself retired.
     if (proto == nullptr) {
-        t_jsProtoMap.erase(obj);
+        setJSProtoOverrideOnly(ctx, obj, nullptr);
         return;
     }
-    const proto::ProtoObject* previousOverride = getJSProtoOverride(obj);
-    t_jsProtoMap[obj] = proto;
+    const proto::ProtoObject* previousOverride = getJSProtoOverride(ctx, obj);
+    setJSProtoOverrideOnly(ctx, obj, proto);
 
     // Skip the protoCore rebind for the null-sentinel case: setParents
     // with an empty parent list would expose the protoCore default
@@ -6980,14 +7042,89 @@ void setJSProtoOverride(proto::ProtoContext* ctx,
     (void)obj->setParents(ctx, parents);
 }
 
-static thread_local std::unordered_map<std::string,
-                                       const proto::ProtoObject*> t_symbolByStrKey;
-void registerSymbolByStrKey(const std::string& key, const proto::ProtoObject* sym) {
-    t_symbolByStrKey[key] = sym;
+// ---------------------------------------------------------------------------
+// Pinned registries: mutable objects keyed by interned strings that the current
+// wrapper's root set keeps alive, one pin each, for entries that must live as
+// long as the wrapper.
+//
+// Symbol values are the case in point. A symbol used as a property key is
+// stored under its interned "@@sym#<n>" string; the object references that
+// string, not the Symbol value, so Object.getOwnPropertySymbols and
+// Reflect.ownKeys translate the string back through a registry, and Symbol.for
+// keeps its own. Both registries were C++ maps the collector does not see: a
+// symbol whose only holder was the map was collected and the map handed out a
+// dangling pointer. A symbol is therefore registered (and so retained) for the
+// life of the wrapper when it is created, as its "@@sym#<n>" key, interned at
+// the same moment, already is; Symbol.for's registry is permanent by
+// specification. tests/integration/gc/stale_symbol_registry.js is the
+// regression test.
+// ---------------------------------------------------------------------------
+namespace {
+
+enum PinnedRegistryId { kSymbolsByStorageKey = 0, kSymbolForRegistry = 1, kPinnedRegistryCount };
+
+struct PinnedRegistries {
+    const proto::ProtoSpace* space = nullptr;
+    proto::ProtoRootSet* rootSet = nullptr;
+    const proto::ProtoObject* registry[kPinnedRegistryCount] = {};
+};
+thread_local PinnedRegistries t_pinnedRegistries;
+
+// The registry for ctx's space, made and pinned on first use; nullptr when
+// there is no wrapper (nothing can be pinned) and `create` is false or fails.
+const proto::ProtoObject* pinnedRegistry(proto::ProtoContext* ctx, PinnedRegistryId id, bool create) {
+    if (!ctx || !ctx->space) return nullptr;
+    PinnedRegistries& t = t_pinnedRegistries;
+    JSContextWrapper* w = JSContextWrapper::current();
+    proto::ProtoRootSet* rs = w ? w->getRootSet() : nullptr;
+    if (!rs) return nullptr;
+    if (t.space != ctx->space || t.rootSet != rs) {
+        // Made for a space or wrapper that is gone; its pins went with it.
+        t = PinnedRegistries{};
+        t.space = ctx->space;
+        t.rootSet = rs;
+    }
+    if (!t.registry[id] && create) {
+        const proto::ProtoObject* r = ctx->newObject(true);
+        if (!r) return nullptr;
+        rs->add(r);  // for the life of the root set, never removed
+        t.registry[id] = r;
+    }
+    return t.registry[id];
 }
-const proto::ProtoObject* lookupSymbolByStrKey(const std::string& key) {
-    auto it = t_symbolByStrKey.find(key);
-    return it != t_symbolByStrKey.end() ? it->second : nullptr;
+
+const proto::ProtoString* internedKey(proto::ProtoContext* ctx, const std::string& key) {
+    return proto::ProtoString::createSymbol(ctx, key.c_str());
+}
+
+}  // namespace
+
+void registerSymbolByStrKey(proto::ProtoContext* ctx, const std::string& key,
+                            const proto::ProtoObject* sym) {
+    const proto::ProtoObject* r = pinnedRegistry(ctx, kSymbolsByStorageKey, true);
+    const proto::ProtoString* k = r ? internedKey(ctx, key) : nullptr;
+    if (k && sym) r->setAttribute(ctx, k, sym);
+}
+
+const proto::ProtoObject* lookupSymbolByStrKey(proto::ProtoContext* ctx, const std::string& key) {
+    const proto::ProtoObject* r = pinnedRegistry(ctx, kSymbolsByStorageKey, false);
+    const proto::ProtoString* k = r ? internedKey(ctx, key) : nullptr;
+    const proto::ProtoObject* v = k ? r->getOwnAttributeDirect(ctx, k) : nullptr;
+    return (v && v != PROTO_NONE) ? v : nullptr;
+}
+
+const proto::ProtoObject* symbolForRegistryGet(proto::ProtoContext* ctx, const std::string& key) {
+    const proto::ProtoObject* r = pinnedRegistry(ctx, kSymbolForRegistry, false);
+    const proto::ProtoString* k = r ? internedKey(ctx, key) : nullptr;
+    const proto::ProtoObject* v = k ? r->getOwnAttributeDirect(ctx, k) : nullptr;
+    return (v && v != PROTO_NONE) ? v : nullptr;
+}
+
+void symbolForRegistrySet(proto::ProtoContext* ctx, const std::string& key,
+                          const proto::ProtoObject* sym) {
+    const proto::ProtoObject* r = pinnedRegistry(ctx, kSymbolForRegistry, true);
+    const proto::ProtoString* k = r ? internedKey(ctx, key) : nullptr;
+    if (k && sym) r->setAttribute(ctx, k, sym);
 }
 
 // The creation number makes each key unique for the life of the process. The

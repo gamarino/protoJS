@@ -451,7 +451,7 @@ void ensureMathObject(proto::ProtoContext* ctx,
         ? objectProto->newChild(ctx, true) : ctx->newObject(true);
     if (!math) return;
     // Register the override so Object.getPrototypeOf(Math) and the
-    // attribute walk paths that consult t_jsProtoMap see %Object.prototype%
+    // attribute walk paths that consult the recorded override see %Object.prototype%
     // as the [[Prototype]] (newChild only updates protoCore parents).
     if (objectProto) setJSProtoOverride(ctx, math, objectProto);
 
