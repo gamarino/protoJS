@@ -7,6 +7,8 @@
 #include "../../ArrayElementsStorage.h"
 #include "../../ArrayPrototype.h"
 #include "../../ProtoDeferred.h"
+#include "../../PromisePrototype.h"
+#include "../../runtime/ProtoBytecodeModule.h"
 #include "../../runtime/ProtoInterpreter.h"
 #include <atomic>
 #include <cerrno>
@@ -66,19 +68,23 @@ const proto::ProtoObject* buildStatsObject(proto::ProtoContext* ctx,
     return obj;
 }
 
-// Generic async wrapper: run `work` on the IOThreadPool, then resolve /
-// reject the returned ProtoDeferred from the EventLoop.  Both deferred
-// and any captured ProtoObject values pass through the wrapper's
-// protoCore root set across the thread-pool / event-loop hop.
+// Generic async wrapper for fs.promises: run `work` on the IOThreadPool and
+// return a Promise, settled on the main thread from an event-loop callback (a
+// macrotask, as in Node); its reactions then run as microtasks in the
+// checkpoint that follows the callback (MicrotaskQueue.h).  The promise is
+// pinned in the wrapper's root set across the pool / event-loop hop, and the
+// pending operation keeps the process alive until it has settled.  A failure
+// rejects with an Error whose message is the C++ exception's.
 template <class F>
 const proto::ProtoObject* runAsync(proto::ProtoContext* ctx, F&& work) {
     JSContextWrapper* wrapper = JSContextWrapper::current();
     if (!wrapper) return PROTO_NONE;
-    const proto::ProtoObject* deferred = ProtoDeferred::createPending(ctx);
-    if (!deferred) return PROTO_NONE;
+    const proto::ProtoObject* promise = newPromise(ctx);
+    if (!promise) return PROTO_NONE;
     proto::ProtoRootSet* rs = wrapper->getRootSet();
-    proto::ProtoRootSet::Handle pin = rs ? rs->add(deferred)
-                                          : proto::ProtoRootSet::kNullHandle;
+    proto::ProtoRootSet::Handle pin = rs ? rs->add(promise)
+                                         : proto::ProtoRootSet::kNullHandle;
+    EventLoop::getInstance().beginOperation();
     IOThreadPool::getInstance().getExecutor().submit(
         [wrapper, pin, work = std::forward<F>(work)]() mutable {
         std::string err;
@@ -91,24 +97,30 @@ const proto::ProtoObject* runAsync(proto::ProtoContext* ctx, F&& work) {
         EventLoop::getInstance().enqueueCallback(
             [wrapper, pin, err = std::move(err),
              resolveFn = std::move(resolveFn)]() {
+            struct EndOperation {
+                ~EndOperation() { EventLoop::getInstance().endOperation(); }
+            } endOperation;
             if (!wrapper) return;
             JSContextWrapper::CurrentScope ws(wrapper);
             proto::ProtoContext* c = wrapper->getProtoContext();
             if (!c) return;
             proto::ProtoRootSet* rs = wrapper->getRootSet();
-            const proto::ProtoObject* d = rs ? rs->resolve(pin) : nullptr;
-            if (rs) rs->remove(pin);
-            if (!d) return;
+            const proto::ProtoObject* p = rs ? rs->resolve(pin) : nullptr;
+            if (!p) return;
+            InterpreterEntryScope entry(
+                static_cast<const ProtoBytecodeModule*>(wrapper->getRootModule()),
+                wrapper->getNativeGlobalRootPtr());
             if (!err.empty()) {
-                ProtoDeferred::rejectFromAsync(c, d,
-                    c->fromUTF8String(err.c_str()), wrapper);
+                rejectPromise(c, p, makeNativeError(c, "Error", err.c_str(),
+                                                    wrapper->getNativeGlobalRootPtr()));
             } else {
                 const proto::ProtoObject* v = resolveFn ? resolveFn(c) : PROTO_NONE;
-                ProtoDeferred::resolveFromAsync(c, d, v, wrapper);
+                resolvePromise(c, p, v);
             }
+            if (rs) rs->remove(pin);
         });
     });
-    return deferred;
+    return promise;
 }
 
 // ---- fs.promises.* -----------------------------------------------------
