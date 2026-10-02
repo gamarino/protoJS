@@ -147,6 +147,53 @@ static std::string utf16ToUTF8(const std::vector<uint16_t>& u,
 }
 
 // ---------------------------------------------------------------------------
+// lastIndex advancement
+// ---------------------------------------------------------------------------
+
+// §22.2.7.3 AdvanceStringIndex(S, index, unicode): the index after the code
+// point at `index` -- two code units for a surrogate pair when the regexp
+// matches by code point (/u or /v), one otherwise.
+static size_t advanceStringIndex(const std::vector<uint16_t>& u, size_t index,
+                                 bool unicode) {
+    if (!unicode || index + 1 >= u.size()) return index + 1;
+    const uint16_t first = u[index];
+    const uint16_t second = u[index + 1];
+    if (first >= 0xD800 && first <= 0xDBFF && second >= 0xDC00 && second <= 0xDFFF)
+        return index + 2;
+    return index + 1;
+}
+
+static bool isFullUnicode(int lreFlags) {
+    return (lreFlags & (LRE_FLAG_UNICODE | LRE_FLAG_UNICODE_SETS)) != 0;
+}
+
+// The step every global walk takes after an EMPTY match (@@replace step
+// 11.c.iii.2, @@match step 6.e.iii.2, %RegExpStringIteratorPrototype%.next
+// step 11.a.ii): lastIndex := AdvanceStringIndex(S, ToLength(lastIndex),
+// fullUnicode). Without it the walk matches the same empty string forever.
+// After a non-empty match nothing is done: exec has already set lastIndex to
+// the end of the match.
+static void advanceAfterEmptyMatch(proto::ProtoContext* ctx,
+                                   const proto::ProtoObject* re,
+                                   const std::vector<uint16_t>& u,
+                                   bool unicode) {
+    const proto::ProtoString* liKey = JSSymbols::lastIndex(ctx);
+    const proto::ProtoObject* liObj = re->getAttribute(ctx, liKey, false);
+    long long li = 0;
+    if (liObj && liObj != PROTO_NONE) {
+        if (liObj->isInteger(ctx)) {
+            li = liObj->asLong(ctx);
+        } else if (liObj->isDouble(ctx) || liObj->isFloat(ctx)) {
+            const double d = liObj->asDouble(ctx);
+            li = (std::isnan(d) || d < 0) ? 0 : static_cast<long long>(d);
+        }
+    }
+    if (li < 0) li = 0;
+    const size_t next = advanceStringIndex(u, static_cast<size_t>(li), unicode);
+    re->setAttribute(ctx, liKey, ctx->fromInteger(static_cast<long long>(next)));
+}
+
+// ---------------------------------------------------------------------------
 // RegExp compilation
 // ---------------------------------------------------------------------------
 
@@ -169,6 +216,19 @@ static int parseFlags(const std::string& f) {
 }
 
 } // anonymous namespace
+
+void regexpAdvanceAfterEmptyMatch(proto::ProtoContext* ctx,
+                                  const proto::ProtoObject* re,
+                                  const std::string& input) {
+    if (!ctx || !re || re == PROTO_NONE) return;
+    bool unicode = false;
+    const proto::ProtoObject* bcObj = re->getAttribute(ctx, JSSymbols::reBytecode(ctx), false);
+    if (bcObj && bcObj != PROTO_NONE) {
+        const auto* buf = reinterpret_cast<const proto::ProtoByteBuffer*>(bcObj);
+        unicode = isFullUnicode(lre_get_flags(reinterpret_cast<const uint8_t*>(buf->getBuffer(ctx))));
+    }
+    advanceAfterEmptyMatch(ctx, re, utf8ToUTF16(input), unicode);
+}
 
 // ---------------------------------------------------------------------------
 // RegExp.prototype method implementations
@@ -255,9 +315,16 @@ const proto::ProtoObject* regexpExec(
     void* opaque = nullptr;
     if (JSContextWrapper::current()) opaque = JSContextWrapper::current()->getJSContext();
 
-    int ret = lre_exec(captures, bc, reinterpret_cast<const uint8_t*>(u16.data()),
+    // §22.2.7.2 step 12.a: lastIndex > length is a failed match -- null, and
+    // lastIndex := 0 for a global or sticky regexp (the else branch below).
+    // lre_exec must not see such an index: it starts reading at it, past the
+    // end of the buffer.
+    int ret = 0;
+    if (static_cast<unsigned long long>(lastIndex) <= u16.size()) {
+        ret = lre_exec(captures, bc, reinterpret_cast<const uint8_t*>(u16.data()),
                        static_cast<int>(lastIndex), static_cast<int>(u16.size()),
                        1, opaque);
+    }
 
 
     if (ret == 1) {
@@ -552,7 +619,10 @@ const proto::ProtoObject* regexpSymbolMatch(
 
     const proto::ProtoObject* result = createNewArray(ctx, nullptr);
     self->setAttribute(ctx, JSSymbols::lastIndex(ctx), ctx->fromInteger(0));
-    
+    const bool unicode = isFullUnicode(flags);
+    std::vector<uint16_t> u16;   // converted on the first empty match only
+    bool haveU16 = false;
+
     int count = 0;
     while (true) {
         const proto::ProtoObject* match = regexpExec(ctx, self, parent, args, sparse);
@@ -563,13 +633,18 @@ const proto::ProtoObject* regexpSymbolMatch(
         const proto::ProtoObject* firstMatch = match->getAttribute(ctx, JSSymbols::indexKey(ctx, 0), true);
         result = result->setAttribute(ctx, JSSymbols::indexKey(ctx, count++), firstMatch);
 
-        const proto::ProtoObject* liObj = self->getAttribute(ctx, JSSymbols::lastIndex(ctx), false);
-        if (liObj && liObj->isInteger(ctx) && liObj->asLong(ctx) == 0) {
-             break;
+        // §22.2.6.8 step 6.e.iii: an empty match advances lastIndex itself.
+        if (objToStr(ctx, firstMatch).empty()) {
+            if (!haveU16) {
+                u16 = utf8ToUTF16(objToStr(ctx, args->getAt(ctx, 0)));
+                haveU16 = true;
+            }
+            advanceAfterEmptyMatch(ctx, self, u16, unicode);
         }
     }
-    
-    if (count == 0) return PROTO_NONE;
+
+    // §22.2.6.8 step 6.e.i: no match at all is null.
+    if (count == 0) return getNullSentinel();
     result = result->setAttribute(ctx, JSSymbols::length(ctx), ctx->fromInteger(count));
     return result;
 }
@@ -719,12 +794,11 @@ const proto::ProtoObject* regexpSymbolReplace(
 
         if (!isGlobal) break;
 
-        const proto::ProtoObject* liObj = self->getAttribute(ctx, JSSymbols::lastIndex(ctx), false);
-        if (liObj && liObj->isInteger(ctx) &&
-            static_cast<size_t>(liObj->asLong(ctx)) == lastMatchEnd) {
-            self->setAttribute(ctx, JSSymbols::lastIndex(ctx),
-                               ctx->fromInteger(static_cast<long long>(lastMatchEnd + 1)));
-        }
+        // §22.2.6.11 step 11.c.iii: only an EMPTY match advances lastIndex;
+        // after any other match exec has left it at the match's end, which is
+        // where the next search starts. (Advancing whenever lastIndex equalled
+        // the match's end skipped the character after every match.)
+        if (u16Match.empty()) advanceAfterEmptyMatch(ctx, self, u16, isFullUnicode(flags));
     }
 
     result += utf16ToUTF8(u16, lastMatchEnd);
@@ -811,13 +885,17 @@ const proto::ProtoObject* regexpSymbolSplit(
     // and pushed an extra empty piece into the result — so
     // `"hello".split(new RegExp)` returned ["h","e","l","l","o",""]
     // instead of the spec's ["h","e","l","l","o"].
+    // §22.2.6.14 steps 19.b and 19.d.iii: a failed attempt, or an empty
+    // match where the previous piece ended, moves on by one code point under
+    // /u or /v (AdvanceStringIndex), not one code unit.
+    const bool unicodeMatching = isFullUnicode(stickyFlags);
     for (size_t pos = 0; pos < strLen; ) {
         int ret = lre_exec(captures, stickyBc,
                            reinterpret_cast<const uint8_t*>(u16.data()),
                            static_cast<int>(pos), static_cast<int>(strLen), 1, opaque);
 
         if (ret != 1) {
-            pos++;
+            pos = advanceStringIndex(u16, pos, unicodeMatching);
             continue;
         }
 
@@ -825,7 +903,7 @@ const proto::ProtoObject* regexpSymbolSplit(
         size_t matchEnd   = (captures[1] - reinterpret_cast<uint8_t*>(u16.data())) / 2;
 
         if (matchEnd == lastEnd && matchStart == lastEnd) {
-            pos++;
+            pos = advanceStringIndex(u16, pos, unicodeMatching);
             continue;
         }
 
@@ -851,7 +929,7 @@ const proto::ProtoObject* regexpSymbolSplit(
 
         lastEnd = matchEnd;
         pos = matchEnd;
-        if (matchEnd == matchStart) pos++;
+        if (matchEnd == matchStart) pos = advanceStringIndex(u16, pos, unicodeMatching);
     }
 
 done:

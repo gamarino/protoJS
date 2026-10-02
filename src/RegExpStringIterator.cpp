@@ -83,14 +83,12 @@ static const proto::ProtoObject* regexpStringIteratorNext(
         return doneResult;
     }
 
-    // For global regexps: advance lastIndex by 1 when match is empty to avoid infinite loop.
+    // §22.2.9.2.1 step 11.a.ii: an empty match advances lastIndex by one
+    // code point (AdvanceStringIndex), so a surrogate pair is never split
+    // under /u or /v and the walk always moves on.
     const proto::ProtoObject* m0 = match->getAttribute(ctx, JSSymbols::indexKey(ctx, 0), false);
     std::string m0str = objToStrLocal(ctx, m0);
-    if (m0str.empty()) {
-        const proto::ProtoObject* liObj = reObj->getAttribute(ctx, JSSymbols::lastIndex(ctx), false);
-        long long li = (liObj && liObj->isInteger(ctx)) ? liObj->asLong(ctx) : 0;
-        reObj->setAttribute(ctx, JSSymbols::lastIndex(ctx), ctx->fromInteger(li + 1));
-    }
+    if (m0str.empty()) regexpAdvanceAfterEmptyMatch(ctx, reObj, str);
 
     const proto::ProtoObject* result = ctx->newObject(true);
     result = result->setAttribute(ctx, JSSymbols::value(ctx), match);

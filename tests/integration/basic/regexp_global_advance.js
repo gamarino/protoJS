@@ -37,7 +37,7 @@ check("empty pattern", 'abc'.replace(/(?:)/g, '-'), '-a-b-c-');
 check("empty match at end only", 'ab'.replace(/$/g, '!'), 'ab!');
 check("empty /u over a surrogate pair", 'a\u{1F600}b'.replace(/(?:)/gu, '-'), '-a-\u{1F600}-b-');
 check("empty without /u splits the pair", 'a\u{1F600}'.replace(/(?:)/g, '-').length, 7);
-check("mixed empty and non-empty", 'aXbX'.replace(/X*/g, '-'), '-a-b-');
+check("mixed empty and non-empty", 'aXbX'.replace(/X*/g, '-'), '-a--b--');
 
 // replaceAll goes through the same @@replace.
 check("replaceAll adjacent", 'a//b'.replaceAll(/\//g, '_'), 'a__b');
