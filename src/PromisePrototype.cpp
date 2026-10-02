@@ -1064,7 +1064,10 @@ const proto::ProtoObject* promiseCombinator(proto::ProtoContext* ctx,
                 const proto::ProtoObject* arr = aggregateArray(ctx, agg);
                 if (kind == kAny) capabilitySettle(ctx, cap, true, makeAggregateError(ctx, arr));
                 else capabilitySettle(ctx, cap, false, arr);
-                if (hasCallException()) return PROTO_NONE;
+                // A throwing resolve (or reject) is an abrupt completion of
+                // the combinator: the iterator is done, so it is not closed,
+                // and IfAbruptRejectPromise rejects the capability.
+                if (hasCallException()) return rejectWithPending(ctx, cap);
             }
             return cap.promise;
         }
