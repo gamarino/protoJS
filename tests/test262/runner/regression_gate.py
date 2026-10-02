@@ -43,6 +43,25 @@ Usage
     # bank an improvement
     python3 tests/test262/runner/regression_gate.py --update
 
+    # macOS / Windows: the same baseline, minus the layout-dependent tests
+    python3 tests/test262/runner/regression_gate.py \
+        --layout-dependent tests/test262/config/layout_dependent_tests.json
+
+Layout-dependent tests (--layout-dependent)
+-------------------------------------------
+protoJS reports an object's string keys in the order protoCore walks its
+attributes, which is the order of the interned key names' addresses -- not the
+insertion order the spec requires (docs/TEST262_STATUS.md, "Property
+enumeration order").  That order depends on the allocator's history, which is
+the same run after run on one platform and differs between platforms, so a
+test that observes key order can pass on Linux and fail on Windows, or the
+reverse, with nothing wrong in either build.  The baseline is recorded on
+Linux.  On another platform, the tests listed in the --layout-dependent file
+(each with the platform and CI run where it diverged) are run and reported
+but taken out of both sets before the diff.  Every other test is gated
+exactly as on Linux; the list is only ever extended with a run that shows the
+divergence, and it is not used on Linux.
+
 Exit codes: 0 clean, 1 conformance delta, 2 broken premise, 3 usage/IO error.
 """
 
@@ -110,6 +129,9 @@ def main():
     ap.add_argument("--corpus", default="../test262")
     ap.add_argument("--update", action="store_true",
                     help="rewrite the baseline from this run (bank an improvement)")
+    ap.add_argument("--layout-dependent",
+                    help="JSON list of tests whose verdict depends on property "
+                         "enumeration order: reported, not gated (not for Linux)")
     args = ap.parse_args()
 
     snap_path = args.snapshot or run_suite(args.binary, args.corpus)
@@ -171,6 +193,20 @@ def main():
         return 2
 
     expected = set(baseline.get("failures", []))
+
+    layout_dependent = []
+    if args.layout_dependent:
+        try:
+            with open(args.layout_dependent, "r", encoding="utf-8") as fh:
+                layout_dependent = sorted(e["path"] for e in json.load(fh)["tests"])
+        except (OSError, ValueError, KeyError, TypeError) as exc:
+            print("regression gate: cannot read layout-dependent list %s: %s"
+                  % (args.layout_dependent, exc), file=sys.stderr)
+            return 3
+        observed_ld = {p: (p in observed) for p in layout_dependent}
+        observed = observed - set(layout_dependent)
+        expected = expected - set(layout_dependent)
+
     regressions = sorted(observed - expected)
     improvements = sorted(expected - observed)
 
@@ -186,6 +222,13 @@ def main():
     print("regressions       : %d" % len(regressions))
     print("improvements      : %d" % len(improvements))
 
+    if layout_dependent:
+        print("layout-dependent  : %d (reported, not gated; see --layout-dependent)"
+              % len(layout_dependent))
+        for p in layout_dependent:
+            print("  LAYOUT-DEPENDENT %s here, %s on Linux: %s"
+                  % ("fails" if observed_ld[p] else "passes",
+                     "fails" if p in set(baseline.get("failures", [])) else "passes", p))
     for p in regressions:
         print("  REGRESSION (passed before, fails now): %s" % p)
     for p in improvements:
@@ -206,8 +249,13 @@ def main():
         return 1
 
     print("")
-    print("PASS: the failure set is exactly the baseline (%d passed of %d)."
-          % (passed, denominator))
+    if layout_dependent:
+        print("PASS: the failure set is exactly the baseline outside the %d "
+              "layout-dependent tests (%d passed of %d)."
+              % (len(layout_dependent), passed, denominator))
+    else:
+        print("PASS: the failure set is exactly the baseline (%d passed of %d)."
+              % (passed, denominator))
     return 0
 
 

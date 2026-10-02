@@ -1,0 +1,15 @@
+{
+  "//": "Test262 tests whose verdict depends on property enumeration order, which in protoJS follows the addresses of interned key names (allocator history) instead of insertion order: docs/TEST262_STATUS.md, 'Property enumeration order'. Used by regression_gate.py --layout-dependent on macOS and Windows only; the Linux gate never reads it. Add a test only with the CI run that shows it diverging from the Linux baseline, and never to make a real regression green.",
+  "tests": [
+    {
+      "path": "built-ins/Object/defineProperties/15.2.3.7-6-a-93-3.js",
+      "observes": "the order in which defineProperties visits 'property' and 'property1'",
+      "diverged": "Windows (protoCore 2.7.0 and 2.8.0): fails, passes on Linux and macOS; cross-platform run 36971824910"
+    },
+    {
+      "path": "built-ins/Reflect/getOwnPropertyDescriptor/return-from-accessor-descriptor.js",
+      "observes": "Object.getOwnPropertyNames order of a descriptor object",
+      "diverged": "Windows (protoCore 2.8.0): passes, fails on Linux, macOS and Windows with 2.7.0; cross-platform run 36971824910"
+    }
+  ]
+}

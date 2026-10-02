@@ -12,7 +12,10 @@ name: Cross-platform
 #     with the SAME expected-failures baseline and the same accounting as
 #     Linux (tests/test262/runner/regression_gate.py): a test that fails here
 #     and passes on Linux is a regression of this platform, and the reverse is a
-#     stale baseline;
+#     stale baseline. The one exception is the short, evidence-based list in
+#     tests/test262/config/layout_dependent_tests.json: tests whose verdict
+#     depends on property enumeration order, which follows key addresses
+#     (docs/TEST262_STATUS.md). They run and are reported, not gated;
 #   * a timing of two dispatch-bound benchmarks (printed, never asserted).
 #
 # Windows also builds the ZIP package, unpacks it into an empty directory and
@@ -185,7 +188,8 @@ jobs:
           set +e
           "$PROTOJS_PY" tests/test262/runner/regression_gate.py \
             --binary "$PROTOJS_BIN" \
-            --corpus ../test262 > gate.log 2>&1
+            --corpus ../test262 \
+            --layout-dependent tests/test262/config/layout_dependent_tests.json > gate.log 2>&1
           STATUS=$?
           set -e
           sed -n '/=== Test262 regression gate/,$p' gate.log

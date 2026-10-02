@@ -121,7 +121,40 @@ harness); `noStrict` needs nothing, since sloppy is the default.
 
 At 1 h 21 min sequential this measurement does not belong on every push. It is a
 release gate, run on demand. The per-commit gate is the three-pattern regression
-check in [CONFORMANCE.md](CONFORMANCE.md), which takes minutes.
+check in [CONFORMANCE.md](CONFORMANCE.md), which takes minutes. Since
+2026-10-02 the same gate, with the same Linux baseline, also runs on macOS 14
+(arm64, Apple clang) and Windows Server 2022 (MSVC), in
+`.github/workflows/cross-platform.yml`; on 2026-10-02 it gave 3,619 of 3,875
+on macOS, exactly the Linux failure set (cross-platform run 36971824910).
+The whole-corpus figure above is Linux only; no CI job measures it on macOS or
+Windows. (A 7,316-test subset run once by hand on a Windows 11 host during the
+port -- 6,325 passing against 6,324 on Linux -- is recorded in the changelog;
+CI does not reproduce it.)
+
+### Property enumeration order
+
+protoJS reports an object's string-keyed properties (`Object.keys`,
+`getOwnPropertyNames`, `for-in`, `Object.assign`, `defineProperties`, ...) in
+the order protoCore walks the object's attributes, which is the order of the
+addresses of the interned key names -- not the insertion order of
+OrdinaryOwnPropertyKeys. For example `o.zeta = 1; o.alpha = 2; o.mid = 3`
+gives `Object.keys(o)` = `mid, zeta, alpha` on Linux, where Node gives
+`zeta, alpha, mid`. The addresses depend on the allocator's history: the same
+run after run on one platform, different on another. A test that observes key
+order can therefore pass on one platform and fail on another with nothing
+wrong in either build. Fixing it needs insertion-ordered attributes in the
+object model (protoCore), which is outside protoJS.
+
+Symbol-keyed properties are not affected: since 2026-10-02 every report of
+symbol keys orders them by the symbols' creation, after the string keys and
+with array indices first, the same on every platform.
+
+The per-commit gate's baseline is recorded on Linux. On macOS and Windows the
+tests listed in `tests/test262/config/layout_dependent_tests.json` -- each one
+with the run in which it diverged -- are run and reported but not gated
+(`regression_gate.py --layout-dependent`); every other test is gated exactly
+as on Linux. As of 2026-10-02 the list holds two tests, both diverging on
+Windows only.
 
 ---
 
