@@ -164,6 +164,55 @@ const proto::ProtoObject* consumeCallException();
 const proto::ProtoObject* jsToNumber(proto::ProtoContext* context,
                                      const proto::ProtoObject* value);
 
+/**
+ * True while the interpreter has a frame on this thread's stack.  A microtask
+ * checkpoint runs only when it is false (jobs run on an empty stack).
+ */
+bool interpreterIsRunning();
+
+/**
+ * Publish the module and global root that callJSFunction and runBytecode
+ * resolve against, for code that runs JavaScript from outside any frame --
+ * the microtask checkpoint, event-loop callbacks.  Restores the previous
+ * values on destruction.
+ */
+class InterpreterEntryScope {
+public:
+    InterpreterEntryScope(const ProtoBytecodeModule* module,
+                          const proto::ProtoObject** globalRoot);
+    ~InterpreterEntryScope();
+    InterpreterEntryScope(const InterpreterEntryScope&) = delete;
+    InterpreterEntryScope& operator=(const InterpreterEntryScope&) = delete;
+private:
+    const ProtoBytecodeModule* prevCurrent_;
+    const ProtoBytecodeModule* prevRoot_;
+    const proto::ProtoObject** prevGlobalRoot_;
+};
+
+/**
+ * Construct(target, args) from native code, as Reflect.construct(target,
+ * args) does.  Signals a TypeError (hasCallException) when target is not a
+ * constructor.
+ */
+const proto::ProtoObject* jsConstruct(proto::ProtoContext* ctx,
+                                      const proto::ProtoObject* target,
+                                      const proto::ProtoList* args);
+
+/**
+ * Resume an async function or async generator suspended at an `await`, from
+ * the reaction job of the awaited promise: `value` is pushed as the result of
+ * the await, or thrown there when `isThrow`.
+ */
+void resumeAwait(proto::ProtoContext* ctx, const proto::ProtoObject* continuation,
+                 const proto::ProtoObject* value, bool isThrow);
+
+/**
+ * The reaction of AsyncGeneratorAwaitReturn (§27.6.3.9): the awaited return
+ * value of a completed or not-yet-started async generator has settled.
+ */
+void asyncGeneratorReturnSettled(proto::ProtoContext* ctx, const proto::ProtoObject* generator,
+                                 const proto::ProtoObject* value, bool isThrow);
+
 } // namespace protojs
 
 #endif /* PROTOJS_PROTO_INTERPRETER_H */

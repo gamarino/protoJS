@@ -1,0 +1,8 @@
+immediate 1
+immediate 1 end
+a1 late
+a2 late
+b caught later
+immediate 2
+then on settled ran synchronously: false
+a3 late

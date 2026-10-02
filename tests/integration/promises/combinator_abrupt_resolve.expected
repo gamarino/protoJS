@@ -1,0 +1,5 @@
+all returned
+allSettled returned
+all rejected: resolve threw
+allSettled rejected: resolve threw
+returnCount 0

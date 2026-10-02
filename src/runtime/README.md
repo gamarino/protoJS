@@ -20,6 +20,23 @@ Every `ProtoObject*` that the interpreter holds must be visible to protoCore's g
 - The per-thread `InterpFrame` records keep only integer indices (stack base, top and capacity) and the frame's `ProtoContext*`; they hold no object references.
 - Do not keep `ProtoObject*` values in C++ containers (`std::vector`, lambda captures, ...) across points where the GC can run. For objects that must outlive a C++ call boundary, follow [docs/GC_BRIDGING.md](../../docs/GC_BRIDGING.md).
 
+## Async functions and generators
+
+`runBytecode` is a thin entry over the dispatch loop (`runBytecodeImpl`). For
+an async function it creates the function's promise, runs the body, and
+settles the promise when the body returns or throws; when the body suspends
+at an `await` it hands the promise to the caller instead. At the `await` the
+dispatch loop records the activation -- pc, the frame's slots and operand
+stack, the catch stack, the for-of state slots, `this`, the arguments and the
+function object -- in an immutable continuation and registers a reaction on
+the awaited promise; the reaction job (`src/MicrotaskQueue.h`) calls
+`resumeAwait`, which re-enters the dispatch loop from the continuation with the
+settled value pushed, or the reason thrown, at the await. Async generators
+suspend the same way at their initial yield and at each `yield`, and serve
+their queued `next` / `return` / `throw` requests in order (ECMA-262 §27.6).
+Generators snapshot the same frame state at each `yield` (they keep it on the
+iterator object).
+
 ## Components
 
 | File | Role |

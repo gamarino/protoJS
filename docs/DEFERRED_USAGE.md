@@ -33,6 +33,29 @@ Behaviour, as implemented in `src/ProtoDeferred.cpp`:
 - An exception thrown by a `then` or `catch` callback, and not caught inside it, is reported on stderr as `Uncaught exception in Deferred callback: <Name: message>` and ends the process with exit status 1 at once (work still queued does not run), as an exception escaping any event-loop callback does in Node. It does not settle any other Deferred.
 - A rejection with no registered handler is silent: there is no unhandled-rejection warning.
 
+## Deferred and Promise
+
+`Deferred` is not a `Promise` and keeps its own model: its function and its
+callbacks run on event-loop turns (macrotasks), and `then` returns the same
+Deferred. It is, however, a thenable -- it has a callable `then` that accepts
+`(onFulfilled, onRejected)` -- so the `Promise` machinery adopts it:
+
+```javascript
+async function main() {
+    const n = await new Deferred(() => 6 * 7);             // 42
+    const all = await Promise.all([new Deferred(() => 1), Promise.resolve(2)]);
+    const p = Promise.resolve(new Deferred(() => "x"));     // a real Promise
+    console.log(n, all, await p);
+}
+main();
+```
+
+Adoption calls the Deferred's `then` from a promise job
+(NewPromiseResolveThenableJob), and the promise settles when the Deferred's
+callback runs on its later turn. `tests/integration/promises/deferred_adoption.js`
+checks `await`, `Promise.all`, `allSettled`, `any`, `race` and
+`Promise.resolve` on Deferreds.
+
 ## Process lifetime
 
 After the main script finishes, `protojs` keeps processing event-loop callbacks while any Deferred is pending (and while workers, HTTP servers or clients, or `net` sockets are active). It stops waiting after 180 seconds and prints `Warning: Event loop timeout reached. Some callbacks may not have completed.` (see `src/main.cpp`).

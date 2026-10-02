@@ -1,0 +1,23 @@
+typeof gen().next: function is promise: true
+gen start
+sync-iterable 1
+sync-iterable 2
+sync-iterable 3
+gen start
+gen 1
+gen 2
+gen 3
+gen finally
+gen start
+gen finally
+queued 1/false 2/false 3/false "ret"/true undefined/true
+gen start
+first 1/false
+return "early"/true
+after return undefined/true
+gen start
+throw thrown in
+gen start
+break at 1
+custom 10
+custom 20

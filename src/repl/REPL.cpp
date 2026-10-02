@@ -1,4 +1,5 @@
 #include "REPL.h"
+#include "../MicrotaskQueue.h"
 #include "../JSContext.h"
 #include "quickjs.h"
 #include <iostream>
@@ -21,6 +22,10 @@ void REPL::start(JSContext* ctx) {
 
     JSContextWrapper* w =
         static_cast<JSContextWrapper*>(JS_GetContextOpaque(ctx));
+    // As in Node's REPL, an unhandled rejection is reported and the session
+    // goes on (MicrotaskQueue.h).
+    if (MicrotaskQueue::unhandledRejectionMode() != MicrotaskQueue::kNone)
+        MicrotaskQueue::setUnhandledRejectionMode(MicrotaskQueue::kWarn);
     proto::ProtoContext* pctx = w ? w->getProtoContext() : nullptr;
 
     while (true) {

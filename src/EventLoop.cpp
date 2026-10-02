@@ -1,5 +1,6 @@
 #include "EventLoop.h"
 #include "GcOrphanQueue.h"
+#include "MicrotaskQueue.h"
 #include <iostream>
 
 namespace protojs {
@@ -32,6 +33,9 @@ void EventLoop::processCallbacks() {
         
         try {
             callback();
+            // A macrotask has run: drain the job queue (promise reactions,
+            // await continuations) before the next one, as Node does.
+            MicrotaskQueue::checkpointThread();
             if (endOfTurnHook) endOfTurnHook();
         } catch (const std::exception& e) {
             // Log error but continue processing other callbacks

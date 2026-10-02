@@ -187,10 +187,13 @@ How Windows differs, by design:
   asks protoCore for it with `setThreadStackBytes`, which protoCore honours on
   Windows from 2.9.0, and a thread created without a size gets the
   executable's reservation anyway). MSVC gives the
-  interpreter's `runBytecode` a frame of about 46 KiB (GCC: 7.7 KiB), so
-  64 MiB allows about 1,400 nested JavaScript calls where Linux's 8 MiB allows
-  about 1,000. As on Linux, going deeper ends the process instead of raising
-  a `RangeError`. The frame size and what it costs per call are discussed in
+  interpreter's `runBytecode` a much larger frame than GCC (3 KiB), and a
+  JavaScript call costs about 90 KiB of stack in the MSVC build: on the CI's
+  Windows Server 2022 runner, 700 nested calls succeed and 720 do not
+  (measured on 2026-10-02, cross-platform run 37024335790; the earlier
+  figure of about 1,400 no longer holds). `js/workers/deep_recursion` uses
+  700, so it is at the limit. As on Linux, going deeper ends the process
+  instead of raising a `RangeError`. The frame size and what it costs per call are discussed in
   [PERFORMANCE_DISPATCH.md](PERFORMANCE_DISPATCH.md).
 - **Dates** cover the whole JavaScript range: the C runtime's time functions
   stop at 1970..3000, so UTC conversions are protoJS's own calendar arithmetic

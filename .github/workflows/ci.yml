@@ -407,3 +407,22 @@ jobs:
             exit 1
           fi
           echo "Premise holds: denominator 53571 against the pinned corpus."
+
+      - name: Keep the whole-corpus results (per-test verdicts)
+        # The summary above has totals only.  The runner's log names every
+        # test's verdict and its snapshot holds them as JSON; keeping both lets
+        # two runs be compared test by test, which is how a regression hidden
+        # behind a net improvement is found.
+        if: >-
+          always() && (
+          github.event_name == 'schedule' ||
+          github.event_name == 'workflow_dispatch' ||
+          startsWith(github.ref, 'refs/tags/v'))
+        uses: actions/upload-artifact@v4
+        with:
+          name: test262-whole-corpus
+          path: |
+            protoJS/full.log
+            protoJS/tests/test262/reports/snapshot-annexB_built-ins_harness_intl402_language_staging-*.json
+          if-no-files-found: warn
+          retention-days: 30

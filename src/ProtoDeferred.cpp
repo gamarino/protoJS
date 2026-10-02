@@ -5,6 +5,7 @@
 #include "JSContext.h"
 #include "JSSymbols.h"
 #include "PromisePrototype.h"
+#include "MicrotaskQueue.h"
 #include "platform/ProcessExit.h"
 #include "runtime/ProtoInterpreter.h"
 #include "runtime/ProtoBytecodeModule.h"
@@ -129,12 +130,16 @@ void drainCallbackException(proto::ProtoContext* ctx, const char* where) {
 
 void endOfTurnChecks(proto::ProtoContext* ctx) {
     drainCallbackException(ctx, "event-loop callback");
-    const proto::ProtoObject* reason = nullptr;
-    if (takeUnhandledRejection(ctx, reason)) {
-        std::cerr << "Uncaught (in promise) " << describeThrownValue(ctx, reason)
-                  << std::endl;
-        platform::exitNow(1);
-    }
+    // Unhandled rejections are reported by the microtask checkpoint that ends
+    // every turn (MicrotaskQueue.h); run it here too for a turn that queued
+    // jobs without passing through the event loop.
+    MicrotaskQueue::checkpointThread();
+}
+
+void reportUnhandledRejection(proto::ProtoContext* ctx, const proto::ProtoObject* reason,
+                              bool fatal) {
+    std::cerr << "Uncaught (in promise) " << describeThrownValue(ctx, reason) << std::endl;
+    if (fatal) platform::exitNow(1);
 }
 
 namespace {

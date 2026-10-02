@@ -1,0 +1,17 @@
+all-empty fulfilled []
+any-empty rejected AggregateError:All promises were rejected errors=[]
+all-not-iterable rejected TypeError
+tick1
+withResolvers fulfilled "resolved externally"
+race-reject rejected Error:fast failure
+race-value fulfilled "plain"
+all-iterable fulfilled [1,2]
+all-string fulfilled ["a","b"]
+tick2
+tick3
+race fulfilled "jobs"
+all fulfilled ["slow",1,"jobs","now"]
+all-reject rejected Error:late failure
+allSettled fulfilled [fulfilled:"ok",rejected:"no",fulfilled:3]
+any fulfilled "winner"
+any-none rejected AggregateError:All promises were rejected errors=["x","y"]
