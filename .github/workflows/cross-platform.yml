@@ -200,6 +200,8 @@ jobs:
           exit "$STATUS"
 
       - name: Dispatch timing (informational)
+        # Runs whether or not the gate passed: it is a measurement.
+        if: ${{ !cancelled() }}
         # Two dispatch-bound benchmarks that verify what they computed
         # (tests/benchmarks/dispatch). macOS and Windows take the switch dispatch;
         # docs/PERFORMANCE_DISPATCH.md has the Linux GCC/Clang comparison. A
@@ -219,7 +221,9 @@ jobs:
           done
 
       - name: Package the ZIP and run it from an empty directory
-        if: matrix.package
+        # Runs whether or not the test steps passed, so a packaging defect is
+        # reported in the same run; the job still fails if any step failed.
+        if: ${{ matrix.package && !cancelled() }}
         working-directory: protoJS/build
         run: |
           cpack -G ZIP
