@@ -1,0 +1,8 @@
+Promise.resolve(promise) is identity: true
+thenable.then called@1
+direct direct@1
+then getter threw getter@1
+self resolution true@1
+resolve(thenable) t@2
+resolve(promise) p@3
+return promise x@4

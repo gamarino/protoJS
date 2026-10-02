@@ -1,0 +1,4 @@
+a() returns a promise: true
+a1 b1 sync a2 b2 t1 a3 b3 t2 t3 all A,B
+keep 6/6/2
+expr 7

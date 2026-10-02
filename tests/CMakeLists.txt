@@ -152,6 +152,15 @@ add_test(NAME cli/gc-stale-caches
             "${CMAKE_CURRENT_SOURCE_DIR}/integration/gc/collected_builtin_prototypes.js")
 set_tests_properties(cli/gc-stale-caches PROPERTIES TIMEOUT 900)
 
+# gc-promises: pending reactions, queued jobs and async functions suspended at
+# an await are reachable only from the job queue and the promises themselves;
+# the collector must see all of them. Three runs under a small ceiling.
+add_test(NAME cli/gc-promises
+    COMMAND ${PROTOJS_SH} "${CMAKE_CURRENT_SOURCE_DIR}/cli/gc-stress.sh"
+            "$<TARGET_FILE:protojs>" 3 400000
+            "${CMAKE_CURRENT_SOURCE_DIR}/integration/gc/pending_promises.js")
+set_tests_properties(cli/gc-promises PROPERTIES TIMEOUT 900)
+
 # The REPL reads lines that may end in "\r\n" (a Windows console, or input piped
 # from a Windows program) and must still recognise ".exit" and blank lines, and
 # it must end at end of input. Feeds "1+1\r\n\r\n.exit\r\n" on every platform.
@@ -203,6 +212,23 @@ add_test(NAME cli/uncaught-errors
 # A loop creating 2,000,000 closures under the default heap ceiling: must print
 # the right sum with a bounded peak resident set (the script kills the run at a
 # safety cap so a regression cannot exhaust the machine). About a minute.
+# Promise and async-function job ordering, compared with Node's output for the
+# same scripts (tests/integration/promises/*.expected; see the script header).
+add_test(NAME cli/promise-fixtures
+    COMMAND ${PROTOJS_SH} "${CMAKE_CURRENT_SOURCE_DIR}/cli/promise-fixtures.sh"
+            "$<TARGET_FILE:protojs>"
+            "${CMAKE_CURRENT_SOURCE_DIR}/integration/promises")
+set_tests_properties(cli/promise-fixtures PROPERTIES TIMEOUT 600)
+
+# Settled promises are collectable: 100,000 rejected-and-handled promises under
+# a heap ceiling far below what retaining them would need. Each `new Promise`
+# used to register itself on the global object for the life of the process.
+add_test(NAME cli/promise-rejections-bounded-memory
+    COMMAND ${PROTOJS_PYTHON} "${CMAKE_CURRENT_SOURCE_DIR}/cli/promise_rejections_bounded_memory.py"
+            "$<TARGET_FILE:protojs>"
+            "${CMAKE_CURRENT_BINARY_DIR}/cli-scratch/promise-rejections-bounded-memory")
+set_tests_properties(cli/promise-rejections-bounded-memory PROPERTIES TIMEOUT 1200)
+
 add_test(NAME cli/closure-loop-bounded-memory
     COMMAND ${PROTOJS_PYTHON} "${CMAKE_CURRENT_SOURCE_DIR}/cli/closure_loop_bounded_memory.py"
             "$<TARGET_FILE:protojs>"

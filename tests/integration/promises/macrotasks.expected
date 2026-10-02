@@ -1,0 +1,9 @@
+script end
+micro from script
+queueMicrotask from script
+immediate 1
+micro from immediate 1
+micro chained from immediate 1
+immediate 2
+micro from immediate 2
+immediate 3

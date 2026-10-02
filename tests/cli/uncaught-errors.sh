@@ -126,6 +126,32 @@ Promise.reject(42);
 EOF
 run_case unhandled-non-error 1 "42" ""
 
+cat > unhandled-async-throw.js <<'EOF'
+// A throw after an await rejects the async function's promise; nobody handles
+// it, so the process ends at the end of that job's checkpoint.
+async function f() { await null; throw new Error('boom-async-await'); }
+f();
+setImmediate(function () { console.log('async: queued work ran'); });
+EOF
+run_case unhandled-async-throw 1 "boom-async-await" ""
+
+cat > unhandled-async-before-await.js <<'EOF'
+// A throw before the first await also rejects the promise: the caller goes on.
+async function f() { throw new Error('boom-async-sync'); }
+f();
+console.log('after the call');
+EOF
+run_case unhandled-async-before-await 1 "boom-async-sync" "after the call"
+
+cat > unhandled-handled-next-macrotask.js <<'EOF'
+// A handler attached in a later macrotask is too late, as in Node: the
+// rejection is reported at the end of the checkpoint that produced it.
+var p = Promise.reject(new Error('boom-too-late'));
+setImmediate(function () { p.catch(function () { console.log('handled too late'); }); });
+console.log('end');
+EOF
+run_case unhandled-handled-next-macrotask 1 "boom-too-late" "end"
+
 # ---- Handled rejections and clean programs end with status 0 -----------------
 
 cat > handled-catch.js <<'EOF'
@@ -160,6 +186,15 @@ allSettled rejected
 race c
 any AggregateError
 finally e"
+
+cat > handled-later-microtask.js <<'EOF'
+// A handler attached by a later job of the same checkpoint is in time.
+var p = Promise.reject(new Error('same-checkpoint'));
+Promise.resolve().then(function () {}).then(function () {
+    p.catch(function (e) { console.log('handled in a later job ' + e.message); });
+});
+EOF
+run_case handled-later-microtask 0 "" "handled in a later job same-checkpoint"
 
 cat > handled-await.js <<'EOF'
 async function f() {

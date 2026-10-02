@@ -1,0 +1,6 @@
+1 sync start
+2 sync end
+4 then p1: inmediata
+5 then p2 (resuelta despues): tarde
+3 microtask
+6 f rechazada: boom

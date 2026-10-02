@@ -1,0 +1,13 @@
+f1 args=0
+f2
+tick1
+catch3 thrown
+tick2
+tick3
+then1 1
+catch2 r
+catch4 rejected in finally
+then6 6
+tick4
+waited
+then5 5

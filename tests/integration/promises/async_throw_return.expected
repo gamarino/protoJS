@@ -1,0 +1,16 @@
+throwsBefore did not throw synchronously
+throwsBefore rejected: before
+finally ran
+badParam rejected: param
+throwsAfter rejected: after
+returnsValue: 42
+returnsNothing: undefined
+catches: caught rejected
+finallyRuns: try
+rethrows: RangeError outer from inner
+arrow: 42
+method: 15
+class method: 21
+static method: static
+returnsPromise: adopted
+thenable: from thenable
