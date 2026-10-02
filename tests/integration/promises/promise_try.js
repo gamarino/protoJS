@@ -15,6 +15,10 @@ const p2 = Promise.try(() => { throw new Error('tried'); });
 p2.catch(e => check('throw rejects', e.message === 'tried'));
 const p3 = Promise.try(() => Promise.resolve('adopted'));
 p3.then(v => check('returned promise adopted', v === 'adopted'));
+// A promise of the receiver's constructor is returned as it is (2026 revision:
+// PromiseResolve(C, value), no wrapping).
+const sentinel = Promise.resolve('same');
+check('returned promise not wrapped', Promise.try(() => sentinel) === sentinel);
 setImmediate(() => {
     check('then ran', observed);
     if (failures.length) { console.log('FAILED: ' + failures.join(', ')); process.exit(1); }

@@ -769,18 +769,25 @@ const proto::ProtoObject* promiseStaticTry(proto::ProtoContext* ctx,
                                            const proto::ParentLink*,
                                            const proto::ProtoList* args,
                                            const proto::ProtoSparseList*) {
+    // Promise.try (§27.2.4.8, as revised in 2026): call the callback; a
+    // throw rejects a new capability of C, and a value goes through
+    // PromiseResolve(C, value), so a C promise the callback returns is
+    // returned as it is, not wrapped.
     if (!requireObjectReceiver(ctx, self, "Promise.try")) return PROTO_NONE;
-    Capability cap;
-    if (!newPromiseCapability(ctx, self, cap)) return PROTO_NONE;
     const int argc = args ? static_cast<int>(args->getSize(ctx)) : 0;
     const proto::ProtoList* fwd = (argc > 1) ? args->getSlice(ctx, 1, argc) : ctx->newList();
     const proto::ProtoObject* result =
         callJSFunction(ctx, argAt(ctx, args, 0), undef(), fwd ? fwd : ctx->newList());
     const proto::ProtoObject* e = PROTO_NONE;
-    if (takeException(e)) capabilitySettle(ctx, cap, true, e);
-    else capabilitySettle(ctx, cap, false, result ? result : undef());
-    if (hasCallException()) return PROTO_NONE;
-    return cap.promise;
+    if (takeException(e)) {
+        Capability cap;
+        if (!newPromiseCapability(ctx, self, cap)) return PROTO_NONE;
+        capabilitySettle(ctx, cap, true, e);
+        if (hasCallException()) return PROTO_NONE;
+        return cap.promise;
+    }
+    const proto::ProtoObject* p = promiseResolveWith(ctx, self, result ? result : undef());
+    return p ? p : PROTO_NONE;
 }
 
 // ---------------------------------------------------------------------------
