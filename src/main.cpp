@@ -535,6 +535,7 @@ int main(int argc, char** argv) {
 
     EventLoopTimerResolution timerResolution;
     while (protojs::EventLoop::getInstance().hasPendingCallbacks() ||
+           protojs::EventLoop::getInstance().hasPendingOperations() ||
            protojs::GcOrphanQueue::pending() > 0 ||
            protojs::WorkerThreadsModule::getActiveWorkerCount() > 0 ||
            protojs::Deferred::getActiveDeferredCount() > 0 ||

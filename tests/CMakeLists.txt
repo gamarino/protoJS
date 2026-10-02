@@ -225,6 +225,16 @@ set_tests_properties(js/fs/test_fs_callbacks PROPERTIES
     PASS_REGULAR_EXPRESSION "test_fs_callbacks: all [0-9]+ checks passed"
     FAIL_REGULAR_EXPRESSION "FAILED|Uncaught exception")
 
+# dns.lookup(name, callback): the pending lookup alone must keep the process
+# alive until the callback has run. 'localhost' resolves without the network.
+# Same final-line rule as the fs callbacks: a callback that never runs fails.
+add_test(NAME js/dns/test_dns_lookup_callback
+    COMMAND "$<TARGET_FILE:protojs>"
+            "${CMAKE_CURRENT_SOURCE_DIR}/integration/dns/test_dns_lookup_callback.js")
+set_tests_properties(js/dns/test_dns_lookup_callback PROPERTIES
+    PASS_REGULAR_EXPRESSION "test_dns_lookup_callback: all [0-9]+ checks passed"
+    FAIL_REGULAR_EXPRESSION "FAILED|Uncaught exception")
+
 # tests/conformity: the asserting conformity scripts (each throws on the first
 # failed check, so a non-zero exit is the verdict). Platform-independent, so they
 # run on Linux, macOS and Windows alike.

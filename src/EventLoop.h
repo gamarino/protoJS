@@ -62,6 +62,20 @@ public:
      */
     void setEndOfTurnHook(std::function<void()> hook);
 
+    /**
+     * @brief Keep the process alive for an asynchronous operation in flight.
+     *
+     * A native module that hands work to a pool thread and will later enqueue
+     * the JS callback calls beginOperation() before handing it off and
+     * endOperation() once the callback has run.  Until then the queue can be
+     * empty while a callback is still owed, and the drain loop in main.cpp
+     * (which also checks hasPendingOperations) must not end the process: in
+     * Node, a pending request keeps the event loop alive.
+     */
+    void beginOperation() { pendingOperations.fetch_add(1); }
+    void endOperation() { pendingOperations.fetch_sub(1); }
+    bool hasPendingOperations() const { return pendingOperations.load() > 0; }
+
 private:
     EventLoop() = default;
     ~EventLoop() = default;
@@ -75,6 +89,7 @@ private:
     std::condition_variable condition;
     std::atomic<bool> running{false};
     std::function<void()> endOfTurnHook;
+    std::atomic<int> pendingOperations{0};
 };
 
 } // namespace protojs

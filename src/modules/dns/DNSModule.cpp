@@ -5,6 +5,7 @@
 #include "../../IOThreadPool.h"
 #include "../../EventLoop.h"
 #include "../../JSContext.h"
+#include "../../ProtoDeferred.h"
 #include "../../runtime/ProtoInterpreter.h"
 #include "../../runtime/ProtoBytecodeModule.h"
 #include "../../platform/Sockets.h"
@@ -160,6 +161,10 @@ const proto::ProtoObject* dnsLookup(
     if (!rs) return PROTO_NONE;
     proto::ProtoRootSet::Handle pin = rs->add(cb);
 
+    // The callback is owed until it has run: keep the process alive, as a
+    // pending request does in Node.  Pre-fix nothing counted the lookup, so a
+    // script whose only work was dns.lookup(name, cb) exited before cb ran.
+    EventLoop::getInstance().beginOperation();
     IOThreadPool::getInstance().getExecutor().submit([host, family, wrapper, pin]() {
         struct addrinfo hints, *result = nullptr;
         std::memset(&hints, 0, sizeof(hints));
@@ -188,6 +193,10 @@ const proto::ProtoObject* dnsLookup(
         std::string ipStr = ip;
         EventLoop::getInstance().enqueueCallback(
             [wrapper, pin, errMsg, ipStr, fam, err]() {
+            // Ends the operation however this callback returns.
+            struct OperationDone {
+                ~OperationDone() { EventLoop::getInstance().endOperation(); }
+            } operationDone;
             if (!wrapper) return;
             JSContextWrapper::CurrentScope ws(wrapper);
             proto::ProtoContext* c = wrapper->getProtoContext();
@@ -201,8 +210,10 @@ const proto::ProtoObject* dnsLookup(
             if (err != 0) {
                 cbArgs = cbArgs->appendLast(c, c->fromUTF8String(errMsg.c_str()));
             } else {
+                // Node passes null, not undefined, as the error of a
+                // successful lookup.
                 cbArgs = cbArgs
-                    ->appendLast(c, PROTO_NONE)
+                    ->appendLast(c, getNullSentinel())
                     ->appendLast(c, c->fromUTF8String(ipStr.c_str()))
                     ->appendLast(c, c->fromInteger(fam));
             }
@@ -210,6 +221,7 @@ const proto::ProtoObject* dnsLookup(
                 static_cast<const ProtoBytecodeModule*>(wrapper->getRootModule());
             callJSFunctionFromAsync(c, cb, PROTO_NONE, cbArgs, mod,
                                      wrapper->getNativeGlobalRootPtr());
+            drainCallbackException(c, "dns callback");
         });
     });
     return PROTO_NONE;
