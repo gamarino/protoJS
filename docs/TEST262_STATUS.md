@@ -131,7 +131,14 @@ protoJS's, stated in Test262's own terms.
   asynchronous failures through `$DONE`, and many synchronous tests leave a
   rejected promise behind on purpose (`Promise.all` over an iterator whose
   step throws, for example). protojs's default is Node's, which ends the
-  process with status 1; engine shells ignore such rejections.
+  process with status 1; engine shells ignore such rejections. This is a
+  decision, not a workaround: the maintainer approved it on 2026-10-02. It
+  applies to every Test262 measurement, because the whole-corpus run and the
+  per-commit gate (`tests/test262/runner/regression_gate.py`) both start
+  `protojs` through `test262_runner.js`. Its effect on the whole-corpus figure
+  is about 41 tests (32,326 without it, 32,373 with it, on 2026-10-02; see
+  "What changed since the previous figures"). It does not change how
+  programs run: `protojs` itself keeps Node's default (`throw`).
 - **Timeouts.** 5,000 ms per test (`default_timeout_ms`), counted as failures.
   234 tests time out on the CI runner (2026-10-02), none of them in
   `built-ins/RegExp/property-escapes`; the largest groups are class (72),
