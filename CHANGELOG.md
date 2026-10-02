@@ -37,7 +37,12 @@ read a pending one as `undefined`, so an async function never suspended and a
 - **Unhandled rejections** are reported at the end of the microtask checkpoint
   in which they happened, as Node does: a handler attached by a later job of
   the same checkpoint is in time, one attached in a later macrotask is not.
-  The REPL reports without exiting.
+  The REPL reports without exiting. `--unhandled-rejections=throw|strict|warn|none`
+  (Node's flag) chooses what happens; the Test262 runner passes `none`,
+  because a rejection a test leaves unhandled is not a Test262 failure.
+- **`Promise.try`** follows the 2026 revision: a value the callback returns
+  goes through PromiseResolve, so a promise of the receiver's constructor is
+  returned as it is.
 - **Leak fixed.** Every `new Promise` registered itself on the global object
   for the rest of the process. 100,000 rejected-and-handled promises now run
   in a 96 MB heap ceiling with a 109 MB peak resident set

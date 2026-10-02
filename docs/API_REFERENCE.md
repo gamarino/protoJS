@@ -24,6 +24,7 @@ protojs [options] -e "<code>"
 | `-v`, `--version` | Print `protoJS v0.1.0` and exit. |
 | `--input-type=module` | Evaluate the input as an ES module. Module code is evaluated by the QuickJS module evaluator, not by the protoCore interpreter. |
 | `--preload <file>` | Evaluate `<file>` as a script before the main input; may be repeated. |
+| `--unhandled-rejections=<mode>` | What a promise rejection no handler claimed does, as Node's flag: `throw` (default) and `strict` print `Uncaught (in promise) <error>` and end the process with status 1; `warn` prints it and goes on; `none` ignores it. Any other value exits with status 9. The Test262 runner uses `none`. |
 | `--minimal` | Install only `console`, `print`, `JSON`, `performance`, `Deferred`, `protoCore` and the script globals, then evaluate the input. Intended for isolating problems. |
 | `--proto-eval` | Deprecated. Accepted for compatibility; has no effect (the protoCore interpreter is always used). |
 
@@ -111,8 +112,9 @@ Node's own output for the fixtures, checked by `cli/promise-fixtures`).
 Known differences from Node:
 
 - `process.on('unhandledRejection')` and `'rejectionHandled'` are not
-  available (`process` is not an event emitter); an unhandled rejection
-  always ends the process with status 1 (Node's default).
+  available (`process` is not an event emitter); what an unhandled rejection
+  does is chosen with `--unhandled-rejections` (Node's default, `throw`,
+  ends the process with status 1).
 - Errors carry no stack, so the report is `Uncaught (in promise) Name:
   message` rather than Node's stack trace.
 - When a `for await` loop is left early (`break`, `return`, an exception), the

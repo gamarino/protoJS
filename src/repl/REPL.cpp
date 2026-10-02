@@ -24,7 +24,8 @@ void REPL::start(JSContext* ctx) {
         static_cast<JSContextWrapper*>(JS_GetContextOpaque(ctx));
     // As in Node's REPL, an unhandled rejection is reported and the session
     // goes on (MicrotaskQueue.h).
-    MicrotaskQueue::setUnhandledRejectionsAreFatal(false);
+    if (MicrotaskQueue::unhandledRejectionMode() != MicrotaskQueue::kNone)
+        MicrotaskQueue::setUnhandledRejectionMode(MicrotaskQueue::kWarn);
     proto::ProtoContext* pctx = w ? w->getProtoContext() : nullptr;
 
     while (true) {

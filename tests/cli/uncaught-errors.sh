@@ -245,6 +245,50 @@ after index
 callback TypeError
 after callback"
 
+# ---- --unhandled-rejections=MODE (Node's flag) ---------------------------------
+
+# run_mode_case <name> <mode> <expected-status> <stderr-substring> <expected-stdout>
+run_mode_case() {
+    local name="$1" mode="$2" expected="$3" errtext="$4" expout="$5"
+    timeout 60 "$PROTOJS" "--unhandled-rejections=$mode" "$name.js" > "$name.out" 2> "$name.err"
+    local status=$?
+    if [ "$status" -ne "$expected" ]; then
+        echo "FAIL [$name --unhandled-rejections=$mode]: exit status $status, expected $expected"
+        sed 's/^/    /' "$name.err"
+        FAILED=1
+    elif [ "$(cat "$name.out")" != "$expout" ]; then
+        echo "FAIL [$name --unhandled-rejections=$mode]: standard output was:"
+        sed 's/^/    /' "$name.out"
+        FAILED=1
+    elif [ -n "$errtext" ] && ! grep -qF -- "$errtext" "$name.err"; then
+        echo "FAIL [$name --unhandled-rejections=$mode]: standard error lacks '$errtext'"
+        FAILED=1
+    elif [ -z "$errtext" ] && [ -s "$name.err" ]; then
+        echo "FAIL [$name --unhandled-rejections=$mode]: unexpected standard error"
+        sed 's/^/    /' "$name.err"
+        FAILED=1
+    else
+        echo "ok   [$name --unhandled-rejections=$mode]"
+    fi
+}
+
+cat > rejection-modes.js <<'EOF'
+Promise.reject(new Error('boom-mode'));
+setImmediate(function () { console.log('went on'); });
+EOF
+run_mode_case rejection-modes throw 1 "boom-mode" ""
+run_mode_case rejection-modes strict 1 "boom-mode" ""
+run_mode_case rejection-modes warn 0 "boom-mode" "went on"
+run_mode_case rejection-modes none 0 "" "went on"
+
+timeout 60 "$PROTOJS" --unhandled-rejections=sometimes rejection-modes.js > bad-mode.out 2> bad-mode.err
+if [ $? -ne 9 ] || ! grep -qF "invalid value for --unhandled-rejections" bad-mode.err; then
+    echo "FAIL [bad mode]: expected status 9 and a message"
+    FAILED=1
+else
+    echo "ok   [bad mode]"
+fi
+
 if [ "$FAILED" -ne 0 ]; then
     exit 1
 fi

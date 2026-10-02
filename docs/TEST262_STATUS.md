@@ -100,6 +100,12 @@ protoJS's, stated in Test262's own terms.
   yet normative.
 - **`intl402/`** (3,357 files). Included, although protoJS implements no
   ECMA-402.
+- **Unhandled promise rejections** are not failures. Since 2026-10-02 the
+  runner starts `protojs` with `--unhandled-rejections=none`: Test262 reports
+  asynchronous failures through `$DONE`, and many synchronous tests leave a
+  rejected promise behind on purpose (`Promise.all` over an iterator whose
+  step throws, for example). protojs's default is Node's, which ends the
+  process with status 1; engine shells ignore such rejections.
 - **Timeouts.** 5,000 ms per test (`default_timeout_ms`), counted as failures.
   613 tests time out. 384 of them are in
   `built-ins/RegExp/property-escapes/generated`, which alone costs about 35

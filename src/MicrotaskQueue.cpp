@@ -41,7 +41,7 @@ thread_local MicrotaskQueue* t_threadQueue = nullptr;
 // checkpointThread().  Small: one entry per wrapper touched in the turn.
 thread_local std::vector<MicrotaskQueue*> t_scheduled;
 
-std::atomic<bool> g_unhandledRejectionsAreFatal{true};
+std::atomic<int> g_unhandledRejectionMode{MicrotaskQueue::kThrow};
 
 // Holder attribute keys.  Interned symbols are perennial (GC_BRIDGING.md,
 // Mechanism A), so caching them process-wide is safe.
@@ -244,11 +244,13 @@ void MicrotaskQueue::reportRejections(proto::ProtoContext* ctx) {
     for (proto::proto_ulong i = 0; i < n; ++i) {
         const proto::ProtoObject* p = list->getAt(ctx, static_cast<int>(i));
         if (!p || isPromiseHandled(ctx, p)) continue;
-        // Reported once: mark it handled so a later checkpoint (the REPL keeps
-        // running) does not report it again.
+        // Reported once: mark it handled so a later checkpoint (the process
+        // may go on) does not report it again.
         markPromiseHandled(ctx, p);
+        const int mode = g_unhandledRejectionMode.load();
+        if (mode == kNone) continue;
         reportUnhandledRejection(ctx, getPromiseValuePublic(ctx, p),
-                                 g_unhandledRejectionsAreFatal.load());
+                                 mode == kThrow || mode == kStrict);
     }
     setHolderList(ctx, rk, nullptr);
 }
@@ -311,8 +313,12 @@ void MicrotaskQueue::checkpointThread() {
     }
 }
 
-void MicrotaskQueue::setUnhandledRejectionsAreFatal(bool fatal) {
-    g_unhandledRejectionsAreFatal.store(fatal);
+void MicrotaskQueue::setUnhandledRejectionMode(UnhandledRejectionMode mode) {
+    g_unhandledRejectionMode.store(mode);
+}
+
+MicrotaskQueue::UnhandledRejectionMode MicrotaskQueue::unhandledRejectionMode() {
+    return static_cast<UnhandledRejectionMode>(g_unhandledRejectionMode.load());
 }
 
 }  // namespace protojs

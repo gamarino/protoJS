@@ -352,6 +352,13 @@ function runOne(proto, cfg, test) {
   } else {
     binaryArgs = [tmpPath];
   }
+  // A promise rejection nobody handles is a host policy, not a Test262
+  // failure: Test262 reports asynchronous failures through $DONE, and many
+  // synchronous tests deliberately leave a rejected promise behind (e.g.
+  // Promise.all over an iterator whose step throws). Node's default, which
+  // protojs follows, ends the process with status 1; run the corpus the way
+  // engine shells do, with the rejection ignored.
+  binaryArgs.unshift("--unhandled-rejections=none");
   return new Promise((resolve) => {
     const child = execFile(
       proto,

@@ -5,6 +5,7 @@
 #include "ProtoDeferred.h"
 #include "ProtoCoreNativeBindings.h"
 #include "EventLoop.h"
+#include "MicrotaskQueue.h"
 #include "GcOrphanQueue.h"
 #include "EventLoopBindings.h"
 #include "console.h"
@@ -332,6 +333,7 @@ void printUsage(const char* programName) {
     std::cerr << "  --proto-eval         Deprecated; accepted and ignored (the protoCore interpreter is always used)" << std::endl;
     std::cerr << "  --minimal            Minimal init (Console only); use to isolate compile/run issues" << std::endl;
     std::cerr << "  --preload file.js    Evaluate file as script before main module (sets globals)" << std::endl;
+    std::cerr << "  --unhandled-rejections=MODE  throw (default) or strict: report and exit 1; warn: report; none: ignore" << std::endl;
 }
 
 int main(int argc, char** argv) {
@@ -380,6 +382,18 @@ int main(int argc, char** argv) {
         } else if (arg == "--proto-eval") {
             // Deprecated no-op: the protoCore interpreter is always used.
             // Accepted silently so existing invocations keep working.
+        } else if (arg.rfind("--unhandled-rejections=", 0) == 0) {
+            // Node's flag: what a promise rejection nobody handled does.
+            const std::string mode = arg.substr(sizeof("--unhandled-rejections=") - 1);
+            if (mode == "throw") protojs::MicrotaskQueue::setUnhandledRejectionMode(protojs::MicrotaskQueue::kThrow);
+            else if (mode == "strict") protojs::MicrotaskQueue::setUnhandledRejectionMode(protojs::MicrotaskQueue::kStrict);
+            else if (mode == "warn") protojs::MicrotaskQueue::setUnhandledRejectionMode(protojs::MicrotaskQueue::kWarn);
+            else if (mode == "none") protojs::MicrotaskQueue::setUnhandledRejectionMode(protojs::MicrotaskQueue::kNone);
+            else {
+                std::cerr << "protojs: invalid value for --unhandled-rejections: " << mode
+                          << " (expected throw, strict, warn or none)" << std::endl;
+                return 9;
+            }
         } else if (arg == "--minimal") {
             minimalInit = true;
         } else if (arg == "--preload" && i + 1 < argc) {

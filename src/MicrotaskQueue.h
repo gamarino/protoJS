@@ -41,7 +41,8 @@
 // checkpoint, after the job queue is empty, every recorded promise still not
 // handled is reported -- "Uncaught (in promise) <reason>" -- and, as Node does
 // by default (--unhandled-rejections=throw), the process ends with status 1.
-// The REPL reports without ending the process.  The list is emptied at every
+// --unhandled-rejections=warn reports and goes on, =none ignores them; the
+// REPL reports without ending the process.  The list is emptied at every
 // checkpoint, so it holds only the rejections of the current turn.
 //
 // Cross-thread entry point
@@ -123,9 +124,12 @@ public:
      *  callback. */
     static void checkpointThread();
 
-    /** Whether an unhandled rejection ends the process (true, the default, as
-     *  in Node) or is only reported (the REPL). */
-    static void setUnhandledRejectionsAreFatal(bool fatal);
+    /** What an unhandled rejection does, as Node's --unhandled-rejections:
+     *  kThrow (the default) and kStrict report it and end the process with
+     *  status 1; kWarn reports it and goes on; kNone ignores it. */
+    enum UnhandledRejectionMode { kThrow, kStrict, kWarn, kNone };
+    static void setUnhandledRejectionMode(UnhandledRejectionMode mode);
+    static UnhandledRejectionMode unhandledRejectionMode();
 
 private:
     void ensureHolder(proto::ProtoContext* ctx);
