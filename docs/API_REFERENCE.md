@@ -126,6 +126,8 @@ Known differences from Node:
   here is the one of scripts, which run on the protoCore interpreter.
 - Properties of iterator results and settled records are enumerated in
   protoJS's key order (`done` before `value`), not insertion order.
+- In the REPL, the microtasks an input queues run before its result is
+  printed (Node prints the result first).
 
 ---
 
