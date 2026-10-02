@@ -110,7 +110,7 @@ const proto::ProtoObject* socketSendImpl(
     sa.sin_family = AF_INET;
     sa.sin_port = htons(static_cast<uint16_t>(port));
     sa.sin_addr.s_addr = inet_addr(host.c_str());
-    ssize_t n = sendto(fd, data.data(), data.size(), 0,
+    ssize_t n = sendto(fd, data.data(), platform::socketLength(data.size()), 0,
                        reinterpret_cast<sockaddr*>(&sa), sizeof(sa));
     return (n == static_cast<ssize_t>(data.size())) ? PROTO_TRUE : PROTO_FALSE;
 }

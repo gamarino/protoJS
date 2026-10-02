@@ -224,8 +224,10 @@ double BenchmarkRunner::executeBenchmark(const std::string& scriptPath, const st
         return -1; // Error
     }
     
+    // Whole milliseconds, as before; the explicit conversion to double is
+    // the function's return type (MSVC C4244 on an implicit one).
     auto duration = std::chrono::duration_cast<std::chrono::milliseconds>(end - start);
-    return duration.count();
+    return static_cast<double>(duration.count());
 }
 
 size_t BenchmarkRunner::getMemoryUsage() {

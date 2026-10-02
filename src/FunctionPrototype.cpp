@@ -150,7 +150,7 @@ static const proto::ProtoObject* fnCall(
             "Function.prototype.call called on non-callable"));
         return PROTO_NONE;
     }
-    int argc = args ? args->getSize(ctx) : 0;
+    int argc = args ? static_cast<int>(args->getSize(ctx)) : 0;
     const proto::ProtoObject* thisArg = (argc > 0) ? args->getAt(ctx, 0) : PROTO_NONE;
     if (!thisArg) thisArg = PROTO_NONE;
     // §10.2.1.2 OrdinaryCallBindThis: non-strict + null/undefined thisArg
@@ -197,7 +197,7 @@ static const proto::ProtoObject* fnApply(
             "Function.prototype.apply called on non-callable"));
         return PROTO_NONE;
     }
-    int argc = args ? args->getSize(ctx) : 0;
+    int argc = args ? static_cast<int>(args->getSize(ctx)) : 0;
     const proto::ProtoObject* thisArg = (argc > 0) ? args->getAt(ctx, 0) : PROTO_NONE;
     if (!thisArg) thisArg = PROTO_NONE;
     // §10.2.1.2 OrdinaryCallBindThis: bind nullish thisArg → globalThis
@@ -324,7 +324,7 @@ static const proto::ProtoObject* fnBind(
             "Function.prototype.bind called on non-callable"));
         return PROTO_NONE;
     }
-    int argc = args ? args->getSize(ctx) : 0;
+    int argc = args ? static_cast<int>(args->getSize(ctx)) : 0;
     const proto::ProtoObject* thisArg = (argc > 0) ? args->getAt(ctx, 0) : PROTO_NONE;
     if (!thisArg) thisArg = PROTO_NONE;
 

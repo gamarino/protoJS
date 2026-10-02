@@ -524,7 +524,7 @@ static const proto::ProtoObject* bigIntAsIntN(proto::ProtoContext* ctx,
                                               const proto::ProtoList* args,
                                               const proto::ProtoSparseList*) {
     if (!ctx) return PROTO_NONE;
-    int argc = args ? args->getSize(ctx) : 0;
+    int argc = args ? static_cast<int>(args->getSize(ctx)) : 0;
     const proto::ProtoObject* bArg = argc > 0 ? args->getAt(ctx, 0)
                                               : getUndefinedSentinel();
     long long bits = toIndexLL(ctx, bArg);
@@ -553,7 +553,7 @@ static const proto::ProtoObject* bigIntAsUintN(proto::ProtoContext* ctx,
                                                const proto::ProtoList* args,
                                                const proto::ProtoSparseList*) {
     if (!ctx) return PROTO_NONE;
-    int argc = args ? args->getSize(ctx) : 0;
+    int argc = args ? static_cast<int>(args->getSize(ctx)) : 0;
     const proto::ProtoObject* bArg = argc > 0 ? args->getAt(ctx, 0)
                                               : getUndefinedSentinel();
     long long bits = toIndexLL(ctx, bArg);

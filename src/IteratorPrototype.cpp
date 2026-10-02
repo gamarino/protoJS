@@ -1234,7 +1234,7 @@ static const proto::ProtoObject* iteratorConcat(
     // @@iterator (or itself an iterator).  Validate them eagerly before
     // returning the wrapper so the test262 fixtures see the abrupt at
     // call time, not at first .next().
-    int argc = args ? args->getSize(ctx) : 0;
+    int argc = args ? static_cast<int>(args->getSize(ctx)) : 0;
     const proto::ProtoObject* sources = createNewArray(ctx, nullptr);
     const proto::ProtoString* isArrK = JSSymbols::isArray(ctx);
     if (isArrK) sources = sources->setAttribute(ctx, isArrK, PROTO_TRUE);

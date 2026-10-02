@@ -1841,7 +1841,7 @@ static const proto::ProtoObject* reflectDefineProperty(
         const proto::ProtoList* newArgs = ctx->newList();
         newArgs = newArgs->appendLast(ctx, target);
         for (size_t i = 1; i < args->getSize(ctx); ++i)
-            newArgs = newArgs->appendLast(ctx, args->getAt(ctx, i));
+            newArgs = newArgs->appendLast(ctx, args->getAt(ctx, static_cast<int>(i)));
         args = newArgs;
     }
 
@@ -13726,7 +13726,7 @@ const proto::ProtoObject* runBytecode(proto::ProtoContext* pContext,
                                 const proto::ProtoList* els = getArrayElements(pContext, obj);
                                 if (els && idx < static_cast<long long>(els->getSize(pContext))) {
                                     const proto::ProtoList* newEls = els->setAt(pContext,
-                                        static_cast<proto::proto_ulong>(idx), PROTO_NONE);
+                                        static_cast<int>(idx), PROTO_NONE);
                                     if (newEls) setArrayElements(pContext, obj, newEls);
                                 }
                             }
@@ -14023,7 +14023,7 @@ const proto::ProtoObject* runBytecode(proto::ProtoContext* pContext,
                                 mergedMethArgs = mergedMethArgs->appendLast(pContext, av ? av : PROTO_NONE);
                             }
                         }
-                        int csmArgc = callSiteMethArgs ? callSiteMethArgs->getSize(pContext) : 0;
+                        int csmArgc = callSiteMethArgs ? static_cast<int>(callSiteMethArgs->getSize(pContext)) : 0;
                         for (int ci = 0; ci < csmArgc; ci++)
                             mergedMethArgs = mergedMethArgs->appendLast(pContext,
                                 callSiteMethArgs->getAt(pContext, ci));
@@ -17523,7 +17523,7 @@ const proto::ProtoObject* callJSFunction(
                     const proto::ProtoList* argEls = ctx->newList();
                     proto::proto_ulong sz = args->getSize(ctx);
                     for (proto::proto_ulong i = 0; i < sz; i++)
-                        argEls = argEls->appendLast(ctx, args->getAt(ctx, i));
+                        argEls = argEls->appendLast(ctx, args->getAt(ctx, static_cast<int>(i)));
                     protojs::setArrayElements(ctx, argArrJs, argEls);
                 }
                 const proto::ProtoList* trapArgs = ctx->newList();
@@ -17697,7 +17697,7 @@ const proto::ProtoObject* callJSFunction(
                     mergedArgs = mergedArgs->appendLast(ctx, av ? av : PROTO_NONE);
                 }
             }
-            int callArgc = args ? args->getSize(ctx) : 0;
+            int callArgc = args ? static_cast<int>(args->getSize(ctx)) : 0;
             for (int i = 0; i < callArgc; i++) {
                 const proto::ProtoObject* a = args->getAt(ctx, i);
                 mergedArgs = mergedArgs->appendLast(ctx, a ? a : PROTO_NONE);
@@ -17722,7 +17722,7 @@ const proto::ProtoObject* callJSFunction(
     {
         const proto::ProtoString* arrCtorK = JSSymbols::arrayCtor(ctx);
         if (arrCtorK && fn->getAttribute(ctx, arrCtorK, false) == PROTO_TRUE) {
-            int callArgc = args ? args->getSize(ctx) : 0;
+            int callArgc = args ? static_cast<int>(args->getSize(ctx)) : 0;
             const proto::ProtoString* protK = JSSymbols::prototype(ctx);
             const proto::ProtoObject* prot = protK
                 ? fn->getAttribute(ctx, protK, false) : nullptr;
@@ -17771,7 +17771,7 @@ const proto::ProtoObject* callJSFunction(
     {
         const proto::ProtoString* strCtorK = JSSymbols::stringCtor(ctx);
         if (strCtorK && fn->getAttribute(ctx, strCtorK, false) == PROTO_TRUE) {
-            int callArgc = args ? args->getSize(ctx) : 0;
+            int callArgc = args ? static_cast<int>(args->getSize(ctx)) : 0;
             if (callArgc == 0) return ctx->fromUTF8String("");
             const proto::ProtoObject* arg = args->getAt(ctx, 0);
             // §22.1.1.1 step 2.a: Symbol → "Symbol(<desc>)".

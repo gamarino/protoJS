@@ -270,7 +270,7 @@ TestResult NodeJSTestRunner::executeWithProtoJS(const std::string& testFile, con
     auto duration = std::chrono::duration_cast<std::chrono::milliseconds>(end - start);
     
     result.actual_output = output.str();
-    result.execution_time_ms = duration.count();
+    result.execution_time_ms = static_cast<double>(duration.count());
     result.passed = (status == 0);
     
     return result;
@@ -303,7 +303,7 @@ TestResult NodeJSTestRunner::executeWithNodeJS(const std::string& testFile, cons
     auto duration = std::chrono::duration_cast<std::chrono::milliseconds>(end - start);
     
     result.actual_output = output.str();
-    result.execution_time_ms = duration.count();
+    result.execution_time_ms = static_cast<double>(duration.count());
     result.passed = (status == 0);
     
     return result;

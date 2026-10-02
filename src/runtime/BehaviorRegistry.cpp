@@ -201,7 +201,7 @@ namespace protojs {
             std::vector<const JSObjectBehavior*> found;
             if (integrity) found.push_back(integrity);
             for (size_t i = 0; i < parentCount; i++) {
-                const proto::ProtoObject* p = parents->getAt(ctx, i);
+                const proto::ProtoObject* p = parents->getAt(ctx, static_cast<int>(i));
                 auto it = p ? registry.find(p) : registry.end();
                 if (it != registry.end()) found.push_back(it->second.get());
             }

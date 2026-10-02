@@ -15,6 +15,7 @@
 #ifndef PROTOJS_PLATFORM_SOCKETS_H
 #define PROTOJS_PLATFORM_SOCKETS_H
 
+#include <climits>
 #include <cstddef>
 
 #if defined(_WIN32)
@@ -70,11 +71,17 @@ inline int acceptSocket(int fd, sockaddr* addr, socklen_t* len) {
     ::SetHandleInformation(reinterpret_cast<HANDLE>(s), HANDLE_FLAG_INHERIT, 0);
     return static_cast<int>(s);
 }
+// Winsock takes buffer lengths as int, POSIX as size_t. One call moves at
+// most INT_MAX bytes on Windows; a longer buffer is a short read or write,
+// which the caller must already handle on every platform.
+inline int socketLength(std::size_t len) {
+    return len > static_cast<std::size_t>(INT_MAX) ? INT_MAX : static_cast<int>(len);
+}
 inline ssize_t readSocket(int fd, void* buf, std::size_t len) {
-    return ::recv(static_cast<SOCKET>(fd), static_cast<char*>(buf), static_cast<int>(len), 0);
+    return ::recv(static_cast<SOCKET>(fd), static_cast<char*>(buf), socketLength(len), 0);
 }
 inline ssize_t writeSocket(int fd, const void* buf, std::size_t len) {
-    return ::send(static_cast<SOCKET>(fd), static_cast<const char*>(buf), static_cast<int>(len), 0);
+    return ::send(static_cast<SOCKET>(fd), static_cast<const char*>(buf), socketLength(len), 0);
 }
 
 } // namespace protojs::platform
@@ -105,6 +112,8 @@ inline int acceptSocket(int fd, sockaddr* addr, socklen_t* len) {
     if (c >= 0) ::fcntl(c, F_SETFD, FD_CLOEXEC);
     return c;
 }
+// The length type the socket calls take (see the Windows definition).
+inline std::size_t socketLength(std::size_t len) { return len; }
 inline ssize_t readSocket(int fd, void* buf, std::size_t len) { return ::read(fd, buf, len); }
 inline ssize_t writeSocket(int fd, const void* buf, std::size_t len) { return ::write(fd, buf, len); }
 

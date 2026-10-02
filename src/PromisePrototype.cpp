@@ -222,7 +222,7 @@ static const proto::ProtoObject* promiseThen(
         }
     }
 
-    int argc = args ? args->getSize(ctx) : 0;
+    int argc = args ? static_cast<int>(args->getSize(ctx)) : 0;
     const proto::ProtoObject* onFulfilled = (argc > 0) ? args->getAt(ctx, 0) : PROTO_NONE;
     const proto::ProtoObject* onRejected  = (argc > 1) ? args->getAt(ctx, 1) : PROTO_NONE;
     if (!onFulfilled) onFulfilled = PROTO_NONE;
@@ -292,7 +292,7 @@ static const proto::ProtoObject* promiseCatch(
     const proto::ProtoList* args,
     const proto::ProtoSparseList* psl)
 {
-    int argc = args ? args->getSize(ctx) : 0;
+    int argc = args ? static_cast<int>(args->getSize(ctx)) : 0;
     const proto::ProtoObject* onRej = (argc > 0) ? args->getAt(ctx, 0) : PROTO_NONE;
     if (!onRej) onRej = PROTO_NONE;
 
@@ -364,7 +364,7 @@ static const proto::ProtoObject* promiseFinally(
             }
         }
     }
-    int argc = args ? args->getSize(ctx) : 0;
+    int argc = args ? static_cast<int>(args->getSize(ctx)) : 0;
     const proto::ProtoObject* onFinally = (argc > 0) ? args->getAt(ctx, 0) : PROTO_NONE;
     if (!onFinally) onFinally = PROTO_NONE;
 
@@ -467,7 +467,7 @@ static const proto::ProtoObject* promiseStaticResolve(
     const proto::ProtoSparseList*)
 {
     if (throwIfNotPromiseConstructor(ctx, self)) return PROTO_NONE;
-    int argc = args ? args->getSize(ctx) : 0;
+    int argc = args ? static_cast<int>(args->getSize(ctx)) : 0;
     const proto::ProtoObject* val = (argc > 0) ? args->getAt(ctx, 0) : PROTO_NONE;
     if (!val) val = PROTO_NONE;
     if (isPromise(ctx, val)) return val;
@@ -490,7 +490,7 @@ static const proto::ProtoObject* promiseStaticTry(
     const proto::ProtoSparseList*)
 {
     if (throwIfNotPromiseConstructor(ctx, self)) return PROTO_NONE;
-    int argc = args ? args->getSize(ctx) : 0;
+    int argc = args ? static_cast<int>(args->getSize(ctx)) : 0;
     const proto::ProtoObject* cb = (argc > 0) ? args->getAt(ctx, 0) : PROTO_NONE;
     const proto::ProtoList* fwd = ctx->newList();
     for (int i = 1; i < argc; i++) fwd = fwd->appendLast(ctx, args->getAt(ctx, i));
@@ -514,7 +514,7 @@ static const proto::ProtoObject* promiseStaticReject(
     const proto::ProtoSparseList*)
 {
     if (throwIfNotPromiseConstructor(ctx, self)) return PROTO_NONE;
-    int argc = args ? args->getSize(ctx) : 0;
+    int argc = args ? static_cast<int>(args->getSize(ctx)) : 0;
     const proto::ProtoObject* reason = (argc > 0) ? args->getAt(ctx, 0) : PROTO_NONE;
     if (!reason) reason = PROTO_NONE;
     return makeSettledPromise(ctx, 2, reason);
@@ -597,7 +597,7 @@ static const proto::ProtoObject* promiseAll(
     const proto::ProtoList* args,
     const proto::ProtoSparseList*)
 {
-    int argc = args ? args->getSize(ctx) : 0;
+    int argc = args ? static_cast<int>(args->getSize(ctx)) : 0;
     const proto::ProtoObject* iterable = (argc > 0) ? args->getAt(ctx, 0) : PROTO_NONE;
     if (!iterable) iterable = PROTO_NONE;
 
@@ -637,7 +637,7 @@ static const proto::ProtoObject* promiseAllSettled(
     const proto::ProtoList* args,
     const proto::ProtoSparseList*)
 {
-    int argc = args ? args->getSize(ctx) : 0;
+    int argc = args ? static_cast<int>(args->getSize(ctx)) : 0;
     const proto::ProtoObject* iterable = (argc > 0) ? args->getAt(ctx, 0) : PROTO_NONE;
     if (!iterable) iterable = PROTO_NONE;
 
@@ -691,7 +691,7 @@ static const proto::ProtoObject* promiseRace(
     const proto::ProtoList* args,
     const proto::ProtoSparseList*)
 {
-    int argc = args ? args->getSize(ctx) : 0;
+    int argc = args ? static_cast<int>(args->getSize(ctx)) : 0;
     const proto::ProtoObject* iterable = (argc > 0) ? args->getAt(ctx, 0) : PROTO_NONE;
     if (!iterable) iterable = PROTO_NONE;
 
@@ -721,7 +721,7 @@ static const proto::ProtoObject* promiseAny(
     const proto::ProtoList* args,
     const proto::ProtoSparseList*)
 {
-    int argc = args ? args->getSize(ctx) : 0;
+    int argc = args ? static_cast<int>(args->getSize(ctx)) : 0;
     const proto::ProtoObject* iterable = (argc > 0) ? args->getAt(ctx, 0) : PROTO_NONE;
     if (!iterable) iterable = PROTO_NONE;
 
@@ -800,7 +800,7 @@ static const proto::ProtoObject* promiseResolveNative(
     if (!cell || cell == PROTO_NONE) return PROTO_NONE;
     if (getPromiseState(ctx, cell) != 0) return PROTO_NONE; // already settled
 
-    int argc = args ? args->getSize(ctx) : 0;
+    int argc = args ? static_cast<int>(args->getSize(ctx)) : 0;
     const proto::ProtoObject* val = (argc > 0) ? args->getAt(ctx, 0) : PROTO_NONE;
     if (!val) val = PROTO_NONE;
 
@@ -830,7 +830,7 @@ static const proto::ProtoObject* promiseRejectNative(
     if (!cell || cell == PROTO_NONE) return PROTO_NONE;
     if (getPromiseState(ctx, cell) != 0) return PROTO_NONE;
 
-    int argc = args ? args->getSize(ctx) : 0;
+    int argc = args ? static_cast<int>(args->getSize(ctx)) : 0;
     const proto::ProtoObject* reason = (argc > 0) ? args->getAt(ctx, 0) : PROTO_NONE;
     if (!reason) reason = PROTO_NONE;
 
@@ -847,7 +847,7 @@ static const proto::ProtoObject* promiseConstructor(
     const proto::ProtoList* args,
     const proto::ProtoSparseList*)
 {
-    int argc = args ? args->getSize(ctx) : 0;
+    int argc = args ? static_cast<int>(args->getSize(ctx)) : 0;
     const proto::ProtoObject* executor = (argc > 0) ? args->getAt(ctx, 0) : PROTO_NONE;
     if (!executor) executor = PROTO_NONE;
 

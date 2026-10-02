@@ -174,7 +174,7 @@ static const proto::ProtoObject* mathSumPrecise(
 
     const proto::proto_ulong n = static_cast<proto::proto_ulong>(els->getSize(ctx));
     for (proto::proto_ulong i = 0; i < n && state != State::NaN_; ++i) {
-        const proto::ProtoObject* v = els->getAt(ctx, i);
+        const proto::ProtoObject* v = els->getAt(ctx, static_cast<int>(i));
         // Spec step 6.b: each value MUST be a Number; non-Number → TypeError.
         if (!v || v == PROTO_NONE) {
             signalNativeException(makeNativeError(ctx, "TypeError",

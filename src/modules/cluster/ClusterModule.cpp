@@ -67,7 +67,13 @@ const proto::ProtoObject* workerSend(
     ssize_t w;
     {
         proto::ProtoContext::UnmanagedScope u(ctx);
+#if defined(_WIN32)
+        // The C runtime's _write takes an unsigned int count; a control
+        // message is one short line.
+        w = ::write(fd, msg.data(), static_cast<unsigned int>(msg.size()));
+#else
         w = ::write(fd, msg.data(), msg.size());
+#endif
     }
     return (w == static_cast<ssize_t>(msg.size())) ? PROTO_TRUE : PROTO_FALSE;
 }

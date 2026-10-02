@@ -429,7 +429,8 @@ const proto::ProtoObject* socketWriteImpl(
     ssize_t sent;
     {
         proto::ProtoContext::UnmanagedScope u(ctx);
-        sent = ::send(fd, reinterpret_cast<const char*>(bytes.data()), bytes.size(), 0);
+        sent = ::send(fd, reinterpret_cast<const char*>(bytes.data()),
+                      platform::socketLength(bytes.size()), 0);
     }
     return (sent > 0) ? PROTO_TRUE : PROTO_FALSE;
 }

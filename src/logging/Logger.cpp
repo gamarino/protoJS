@@ -79,8 +79,10 @@ void Logger::log(proto::ProtoContext* pContext, Level level, const proto::ProtoS
     
     proto::proto_ulong size = charList->getSize(pContext);
     for (proto::proto_ulong i = 0; i < size; i++) {
-        const proto::ProtoObject* charObj = charList->getAt(pContext, i);
-        unsigned int unicodeChar = charObj->asLong(pContext);
+        // getAt takes an int index; a string's length is far below INT_MAX.
+        const proto::ProtoObject* charObj = charList->getAt(pContext, static_cast<int>(i));
+        // A code point (0..0x10FFFF) always fits in 32 bits.
+        const unsigned int unicodeChar = static_cast<unsigned int>(charObj->asLong(pContext));
         
         // Convert Unicode to UTF-8
         if (unicodeChar < 0x80) {

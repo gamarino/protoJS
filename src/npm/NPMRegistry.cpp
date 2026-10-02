@@ -100,7 +100,7 @@ namespace {
         std::ostringstream req;
         req << "GET " << path << " HTTP/1.1\r\nHost: " << host << "\r\nUser-Agent: protoJS/0.6.0\r\nAccept: application/json\r\nConnection: close\r\n\r\n";
         std::string reqStr = req.str();
-        if (send(sock, reqStr.c_str(), reqStr.size(), 0) < 0) { platform::closeSocket(sock); return ""; }
+        if (send(sock, reqStr.c_str(), platform::socketLength(reqStr.size()), 0) < 0) { platform::closeSocket(sock); return ""; }
         std::string response;
         char buf[4096];
         ssize_t n;
@@ -238,7 +238,7 @@ bool NPMRegistry::httpDownload(const std::string& url, const std::string& target
     addr.sin_port = htons(static_cast<uint16_t>(port));
     memcpy(&addr.sin_addr, he->h_addr_list[0], static_cast<size_t>(he->h_length));
     if (connect(sock, reinterpret_cast<struct sockaddr*>(&addr), sizeof(addr)) < 0) { platform::closeSocket(sock); return false; }
-    if (send(sock, reqStr.c_str(), reqStr.size(), 0) < 0) { platform::closeSocket(sock); return false; }
+    if (send(sock, reqStr.c_str(), platform::socketLength(reqStr.size()), 0) < 0) { platform::closeSocket(sock); return false; }
     std::string headers;
     char buf[4096];
     ssize_t n;

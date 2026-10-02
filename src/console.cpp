@@ -526,7 +526,7 @@ const proto::ProtoObject* TimingAPIs::dateUTC(proto::ProtoContext* ctx,
                                                const proto::ProtoSparseList* /*kwargs*/) {
     if (!ctx) return PROTO_NONE;
     double nan = std::numeric_limits<double>::quiet_NaN();
-    int argc = args ? args->getSize(ctx) : 0;
+    int argc = args ? static_cast<int>(args->getSize(ctx)) : 0;
     if (argc == 0) return ctx->fromDouble(nan);
     // ECMA-262 §21.4.3.4: ToNumber runs on every supplied positional;
     // MakeDay (§21.4.1.13) and MakeTime (§21.4.1.12) return NaN if any

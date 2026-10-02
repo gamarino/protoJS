@@ -232,7 +232,7 @@ void IntegratedDebugger::cdpServerThread(int port) {
             buffer[bytesRead] = '\0';
             std::string message(buffer);
             std::string response = processCDPRequest("", message);
-            send(clientSocket, response.c_str(), response.length(), 0);
+            send(clientSocket, response.c_str(), platform::socketLength(response.length()), 0);
         }
         platform::closeSocket(clientSocket);
     }

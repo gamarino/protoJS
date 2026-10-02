@@ -1209,7 +1209,7 @@ static const proto::ProtoObject* setComponent2(proto::ProtoContext* ctx,
 static double pullArgAsDouble(proto::ProtoContext* ctx,
                               const proto::ProtoList* args,
                               int idx, bool* present) {
-    if (!args || idx >= args->getSize(ctx)) {
+    if (!args || idx < 0 || static_cast<proto::proto_ulong>(idx) >= args->getSize(ctx)) {
         if (present) *present = false;
         return 0.0;
     }
@@ -1992,7 +1992,7 @@ static const proto::ProtoObject* dateUTCNew(proto::ProtoContext* ctx,
                                             const proto::ProtoSparseList*) {
     if (!ctx) return PROTO_NONE;
     double nan = std::nan("");
-    int argc = args ? args->getSize(ctx) : 0;
+    int argc = args ? static_cast<int>(args->getSize(ctx)) : 0;
     if (argc == 0) return ctx->fromDouble(nan);
     bool sawNaN = false;
     auto pull = [&](int idx, double dflt) -> double {

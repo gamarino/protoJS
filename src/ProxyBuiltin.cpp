@@ -254,7 +254,7 @@ static OwnDescriptor probeOwnDescriptor(proto::ProtoContext* ctx,
             if (end && *end == '\0' && ix >= 0 && std::to_string(ix) == kstr) {
                 const proto::ProtoList* els = getArrayElements(ctx, target);
                 if (els && ix < (long long)els->getSize(ctx)) {
-                    const proto::ProtoObject* v = els->getAt(ctx, (size_t)ix);
+                    const proto::ProtoObject* v = els->getAt(ctx, static_cast<int>(ix));
                     if (v && v != PROTO_NONE) {
                         d.present = true;
                         d.value = v;
@@ -841,7 +841,7 @@ const proto::ProtoObject* proxyDispatchDelete(proto::ProtoContext* ctx,
                         // still indexed by length but reads as undefined.
                         auto* mEls = const_cast<proto::ProtoList*>(els);
                         const proto::ProtoList* newEls =
-                            mEls->setAt(ctx, (size_t)ix, PROTO_NONE);
+                            mEls->setAt(ctx, static_cast<int>(ix), PROTO_NONE);
                         if (newEls) setArrayElements(ctx, target, newEls);
                     }
                     return PROTO_TRUE;
@@ -950,7 +950,7 @@ const proto::ProtoObject* proxyDispatchOwnKeys(
     for (long long i = 0; i < len; i++) {
         const proto::ProtoObject* kv = nullptr;
         if (fastEls && i < static_cast<long long>(fastEls->getSize(ctx))) {
-            kv = fastEls->getAt(ctx, static_cast<size_t>(i));
+            kv = fastEls->getAt(ctx, static_cast<int>(i));
         } else {
             std::string idx = std::to_string(i);
             const proto::ProtoObject* idxKey = ctx->fromUTF8String(idx.c_str());
@@ -1042,8 +1042,8 @@ const proto::ProtoObject* proxyDispatchOwnKeys(
     // (built-ins/Object/getOwnPropertyNames/proxy-invariant-not-
     // extensible-extra-symbol-key.js).
     if (targetNonExt) {
-        for (long long i = 0; i < outEls->getSize(ctx); ++i) {
-            const proto::ProtoObject* kv = outEls->getAt(ctx, static_cast<size_t>(i));
+        for (proto::proto_ulong i = 0; i < outEls->getSize(ctx); ++i) {
+            const proto::ProtoObject* kv = outEls->getAt(ctx, static_cast<int>(i));
             if (!kv || kv == PROTO_NONE) continue;
             const proto::ProtoString* probeKey = nullptr;
             const proto::ProtoString* isSymK = JSSymbols::isSymbol(ctx);

@@ -367,7 +367,7 @@ JSValue CommonJSLoader::require(
             }
             const proto::ProtoObject* umdWrapper = space->getImportModule(pContext, specifier.c_str(), "exports");
             if (umdWrapper && umdWrapper != PROTO_NONE) {
-                const proto::ProtoString* exportsName = proto::ProtoString::fromUTF8String(pContext, "exports");
+                const proto::ProtoString* exportsName = proto::ProtoString::fromUTF8(pContext, "exports");
                 if (exportsName) {
                     const proto::ProtoObject* exportsObj = umdWrapper->getAttribute(pContext, exportsName);
                     if (exportsObj && exportsObj != PROTO_NONE) {

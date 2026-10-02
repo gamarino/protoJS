@@ -176,13 +176,13 @@ void Metrics::recordHistogram(proto::ProtoContext* pContext, const proto::ProtoS
     // Find appropriate bucket and increment
     const proto::ProtoList* newCounts = counts;
     for (proto::proto_ulong i = 0; i < buckets->getSize(pContext); i++) {
-        const proto::ProtoObject* bucketObj = buckets->getAt(pContext, i);
+        const proto::ProtoObject* bucketObj = buckets->getAt(pContext, static_cast<int>(i));
         double bucket = bucketObj->asDouble(pContext);
         if (val <= bucket) {
-            const proto::ProtoObject* countObj = counts->getAt(pContext, i);
+            const proto::ProtoObject* countObj = counts->getAt(pContext, static_cast<int>(i));
             long long count = countObj->asLong(pContext);
             // Replace count at index i
-            newCounts = newCounts->setAt(pContext, i, pContext->fromInteger(count + 1));
+            newCounts = newCounts->setAt(pContext, static_cast<int>(i), pContext->fromInteger(count + 1));
             break;
         }
     }

@@ -528,9 +528,11 @@ JSValue TypeBridge::toJS(JSContext* ctx, const proto::ProtoObject* obj, proto::P
 
         proto::proto_ulong size = charList->getSize(pContext);
         for (proto::proto_ulong i = 0; i < size; i++) {
-            const proto::ProtoObject* charObj = charList->getAt(pContext, i);
+            // getAt takes an int index; a string's length is far below INT_MAX.
+            const proto::ProtoObject* charObj = charList->getAt(pContext, static_cast<int>(i));
             // Character is stored as UnicodeChar (unsigned int)
-            unsigned int unicodeChar = charObj->asLong(pContext);
+            // A code point (0..0x10FFFF) always fits in 32 bits.
+            const unsigned int unicodeChar = static_cast<unsigned int>(charObj->asLong(pContext));
 
             // Convert Unicode to UTF-8
             if (unicodeChar < 0x80) {
@@ -558,8 +560,8 @@ JSValue TypeBridge::toJS(JSContext* ctx, const proto::ProtoObject* obj, proto::P
         JSValue arr = JS_NewArray(ctx);
         proto::proto_ulong size = list->getSize(pContext);
         for (proto::proto_ulong i = 0; i < size; i++) {
-            const proto::ProtoObject* item = list->getAt(pContext, i);
-            JS_SetPropertyUint32(ctx, arr, i, toJS(ctx, item, pContext));
+            const proto::ProtoObject* item = list->getAt(pContext, static_cast<int>(i));
+            JS_SetPropertyUint32(ctx, arr, static_cast<uint32_t>(i), toJS(ctx, item, pContext));
         }
         return arr;
     }
@@ -570,11 +572,11 @@ JSValue TypeBridge::toJS(JSContext* ctx, const proto::ProtoObject* obj, proto::P
         JSValue arr = JS_NewArray(ctx);
         proto::proto_ulong size = tuple->getSize(pContext);
         for (proto::proto_ulong i = 0; i < size; i++) {
-            const proto::ProtoObject* item = tuple->getAt(pContext, i);
-            JS_SetPropertyUint32(ctx, arr, i, toJS(ctx, item, pContext));
+            const proto::ProtoObject* item = tuple->getAt(pContext, static_cast<int>(i));
+            JS_SetPropertyUint32(ctx, arr, static_cast<uint32_t>(i), toJS(ctx, item, pContext));
         }
         // Make array read-only to reflect immutability
-        JS_DefinePropertyValueStr(ctx, arr, "length", JS_NewInt32(ctx, size), JS_PROP_WRITABLE);
+        JS_DefinePropertyValueStr(ctx, arr, "length", JS_NewInt32(ctx, static_cast<int32_t>(size)), JS_PROP_WRITABLE);
         return arr;
     }
 

@@ -463,7 +463,7 @@ static const proto::ProtoObject* objectKeys(
             const proto::ProtoList* keysEls = protojs::getArrayElements(ctx, keysArr);
             size_t n = keysEls ? keysEls->getSize(ctx) : 0;
             for (size_t i = 0; i < n; i++) {
-                const proto::ProtoObject* keyVal = keysEls->getAt(ctx, i);
+                const proto::ProtoObject* keyVal = keysEls->getAt(ctx, static_cast<int>(i));
                 if (!keyVal || keyVal == PROTO_NONE) continue;
                 const proto::ProtoString* kStr = keyVal->asString(ctx);
                 if (!kStr) continue;
@@ -586,7 +586,7 @@ static const proto::ProtoObject* objectValues(
             const proto::ProtoList* els = getArrayElements(ctx, keysArr);
             size_t n = els ? els->getSize(ctx) : 0;
             for (size_t i = 0; i < n; i++) {
-                const proto::ProtoObject* kObj = els->getAt(ctx, i);
+                const proto::ProtoObject* kObj = els->getAt(ctx, static_cast<int>(i));
                 if (!kObj || kObj == PROTO_NONE || !kObj->asString(ctx)) continue;
                 const proto::ProtoString* kStr = kObj->asString(ctx);
                 const proto::ProtoObject* desc =
@@ -675,7 +675,7 @@ static const proto::ProtoObject* objectEntries(
             const proto::ProtoString* lenKey  = JSSymbols::length(ctx);
             const proto::ProtoString* isArrKey2 = JSSymbols::isArray(ctx);
             for (size_t i = 0; i < n; i++) {
-                const proto::ProtoObject* kObj = els->getAt(ctx, i);
+                const proto::ProtoObject* kObj = els->getAt(ctx, static_cast<int>(i));
                 if (!kObj || kObj == PROTO_NONE || !kObj->asString(ctx)) continue;
                 const proto::ProtoString* kStr = kObj->asString(ctx);
                 const proto::ProtoObject* desc =
@@ -761,7 +761,7 @@ static const proto::ProtoObject* objectAssign(
     const proto::ProtoList* args,
     const proto::ProtoSparseList*)
 {
-    int argc = args ? args->getSize(ctx) : 0;
+    int argc = args ? static_cast<int>(args->getSize(ctx)) : 0;
     // ECMA-262 §19.1.2.1 step 1: target = ToObject(target). Throws
     // TypeError for null/undefined.
     if (argc == 0) {
@@ -882,7 +882,7 @@ static const proto::ProtoObject* objectAssign(
             }
             size_t n = els ? els->getSize(ctx) : 0;
             for (size_t i = 0; i < n; ++i) {
-                const proto::ProtoObject* keyObj = els->getAt(ctx, i);
+                const proto::ProtoObject* keyObj = els->getAt(ctx, static_cast<int>(i));
                 if (!keyObj || keyObj == PROTO_NONE) continue;
                 // Symbol-tagged keys come through ownKeys' trap result;
                 // route through __symbol_str_key__ so the proxy gOPD /
@@ -967,10 +967,13 @@ static const proto::ProtoObject* objectAssign(
                                 getArrayElements(ctx, target);
                             if (tels) {
                                 const proto::ProtoList* trimmed = tels;
-                                while (trimmed->getSize(ctx) > ilen)
+                                // ilen is in [0, 2^32 - 1] (checked above).
+                                const proto::proto_ulong ulen =
+                                    static_cast<proto::proto_ulong>(ilen);
+                                while (trimmed->getSize(ctx) > ulen)
                                     trimmed = trimmed->removeAt(ctx,
-                                        trimmed->getSize(ctx) - 1);
-                                while (trimmed->getSize(ctx) < ilen)
+                                        static_cast<int>(trimmed->getSize(ctx) - 1));
+                                while (trimmed->getSize(ctx) < ulen)
                                     trimmed = trimmed->appendLast(ctx, PROTO_NONE);
                                 setArrayElements(ctx, target, trimmed);
                             }
@@ -1303,12 +1306,16 @@ static const proto::ProtoObject* objectAssign(
                             protojs::getArrayElements(ctx, target);
                         if (els) {
                             const proto::ProtoList* trimmed = els;
-                            long long curSz = els->getSize(ctx);
-                            while (trimmed->getSize(ctx) > ilen)
-                                trimmed = trimmed->removeAt(ctx, trimmed->getSize(ctx) - 1);
-                            while (trimmed->getSize(ctx) < ilen)
+                            // ilen is in [0, 2^32 - 1] (checked above).
+                            const proto::proto_ulong ulen =
+                                static_cast<proto::proto_ulong>(ilen);
+                            const proto::proto_ulong curSz = els->getSize(ctx);
+                            while (trimmed->getSize(ctx) > ulen)
+                                trimmed = trimmed->removeAt(ctx,
+                                    static_cast<int>(trimmed->getSize(ctx) - 1));
+                            while (trimmed->getSize(ctx) < ulen)
                                 trimmed = trimmed->appendLast(ctx, PROTO_NONE);
-                            if (trimmed != els || curSz != ilen)
+                            if (trimmed != els || curSz != ulen)
                                 protojs::setArrayElements(ctx, target, trimmed);
                         }
                     }
@@ -1609,7 +1616,7 @@ static const proto::ProtoObject* objectFreeze(
         const proto::ProtoString* writK = JSSymbols::writable(ctx);
         for (size_t i = 0; i < kn; ++i) {
             const proto::ProtoObject* kObj = els
-                ? els->getAt(ctx, i)
+                ? els->getAt(ctx, static_cast<int>(i))
                 : ctx->fromUTF8String(defaultKeys[i].c_str());
             if (!kObj || kObj == PROTO_NONE) continue;
             const proto::ProtoString* kStr = kObj->asString(ctx);
@@ -1779,7 +1786,7 @@ static const proto::ProtoObject* objectIsFrozen(
         size_t kn = els ? els->getSize(ctx) : defaultKeys.size();
         for (size_t i = 0; i < kn; ++i) {
             const proto::ProtoObject* kObj = els
-                ? els->getAt(ctx, i)
+                ? els->getAt(ctx, static_cast<int>(i))
                 : ctx->fromUTF8String(defaultKeys[i].c_str());
             if (!kObj || kObj == PROTO_NONE) continue;
             const proto::ProtoString* kStr = kObj->asString(ctx);
@@ -1936,7 +1943,7 @@ static const proto::ProtoObject* objectSeal(
         if (confK) sealDesc = sealDesc->setAttribute(ctx, confK, PROTO_FALSE);
         for (size_t i = 0; i < kn; ++i) {
             const proto::ProtoObject* kObj = els
-                ? els->getAt(ctx, i)
+                ? els->getAt(ctx, static_cast<int>(i))
                 : ctx->fromUTF8String(defaultKeys[i].c_str());
             if (!kObj || kObj == PROTO_NONE) continue;
             const proto::ProtoString* kStr = kObj->asString(ctx);
@@ -2067,7 +2074,7 @@ static const proto::ProtoObject* objectIsSealed(
         size_t kn = els ? els->getSize(ctx) : defaultKeys.size();
         for (size_t i = 0; i < kn; ++i) {
             const proto::ProtoObject* kObj = els
-                ? els->getAt(ctx, i)
+                ? els->getAt(ctx, static_cast<int>(i))
                 : ctx->fromUTF8String(defaultKeys[i].c_str());
             if (!kObj || kObj == PROTO_NONE) continue;
             const proto::ProtoString* kStr = kObj->asString(ctx);
@@ -2292,7 +2299,7 @@ static const proto::ProtoObject* objectGetOwnPropertyNames(
             const proto::ProtoList* filt = ctx->newList();
             size_t n = els ? els->getSize(ctx) : 0;
             for (size_t i = 0; i < n; i++) {
-                const proto::ProtoObject* k = els->getAt(ctx, i);
+                const proto::ProtoObject* k = els->getAt(ctx, static_cast<int>(i));
                 if (!k || k == PROTO_NONE) continue;
                 if (isSymK && k->getAttribute(ctx, isSymK, false) == PROTO_TRUE)
                     continue;
@@ -3382,7 +3389,7 @@ static const proto::ProtoObject* objectDefineProperty(
                                 protojs::getArrayElements(ctx, target);
                             if (els && iv2 < (long long)els->getSize(ctx)) {
                                 const proto::ProtoList* updated =
-                                    els->setAt(ctx, (size_t)iv2, newVal);
+                                    els->setAt(ctx, static_cast<int>(iv2), newVal);
                                 if (updated)
                                     protojs::setArrayElements(ctx, target, updated);
                             }
@@ -3650,7 +3657,7 @@ static const proto::ProtoObject* objectDefineProperty(
                             protojs::getArrayElements(ctx, target);
                         if (els && iv3 < (long long)els->getSize(ctx)) {
                             const proto::ProtoList* updated =
-                                els->setAt(ctx, (size_t)iv3, storedVal);
+                                els->setAt(ctx, static_cast<int>(iv3), storedVal);
                             if (updated)
                                 protojs::setArrayElements(ctx, target, updated);
                         } else if (els
@@ -4119,7 +4126,7 @@ static const proto::ProtoObject* objectGetOwnPropertySymbols(
             const proto::ProtoList* filt = ctx->newList();
             size_t n = els ? els->getSize(ctx) : 0;
             for (size_t i = 0; i < n; i++) {
-                const proto::ProtoObject* k = els->getAt(ctx, i);
+                const proto::ProtoObject* k = els->getAt(ctx, static_cast<int>(i));
                 if (!k || k == PROTO_NONE) continue;
                 bool isSym = isSymK && k->getAttribute(ctx, isSymK, false) == PROTO_TRUE;
                 if (isSym) filt = filt->appendLast(ctx, k);
@@ -4246,7 +4253,7 @@ static const proto::ProtoObject* objectGetOwnPropertyDescriptors(
         size_t kn = els ? els->getSize(ctx) : defaultKeys.size();
         for (size_t i = 0; i < kn; ++i) {
             const proto::ProtoObject* kObj = els
-                ? els->getAt(ctx, i)
+                ? els->getAt(ctx, static_cast<int>(i))
                 : ctx->fromUTF8String(defaultKeys[i].c_str());
             if (!kObj || kObj == PROTO_NONE) continue;
             const proto::ProtoString* kStr = kObj->asString(ctx);
@@ -4420,7 +4427,7 @@ static const proto::ProtoObject* objectDefineProperties(
         size_t kn = els ? els->getSize(ctx) : defaultKeys.size();
         for (size_t i = 0; i < kn; ++i) {
             const proto::ProtoObject* kObj = els
-                ? els->getAt(ctx, i)
+                ? els->getAt(ctx, static_cast<int>(i))
                 : ctx->fromUTF8String(defaultKeys[i].c_str());
             if (!kObj || kObj == PROTO_NONE) continue;
             const proto::ProtoString* kStr = kObj->asString(ctx);
