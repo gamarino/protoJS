@@ -106,6 +106,10 @@ private:
     std::condition_variable cv_;
     std::deque<Task> queue_;
     bool stopping_ = false;
+    // Shutdown lets the threads go one at a time (see shutdown()): a thread
+    // leaves only with an exit token, and reports which thread it is.
+    std::size_t exitTokens_ = 0;
+    std::vector<proto::ProtoThread*> exited_;
     std::size_t completed_ = 0;
 
     std::vector<const proto::ProtoThread*> threads_;

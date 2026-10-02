@@ -74,13 +74,32 @@ void DeferredPool::shutdown() {
         stopping_ = true;
         queue_.clear();
     }
-    cv_.notify_all();
     proto::ProtoContext* ctx = owner_ ? owner_->getProtoContext() : nullptr;
+    // The threads leave one at a time: each exit token lets one thread out,
+    // and the next token is issued only once that thread has been joined.
+    // A protoCore thread removes itself from its space's thread list on exit,
+    // and in protoCore 2.8.0 two threads doing that at once race on the list
+    // (read outside globalMutex; fixed upstream in d258d4b5, "Snapshot
+    // space->threads under globalMutex"). Twelve pool threads stopping
+    // together hit it every time under ThreadSanitizer.
+    //
     // ProtoThread::join leaves protoCore's running set for as long as it
     // blocks (protoCore >= 2.3), so a pool thread that needs a collection to
-    // finish its current task can get one while the owner waits here.
-    for (const proto::ProtoThread* t : threads_)
-        const_cast<proto::ProtoThread*>(t)->join(ctx);
+    // finish its current task can get one while the owner waits here; the
+    // condition wait below is bracketed for the same reason.
+    for (std::size_t i = 0; i < threads_.size(); ++i) {
+        proto::ProtoThread* leaving = nullptr;
+        {
+            ThreadUnmanagedScope parked(ctx);
+            std::unique_lock<std::mutex> lock(mutex_);
+            ++exitTokens_;
+            cv_.notify_all();
+            cv_.wait(lock, [this] { return !exited_.empty(); });
+            leaving = exited_.back();
+            exited_.pop_back();
+        }
+        if (leaving) leaving->join(ctx);
+    }
     proto::ProtoRootSet* rs = owner_ ? owner_->getRootSet() : nullptr;
     if (rs) {
         for (proto::ProtoRootSet::Handle h : threadPins_) rs->remove(h);
@@ -132,8 +151,16 @@ void DeferredPool::run(proto::ProtoContext* root) {
                 // this block touches a ProtoObject.
                 proto::ProtoContext::UnmanagedScope idle(root);
                 std::unique_lock<std::mutex> lock(mutex_);
-                cv_.wait(lock, [this] { return stopping_ || !queue_.empty(); });
-                if (stopping_) break;
+                cv_.wait(lock, [this] {
+                    return (stopping_ && exitTokens_ > 0) || (!stopping_ && !queue_.empty());
+                });
+                if (stopping_) {
+                    // Take the exit token and say which thread is leaving.
+                    --exitTokens_;
+                    exited_.push_back(root->thread);
+                    cv_.notify_all();
+                    break;
+                }
                 task = queue_.front();
                 queue_.pop_front();
             }
