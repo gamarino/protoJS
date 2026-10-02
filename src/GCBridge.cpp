@@ -61,6 +61,13 @@ void GCBridge::registerMapping(JSValue jsVal, const proto::ProtoObject* protoObj
     if (!protoObj || JS_IsNull(jsVal) || JS_IsUndefined(jsVal)) {
         return;
     }
+    // A Deferred pool thread converts QuickJS values only for JSON.parse, whose
+    // results are acyclic and freed at once: no mapping is needed, and the
+    // mapping table (one per process, under mapMutex, allocating while the
+    // mutex is held) must not be entered from a second thread of the space --
+    // a thread blocked on mapMutex cannot park for a collection that the
+    // holder, allocating, waits for.
+    if (JSContextWrapper::onPoolThread()) return;
 
     std::lock_guard<std::recursive_mutex> lock(mapMutex);
     proto::ProtoContext* pContext = getProtoContext(ctx);
@@ -167,6 +174,7 @@ void GCBridge::unregisterMapping(JSValue jsVal, JSContext* ctx) {
 }
 
 const proto::ProtoObject* GCBridge::getProtoObject(JSValue jsVal, JSContext* ctx) {
+    if (JSContextWrapper::onPoolThread()) return nullptr;  // see registerMapping
     std::lock_guard<std::recursive_mutex> lock(mapMutex);
     proto::ProtoContext* pContext = getProtoContext(ctx);
     if (!pContext) return nullptr;
@@ -186,6 +194,7 @@ const proto::ProtoObject* GCBridge::getProtoObject(JSValue jsVal, JSContext* ctx
 }
 
 JSValue GCBridge::getJSValue(const proto::ProtoObject* protoObj, JSContext* ctx) {
+    if (JSContextWrapper::onPoolThread()) return JS_NULL;  // see registerMapping
     std::lock_guard<std::recursive_mutex> lock(mapMutex);
     proto::ProtoContext* pContext = getProtoContext(ctx);
     if (!pContext) return JS_NULL;

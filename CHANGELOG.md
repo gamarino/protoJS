@@ -4,6 +4,42 @@ All notable changes to protoJS are documented in this file.
 
 ## [Unreleased]
 
+### Changed — `Deferred` runs its function in parallel again (2026-10-02)
+
+`new Deferred(fn)` had run `fn` on the event loop's next turn, on the main
+thread, since 29bd97423 (2026-04-26), contrary to its specification
+(`docs/archive/PLAN.md`, principle 7 and section 1.3). It now runs `fn` on a
+pool of protoCore threads of the script's own space; `new Promise(executor)`
+still runs on the calling thread, so the constructor chooses sequential or
+parallel execution, with no new syntax.
+
+- **Objects are shared, not copied.** `fn` closes over the caller's variables
+  and reads its objects directly; immutable values are shared as they are, and
+  mutable objects as atomic references to immutable snapshots. Each write is
+  atomic; read-modify-write sequences are not (no transactions).
+  `docs/DEFERRED_USAGE.md` states the model and the recommended patterns.
+- **A Deferred is a promise.** `d instanceof Promise`; it settles on the
+  calling thread as a microtask; `then`/`catch`/`finally` return ordinary
+  promises; `await` and the combinators accept it; an unhandled Deferred
+  rejection ends the process with status 1, as for any promise. Previously
+  `then` returned the same Deferred and a rejection without a handler was
+  silent.
+- Inside `fn`, `setImmediate`, `require` and `new Worker` throw, and a nested
+  `new Deferred` runs inline.
+- The pool has as many threads as the CPU pool (`--cpu-threads`); it starts on
+  the first Deferred. `protoCore.threadId()` names the calling thread.
+- The interpreter's per-thread state that carries identity (sentinels,
+  closure-cell marker, lazily built prototypes, symbol registries, prototype
+  overrides) is now per space, so every thread of a space sees one realm.
+- **GC fix:** interpreter handlers no longer clear popped operand slots before
+  using the operands. A thread parking inside a handler (at the heap ceiling,
+  or for a collection another thread requested) held them only in C++ locals,
+  and objects under construction lost attributes written before the park.
+- The process drain loop wakes as soon as a callback is queued instead of
+  sleeping a fixed 10 ms between passes.
+- Benchmarks against Node.js `worker_threads`:
+  `benchmarks/reports/2026-10-02-parallel-deferred.md`.
+
 ### Changed — Promises and async functions follow ECMA-262 (2026-10-02)
 
 Promises used a "synchronous model": `then()` on a settled promise ran its

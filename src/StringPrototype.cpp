@@ -3024,7 +3024,7 @@ static const proto::ProtoObject* stringIteratorNext(
 // Made on first use; pinned for the wrapper's life (runtime/PinnedBuiltin.h):
 // a static is not a root, and nothing else references the prototype once
 // every iterator made from it has been collected.
-static thread_local PinnedBuiltin s_stringIteratorProtoCache;
+static PinnedBuiltin s_stringIteratorProtoCache;
 
 static const proto::ProtoObject* getStringIteratorProto(proto::ProtoContext* ctx) {
     if (const proto::ProtoObject* cached = s_stringIteratorProtoCache.get(ctx)) return cached;

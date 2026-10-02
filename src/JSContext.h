@@ -15,6 +15,7 @@ namespace protojs {
 
 struct ProtoBytecodeModule;  // forward — owned via unique_ptr below
 class MicrotaskQueue;        // forward — owned via unique_ptr below
+class DeferredPool;          // forward — owned via unique_ptr below
 
 
 class JSContextWrapper {
@@ -81,8 +82,70 @@ public:
 
     /**
      * @brief Returns the protoCore context.
+     *
+     * On a Deferred pool thread (see ThreadView) this is that thread's root
+     * context, not the owner thread's: a context belongs to one thread, and a
+     * native that allocates through the wrapper's context must allocate on
+     * the thread it runs on.
      */
-    proto::ProtoContext* getProtoContext() { return pContext; }
+    proto::ProtoContext* getProtoContext() {
+        if (const ThreadView* v = t_threadView_) return v->context;
+        return pContext;
+    }
+
+    /**
+     * @brief The per-thread view a Deferred pool thread has of its owner.
+     *
+     * A Deferred's function runs on a pool thread of the owner's space with
+     * the owner wrapper current (see src/DeferredPool.h). Three things of the
+     * wrapper are, however, per thread, and the view supplies them:
+     *
+     *  - `globalSlot`: the root slot the interpreter reads the global through.
+     *    The owner's slot (nativeGlobalRoot_) is written by the owner thread's
+     *    interpreter; a pool thread works on its own copy of the pointer. The
+     *    global object itself is mutable and shared, so global writes still
+     *    land on the one global.
+     *  - `quickjs`: a QuickJS context of this thread. The owner's QuickJS
+     *    runtime is single-threaded; JSON.parse and the regular-expression
+     *    engine (libregexp's allocator and stack check) use this one.
+     *  - `context`: this thread's protoCore root context.
+     *
+     * Installed for the life of a pool thread by ThreadViewScope.
+     */
+    struct ThreadView {
+        const proto::ProtoObject** globalSlot = nullptr;
+        JSContext* quickjs = nullptr;
+        proto::ProtoContext* context = nullptr;
+    };
+
+    class ThreadViewScope {
+    public:
+        explicit ThreadViewScope(const ThreadView* v) : prev_(t_threadView_) { t_threadView_ = v; }
+        ~ThreadViewScope() { t_threadView_ = prev_; }
+        ThreadViewScope(const ThreadViewScope&) = delete;
+        ThreadViewScope& operator=(const ThreadViewScope&) = delete;
+    private:
+        const ThreadView* prev_;
+    };
+
+    /** @brief The calling thread's view, or nullptr on a thread that owns its wrapper. */
+    static const ThreadView* threadView() { return t_threadView_; }
+
+    /** @brief True on a Deferred pool thread. */
+    static bool onPoolThread() { return t_threadView_ != nullptr; }
+
+    /**
+     * @brief The QuickJS context the CALLING thread may use: the pool thread's
+     * own on a Deferred pool thread, the current wrapper's otherwise, or nullptr
+     * when no wrapper is current.
+     */
+    static JSContext* quickJSForThisThread();
+
+    /**
+     * @brief The Deferred pool of this wrapper's space, started on first use.
+     * Owner thread only.
+     */
+    DeferredPool& deferredPool();
 
     /**
      * @brief Returns the protoCore space.
@@ -200,7 +263,10 @@ public:
      * inner pointer can be re-bound by the interpreter when top-level
      * `var` writes to the global.
      */
-    const proto::ProtoObject** getNativeGlobalRootPtr() { return &nativeGlobalRoot_; }
+    const proto::ProtoObject** getNativeGlobalRootPtr() {
+        if (const ThreadView* v = t_threadView_) return v->globalSlot;
+        return &nativeGlobalRoot_;
+    }
 
     /**
      * @brief The bytecode module used by the most recent top-level eval.
@@ -235,6 +301,13 @@ public:
     std::mutex& getCJSCacheMutex() { return cjsCacheMutex_; }
 
 private:
+    /** The calling thread's view (Deferred pool threads); see ThreadView. */
+    static inline thread_local const ThreadView* t_threadView_ = nullptr;
+
+    /** The Deferred pool, started on the first `new Deferred`; joined first
+     *  thing in the destructor. */
+    std::unique_ptr<DeferredPool> deferredPool_;
+
     /** Phase 2: Per-context CommonJS module cache. Ties JSValue lifetime to the wrapper's runtime. */
     std::map<std::string, JSValue> cjsCache_;
     std::mutex cjsCacheMutex_;

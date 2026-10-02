@@ -37,6 +37,12 @@ const proto::ProtoObject* getJSProtoOverride(proto::ProtoContext* ctx,
                                              const proto::ProtoObject* obj);
 
 /**
+ * Drop the immutable-object [[Prototype]] side table of `space`. Called by
+ * ~JSContextWrapper once no thread of that space runs any more.
+ */
+void forgetSpaceProtoOverrides(const proto::ProtoSpace* space);
+
+/**
  * ToPropertyKey(V): coerce any JS value to a ProtoString property key by
  * routing through Symbol.toPrimitive / toString / valueOf as needed.
  * Returns nullptr on coercion failure (and signals a TypeError); abrupt
@@ -62,8 +68,13 @@ const proto::ProtoObject* lookupSymbolByStrKey(proto::ProtoContext* ctx, const s
  * one per worker), retained for the wrapper's life like the map above.
  */
 const proto::ProtoObject* symbolForRegistryGet(proto::ProtoContext* ctx, const std::string& key);
-void symbolForRegistrySet(proto::ProtoContext* ctx, const std::string& key,
-                          const proto::ProtoObject* sym);
+/**
+ * Register `sym` under `key` unless a symbol is already registered there, and
+ * return the registered symbol. First-wins: two threads of one space (the
+ * Deferred pool) calling Symbol.for(key) at once both receive the same symbol.
+ */
+const proto::ProtoObject* symbolForRegistrySet(proto::ProtoContext* ctx, const std::string& key,
+                                               const proto::ProtoObject* sym);
 
 /**
  * Symbol-keyed properties are stored under an interned attribute name

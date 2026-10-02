@@ -155,7 +155,7 @@ const proto::ProtoObject* isWorkerImpl(
 // Build the Worker prototype lazily so each fork doesn't rebuild it.
 const proto::ProtoObject* getWorkerProto(proto::ProtoContext* ctx) {
     // Made on first use; pinned for the wrapper's life (runtime/PinnedBuiltin.h).
-    static thread_local PinnedBuiltin protoCache;
+    static PinnedBuiltin protoCache;
     if (const proto::ProtoObject* cached = protoCache.get(ctx)) return cached;
     static const NativeEntry entries[] = {
         {"send",       workerSend},

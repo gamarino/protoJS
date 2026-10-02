@@ -1,4 +1,5 @@
 #include "BigIntPrototype.h"
+#include "runtime/ThreadIdentity.h"
 #include "JSContext.h"
 #include "JSSymbols.h"
 #include "ObjectPrototype.h"
@@ -689,6 +690,19 @@ static const proto::ProtoObject* installMethod(proto::ProtoContext* ctx,
 // we publish just the type marker first and lazily install the
 // methods when ensureBigIntConstructor runs (post-init).
 static thread_local bool t_bigIntMethodsInstalled = false;
+
+// Thread identity (runtime/ThreadIdentity.h): a Deferred pool thread uses the
+// owner thread's %BigInt.prototype%.
+void captureBigIntIdentity(ThreadIdentity& out) {
+    out.bigIntPrototype = t_bigIntPrototype;
+    out.bigIntMethodsInstalled = t_bigIntMethodsInstalled;
+}
+
+void adoptBigIntIdentity(const ThreadIdentity& in) {
+    if (!in.bigIntPrototype) return;
+    t_bigIntPrototype = in.bigIntPrototype;
+    t_bigIntMethodsInstalled = in.bigIntMethodsInstalled;
+}
 
 void buildBigIntPrototype(proto::ProtoSpace* /*space*/,
                           proto::ProtoContext* ctx,

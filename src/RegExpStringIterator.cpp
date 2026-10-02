@@ -129,7 +129,7 @@ static int parseFlagsLocal(const std::string& f) {
 // Made on first use; pinned for the wrapper's life (runtime/PinnedBuiltin.h):
 // a static is not a root, and nothing else references the prototype once
 // every iterator made from it has been collected.
-static thread_local PinnedBuiltin s_regexpStringIteratorProtoCache;
+static PinnedBuiltin s_regexpStringIteratorProtoCache;
 
 static const proto::ProtoObject* getRegExpStringIteratorProto(proto::ProtoContext* ctx) {
     if (const proto::ProtoObject* cached = s_regexpStringIteratorProtoCache.get(ctx)) return cached;
@@ -219,7 +219,7 @@ const proto::ProtoObject* regexpSymbolMatchAll(
     if (flagsStr.find('g') == std::string::npos) flagsStr += 'g';
 
     void* opaque = nullptr;
-    if (JSContextWrapper::current()) opaque = JSContextWrapper::current()->getJSContext();
+    opaque = JSContextWrapper::quickJSForThisThread();  // this thread's QuickJS (ThreadView)
 
     int re_flags = parseFlagsLocal(flagsStr);
     int bc_len;

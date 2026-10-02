@@ -1,5 +1,6 @@
 #include "ProtoCoreTypes.h"
 #include "RegExpPrototype.h"
+#include "runtime/ThreadIdentity.h"
 #include "RegExpStringIterator.h"
 #include "ArrayPrototype.h"
 #include "ObjectPrototype.h"
@@ -313,7 +314,7 @@ const proto::ProtoObject* regexpExec(
         if (!isGlobal && !isSticky) lastIndex = 0;
     }
     void* opaque = nullptr;
-    if (JSContextWrapper::current()) opaque = JSContextWrapper::current()->getJSContext();
+    opaque = JSContextWrapper::quickJSForThisThread();  // this thread's QuickJS (ThreadView)
 
     // §22.2.7.2 step 12.a: lastIndex > length is a failed match -- null, and
     // lastIndex := 0 for a global or sticky regexp (the else branch below).
@@ -500,7 +501,7 @@ const proto::ProtoObject* regexpConstructor(
     }
 
     void* opaque = nullptr;
-    if (JSContextWrapper::current()) opaque = JSContextWrapper::current()->getJSContext();
+    opaque = JSContextWrapper::quickJSForThisThread();  // this thread's QuickJS (ThreadView)
 
     int re_flags = parseFlags(flags_str);
     int bc_len;
@@ -858,7 +859,7 @@ const proto::ProtoObject* regexpSymbolSplit(
 
     std::string patternStr = objToStr(ctx, self->getAttribute(ctx, JSSymbols::source(ctx), false));
     void* opaque = nullptr;
-    if (JSContextWrapper::current()) opaque = JSContextWrapper::current()->getJSContext();
+    opaque = JSContextWrapper::quickJSForThisThread();  // this thread's QuickJS (ThreadView)
     int stickyFlags = parseFlags(flagsStr);
     int bc_len;
     char errmsg[128];
@@ -967,6 +968,13 @@ static bool reFlagToBoolean(proto::ProtoContext* ctx, const proto::ProtoObject* 
 // carve-out can recognise the prototype receiver.  Set once during
 // ensureRegExpConstructor and immutable thereafter.
 static thread_local const proto::ProtoObject* t_regexpPrototype = nullptr;
+
+// Thread identity (runtime/ThreadIdentity.h): a Deferred pool thread uses the
+// owner thread's %RegExp.prototype%.
+void captureRegExpIdentity(ThreadIdentity& out) { out.regexpPrototype = t_regexpPrototype; }
+void adoptRegExpIdentity(const ThreadIdentity& in) {
+    if (in.regexpPrototype) t_regexpPrototype = in.regexpPrototype;
+}
 
 // Reject primitives + null/undefined per §22.2.6.x step 1-2 (RequireObject).
 static bool reRequireObjectThis(proto::ProtoContext* ctx, const proto::ProtoObject* self) {

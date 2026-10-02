@@ -240,15 +240,16 @@ const proto::ProtoObject* arrayFromList(proto::ProtoContext* ctx, const proto::P
 }
 
 // ---------------------------------------------------------------------------
-// Intrinsics: %Promise% and %Promise.prototype% of this thread's space.
+// Intrinsics: %Promise% and %Promise.prototype% of each space (shared by
+// every thread of the space; runtime/PinnedBuiltin.h).
 // ---------------------------------------------------------------------------
 
-thread_local PinnedBuiltin t_promiseCtor;
-thread_local PinnedBuiltin t_promiseProto;
-thread_local PinnedBuiltin t_promiseThen;
+PinnedBuiltin g_promiseCtor;
+PinnedBuiltin g_promiseProto;
+PinnedBuiltin g_promiseThen;
 
 const proto::ProtoObject* intrinsicPromiseProto(proto::ProtoContext* ctx) {
-    if (const proto::ProtoObject* p = t_promiseProto.get(ctx)) return p;
+    if (const proto::ProtoObject* p = g_promiseProto.get(ctx)) return p;
     // Before ensurePromiseConstructor ran in this space: read the global.
     const proto::ProtoObject** gr = getCurrentGlobalRoot();
     if (!gr || !*gr) return nullptr;
@@ -259,7 +260,7 @@ const proto::ProtoObject* intrinsicPromiseProto(proto::ProtoContext* ctx) {
 }
 
 const proto::ProtoObject* intrinsicPromiseCtor(proto::ProtoContext* ctx) {
-    return t_promiseCtor.get(ctx);
+    return g_promiseCtor.get(ctx);
 }
 
 // ---------------------------------------------------------------------------
@@ -1179,6 +1180,16 @@ const proto::ProtoObject* newPromise(proto::ProtoContext* ctx) {
     return initPromise(ctx, p);
 }
 
+const proto::ProtoObject* newPromiseWithPrototype(proto::ProtoContext* ctx,
+                                                  const proto::ProtoObject* proto) {
+    if (!proto) return newPromise(ctx);
+    return initPromise(ctx, proto->newChild(ctx, true));
+}
+
+const proto::ProtoObject* intrinsicPromisePrototype(proto::ProtoContext* ctx) {
+    return intrinsicPromiseProto(ctx);
+}
+
 void resolvePromise(proto::ProtoContext* ctx, const proto::ProtoObject* promise,
                     const proto::ProtoObject* resolution) {
     Rec r;
@@ -1517,14 +1528,17 @@ void ensurePromiseConstructor(proto::ProtoContext* ctx,
     ctor = ctor->setAttribute(ctx, JSSymbols::pdLength(ctx), ctx->fromInteger(0x2LL));
     ctor = ctor->setAttribute(ctx, JSSymbols::hasNonWritableProps(ctx), PROTO_TRUE);
 
-    // This thread's intrinsics, pinned for the life of the wrapper.
-    t_promiseCtor.keep(ctx, ctor);
-    t_promiseProto.keep(ctx, proto);
-    t_promiseThen.keep(ctx, thenFn);
+    // This space's intrinsics, pinned for the life of the wrapper.
+    g_promiseCtor.replace(ctx, ctor);
+    g_promiseProto.replace(ctx, proto);
+    g_promiseThen.replace(ctx, thenFn);
 
     *globalRoot = (*globalRoot)->setAttribute(ctx, sym(ctx, "Promise"), ctor);
     *globalRoot = (*globalRoot)->setAttribute(ctx, sym(ctx, "__pd_Promise__"), ctx->fromInteger(0x3LL));
     *globalRoot = installQueueMicrotask(ctx, *globalRoot);
+    // %Deferred.prototype% is a child of %Promise.prototype%, which exists from
+    // here on: publish it as Deferred.prototype.
+    ProtoDeferred::ensurePrototype(ctx, globalRoot);
 }
 
 } // namespace protojs

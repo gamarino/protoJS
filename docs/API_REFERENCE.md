@@ -60,7 +60,7 @@ protojs [options] -e "<code>"
 | `setImmediate` | `src/EventLoopBindings.cpp` | `setImmediate(callback)` runs `callback` on a later event-loop turn |
 | `Promise` | `src/PromisePrototype.cpp` | ECMA-262 promises: `then`, `catch`, `finally`, `Promise.resolve`, `reject`, `all`, `allSettled`, `any`, `race`, `withResolvers`, `try`, `Symbol.species`. See [Promises and async functions](#promises-and-async-functions) |
 | `queueMicrotask` | `src/PromisePrototype.cpp` | `queueMicrotask(callback)` queues `callback` as a microtask; an exception it throws is uncaught |
-| `Deferred` | `src/ProtoDeferred.cpp` | Promise-like object. `new Deferred(fn)` and `Deferred(fn)` both work; `fn` takes no arguments, its return value fulfils and a thrown value rejects. `then(onFulfilled, onRejected)` and `catch(onRejected)` return the same instance. See [DEFERRED_USAGE.md](DEFERRED_USAGE.md) |
+| `Deferred` | `src/ProtoDeferred.cpp`, `src/DeferredPool.cpp` | A promise (`instanceof Promise`) whose function runs in parallel on the Deferred pool, sharing the script's objects. `new Deferred(fn)` and `Deferred(fn)` both work; `fn` takes no arguments, its return value fulfils and a thrown value rejects; it settles on the calling thread and `then`/`catch`/`finally` behave as on any promise. See [DEFERRED_USAGE.md](DEFERRED_USAGE.md) |
 | `protoCore` | `src/ProtoCoreNativeBindings.cpp` | protoCore collections (`Set`, `Multiset`, `SparseList`, `Tuple`), the mutability helpers (`ImmutableObject`, `MutableObject`, `isImmutable`, `makeImmutable`, `makeMutable`) and `runInThread`; see [PROTOCORE_MODULE.md](PROTOCORE_MODULE.md) |
 | `io` | `src/modules/IOModule.cpp` | Simple file I/O; see below |
 | `process` | `src/modules/ProcessModule.cpp` | Process information; see below |

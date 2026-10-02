@@ -530,7 +530,7 @@ const proto::ProtoObject* bufferIncludes(
 
 const proto::ProtoObject* getBufferProto(proto::ProtoContext* ctx) {
     // Made on first use; pinned for the wrapper's life (runtime/PinnedBuiltin.h).
-    static thread_local PinnedBuiltin protoCache;
+    static PinnedBuiltin protoCache;
     if (const proto::ProtoObject* cached = protoCache.get(ctx)) return cached;
     static const NativeEntry entries[] = {
         {"toString", bufferToString},

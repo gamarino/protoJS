@@ -1,5 +1,6 @@
 #include "EventLoopBindings.h"
 #include "EventLoop.h"
+#include "ProtoDeferred.h"
 #include "JSContext.h"
 #include "runtime/ProtoInterpreter.h"
 #include "runtime/ProtoBytecodeModule.h"
@@ -100,6 +101,9 @@ const proto::ProtoObject* EventLoopBindings::setImmediateNative(
     const proto::ProtoList* args,
     const proto::ProtoSparseList* /*kwargs*/) {
     if (!ctx || !args || args->getSize(ctx) == 0) return PROTO_NONE;
+    // The queue below is a read-modify-write of the global, owned by the owner
+    // thread's event loop.
+    if (refuseOnDeferredThread(ctx, "setImmediate()")) return PROTO_NONE;
     const proto::ProtoObject* callback = args->getAt(ctx, 0);
     if (!callback || callback == PROTO_NONE) return PROTO_NONE;
 

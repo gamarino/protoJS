@@ -164,6 +164,18 @@ add_test(NAME cli/gc-promises
             "${CMAKE_CURRENT_SOURCE_DIR}/integration/gc/pending_promises.js")
 set_tests_properties(cli/gc-promises PROPERTIES TIMEOUT 900)
 
+# gc-deferred: Deferreds allocate on pool threads of the main thread's space
+# while the main thread allocates and reads a shared table; every result is
+# checked in full. A thread now parks whenever ANOTHER thread needs a
+# collection, which is what exposed operands held only in C++ locals inside
+# interpreter handlers (ProtoInterpreter.cpp, stackPop). Ten runs; before the
+# fix about one run in fifteen lost attributes of objects under construction.
+add_test(NAME cli/gc-deferred
+    COMMAND ${PROTOJS_SH} "${CMAKE_CURRENT_SOURCE_DIR}/cli/gc-stress.sh"
+            "$<TARGET_FILE:protojs>" 10 300000
+            "${CMAKE_CURRENT_SOURCE_DIR}/integration/gc/deferred_gc_stress.js")
+set_tests_properties(cli/gc-deferred PROPERTIES TIMEOUT 900)
+
 # The REPL reads lines that may end in "\r\n" (a Windows console, or input piped
 # from a Windows program) and must still recognise ".exit" and blank lines, and
 # it must end at end of input. Feeds "1+1\r\n\r\n.exit\r\n" on every platform.
@@ -284,6 +296,7 @@ foreach(js_test
         crypto/test_crypto_keygen
         crypto/test_crypto_sign
         deferred/concurrent_deferred
+        deferred/parallel_deferred
         deferred/test_deferred_reject
         test_deferred_basic
         native_addons/test_native_require

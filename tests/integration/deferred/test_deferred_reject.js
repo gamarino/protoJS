@@ -8,11 +8,11 @@
 //   - a callback that threw left the interpreter's pending-exception flag set
 //     for whatever native code ran next.
 //
-// A `then` callback that throws now ends the process with status 1, as an
-// exception escaping any event-loop callback does in Node; that case lives in
-// tests/cli/uncaught-errors.sh (deferred-reaction-throw), which also checks
-// that nothing queued runs after it.  This script keeps the checks that later
-// native calls and Deferreds work on the turns after a callback.
+// A Deferred is a promise (it runs its function on a pool thread): an
+// exception thrown by a `then` callback rejects the derived promise, and an
+// unhandled rejection ends the process with status 1, as in Node; those cases
+// live in tests/cli/uncaught-errors.sh. This script keeps the checks that later
+// native calls and Deferreds work after the callbacks.
 //
 // Asserting test: prints the failures and exits 1 when anything is wrong.
 // Run: protojs tests/integration/deferred/test_deferred_reject.js
@@ -85,7 +85,9 @@ if (constructed) {
 var thrownError = new Error("boom");
 var dErr = new Deferred(function () { throw thrownError; });
 dErr['catch'](function (e) { mark("catchError", e); });
-dErr.then(function (v) { mark("thenRanOnRejection", v); });
+// A Deferred is a promise: then() returns a derived promise, which rejects
+// too, and an unhandled rejection is fatal (as in Node). Handle it.
+dErr.then(function (v) { mark("thenRanOnRejection", v); })['catch'](function () {});
 
 // ---- Rejection with a primitive ------------------------------------------
 
@@ -116,26 +118,18 @@ dCallbackRan.then(function () {
     try { throw new Error("caught inside the callback"); } catch (e) { mark("caughtInCallback", e.message); }
 });
 
-// ---- Watchdog ------------------------------------------------------------
-// Deferred callbacks run on later event-loop turns. Chain setImmediate hops,
-// attach a late catch on the way, then verify everything that had to happen.
+// ---- Sequencing ------------------------------------------------------------
+// Deferreds settle when their function has run on a pool thread. Wait for all
+// of them, then attach a late catch to an already-rejected Deferred, and check
+// that native calls and new Deferreds still work after the callbacks ran.
 
-var hops = 0;
-var TOTAL_HOPS = 40;
-var lateCatchAttached = false;
-
-function step() {
-    hops++;
-
-    // Attach `catch` well after the Deferred has already been rejected.
-    if (hops === 10 && !lateCatchAttached) {
-        lateCatchAttached = true;
-        dPrim['catch'](function (e) { mark("lateCatch", e); });
-    }
-
-    // After the callbacks have run, native calls and new Deferreds must
-    // still work (no stale pending-exception flag).
-    if (hops === 20) {
+Promise.allSettled([constructed, dErr, dPrim, dTwoArg, dTwoArgOk, dCallbackRan])
+    .then(function () {
+        // Attach `catch` well after the Deferred has already been rejected.
+        return dPrim['catch'](function (e) { mark("lateCatch", e); });
+    })
+    .then(function () {
+        // No stale pending-exception flag after the callbacks.
         var parsed = null;
         try {
             parsed = JSON.parse("1");
@@ -143,17 +137,13 @@ function step() {
             parsed = "threw: " + e;
         }
         mark("jsonAfterThrow", parsed);
-
-        var dAfter = new Deferred(function () { return 99; });
-        dAfter.then(function (v) { mark("deferredAfterThrow", v); });
-    }
-
-    if (hops < TOTAL_HOPS) {
-        setImmediate(step);
-        return;
-    }
-    finish();
-}
+        return new Deferred(function () { return 99; })
+            .then(function (v) { mark("deferredAfterThrow", v); });
+    })
+    .then(finish, function (e) {
+        console.log("test_deferred_reject: unexpected rejection: " + e);
+        process.exit(1);
+    });
 
 function finish() {
     check("fulfil value delivered to then", seen.fulfilValue === 7,
@@ -198,4 +188,4 @@ function finish() {
     console.log("test_deferred_reject: all checks passed");
 }
 
-setImmediate(step);
+

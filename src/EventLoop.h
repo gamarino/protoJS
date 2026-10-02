@@ -6,6 +6,7 @@
 #include <mutex>
 #include <condition_variable>
 #include <atomic>
+#include <chrono>
 
 namespace protojs {
 
@@ -51,6 +52,18 @@ public:
      * @brief Check if there are pending callbacks.
      */
     bool hasPendingCallbacks() const;
+
+    /**
+     * @brief Block until a callback is queued or `maxWait` has passed.
+     *
+     * The process drain loop in main.cpp used to sleep a fixed 10 ms between
+     * passes, so every completion handed over by another thread (a Deferred
+     * settling, an I/O result) waited up to 10 ms to be noticed. A completion
+     * now wakes the loop at once; the time-out bounds the wait for the
+     * conditions the loop polls (workers, servers, orphaned resources).
+     * The caller must be outside protoCore's running set (UnmanagedScope).
+     */
+    void waitForCallbacks(std::chrono::milliseconds maxWait);
 
     /**
      * @brief Install the end-of-turn hook, run after every callback.

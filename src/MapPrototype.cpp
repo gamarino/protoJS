@@ -533,7 +533,7 @@ static const proto::ProtoObject* mapIteratorNext(
 // Made on first use; pinned for the wrapper's life (runtime/PinnedBuiltin.h):
 // a static is not a root, and nothing else references the prototype once
 // every iterator made from it has been collected.
-static thread_local PinnedBuiltin s_mapIteratorProtoCache;
+static PinnedBuiltin s_mapIteratorProtoCache;
 
 static const proto::ProtoObject* getMapIteratorProto(proto::ProtoContext* ctx) {
     if (const proto::ProtoObject* cached = s_mapIteratorProtoCache.get(ctx)) return cached;

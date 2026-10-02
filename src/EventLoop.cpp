@@ -86,6 +86,11 @@ void EventLoop::setEndOfTurnHook(std::function<void()> hook) {
     endOfTurnHook = std::move(hook);
 }
 
+void EventLoop::waitForCallbacks(std::chrono::milliseconds maxWait) {
+    std::unique_lock<std::mutex> lock(queueMutex);
+    condition.wait_for(lock, maxWait, [this] { return !callbackQueue.empty(); });
+}
+
 bool EventLoop::hasPendingCallbacks() const {
     std::lock_guard<std::mutex> lock(queueMutex);
     return !callbackQueue.empty();

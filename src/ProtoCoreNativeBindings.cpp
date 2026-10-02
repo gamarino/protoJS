@@ -1,5 +1,6 @@
 #include "ProtoCoreTypes.h"
 #include "ProtoCoreNativeBindings.h"
+#include "runtime/ThreadIdentity.h"
 #include "ProtoDeferred.h"
 #include "ArrayElementsStorage.h"
 #include "ArrayPrototype.h"
@@ -87,6 +88,25 @@ const std::unordered_map<std::string, proto::ProtoMethod>& nativeWorkers() {
         {"cpuChunk", cpuChunkThreadEntry},
     };
     return w;
+}
+
+// ---- threadId ---------------------------------------------------------
+//
+// protoCore.threadId(): a small integer naming the calling OS thread, stable
+// for the thread's life and never reused within the process (1 is the first
+// thread that asks, normally the main thread). Lets a program -- and the
+// Deferred tests -- observe on which thread code runs, without exposing a
+// native thread handle.
+const proto::ProtoObject* threadIdFn(
+    proto::ProtoContext* ctx,
+    const proto::ProtoObject* /*self*/,
+    const proto::ParentLink*,
+    const proto::ProtoList*,
+    const proto::ProtoSparseList*) {
+    static std::atomic<long long> next{1};
+    static thread_local long long id = 0;
+    if (id == 0) id = next.fetch_add(1, std::memory_order_relaxed);
+    return ctx ? ctx->fromInteger(id) : PROTO_NONE;
 }
 
 // ---- runInThread implementation --------------------------------------
@@ -206,11 +226,12 @@ const proto::ProtoObject* runInThreadNative(
                 proto::ProtoRootSet* rs = wrapper->getRootSet();
                 if (!rs) return;
                 const proto::ProtoObject* deferred = rs->resolve(deferredHandle);
-                rs->remove(deferredHandle);
                 rs->remove(argsHandle);  // workerArgs no longer needed
-                if (!deferred) return;
-                ProtoDeferred::resolveFromAsync(c, deferred,
-                    c->fromLong(v), wrapper);
+                // The Deferred stays pinned until it is settled: settling
+                // allocates, and it is otherwise only a C++ local.
+                if (deferred)
+                    ProtoDeferred::resolveFromAsync(c, deferred, c->fromLong(v), wrapper);
+                rs->remove(deferredHandle);
             });
         });
 
@@ -261,6 +282,24 @@ const proto::ProtoObject*& multisetProtoSlot() {
 const proto::ProtoObject*& sparseListProtoSlot() {
     static thread_local const proto::ProtoObject* p = nullptr; return p;
 }
+
+}  // namespace
+
+// Thread identity (runtime/ThreadIdentity.h): a Deferred pool thread uses the
+// owner thread's prototypes, so `new protoCore.Set()` is recognised there too.
+void captureProtoCoreBindingsIdentity(ThreadIdentity& out) {
+    out.pcSetPrototype = setProtoSlot();
+    out.pcMultisetPrototype = multisetProtoSlot();
+    out.pcSparseListPrototype = sparseListProtoSlot();
+}
+
+void adoptProtoCoreBindingsIdentity(const ThreadIdentity& in) {
+    if (in.pcSetPrototype) setProtoSlot() = in.pcSetPrototype;
+    if (in.pcMultisetPrototype) multisetProtoSlot() = in.pcMultisetPrototype;
+    if (in.pcSparseListPrototype) sparseListProtoSlot() = in.pcSparseListPrototype;
+}
+
+namespace {
 
 bool calledWithNew(proto::ProtoContext* ctx,
                     const proto::ProtoObject* self,
@@ -770,6 +809,7 @@ const proto::ProtoObject* ProtoCoreNativeBindings::init(
     put("isImmutable",
         wrapNativeFunction(ctx, isImmutableFn, "isImmutable", 1, nullptr));
     put("runInThread", ctx->fromMethod(nullptr, runInThreadNative));
+    put("threadId", wrapNativeFunction(ctx, threadIdFn, "threadId", 0, nullptr));
 
     const proto::ProtoString* modName = ctx->fromUTF8String("protoCore")
         ? ctx->fromUTF8String("protoCore")->asString(ctx) : nullptr;

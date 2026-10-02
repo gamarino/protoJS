@@ -78,7 +78,7 @@ const proto::ProtoObject* childSend(
 
 const proto::ProtoObject* getChildProto(proto::ProtoContext* ctx) {
     // Made on first use; pinned for the wrapper's life (runtime/PinnedBuiltin.h).
-    static thread_local PinnedBuiltin protoCache;
+    static PinnedBuiltin protoCache;
     if (const proto::ProtoObject* cached = protoCache.get(ctx)) return cached;
     static const NativeEntry entries[] = {
         {"kill", childKill},

@@ -1,39 +1,31 @@
 #pragma once
 
-// ProtoDeferred — protoCore-native Promise-like primitive for async work.
+// ProtoDeferred — `Deferred`, a promise whose function runs in parallel.
 //
-// Replaces the QuickJS-side Deferred class (src/Deferred.{h,cpp}) which
-// used JS_NewClass + JS_NewCFunction2 + JSValue everywhere.  The
-// QuickJS version was invisible to user code running through the
-// protoCore-native interpreter; `typeof Deferred === 'undefined'`
-// because it lived only on the QuickJS global.
+//   new Deferred(fn)   (or Deferred(fn))
+//     - fn: called with no arguments on a thread of the Deferred pool
+//       (src/DeferredPool.h): a protoCore thread of the SAME space, sharing
+//       every object with the calling thread without copying.
+//     - returns: a promise of the calling thread -- an instance of Deferred
+//       and of Promise -- fulfilled with fn's return value, or rejected with
+//       what fn throws. It settles on the calling thread, as a microtask, and
+//       from then on behaves as any promise: then/catch/finally, await,
+//       Promise.all/race/any/allSettled, unhandled-rejection tracking.
 //
-// User-visible surface:
-//   new Deferred(workerFn)
-//     - workerFn: callable invoked on the event loop's next turn.
-//       Its return value fulfils the Deferred; throwing rejects it.
-//     - returns: an instance carrying .then and .catch methods.
+//   `new Promise(executor)` runs on the calling thread; `new Deferred(fn)`
+//   on the pool. The constructor is the whole choice: no new syntax.
 //
-//   instance.then(callback)
-//     - registers `callback` to receive the fulfilment value.
-//     - returns the same instance (chaining).
+// Inside a Deferred's own function, `new Deferred(g)` runs g inline (a pool
+// thread never waits for the pool).
 //
-//   instance.catch(callback)
-//     - registers `callback` to receive the rejection reason.
+// docs/DEFERRED_USAGE.md is the user documentation; it states what sharing
+// objects between threads means for programs.
 //
-// Internal state (attributes on the instance, all `__df_*` private):
-//   __df_state__  : SmallInteger — 0 pending, 1 fulfilled, 2 rejected
-//   __df_value__  : resolved value / rejection reason
-//   __df_then__   : ProtoList of pending then callbacks
-//   __df_catch__  : ProtoList of pending catch callbacks
-//
-// C++ surface for runInThread / other native producers:
+// C++ surface for native producers (protoCore.runInThread, io.*Async):
 //   ProtoDeferred::createPending(ctx)
-//     - returns a fresh pending instance, no worker scheduled.
-//   ProtoDeferred::resolveFromAsync(ctx, instance, value, wrapper)
-//     - sets state=fulfilled and drains the then queue via event loop.
-//   ProtoDeferred::rejectFromAsync(ctx, instance, reason, wrapper)
-//     - sets state=rejected and drains the catch queue via event loop.
+//     - a pending Deferred that keeps the process alive until settled.
+//   ProtoDeferred::resolveFromAsync / rejectFromAsync(ctx, d, value, wrapper)
+//     - settle it, on the owner thread.
 
 #include <protoCore.h>
 
@@ -55,10 +47,10 @@ public:
     // the Deferred itself once their off-thread work is done.
     static const proto::ProtoObject* createPending(proto::ProtoContext* ctx);
 
-    // Resolve a Deferred from C++.  Marks fulfilled and schedules pending
-    // .then callbacks on the event loop.  `wrapper` is captured into the
-    // event-loop lambda so callJSFunctionFromAsync can re-publish the
-    // wrapper and rootModule when the callback fires.
+    // Settle a Deferred from C++, on its owner thread (an event-loop
+    // callback or a microtask): its reactions are queued as jobs on the
+    // current job queue. `wrapper` is unused and kept for source
+    // compatibility.
     static void resolveFromAsync(
         proto::ProtoContext* ctx,
         const proto::ProtoObject* deferred,
@@ -74,6 +66,15 @@ public:
     // Active count for event-loop drain coordination — replaces
     // Deferred::getActiveDeferredCount in main.cpp's drain loop.
     static int getActiveCount();
+
+    // A pool task has been settled on the owner thread (DeferredPool.cpp).
+    static void taskSettled();
+
+    // Publish Deferred.prototype, a child of %Promise.prototype%, on the
+    // `Deferred` constructor of globalRoot. Called once %Promise.prototype%
+    // exists (ensurePromiseConstructor).
+    static void ensurePrototype(proto::ProtoContext* ctx,
+                                const proto::ProtoObject** globalRoot);
 };
 
 /**
@@ -104,6 +105,15 @@ void endOfTurnChecks(proto::ProtoContext* ctx);
  */
 void reportUnhandledRejection(proto::ProtoContext* ctx, const proto::ProtoObject* reason,
                               bool fatal);
+
+/**
+ * Inside a Deferred's function (a pool thread), signal
+ * "Error: <what> is not available inside a Deferred function" and return true;
+ * elsewhere return false. For the natives that schedule work on the owner
+ * thread's event loop or touch its single-threaded loader state (setImmediate,
+ * require, new Worker): a Deferred computes, it does not schedule.
+ */
+bool refuseOnDeferredThread(proto::ProtoContext* ctx, const char* what);
 
 /**
  * Whether a value is callable: a raw ProtoMethod, a wrapped native function, a

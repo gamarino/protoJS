@@ -1,6 +1,7 @@
 #include "../../ProtoCoreTypes.h"
 #include "../../runtime/PinnedBuiltin.h"
 #include "WorkerThreadsModule.h"
+#include "../../ProtoDeferred.h"
 #include "../../ProtoNativeModule.h"
 #include "../../ArrayElementsStorage.h"
 #include "../../ArrayPrototype.h"
@@ -571,7 +572,7 @@ const proto::ProtoObject* workerTerminate(
 
 const proto::ProtoObject* getWorkerProto(proto::ProtoContext* ctx) {
     // Made on first use; pinned for the wrapper's life (runtime/PinnedBuiltin.h).
-    static thread_local PinnedBuiltin protoCache;
+    static PinnedBuiltin protoCache;
     if (const proto::ProtoObject* cached = protoCache.get(ctx)) return cached;
     static const NativeEntry entries[] = {
         {"on",           workerOn},
@@ -630,7 +631,7 @@ const proto::ProtoObject* parentPortPostMessage(
 
 const proto::ProtoObject* getParentPortProto(proto::ProtoContext* ctx) {
     // Made on first use; pinned for the wrapper's life (runtime/PinnedBuiltin.h).
-    static thread_local PinnedBuiltin protoCache;
+    static PinnedBuiltin protoCache;
     if (const proto::ProtoObject* cached = protoCache.get(ctx)) return cached;
     static const NativeEntry entries[] = {
         {"postMessage", parentPortPostMessage},
@@ -737,7 +738,7 @@ void workerThreadEntry(WorkerState* state) {
         };
         // Shims built once per thread and pinned for the wrapper's life
         // (runtime/PinnedBuiltin.h): a static is not a root.
-        static thread_local PinnedBuiltin ppShimsProtoCache;
+        static PinnedBuiltin ppShimsProtoCache;
         const proto::ProtoObject* ppShimsProto = ppShimsProtoCache.get(wctx);
         if (!ppShimsProto) {
             static const NativeEntry e[] = {
@@ -829,6 +830,7 @@ const proto::ProtoObject* workerConstructor(
     const proto::ProtoList* args,
     const proto::ProtoSparseList*) {
     if (!ctx || !args || args->getSize(ctx) == 0) return PROTO_NONE;
+    if (refuseOnDeferredThread(ctx, "new Worker()")) return PROTO_NONE;
     const proto::ProtoObject* fileArg = args->getAt(ctx, 0);
     if (!fileArg || !fileArg->isString(ctx)) return PROTO_NONE;
     std::string filename;

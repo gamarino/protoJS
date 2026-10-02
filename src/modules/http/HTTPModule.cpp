@@ -230,7 +230,7 @@ const proto::ProtoObject* incomingGetHeader(
 
 const proto::ProtoObject* getIncomingProto(proto::ProtoContext* ctx) {
     // Made on first use; pinned for the wrapper's life (runtime/PinnedBuiltin.h).
-    static thread_local PinnedBuiltin protoCache;
+    static PinnedBuiltin protoCache;
     if (const proto::ProtoObject* cached = protoCache.get(ctx)) return cached;
     static const NativeEntry entries[] = {
         {"getHeader", incomingGetHeader},
@@ -372,7 +372,7 @@ const proto::ProtoObject* responseEnd(
 
 const proto::ProtoObject* getResponseProto(proto::ProtoContext* ctx) {
     // Made on first use; pinned for the wrapper's life (runtime/PinnedBuiltin.h).
-    static thread_local PinnedBuiltin protoCache;
+    static PinnedBuiltin protoCache;
     if (const proto::ProtoObject* cached = protoCache.get(ctx)) return cached;
     static const NativeEntry entries[] = {
         {"writeHead", responseWriteHead},
@@ -601,7 +601,7 @@ const proto::ProtoObject* serverClose(
 
 const proto::ProtoObject* getServerProto(proto::ProtoContext* ctx) {
     // Made on first use; pinned for the wrapper's life (runtime/PinnedBuiltin.h).
-    static thread_local PinnedBuiltin protoCache;
+    static PinnedBuiltin protoCache;
     if (const proto::ProtoObject* cached = protoCache.get(ctx)) return cached;
     static const NativeEntry entries[] = {
         {"listen", serverListen},
@@ -685,7 +685,7 @@ const proto::ProtoObject* clientResponseOnImpl(
 
 const proto::ProtoObject* getClientResponseProto(proto::ProtoContext* ctx) {
     // Made on first use; pinned for the wrapper's life (runtime/PinnedBuiltin.h).
-    static thread_local PinnedBuiltin crprotoCache;
+    static PinnedBuiltin crprotoCache;
     if (const proto::ProtoObject* cached = crprotoCache.get(ctx)) return cached;
     static const NativeEntry entries[] = {
         {"on", clientResponseOnImpl},
@@ -934,7 +934,7 @@ const proto::ProtoObject* clientRequestEndImpl(
 
 const proto::ProtoObject* getClientRequestProto(proto::ProtoContext* ctx) {
     // Made on first use; pinned for the wrapper's life (runtime/PinnedBuiltin.h).
-    static thread_local PinnedBuiltin crqprotoCache;
+    static PinnedBuiltin crqprotoCache;
     if (const proto::ProtoObject* cached = crqprotoCache.get(ctx)) return cached;
     static const NativeEntry entries[] = {
         {"write", clientRequestWriteImpl},
