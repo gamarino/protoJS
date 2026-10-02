@@ -1,9 +1,30 @@
 name: Cross-platform
 
-# macOS and Windows. Linux is ci.yml's (Test262 gates, the static ratchet, the
-# workspace-protoCore assertion); this workflow builds against an INSTALLED
-# protoCore package (the supported mode on Windows) and runs the Catch2 suite,
-# with the same exclusions as ci.yml's gate.
+# macOS and Windows. Linux is ci.yml's (the static ratchet, the whole-corpus
+# Test262 run, the workspace-protoCore assertion); this workflow builds against
+# an INSTALLED protoCore package (the supported mode on Windows) and runs, on
+# each platform:
+#
+#   * the whole CTest suite, with the same exclusion as ci.yml's gate
+#     (`-E "integration|network"`): the Catch2 cases, the CLI fixtures and the
+#     asserting JavaScript fixtures (tests/CMakeLists.txt);
+#   * the Test262 per-commit regression gate, built-ins/{Object,Reflect,Proxy},
+#     with the SAME expected-failures baseline and the same accounting as
+#     Linux (tests/test262/runner/regression_gate.py): a test that fails here
+#     and passes on Linux is a regression of this platform, and the reverse is a
+#     stale baseline;
+#   * a timing of two dispatch-bound benchmarks (printed, never asserted).
+#
+# Windows also builds the ZIP package, unpacks it into an empty directory and
+# runs protojs.exe from there with a PATH that holds nothing but the system
+# directories -- the proof that the ZIP is self-contained.
+#
+# protoCore versions, exactly:
+#   * macOS and the first Windows job build protoCore 2.8.0 (tag v2.8.0, commit
+#     43b6dc07), the first release whose setThreadStackBytes is honoured on macOS;
+#   * the "floor" Windows job builds protoCore 2.7.0 (tag v2.7.0, commit
+#     fc5d79db), the oldest release protoJS accepts (PROTOCORE_MIN_VERSION in
+#     CMakeLists.txt) and the one ci.yml pins on Linux.
 
 on:
   push:
@@ -20,21 +41,31 @@ concurrency:
 
 env:
   PROTOCORE_REPO: numaes/protoCore
-  PROTOCORE_REF: 43b6dc0717e417aa6af1436a45bec187753a8130
+  TEST262_REPO: tc39/test262
+  # The corpus commit of ci.yml and of the regression-gate baseline.
+  TEST262_REF: aae8cf6eed6d6c6a203be48c1184bb194880f66b
 
 jobs:
   test:
     name: ${{ matrix.name }}
     runs-on: ${{ matrix.os }}
-    timeout-minutes: 120
+    timeout-minutes: 150
     strategy:
       fail-fast: false
       matrix:
         include:
-          - name: macOS (Apple clang, arm64)
+          - name: macOS (Apple clang, arm64, protoCore 2.8.0)
             os: macos-14
-          - name: Windows (MSVC, x64)
+            protocore_ref: 43b6dc0717e417aa6af1436a45bec187753a8130
+            package: false
+          - name: Windows (MSVC, x64, protoCore 2.8.0)
             os: windows-2022
+            protocore_ref: 43b6dc0717e417aa6af1436a45bec187753a8130
+            package: true
+          - name: Windows (MSVC, x64, protoCore 2.7.0 floor)
+            os: windows-2022
+            protocore_ref: fc5d79db4f89f8a6eb473a52766b1908140a19d1
+            package: false
     defaults:
       run:
         shell: bash
@@ -48,8 +79,31 @@ jobs:
         uses: actions/checkout@v4
         with:
           repository: ${{ env.PROTOCORE_REPO }}
-          ref: ${{ env.PROTOCORE_REF }}
+          ref: ${{ matrix.protocore_ref }}
           path: protoCore
+
+      - name: Check out the Test262 directories the gate runs, at the pin
+        # Only what the per-commit gate reads: its three directories and the
+        # harness. The runner records `git rev-parse HEAD` as the corpus commit,
+        # which the gate compares with the baseline's.
+        uses: actions/checkout@v4
+        with:
+          repository: ${{ env.TEST262_REPO }}
+          ref: ${{ env.TEST262_REF }}
+          path: test262
+          sparse-checkout: |
+            harness
+            test/built-ins/Object
+            test/built-ins/Reflect
+            test/built-ins/Proxy
+
+      - name: Record what is being built
+        run: |
+          {
+            echo "protoJS at \`$(git -C protoJS rev-parse HEAD)\`"
+            echo "protoCore at \`$(git -C protoCore rev-parse HEAD)\` ($(git -C protoCore describe --tags --always))"
+            echo "test262 at \`$(git -C test262 rev-parse HEAD)\`"
+          } >> "$GITHUB_STEP_SUMMARY"
 
       - name: Dependencies (macOS)
         if: runner.os == 'macOS'
@@ -58,6 +112,7 @@ jobs:
           echo "OPENSSL_ROOT_DIR=$(brew --prefix openssl@3)" >> "$GITHUB_ENV"
           # The test scripts use GNU timeout, which macOS does not ship.
           echo "$(brew --prefix coreutils)/libexec/gnubin" >> "$GITHUB_PATH"
+          echo "PROTOJS_PY=python3" >> "$GITHUB_ENV"
 
       - name: Dependencies (Windows)
         if: runner.os == 'Windows'
@@ -66,6 +121,7 @@ jobs:
             if [ -f "$d/include/openssl/ssl.h" ]; then echo "OPENSSL_ROOT_DIR=$d" >> "$GITHUB_ENV"; break; fi
           done
           echo "PROTOJS_PYTHON=$(cygpath -m "$(command -v python)")" >> "$GITHUB_ENV"
+          echo "PROTOJS_PY=python" >> "$GITHUB_ENV"
 
       - name: MSVC environment
         if: runner.os == 'Windows'
@@ -88,15 +144,99 @@ jobs:
 
       - name: Build protoJS
         working-directory: protoJS
-        run: cmake --build build --parallel 4
+        run: cmake --build build --parallel 4 2>&1 | tee build.log
+
+      - name: Count compiler warnings (protoJS sources)
+        # Printed, not asserted: MSVC builds protoJS's own targets at /W3.
+        working-directory: protoJS
+        run: |
+          N=$(grep -E "warning (C[0-9]+|:)" build.log | grep -v "deps[/\\\\]quickjs" | sort -u | wc -l | tr -d ' ')
+          echo "compiler warnings outside deps/quickjs: $N"
+          echo "compiler warnings outside deps/quickjs (${{ runner.os }}): $N" >> "$GITHUB_STEP_SUMMARY"
+          grep -E "warning (C[0-9]+|:)" build.log | grep -v "deps[/\\\\]quickjs" | sort -u | head -50 || true
+
+      - name: Locate protojs
+        working-directory: protoJS
+        run: |
+          if [ -f build/bin/protojs.exe ]; then BIN=build/bin/protojs.exe; else BIN=build/protojs; fi
+          echo "PROTOJS_BIN=$BIN" >> "$GITHUB_ENV"
+          "$BIN" --version
 
       - name: Report the registered test count
         working-directory: protoJS
         run: |
           COUNT=$(ctest --test-dir build -N | tail -1)
           echo "$COUNT"
-          echo "protoJS ctest (${{ runner.os }}): $COUNT" >> "$GITHUB_STEP_SUMMARY"
+          echo "protoJS ctest (${{ matrix.name }}): $COUNT" >> "$GITHUB_STEP_SUMMARY"
 
-      - name: Catch2 suite
+      - name: CTest suite (Catch2, CLI and JavaScript fixtures)
         working-directory: protoJS
         run: ctest --test-dir build -E "integration|network" --output-on-failure --timeout 600 < /dev/null
+
+      - name: Test262 regression gate, built-ins/{Object,Reflect,Proxy}
+        # The script, the baseline and the accounting of ci.yml's Linux gate:
+        # the set of non-passing tests must equal the recorded one exactly.
+        working-directory: protoJS
+        env:
+          TEST262_CONCURRENCY: '1'
+        run: |
+          set +e
+          "$PROTOJS_PY" tests/test262/runner/regression_gate.py \
+            --binary "$PROTOJS_BIN" \
+            --corpus ../test262 > gate.log 2>&1
+          STATUS=$?
+          set -e
+          sed -n '/=== Test262 regression gate/,$p' gate.log
+          {
+            echo ""
+            echo "### Test262 per-commit gate (${{ matrix.name }})"
+            echo '```'
+            sed -n '/=== Test262 regression gate/,$p' gate.log
+            echo '```'
+          } >> "$GITHUB_STEP_SUMMARY"
+          if [ "$STATUS" -ne 0 ]; then tail -40 gate.log; fi
+          exit "$STATUS"
+
+      - name: Dispatch timing (informational)
+        # Two dispatch-bound benchmarks that verify what they computed
+        # (tests/benchmarks/dispatch). macOS and Windows take the switch dispatch;
+        # docs/PERFORMANCE_DISPATCH.md has the Linux GCC/Clang comparison. A
+        # shared runner is noisy: printed for the record, never asserted.
+        continue-on-error: true
+        working-directory: protoJS
+        run: |
+          TIMEFORMAT='%3R'
+          for b in loop_sum call_fib; do
+            for i in 1 2 3; do
+              { time "$PROTOJS_BIN" "tests/benchmarks/dispatch/$b.js" > out.txt; } 2> time.txt
+              cat out.txt
+              T=$(tail -1 time.txt)
+              echo "$b run $i: ${T} s"
+              echo "dispatch timing (${{ matrix.name }}) $b run $i: ${T} s" >> "$GITHUB_STEP_SUMMARY"
+            done
+          done
+
+      - name: Package the ZIP and run it from an empty directory
+        if: matrix.package
+        working-directory: protoJS/build
+        run: |
+          cpack -G ZIP
+          ZIP=$(ls protojs-*-win64.zip | head -1)
+          echo "package: $ZIP"
+          unzip -l "$ZIP"
+          CLEAN="$RUNNER_TEMP/zip-check"
+          rm -rf "$CLEAN"; mkdir -p "$CLEAN"
+          unzip -q "$ZIP" -d "$CLEAN"
+          EXE=$(find "$CLEAN" -name protojs.exe | head -1)
+          test -n "$EXE"
+          cat > "$CLEAN/hello.js" <<'EOF'
+          const crypto = require('crypto');
+          const h = crypto.createHash('sha256').update('protoJS').digest('hex');
+          console.log('zip-ok ' + (6 * 7) + ' ' + h.length);
+          EOF
+          # Nothing from the build tree, the protoCore prefix, OpenSSL or Visual
+          # Studio: only the system directories.
+          OUT=$(cd "$CLEAN" && PATH="/c/Windows/System32:/c/Windows" "$EXE" hello.js)
+          echo "$OUT"
+          test "$OUT" = "zip-ok 42 64"
+          echo "ZIP self-contained: $ZIP ran from an empty directory with a system-only PATH" >> "$GITHUB_STEP_SUMMARY"
