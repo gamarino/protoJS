@@ -559,10 +559,10 @@ void stringifyRecursive(proto::ProtoContext* ctx,
                         // OWN string-keyed properties; Symbol-keyed
                         // entries are not visited.  protoJS encodes
                         // Symbol-keyed properties under the canonical
-                        // "@@sym#<addr>" attribute name (R50 storage
+                        // "@@sym#<n>" attribute name (R50 storage
                         // shape).  Pre-fix the key passed the leading
                         // underscore filter and JSON.stringify({[s]:1})
-                        // emitted the raw '@@sym#0x...' (built-ins/
+                        // emitted the raw '@@sym#...' (built-ins/
                         // JSON/stringify/value-symbol.js).
                     } else if (key[0] != '_') {
                         pushKey(key);

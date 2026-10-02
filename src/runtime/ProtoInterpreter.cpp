@@ -1468,7 +1468,7 @@ static const proto::ProtoObject* reflectOwnKeys(
         }
         std::string ks;
         propKey->toUTF8String(ctx, ks);
-        // Per-instance Symbol identity keys (\`@@sym#<addr>\`): translate
+        // Per-instance Symbol identity keys (\`@@sym#<n>\`): translate
         // back to the originating Symbol value via the registry, emit
         // as a Symbol-section entry.  Pre-fix Reflect.ownKeys reported
         // these as bare strings, failing identity comparison against
@@ -1515,7 +1515,9 @@ static const proto::ProtoObject* reflectOwnKeys(
         els = els->appendLast(ctx, lenKey ? lenKey->asObject(ctx) : ctx->fromUTF8String("length"));
     }
     // Symbol-typed keys come last per §10.1.11 step 5
-    // (OrdinaryOwnPropertyKeys).
+    // (OrdinaryOwnPropertyKeys), in creation order: the attribute walk met
+    // them in key-address order, which differs by platform.
+    protojs::sortSymbolsByCreation(ctx, symKeys);
     for (const proto::ProtoObject* sk : symKeys)
         els = els->appendLast(ctx, sk);
 
@@ -2191,16 +2193,19 @@ static const proto::ProtoObject* symbolConstructor(
     // ProtoString identity (memory note: jssymbols_identity_gotcha).
     // Stash a freshly interned per-instance key under __symbol_str_key__
     // and let the put / hasOwn / get paths consult it on Symbol-tagged
-    // receivers.  Use the symbol's address as the per-instance tag so
-    // every Symbol() returns a distinct identity (matches the spec's
-    // 'each Symbol() is unique' guarantee).
+    // receivers.  A process-wide creation number is the per-instance tag,
+    // so every Symbol() returns a distinct identity (the spec's 'each
+    // Symbol() is unique' guarantee) -- the symbol's address, used before,
+    // could be reused once the symbol was collected.
     {
         const proto::ProtoObject* ssko = ctx->fromUTF8String("__symbol_str_key__");
         const proto::ProtoString* sskKey = ssko ? ssko->asString(ctx) : nullptr;
         if (sskKey) {
-            char buf[64];
-            std::snprintf(buf, sizeof(buf), "@@sym#%p",
-                reinterpret_cast<const void*>(sym));
+            // "@@sym#<creation number>": unique for the life of the
+            // process and the same on every platform; reports of symbol
+            // keys are ordered by it (ObjectPrototype.h).
+            const std::string storageKey = protojs::makeSymbolStorageKey();
+            const char* buf = storageKey.c_str();
             // Intern via createSymbol so the per-instance key is the
             // canonical SymbolTable entry — same identity ensureInterned
             // and protoCore's attribute store key off of.  fromUTF8String
@@ -2213,7 +2218,7 @@ static const proto::ProtoObject* symbolConstructor(
                 sym = sym->setAttribute(ctx, sskKey, keyStr->asObject(ctx));
                 // Register the reverse mapping so
                 // Object.getOwnPropertySymbols / Reflect.ownKeys can
-                // translate the internal @@sym#<addr> attribute name
+                // translate the internal @@sym#<n> attribute name
                 // back to its Symbol identity.
                 protojs::registerSymbolByStrKey(std::string(buf), sym);
             }

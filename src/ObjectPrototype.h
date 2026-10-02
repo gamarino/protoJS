@@ -2,6 +2,8 @@
 #define PROTOJS_OBJECTPROTOTYPE_H
 
 #include "protoCore.h"
+#include <string>
+#include <vector>
 
 namespace protojs {
 
@@ -50,6 +52,35 @@ const proto::ProtoString* toPropertyKey(proto::ProtoContext* ctx,
  */
 void registerSymbolByStrKey(const std::string& key, const proto::ProtoObject* sym);
 const proto::ProtoObject* lookupSymbolByStrKey(const std::string& key);
+
+/**
+ * Symbol-keyed properties are stored under an interned attribute name
+ * "@@sym#<n>", where n is the symbol's creation number (makeSymbolStorageKey,
+ * called by the Symbol() constructor).
+ *
+ * protoCore orders an object's attributes by the address of the interned key,
+ * so the order in which a walk of the attributes meets two symbol keys is the
+ * order in which the allocator happened to place their names -- the same on
+ * Linux run after run, different on macOS and Windows. Every place that
+ * reports symbol keys therefore orders them by creation number instead,
+ * which is the chronological order of OrdinaryOwnPropertyKeys whenever the
+ * properties were added in the order their symbols were created, and is the
+ * same on every platform.
+ */
+std::string makeSymbolStorageKey();
+bool isSymbolStorageKey(const std::string& key);
+/** The creation number in a "@@sym#<n>" key; 0 for any other key. */
+unsigned long long symbolStorageKeySequence(const std::string& key);
+/** The creation number of a Symbol value (its __symbol_str_key__); 0 if none. */
+unsigned long long symbolSequence(proto::ProtoContext* ctx, const proto::ProtoObject* sym);
+/**
+ * Orders storage keys as [[OwnPropertyKeys]] reports them: canonical array
+ * indices in ascending numeric order, then the other string keys in the order
+ * given, then symbol storage keys by creation number.
+ */
+void orderOwnPropertyKeys(std::vector<std::string>& keys);
+/** Stable-sorts Symbol values by creation number. */
+void sortSymbolsByCreation(proto::ProtoContext* ctx, std::vector<const proto::ProtoObject*>& syms);
 
 /**
  * Record an explicit JS [[Prototype]] override for obj. Used by OP_define_class

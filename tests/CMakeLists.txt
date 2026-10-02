@@ -162,6 +162,7 @@ foreach(js_test
         basic/closure_scopes
         basic/closure_set_prototype
         basic/object_integrity
+        basic/symbol_key_order
         modules/test_require_file
         modules/test_require
         collections/protoCore_collections

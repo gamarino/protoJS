@@ -10,6 +10,8 @@
 #include "JSContext.h"
 #include "runtime/ProtoInterpreter.h"
 #include "runtime/BehaviorRegistry.h"
+#include <algorithm>
+#include <atomic>
 #include <cstdio>
 #include <cstring>
 #include <string>
@@ -32,7 +34,7 @@ static bool isInternalKey(proto::ProtoContext* ctx, const proto::ProtoString* ke
     if (!key) return false;
     std::string s;
     key->toUTF8String(ctx, s);
-    // Per-instance Symbol identity keys (\`@@sym#<addr>\`) are internal
+    // Per-instance Symbol identity keys (\`@@sym#<n>\`) are internal
     // bookkeeping — they map a Symbol value to a unique ProtoString
     // identity for attribute storage, but JS-visible enumeration
     // (Object.keys / values / getOwnPropertyNames / for-in / Object.assign)
@@ -1059,18 +1061,37 @@ static const proto::ProtoObject* objectAssign(
         }
         const proto::ProtoSparseList* own = src->getOwnAttributes(ctx);
         if (!own) continue;
-        const proto::ProtoSparseListIterator* it = own->getIterator(ctx);
-        while (it && it->hasNext(ctx)) {
-            proto::proto_ulong rawKey = it->nextKey(ctx);
-            const proto::ProtoObject* val = it->nextValue(ctx);
-            it = const_cast<proto::ProtoSparseListIterator*>(it)->advance(ctx);
-            const proto::ProtoString* propKey =
-                reinterpret_cast<const proto::ProtoString*>(rawKey);
-            if (!propKey) continue;
+        // §20.1.2.1 step 4.b: the keys come from [[OwnPropertyKeys]] --
+        // indices, then strings, then symbols in creation order. The attribute
+        // walk meets them in key-address order, so collect, then order them
+        // (orderOwnPropertyKeys) before any getter runs.
+        std::vector<std::pair<const proto::ProtoString*, const proto::ProtoObject*>> assignEntries;
+        {
+            std::vector<std::string> order;
+            std::unordered_map<std::string, std::pair<const proto::ProtoString*, const proto::ProtoObject*>> byName;
+            const proto::ProtoSparseListIterator* it = own->getIterator(ctx);
+            while (it && it->hasNext(ctx)) {
+                proto::proto_ulong rawKey = it->nextKey(ctx);
+                const proto::ProtoObject* val = it->nextValue(ctx);
+                it = const_cast<proto::ProtoSparseListIterator*>(it)->advance(ctx);
+                const proto::ProtoString* k = reinterpret_cast<const proto::ProtoString*>(rawKey);
+                if (!k) continue;
+                std::string ks;
+                k->toUTF8String(ctx, ks);
+                byName.emplace(ks, std::make_pair(k, val));
+                order.push_back(std::move(ks));
+            }
+            orderOwnPropertyKeys(order);
+            assignEntries.reserve(order.size());
+            for (const std::string& ks : order) assignEntries.push_back(byName[ks]);
+        }
+        for (const auto& assignEntry : assignEntries) {
+            const proto::ProtoString* propKey = assignEntry.first;
+            const proto::ProtoObject* val = assignEntry.second;
             // \xc2\xa720.1.2.1 step 4.c iterates ALL own keys including
             // symbol-keyed entries.  isInternalKey skips internal
             // bookkeeping (\`__*__\`) AND per-instance Symbol identity
-            // (\`@@sym#<addr>\`) — but the symbol-keyed entries ARE
+            // (\`@@sym#<n>\`) — but the symbol-keyed entries ARE
             // user-visible and must be copied.  Allow \`@@sym#\` keys
             // through here; the regular \`__*__\` filter still applies.
             std::string keyStr;
@@ -1313,7 +1334,7 @@ static const proto::ProtoObject* objectDefineProperty(
 extern thread_local std::unordered_map<const proto::ProtoObject*,
                                        const proto::ProtoObject*> t_jsProtoMap;
 
-// Reverse map: per-instance __symbol_str_key__ string ("@@sym#<addr>")
+// Reverse map: per-instance __symbol_str_key__ string ("@@sym#<n>")
 // to the originating Symbol() value.  Populated when Symbol() runs via
 // registerSymbolByStrKey; consulted by Object.getOwnPropertySymbols and
 // Reflect.ownKeys to translate the internal string-keyed attribute
@@ -1579,6 +1600,9 @@ static const proto::ProtoObject* objectFreeze(
                 }
             }
         }
+        // The attribute walk meets keys in key-address order; report them as
+        // [[OwnPropertyKeys]] does (indices, strings, symbols by creation).
+        orderOwnPropertyKeys(defaultKeys);
         const proto::ProtoList* els = keysArr ? getArrayElements(ctx, keysArr) : nullptr;
         size_t kn = els ? els->getSize(ctx) : defaultKeys.size();
         const proto::ProtoString* confK = JSSymbols::configurable(ctx);
@@ -1748,6 +1772,9 @@ static const proto::ProtoObject* objectIsFrozen(
                 }
             }
         }
+        // The attribute walk meets keys in key-address order; report them as
+        // [[OwnPropertyKeys]] does (indices, strings, symbols by creation).
+        orderOwnPropertyKeys(defaultKeys);
         const proto::ProtoList* els = keysArr ? getArrayElements(ctx, keysArr) : nullptr;
         size_t kn = els ? els->getSize(ctx) : defaultKeys.size();
         for (size_t i = 0; i < kn; ++i) {
@@ -1898,6 +1925,9 @@ static const proto::ProtoObject* objectSeal(
                 }
             }
         }
+        // The attribute walk meets keys in key-address order; report them as
+        // [[OwnPropertyKeys]] does (indices, strings, symbols by creation).
+        orderOwnPropertyKeys(defaultKeys);
         const proto::ProtoList* els = keysArr ? getArrayElements(ctx, keysArr) : nullptr;
         size_t kn = els ? els->getSize(ctx) : defaultKeys.size();
         // Build a {configurable: false} descriptor object.
@@ -2030,6 +2060,9 @@ static const proto::ProtoObject* objectIsSealed(
                 }
             }
         }
+        // The attribute walk meets keys in key-address order; report them as
+        // [[OwnPropertyKeys]] does (indices, strings, symbols by creation).
+        orderOwnPropertyKeys(defaultKeys);
         const proto::ProtoList* els = keysArr ? getArrayElements(ctx, keysArr) : nullptr;
         size_t kn = els ? els->getSize(ctx) : defaultKeys.size();
         for (size_t i = 0; i < kn; ++i) {
@@ -4105,14 +4138,14 @@ static const proto::ProtoObject* objectGetOwnPropertySymbols(
     }
     // Walk target's own attributes and emit Symbol-keyed entries.  Two
     // shapes apply:
-    //   (1) per-instance \`@@sym#<addr>\` string keys installed by the
+    //   (1) per-instance \`@@sym#<n>\` string keys installed by the
     //       R50 Symbol-keys feature — look up the originating Symbol
     //       via the protojs::lookupSymbolByStrKey registry.
     //   (2) legacy keys whose own __is_symbol__ marker indicates they
     //       ARE the Symbol object (pre-R50 callers and ad-hoc storage
     //       sites that may still go through that path).
     const proto::ProtoString* isSymK = JSSymbols::isSymbol(ctx);
-    const proto::ProtoList* outEls = ctx->newList();
+    std::vector<const proto::ProtoObject*> found;
     const proto::ProtoSparseList* own = target->getOwnAttributes(ctx);
     const proto::ProtoSparseListIterator* it = own ? own->getIterator(ctx) : nullptr;
     while (it && it->hasNext(ctx)) {
@@ -4124,15 +4157,20 @@ static const proto::ProtoObject* objectGetOwnPropertySymbols(
         if (ks.size() >= 6 && ks[0]=='@' && ks[1]=='@'
             && ks[2]=='s' && ks[3]=='y' && ks[4]=='m' && ks[5]=='#') {
             const proto::ProtoObject* sym = lookupSymbolByStrKey(ks);
-            if (sym) outEls = outEls->appendLast(ctx, sym);
+            if (sym) found.push_back(sym);
             continue;
         }
         const proto::ProtoObject* keyObj = keyStr->asObject(ctx);
         if (!keyObj) continue;
         if (isSymK && keyObj->getAttribute(ctx, isSymK, false) == PROTO_TRUE) {
-            outEls = outEls->appendLast(ctx, keyObj);
+            found.push_back(keyObj);
         }
     }
+    // The walk meets symbol keys in key-address order, which differs by
+    // platform; report them in creation order (ObjectPrototype.h).
+    sortSymbolsByCreation(ctx, found);
+    const proto::ProtoList* outEls = ctx->newList();
+    for (const proto::ProtoObject* sym : found) outEls = outEls->appendLast(ctx, sym);
     const proto::ProtoObject* result = createNewArray(ctx, nullptr);
     setArrayElements(ctx, result, outEls);
     const proto::ProtoString* isArrKey = JSSymbols::isArray(ctx);
@@ -4201,6 +4239,9 @@ static const proto::ProtoObject* objectGetOwnPropertyDescriptors(
                 }
             }
         }
+        // The attribute walk meets keys in key-address order; report them as
+        // [[OwnPropertyKeys]] does (indices, strings, symbols by creation).
+        orderOwnPropertyKeys(defaultKeys);
         const proto::ProtoList* els = keysArr ? getArrayElements(ctx, keysArr) : nullptr;
         size_t kn = els ? els->getSize(ctx) : defaultKeys.size();
         for (size_t i = 0; i < kn; ++i) {
@@ -4240,7 +4281,7 @@ static const proto::ProtoObject* objectGetOwnPropertyDescriptors(
     }
 
     // \xc2\xa720.1.2.11 step 2 iterates ALL own keys, including symbol-keyed
-    // entries.  collectOwnKeys filters \`@@sym#<addr>\` internal keys
+    // entries.  collectOwnKeys filters \`@@sym#<n>\` internal keys
     // (so Object.keys / values / entries don't surface them), so iterate
     // those separately here — the descriptor must include the symbol's
     // own data slot keyed by the @@sym# string identity.  Pre-fix
@@ -4372,6 +4413,9 @@ static const proto::ProtoObject* objectDefineProperties(
                 }
             }
         }
+        // The attribute walk meets keys in key-address order; report them as
+        // [[OwnPropertyKeys]] does (indices, strings, symbols by creation).
+        orderOwnPropertyKeys(defaultKeys);
         const proto::ProtoList* els = keysArr ? getArrayElements(ctx, keysArr) : nullptr;
         size_t kn = els ? els->getSize(ctx) : defaultKeys.size();
         for (size_t i = 0; i < kn; ++i) {
@@ -6937,6 +6981,83 @@ void registerSymbolByStrKey(const std::string& key, const proto::ProtoObject* sy
 const proto::ProtoObject* lookupSymbolByStrKey(const std::string& key) {
     auto it = t_symbolByStrKey.find(key);
     return it != t_symbolByStrKey.end() ? it->second : nullptr;
+}
+
+// The creation number makes each key unique for the life of the process. The
+// symbol's address, used before, was neither stable across platforms nor
+// unique once a collected symbol's address was reused.
+std::string makeSymbolStorageKey() {
+    static std::atomic<unsigned long long> next{1};
+    return "@@sym#" + std::to_string(next.fetch_add(1, std::memory_order_relaxed));
+}
+
+bool isSymbolStorageKey(const std::string& key) {
+    return key.size() >= 6 && key.compare(0, 6, "@@sym#") == 0;
+}
+
+unsigned long long symbolStorageKeySequence(const std::string& key) {
+    if (!isSymbolStorageKey(key)) return 0;
+    unsigned long long n = 0;
+    for (size_t i = 6; i < key.size(); ++i) {
+        const char c = key[i];
+        if (c < '0' || c > '9') return 0;
+        n = n * 10 + static_cast<unsigned long long>(c - '0');
+    }
+    return n;
+}
+
+unsigned long long symbolSequence(proto::ProtoContext* ctx, const proto::ProtoObject* sym) {
+    if (!ctx || !sym || sym == PROTO_NONE) return 0;
+    const proto::ProtoObject* ssko = ctx->fromUTF8String("__symbol_str_key__");
+    const proto::ProtoString* sskKey = ssko ? ssko->asString(ctx) : nullptr;
+    if (!sskKey) return 0;
+    const proto::ProtoObject* k = sym->getAttribute(ctx, sskKey, false);
+    if (!k || k == PROTO_NONE || !k->isString(ctx)) return 0;
+    std::string ks;
+    k->asString(ctx)->toUTF8String(ctx, ks);
+    return symbolStorageKeySequence(ks);
+}
+
+namespace {
+// A canonical array index ("0", "17", never "017"): its numeric value.
+bool canonicalArrayIndex(const std::string& k, unsigned long long& out) {
+    if (k.empty() || k.size() > 10) return false;
+    if (k.size() > 1 && k[0] == '0') return false;
+    unsigned long long n = 0;
+    for (char c : k) {
+        if (c < '0' || c > '9') return false;
+        n = n * 10 + static_cast<unsigned long long>(c - '0');
+    }
+    if (n >= 0xFFFFFFFFULL) return false;
+    out = n;
+    return true;
+}
+} // namespace
+
+void orderOwnPropertyKeys(std::vector<std::string>& keys) {
+    // Rank: 0 index, 1 other string, 2 symbol; within a rank, indices by
+    // value, strings as given, symbols by creation number.
+    auto rank = [](const std::string& k, unsigned long long& sub) {
+        if (isSymbolStorageKey(k)) { sub = symbolStorageKeySequence(k); return 2; }
+        if (canonicalArrayIndex(k, sub)) return 0;
+        sub = 0;
+        return 1;
+    };
+    std::stable_sort(keys.begin(), keys.end(), [&](const std::string& a, const std::string& b) {
+        unsigned long long sa = 0, sb = 0;
+        const int ra = rank(a, sa), rb = rank(b, sb);
+        if (ra != rb) return ra < rb;
+        return ra != 1 && sa < sb;
+    });
+}
+
+void sortSymbolsByCreation(proto::ProtoContext* ctx, std::vector<const proto::ProtoObject*>& syms) {
+    std::vector<std::pair<unsigned long long, const proto::ProtoObject*>> keyed;
+    keyed.reserve(syms.size());
+    for (const proto::ProtoObject* s : syms) keyed.emplace_back(symbolSequence(ctx, s), s);
+    std::stable_sort(keyed.begin(), keyed.end(),
+                     [](const auto& a, const auto& b) { return a.first < b.first; });
+    for (size_t i = 0; i < syms.size(); ++i) syms[i] = keyed[i].second;
 }
 
 } // namespace protojs

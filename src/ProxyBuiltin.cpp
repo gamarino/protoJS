@@ -55,7 +55,7 @@ const proto::ProtoObject* proxyHandler(proto::ProtoContext* ctx,
 
 // Helper: convert a propKey (a ProtoString*) to the JS-visible value
 // the trap should receive.  For per-instance Symbol identity keys
-// (\`@@sym#<addr>\` strings stashed by the R50 Symbol-keys feature),
+// (\`@@sym#<n>\` strings stashed by the R50 Symbol-keys feature),
 // return the originating Symbol value via the lookupSymbolByStrKey
 // registry so the trap's switch (key) { case sym: ... } pattern
 // matches by identity.  Pre-fix the trap saw the raw \`@@sym#\`
