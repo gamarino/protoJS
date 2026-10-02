@@ -13,29 +13,35 @@ void materializeLazyPrototype(proto::ProtoContext* ctx, const proto::ProtoObject
     // nullptr for a non-object receiver (tagged integers, strings) and for
     // every object that never had the marker.
     if (!lazyKey || fn->getOwnAttributeDirect(ctx, lazyKey) != PROTO_TRUE) return;
-    // Clear the marker first, so nothing below can re-enter.
-    fn->setAttribute(ctx, lazyKey, PROTO_FALSE);
     const proto::ProtoString* protoKey = JSSymbols::prototype(ctx);
     if (!protoKey) return;
     // A `prototype` already written by the program (f.prototype = x, or
-    // defineProperty) is the property; there is nothing to create.
-    if (fn->getOwnAttributeDirect(ctx, protoKey) != nullptr) return;
-
-    // The object MakeConstructor would have made: an ordinary object whose
-    // [[Prototype]] is Object.prototype, with constructor === fn
-    // ({writable, configurable, not enumerable}: descriptor bits 0x3).
-    const proto::ProtoObject* objectProto =
-        ctx->space ? ctx->space->objectPrototype : nullptr;
-    const proto::ProtoObject* proto = objectProto
-        ? objectProto->newChild(ctx, true)
-        : ctx->newObject(true);
-    if (!proto) return;
-    if (const proto::ProtoString* ctorKey = JSSymbols::constructor(ctx))
-        proto = proto->setAttribute(ctx, ctorKey, fn);
-    if (const proto::ProtoString* pdc = JSSymbols::pdConstructor(ctx))
-        proto = proto->setAttribute(ctx, pdc, ctx->fromInteger(0x3LL));
-    // fn is a mutable closure: the write lands on fn itself.
-    fn->setAttribute(ctx, protoKey, proto);
+    // defineProperty) -- or by another thread that materialised it first --
+    // is the property; there is nothing to create.
+    if (fn->getOwnAttributeDirect(ctx, protoKey) == nullptr) {
+        // The object MakeConstructor would have made: an ordinary object whose
+        // [[Prototype]] is Object.prototype, with constructor === fn
+        // ({writable, configurable, not enumerable}: descriptor bits 0x3).
+        const proto::ProtoObject* objectProto =
+            ctx->space ? ctx->space->objectPrototype : nullptr;
+        const proto::ProtoObject* proto = objectProto
+            ? objectProto->newChild(ctx, true)
+            : ctx->newObject(true);
+        if (!proto) return;
+        if (const proto::ProtoString* ctorKey = JSSymbols::constructor(ctx))
+            proto = proto->setAttribute(ctx, ctorKey, fn);
+        if (const proto::ProtoString* pdc = JSSymbols::pdConstructor(ctx))
+            proto = proto->setAttribute(ctx, pdc, ctx->fromInteger(0x3LL));
+        // fn is a mutable closure: the write lands on fn itself. Install only
+        // if no `prototype` exists yet. A function is shared by every thread
+        // of its space (the Deferred pool runs JavaScript on several), and two
+        // threads may materialise it at once: the first install wins, so both
+        // see ONE prototype object, and the other one's object is dropped.
+        fn->setAttributeIfEqual(ctx, protoKey, nullptr, proto);
+    }
+    // Clear the marker only once `prototype` exists: a thread that sees the
+    // marker cleared must find the property.
+    fn->setAttribute(ctx, lazyKey, PROTO_FALSE);
 }
 
 bool keyNamesPrototype(proto::ProtoContext* ctx, const proto::ProtoString* key) {

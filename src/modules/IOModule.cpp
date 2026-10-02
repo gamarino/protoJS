@@ -100,9 +100,10 @@ const proto::ProtoObject* ioReadFileAsync(
             proto::ProtoContext* c = wrapper->getProtoContext();
             if (!c) return;
             proto::ProtoRootSet* rs = wrapper->getRootSet();
+            // Keep the pin until the Deferred is settled: the settlement
+            // allocates, and `d` is otherwise only a C++ local.
             const proto::ProtoObject* d = rs ? rs->resolve(pin) : nullptr;
-            if (rs) rs->remove(pin);
-            if (!d) return;
+            if (!d) { if (rs) rs->remove(pin); return; }
             if (!err.empty()) {
                 ProtoDeferred::rejectFromAsync(c, d,
                     c->fromUTF8String(err.c_str()), wrapper);
@@ -110,6 +111,7 @@ const proto::ProtoObject* ioReadFileAsync(
                 ProtoDeferred::resolveFromAsync(c, d,
                     c->fromUTF8String(content.c_str()), wrapper);
             }
+            if (rs) rs->remove(pin);
         });
     });
     return deferred;
@@ -145,9 +147,10 @@ const proto::ProtoObject* ioWriteFileAsync(
             proto::ProtoContext* c = wrapper->getProtoContext();
             if (!c) return;
             proto::ProtoRootSet* rs = wrapper->getRootSet();
+            // Keep the pin until the Deferred is settled: the settlement
+            // allocates, and `d` is otherwise only a C++ local.
             const proto::ProtoObject* d = rs ? rs->resolve(pin) : nullptr;
-            if (rs) rs->remove(pin);
-            if (!d) return;
+            if (!d) { if (rs) rs->remove(pin); return; }
             if (!err.empty()) {
                 ProtoDeferred::rejectFromAsync(c, d,
                     c->fromUTF8String(err.c_str()), wrapper);
@@ -155,6 +158,7 @@ const proto::ProtoObject* ioWriteFileAsync(
                 ProtoDeferred::resolveFromAsync(c, d,
                     ok ? PROTO_TRUE : PROTO_FALSE, wrapper);
             }
+            if (rs) rs->remove(pin);
         });
     });
     return deferred;

@@ -9,6 +9,7 @@
 #include "GcScopedCache.h"
 #include "LazyPrototype.h"
 #include "PinnedBuiltin.h"
+#include "ThreadIdentity.h"
 #include "../ArrayPrototype.h"
 #include "../StringPrototype.h"
 #include "../RegExpPrototype.h"
@@ -541,12 +542,27 @@ inline const proto::ProtoString* captureScopeKey(proto::ProtoContext* ctx) {
     return t_captureScopeKey;
 }
 
-inline const proto::ProtoObject* cellMarker(proto::ProtoContext* ctx) {
-    if (!t_cellMarker) {
+// The marker is one object per SPACE, shared by every thread of the space
+// (a closure made on the main thread runs on a Deferred pool thread, and its
+// cells must be recognised there), and pinned for the life of the wrapper: a
+// cell's parent link alone does not keep the marker alive once no cell exists,
+// and a collected marker would leave t_cellMarker dangling.
+static PinnedBuiltin s_cellMarkerCache;
+
+static PROTOJS_NOINLINE const proto::ProtoObject* cellMarkerSlow(proto::ProtoContext* ctx) {
+    const proto::ProtoObject* mk = s_cellMarkerCache.get(ctx);
+    if (!mk) {
         // Immutable singleton — every cell has it as its parent.
-        t_cellMarker = ctx->newObject(/*mutable=*/false);
+        const proto::ProtoObject* fresh = ctx->newObject(/*mutable=*/false);
+        mk = fresh ? s_cellMarkerCache.keep(ctx, fresh) : nullptr;
     }
-    return t_cellMarker;
+    t_cellMarker = mk;
+    return mk;
+}
+
+inline const proto::ProtoObject* cellMarker(proto::ProtoContext* ctx) {
+    if (__builtin_expect(t_cellMarker != nullptr, 1)) return t_cellMarker;
+    return cellMarkerSlow(ctx);
 }
 
 inline const proto::ProtoObject* allocCell(proto::ProtoContext* ctx,
@@ -2115,7 +2131,7 @@ static const proto::ProtoObject* symbolFor(
         const proto::ProtoString* regK = regObj ? regObj->asString(ctx) : nullptr;
         if (regK) sym = sym->setAttribute(ctx, regK, PROTO_TRUE);
     }
-    if (sym) protojs::symbolForRegistrySet(ctx, keyStr, sym);
+    if (sym) sym = protojs::symbolForRegistrySet(ctx, keyStr, sym);
     return sym ? sym : PROTO_NONE;
 }
 
@@ -3009,14 +3025,27 @@ static PROTOJS_ALWAYS_INLINE void stackPush(proto::ProtoContext* ctx, const prot
     f->stackTop++;
 }
 
+// A popped slot is NOT cleared. A handler pops its operands and then works on
+// them -- setAttribute, a native call, a getter -- and any of that may allocate
+// and so park for a collection: at a stop-the-world poll, or at the heap
+// ceiling (ProtoContext::CriticalSection's heapLimitCheckpoint), with the
+// operands held only in C++ locals, which are not roots. Left in their slots
+// they stay roots until the next push overwrites them, or the frame ends. The
+// cost is that a frame keeps at most its stack depth of dead values alive a
+// little longer.
+//
+// Before, popped slots were cleared at once. The hole was there on a single
+// thread but rarely hit; with Deferred pool threads in the same space a thread
+// parks whenever ANOTHER thread needs a collection, and objects under
+// construction lost their mutable-table entries: attributes written before the
+// park vanished (tests/integration/gc/deferred_gc_stress.js). Clearing the
+// slots above the stack top at the dispatch safepoint instead was tried and
+// broke programs under a heap ceiling (a value above the stack top is still
+// needed across a dispatch somewhere; not tracked down), so it is not done.
 static PROTOJS_ALWAYS_INLINE void stackPop(proto::ProtoContext* ctx) {
     InterpFrame* f = currentFrame(ctx);
     if (!f || f->stackTop == 0) return;
     f->stackTop--;
-    // Clear so the GC doesn't keep the value alive past pop.
-    unsigned int idx = f->stackBase + f->stackTop;
-    if (idx < ctx->getAutomaticLocalsCount())
-        const_cast<const proto::ProtoObject**>(ctx->getAutomaticLocals())[idx] = PROTO_NONE;
 }
 
 static PROTOJS_ALWAYS_INLINE const proto::ProtoObject* stackTop(proto::ProtoContext* ctx) {
@@ -7351,7 +7380,7 @@ const proto::ProtoObject* runBytecode(proto::ProtoContext* pContext,
 
     #define STACK_POP_ZERO() do { \
         if (__builtin_expect(_PF().stackTop > 0, 1)) { \
-            pAutomaticLocals[currentStackBase + --_PF().stackTop] = PROTO_NONE; \
+            --_PF().stackTop; \
         } \
     } while(0)
 
@@ -7725,11 +7754,8 @@ const proto::ProtoObject* runBytecode(proto::ProtoContext* pContext,
                 uint16_t magic = get_u16(buf + pc);
                 pc += 2;
                 const proto::ProtoObject* argsArr = pAutomaticLocals[currentStackBase + --_PF().stackTop];
-                pAutomaticLocals[currentStackBase + _PF().stackTop] = PROTO_NONE;
                 const proto::ProtoObject* thisArg = pAutomaticLocals[currentStackBase + --_PF().stackTop];
-                pAutomaticLocals[currentStackBase + _PF().stackTop] = PROTO_NONE;
                 const proto::ProtoObject* fn      = pAutomaticLocals[currentStackBase + --_PF().stackTop];
-                pAutomaticLocals[currentStackBase + _PF().stackTop] = PROTO_NONE;
 
                 // Build the args list from argsArr's __elements__ (with
                 // indexed-attribute fallback for legacy producers).
@@ -11265,7 +11291,6 @@ const proto::ProtoObject* runBytecode(proto::ProtoContext* pContext,
             L_OP_get_array_el: {
                 if (_PF().stackTop < 2) return PROTO_NONE;
                 const proto::ProtoObject* index = pAutomaticLocals[currentStackBase + --_PF().stackTop];
-                pAutomaticLocals[currentStackBase + _PF().stackTop] = PROTO_NONE; // Zero popped slot
                 const proto::ProtoObject* obj = pAutomaticLocals[currentStackBase + --_PF().stackTop];
                 // No zeroing for obj as result will overwrite it.
                 // Throw TypeError for null/undefined receiver. Match
@@ -11763,8 +11788,8 @@ const proto::ProtoObject* runBytecode(proto::ProtoContext* pContext,
                 const proto::ProtoObject* obj = pAutomaticLocals[currentStackBase + _PF().stackTop - 2];
                 // Throw TypeError for null/undefined receiver.
                 if (!obj || obj == PROTO_NONE || obj == t_nullSentinel) {
-                    pAutomaticLocals[currentStackBase + --_PF().stackTop] = PROTO_NONE;
-                    pAutomaticLocals[currentStackBase + --_PF().stackTop] = PROTO_NONE;
+                    --_PF().stackTop;
+                    --_PF().stackTop;
                     std::string msg = "Cannot read properties of ";
                     msg += (!obj || obj == PROTO_NONE) ? "undefined" : "null";
                     pending_exception = makeError(pContext, "TypeError", msg.c_str(), pGlobalRoot);
@@ -11851,8 +11876,8 @@ const proto::ProtoObject* runBytecode(proto::ProtoContext* pContext,
                 const proto::ProtoObject* obj = pAutomaticLocals[currentStackBase + _PF().stackTop - 2];
                 // Throw TypeError for null/undefined receiver.
                 if (!obj || obj == PROTO_NONE || obj == t_nullSentinel) {
-                    pAutomaticLocals[currentStackBase + --_PF().stackTop] = PROTO_NONE;
-                    pAutomaticLocals[currentStackBase + --_PF().stackTop] = PROTO_NONE;
+                    --_PF().stackTop;
+                    --_PF().stackTop;
                     std::string msg = "Cannot read properties of ";
                     msg += (!obj || obj == PROTO_NONE) ? "undefined" : "null";
                     pending_exception = makeError(pContext, "TypeError", msg.c_str(), pGlobalRoot);
@@ -11913,11 +11938,8 @@ const proto::ProtoObject* runBytecode(proto::ProtoContext* pContext,
                 // setAttribute).
                 if (_PF().stackTop < 3) return PROTO_NONE;
                 const proto::ProtoObject* value = pAutomaticLocals[currentStackBase + --_PF().stackTop];
-                pAutomaticLocals[currentStackBase + _PF().stackTop] = PROTO_NONE;
                 const proto::ProtoObject* index = pAutomaticLocals[currentStackBase + --_PF().stackTop];
-                pAutomaticLocals[currentStackBase + _PF().stackTop] = PROTO_NONE;
                 const proto::ProtoObject* obj = pAutomaticLocals[currentStackBase + --_PF().stackTop];
-                pAutomaticLocals[currentStackBase + _PF().stackTop] = PROTO_NONE;
 
                 if (!obj || obj == PROTO_NONE || obj == t_nullSentinel) {
                     pending_exception = makeError(pContext, "TypeError", "Cannot set property on null/undefined", pGlobalRoot);
@@ -12292,7 +12314,6 @@ const proto::ProtoObject* runBytecode(proto::ProtoContext* pContext,
             L_OP_if_true: {
                 if (pc + 4 > len || _PF().stackTop == 0) return PROTO_NONE;
                 const proto::ProtoObject* cond = pAutomaticLocals[currentStackBase + --_PF().stackTop];
-                pAutomaticLocals[currentStackBase + _PF().stackTop] = PROTO_NONE; // Zero popped slot
                 int32_t diff = static_cast<int32_t>(get_u32(buf + pc));
                 pc += 4;
                 if (toBool(pContext, cond)) {
@@ -12303,7 +12324,6 @@ const proto::ProtoObject* runBytecode(proto::ProtoContext* pContext,
             L_OP_if_false: {
                 if (pc + 4 > len || _PF().stackTop == 0) return PROTO_NONE;
                 const proto::ProtoObject* cond = pAutomaticLocals[currentStackBase + --_PF().stackTop];
-                pAutomaticLocals[currentStackBase + _PF().stackTop] = PROTO_NONE; // Zero popped slot
                 int32_t diff = static_cast<int32_t>(get_u32(buf + pc));
                 pc += 4;
                 if (!toBool(pContext, cond)) {
@@ -12314,7 +12334,6 @@ const proto::ProtoObject* runBytecode(proto::ProtoContext* pContext,
             L_OP_if_true8: {
                 if (pc + 1 > len || _PF().stackTop == 0) return PROTO_NONE;
                 const proto::ProtoObject* cond = pAutomaticLocals[currentStackBase + --_PF().stackTop];
-                pAutomaticLocals[currentStackBase + _PF().stackTop] = PROTO_NONE; // Zero popped slot
                 int8_t off = static_cast<int8_t>(buf[pc]);
                 if (toBool(pContext, cond)) {
                     pc += off;
@@ -12326,7 +12345,6 @@ const proto::ProtoObject* runBytecode(proto::ProtoContext* pContext,
             L_OP_if_false8: {
                 if (pc + 1 > len || _PF().stackTop == 0) return PROTO_NONE;
                 const proto::ProtoObject* cond = pAutomaticLocals[currentStackBase + --_PF().stackTop];
-                pAutomaticLocals[currentStackBase + _PF().stackTop] = PROTO_NONE; // Zero popped slot
                 int8_t off = static_cast<int8_t>(buf[pc]);
                 if (!toBool(pContext, cond)) {
                     pc += off;
@@ -12338,7 +12356,6 @@ const proto::ProtoObject* runBytecode(proto::ProtoContext* pContext,
             L_OP_add: {
                 if (_PF().stackTop < 2) return PROTO_NONE;
                 const proto::ProtoObject* b = pAutomaticLocals[currentStackBase + --_PF().stackTop];
-                pAutomaticLocals[currentStackBase + _PF().stackTop] = PROTO_NONE; // Zero popped slot
                 const proto::ProtoObject* a = pAutomaticLocals[currentStackBase + --_PF().stackTop];
 
                 // §13.15.3 + on BigInt — see BIGINT_BIN_DISPATCH macro.
@@ -12407,7 +12424,6 @@ const proto::ProtoObject* runBytecode(proto::ProtoContext* pContext,
             L_OP_mul: {
                 if (_PF().stackTop < 2) return PROTO_NONE;
                 const proto::ProtoObject* b = pAutomaticLocals[currentStackBase + --_PF().stackTop];
-                pAutomaticLocals[currentStackBase + _PF().stackTop] = PROTO_NONE; // Zero popped slot
                 const proto::ProtoObject* a = pAutomaticLocals[currentStackBase + --_PF().stackTop];
 
                 BIGINT_BIN_DISPATCH(multiply);
@@ -12442,7 +12458,6 @@ const proto::ProtoObject* runBytecode(proto::ProtoContext* pContext,
             L_OP_div: {
                 if (_PF().stackTop < 2) return PROTO_NONE;
                 const proto::ProtoObject* b_raw = pAutomaticLocals[currentStackBase + --_PF().stackTop];
-                pAutomaticLocals[currentStackBase + _PF().stackTop] = PROTO_NONE; // Zero popped slot
                 // BigInt division: integer divide (no Infinity / NaN —
                 // BigInt(5)/BigInt(0) throws RangeError per spec) so we
                 // must dispatch BEFORE the toNumber→double conversion.
@@ -12500,7 +12515,6 @@ const proto::ProtoObject* runBytecode(proto::ProtoContext* pContext,
             L_OP_sub: {
                 if (_PF().stackTop < 2) return PROTO_NONE;
                 const proto::ProtoObject* b = pAutomaticLocals[currentStackBase + --_PF().stackTop];
-                pAutomaticLocals[currentStackBase + _PF().stackTop] = PROTO_NONE; // Zero popped slot
                 const proto::ProtoObject* a = pAutomaticLocals[currentStackBase + --_PF().stackTop];
 
                 BIGINT_BIN_DISPATCH(subtract);
@@ -12536,7 +12550,6 @@ const proto::ProtoObject* runBytecode(proto::ProtoContext* pContext,
             L_OP_mod: {
                 if (_PF().stackTop < 2) return PROTO_NONE;
                 const proto::ProtoObject* b = pAutomaticLocals[currentStackBase + --_PF().stackTop];
-                pAutomaticLocals[currentStackBase + _PF().stackTop] = PROTO_NONE; // Zero popped slot
                 const proto::ProtoObject* a = pAutomaticLocals[currentStackBase + --_PF().stackTop];
 
                 BIGINT_BIN_DISPATCH(modulo);
@@ -12584,7 +12597,6 @@ const proto::ProtoObject* runBytecode(proto::ProtoContext* pContext,
             L_OP_neq: {
                 if (_PF().stackTop < 2) return PROTO_NONE;
                 const proto::ProtoObject* b = pAutomaticLocals[currentStackBase + --_PF().stackTop];
-                pAutomaticLocals[currentStackBase + _PF().stackTop] = PROTO_NONE; // Zero popped slot
                 const proto::ProtoObject* a = pAutomaticLocals[currentStackBase + --_PF().stackTop];
                 const proto::ProtoObject* pa = toPrimIfObject(a);
                 REFRESH_INTERP_STATE();
@@ -12600,7 +12612,6 @@ const proto::ProtoObject* runBytecode(proto::ProtoContext* pContext,
             L_OP_strict_eq: {
                 if (_PF().stackTop < 2) return PROTO_NONE;
                 const proto::ProtoObject* b = pAutomaticLocals[currentStackBase + --_PF().stackTop];
-                pAutomaticLocals[currentStackBase + _PF().stackTop] = PROTO_NONE; // Zero popped slot
                 const proto::ProtoObject* a = pAutomaticLocals[currentStackBase + --_PF().stackTop];
                 // §7.2.16 IsStrictlyEqual on BigInt: different types
                 // (BigInt vs Number) return false; same type compares
@@ -12651,7 +12662,6 @@ const proto::ProtoObject* runBytecode(proto::ProtoContext* pContext,
             L_OP_strict_neq: {
                 if (_PF().stackTop < 2) return PROTO_NONE;
                 const proto::ProtoObject* b = pAutomaticLocals[currentStackBase + --_PF().stackTop];
-                pAutomaticLocals[currentStackBase + _PF().stackTop] = PROTO_NONE; // Zero popped slot
                 const proto::ProtoObject* a = pAutomaticLocals[currentStackBase + --_PF().stackTop];
                 // §7.2.16 IsStrictlyEqual on BigInt: inverse of strict_eq.
                 {
@@ -12698,7 +12708,6 @@ const proto::ProtoObject* runBytecode(proto::ProtoContext* pContext,
             L_OP_lt: {
                 if (_PF().stackTop < 2) return PROTO_NONE;
                 const proto::ProtoObject* b = pAutomaticLocals[currentStackBase + --_PF().stackTop];
-                pAutomaticLocals[currentStackBase + _PF().stackTop] = PROTO_NONE; // Zero popped slot
                 const proto::ProtoObject* a = pAutomaticLocals[currentStackBase + --_PF().stackTop];
                 BIGINT_REL_DISPATCH(PROTO_TRUE, PROTO_FALSE, PROTO_FALSE);
                 // Per ECMA-262 Abstract Relational Comparison §7.2.13 step 4:
@@ -12744,7 +12753,6 @@ const proto::ProtoObject* runBytecode(proto::ProtoContext* pContext,
             L_OP_lte: {
                 if (_PF().stackTop < 2) return PROTO_NONE;
                 const proto::ProtoObject* b = pAutomaticLocals[currentStackBase + --_PF().stackTop];
-                pAutomaticLocals[currentStackBase + _PF().stackTop] = PROTO_NONE; // Zero popped slot
                 const proto::ProtoObject* a = pAutomaticLocals[currentStackBase + --_PF().stackTop];
                 BIGINT_REL_DISPATCH(PROTO_TRUE, PROTO_TRUE, PROTO_FALSE);
                 // see L_OP_lt for the boolean-numerify rationale.
@@ -12780,7 +12788,6 @@ const proto::ProtoObject* runBytecode(proto::ProtoContext* pContext,
             L_OP_gt: {
                 if (_PF().stackTop < 2) return PROTO_NONE;
                 const proto::ProtoObject* b = pAutomaticLocals[currentStackBase + --_PF().stackTop];
-                pAutomaticLocals[currentStackBase + _PF().stackTop] = PROTO_NONE; // Zero popped slot
                 const proto::ProtoObject* a = pAutomaticLocals[currentStackBase + --_PF().stackTop];
                 BIGINT_REL_DISPATCH(PROTO_FALSE, PROTO_FALSE, PROTO_TRUE);
                 // undefined comparisons short-circuit to false (NaN rule);
@@ -12815,7 +12822,6 @@ const proto::ProtoObject* runBytecode(proto::ProtoContext* pContext,
             L_OP_gte: {
                 if (_PF().stackTop < 2) return PROTO_NONE;
                 const proto::ProtoObject* b = pAutomaticLocals[currentStackBase + --_PF().stackTop];
-                pAutomaticLocals[currentStackBase + _PF().stackTop] = PROTO_NONE; // Zero popped slot
                 const proto::ProtoObject* a = pAutomaticLocals[currentStackBase + --_PF().stackTop];
                 BIGINT_REL_DISPATCH(PROTO_FALSE, PROTO_TRUE, PROTO_TRUE);
                 // undefined comparisons short-circuit to false (NaN rule);
@@ -12855,7 +12861,6 @@ const proto::ProtoObject* runBytecode(proto::ProtoContext* pContext,
                 // ToPrimitive dance routes BigInt wrappers through
                 // BigInt.prototype.toString → string, losing the type).
                 const proto::ProtoObject* b = pAutomaticLocals[currentStackBase + --_PF().stackTop];
-                pAutomaticLocals[currentStackBase + _PF().stackTop] = PROTO_NONE;
                 const proto::ProtoObject* a = pAutomaticLocals[currentStackBase + --_PF().stackTop];
                 BIGINT_BIN_DISPATCH(bitwiseAnd);
                 a = toPrimIfObject(a);
@@ -12869,7 +12874,6 @@ const proto::ProtoObject* runBytecode(proto::ProtoContext* pContext,
             L_OP_or: {
                 if (_PF().stackTop < 2) return PROTO_NONE;
                 const proto::ProtoObject* b = pAutomaticLocals[currentStackBase + --_PF().stackTop];
-                pAutomaticLocals[currentStackBase + _PF().stackTop] = PROTO_NONE;
                 const proto::ProtoObject* a = pAutomaticLocals[currentStackBase + --_PF().stackTop];
                 BIGINT_BIN_DISPATCH(bitwiseOr);
                 a = toPrimIfObject(a);
@@ -12883,7 +12887,6 @@ const proto::ProtoObject* runBytecode(proto::ProtoContext* pContext,
             L_OP_xor: {
                 if (_PF().stackTop < 2) return PROTO_NONE;
                 const proto::ProtoObject* b = pAutomaticLocals[currentStackBase + --_PF().stackTop];
-                pAutomaticLocals[currentStackBase + _PF().stackTop] = PROTO_NONE;
                 const proto::ProtoObject* a = pAutomaticLocals[currentStackBase + --_PF().stackTop];
                 BIGINT_BIN_DISPATCH(bitwiseXor);
                 a = toPrimIfObject(a);
@@ -12900,7 +12903,6 @@ const proto::ProtoObject* runBytecode(proto::ProtoContext* pContext,
                 // Peek raw operands so the BigInt chain marker survives
                 // (see L_OP_and for the rationale on ordering).
                 const proto::ProtoObject* b = pAutomaticLocals[currentStackBase + --_PF().stackTop];
-                pAutomaticLocals[currentStackBase + _PF().stackTop] = PROTO_NONE;
                 const proto::ProtoObject* a = pAutomaticLocals[currentStackBase + --_PF().stackTop];
                 // §6.1.6.2.7 BigInt::leftShift — both operands must be
                 // BigInt, the shift amount must fit in an int32, and the
@@ -12941,7 +12943,6 @@ const proto::ProtoObject* runBytecode(proto::ProtoContext* pContext,
             L_OP_sar: {
                 if (_PF().stackTop < 2) return PROTO_NONE;
                 const proto::ProtoObject* b = pAutomaticLocals[currentStackBase + --_PF().stackTop];
-                pAutomaticLocals[currentStackBase + _PF().stackTop] = PROTO_NONE;
                 const proto::ProtoObject* a = pAutomaticLocals[currentStackBase + --_PF().stackTop];
                 // §6.1.6.2.8 BigInt::signedRightShift — semantics mirror
                 // BigInt::leftShift but in the opposite direction.
@@ -12981,7 +12982,6 @@ const proto::ProtoObject* runBytecode(proto::ProtoContext* pContext,
             L_OP_shr: {
                 if (_PF().stackTop < 2) return PROTO_NONE;
                 const proto::ProtoObject* b = pAutomaticLocals[currentStackBase + --_PF().stackTop];
-                pAutomaticLocals[currentStackBase + _PF().stackTop] = PROTO_NONE;
                 const proto::ProtoObject* a = pAutomaticLocals[currentStackBase + --_PF().stackTop];
                 // §6.1.6.2.9 — BigInt has NO unsigned right shift; throw.
                 {
@@ -13305,7 +13305,6 @@ const proto::ProtoObject* runBytecode(proto::ProtoContext* pContext,
                 if (pc + 1 > len || _PF().stackTop == 0) return PROTO_NONE;
                 uint8_t locIndex = buf[pc++];
                 const proto::ProtoObject* val = pAutomaticLocals[currentStackBase + --_PF().stackTop];
-                pAutomaticLocals[currentStackBase + _PF().stackTop] = PROTO_NONE; // Zero popped slot
                 if (locIndex < varCount) {
                     const proto::ProtoObject* cur = getSlot(pContext, argCount + locIndex);
                     // A local captured by a closure holds a cell: read and
@@ -13631,7 +13630,7 @@ const proto::ProtoObject* runBytecode(proto::ProtoContext* pContext,
                     bool bBig = bigK && b_peek && !proto::isSmallInt(b_peek)
                         && b_peek->getAttribute(pContext, bigK, true) == PROTO_TRUE;
                     if (aBig || bBig) {
-                        pAutomaticLocals[currentStackBase + --_PF().stackTop] = PROTO_NONE;
+                        --_PF().stackTop;
                         --_PF().stackTop;  // pop a too
                         if (aBig != bBig) {
                             pending_exception = makeNativeError(pContext, "TypeError",
@@ -13666,7 +13665,6 @@ const proto::ProtoObject* runBytecode(proto::ProtoContext* pContext,
                     }
                 }
                 const proto::ProtoObject* b = toNumber(pContext, toPrimIfObject(pAutomaticLocals[currentStackBase + --_PF().stackTop]));
-                pAutomaticLocals[currentStackBase + _PF().stackTop] = PROTO_NONE; // Zero popped slot
                 if (has_pending_exception) DISPATCH();
                 const proto::ProtoObject* a = toNumber(pContext, toPrimIfObject(pAutomaticLocals[currentStackBase + --_PF().stackTop]));
                 if (has_pending_exception) DISPATCH();
@@ -18518,7 +18516,7 @@ static void installMethod(proto::ProtoContext* ctx, const proto::ProtoObject* ta
 
 // %AsyncIteratorPrototype% (§27.1.3) and %AsyncGeneratorPrototype% (§27.6.1).
 static const proto::ProtoObject* asyncGeneratorPrototype(proto::ProtoContext* ctx) {
-    static thread_local PinnedBuiltin cache;
+    static PinnedBuiltin cache;
     if (const proto::ProtoObject* p = cache.get(ctx)) return p;
     const proto::ProtoObject* objProto = ctx->space ? ctx->space->objectPrototype : nullptr;
     const proto::ProtoObject* asyncIterProto =
@@ -18646,7 +18644,7 @@ static const proto::ProtoObject* afsThrow(proto::ProtoContext* ctx, const proto:
 static PROTOJS_NOINLINE const proto::ProtoObject* createAsyncFromSyncIterator(proto::ProtoContext* ctx,
                                                              const proto::ProtoObject* syncIter,
                                                              const proto::ProtoObject* syncNext) {
-    static thread_local PinnedBuiltin cache;
+    static PinnedBuiltin cache;
     const proto::ProtoObject* proto = cache.get(ctx);
     if (!proto) {
         const proto::ProtoObject* objProto = ctx->space ? ctx->space->objectPrototype : nullptr;
@@ -18668,6 +18666,28 @@ static PROTOJS_NOINLINE const proto::ProtoObject* createAsyncFromSyncIterator(pr
 
 bool interpreterIsRunning() {
     return !t_interpFrames.empty();
+}
+
+const ProtoBytecodeModule* currentInterpreterModule() {
+    return t_currentModule ? t_currentModule : t_rootModule;
+}
+
+// ---------------------------------------------------------------------------
+// Thread identity (runtime/ThreadIdentity.h): the interpreter's share.
+// ---------------------------------------------------------------------------
+
+void captureInterpreterIdentity(proto::ProtoContext* ctx, ThreadIdentity& out) {
+    out.nullSentinel = t_nullSentinel;
+    out.undefinedSentinel = t_undefinedSentinel;
+    out.tdzSentinel = t_tdzSentinel;
+    out.cellMarker = ctx ? cellMarker(ctx) : t_cellMarker;
+}
+
+void adoptInterpreterIdentity(const ThreadIdentity& in) {
+    if (in.nullSentinel) t_nullSentinel = in.nullSentinel;
+    if (in.undefinedSentinel) t_undefinedSentinel = in.undefinedSentinel;
+    if (in.tdzSentinel) t_tdzSentinel = in.tdzSentinel;
+    if (in.cellMarker) t_cellMarker = in.cellMarker;
 }
 
 InterpreterEntryScope::InterpreterEntryScope(const ProtoBytecodeModule* module,

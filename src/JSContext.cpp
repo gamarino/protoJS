@@ -1,5 +1,8 @@
 #include "JSContext.h"
 #include "CPUThreadPool.h"
+#include "DeferredPool.h"
+#include "ObjectPrototype.h"
+#include "runtime/PinnedBuiltin.h"
 #include "IOThreadPool.h"
 #include "EventLoop.h"
 #include "MicrotaskQueue.h"
@@ -156,6 +159,23 @@ JSContextWrapper* JSContextWrapper::current() {
     return t_currentWrapper;
 }
 
+JSContext* JSContextWrapper::quickJSForThisThread() {
+    if (const ThreadView* v = t_threadView_) return v->quickjs;
+    JSContextWrapper* w = t_currentWrapper;
+    return w ? w->getJSContext() : nullptr;
+}
+
+DeferredPool& JSContextWrapper::deferredPool() {
+    if (!deferredPool_) {
+        // The root set is created lazily; create it here, on the owner thread,
+        // before any pool thread can ask for it.
+        (void)getRootSet();
+        deferredPool_ = std::make_unique<DeferredPool>(
+            this, CPUThreadPool::getInstance().getExecutor().getThreadCount());
+    }
+    return *deferredPool_;
+}
+
 JSContextWrapper::CurrentScope::CurrentScope(JSContextWrapper* w)
     : prev_(t_currentWrapper) {
     t_currentWrapper = w;
@@ -242,6 +262,8 @@ JSContextWrapper::JSContextWrapper(size_t cpuThreads, size_t ioThreads, double i
 }
 
 const proto::ProtoObject* JSContextWrapper::getNativeGlobal() {
+    // A Deferred pool thread reads its own copy of the root slot (ThreadView).
+    if (const ThreadView* v = t_threadView_) return v->globalSlot ? *v->globalSlot : nullptr;
     if (nativeGlobalRoot_) return nativeGlobalRoot_;
     if (!jsPrototypes_.object || !pContext) return nullptr;
     /* Build a blank global object; converted modules register onto it explicitly. */
@@ -299,6 +321,14 @@ proto::ProtoRootSet* JSContextWrapper::getRootSet() {
 }
 
 JSContextWrapper::~JSContextWrapper() {
+    // The Deferred pool first: its threads run JavaScript against this
+    // wrapper's space, root set and job queue. Shutting it down joins them
+    // (ProtoThread::join leaves the running set while it waits).
+    if (deferredPool_) {
+        deferredPool_->shutdown();
+        deferredPool_.reset();
+    }
+
     // The job queue first: its holder is pinned in the root set released next.
     microtasks_.reset();
 
@@ -346,6 +376,11 @@ JSContextWrapper::~JSContextWrapper() {
 
     JS_FreeContext(ctx);
     JS_FreeRuntime(rt);
+
+    // Per-space caches shared by the threads of this space: no thread of the
+    // space runs any more, and a later space may be allocated at this address.
+    PinnedBuiltin::forgetSpace(&pSpace);
+    forgetSpaceProtoOverrides(&pSpace);
 
     // Only clears the slot if it still holds THIS context.  A worker's wrapper is
     // destroyed by the main thread, and must not unregister the main thread.

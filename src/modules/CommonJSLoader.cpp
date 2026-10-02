@@ -1,5 +1,6 @@
 #include "../ProtoCoreTypes.h"
 #include "CommonJSLoader.h"
+#include "../ProtoDeferred.h"
 #include "ModuleResolver.h"
 #include "ModuleCache.h"
 #include "../GCBridge.h"
@@ -258,6 +259,7 @@ static const proto::ProtoObject* requireResolveProtoMethod(
         const proto::ProtoList* args,
         const proto::ProtoSparseList*) {
     if (!pCtx) return PROTO_NONE;
+    if (refuseOnDeferredThread(pCtx, "require.resolve()")) return PROTO_NONE;
     if (!args || args->getSize(pCtx) == 0) {
         throwModuleError(pCtx, "TypeError",
                           "require.resolve expects a module specifier");
@@ -737,6 +739,8 @@ const proto::ProtoObject* CommonJSLoader::requireProtoMethod(
     const proto::ProtoSparseList* locals
 ) {
     if (!pCtx) return PROTO_NONE;
+    // The loader runs QuickJS and the owner thread's module state.
+    if (refuseOnDeferredThread(pCtx, "require()")) return PROTO_NONE;
 
     if (!args || args->getSize(pCtx) == 0) {
         throwModuleError(pCtx, "TypeError", "require expects a module specifier");

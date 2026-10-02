@@ -192,6 +192,7 @@ add_library(protojs_core STATIC
     src/monitoring/Metrics.cpp
     src/Deferred.cpp
     src/ProtoDeferred.cpp
+    src/DeferredPool.cpp
     src/ProtoCoreNativeBindings.cpp
     src/native/NativeModuleABI.cpp
     src/console.cpp
@@ -267,6 +268,7 @@ add_library(protojs_core STATIC
     src/runtime/ProtoInterpreter.cpp
     src/runtime/LazyPrototype.cpp
     src/runtime/PinnedBuiltin.cpp
+    src/runtime/ThreadIdentity.cpp
     src/runtime/BehaviorRegistry.cpp
     src/runtime/BytecodeSpecialiser.cpp
     # Native modules

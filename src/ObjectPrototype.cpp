@@ -11,8 +11,10 @@
 #include "JSContext.h"
 #include "runtime/ProtoInterpreter.h"
 #include "runtime/BehaviorRegistry.h"
+#include "runtime/PinnedBuiltin.h"
 #include <algorithm>
 #include <atomic>
+#include <mutex>
 #include <cstdio>
 #include <cstring>
 #include <string>
@@ -6927,44 +6929,58 @@ void ensureObjectConstructor(proto::ProtoContext* ctx,
 // ---------------------------------------------------------------------------
 namespace {
 
-struct ImmutableProtoOverrides {
-    const proto::ProtoSpace* space = nullptr;
-    proto::ProtoRootSet* rootSet = nullptr;
-    std::unordered_map<const proto::ProtoObject*, const proto::ProtoObject*> map;
-    // Every object and prototype in `map`, pinned through one handle.
-    const proto::ProtoList* pinned = nullptr;
-    proto::ProtoRootSet::Handle handle = proto::ProtoRootSet::kNullHandle;
-};
-thread_local ImmutableProtoOverrides t_immutableProtoOverrides;
+// The side table is per SPACE and shared by every thread of the space: the
+// Deferred pool (src/DeferredPool.h) runs JavaScript on several threads of the
+// owner's space, and an override applied on one of them must be seen by all.
+// The map is a plain C++ map under a mutex; the mutex is never held across a
+// protoCore call, so a thread waiting for it can never be one the collector
+// waits for. The objects and prototypes are kept alive by a ProtoList hung off
+// one pinned holder per space, appended to with a compare-and-swap.
+std::mutex g_overrideMutex;
+std::unordered_map<const proto::ProtoSpace*,
+                   std::unordered_map<const proto::ProtoObject*, const proto::ProtoObject*>>
+    g_overrideMaps;
+// Entries in every map: lets the hot path skip the lock when there are none.
+std::atomic<size_t> g_overrideEntries{0};
+PinnedBuiltin s_overrideHolder;
 
-// The side table for ctx's space, or nullptr when it belongs to another space
-// (a table made for a space that is gone is dropped, never read).
-ImmutableProtoOverrides* immutableOverridesFor(proto::ProtoContext* ctx, bool forWrite) {
-    ImmutableProtoOverrides& t = t_immutableProtoOverrides;
-    if (!ctx || !ctx->space) return nullptr;
-    JSContextWrapper* w = JSContextWrapper::current();
-    proto::ProtoRootSet* rs = w ? w->getRootSet() : nullptr;
-    if (t.space == ctx->space && t.rootSet == rs && rs) return &t;
-    if (!forWrite || !rs) return nullptr;
-    t.map.clear();
-    t.pinned = nullptr;
-    t.handle = proto::ProtoRootSet::kNullHandle;  // belonged to the old root set
-    t.space = ctx->space;
-    t.rootSet = rs;
-    return &t;
+const proto::ProtoString* overridePinKey(proto::ProtoContext* ctx) {
+    static const proto::ProtoString* k =
+        proto::ProtoString::createSymbol(ctx, "__immutable_proto_overrides__");
+    return k;
 }
 
-void pinImmutableOverride(proto::ProtoContext* ctx, ImmutableProtoOverrides& t,
-                          const proto::ProtoObject* obj, const proto::ProtoObject* proto) {
-    const proto::ProtoList* list = t.pinned ? t.pinned : ctx->newList();
-    if (!list) return;
-    list = list->appendLast(ctx, obj);
-    if (list && proto::ProtoObject::isCellPointer(proto)) list = list->appendLast(ctx, proto);
-    if (!list) return;
-    const proto::ProtoRootSet::Handle h = t.rootSet->add(list->asObject(ctx));
-    if (t.handle != proto::ProtoRootSet::kNullHandle) t.rootSet->remove(t.handle);
-    t.pinned = list;
-    t.handle = h;
+const proto::ProtoObject* lookupImmutableOverride(proto::ProtoContext* ctx,
+                                                  const proto::ProtoObject* obj) {
+    if (g_overrideEntries.load(std::memory_order_acquire) == 0) return nullptr;
+    std::lock_guard<std::mutex> lock(g_overrideMutex);
+    auto sit = g_overrideMaps.find(ctx->space);
+    if (sit == g_overrideMaps.end()) return nullptr;
+    auto it = sit->second.find(obj);
+    return it != sit->second.end() ? it->second : nullptr;
+}
+
+// Keep obj and proto alive for the life of the wrapper. Returns false when no
+// wrapper is current (nothing can be pinned), in which case nothing is recorded.
+bool pinImmutableOverride(proto::ProtoContext* ctx, const proto::ProtoObject* obj,
+                          const proto::ProtoObject* proto) {
+    if (!JSContextWrapper::current()) return false;
+    const proto::ProtoObject* holder = s_overrideHolder.get(ctx);
+    if (!holder) {
+        const proto::ProtoObject* h = ctx->newObject(true);
+        if (!h) return false;
+        holder = s_overrideHolder.keep(ctx, h);
+    }
+    const proto::ProtoString* k = overridePinKey(ctx);
+    for (;;) {
+        const proto::ProtoObject* cur = holder->getOwnAttributeDirect(ctx, k);
+        const proto::ProtoList* list = (cur && cur != PROTO_NONE) ? cur->asList(ctx) : ctx->newList();
+        if (!list) return false;
+        list = list->appendLast(ctx, obj);
+        if (list && proto::ProtoObject::isCellPointer(proto)) list = list->appendLast(ctx, proto);
+        if (!list) return false;
+        if (holder->setAttributeIfEqual(ctx, k, cur, list->asObject(ctx))) return true;
+    }
 }
 
 }  // namespace
@@ -6979,11 +6995,7 @@ const proto::ProtoObject* getJSProtoOverride(proto::ProtoContext* ctx,
     // integers, strings); PROTO_NONE is a cleared override.
     const proto::ProtoObject* v = obj->getOwnAttributeDirect(ctx, k);
     if (v && v != PROTO_NONE) return v;
-    if (t_immutableProtoOverrides.map.empty()) return nullptr;
-    ImmutableProtoOverrides* t = immutableOverridesFor(ctx, false);
-    if (!t) return nullptr;
-    auto it = t->map.find(obj);
-    return it != t->map.end() ? it->second : nullptr;
+    return lookupImmutableOverride(ctx, obj);
 }
 
 void setJSProtoOverrideOnly(proto::ProtoContext* ctx,
@@ -6998,11 +7010,28 @@ void setJSProtoOverrideOnly(proto::ProtoContext* ctx,
     if (obj->setAttribute(ctx, k, value) == obj) return;
     // Immutable: the side table (see above). The object returned by
     // setAttribute is a copy nobody references, and is collected.
-    ImmutableProtoOverrides* t = immutableOverridesFor(ctx, true);
-    if (!t) return;
-    if (proto == nullptr) { t->map.erase(obj); return; }
-    t->map[obj] = proto;
-    pinImmutableOverride(ctx, *t, obj, proto);
+    if (!ctx->space) return;
+    if (proto == nullptr) {
+        std::lock_guard<std::mutex> lock(g_overrideMutex);
+        auto sit = g_overrideMaps.find(ctx->space);
+        if (sit != g_overrideMaps.end() && sit->second.erase(obj))
+            g_overrideEntries.fetch_sub(1, std::memory_order_acq_rel);
+        return;
+    }
+    // Pin first (it allocates), then publish the entry under the lock.
+    if (!pinImmutableOverride(ctx, obj, proto)) return;
+    std::lock_guard<std::mutex> lock(g_overrideMutex);
+    auto& map = g_overrideMaps[ctx->space];
+    auto res = map.insert_or_assign(obj, proto);
+    if (res.second) g_overrideEntries.fetch_add(1, std::memory_order_acq_rel);
+}
+
+void forgetSpaceProtoOverrides(const proto::ProtoSpace* space) {
+    std::lock_guard<std::mutex> lock(g_overrideMutex);
+    auto sit = g_overrideMaps.find(space);
+    if (sit == g_overrideMaps.end()) return;
+    g_overrideEntries.fetch_sub(sit->second.size(), std::memory_order_acq_rel);
+    g_overrideMaps.erase(sit);
 }
 
 void setJSProtoOverride(proto::ProtoContext* ctx,
@@ -7078,34 +7107,21 @@ namespace {
 
 enum PinnedRegistryId { kSymbolsByStorageKey = 0, kSymbolForRegistry = 1, kPinnedRegistryCount };
 
-struct PinnedRegistries {
-    const proto::ProtoSpace* space = nullptr;
-    proto::ProtoRootSet* rootSet = nullptr;
-    const proto::ProtoObject* registry[kPinnedRegistryCount] = {};
-};
-thread_local PinnedRegistries t_pinnedRegistries;
+// One registry object per space, shared by every thread of the space (the
+// Deferred pool runs JavaScript on several threads of one space, and a realm
+// has one GlobalSymbolRegistry). PinnedBuiltin keeps it per space, pins it for
+// the life of the wrapper and is first-wins when two threads make it at once.
+PinnedBuiltin s_pinnedRegistries[kPinnedRegistryCount];
 
 // The registry for ctx's space, made and pinned on first use; nullptr when
 // there is no wrapper (nothing can be pinned) and `create` is false or fails.
 const proto::ProtoObject* pinnedRegistry(proto::ProtoContext* ctx, PinnedRegistryId id, bool create) {
     if (!ctx || !ctx->space) return nullptr;
-    PinnedRegistries& t = t_pinnedRegistries;
-    JSContextWrapper* w = JSContextWrapper::current();
-    proto::ProtoRootSet* rs = w ? w->getRootSet() : nullptr;
-    if (!rs) return nullptr;
-    if (t.space != ctx->space || t.rootSet != rs) {
-        // Made for a space or wrapper that is gone; its pins went with it.
-        t = PinnedRegistries{};
-        t.space = ctx->space;
-        t.rootSet = rs;
-    }
-    if (!t.registry[id] && create) {
-        const proto::ProtoObject* r = ctx->newObject(true);
-        if (!r) return nullptr;
-        rs->add(r);  // for the life of the root set, never removed
-        t.registry[id] = r;
-    }
-    return t.registry[id];
+    if (const proto::ProtoObject* r = s_pinnedRegistries[id].get(ctx)) return r;
+    if (!create || !JSContextWrapper::current()) return nullptr;
+    const proto::ProtoObject* r = ctx->newObject(true);
+    if (!r) return nullptr;
+    return s_pinnedRegistries[id].keep(ctx, r);
 }
 
 const proto::ProtoString* internedKey(proto::ProtoContext* ctx, const std::string& key) {
@@ -7135,11 +7151,16 @@ const proto::ProtoObject* symbolForRegistryGet(proto::ProtoContext* ctx, const s
     return (v && v != PROTO_NONE) ? v : nullptr;
 }
 
-void symbolForRegistrySet(proto::ProtoContext* ctx, const std::string& key,
-                          const proto::ProtoObject* sym) {
+const proto::ProtoObject* symbolForRegistrySet(proto::ProtoContext* ctx, const std::string& key,
+                                               const proto::ProtoObject* sym) {
     const proto::ProtoObject* r = pinnedRegistry(ctx, kSymbolForRegistry, true);
     const proto::ProtoString* k = r ? internedKey(ctx, key) : nullptr;
-    if (k && sym) r->setAttribute(ctx, k, sym);
+    if (!k || !sym) return sym;
+    // Install only if absent; otherwise return the symbol another thread
+    // registered first.
+    if (r->setAttributeIfEqual(ctx, k, nullptr, sym)) return sym;
+    const proto::ProtoObject* existing = r->getOwnAttributeDirect(ctx, k);
+    return (existing && existing != PROTO_NONE) ? existing : sym;
 }
 
 // The creation number makes each key unique for the life of the process. The

@@ -171,6 +171,12 @@ const proto::ProtoObject* jsToNumber(proto::ProtoContext* context,
 bool interpreterIsRunning();
 
 /**
+ * The module the calling thread's interpreter is running (the one closures
+ * created right now are resolved against), or nullptr outside any frame.
+ */
+const ProtoBytecodeModule* currentInterpreterModule();
+
+/**
  * Publish the module and global root that callJSFunction and runBytecode
  * resolve against, for code that runs JavaScript from outside any frame --
  * the microtask checkpoint, event-loop callbacks.  Restores the previous

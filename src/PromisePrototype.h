@@ -41,6 +41,14 @@ void ensurePromiseConstructor(proto::ProtoContext* ctx,
 /** A new pending promise whose [[Prototype]] is %Promise.prototype%. */
 const proto::ProtoObject* newPromise(proto::ProtoContext* ctx);
 
+/** A new pending promise whose [[Prototype]] is `proto` (a subclass's
+ *  prototype, e.g. %Deferred.prototype%). */
+const proto::ProtoObject* newPromiseWithPrototype(proto::ProtoContext* ctx,
+                                                  const proto::ProtoObject* proto);
+
+/** %Promise.prototype% of ctx's space, or nullptr before it exists. */
+const proto::ProtoObject* intrinsicPromisePrototype(proto::ProtoContext* ctx);
+
 /**
  * The algorithm of a promise's resolve function (§27.2.1.3.2): fulfil with a
  * non-thenable, reject on self-resolution or a throwing `then` getter, and

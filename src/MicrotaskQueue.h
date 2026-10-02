@@ -92,6 +92,23 @@ public:
      *  no wrapper at all. */
     static MicrotaskQueue* current();
 
+    /**
+     * Make `q` the calling thread's queue for the life of the scope, whatever
+     * wrapper is current. A Deferred pool thread runs with its owner's wrapper
+     * current but must not touch the owner's queue, which belongs to the owner
+     * thread: the jobs its function queues go to the pool thread's own queue,
+     * drained on that thread when the function returns (src/DeferredPool.h).
+     */
+    class ThreadOverride {
+    public:
+        explicit ThreadOverride(MicrotaskQueue* q);
+        ~ThreadOverride();
+        ThreadOverride(const ThreadOverride&) = delete;
+        ThreadOverride& operator=(const ThreadOverride&) = delete;
+    private:
+        MicrotaskQueue* prev_;
+    };
+
     /** Owner thread: append a job (a ProtoList, element 0 a JobKind). */
     void enqueue(proto::ProtoContext* ctx, const proto::ProtoList* job);
 

@@ -964,7 +964,7 @@ static void installHelper(proto::ProtoContext* ctx,
 
 const proto::ProtoObject* getIteratorPrototype(proto::ProtoContext* ctx) {
     // Made on first use; pinned for the wrapper's life (runtime/PinnedBuiltin.h).
-    static thread_local PinnedBuiltin s_iteratorProtoCache;
+    static PinnedBuiltin s_iteratorProtoCache;
     if (const proto::ProtoObject* cached = s_iteratorProtoCache.get(ctx)) return cached;
     if (!ctx) return nullptr;
     proto::ProtoObject* objProto =

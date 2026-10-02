@@ -1,4 +1,6 @@
 #include "BehaviorRegistry.h"
+#include <atomic>
+#include <cstdint>
 #include "GcScopedCache.h"
 #include <map>
 #include <unordered_map>
@@ -130,6 +132,16 @@ namespace protojs {
         // silently drops writes). The slots are therefore emptied whenever a
         // collection has started since the last resolve (GcScopedCache.h).
         thread_local GcCycleWatch t_objCacheCycle;
+        // Object.{freeze, seal, preventExtensions} on ANY thread invalidates
+        // the slot of that object in EVERY thread's cache: the Deferred pool
+        // (src/DeferredPool.h) runs JavaScript on several threads that share
+        // objects, and a thread that kept the pre-freeze behaviour would keep
+        // writing to a frozen object. Each invalidation bumps this epoch; a
+        // thread whose cache predates it empties the cache on its next
+        // resolve(). Integrity changes are rare, so this costs one relaxed
+        // load per resolve().
+        std::atomic<std::uint64_t> g_integrityEpoch{0};
+        thread_local std::uint64_t t_objCacheEpoch = 0;
 
         // Integrity behaviours are not keyed on a prototype: the level is
         // per-object own state (see ObjectPrototype.h), so resolve() reads
@@ -154,6 +166,7 @@ namespace protojs {
 
     void BehaviorRegistry::invalidateObjectCache(const proto::ProtoObject* obj) const {
         if (!obj) return;
+        g_integrityEpoch.fetch_add(1, std::memory_order_release);
         size_t idx = objCacheIdx(obj);
         if (t_objCache[idx].obj == obj) {
             t_objCache[idx].obj = nullptr;
@@ -166,8 +179,10 @@ namespace protojs {
             return defaultBehavior.get();
         }
 
-        if (t_objCacheCycle.changed(ctx)) {
+        const std::uint64_t epoch = g_integrityEpoch.load(std::memory_order_acquire);
+        if (t_objCacheCycle.changed(ctx) || epoch != t_objCacheEpoch) {
             for (auto& slot : t_objCache) slot = ObjCacheSlot{nullptr, nullptr};
+            t_objCacheEpoch = epoch;
         }
         size_t objIdx = objCacheIdx(obj);
         if (t_objCache[objIdx].obj == obj && t_objCache[objIdx].behavior) {

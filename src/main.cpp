@@ -561,8 +561,11 @@ int main(int argc, char** argv) {
         protojs::EventLoop::getInstance().processCallbacks();
         timerResolution.raise();
         {
+            // Wake as soon as another thread hands work over (a Deferred
+            // settling, an I/O completion); poll the other conditions at
+            // least every 10 ms.
             proto::ProtoContext::UnmanagedScope u(wrapper.getProtoContext());
-            std::this_thread::sleep_for(std::chrono::milliseconds(10));
+            protojs::EventLoop::getInstance().waitForCallbacks(std::chrono::milliseconds(10));
         }
 
         auto now = std::chrono::steady_clock::now();

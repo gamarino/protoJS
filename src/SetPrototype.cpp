@@ -658,7 +658,7 @@ static const proto::ProtoObject* setIteratorNext(
 // Made on first use; pinned for the wrapper's life (runtime/PinnedBuiltin.h):
 // a static is not a root, and nothing else references the prototype once
 // every iterator made from it has been collected.
-static thread_local PinnedBuiltin s_setIteratorProtoCache;
+static PinnedBuiltin s_setIteratorProtoCache;
 
 static const proto::ProtoObject* getSetIteratorProto(proto::ProtoContext* ctx) {
     if (const proto::ProtoObject* cached = s_setIteratorProtoCache.get(ctx)) return cached;

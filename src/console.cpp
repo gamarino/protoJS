@@ -154,12 +154,16 @@ const proto::ProtoObject* Console::log(proto::ProtoContext* ctx,
                                         const proto::ProtoList* args,
                                         const proto::ProtoSparseList* /*kwargs*/) {
     if (!ctx) return PROTO_NONE;
+    // One write per call: Deferred pool threads log concurrently with the
+    // main thread, and piecewise writes interleaved their lines.
+    std::ostringstream line;
     int argc = args ? static_cast<int>(args->getSize(ctx)) : 0;
     for (int i = 0; i < argc; i++) {
-        if (i > 0) std::cout << " ";
-        printProtoValue(ctx, args->getAt(ctx, i), std::cout);
+        if (i > 0) line << " ";
+        printProtoValue(ctx, args->getAt(ctx, i), line);
     }
-    std::cout << "\n";
+    line << "\n";
+    std::cout << line.str();
     std::cout.flush();
     return PROTO_NONE;
 }
@@ -170,12 +174,14 @@ const proto::ProtoObject* Console::error(proto::ProtoContext* ctx,
                                           const proto::ProtoList* args,
                                           const proto::ProtoSparseList* /*kwargs*/) {
     if (!ctx) return PROTO_NONE;
+    std::ostringstream line;  // one write per call (see Console::log)
     int argc = args ? static_cast<int>(args->getSize(ctx)) : 0;
     for (int i = 0; i < argc; i++) {
-        if (i > 0) std::cerr << " ";
-        printProtoValue(ctx, args->getAt(ctx, i), std::cerr);
+        if (i > 0) line << " ";
+        printProtoValue(ctx, args->getAt(ctx, i), line);
     }
-    std::cerr << "\n";
+    line << "\n";
+    std::cerr << line.str();
     return PROTO_NONE;
 }
 

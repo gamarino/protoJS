@@ -195,7 +195,7 @@ const proto::ProtoObject* createHash(
         NATIVE_MODULE_END
     };
     // Made on first use; pinned for the wrapper's life (runtime/PinnedBuiltin.h).
-    static thread_local PinnedBuiltin hashProtoCache;
+    static PinnedBuiltin hashProtoCache;
     const proto::ProtoObject* hashProto = hashProtoCache.get(ctx);
     if (!hashProto)
         hashProto = hashProtoCache.keep(ctx, ProtoNativeModule::buildModule(ctx, hashProtoEntries, 2));
@@ -341,7 +341,7 @@ const proto::ProtoObject* cipherFinalImpl(
 
 const proto::ProtoObject* getCipherProto(proto::ProtoContext* ctx) {
     // Made on first use; pinned for the wrapper's life (runtime/PinnedBuiltin.h).
-    static thread_local PinnedBuiltin protoCache;
+    static PinnedBuiltin protoCache;
     if (const proto::ProtoObject* cached = protoCache.get(ctx)) return cached;
     static const NativeEntry entries[] = {
         {"update", cipherUpdateImpl},
@@ -665,7 +665,7 @@ const proto::ProtoObject* verifyFinalImpl(
 
 const proto::ProtoObject* getSignerProto(proto::ProtoContext* ctx) {
     // Made on first use; pinned for the wrapper's life (runtime/PinnedBuiltin.h).
-    static thread_local PinnedBuiltin sprotoCache;
+    static PinnedBuiltin sprotoCache;
     if (const proto::ProtoObject* cached = sprotoCache.get(ctx)) return cached;
     static const NativeEntry entries[] = {
         {"update", signUpdateImpl},
@@ -677,7 +677,7 @@ const proto::ProtoObject* getSignerProto(proto::ProtoContext* ctx) {
 
 const proto::ProtoObject* getVerifierProto(proto::ProtoContext* ctx) {
     // Made on first use; pinned for the wrapper's life (runtime/PinnedBuiltin.h).
-    static thread_local PinnedBuiltin vprotoCache;
+    static PinnedBuiltin vprotoCache;
     if (const proto::ProtoObject* cached = vprotoCache.get(ctx)) return cached;
     static const NativeEntry entries[] = {
         {"update", verifyUpdateImpl},

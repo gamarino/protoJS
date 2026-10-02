@@ -37,6 +37,9 @@ bool isLive(const MicrotaskQueue* q) {
 // enqueueing when no wrapper is current.
 thread_local MicrotaskQueue* t_threadQueue = nullptr;
 
+// The queue that replaces the current wrapper's on this thread (ThreadOverride).
+thread_local MicrotaskQueue* t_overrideQueue = nullptr;
+
 // Queues that received a job from this thread since the last
 // checkpointThread().  Small: one entry per wrapper touched in the turn.
 thread_local std::vector<MicrotaskQueue*> t_scheduled;
@@ -86,7 +89,16 @@ MicrotaskQueue::~MicrotaskQueue() {
     // "Finalizers").
 }
 
+MicrotaskQueue::ThreadOverride::ThreadOverride(MicrotaskQueue* q) : prev_(t_overrideQueue) {
+    t_overrideQueue = q;
+}
+
+MicrotaskQueue::ThreadOverride::~ThreadOverride() {
+    t_overrideQueue = prev_;
+}
+
 MicrotaskQueue* MicrotaskQueue::current() {
+    if (t_overrideQueue) return t_overrideQueue;
     if (JSContextWrapper* w = JSContextWrapper::current()) return &w->microtasks();
     if (t_threadQueue && isLive(t_threadQueue)) return t_threadQueue;
     return nullptr;

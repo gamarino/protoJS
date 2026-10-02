@@ -1418,7 +1418,10 @@ const proto::ProtoObject* JSONBuiltin::parse(proto::ProtoContext* ctx,
     JSContextWrapper* wrapper = JSContextWrapper::current();
     if (!wrapper) return PROTO_NONE;
 
-    JSContext* qjsCtx = wrapper->getJSContext();
+    // The calling thread's QuickJS context: a Deferred pool thread has its
+    // own (JSContextWrapper::ThreadView), as QuickJS is single-threaded.
+    JSContext* qjsCtx = JSContextWrapper::quickJSForThisThread();
+    if (!qjsCtx) return PROTO_NONE;
     JSValue jv = JS_ParseJSON(qjsCtx, text.c_str(), text.size(), "JSON.parse");
     if (JS_IsException(jv)) {
         // QuickJS recorded the failure; surface it as SyntaxError per
