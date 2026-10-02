@@ -77,3 +77,5 @@ tests/test262/reports/
 
 # Local working notes
 /tasks/
+benchmarks/deferred/results.jsonl
+build_tsan/
