@@ -131,7 +131,14 @@ protoJS's, stated in Test262's own terms.
   asynchronous failures through `$DONE`, and many synchronous tests leave a
   rejected promise behind on purpose (`Promise.all` over an iterator whose
   step throws, for example). protojs's default is Node's, which ends the
-  process with status 1; engine shells ignore such rejections.
+  process with status 1; engine shells ignore such rejections. This is a
+  decision, not a workaround: the maintainer approved it on 2026-10-02. It
+  applies to every Test262 measurement, because the whole-corpus run and the
+  per-commit gate (`tests/test262/runner/regression_gate.py`) both start
+  `protojs` through `test262_runner.js`. Its effect on the whole-corpus figure
+  is about 41 tests (32,326 without it, 32,373 with it, on 2026-10-02; see
+  "What changed since the previous figures"). It does not change how
+  programs run: `protojs` itself keeps Node's default (`throw`).
 - **Timeouts.** 5,000 ms per test (`default_timeout_ms`), counted as failures.
   234 tests time out on the CI runner (2026-10-02), none of them in
   `built-ins/RegExp/property-escapes`; the largest groups are class (72),
@@ -178,8 +185,14 @@ gives `Object.keys(o)` = `mid, zeta, alpha` on Linux, where Node gives
 `zeta, alpha, mid`. The addresses depend on the allocator's history: the same
 run after run on one platform, different on another. A test that observes key
 order can therefore pass on one platform and fail on another with nothing
-wrong in either build. Fixing it needs insertion-ordered attributes in the
-object model (protoCore), which is outside protoJS.
+wrong in either build.
+
+**This is a deliberate deviation, decided on 2026-10-02.** Insertion order would
+need insertion-ordered attributes in protoCore's object model, which every
+runtime of the family shares; protoCore's object model is not changed for it.
+Programs that need a defined key order sort the keys explicitly or use a `Map`,
+which keeps insertion order as the specification requires (see
+[API_REFERENCE.md](API_REFERENCE.md#deliberate-deviations)).
 
 Symbol-keyed properties are not affected: since 2026-10-02 every report of
 symbol keys orders them by the symbols' creation, after the string keys and
@@ -193,8 +206,8 @@ and the tests that observe key order
 change verdict between two runs of the same commit (fe611bd94: exact baseline
 in cross-platform run 36973056352; `defineProperties/15.2.3.7-6-a-93-1` and
 `-93-3` failing in run 36973932562). The Windows jobs therefore run the gate
-and report its diff, but do not fail on it, until property order is insertion
-order.
+and report its diff, but do not fail on it. Since the deviation is permanent,
+so is that arrangement: the Linux and macOS jobs gate, the Windows jobs report.
 
 ---
 

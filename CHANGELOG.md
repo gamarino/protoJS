@@ -40,6 +40,25 @@ parallel execution, with no new syntax.
 - Benchmarks against Node.js `worker_threads`:
   `benchmarks/reports/2026-10-02-parallel-deferred.md`.
 
+### Documented — property enumeration order is a deliberate deviation (2026-10-02)
+
+Object keys are reported in protoCore's attribute order (the addresses of the
+interned key names), not insertion order. This was listed as a pending
+failure; it is now a decided deviation: protoCore's object model, shared by
+every protoCore runtime, is not changed for it. `docs/API_REFERENCE.md`
+("Deliberate deviations") explains it with an example and the remedies (sort
+the keys, or use a `Map`); `docs/TEST262_STATUS.md` and the README say the
+same, and the Windows Test262 jobs keep reporting without gating.
+
+### Documented — Test262 runs ignore unhandled rejections (2026-10-02)
+
+The Test262 runner starts `protojs` with `--unhandled-rejections=none` (Test262
+reports asynchronous failures through `$DONE`; engine shells ignore such
+rejections). The maintainer approved it on 2026-10-02; `docs/TEST262_STATUS.md`
+(exclusion policy) and `docs/CONFORMANCE.md` now record the decision, that it
+applies to both the whole-corpus run and the per-commit gate, and its effect
+(about 41 tests on the 2026-10-02 figure). Programs keep Node's default.
+
 ### Changed — Promises and async functions follow ECMA-262 (2026-10-02)
 
 Promises used a "synchronous model": `then()` on a settled promise ran its

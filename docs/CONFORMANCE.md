@@ -13,7 +13,9 @@ The normative rule table is `protoCore/docs/EMBEDDER-CONFORMANCE.md`.
 > upgrade changed nothing, and they are chosen because they are fast, not because
 > they score well. protoJS's conformance figure is the whole corpus —
 > **32,373 of 53,571, 60.43 %, as of 2026-10-02** — in
-> [TEST262_STATUS.md](TEST262_STATUS.md). Never quote 3 619 / 3 875 as a pass
+> [TEST262_STATUS.md](TEST262_STATUS.md). Every Test262 run, gate and corpus,
+> starts `protojs` with `--unhandled-rejections=none`, a decision recorded in its
+> exclusion policy. Never quote 3 619 / 3 875 as a pass
 > rate.
 
 ## Static ratchet — 2026-09-26: 14 uncovered findings down to 1

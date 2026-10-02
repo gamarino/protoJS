@@ -184,8 +184,8 @@ binary). What they print matches Node, checked by Node's own
 `test-util-format.js` (`tests/integration/util/test-util-format.js`), except:
 
 - Object keys are printed in protoJS's key order, which is not always insertion
-  order ([TEST262_STATUS.md](TEST262_STATUS.md)), so an object with several keys
-  may print them in another order than Node.
+  order (a [deliberate deviation](#property-enumeration-order)), so an object
+  with several keys may print them in another order than Node.
 - Errors carry no stack in protoJS, so an error prints as `[Error: message]`,
   which is what Node prints for an error without a stack.
 - Not supported: `colors` (accepted and ignored), `numericSeparator`,
@@ -277,6 +277,40 @@ The `protojs_core` library also contains C++ components that are not exposed to 
 The January 2026 guides for these components are archived in [archive/PHASE6_MODULE_GUIDES.md](archive/PHASE6_MODULE_GUIDES.md) and may not match the current code.
 
 ---
+
+## Deliberate deviations
+
+### Property enumeration order
+
+`Object.keys`, `Object.getOwnPropertyNames`, `for-in`, `Object.entries`,
+`Object.assign`, `JSON.stringify` and `util.inspect` report an object's
+string-keyed properties in the order protoCore walks the object's attributes,
+not in insertion order as ECMA-262 (OrdinaryOwnPropertyKeys) requires:
+
+```js
+const o = {};
+o.zeta = 1; o.alpha = 2; o.mid = 3;
+Object.keys(o);   // Node: ['zeta', 'alpha', 'mid']; protoJS on Linux: ['mid', 'zeta', 'alpha']
+```
+
+The order is unspecified: it follows the addresses of the interned key names,
+so it can differ between platforms and, on Windows, between two runs of the
+same program. Integer-like keys and symbol keys are not affected (array indices
+first in ascending order; symbols after the string keys, by creation).
+
+This is deliberate (decided 2026-10-02): insertion order would need
+insertion-ordered attributes in protoCore's object model, which all the
+protoCore runtimes share, and that model is not changed for it. When order
+matters, sort the keys explicitly or use a `Map`, which keeps insertion order:
+
+```js
+Object.keys(o).sort();                               // a defined order
+const m = new Map([['zeta', 1], ['alpha', 2], ['mid', 3]]);
+[...m.keys()];                                       // ['zeta', 'alpha', 'mid'] everywhere
+```
+
+Test262 tests that observe key order fail for this reason; see
+[TEST262_STATUS.md](TEST262_STATUS.md#property-enumeration-order).
 
 ## See also
 
