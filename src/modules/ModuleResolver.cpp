@@ -147,20 +147,24 @@ std::string ModuleResolver::getDirectory(const std::string& filePath) {
 }
 
 std::string ModuleResolver::normalizePath(const std::string& path) {
-    try {
-        return fs::canonical(fs::path(path)).generic_string();
-    } catch (...) {
-        // If canonical fails, try to normalize manually
-        std::string normalized = path;
-        // Replace // with /
-        size_t pos = 0;
-        while ((pos = normalized.find("//", pos)) != std::string::npos) {
-            normalized.replace(pos, 2, "/");
-        }
-        // Handle . and ..
-        // Simplified - full implementation would handle all cases
-        return normalized;
+    // A module's identity is its canonical path, taken from the same function
+    // the ES module normalizer uses (JSContext.cpp, through realpath), so a file
+    // reached through a symbolic link or, on Windows, another letter case is
+    // one module whichever loader reaches it.
+    std::string canonical;
+    if (platform::canonicalPath(path, canonical)) {
+        return canonical;
     }
+    // The file does not exist (yet): normalize manually.
+    std::string normalized = path;
+    // Replace // with /
+    size_t pos = 0;
+    while ((pos = normalized.find("//", pos)) != std::string::npos) {
+        normalized.replace(pos, 2, "/");
+    }
+    // Handle . and ..
+    // Simplified - full implementation would handle all cases
+    return normalized;
 }
 
 std::string ModuleResolver::findPackageJson(const std::string& dir) {

@@ -169,21 +169,56 @@ inline const char* strerror_r(int errnum, char* buf, std::size_t len) {
     return buf;
 }
 
-// realpath: the absolute, normalised path of an existing file, with '/' as the
-// separator (the form protoJS uses for module identities on every platform).
-// Like POSIX it fails, returning nullptr with errno set, when the file does not
-// exist. Symbolic links are resolved by the file system when opening, so the
-// spelling is not otherwise canonicalised.
-inline char* realpath(const char* path, char* resolved) {
-    if (!path || !*path) { errno = ENOENT; return nullptr; }
-    const std::wstring wpath = protojs::platform::widen(path);
-    const DWORD attrs = ::GetFileAttributesW(wpath.c_str());
-    if (attrs == INVALID_FILE_ATTRIBUTES) { errno = ENOENT; return nullptr; }
-    wchar_t full[32768];
-    const DWORD n = ::GetFullPathNameW(wpath.c_str(), 32768, full, nullptr);
-    if (n == 0 || n >= 32768) { errno = ENAMETOOLONG; return nullptr; }
-    std::string out = protojs::platform::narrow(std::wstring(full, n));
+namespace protojs::platform {
+
+// The canonical path of an existing file or directory: absolute, every symbolic
+// link and junction resolved, and each component spelled as the file system
+// stores it (the case of a case-insensitive volume included), with '/' as the
+// separator. This is a module's identity, for CommonJS and ES modules alike, so
+// two spellings of one file are one module. GetFinalPathNameByHandleW names the
+// file the handle opened; its "\\?\" prefix is dropped, and "\\?\UNC\"
+// becomes the "//server/share" it stands for. false (errno set) when the file
+// does not exist or cannot be opened.
+inline bool canonicalPath(const std::string& path, std::string& out) {
+    if (path.empty()) { errno = ENOENT; return false; }
+    // FILE_FLAG_BACKUP_SEMANTICS opens directories too; no access rights are
+    // requested, so a file locked for reading can still be named.
+    HANDLE h = ::CreateFileW(widen(path).c_str(), 0,
+                             FILE_SHARE_READ | FILE_SHARE_WRITE | FILE_SHARE_DELETE, nullptr,
+                             OPEN_EXISTING, FILE_FLAG_BACKUP_SEMANTICS, nullptr);
+    if (h == INVALID_HANDLE_VALUE) {
+        const DWORD err = ::GetLastError();
+        errno = (err == ERROR_ACCESS_DENIED) ? EACCES : ENOENT;
+        return false;
+    }
+    std::wstring buf(MAX_PATH, L'\0');
+    DWORD n = ::GetFinalPathNameByHandleW(h, buf.data(), static_cast<DWORD>(buf.size()),
+                                          FILE_NAME_NORMALIZED | VOLUME_NAME_DOS);
+    if (n >= buf.size()) {
+        buf.assign(static_cast<std::size_t>(n) + 1, L'\0');
+        n = ::GetFinalPathNameByHandleW(h, buf.data(), static_cast<DWORD>(buf.size()),
+                                        FILE_NAME_NORMALIZED | VOLUME_NAME_DOS);
+    }
+    ::CloseHandle(h);
+    if (n == 0 || n >= buf.size()) { errno = ENOENT; return false; }
+    buf.resize(n);
+    if (buf.compare(0, 8, L"\\\\?\\UNC\\") == 0) {
+        buf = L"\\\\" + buf.substr(8);
+    } else if (buf.compare(0, 4, L"\\\\?\\") == 0) {
+        buf = buf.substr(4);
+    }
+    out = narrow(buf);
     for (char& c : out) if (c == '\\') c = '/';
+    return true;
+}
+
+} // namespace protojs::platform
+
+// realpath: the canonical path (protojs::platform::canonicalPath), with POSIX's
+// contract -- nullptr and errno when the file does not exist.
+inline char* realpath(const char* path, char* resolved) {
+    std::string out;
+    if (!path || !protojs::platform::canonicalPath(path, out)) return nullptr;
     if (out.size() + 1 > PATH_MAX) { errno = ENAMETOOLONG; return nullptr; }
     if (!resolved) resolved = static_cast<char*>(std::malloc(PATH_MAX));
     if (!resolved) { errno = ENOMEM; return nullptr; }
@@ -247,7 +282,23 @@ inline bool isAbsolutePath(const std::string& p) {
 #include <ctime>
 #include <string>
 
+#include <cerrno>
+#include <climits>
+#include <cstdlib>
+
 namespace protojs::platform {
+
+// The canonical path of an existing file: realpath(3), which resolves every
+// symbolic link. A module's identity, for CommonJS and ES modules alike.
+// false (errno set) when the file does not exist.
+inline bool canonicalPath(const std::string& path, std::string& out) {
+    if (path.empty()) { errno = ENOENT; return false; }
+    char* r = ::realpath(path.c_str(), nullptr);
+    if (!r) return false;
+    out.assign(r);
+    std::free(r);
+    return true;
+}
 
 using StatBuf = struct ::stat;
 inline int statPath(const char* path, StatBuf* st) { return ::stat(path, st); }
