@@ -244,6 +244,7 @@ foreach(js_test
         modules/test_require_file
         modules/test_cross_module_exception
         modules/test_require
+        modules/test_events
         collections/protoCore_collections
         workers/deep_recursion
         crypto/test_crypto_cipher
