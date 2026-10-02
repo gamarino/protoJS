@@ -8154,7 +8154,17 @@ const proto::ProtoObject* runBytecode(proto::ProtoContext* pContext,
                 DISPATCH();
             L_OP_dup1: ;
                 if (stackSize(pContext) < 2) return PROTO_NONE;
-                { const proto::ProtoObject* top = stackTop(pContext); const proto::ProtoObject* second = stackAt(pContext, 1); stackPush(pContext, second); stackPush(pContext, top); }
+                // DEF(dup1, 1, 2, 3, none): a b -> a a b.  Pre-fix this
+                // pushed `a b` on top (a b a b, which is dup2), leaving
+                // one stray slot behind.  QuickJS emits dup1 to write the
+                // final `length` of an array literal that ends in an
+                // elision after a spread (`[...x, ,]`, `[, ...x]`): the
+                // put_field then stored the length on the index, the
+                // literal evaluated to the index, and `[,...[7]].length`
+                // was undefined.
+                { const proto::ProtoObject* top = stackTop(pContext); stackPop(pContext);
+                  const proto::ProtoObject* second = stackTop(pContext);
+                  stackPush(pContext, second); stackPush(pContext, top); }
                 DISPATCH();
             L_OP_dup2: ;
                 if (stackSize(pContext) < 2) return PROTO_NONE;
@@ -9724,6 +9734,58 @@ const proto::ProtoObject* runBytecode(proto::ProtoContext* pContext,
                 const proto::ProtoObject* obj = stackTop(pContext);
                 stackPop(pContext);
                 const proto::ProtoString* key = resolveAtom(mod, pContext, atomIndex);
+                // Array literal element after an elision or past the first
+                // 32 elements: QuickJS emits OP_define_field with an integer
+                // atom for it.  The element belongs in the native
+                // __elements__ list (the source of `length` and of every
+                // array consumer), padded with holes up to its index, not in
+                // a string-keyed attribute beside the list -- pre-fix
+                // `[1,,3].length` was 1 and the tail was invisible to
+                // JSON.stringify, Object.keys and the Array methods.  The
+                // receiver is the literal under construction, so it is a
+                // plain mutable array: no setters, no frozen state.
+                if (key && obj && obj != PROTO_NONE) {
+                    // Keys come from the constant pool as interned symbols
+                    // (isString is false for them, so numericArrayIndexOrNeg
+                    // does not apply): parse the canonical array index
+                    // once per key and cache it per thread.
+                    static thread_local std::unordered_map<const proto::ProtoString*, long long>
+                        s_literalIndexCache;
+                    long long litIdx;
+                    auto litIt = s_literalIndexCache.find(key);
+                    if (litIt != s_literalIndexCache.end()) {
+                        litIdx = litIt->second;
+                    } else {
+                        std::string ks;
+                        key->toUTF8String(pContext, ks);
+                        litIdx = -1;
+                        if (!ks.empty() && ks.size() <= 10
+                            && (ks[0] != '0' || ks.size() == 1)
+                            && std::all_of(ks.begin(), ks.end(),
+                                   [](unsigned char c){ return c >= '0' && c <= '9'; })) {
+                            const long long v = std::stoll(ks);
+                            if (v < 4294967295LL) litIdx = v;
+                        }
+                        s_literalIndexCache[key] = litIdx;
+                    }
+                    if (litIdx >= 0) {
+                        const proto::ProtoString* ownElsKey = JSSymbols::arrayElements(pContext);
+                        const proto::ProtoString* ownArrKey = JSSymbols::isArray(pContext);
+                        if (ownElsKey && ownArrKey
+                            && obj->hasOwnAttribute(pContext, ownElsKey) == PROTO_TRUE
+                            && obj->getAttribute(pContext, ownArrKey, false) == PROTO_TRUE) {
+                            const proto::ProtoObject* litVal = (value && value != PROTO_NONE)
+                                ? value
+                                : (t_undefinedSentinel ? t_undefinedSentinel : PROTO_NONE);
+                            proto::ProtoContext::CriticalSection litCs(pContext);
+                            if (protojs::arrayTryFastSet(pContext, obj,
+                                    static_cast<proto::proto_ulong>(litIdx), litVal)) {
+                                stackPush(pContext, obj);
+                                DISPATCH();
+                            }
+                        }
+                    }
+                }
                 if (key && obj) {
                     const proto::ProtoObject* newObj = obj->setAttribute(pContext, key, value);
                     if (newObj && newObj != PROTO_NONE) {
@@ -9990,6 +10052,16 @@ const proto::ProtoObject* runBytecode(proto::ProtoContext* pContext,
                 const proto::ProtoList* apEls = protojs::getArrayElements(pContext, apArray);
                 if (!apEls) apEls = pContext->newList();
                 proto::ProtoContext::CriticalSection apCs(pContext);
+                // The spread starts at the running index, which is past the
+                // end of the list when elisions precede it (`[, ...x]`):
+                // those positions are holes.  Pre-fix the spread was
+                // appended at the end of the list, shifting it down over
+                // the holes.
+                if (apIdx > 0 && static_cast<proto::proto_ulong>(apIdx) - apEls->getSize(pContext)
+                                     <= protojs::kSparseFallbackThreshold) {
+                    while (static_cast<long long>(apEls->getSize(pContext)) < apIdx)
+                        apEls = apEls->appendLast(pContext, PROTO_NONE);
+                }
                 if (apSrcLen >= 0) {
                     // Array / TypedArray path.  Element reads must use
                     // arrayTryFastGet first (arrays now store their data
@@ -10003,7 +10075,13 @@ const proto::ProtoObject* runBytecode(proto::ProtoContext* pContext,
                             const proto::ProtoString* ik = JSSymbols::indexKey(pContext, static_cast<uint32_t>(i));
                             v = ik ? apIterable->getAttribute(pContext, ik, false) : PROTO_NONE;
                         }
-                        if (!v) v = PROTO_NONE;
+                        // Spread iterates its operand (§13.2.4.1), and the
+                        // array iterator yields undefined for a hole of the
+                        // source: the element is present, with value
+                        // undefined.  PROTO_NONE in __elements__ is a hole,
+                        // so store the undefined sentinel instead.
+                        if (!v || v == PROTO_NONE)
+                            v = t_undefinedSentinel ? t_undefinedSentinel : PROTO_NONE;
                         apEls = apEls->appendLast(pContext, v);
                         apIdx++;
                     }
@@ -15817,10 +15895,19 @@ const proto::ProtoObject* runBytecode(proto::ProtoContext* pContext,
                 // discipline as ArrayPrototype.push.
                 proto::ProtoContext::CriticalSection arrayFromCs(pContext);
                 const proto::ProtoList* list = pContext->newList();
+                // Every element here is an evaluated expression, so it is
+                // present even when its value is undefined.  PROTO_NONE in
+                // __elements__ marks a hole, and a variable that was never
+                // assigned still reads as PROTO_NONE, so `var u; [u]` used
+                // to produce a hole (`0 in [u]` was false): store the
+                // undefined sentinel for it.
+                const proto::ProtoObject* undefElem =
+                    t_undefinedSentinel ? t_undefinedSentinel : PROTO_NONE;
                 for (uint16_t i = 0; i < count; i++) {
                     const proto::ProtoObject* elem =
                         stackAt(pContext, static_cast<proto::proto_ulong>(count - 1 - i));
-                    list = list->appendLast(pContext, elem ? elem : PROTO_NONE);
+                    list = list->appendLast(pContext,
+                        (elem && elem != PROTO_NONE) ? elem : undefElem);
                 }
                 for (uint16_t i = 0; i < count; i++) stackPop(pContext);
                 if (list) protojs::setArrayElements(pContext, arr, list);

@@ -174,6 +174,7 @@ add_test(NAME cli/process-exit
 # Windows. The "js/" prefix keeps them inside the gating
 # `ctest -E "integration|network"` invocation.
 foreach(js_test
+        basic/array_elisions
         basic/class_closure
         basic/closure_scopes
         basic/closure_set_prototype
