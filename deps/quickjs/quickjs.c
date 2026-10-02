@@ -59711,15 +59711,9 @@ uint16_t protojs_bytecode_closure_var_count(void *bytecode) {
     return (uint16_t)b->closure_var_count;
 }
 
-/* A variable without a name (the hidden argument of a destructured parameter
-   is JS_ATOM_NULL) has none to convert: JS_AtomToCString(JS_ATOM_NULL) hands
-   back a buffer without a terminating NUL, which the caller's strlen read
-   past (AddressSanitizer: heap-buffer-overflow).  Return NULL instead. */
 const char* protojs_bytecode_closure_var_name(JSContext *ctx, void *bytecode, uint16_t idx) {
     JSFunctionBytecode *b = (JSFunctionBytecode *)bytecode;
     if (idx >= (uint16_t)b->closure_var_count)
-        return NULL;
-    if (b->closure_var[idx].var_name == JS_ATOM_NULL)
         return NULL;
     return JS_AtomToCString(ctx, b->closure_var[idx].var_name);
 }
@@ -59727,8 +59721,6 @@ const char* protojs_bytecode_closure_var_name(JSContext *ctx, void *bytecode, ui
 const char* protojs_bytecode_var_name(JSContext *ctx, void *bytecode, uint16_t idx) {
     JSFunctionBytecode *b = (JSFunctionBytecode *)bytecode;
     if (idx >= (uint16_t)(b->arg_count + b->var_count))
-        return NULL;
-    if (b->vardefs[idx].var_name == JS_ATOM_NULL)
         return NULL;
     return JS_AtomToCString(ctx, b->vardefs[idx].var_name);
 }
