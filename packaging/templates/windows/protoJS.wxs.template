@@ -1,6 +1,25 @@
 <?xml version="1.0" encoding="UTF-8"?>
-<!-- WiX template for protoJS MSI. Replace PUT-GUID-HERE-2 and PUT-GUID-HERE-3 with unique GUIDs (e.g. from uuidgen).
-     Product Id="*" generates a new GUID per build; UpgradeCode must be fixed for upgrades. -->
+<!-- WiX template for protoJS MSI. Replace PUT-GUID-HERE-1 to PUT-GUID-HERE-3 with unique GUIDs (e.g. from uuidgen).
+     Product Id="*" generates a new GUID per build; UpgradeCode must be fixed for upgrades.
+
+     The DLL names are preprocessor variables, because they are not protoJS's to
+     fix: they are the files `cmake --install` puts next to protojs.exe.
+       ProtoCoreDll      protoCore's DLL: protoCore.dll up to protoCore 2.8,
+                         protoCore-3.dll from 2.9.0 (named after its SOVERSION)
+       OpenSslCryptoDll  libcrypto-3-x64.dll for OpenSSL 3 on x64
+       OpenSslSslDll     libssl-3-x64.dll for OpenSSL 3 on x64
+     Pass the names found in the install's bin\ to candle, e.g.
+       candle -dProtoCoreDll=protoCore-3.dll protoJS.wxs
+     The defaults below are protoCore 2.9.0 and OpenSSL 3. -->
+<?ifndef ProtoCoreDll?>
+<?define ProtoCoreDll = "protoCore-3.dll"?>
+<?endif?>
+<?ifndef OpenSslCryptoDll?>
+<?define OpenSslCryptoDll = "libcrypto-3-x64.dll"?>
+<?endif?>
+<?ifndef OpenSslSslDll?>
+<?define OpenSslSslDll = "libssl-3-x64.dll"?>
+<?endif?>
 <Wix xmlns="http://schemas.microsoft.com/wix/2006/wi">
     <Product Id="*" Name="protoJS" Language="1033" Version="0.1.0.0" Manufacturer="protoJS Team" UpgradeCode="PUT-GUID-HERE-1">
         <Package InstallerVersion="200" Compressed="yes" InstallScope="perMachine" Platform="x64" />
@@ -16,8 +35,9 @@
              A Windows DLL carries no soname, so Soversion is the only ABI
              statement available and is what this condition tests. protoCore
              builds on Windows from 2.7.0, so any protoCore found here is one.
-             protojs.exe loads protoCore.dll by name: protoCore's bin\ must be
-             on PATH (its installer does not add it).
+             protojs.exe also gets its own copy of protoCore's DLL (whatever its
+             name, $(var.ProtoCoreDll)), as the ZIP does, so it does not depend
+             on protoCore's bin\ being on PATH.
              UNVERIFIED: never built - no WiX on the Windows host. -->
         <Property Id="PROTOCORE_SOVERSION">
             <RegistrySearch Id="ProtoCoreSoversionSearch" Root="HKLM"
@@ -57,10 +77,11 @@
         <ComponentGroup Id="ProductComponents" Directory="INSTALLFOLDER">
             <Component Id="protojs.exe" Guid="PUT-GUID-HERE-2" Win64="yes">
                 <File Id="protojs.exe" Source="protojs.exe" KeyPath="yes" />
-                <!-- OpenSSL 3, which protojs.exe links (cmake --install puts
-                     these two DLLs next to it). -->
-                <File Id="libcrypto.dll" Source="libcrypto-3-x64.dll" />
-                <File Id="libssl.dll" Source="libssl-3-x64.dll" />
+                <!-- The DLLs protojs.exe loads, which cmake --install puts
+                     next to it: protoCore's and OpenSSL's. -->
+                <File Id="protoCore.dll" Source="$(var.ProtoCoreDll)" />
+                <File Id="libcrypto.dll" Source="$(var.OpenSslCryptoDll)" />
+                <File Id="libssl.dll" Source="$(var.OpenSslSslDll)" />
             </Component>
         </ComponentGroup>
 

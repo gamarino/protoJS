@@ -138,7 +138,7 @@ productbuild --package protoJS-core.pkg \
 
 ### 2.4 Windows (.msi)
 
-`protoJS.wxs.template` is a WiX v3 source for an x64 MSI that installs `protojs.exe` under `Program Files\protoJS`, adds that directory to `PATH`, and refuses to install unless the registry key `HKLM\SOFTWARE\protoCore` or the file `[ProgramFiles64Folder]protoCore\protoCore.dll` exists. Its GUID placeholders (`PUT-GUID-HERE-1` to `PUT-GUID-HERE-3`) must be replaced before use. protoJS builds on Windows (see docs/INSTALLATION.md, "Windows (MSVC)"); the template asks for protoCore 2.7.0 and carries the OpenSSL DLLs `cmake --install` puts next to `protojs.exe`, but it has not been built (no WiX on the Windows host).
+`protoJS.wxs.template` is a WiX v3 source for an x64 MSI that installs `protojs.exe` under `Program Files\protoJS`, adds that directory to `PATH`, and refuses to install unless protoCore's installer has recorded ABI version 3 (`Soversion` under `HKLM\SOFTWARE\protoCore`). Its GUID placeholders (`PUT-GUID-HERE-1` to `PUT-GUID-HERE-3`) must be replaced before use. It carries the DLLs `cmake --install` puts next to `protojs.exe` -- protoCore's and OpenSSL's -- whose names are WiX preprocessor variables (`ProtoCoreDll`, `OpenSslCryptoDll`, `OpenSslSslDll`), because protoCore's DLL is `protoCore.dll` up to 2.8 and `protoCore-3.dll` from 2.9.0: pass the names found in the install's `bin\`, e.g. `candle -dProtoCoreDll=protoCore-3.dll`; the defaults are protoCore 2.9.0's and OpenSSL 3's. protoJS builds on Windows (see docs/INSTALLATION.md, "Windows (MSVC)"), but the template has not been built (no WiX on the Windows host). The CPack ZIP, which CI builds and runs, takes protoCore's DLL from the imported CMake target and needs no name at all.
 
 ---
 

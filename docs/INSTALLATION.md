@@ -182,8 +182,11 @@ How Windows differs, by design:
   default; while the event loop waits for work protojs sets it to 1 ms
   (`timeBeginPeriod`) and restores it when the loop ends.
 - **Stack.** `protojs.exe` reserves a 64 MiB stack, and every thread that
-  runs JavaScript -- `worker_threads` workers, and threads protoCore creates
-  (from protoCore 2.8.0) -- gets the same reservation. MSVC gives the
+  runs JavaScript -- `worker_threads` workers, and threads protoCore creates --
+  gets the same reservation (workers are created with it explicitly; protoJS
+  asks protoCore for it with `setThreadStackBytes`, which protoCore honours on
+  Windows from 2.9.0, and a thread created without a size gets the
+  executable's reservation anyway). MSVC gives the
   interpreter's `runBytecode` a frame of about 46 KiB (GCC: 7.7 KiB), so
   64 MiB allows about 1,400 nested JavaScript calls where Linux's 8 MiB allows
   about 1,000. As on Linux, going deeper ends the process instead of raising
@@ -195,8 +198,9 @@ How Windows differs, by design:
   calendar.
 
 Test status. CI (`.github/workflows/cross-platform.yml`) builds and tests
-Windows Server 2022 (MSVC, x64) twice -- against protoCore 2.8.0 and against
-2.7.0, the floor -- and macOS 14 (arm64), on every push to `master`:
+Windows Server 2022 (MSVC, x64) three times -- against protoCore 2.8.0, 2.9.0
+(whose DLL is `protoCore-3.dll`) and 2.7.0, the floor -- and macOS 14 (arm64,
+protoCore 2.8.0), on every push to `master`:
 
 - `ctest`: the whole suite with the Linux gate's exclusion (`-E
   "integration|network"`): 85 cases on 2026-10-02 -- the Catch2 units, the
@@ -212,7 +216,8 @@ Windows Server 2022 (MSVC, x64) twice -- against protoCore 2.8.0 and against
   ([TEST262_STATUS.md](TEST262_STATUS.md#property-enumeration-order)); there
   the gate's diff is reported, not enforced. The whole corpus is measured on
   Linux only.
-- The ZIP is built, unpacked into an empty directory and run with a PATH
+- The ZIP is built (with protoCore 2.8.0's `protoCore.dll` and with 2.9.0's
+  `protoCore-3.dll`), unpacked into an empty directory and run with a PATH
   holding only the Windows system directories.
 
 A 7,316-test Test262 subset was also run once by hand during the port, on a
@@ -284,7 +289,7 @@ sibling developer fallback was a hard error, and with no `-j` at any point.
 | Linux / Debian-Ubuntu | `packaging/build_deb.sh` as `protoJS` | **NOT BUILT — the script refuses, correctly.** See below. |
 | Linux / Fedora-RHEL | TGZ, RPM | **VERIFIED, with a caveat.** `cpack -G RPM` executed in a throwaway `fedora:41` container and the RPM installed and ran. It required a **writable** source tree; see below. |
 | macOS | `packaging/templates/macos/preinstall.template`, CPack DragNDrop | **UNVERIFIED.** Configured and reviewed only; there is no macOS host here. Review is not verification. |
-| Windows | CPack ZIP | **VERIFIED BY CI** (`cross-platform.yml`, Windows Server 2022, protoCore 2.8.0): `cpack -G ZIP` builds `protojs-0.1.0-win64.zip` with `protojs.exe`, `protojs.lib`, the protoCore DLL, the OpenSSL DLLs and licence and the Visual C++ runtime; CI unpacks it into an empty directory and runs a script that uses `crypto` with a `PATH` holding only the Windows system directories. The REPL from the ZIP is not exercised by CI (`cli/repl-commands` runs the build tree's `protojs.exe`). |
+| Windows | CPack ZIP | **VERIFIED BY CI** (`cross-platform.yml`, Windows Server 2022, protoCore 2.8.0 and 2.9.0): `cpack -G ZIP` builds `protojs-0.1.0-win64.zip` with `protojs.exe`, `protojs.lib`, the protoCore DLL, the OpenSSL DLLs and licence and the Visual C++ runtime; CI unpacks it into an empty directory and runs a script that uses `crypto` with a `PATH` holding only the Windows system directories. The REPL from the ZIP is not exercised by CI (`cli/repl-commands` runs the build tree's `protojs.exe`). |
 | Windows | `packaging/templates/windows/protoJS.wxs.template` (WiX v3), CPack NSIS | **UNVERIFIED.** No WiX and no NSIS on the Windows host. The WiX condition reads `HKLM\SOFTWARE\protoCore\Soversion`, which protoCore's NSIS installer writes — and that has never run either, so both halves of that check are unverified. |
 
 ### The hand-built `packaging/` pipeline is pinned to the wrong SONAME

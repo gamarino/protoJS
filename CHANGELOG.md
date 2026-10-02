@@ -81,8 +81,12 @@ All notable changes to protoJS are documented in this file.
   (`InstallRequiredSystemLibraries`).
 - Cross-platform CI (macOS, Windows) now also runs the Test262 per-commit
   regression gate with the Linux baseline, the asserting JavaScript fixtures,
-  a Windows job on protoCore 2.7.0 (the floor), the ZIP from an empty
-  directory with a system-only `PATH`, and an informational dispatch timing.
+  Windows jobs on protoCore 2.7.0 (the floor) and 2.9.0 (`protoCore-3.dll`),
+  the ZIP from an empty directory with a system-only `PATH`, and an
+  informational dispatch timing.
+- The WiX template names its DLLs through preprocessor variables
+  (`ProtoCoreDll`, default `protoCore-3.dll`; `OpenSslCryptoDll`,
+  `OpenSslSslDll`) and carries protoCore's DLL next to `protojs.exe`.
 - More asserting fixtures are registered with CTest (crypto, Deferred, native
   addons, `tests/conformity`), so they run on all three platforms.
 - MSVC `/W3`: the 79 conversion warnings it reported in protoJS's sources are
