@@ -1,9 +1,10 @@
 // Several Deferreds in flight at the same time.
 //
-// A Deferred runs its function on a later turn of the event loop, on the
-// thread that runs the script — not on a worker thread. This test checks that
-// several pending Deferreds all settle, and that the values are not mixed up.
-// For genuinely parallel CPU work see protoCore.runInThread.
+// A Deferred runs its function on a thread of the Deferred pool, in parallel
+// with the script and with the other Deferreds. This test checks that several
+// pending Deferreds all settle, and that the values are not mixed up. It waits
+// for them with Promise.all: a fixed number of event-loop hops says nothing
+// about when work on other threads finishes.
 //
 // Asserting test: prints the failures and exits 1 when anything is wrong.
 
@@ -40,12 +41,7 @@ for (var i = 0; i < COUNT; i++) {
 }
 check("created " + COUNT + " deferreds", deferreds.length === COUNT);
 
-var hops = 0;
 function step() {
-    if (++hops < 30) {
-        setImmediate(step);
-        return;
-    }
     // sum of 0..99999
     var expectedSum = 4999950000;
     for (var k = 0; k < COUNT; k++) {
@@ -65,4 +61,7 @@ function step() {
     console.log("concurrent_deferred: all checks passed");
 }
 
-setImmediate(step);
+Promise.all(deferreds).then(step, function (e) {
+    console.log("concurrent_deferred: a Deferred rejected: " + e);
+    process.exit(1);
+});

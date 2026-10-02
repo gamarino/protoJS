@@ -2,7 +2,7 @@
 #
 # CLI check: an exception nobody catches ends the process with status 1, as in
 # Node, wherever it is thrown -- in the main script, in an event-loop callback
-# (setImmediate, an fs callback, a Deferred reaction) -- and so does a promise
+# (setImmediate, an fs callback, a promise or Deferred reaction) -- and so does a promise
 # rejection that no handler has claimed by the end of the turn that produced it
 # (Node's default since v15, --unhandled-rejections=throw).
 #
@@ -125,6 +125,23 @@ cat > unhandled-non-error.js <<'EOF'
 Promise.reject(42);
 EOF
 run_case unhandled-non-error 1 "42" ""
+
+# A Deferred is a promise: a function that throws on its pool thread rejects
+# it, on the owner thread, and nobody handles that rejection.
+cat > unhandled-deferred.js <<'EOF'
+console.log('deferred-rejection: before');
+new Deferred(function () { throw new Error('boom-deferred-fn'); });
+EOF
+run_case unhandled-deferred 1 "boom-deferred-fn" "deferred-rejection: before"
+
+cat > deferred-then-throw.js <<'EOF'
+// A reaction that throws rejects the promise then() returned; unhandled.
+new Deferred(function () { return 1; }).then(function () {
+    console.log('deferred-then: before');
+    throw new RangeError('boom-deferred-then');
+});
+EOF
+run_case deferred-then-throw 1 "boom-deferred-then" "deferred-then: before"
 
 cat > unhandled-async-throw.js <<'EOF'
 // A throw after an await rejects the async function's promise; nobody handles
