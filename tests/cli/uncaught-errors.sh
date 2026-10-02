@@ -179,6 +179,37 @@ EOF
 run_case caught-in-callback 0 "" "caught inner
 second"
 
+# A TypeError raised by a native store (strict-mode writes to a frozen object,
+# by name, by Symbol and by index) and caught must leave nothing pending: the
+# store paths cleared the exception but not the "a native call threw" flag, so
+# the next native call (console.log) re-threw it -- silently swallowing output,
+# and fatal at the end of the turn.
+cat > caught-native-store.js <<'EOF2'
+'use strict';
+var sym = Symbol('s');
+var obj = { a: 1, 0: 'x' };
+obj[sym] = 1;
+Object.freeze(obj);
+try { obj[sym] = 2; } catch (e) { console.log('symbol ' + e.name); }
+console.log('after symbol');
+try { obj.a = 2; } catch (e) { console.log('name ' + e.name); }
+console.log('after name');
+try { obj[0] = 'y'; } catch (e) { console.log('index ' + e.name); }
+console.log('after index');
+setImmediate(function () {
+    try { obj[sym] = 3; } catch (e) { console.log('callback ' + e.name); }
+    console.log('after callback');
+});
+EOF2
+run_case caught-native-store 0 "" "symbol TypeError
+after symbol
+name TypeError
+after name
+index TypeError
+after index
+callback TypeError
+after callback"
+
 if [ "$FAILED" -ne 0 ]; then
     exit 1
 fi

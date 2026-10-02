@@ -9636,6 +9636,7 @@ const proto::ProtoObject* runBytecode(proto::ProtoContext* pContext,
                     pending_exception = t_callException;
                     has_pending_exception = true;
                     t_callException = nullptr;
+                    t_hasCallException = false;  // consumed: a stale flag re-threw at the next native call
                     DISPATCH();
                 }
 
@@ -11549,6 +11550,7 @@ const proto::ProtoObject* runBytecode(proto::ProtoContext* pContext,
                         pending_exception = t_callException;
                         has_pending_exception = true;
                         t_callException = nullptr;
+                        t_hasCallException = false;  // consumed: a stale flag re-threw at the next native call
                         DISPATCH();
                     }
                     if (newObj) {
@@ -11664,6 +11666,7 @@ const proto::ProtoObject* runBytecode(proto::ProtoContext* pContext,
                             pending_exception = t_callException;
                             has_pending_exception = true;
                             t_callException = nullptr;
+                            t_hasCallException = false;  // consumed: a stale flag re-threw at the next native call
                             DISPATCH();
                         }
                         if (newObj && newObj != obj) updateMapping(pContext, obj, newObj);
