@@ -1,0 +1,17 @@
+await native@1
+await value@1
+return value@1
+queueMicrotask@1
+await thenable@2
+return await promise@2
+catch-then@2
+all1@2
+race1@2
+any1@2
+allSettled1@2
+asyncgen next@2
+for-await body@2
+return promise@3
+await subclass@3
+finally@4
+for-await end@4
