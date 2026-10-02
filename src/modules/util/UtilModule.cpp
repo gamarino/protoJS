@@ -2,6 +2,9 @@
 #include "../../ProtoNativeModule.h"
 #include "../../ArrayElementsStorage.h"
 #include "../../JSSymbols.h"
+#include "../../JSContext.h"
+#include "../../runtime/ProtoInterpreter.h"
+#include "UtilInspectSource.h"  // generated: kUtilInspectSource
 #include <string>
 
 namespace protojs {
@@ -115,38 +118,59 @@ const proto::ProtoObject* typesIsDate(
 }
 
 // ---- inspect / format --------------------------------------------------
+//
+// util.inspect, util.format and util.formatWithOptions are written in
+// JavaScript (src/modules/util/inspect.js, a port of Node's), because what they
+// print is defined in terms of JavaScript operations -- typeof, String(),
+// Number(), parseInt, JSON.stringify, the prototype chain and own keys -- and
+// the interpreter already implements those. The build embeds the source; it is
+// compiled once per JavaScript context, on the first call, and the object it
+// returns is kept on the native global (a GC root) under a private name. The
+// native functions below forward their arguments to it; an exception the
+// JavaScript raises stays pending and propagates to the caller.
 
-void inspectInto(proto::ProtoContext* ctx,
-                  const proto::ProtoObject* v, std::string& out) {
-    if (!ctx || !v || v == PROTO_NONE || v->isNone(ctx)) {
-        out += "undefined";
-        return;
+const proto::ProtoObject* inspectImplementation(proto::ProtoContext* ctx) {
+    JSContextWrapper* wrapper = JSContextWrapper::current();
+    if (!ctx || !wrapper) return nullptr;
+    const proto::ProtoObject* g = wrapper->getNativeGlobal();
+    const proto::ProtoObject* keyObj = ctx->fromUTF8String("__pjs_util_inspect__");
+    const proto::ProtoString* key = keyObj ? keyObj->asString(ctx) : nullptr;
+    if (!g || !key) return nullptr;
+    const proto::ProtoObject* cached = g->getAttribute(ctx, key, false);
+    if (cached && cached != PROTO_NONE) return cached;
+
+    const std::string source(reinterpret_cast<const char*>(kUtilInspectSource),
+                             kUtilInspectSourceSize);
+    const proto::ProtoObject* factory =
+        wrapper->evalIsolatedToProto(source, "protojs:internal/util/inspect.js");
+    if (!factory || factory == PROTO_NONE || hasCallException()) return nullptr;
+    const proto::ProtoObject* impl =
+        callJSFunction(ctx, factory, PROTO_NONE, ctx->newList());
+    if (!impl || impl == PROTO_NONE || hasCallException()) return nullptr;
+    // The global is mutable, so this publishes in place; re-read it, since the
+    // evaluation may have re-bound the pointer.
+    g = wrapper->getNativeGlobal();
+    if (g) g->setAttribute(ctx, key, impl);
+    return impl;
+}
+
+const proto::ProtoObject* callInspectFunction(proto::ProtoContext* ctx,
+                                               const char* name,
+                                               const proto::ProtoList* args) {
+    if (!ctx) return PROTO_NONE;
+    const proto::ProtoObject* impl = inspectImplementation(ctx);
+    if (!impl) {
+        if (!hasCallException()) {
+            signalNativeException(makeNativeError(ctx, "Error",
+                "util: the inspect implementation failed to load"));
+        }
+        return PROTO_NONE;
     }
-    if (v->isString(ctx)) {
-        std::string s;
-        v->asString(ctx)->toUTF8String(ctx, s);
-        out += s;
-        return;
-    }
-    if (v->isBoolean(ctx)) {
-        out += v->asBoolean(ctx) ? "true" : "false";
-        return;
-    }
-    if (v->isInteger(ctx)) {
-        out += std::to_string(v->asLong(ctx));
-        return;
-    }
-    if (v->isDouble(ctx)) {
-        char buf[64];
-        snprintf(buf, sizeof(buf), "%g", v->asDouble(ctx));
-        out += buf;
-        return;
-    }
-    if (isArrayObj(ctx, v)) {
-        out += "[Array]";
-        return;
-    }
-    out += "[Object]";
+    const proto::ProtoObject* nameObj = ctx->fromUTF8String(name);
+    const proto::ProtoString* key = nameObj ? nameObj->asString(ctx) : nullptr;
+    const proto::ProtoObject* fn = key ? impl->getAttribute(ctx, key, false) : nullptr;
+    if (!fn || fn == PROTO_NONE) return PROTO_NONE;
+    return callJSFunction(ctx, fn, impl, args ? args : ctx->newList());
 }
 
 const proto::ProtoObject* utilInspect(
@@ -155,12 +179,7 @@ const proto::ProtoObject* utilInspect(
     const proto::ParentLink*,
     const proto::ProtoList* args,
     const proto::ProtoSparseList*) {
-    if (!ctx || !args || args->getSize(ctx) == 0) {
-        return ctx ? ctx->fromUTF8String("undefined") : PROTO_NONE;
-    }
-    std::string s;
-    inspectInto(ctx, args->getAt(ctx, 0), s);
-    return ctx->fromUTF8String(s.c_str());
+    return callInspectFunction(ctx, "inspect", args);
 }
 
 const proto::ProtoObject* utilFormat(
@@ -169,23 +188,16 @@ const proto::ProtoObject* utilFormat(
     const proto::ParentLink*,
     const proto::ProtoList* args,
     const proto::ProtoSparseList*) {
-    // Minimal Node-compatible behaviour: when the first argument is a
-    // string, return it verbatim; otherwise inspect each argument and
-    // join with single spaces.  Matches the original QuickJS-side
-    // module's externally observable surface.
-    if (!ctx || !args || args->getSize(ctx) == 0)
-        return ctx ? ctx->fromUTF8String("") : PROTO_NONE;
-    const proto::ProtoObject* first = args->getAt(ctx, 0);
-    if (first && first->isString(ctx)) {
-        return first;
-    }
-    std::string out;
-    long long n = static_cast<long long>(args->getSize(ctx));
-    for (long long i = 0; i < n; ++i) {
-        if (i > 0) out += ' ';
-        inspectInto(ctx, args->getAt(ctx, static_cast<int>(i)), out);
-    }
-    return ctx->fromUTF8String(out.c_str());
+    return callInspectFunction(ctx, "format", args);
+}
+
+const proto::ProtoObject* utilFormatWithOptions(
+    proto::ProtoContext* ctx,
+    const proto::ProtoObject* /*self*/,
+    const proto::ParentLink*,
+    const proto::ProtoList* args,
+    const proto::ProtoSparseList*) {
+    return callInspectFunction(ctx, "formatWithOptions", args);
 }
 
 const proto::ProtoObject* utilPromisify(
@@ -224,10 +236,11 @@ const proto::ProtoObject* UtilModule::init(
         {"promisify", utilPromisify},
         {"inspect",   utilInspect},
         {"format",    utilFormat},
+        {"formatWithOptions", utilFormatWithOptions},
         NATIVE_MODULE_END
     };
     const proto::ProtoObject* mod =
-        ProtoNativeModule::buildModule(ctx, utilEntries, 3);
+        ProtoNativeModule::buildModule(ctx, utilEntries, 4);
     if (!mod) return globalObj;
     const proto::ProtoString* tk = ctx->fromUTF8String("types")->asString(ctx);
     if (tk) mod = mod->setAttribute(ctx, tk, types);
