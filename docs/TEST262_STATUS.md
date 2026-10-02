@@ -4,9 +4,9 @@ This page holds protoJS's **one authoritative Test262 figure**. Every other
 Test262 number in this repository is historical or a named subset, and says so
 where it appears. If two figures ever disagree again, this one wins.
 
-## Headline figure — as of 2026-09-26
+## Headline figure — as of 2026-10-02
 
-**28,529 of 53,571 tests pass — 53.25 %** of the whole Test262 corpus.
+**32,373 of 53,571 tests pass — 60.43 %** of the whole Test262 corpus.
 
 Reproduce it:
 
@@ -20,26 +20,28 @@ node tests/test262/runner/test262_runner.js
 
 The runner prints the figure, its denominator, the corpus commit and the wall
 clock at the end of the run, and writes the same fields into its JSON snapshot.
-Quote the run, not this page.
+Quote the run, not this page. Since 2026-10-02 the CI job that measures the
+whole corpus keeps the runner's log and snapshot as the artifact
+`test262-whole-corpus`, so two runs can be compared test by test.
 
 | Field | Value |
 |---|---|
-| Date | 2026-09-26 |
+| Date | 2026-10-02 |
+| Run | GitHub Actions CI run 37041194943 (workflow_dispatch, Ubuntu runner), branch `feature/spec-promises` at `0e343f754`, merged to master the same day |
 | Corpus | `../test262` at commit `aae8cf6eed6d6c6a203be48c1184bb194880f66b` |
 | Scope | the whole corpus: `annexB`, `built-ins`, `harness`, `intl402`, `language`, `staging` |
 | Discovered | 53,582 files (every `.js` under `test/` that is not a `_FIXTURE`) |
 | Skipped | 11 (the skip list; see below) |
 | Denominator | 53,571 |
-| Passed | **28,529** |
-| Failed — semantics | 22,845 |
-| Failed — syntax | 1,241 |
+| Passed | **32,373** |
+| Failed — semantics | 19,036 |
+| Failed — syntax | 1,239 |
 | Failed — negative (engine accepted source Test262 requires it to reject) | 7 |
-| Failed — async (no `Test262:AsyncTestComplete`) | 336 |
-| Timeouts (5,000 ms each) | 613 |
-| Pass rate | **53.25 %** |
-| Wall clock | 4,849 s (1 h 21 min), sequential, `TEST262_CONCURRENCY=1` |
-| Binary | `build_release/protojs`, protoJS `0736a0511` plus the strict classification introduced with this measurement |
-| protoCore | 2.5.0 (`df8406a3`), `libprotoCore.so.3` from `../protoCore/build_release`, confirmed by `ldd` |
+| Failed — async (no `Test262:AsyncTestComplete`) | 682 |
+| Timeouts (5,000 ms each) | 234 |
+| Pass rate | **60.43 %** |
+| Wall clock | 3,364 s (56 min), sequential, `TEST262_CONCURRENCY=1` |
+| protoCore | 2.7.0 (`fc5d79db`), the CI pin |
 
 `TEST262_CONCURRENCY=1` is not a preference. Parallel Test262 runs and parallel
 protoJS builds (`-j` greater than 1) hang the development machine, so the build
@@ -50,18 +52,42 @@ is `-j1` and the run is sequential.
 | Directory | Denominator | Passed | Pass rate |
 |---|---:|---:|---:|
 | `annexB` | 1,086 | 545 | 50.18 % |
-| `built-ins` | 23,814 | 12,874 | 54.06 % |
-| `harness` | 116 | 87 | 75.00 % |
+| `built-ins` | 23,814 | 13,731 | 57.66 % |
+| `harness` | 116 | 90 | 77.59 % |
 | `intl402` | 3,357 | 20 | 0.60 % |
-| `language` | 23,715 | 14,368 | 60.59 % |
-| `staging` | 1,483 | 635 | 42.82 % |
-| **Whole corpus** | **53,571** | **28,529** | **53.25 %** |
+| `language` | 23,715 | 17,339 | 73.11 % |
+| `staging` | 1,483 | 648 | 43.70 % |
+| **Whole corpus** | **53,571** | **32,373** | **60.43 %** |
 
 Subordinate view, for comparison with engines that publish it: excluding
 `intl402` (no ECMA-402 in protoJS) and `staging` (not normative in Test262),
-**27,874 of 48,731 = 57.20 %**. This is *not* the headline. The headline
+**31,705 of 48,731 = 65.06 %**. This is *not* the headline. The headline
 includes both, because leaving them out raises the number without improving the
 engine.
+
+### What changed since the previous figures
+
+- **2026-10-02, promises and async functions** (job queue, reactions, `await`
+  that suspends, async generators, `for await`). Against master measured the
+  same way the same day (CI run 37020796879: 29,083 passed, 54.29 %), 3,290
+  tests newly pass and none regresses, compared test by test from the two
+  runs' snapshots. The gains: `language/statements/for-await-of` 1,070,
+  `language/{expressions,statements}/class` 828 (async and async-generator
+  methods), `language/{expressions,statements}/async-generator` 579,
+  `built-ins/Promise` 370, `language/expressions/object` 192 (async methods),
+  `language/expressions/dynamic-import` 57, `language/eval-code/direct` 48,
+  `language/arguments-object` 40, `built-ins/AsyncGeneratorPrototype` 29,
+  `built-ins/AsyncFromSyncIteratorPrototype` 19, async functions and arrows
+  38, `harness` 3, others 17. About 41 of the 3,290 come from the runner now
+  passing `--unhandled-rejections=none` (see Exclusion policy): the branch
+  before that change and two fixes (`Promise.try`'s 2026 revision, a
+  combinator whose capability's resolve throws) passed 32,326 (CI run
+  37026191926); 47 tests separate the runs, six of them the two fixes. `failed (async)` rose from
+  335 to 682 because many more async tests now run to `$DONE` and report a
+  failure there, instead of failing earlier.
+- **2026-09-26** (local, protoCore 2.5.0): 28,529 of 53,571, 53.25 %
+  (`annexB` 545, `built-ins` 12,874, `harness` 87, `intl402` 20, `language`
+  14,368, `staging` 635).
 
 ## Exclusion policy
 
@@ -107,11 +133,12 @@ protoJS's, stated in Test262's own terms.
   step throws, for example). protojs's default is Node's, which ends the
   process with status 1; engine shells ignore such rejections.
 - **Timeouts.** 5,000 ms per test (`default_timeout_ms`), counted as failures.
-  613 tests time out. 384 of them are in
-  `built-ins/RegExp/property-escapes/generated`, which alone costs about 35
-  minutes of the run; the rest are spread over class, object-literal,
-  async-generator and `for-of` tests. The timeouts, not the pass rate, are what
-  make this measurement slow.
+  234 tests time out on the CI runner (2026-10-02), none of them in
+  `built-ins/RegExp/property-escapes`; the largest groups are class (72),
+  object-literal (18), `for await` (18), async-generator and `for-of` tests.
+  On the development machine (2026-09-26) 613 timed out, 384 of them in
+  `built-ins/RegExp/property-escapes/generated`: the limit is wall-clock, so
+  the count depends on the machine.
 
 ### Known deviation from Test262's execution model
 
