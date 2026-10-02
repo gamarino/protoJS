@@ -41,6 +41,14 @@ All notable changes to protoJS are documented in this file.
   `[...x, ,]` evaluated to a number; a spread after an elision lost the
   elision; a spread of an array with holes produced holes instead of
   `undefined`; `var u; 0 in [u]` was false. Test: `js/basic/array_elisions`.
+  The Test262 gate (`built-ins/{Object,Reflect,Proxy}`) gains two tests that
+  build array literals longer than 32 elements: 3619 -> 3621 of 3875 on Linux
+  and macOS CI; the baseline records them.
+- **A caught native TypeError no longer resurfaces.** `put_field` and
+  `put_array_el` cleared a native exception's value but not its flag, so after
+  a script caught, say, a strict-mode write to a frozen object, the next native
+  call (`console.log`) re-threw it and output vanished. Test: case
+  `caught-native-store` in `cli/uncaught-errors`.
 - **Uncaught errors end the process with status 1.** An exception escaping an
   event-loop callback was printed (or, for `setImmediate`, dropped) and the
   process exited with 0; an unhandled promise rejection was not reported;
