@@ -17,6 +17,13 @@ public:
     static const proto::ProtoObject* init(
         proto::ProtoContext* ctx,
         const proto::ProtoObject* globalObj);
+
+    /**
+     * @brief Callback-API operations (fs.readFile(path, cb) and siblings)
+     *        whose callback has not run yet.  The event-loop drain in
+     *        main.cpp waits for them.
+     */
+    static int getActiveCount();
 };
 
 } // namespace protojs

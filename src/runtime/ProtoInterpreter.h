@@ -117,10 +117,17 @@ void signalNativeException(const proto::ProtoObject* errorObj);
  * Create an Error-like ProtoObject of the given type (e.g. "TypeError") with message.
  * Equivalent to the internal makeError() helper but accessible from native code.
  * The object inherits from the matching error prototype so `instanceof` works.
+ *
+ * The prototype is read from `globalRoot`, by default the global of the active
+ * runBytecode frame.  Code running outside any frame -- an event-loop callback
+ * that builds an error before calling into JavaScript -- has no such global and
+ * must pass the wrapper's (getNativeGlobalRootPtr()); otherwise the result is a
+ * plain object that is not an `instanceof Error`.
  */
 const proto::ProtoObject* makeNativeError(proto::ProtoContext* ctx,
                                           const char* errorType,
-                                          const char* message);
+                                          const char* message,
+                                          const proto::ProtoObject* const* globalRoot = nullptr);
 
 /**
  * Returns true if a JS callback called via callJSFunction() set a pending

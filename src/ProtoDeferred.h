@@ -76,4 +76,19 @@ public:
     static int getActiveCount();
 };
 
+/**
+ * Consume an exception a user callback left pending (callJSFunction reports a
+ * throw through a thread-local flag) and report it on stderr as
+ * "Uncaught exception in <where>: <name>: <message>". Every site that invokes a
+ * user callback from the event loop must call it, or the next native call on
+ * the thread believes that it has thrown.
+ */
+void drainCallbackException(proto::ProtoContext* ctx, const char* where);
+
+/**
+ * Whether a value is callable: a raw ProtoMethod, a wrapped native function, a
+ * bytecode closure or a bound function.
+ */
+bool isCallableValue(proto::ProtoContext* ctx, const proto::ProtoObject* v);
+
 }  // namespace protojs

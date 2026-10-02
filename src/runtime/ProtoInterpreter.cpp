@@ -17423,8 +17423,10 @@ void signalNativeException(const proto::ProtoObject* errorObj) {
 
 const proto::ProtoObject* makeNativeError(proto::ProtoContext* ctx,
                                           const char* errorType,
-                                          const char* message) {
-    return makeError(ctx, errorType, message, t_currentGlobalRoot);
+                                          const char* message,
+                                          const proto::ProtoObject* const* globalRoot) {
+    return makeError(ctx, errorType, message,
+                     globalRoot ? globalRoot : t_currentGlobalRoot);
 }
 
 bool hasCallException() {

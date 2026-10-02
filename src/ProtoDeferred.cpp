@@ -41,6 +41,8 @@ DeferredKeys& keys(proto::ProtoContext* ctx) {
     return k;
 }
 
+}  // namespace
+
 // A value is callable when it is a raw ProtoMethod, a wrapped native
 // function, a bytecode closure or a bound function.  Same test the
 // interpreter applies to Proxy traps (ProtoInterpreter.cpp).
@@ -61,7 +63,8 @@ bool isCallableValue(proto::ProtoContext* ctx, const proto::ProtoObject* v) {
 // callJSFunction reports a throw by setting a thread-local flag and returning
 // PROTO_NONE.  Nothing in the event loop consumes that flag, so leaving it set
 // made the next native call on this thread believe that IT had thrown.  Every
-// site that invokes a user callback must drain it.
+// site that invokes a user callback must drain it.  Declared in
+// ProtoDeferred.h for the other modules that invoke callbacks (fs).
 void drainCallbackException(proto::ProtoContext* ctx, const char* where) {
     if (!hasCallException()) return;
     const proto::ProtoObject* exc = consumeCallException();
@@ -91,6 +94,8 @@ void drainCallbackException(proto::ProtoContext* ctx, const char* where) {
     if (errStr.empty()) errStr = "Error";
     std::cerr << "Uncaught exception in " << where << ": " << errStr << std::endl;
 }
+
+namespace {
 
 // Active-count for the event-loop drain.  Atomic because resolveFromAsync
 // runs on the main thread but the worker thread may have already

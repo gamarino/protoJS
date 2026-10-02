@@ -242,6 +242,11 @@ inline int statPath(const char* path, StatBuf* st) {
 }
 inline int unlinkPath(const char* path) { return ::_wunlink(widen(path).c_str()); }
 inline int rmdirPath(const char* path) { return ::_wrmdir(widen(path).c_str()); }
+inline int mkdirPath(const char* path) { return ::_wmkdir(widen(path).c_str()); }
+// fopen on a UTF-8 path; errno is set on failure.
+inline std::FILE* fopenPath(const char* path, const char* mode) {
+    return ::_wfopen(widen(path).c_str(), widen(mode).c_str());
+}
 
 // mktime over the whole range of a JavaScript date: outside the C runtime's
 // 1970..3000 the year is moved by whole 400-year cycles (same calendar), as in
@@ -284,6 +289,7 @@ inline bool isAbsolutePath(const std::string& p) {
 
 #include <cerrno>
 #include <climits>
+#include <cstdio>
 #include <cstdlib>
 
 namespace protojs::platform {
@@ -304,6 +310,10 @@ using StatBuf = struct ::stat;
 inline int statPath(const char* path, StatBuf* st) { return ::stat(path, st); }
 inline int unlinkPath(const char* path) { return ::unlink(path); }
 inline int rmdirPath(const char* path) { return ::rmdir(path); }
+inline int mkdirPath(const char* path) { return ::mkdir(path, 0777); }
+inline std::FILE* fopenPath(const char* path, const char* mode) {
+    return std::fopen(path, mode);
+}
 inline std::time_t mktime(std::tm* tm) { return ::mktime(tm); }
 
 inline constexpr const char* kPathSeparators = "/";
