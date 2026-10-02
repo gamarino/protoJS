@@ -4,6 +4,16 @@ All notable changes to protoJS are documented in this file.
 
 ## [Unreleased]
 
+### Documented — property enumeration order is a deliberate deviation (2026-10-02)
+
+Object keys are reported in protoCore's attribute order (the addresses of the
+interned key names), not insertion order. This was listed as a pending
+failure; it is now a decided deviation: protoCore's object model, shared by
+every protoCore runtime, is not changed for it. `docs/API_REFERENCE.md`
+("Deliberate deviations") explains it with an example and the remedies (sort
+the keys, or use a `Map`); `docs/TEST262_STATUS.md` and the README say the
+same, and the Windows Test262 jobs keep reporting without gating.
+
 ### Changed — Promises and async functions follow ECMA-262 (2026-10-02)
 
 Promises used a "synchronous model": `then()` on a settled promise ran its

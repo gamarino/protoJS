@@ -178,8 +178,14 @@ gives `Object.keys(o)` = `mid, zeta, alpha` on Linux, where Node gives
 `zeta, alpha, mid`. The addresses depend on the allocator's history: the same
 run after run on one platform, different on another. A test that observes key
 order can therefore pass on one platform and fail on another with nothing
-wrong in either build. Fixing it needs insertion-ordered attributes in the
-object model (protoCore), which is outside protoJS.
+wrong in either build.
+
+**This is a deliberate deviation, decided on 2026-10-02.** Insertion order would
+need insertion-ordered attributes in protoCore's object model, which every
+runtime of the family shares; protoCore's object model is not changed for it.
+Programs that need a defined key order sort the keys explicitly or use a `Map`,
+which keeps insertion order as the specification requires (see
+[API_REFERENCE.md](API_REFERENCE.md#deliberate-deviations)).
 
 Symbol-keyed properties are not affected: since 2026-10-02 every report of
 symbol keys orders them by the symbols' creation, after the string keys and
@@ -193,8 +199,8 @@ and the tests that observe key order
 change verdict between two runs of the same commit (fe611bd94: exact baseline
 in cross-platform run 36973056352; `defineProperties/15.2.3.7-6-a-93-1` and
 `-93-3` failing in run 36973932562). The Windows jobs therefore run the gate
-and report its diff, but do not fail on it, until property order is insertion
-order.
+and report its diff, but do not fail on it. Since the deviation is permanent,
+so is that arrangement: the Linux and macOS jobs gate, the Windows jobs report.
 
 ---
 
