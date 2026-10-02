@@ -1,17 +1,32 @@
-# Interpreter dispatch: computed goto, switch, and the runBytecode frame
+# Interpreter dispatch: switch, the former computed goto, and the runBytecode frame
 
 protoJS's interpreter (`src/runtime/ProtoInterpreter.cpp`, `runBytecode`)
-dispatches each opcode in one of two ways, chosen at compile time:
+dispatches each opcode through one `switch` over the opcode, generated from
+`PROTOJS_DISPATCH_TARGETS`, on every compiler. Every handler ends with
+`DISPATCH()`, a plain `goto` to that switch.
 
-| Build | Dispatch | Why |
-|---|---|---|
-| GCC (Linux) | computed goto through a label table | GCC's extension; the historical default |
-| Clang (macOS, and Linux with Clang) | `switch` over the opcode | Clang provides computed goto but rejects this loop: an indirect goto may reach every label and crosses the initialisation of block-scoped locals |
-| MSVC (Windows) | `switch` over the opcode | MSVC has no computed goto |
+Until October 2026 the GCC build jumped through a table of label addresses
+instead (GCC's computed goto), and Clang and MSVC used the switch. **The
+computed goto was removed because it was incorrect, not because it was slow.**
+A computed goto does not run the destructors of the scopes it leaves, and many
+handlers dispatch from inside a scope that holds an RAII guard -- a
+`ProtoContext::CriticalSection`, a restorer of the interpreter's thread-local
+call state, a `std::string`. Every such dispatch leaked its guard. A leaked
+`CriticalSection` kept the frame's critical-section depth above zero, so no
+safepoint handed the frame's young generation to the collector and everything
+the frame allocated stayed a root until it returned: writing one array element
+a million times exhausted any heap ceiling, and `x = [i]` in a loop overshot a
+19 MB ceiling to 1.3 GB. A plain `goto` leaves scopes normally. The
+measurements below (made before the removal) show the switch costs GCC no
+more than the label table, so the table was removed rather than kept behind an
+option; defining `PROTOJS_COMPUTED_GOTO` to 1 is now a compile error.
+`tests/cli/gc-stress.sh` with `tests/integration/gc/frame_garbage_is_collected.js`
+(ctest `cli/gc-frame-garbage`) is the regression test.
 
-Both are generated from one list (`PROTOJS_DISPATCH_TARGETS`).
-`-DPROTOJS_COMPUTED_GOTO=0` builds GCC with the switch, which separates the
-effect of the dispatch from the effect of the compiler.
+After the removal, the same machine and method as below, GCC 13.3.0:
+`loop_sum` 4.50 G cycles (±0.7 %), 13.69 G instructions; `call_fib` 4.50 G
+cycles (±0.8 %), 10.58 G instructions, 5.55 M branch misses -- within the
+spread of the computed-goto figures in the first row of the table below.
 
 The review of the Windows port raised three questions: does the shared
 indirect branch of the switch cost much, does MSVC inline the per-opcode
@@ -37,6 +52,9 @@ AMD Ryzen 5 5500U (Zen 2), Ubuntu 24.04, GCC 13.3.0, Clang 17.0.6, protoCore
 `perf stat -r 3 -e cycles,instructions,branches,branch-misses`; each
 configuration was measured twice for `loop_sum` and the runs agreed to within
 the stated spread.
+
+Measured before the removal, when GCC could still build either dispatch
+(`-DPROTOJS_COMPUTED_GOTO=0` selected the switch):
 
 | Build | `loop_sum` cycles | instructions | `call_fib` cycles | instructions | branch misses (`call_fib`) |
 |---|---|---|---|---|---|

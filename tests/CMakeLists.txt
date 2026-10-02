@@ -122,6 +122,20 @@ add_test(NAME cli/toplevel-bindings-survive-gc
             "${CMAKE_CURRENT_BINARY_DIR}/cli-scratch/toplevel-bindings"
             50)
 
+# GC safety under a small heap ceiling (tests/cli/gc-stress.sh; the scripts are
+# in tests/integration/gc/, each with its defect described at the top).
+#
+# gc-frame-garbage: a long-running frame's garbage is collected. The GCC build
+# dispatched with a computed goto, which skips the destructors of the scopes it
+# leaves, so a handler that dispatched from inside a CriticalSection leaked it
+# and the frame's young generation was never handed to the collector: one array
+# element written in a loop exhausted any ceiling. One run, about 10 s.
+add_test(NAME cli/gc-frame-garbage
+    COMMAND ${PROTOJS_SH} "${CMAKE_CURRENT_SOURCE_DIR}/cli/gc-stress.sh"
+            "$<TARGET_FILE:protojs>" 1 400000
+            "${CMAKE_CURRENT_SOURCE_DIR}/integration/gc/frame_garbage_is_collected.js")
+set_tests_properties(cli/gc-frame-garbage PROPERTIES TIMEOUT 300)
+
 # The REPL reads lines that may end in "\r\n" (a Windows console, or input piped
 # from a Windows program) and must still recognise ".exit" and blank lines, and
 # it must end at end of input. Feeds "1+1\r\n\r\n.exit\r\n" on every platform.

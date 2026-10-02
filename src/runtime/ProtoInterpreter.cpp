@@ -33,45 +33,37 @@ extern "C" {
 #include "protoCore.h"
 #include <cerrno>
 
-// The dispatch loop jumps through a table of label addresses (GCC's and
-// Clang's computed goto). MSVC has no such extension: there the same table is
-// a switch over the opcode (PROTOJS_DISPATCH_TARGETS below), and the branch
-// hints are plain conditions.
+// Dispatch: every DISPATCH() is a plain `goto` to one switch over the opcode
+// (PROTOJS_DISPATCH_TARGETS below), on every compiler.
 //
-// Clang provides computed goto but refuses this loop: an indirect goto may
-// reach every label, and Clang rejects one that would cross the
-// initialisation of a local (GCC accepts it). So Clang (macOS) takes the
-// switch as well; GCC (Linux) keeps the label table.
-//
-// PROTOJS_COMPUTED_GOTO may be set from the build (-DPROTOJS_COMPUTED_GOTO=0)
-// to build GCC with the switch, which is how the two dispatches are compared
-// on one compiler (docs/PERFORMANCE_DISPATCH.md).
+// GCC used to jump through a table of label addresses instead (computed
+// goto). A computed goto does not run the destructors of the scopes it
+// leaves -- GCC documents that it does not -- and many handlers DISPATCH()
+// from inside a scope that holds an RAII guard: a ProtoContext::CriticalSection,
+// a restorer of t_activeFunc / t_activeNewTgt, a std::string. Each such
+// dispatch leaked the guard. A leaked CriticalSection kept the frame's
+// critical-section depth above zero for the rest of the frame, so safepoints
+// never handed its young generation to the collector: a loop writing one array
+// element filled any heap ceiling ("the last collections reclaimed nothing"),
+// and `x = [i]` in a loop overshot a 19 MB ceiling to 1.3 GB. A plain goto
+// leaves scopes normally. Measured on GCC, the switch costs no more than the
+// label table (docs/PERFORMANCE_DISPATCH.md), so the label table is gone
+// rather than kept behind an option that would bring the leak back. Clang
+// (macOS) and MSVC (Windows) always used the switch.
 //
 // PROTOJS_ALWAYS_INLINE: the dispatch loop's slot and stack accessors must be
 // inlined into runBytecode. GCC and Clang take [[gnu::always_inline]]; MSVC
 // ignores that attribute and needs __forceinline.
-#if defined(_MSC_VER) && !defined(__clang__)
-#ifndef PROTOJS_COMPUTED_GOTO
-#define PROTOJS_COMPUTED_GOTO 0
+#if defined(PROTOJS_COMPUTED_GOTO) && PROTOJS_COMPUTED_GOTO
+#error "PROTOJS_COMPUTED_GOTO is no longer supported: a computed goto skips the destructors of the scopes it leaves (see the comment above)"
 #endif
+#if defined(_MSC_VER) && !defined(__clang__)
 #define PROTOJS_NOINLINE __declspec(noinline)
 #define PROTOJS_ALWAYS_INLINE __forceinline
 #define __builtin_expect(x, expected) (x)
-#elif defined(__clang__)
-#ifndef PROTOJS_COMPUTED_GOTO
-#define PROTOJS_COMPUTED_GOTO 0
-#endif
-#define PROTOJS_NOINLINE __attribute__((noinline))
-#define PROTOJS_ALWAYS_INLINE inline __attribute__((always_inline))
 #else
-#ifndef PROTOJS_COMPUTED_GOTO
-#define PROTOJS_COMPUTED_GOTO 1
-#endif
 #define PROTOJS_NOINLINE __attribute__((noinline))
 #define PROTOJS_ALWAYS_INLINE inline __attribute__((always_inline))
-#endif
-#if PROTOJS_COMPUTED_GOTO && defined(_MSC_VER) && !defined(__clang__)
-#error "MSVC has no computed goto: PROTOJS_COMPUTED_GOTO must be 0"
 #endif
 #include <cmath>
 #include <cstring>
@@ -83,9 +75,9 @@ extern "C" {
 #include <vector>
 #include <algorithm>
 #include <unordered_set>
-#include <mutex>           // P-JS-7: dispatch_table init mutex
+#include <mutex>
 #include <unordered_map>   // Symbol.for registry
-#include <atomic>          // P-JS-7: dispatch_table_initialized flag
+#include <atomic>
 
 namespace protojs {
 extern thread_local const proto::ProtoObject* t_nullSentinel;
@@ -6523,39 +6515,13 @@ const proto::ProtoObject* runBytecode(proto::ProtoContext* pContext,
         return false;
     };
 
-    // ----- Threaded dispatch (computed-goto) -----
+    // ----- Dispatch -----
     //
-    // Each opcode case becomes a label `L_OP_X`.  At end of every case we
-    // `DISPATCH()` instead of falling out to the top of a switch — that
-    // gives the CPU's indirect-branch predictor PER-OPCODE history (in a
-    // switch-based dispatch the predictor sees a single hot indirect jump
-    // and can't disambiguate).  Typical 1.2-1.7x speed-up on tight loops
-    // over the bytecode.
-    //
-    // P-JS-7: cache the table once per process.  `&&label` is not a
-    // *static* constant expression in C++ (so we can't use a namespace-
-    // scope initialiser), AND it cannot be referenced from a nested
-    // lambda (GCC extension limitation: `&&label` only resolves inside
-    // the enclosing function body, not inside a lambda's body).  We
-    // therefore use double-checked locking with the init code written
-    // directly in runBytecode's body — labels are accessible there.
-    //
-    // Address-of-label values are stable across every entry to the same
-    // function (labels live in the code segment at fixed offsets), so
-    // initialising once and reusing for every subsequent call from any
-    // thread is safe.  Eliminates ~256 + ~210 stores per call (the
-    // previous version re-filled the table from scratch on every entry
-    // — for tree_traversal that was ~150 M wasted stores per bench
-    // run).  Steady-state cost: 1 acquire-load + predicted-not-taken
-    // branch (~2 cycles) per runBytecode entry.
-    //
-    // Pre-fill every slot with `&&L_default` so the DISPATCH hot path
-    // never has to test for nullptr — unimplemented opcodes route to the
-    // diagnostic L_default handler the same way as if the slot had been
-    // explicitly assigned to it.  Saves one branch per dispatch.
-    // Every opcode with a handler, as (opcode byte, handler label). With
-    // computed goto the list fills dispatch_table below; under MSVC, which
-    // has no computed goto, it is the switch at protojs_dispatch_switch.
+    // Each opcode's handler is a label `L_OP_X`; every handler ends with
+    // DISPATCH(), a plain goto to the switch at protojs_dispatch_switch (see
+    // the note at the top of this file for why it is not a computed goto).
+    // Every opcode with a handler, as (opcode byte, handler label): the
+    // cases of the switch at protojs_dispatch_switch.
     #define PROTOJS_DISPATCH_TARGETS(X) \
     X(244 /*OP_PROTO_ACC_LOC8_LOC8*/,      L_OP_proto_acc_loc8_loc8) \
     X(245 /*OP_PROTO_LT_LOC8_LOC8_JFALSE*/, L_OP_proto_lt_loc8_loc8_jfalse) \
@@ -6788,27 +6754,6 @@ const proto::ProtoObject* runBytecode(proto::ProtoContext* pContext,
     X(OP_yield, L_OP_yield) \
     X(OP_yield_star, L_OP_yield_star)
 
-#if PROTOJS_COMPUTED_GOTO
-    static const void* dispatch_table[256];
-    static std::atomic<bool> dispatch_table_initialized{false};
-    static std::mutex dispatch_table_init_mutex;
-    if (__builtin_expect(!dispatch_table_initialized.load(std::memory_order_acquire), 0)) {
-    std::lock_guard<std::mutex> _disp_init_lock(dispatch_table_init_mutex);
-    if (!dispatch_table_initialized.load(std::memory_order_relaxed)) {
-    for (int i = 0; i < 256; ++i) dispatch_table[i] = &&L_default;
-    // Sprint-11 port: two fused super-instructions produced by
-    // BytecodeSpecialiser.  Opcode bytes 244/245 are outside QuickJS's
-    // 244-DEF range and thus safe to reuse — see BytecodeSpecialiser.cpp.
-    // Disabled unless `PROTOJS_SPECIALISER=nop|compact` rewrites the
-    // bytecode to use them; the unmodified bytecode stream never carries
-    // these bytes.
-    #define PROTOJS_DISPATCH_ASSIGN(op, label) dispatch_table[op] = &&label;
-    PROTOJS_DISPATCH_TARGETS(PROTOJS_DISPATCH_ASSIGN)
-    #undef PROTOJS_DISPATCH_ASSIGN
-    dispatch_table_initialized.store(true, std::memory_order_release);
-    }   // close inner DCLP check
-    }   // close outer "not initialized" branch
-#endif // PROTOJS_COMPUTED_GOTO
 
     // globalObj is recomputed on every dispatch because some opcodes
     // (top-level `var` set, OP_put_field on the global root) re-bind
@@ -6846,27 +6791,20 @@ const proto::ProtoObject* runBytecode(proto::ProtoContext* pContext,
      *   3. Bounds-check pc.
      *   4. Re-fetch globalObj from *pGlobalRoot.
      *   5. Read opcode byte, advance pc.
-     *   6. Look up dispatch_table[opcode], null-check it, indirect-jump.
+     *   6. Jump to the opcode's handler.
      *
-     * Steps (4) and the null check inside (6) are removed:
+     * Step (4) is removed:
      *   - globalObj is only consumed by ~6 specific opcodes (OP_get_field2,
      *     OP_put_field, OP_define_field, OP_typeof_*, the Array-prototype
      *     lookup in OP_get_array_el).  Those sites refresh it on demand
      *     via REFRESH_GLOBAL_OBJ() instead of paying for a re-fetch on
      *     every opcode.
-     *   - dispatch_table is pre-filled with &&L_default at runBytecode
-     *     entry, so the slot is always a valid jump target — no nullptr
-     *     check needed.
      *
      * Net: ~7 fewer cycles per dispatch (~5 ns on a 3 GHz core).  On
      * dispatch-bound benches (numeric_loop, tight inner loops) this is
      * a measurable win (~5-8 % wall).
      */
-#if PROTOJS_COMPUTED_GOTO
-    #define PROTOJS_DISPATCH_JUMP() goto *dispatch_table[opcode]
-#else
     #define PROTOJS_DISPATCH_JUMP() goto protojs_dispatch_switch
-#endif
     #define DISPATCH() do { \
         if (__builtin_expect((++t_dispatchCount & 1023) == 0, 0)) pContext->safepoint(); \
         if (__builtin_expect(has_pending_exception, 0)) goto handle_exception_label; \
@@ -17418,26 +17356,16 @@ const proto::ProtoObject* runBytecode(proto::ProtoContext* pContext,
                     if (__builtin_expect(pc < 0 || pc >= len, 0)) goto exit_dispatch;
                     globalObj = (pGlobalRoot && *pGlobalRoot) ? *pGlobalRoot : PROTO_NONE;
                     opcode = (int)(unsigned char)buf[pc++];
-#if PROTOJS_COMPUTED_GOTO
-                    {
-                        const void* tgt = dispatch_table[opcode];
-                        if (__builtin_expect(tgt == nullptr, 0)) goto L_default;
-                        goto *tgt;
-                    }
-#else
                     goto protojs_dispatch_switch;
-#endif
                 } else {
                     if (outException) *outException = pending_exception;
                     return PROTO_NONE;
                 }
             }
 
-#if !PROTOJS_COMPUTED_GOTO
-            // MSVC: the dispatch table as a switch. Every DISPATCH() comes
-            // here with the next opcode; the compiler turns the switch into
-            // one indexed jump. Unlisted opcodes go to L_default, as the
-            // table's pre-filled slots do.
+            // The dispatch table as a switch. Every DISPATCH() comes here
+            // with the next opcode; the compiler turns the switch into one
+            // indexed jump. Unlisted opcodes go to L_default.
             protojs_dispatch_switch:
             switch (opcode) {
                 #define PROTOJS_DISPATCH_CASE(op, label) case op: goto label;
@@ -17445,7 +17373,6 @@ const proto::ProtoObject* runBytecode(proto::ProtoContext* pContext,
                 #undef PROTOJS_DISPATCH_CASE
                 default: goto L_default;
             }
-#endif
 
             exit_dispatch: ;
     }
