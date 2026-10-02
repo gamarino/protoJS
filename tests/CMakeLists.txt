@@ -121,14 +121,40 @@ add_test(NAME cli/toplevel-bindings-survive-gc
             "${CMAKE_CURRENT_BINARY_DIR}/cli-scratch/toplevel-bindings"
             50)
 
+# The REPL reads lines that may end in "\r\n" (a Windows console, or input piped
+# from a Windows program) and must still recognise ".exit" and blank lines, and
+# it must end at end of input. Feeds "1+1\r\n\r\n.exit\r\n" on every platform.
+add_test(NAME cli/repl-commands
+    COMMAND ${PROTOJS_SH} "${CMAKE_CURRENT_SOURCE_DIR}/cli/repl-commands.sh"
+            "$<TARGET_FILE:protojs>"
+            "${CMAKE_CURRENT_BINARY_DIR}/cli-scratch/repl")
+
+# A module reached through two spellings of one file (a symbolic link; on
+# Windows also a different letter case) is loaded once, by require() and by
+# import alike: both loaders take the identity from platform::canonicalPath.
+add_test(NAME cli/module-identity
+    COMMAND ${PROTOJS_SH} "${CMAKE_CURRENT_SOURCE_DIR}/cli/module-identity.sh"
+            "$<TARGET_FILE:protojs>"
+            "${CMAKE_CURRENT_BINARY_DIR}/cli-scratch/module-identity")
+
+# child.kill(0) is an existence check that leaves the child running, and kill()
+# reports whether the signal was delivered. On Windows it also answers false
+# once the child has exited. Takes about 2 s.
+add_test(NAME cli/child-kill-signal0
+    COMMAND ${PROTOJS_SH} "${CMAKE_CURRENT_SOURCE_DIR}/cli/child-kill-signal0.sh"
+            "$<TARGET_FILE:protojs>"
+            "${CMAKE_CURRENT_BINARY_DIR}/cli-scratch/child-kill-signal0")
+
 # --- Asserting JavaScript tests ------------------------------------------------
 #
 # Each script checks the values it computes and exits 1 on any failure, so its
 # exit code is the verdict. Until these were registered they ran only from
 # tests/run_all_tests.sh, which CI does not call: the require() test covered
 # exported functions but never an exported class, and nothing gated it anyway.
-# Limited to language and module semantics -- nothing here touches the network
-# or depends on timing. The "js/" prefix keeps them inside the gating
+# Limited to what is platform-independent -- language and module semantics,
+# crypto, Deferred, worker threads and native addons; nothing here touches the
+# network or depends on timing -- so the same list runs on Linux, macOS and
+# Windows. The "js/" prefix keeps them inside the gating
 # `ctest -E "integration|network"` invocation.
 foreach(js_test
         basic/class_closure
@@ -137,8 +163,31 @@ foreach(js_test
         basic/object_integrity
         modules/test_require_file
         modules/test_require
-        collections/protoCore_collections)
+        collections/protoCore_collections
+        workers/deep_recursion
+        crypto/test_crypto_cipher
+        crypto/test_crypto_keygen
+        crypto/test_crypto_sign
+        deferred/concurrent_deferred
+        deferred/test_deferred_reject
+        test_deferred_basic
+        native_addons/test_native_require
+        native_addons/test_resolution)
     add_test(NAME js/${js_test}
         COMMAND "$<TARGET_FILE:protojs>"
                 "${CMAKE_CURRENT_SOURCE_DIR}/integration/${js_test}.js")
+endforeach()
+
+# tests/conformity: the asserting conformity scripts (each throws on the first
+# failed check, so a non-zero exit is the verdict). Platform-independent, so they
+# run on Linux, macOS and Windows alike.
+foreach(conf_test
+        builtins/test_array_conformity
+        builtins/test_number_conformity
+        builtins/test_object_conformity
+        builtins/test_string_conformity
+        import/test_module_identity)
+    add_test(NAME conformity/${conf_test}
+        COMMAND "$<TARGET_FILE:protojs>"
+                "${CMAKE_CURRENT_SOURCE_DIR}/conformity/${conf_test}.js")
 endforeach()
