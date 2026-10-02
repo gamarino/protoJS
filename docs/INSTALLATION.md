@@ -18,7 +18,7 @@ protoJS is not production ready. The version configured in `CMakeLists.txt` is 0
 
 ### Platform support
 
-protoJS is developed on Linux. It also builds and runs natively on Windows with MSVC; see [Windows (MSVC)](#windows-msvc). `CMakeLists.txt` contains macOS settings (install and build-tree RPATH, a DragNDrop CPack generator), but macOS builds are not verified.
+protoJS is developed on Linux. It also builds and runs natively on Windows with MSVC (see [Windows (MSVC)](#windows-msvc)) and on macOS with Apple clang. CI builds and tests all three (`.github/workflows/ci.yml` on Linux, `cross-platform.yml` on macOS 14 arm64 and Windows Server 2022); the macOS DragNDrop package is not built by CI.
 
 ---
 
@@ -116,17 +116,25 @@ cmake --install build
 %PREFIX%\bin\protojs --version
 ```
 
-Any OpenSSL 3 for Windows with headers and import libraries works as
-`OPENSSL_ROOT_DIR`; the one PostgreSQL ships (`C:/Program Files/PostgreSQL/17`)
-was used for the verification. The build copies the DLLs protojs needs
-(`protoCore.dll`, `libssl-3-x64.dll`, `libcrypto-3-x64.dll`) into `build/bin/`,
-so `protojs.exe` and the tests run in place. `cmake --install` puts
-`protojs.exe` and the OpenSSL DLLs in `<prefix>/bin` and `protojs.lib` (for
-native addons) in `<prefix>/lib`; protoCore's own install adds `protoCore.dll`
-to its prefix's `bin`. With that directory on `PATH`, `protojs` runs scripts,
-`-e` and the REPL from `cmd.exe` or PowerShell. `cpack -G ZIP` produces
-`protojs-<version>-win64.zip`; an NSIS installer is added when `makensis` is
-on `PATH`.
+Any OpenSSL for Windows with headers, import libraries and DLLs works as
+`OPENSSL_ROOT_DIR`. The DLL names follow from the version found
+(`libcrypto-3-x64.dll` and `libssl-3-x64.dll` for OpenSSL 3), and configure
+fails if they are not in the installation's `bin`. The build copies the DLLs
+protojs needs (protoCore's -- `protoCore.dll`, or `protoCore-3.dll` from
+protoCore 2.9.0 on -- and OpenSSL's) into `build/bin/`, so `protojs.exe` and
+the tests run in place.
+
+`cmake --install` (and `cpack`) put in `<prefix>/bin` `protojs.exe`, the
+protoCore DLL (taken from the imported `protoCore::protoCore` target, whatever
+it is named), the OpenSSL DLLs and the Visual C++ runtime DLLs
+(`InstallRequiredSystemLibraries`, app-local, so the VC++ redistributable need
+not be installed); `protojs.lib` (for native addons) goes in `<prefix>/lib` and
+OpenSSL's licence in `<prefix>/share/doc/protojs/OpenSSL-LICENSE.txt` (the
+distribution's own file, or for OpenSSL 3 the Apache License 2.0 copy in
+`packaging/windows/`; `-DPROTOJS_OPENSSL_LICENSE_FILE=` names another). The
+installed `bin` is therefore self-contained. `cpack -G ZIP` produces
+`protojs-<version>-win64.zip` with that layout; an NSIS installer is added
+when `makensis` is on `PATH`.
 
 How Windows differs, by design:
 
@@ -144,36 +152,71 @@ How Windows differs, by design:
   `PROTOJS_ADDON_EXPORT` (`src/native/NativeModuleABI.h`):
   `extern "C" PROTOJS_ADDON_EXPORT ProtoJSNativeModuleInfo protojs_native_module_info(...)`.
   The macro is empty on Linux and macOS.
+- **The REPL** reads a console with `ReadConsoleW` (UTF-16, converted to
+  UTF-8), so non-ASCII input works whatever the console code page, and drops
+  the `\r\n` line terminator, so `.exit` and blank lines work. The console's
+  input and output code pages are switched to UTF-8 while protojs runs and
+  restored when it exits.
+- **`path`** is `path.win32`, as in Node: `\` separator, `;` delimiter, drive
+  letters and UNC roots, and `resolve` consulting the per-drive current
+  directories (`=C:` variables). `path.posix` is available as on every
+  platform.
+- **Module identity.** A module is identified by its canonical path
+  (`GetFinalPathNameByHandleW`): symbolic links and junctions resolved and each
+  component in the case the file system stores, so `./lib/a.js` and
+  `./LIB/A.js` are one module, for `require` and `import` alike. (On macOS,
+  as in Node, two spellings of a file on a case-insensitive volume remain two
+  modules.)
 - **Child processes.** `child_process.spawn` starts the program with
-  `CreateProcessW`, `exec` runs the line through `%ComSpec% /c`, and `kill()`
-  terminates the process whatever the signal. `cluster.fork()` returns
-  `undefined`: there is no `fork()`.
+  `CreateProcessW`, and `exec` runs the line through `%ComSpec% /c`. A child
+  inherits the standard handles and nothing else
+  (`PROC_THREAD_ATTRIBUTE_HANDLE_LIST`), and sockets are created
+  non-inheritable, so a child never holds a server's port. `kill(0)` only
+  checks that the child runs; any other signal terminates it. protoJS keeps
+  each child's process handle until it exits itself, so a child's id cannot be
+  reused under a later `kill()`. `cluster.fork()` returns `undefined`: there
+  is no `fork()`.
 - **Sockets** are Winsock. A server does not set `SO_REUSEADDR`, which on
   Windows would let a second server take a port already in use.
-- **Stack.** `protojs.exe` reserves a 64 MiB stack for itself and its
-  threads. MSVC gives the interpreter's `runBytecode` a frame of about 46 KiB
-  (GCC: 7.7 KiB), so 64 MiB allows about 1,400 nested JavaScript calls where
-  Linux's 8 MiB allows about 1,000. As on Linux, going deeper ends the process
-  instead of raising a `RangeError`.
+- **Event loop.** Windows wakes sleeping threads on a 15.6 ms timer by
+  default; while the event loop waits for work protojs sets it to 1 ms
+  (`timeBeginPeriod`) and restores it when the loop ends.
+- **Stack.** `protojs.exe` reserves a 64 MiB stack, and every thread that
+  runs JavaScript -- `worker_threads` workers, and threads protoCore creates
+  (from protoCore 2.8.0) -- gets the same reservation. MSVC gives the
+  interpreter's `runBytecode` a frame of about 46 KiB (GCC: 7.7 KiB), so
+  64 MiB allows about 1,400 nested JavaScript calls where Linux's 8 MiB allows
+  about 1,000. As on Linux, going deeper ends the process instead of raising
+  a `RangeError`. The frame size and what it costs per call are discussed in
+  [PERFORMANCE_DISPATCH.md](PERFORMANCE_DISPATCH.md).
 - **Dates** cover the whole JavaScript range: the C runtime's time functions
   stop at 1970..3000, so UTC conversions are protoJS's own calendar arithmetic
   and local time outside that range is computed in a year with the same
   calendar.
 
-Test status (protoCore 2.7.0, MSVC 19.44, Windows 11):
+Test status. CI (`.github/workflows/cross-platform.yml`) builds and tests
+Windows Server 2022 (MSVC, x64) twice -- against protoCore 2.8.0 and against
+2.7.0, the floor -- and macOS 14 (arm64), on every push to `master`:
 
-- `ctest`: 52 of 52 pass. The script fixtures run through Git for Windows'
-  `bash` and the Python ones through the interpreter CMake finds. The
-  `worker-terminate` case of `cli/blocking-joins-and-finalizers` used to fail
-  every run here (and about one run in fifteen on Linux): a top-level binding
-  was lost when a collection ran at top level. That is fixed (see the
-  changelog) and pinned by `cli/toplevel-bindings-survive-gc`.
-- Test262, on a 7,316-test subset (`built-ins/Array`, `String`, `JSON`,
-  `Math`, `Number`, `Map`, `Promise`, `Date`, `language/types`,
-  `language/literals`): 6,325 pass on Windows against 6,324 on Linux. The
-  results are the same test by test except four that time out on Linux after
-  20-30 s (and crash there, in master as in this tree) and finish at once on
-  Windows. Run it with `TZ=UTC0` to compare with a Linux host in UTC.
+- `ctest`: the whole suite with the Linux gate's exclusion (`-E
+  "integration|network"`): 85 cases on 2026-10-02 -- the Catch2 units, the
+  CLI fixtures in `tests/cli` (run through Git for Windows' `bash`, the Python
+  ones through the interpreter CMake finds) and the asserting JavaScript
+  fixtures, Node's own `path` tests among them. All pass on all three
+  platforms.
+- Test262: the per-commit regression gate (`built-ins/Object`, `Reflect`,
+  `Proxy`; 3,875 tests) with the Linux expected-failures baseline. macOS gives
+  the Linux failure set exactly. Windows differs only in tests whose verdict
+  depends on property enumeration order, which follows key addresses and so
+  the platform's allocator ([TEST262_STATUS.md](TEST262_STATUS.md#property-enumeration-order));
+  those, listed with the run that showed them, are reported and not gated.
+  The whole corpus is measured on Linux only.
+- The ZIP is built, unpacked into an empty directory and run with a PATH
+  holding only the Windows system directories.
+
+A 7,316-test Test262 subset was also run once by hand during the port, on a
+Windows 11 host (6,325 passing against 6,324 on Linux); CI does not
+reproduce that run.
 
 ---
 
@@ -191,7 +234,7 @@ cpack -G DEB      # or: cpack -G RPM, cpack -G TGZ, or plain cpack for every con
 |----------|-----------------------------|-------------------------------|
 | Linux    | `TGZ`, plus `DEB` when `dpkg` is found and `RPM` when `rpmbuild` is found | `protojs-0.1.0-Linux.deb`, `protojs-0.1.0-Linux.rpm`, `protojs-0.1.0-Linux.tar.gz` |
 | macOS    | `DragNDrop`                 | `protojs-0.1.0-Darwin.dmg` |
-| Windows  | `NSIS`, `ZIP`               | not buildable with the current build files (see [Platform support](#platform-support)) |
+| Windows  | `ZIP`, plus `NSIS` when `makensis` is found | `protojs-0.1.0-win64.zip` (see [Windows (MSVC)](#windows-msvc)) |
 
 Notes:
 
@@ -240,7 +283,7 @@ sibling developer fallback was a hard error, and with no `-j` at any point.
 | Linux / Debian-Ubuntu | `packaging/build_deb.sh` as `protoJS` | **NOT BUILT — the script refuses, correctly.** See below. |
 | Linux / Fedora-RHEL | TGZ, RPM | **VERIFIED, with a caveat.** `cpack -G RPM` executed in a throwaway `fedora:41` container and the RPM installed and ran. It required a **writable** source tree; see below. |
 | macOS | `packaging/templates/macos/preinstall.template`, CPack DragNDrop | **UNVERIFIED.** Configured and reviewed only; there is no macOS host here. Review is not verification. |
-| Windows | CPack ZIP | **VERIFIED 2026-10-01** (protoCore 2.7.0, MSVC 19.44, Windows 11): `cpack -G ZIP` builds `protojs-0.1.0-win64.zip` with `protojs.exe`, `protojs.lib` and the OpenSSL DLLs; the same layout from `cmake --install` ran a script and the REPL from `cmd.exe` with only its `bin`, protoCore's `bin` and `System32` on `PATH`. |
+| Windows | CPack ZIP | **VERIFIED BY CI** (`cross-platform.yml`, Windows Server 2022, protoCore 2.8.0): `cpack -G ZIP` builds `protojs-0.1.0-win64.zip` with `protojs.exe`, `protojs.lib`, the protoCore DLL, the OpenSSL DLLs and licence and the Visual C++ runtime; CI unpacks it into an empty directory and runs a script that uses `crypto` with a `PATH` holding only the Windows system directories. The REPL from the ZIP is not exercised by CI (`cli/repl-commands` runs the build tree's `protojs.exe`). |
 | Windows | `packaging/templates/windows/protoJS.wxs.template` (WiX v3), CPack NSIS | **UNVERIFIED.** No WiX and no NSIS on the Windows host. The WiX condition reads `HKLM\SOFTWARE\protoCore\Soversion`, which protoCore's NSIS installer writes — and that has never run either, so both halves of that check are unverified. |
 
 ### The hand-built `packaging/` pipeline is pinned to the wrong SONAME

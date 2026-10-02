@@ -105,9 +105,10 @@ Useful configuration options:
 
 On **Windows**, protoJS builds natively with Visual Studio 2022 (MSVC) against
 an installed protoCore package and runs scripts, `-e` and the REPL from
-`cmd.exe` or PowerShell; the steps, and what differs there (binary standard
-streams, drive-letter paths, `.dll` addons that link `protojs.lib`, no
-`cluster.fork()`), are in
+`cmd.exe` or PowerShell; `cpack -G ZIP` produces a self-contained ZIP (protoCore,
+OpenSSL and the Visual C++ runtime included). The steps, and what differs there
+(binary standard streams, `path` = `path.win32` as in Node, drive-letter paths,
+`.dll` addons that link `protojs.lib`, no `cluster.fork()`), are in
 [docs/INSTALLATION.md — Windows (MSVC)](docs/INSTALLATION.md#windows-msvc).
 
 ---

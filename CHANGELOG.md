@@ -4,6 +4,78 @@ All notable changes to protoJS are documented in this file.
 
 ## [Unreleased]
 
+### Fixed — Windows-port review (2026-10-02)
+
+- **REPL commands on Windows.** The standard streams are binary, so a console
+  line ended in `\r`: `.exit` arrived as `.exit\r` and was an unknown command,
+  and a blank line was not blank. `REPL::readLine` drops the line terminator
+  (`\n` or `\r\n`) on every platform, and reads a Windows console with
+  `ReadConsoleW`, converting UTF-16 to UTF-8, so non-ASCII input works whatever
+  the console code page. Two defects found by the same test, on every
+  platform: `.exit` called `exit()` from inside the REPL and the process
+  crashed in the static destructors (it now returns to `main`), and at end of
+  input the REPL read empty lines forever (it now exits, as Node's does).
+  Test: `cli/repl-commands`.
+- **`path` is Node's.** `src/modules/path` was a thin wrapper over
+  `std::filesystem` (`resolve` called `canonical`, following symbolic links;
+  `join`, `normalize`, `dirname`, `basename`, `extname` and `relative` followed
+  `std::filesystem`'s rules, not Node's). It is now a port of Node v22.20's
+  `lib/path.js` (`PathAlgorithms.cpp`): `path.win32` and `path.posix` with
+  `sep`, `delimiter`, `resolve`, `normalize`, `isAbsolute`, `join`, `relative`,
+  `toNamespacedPath`, `dirname`, `basename`, `extname`, `parse` and `format`,
+  purely lexical as in Node; `path` is `path.win32` on Windows and
+  `path.posix` elsewhere; `require('path/posix')` and `require('path/win32')`
+  work; non-string arguments throw `ERR_INVALID_ARG_TYPE`. `matchesGlob` is not
+  provided. Tests: Node's own `test/parallel/test-path-*.js`, adapted, as
+  `js/path/*` (16 files, both variants on every platform).
+- **One module identity for CommonJS and ES modules.** CommonJS took a
+  module's identity from `std::filesystem::canonical` and ES modules from the
+  `realpath` shim, which on Windows neither resolved symbolic links nor
+  restored the stored letter case, so one file could be two modules. Both now
+  use `platform::canonicalPath` (`realpath` on POSIX,
+  `GetFinalPathNameByHandleW` on Windows). Test: `cli/module-identity`.
+- **`child.kill(0)` is an existence check.** On Windows every signal,
+  0 included, terminated the child. Signal 0 now only reports whether the
+  child runs; `kill()` returns whether the signal was delivered, as Node's
+  does (it returned `undefined`). The process handle is kept until protojs
+  exits, so a child's id cannot be reused under a later `kill()`. Children
+  inherit only the standard handles (`PROC_THREAD_ATTRIBUTE_HANDLE_LIST`), and
+  sockets are created non-inheritable (`WSA_FLAG_NO_HANDLE_INHERIT` on
+  Windows, close-on-exec elsewhere), so a child no longer holds a server's
+  port. Test: `cli/child-kill-signal0`.
+- **Worker threads get the main thread's stack.** A `worker_threads` Worker
+  ran on a `std::thread`, which macOS creates with 512 KiB of stack, so a
+  worker crashed at a recursion depth the main thread reaches easily. Workers
+  now run on a thread with the main thread's reservation
+  (`src/platform/SizedThread.h`), and protoJS calls protoCore's
+  `ProtoSpace::setThreadStackBytes` with the same size at start-up (protoCore
+  2.8.0 and later). Test: `js/workers/deep_recursion`.
+- **Windows details.** The console code pages are restored at exit; the
+  event loop raises the system timer to 1 ms (`timeBeginPeriod`) while it
+  waits, instead of polling at the default 15.6 ms; QuickJS's time source on
+  MSVC keeps 64-bit seconds (`js_utc_time_us`, `deps/quickjs/cutils.h`; the
+  shim's `struct timeval` had a 32-bit `tv_sec`).
+
+### Changed — Windows build, packaging and CI (2026-10-02)
+
+- protoJS's own targets build at `/W3` under MSVC (CMake leaves MSVC at
+  `/W1`); the vendored QuickJS sources keep the default.
+- The interpreter's always-inline helpers use `PROTOJS_ALWAYS_INLINE`
+  (`__forceinline` under MSVC, which ignores `[[gnu::always_inline]]`), and
+  `PROTOJS_COMPUTED_GOTO` can be set from the build to compare the two
+  dispatches on one compiler (docs/PERFORMANCE_DISPATCH.md).
+- The Windows ZIP is self-contained: `cmake --install` and CPack add
+  protoCore's DLL (from the imported target, whatever its name), the OpenSSL
+  DLLs of the version found (named from it; a missing DLL fails configure
+  instead of a silent glob), OpenSSL's licence, and the Visual C++ runtime
+  (`InstallRequiredSystemLibraries`).
+- Cross-platform CI (macOS, Windows) now also runs the Test262 per-commit
+  regression gate with the Linux baseline, the asserting JavaScript fixtures,
+  a Windows job on protoCore 2.7.0 (the floor), the ZIP from an empty
+  directory with a system-only `PATH`, and an informational dispatch timing.
+- More asserting fixtures are registered with CTest (crypto, Deferred, native
+  addons, `tests/conformity`), so they run on all three platforms.
+
 ### Fixed — top-level bindings survive a collection (2026-10-01)
 
 - **The module scope was not a GC root.** Since the 2026-06-16 scope-chain
@@ -35,9 +107,11 @@ All notable changes to protoJS are documented in this file.
   19.44) against an installed protoCore 2.7.0 package; `protojs` runs
   scripts, `-e` and the REPL natively and installs with `cmake --install`
   (or `cpack -G ZIP`). All tests pass on Windows 11 (the one that failed, a
-  top-level binding lost to a collection, is fixed above). A 7,316-test Test262 subset
-  gives the same results as Linux test by test, except four tests that time
-  out on Linux. Every Windows difference is behind `WIN32` / `_MSC_VER`; on
+  top-level binding lost to a collection, is fixed above). A 7,316-test Test262 subset,
+  run once by hand on one Windows 11 host, gave the same results as Linux test
+  by test, except four tests that time out on Linux; CI does not reproduce
+  that run (CI's Windows Test262 figure is the per-commit gate, below under
+  "Changed — Windows build, packaging and CI"). Every Windows difference is behind `WIN32` / `_MSC_VER`; on
   Linux the suite and the warning count are as on master. See
   docs/INSTALLATION.md, "Windows (MSVC)".
 - QuickJS (`deps/quickjs`) compiles with MSVC. Two enum bit-fields are
@@ -58,7 +132,9 @@ All notable changes to protoJS are documented in this file.
 - **protoCore 2.7.0 is the floor** (it was 2.0). protoJS spells protoCore's
   64-bit integers `proto::proto_long` / `proto::proto_ulong`, which protoCore
   declares from 2.7.0; they are `long` / `unsigned long` on Linux and macOS,
-  so types and ABI there are unchanged. CI is pinned to protoCore v2.7.0.
+  so types and ABI there are unchanged. `ci.yml` (Linux) is pinned to
+  protoCore v2.7.0; `cross-platform.yml` builds v2.8.0 on macOS and Windows,
+  plus one Windows job on v2.7.0 (since 2026-10-02).
 
 ### Fixed
 

@@ -90,8 +90,10 @@ concurrency:
 
 env:
   PROTOCORE_REPO: numaes/protoCore
-  # protoCore 2.7.0 (tag v2.7.0), SOVERSION 3.  Bump deliberately.  2.7.0 is
-  # protoJS's floor: the first release that declares proto::proto_long.
+  # protoCore 2.7.0 (tag v2.7.0), SOVERSION 3, except on the nightly schedule,
+  # which builds protoCore master.  Bump deliberately.  2.7.0 is protoJS's
+  # floor: the first release that declares proto::proto_long.  (macOS and
+  # Windows build 2.8.0, plus a Windows job on 2.7.0: cross-platform.yml.)
   # protoJS declares PROTOCORE_ABI_SOVERSION 3 at CMakeLists.txt:34 and the ldd
   # step below asserts the library actually loaded is this tree's.
   PROTOCORE_REF: ${{ github.event_name == 'schedule' && 'master' || 'fc5d79db4f89f8a6eb473a52766b1908140a19d1' }}
@@ -231,12 +233,15 @@ jobs:
         # No `-j`: the pool and event-loop cases spawn their own threads, and this
         # family has already been burned by saturating a small runner.
         #
-        # The suite includes five CLI fixtures registered directly with CTest. The
-        # slowest, cli/toplevel-bindings-survive-gc, runs one program 60 times
-        # under a heap ceiling (about 20 s); cli/blocking-joins-and-finalizers runs
-        # seven end-to-end cases under one in about 2 s and binds localhost ports in the
-        # 18841-18844 range; if a runner ever has those in use, that is what to look
-        # at first.
+        # Besides the Catch2 cases the suite holds the CLI fixtures (tests/cli,
+        # registered directly with CTest) and the asserting JavaScript fixtures
+        # (js/*, conformity/*, js/path/* -- Node's own path tests); the same list
+        # runs on macOS and Windows in cross-platform.yml. The slowest,
+        # cli/toplevel-bindings-survive-gc, runs one program 60 times under a
+        # heap ceiling (about 20 s); cli/blocking-joins-and-finalizers runs seven
+        # end-to-end cases under one in about 2 s and binds localhost ports in the
+        # 18841-18844 range; if a runner ever has those in use, that is what to
+        # look at first.
         working-directory: protoJS
         run: ctest --test-dir build_release -E "integration|network" --output-on-failure < /dev/null
 
