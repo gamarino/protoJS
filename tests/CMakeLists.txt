@@ -183,6 +183,7 @@ add_test(NAME cli/uncaught-errors
 # `ctest -E "integration|network"` invocation.
 foreach(js_test
         basic/array_elisions
+        basic/captured_local_update
         basic/class_closure
         basic/closure_scopes
         basic/closure_set_prototype

@@ -12704,12 +12704,22 @@ const proto::ProtoObject* runBytecode(proto::ProtoContext* pContext,
                             DISPATCH();
                         }
                     }
-                    const proto::ProtoObject* num = toNumber(pContext, cur);
+                    // A local captured by a closure holds a cell: update the
+                    // value through it (see L_OP_put_loc).
+                    const proto::ProtoObject* cell = isCell(pContext, cur) ? cur : nullptr;
+                    if (cell) cur = readCell(pContext, cell);
                     const proto::ProtoObject* nv;
-                    if (!num || num == PROTO_NONE) nv = pContext->fromDouble(std::numeric_limits<double>::quiet_NaN());
-                    else if (num->isInteger(pContext)) nv = pContext->fromInteger(num->asLong(pContext) - 1);
-                    else nv = pContext->fromDouble(num->asDouble(pContext) - 1.0);
-                    setSlot(pContext, argCount + locIndex, nv);
+                    if (proto::isSmallInt(cur)
+                        && proto::smallIntInRange(proto::asSmallInt(cur) - 1)) {
+                        nv = proto::makeSmallInt(proto::asSmallInt(cur) - 1);
+                    } else {
+                        const proto::ProtoObject* num = toNumber(pContext, cur);
+                        if (!num || num == PROTO_NONE) nv = pContext->fromDouble(std::numeric_limits<double>::quiet_NaN());
+                        else if (num->isInteger(pContext)) nv = pContext->fromInteger(num->asLong(pContext) - 1);
+                        else nv = pContext->fromDouble(num->asDouble(pContext) - 1.0);
+                    }
+                    if (cell) writeCell(pContext, cell, nv);
+                    else setSlot(pContext, argCount + locIndex, nv);
                 }
                 DISPATCH();
             }
@@ -12730,12 +12740,22 @@ const proto::ProtoObject* runBytecode(proto::ProtoContext* pContext,
                             DISPATCH();
                         }
                     }
-                    const proto::ProtoObject* num = toNumber(pContext, cur);
+                    // A local captured by a closure holds a cell: update the
+                    // value through it (see L_OP_put_loc).
+                    const proto::ProtoObject* cell = isCell(pContext, cur) ? cur : nullptr;
+                    if (cell) cur = readCell(pContext, cell);
                     const proto::ProtoObject* nv;
-                    if (!num || num == PROTO_NONE) nv = pContext->fromDouble(std::numeric_limits<double>::quiet_NaN());
-                    else if (num->isInteger(pContext)) nv = pContext->fromInteger(num->asLong(pContext) + 1);
-                    else nv = pContext->fromDouble(num->asDouble(pContext) + 1.0);
-                    setSlot(pContext, argCount + locIndex, nv);
+                    if (proto::isSmallInt(cur)
+                        && proto::smallIntInRange(proto::asSmallInt(cur) + 1)) {
+                        nv = proto::makeSmallInt(proto::asSmallInt(cur) + 1);
+                    } else {
+                        const proto::ProtoObject* num = toNumber(pContext, cur);
+                        if (!num || num == PROTO_NONE) nv = pContext->fromDouble(std::numeric_limits<double>::quiet_NaN());
+                        else if (num->isInteger(pContext)) nv = pContext->fromInteger(num->asLong(pContext) + 1);
+                        else nv = pContext->fromDouble(num->asDouble(pContext) + 1.0);
+                    }
+                    if (cell) writeCell(pContext, cell, nv);
+                    else setSlot(pContext, argCount + locIndex, nv);
                 }
                 DISPATCH();
             }
@@ -12747,6 +12767,13 @@ const proto::ProtoObject* runBytecode(proto::ProtoContext* pContext,
                 pAutomaticLocals[currentStackBase + _PF().stackTop] = PROTO_NONE; // Zero popped slot
                 if (locIndex < varCount) {
                     const proto::ProtoObject* cur = getSlot(pContext, argCount + locIndex);
+                    // A local captured by a closure holds a cell: read and
+                    // write the value through it (see L_OP_put_loc).
+                    const proto::ProtoObject* addCell = nullptr;
+                    if (!proto::isSmallInt(cur) && isCell(pContext, cur)) {
+                        addCell = cur;
+                        cur = readCell(pContext, cur);
+                    }
                     // SmallInt fast path: most tight loops (`acc += i`,
                     // `sum += arr[i]`) hit this op every iteration with
                     // two tagged SmallInts. Bypass asString/toNumber/add
@@ -12755,7 +12782,8 @@ const proto::ProtoObject* runBytecode(proto::ProtoContext* pContext,
                     if (proto::isSmallInt(cur) && proto::isSmallInt(val)) {
                         long long sum = proto::asSmallInt(cur) + proto::asSmallInt(val);
                         if (proto::smallIntInRange(sum)) {
-                            setSlot(pContext, argCount + locIndex, proto::makeSmallInt(sum));
+                            if (addCell) writeCell(pContext, addCell, proto::makeSmallInt(sum));
+                            else setSlot(pContext, argCount + locIndex, proto::makeSmallInt(sum));
                             DISPATCH();
                         }
                     }
@@ -12775,7 +12803,8 @@ const proto::ProtoObject* runBytecode(proto::ProtoContext* pContext,
                         const proto::ProtoObject* nval = toNumber(pContext, val);
                         nv = nc ? nc->add(pContext, nval) : PROTO_NONE;
                     }
-                    setSlot(pContext, argCount + locIndex, nv);
+                    if (addCell) writeCell(pContext, addCell, nv);
+                    else setSlot(pContext, argCount + locIndex, nv);
                 }
                 DISPATCH();
             }
@@ -12798,6 +12827,15 @@ const proto::ProtoObject* runBytecode(proto::ProtoContext* pContext,
 
                 const proto::ProtoObject* dst = getSlot(pContext, argCount + dstIdx);
                 const proto::ProtoObject* src = getSlot(pContext, argCount + srcIdx);
+                // Locals captured by a closure hold cells: read through them,
+                // and write the sum back through dst's (see L_OP_put_loc).
+                const proto::ProtoObject* dstCell = nullptr;
+                if (!proto::isSmallInt(dst) && isCell(pContext, dst)) {
+                    dstCell = dst;
+                    dst = readCell(pContext, dst);
+                }
+                if (!proto::isSmallInt(src) && isCell(pContext, src))
+                    src = readCell(pContext, src);
                 // TDZ semantics for `let`/`const` locals: when the matcher
                 // accepted a `get_loc_check` / `put_loc_check` source the
                 // sentinel can still be live on the read.  Single
@@ -12812,7 +12850,8 @@ const proto::ProtoObject* runBytecode(proto::ProtoContext* pContext,
                 if (proto::isSmallInt(dst) && proto::isSmallInt(src)) {
                     long long sum = proto::asSmallInt(dst) + proto::asSmallInt(src);
                     if (proto::smallIntInRange(sum)) {
-                        setSlot(pContext, argCount + dstIdx, proto::makeSmallInt(sum));
+                        if (dstCell) writeCell(pContext, dstCell, proto::makeSmallInt(sum));
+                        else setSlot(pContext, argCount + dstIdx, proto::makeSmallInt(sum));
                         DISPATCH();
                     }
                 }
@@ -12839,7 +12878,8 @@ const proto::ProtoObject* runBytecode(proto::ProtoContext* pContext,
                     const proto::ProtoObject* ns = toNumber(pContext, src);
                     nv = nd ? nd->add(pContext, ns) : PROTO_NONE;
                 }
-                setSlot(pContext, argCount + dstIdx, nv);
+                if (dstCell) writeCell(pContext, dstCell, nv);
+                else setSlot(pContext, argCount + dstIdx, nv);
                 DISPATCH();
             }
 
