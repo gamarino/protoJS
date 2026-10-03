@@ -1,6 +1,6 @@
 # The `protoCore` Global
 
-The `protoCore` global exposes protoCore functionality that has no direct equivalent in standard JavaScript. Scripts run on the protoCore interpreter against the protoCore-native global object; on that object, `protoCore` is created by `src/ProtoCoreNativeBindings.cpp` and provides the collections (`Set`, `Multiset`, `SparseList`, `Tuple`), the mutability helpers (`ImmutableObject`, `MutableObject`, `isImmutable`, `makeImmutable`, `makeMutable`), `runInThread`, `threadId` and the representation diagnostic `isSmallInteger`.
+The `protoCore` global exposes protoCore functionality that has no direct equivalent in standard JavaScript. Scripts run on the protoCore interpreter against the protoCore-native global object; on that object, `protoCore` is created by `src/ProtoCoreNativeBindings.cpp` and provides the collections (`Set`, `Multiset`, `SparseList`, `Tuple`), the mutability helpers (`ImmutableObject`, `MutableObject`, `isImmutable`, `makeImmutable`, `makeMutable`), `runInThread`, `threadId`, and the diagnostics `isSmallInteger` and `gcStats`.
 
 ## Native multithreading: `runInThread`
 
@@ -80,6 +80,8 @@ Writes to the result of `ImmutableObject` are **not** rejected; immutability is 
 ## Diagnostics
 
 `protoCore.isSmallInteger(value)` is `true` when `value` is held as a tagged protoCore SmallInteger (no heap cell) and `false` for anything else, a boxed double included. It reports the representation only: JavaScript semantics never depend on it (`typeof`, `===`, `Object.is`, `Map` keys, arithmetic and formatting treat `3` and `3.0` alike). protoJS keeps every integral number with an absolute value up to `Number.MAX_SAFE_INTEGER`, other than `-0`, as a SmallInteger, whatever produced it (`Math.floor`, `Number("42")`, `6 / 2`, ...); fractions, `-0`, `NaN`, the infinities and integers beyond the safe range are doubles. The rule and its helper are in `src/JSNumber.h`; `tests/integration/basic/number_representation.js` checks both the values and the representation.
+
+`protoCore.gcStats()` returns the collector's counters for the script's space, in 64-byte cells: `cycles` (completed collections), `liveCellsLastCycle` and `reclaimedLastCycle` (what the last completed cycle found reachable and freed; 0 before the first), `heapCells`, `freeCells` (on the space's free list) and `heapLimitCells` (the hard ceiling, 0 for none; see `PROTOCORE_HEAP_LIMIT_CELLS` in [API_REFERENCE.md](API_REFERENCE.md)).
 
 ## Module discovery
 

@@ -244,6 +244,20 @@ add_test(NAME cli/promise-rejections-bounded-memory
             "${CMAKE_CURRENT_BINARY_DIR}/cli-scratch/promise-rejections-bounded-memory")
 set_tests_properties(cli/promise-rejections-bounded-memory PROPERTIES TIMEOUT 1200)
 
+# The default heap ceiling is 75 % of physical memory (or of a smaller cgroup
+# limit), and PROTOCORE_HEAP_LIMIT_CELLS overrides it (src/HeapLimit.h).
+add_test(NAME cli/heap-limit-default
+    COMMAND ${PROTOJS_PYTHON} "${CMAKE_CURRENT_SOURCE_DIR}/cli/heap_limit_default.py"
+            "$<TARGET_FILE:protojs>")
+
+# 200,000 live objects under a ceiling of 11 cells each and a checked peak
+# resident set (memory per object; tests/cli/objects_bounded_memory.py).
+add_test(NAME cli/objects-bounded-memory
+    COMMAND ${PROTOJS_PYTHON} "${CMAKE_CURRENT_SOURCE_DIR}/cli/objects_bounded_memory.py"
+            "$<TARGET_FILE:protojs>"
+            "${CMAKE_CURRENT_BINARY_DIR}/cli-scratch/objects-bounded-memory")
+set_tests_properties(cli/objects-bounded-memory PROPERTIES TIMEOUT 900)
+
 add_test(NAME cli/closure-loop-bounded-memory
     COMMAND ${PROTOJS_PYTHON} "${CMAKE_CURRENT_SOURCE_DIR}/cli/closure_loop_bounded_memory.py"
             "$<TARGET_FILE:protojs>"
@@ -308,6 +322,12 @@ foreach(js_test
         COMMAND "$<TARGET_FILE:protojs>"
                 "${CMAKE_CURRENT_SOURCE_DIR}/integration/${js_test}.js")
 endforeach()
+
+# process.argv carries the arguments after the script; process.memoryUsage().
+add_test(NAME js/modules/process_argv_memory
+    COMMAND "$<TARGET_FILE:protojs>"
+            "${CMAKE_CURRENT_SOURCE_DIR}/integration/modules/process_argv_memory.js"
+            alpha "two words" --flag)
 
 # A quadratic Map.set / Set.add would not finish within this limit.
 set_tests_properties(js/collections/map_set_scaling PROPERTIES TIMEOUT 60)

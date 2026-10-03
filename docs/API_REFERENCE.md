@@ -43,7 +43,8 @@ protojs [options] -e "<code>"
 | `PROTOJS_NO_FALLBACK` | `src/JSContext.cpp` | When the protoCore compile step fails, `protojs` normally prints `[protojs] compile failed, fallback to QuickJS eval` and evaluates the code with QuickJS. Set to `1` to report the error instead. |
 | `PROTOJS_SPECIALISER` | `src/runtime/BytecodeSpecialiser.cpp` | Bytecode specialiser mode: `compact` (default), `nop` or `off`. |
 | `PROTOCORE_GC_CONTEXT_THRESHOLD` | protoCore | Per-context allocation threshold used by protoCore's garbage collector trigger. |
-| `PROTOCORE_HEAP_LIMIT_CELLS` | protoCore, `src/JSContext.cpp` | The heap ceiling, in 64-byte cells, of each protoCore space (the main one and each worker's). protoCore's collector runs as the heap approaches the ceiling, so without one nothing is reclaimed during a run. Default: 10,000,000 cells (640 MB), or a quarter of physical memory if that is smaller -- the same policy as protoST. `0` removes the ceiling. |
+| `PROTOJS_LITERAL_BUILD` | `src/runtime/BytecodeSpecialiser.cpp` | Object literals are built immutable and made mutable once, after their last field (`markObjectLiterals`). Set to `off` to build them field by field on a mutable object, as before 2026-10-02. |
+| `PROTOCORE_HEAP_LIMIT_CELLS` | protoCore, `src/JSContext.cpp`, `src/HeapLimit.cpp` | The heap ceiling, in 64-byte cells, of each protoCore space (the main one and each worker's). protoCore's collector runs as the heap approaches the ceiling, so without one nothing is reclaimed during a run; a live set that fills it ends the process with status 3. Default: 75 % of physical memory, or of the cgroup memory limit on Linux when one is set and smaller (a container, systemd `MemoryMax`); `protoCore.gcStats().heapLimitCells` shows the effective value. Because the collector runs only near the ceiling, a program grows towards it before its garbage is collected: set a lower value to bound its footprint, especially with several workers, since each worker's space has its own ceiling. Until 2026-10-02 the default was 10,000,000 cells (640 MB), or a quarter of physical memory if smaller. `0` removes the ceiling. |
 
 `PROTOJS_USE_PROTO_EVAL`, which some test scripts set, is not read by `protojs`.
 
@@ -137,11 +138,13 @@ Known differences from Node:
 
 | Member | Description |
 |--------|-------------|
-| `process.argv` | Array of every command-line argument passed to `protojs`, starting with the program path and including options. |
+| `process.argv` | As in Node.js: the program path, the script path, then the arguments after the script name (`protojs app.js a b` gives `[<protojs>, "app.js", "a", "b"]`); `protojs` options are not included. Until 2026-10-02 it held every argument, options included, and arguments after the script were rejected as further files. |
 | `process.env` | Object with one string property per environment variable. |
 | `process.cwd()` | Current working directory. |
 | `process.platform()` | A function (not a property) returning `"linux"`, `"darwin"`, `"win32"` or the raw `uname` system name. |
 | `process.arch()` | A function returning `"x64"`, `"ia32"`, `"arm"` or the raw `uname` machine name. |
+| `process.memoryUsage()` | `{rss, heapTotal, heapUsed, external, arrayBuffers}` in bytes, Node's names: `rss` is the current resident set; `heapTotal` is the protoCore heap (cells obtained from the OS) and `heapUsed` excludes the cells on the space's free list (cells held by threads' local free lists count as used); `external` and `arrayBuffers` are 0 (not tracked). |
+| `process.resourceUsage()` | `{maxRSS}`: the peak resident set in KiB, as in Node.js; no other field. |
 | `process.exit(code)` | Exits immediately with `code` if it is an integer, otherwise with 0, from any point including event callbacks: the standard streams are flushed first, and pending asynchronous work is abandoned (as in Node). |
 
 ```javascript

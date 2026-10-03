@@ -4,6 +4,56 @@ All notable changes to protoJS are documented in this file.
 
 ## [Unreleased]
 
+### Changed — default heap ceiling is 75 % of memory (2026-10-02)
+
+The default `PROTOCORE_HEAP_LIMIT_CELLS` was 10,000,000 cells (640 MB), or a
+quarter of physical memory if smaller, so a program whose live data exceeded
+640 MB ended with "out of memory" on machines with plenty to spare. It is now
+75 % of physical memory, or of the cgroup memory limit on Linux when one is
+set and smaller (`src/HeapLimit.cpp`; containers, systemd `MemoryMax`).
+`PROTOCORE_HEAP_LIMIT_CELLS` still overrides it, and
+`protoCore.gcStats().heapLimitCells` shows the effective value. Since the
+collector runs only near the ceiling, a program now grows towards it before
+its garbage is collected; set a lower ceiling to bound the footprint
+(`docs/API_REFERENCE.md`). protoCore's planned adaptive heap controller will
+replace this policy in `configureHeap`. Tests: `[HeapLimit]` unit tests and
+ctest `cli/heap-limit-default`; `cli/closure-loop-bounded-memory` now sets its
+ceiling explicitly.
+
+### Changed — less memory per object; Map and Set no longer quadratic (2026-10-02)
+
+Measured in `benchmarks/reports/2026-10-02-memory-per-object.md`: most of
+the 5-6 KB per object was garbage from publishing a new snapshot of a mutable
+object for every field written, reclaimed only near the heap ceiling.
+
+- Object literals are built immutable and published once
+  (`markObjectLiterals`, `PROTOJS_LITERAL_BUILD=off` disables it): a
+  five-field literal allocates 32 cells instead of 77.5. Array literals and
+  new arrays likewise (94 -> 52 cells for ten elements).
+- `OP_put_field` no longer allocates two strings for every write of a new key
+  (a constructor with five `this.x = v`: 148 -> 112 cells).
+- `Map.set` and `Set.add` were O(n) per insertion, in time and allocation
+  (4,000 `Map.set` calls allocated 1 GB): hash buckets now hold every key with
+  the hash and the next insertion slot is stored (78 cells per insertion at
+  50,000 keys).
+- Live data for `{id, name: "n" + i % 100, x: i * 0.5, y: i, tag: "t"}`: 9.0
+  cells per object (12.5 before); `tests/cli/objects_bounded_memory.py` keeps
+  200,000 under 11 cells each.
+
+Fixed on the way (`tests/integration/basic/object_literal_build.js`):
+
+- an own getter read with dot access returned `undefined`
+  (`({get x() {return 1}}).x`);
+- an own setter in an object literal or class body never ran on assignment;
+- `super.m()` in a method of an object whose prototype was set from
+  JavaScript (`__proto__:` in the literal, `Object.setPrototypeOf`) threw.
+
+Added: `process.memoryUsage()`, `process.resourceUsage().maxRSS`,
+`protoCore.gcStats()`. `process.argv` now holds the script's own arguments,
+as in Node.js (protojs used to take every argument as another script file),
+and has the Array methods (it was created before `Array.prototype` existed:
+`process.argv.slice(2)` threw).
+
 ### Changed — integral numbers are always SmallIntegers (2026-10-02)
 
 Numbers produced by built-ins (`Math.ceil/floor/round/trunc/abs/max/min/pow/

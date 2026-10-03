@@ -1,5 +1,7 @@
 #include "ProtoCoreTypes.h"
 #include "JSContext.h"
+#include "ArrayPrototype.h"
+#include "FunctionPrototype.h"
 #include "protoCore.h"
 #include "Deferred.h"
 #include "ProtoDeferred.h"
@@ -212,6 +214,15 @@ static void installRuntimeGlobals(protojs::JSContextWrapper& wrapper,
     protojs::Deferred::init(wrapper.getJSContext(), &wrapper);
 
     // ProcessModule needs the command line, so it is installed on its own.
+    // process.argv is an Array, so Array.prototype must exist first (the
+    // interpreter otherwise installs it when the script starts): pre-fix
+    // process.argv had no Array methods (`process.argv.slice(2)` threw).
+    {
+        const proto::ProtoObject* g = wrapper.getNativeGlobal();
+        protojs::ensureFunctionPrototype(pCtx, &g);
+        protojs::ensureArrayPrototype(pCtx, &g);
+        wrapper.updateNativeGlobal(g);
+    }
     {
         const proto::ProtoObject* g = wrapper.getNativeGlobal();
         wrapper.updateNativeGlobal(
