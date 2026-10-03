@@ -306,6 +306,8 @@ foreach(js_test
         basic/native_function_prototype
         basic/number_representation
         basic/object_literal_build
+        basic/put_field_groups
+        basic/put_field_group_cells
         basic/for_of_state
         basic/array_map_filter
         basic/regexp_global_advance
@@ -325,6 +327,7 @@ foreach(js_test
         crypto/test_crypto_sign
         deferred/concurrent_deferred
         deferred/parallel_deferred
+        deferred/put_field_group_atomicity
         deferred/test_deferred_reject
         test_deferred_basic
         native_addons/test_native_require
@@ -339,6 +342,10 @@ add_test(NAME js/modules/process_argv_memory
     COMMAND "$<TARGET_FILE:protojs>"
             "${CMAKE_CURRENT_SOURCE_DIR}/integration/modules/process_argv_memory.js"
             alpha "two words" --flag)
+
+# Allocation is measured with no collection in between (the test checks it).
+set_tests_properties(js/basic/put_field_group_cells PROPERTIES
+    ENVIRONMENT "PROTOCORE_HEAP_LIMIT_CELLS=100000000")
 
 # A quadratic Map.set / Set.add would not finish within this limit.
 set_tests_properties(js/collections/map_set_scaling PROPERTIES TIMEOUT 60)
