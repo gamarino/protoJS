@@ -76,7 +76,7 @@ The interpreter reached a QuickJS bytecode instruction it does not implement, an
 
 ### "Warning: Event loop timeout reached. Some callbacks may not have completed."
 
-After the main script finishes, `protojs` waits for pending `Deferred`s, workers, HTTP servers and clients and `net` sockets for at most 180 seconds. A server that keeps listening, or a Deferred that never settles, reaches this limit.
+After the main script finishes, `protojs` keeps running while `Deferred`s, workers, HTTP servers and clients, `net` sockets or I/O are pending, as Node.js does. This message appears only when `PROTOJS_EXIT_TIMEOUT_SECONDS` sets a limit and pending work outlives it. (Until 2026-10-03 the limit was a fixed 180 seconds, which ended long computations and listening servers.)
 
 ---
 

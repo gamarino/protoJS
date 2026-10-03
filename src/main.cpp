@@ -548,9 +548,15 @@ int main(int argc, char** argv) {
         }
     }
 
-    // Process event loop: handle Deferred/Worker callbacks and wait for worker threads
+    // Process the event loop while work is pending (Deferreds, workers,
+    // servers, sockets, I/O), as Node.js does: there is no time limit.  Until
+    // 2026-10-03 protojs gave up after 180 seconds, which ended long
+    // computations and servers alike.  PROTOJS_EXIT_TIMEOUT_SECONDS restores
+    // a limit for diagnostics.
     auto start = std::chrono::steady_clock::now();
-    const auto timeout = std::chrono::seconds(180);  // Allow parallel_cpu (5 rounds × 4 staggered ProtoThreads, 2e6 iter each) to complete
+    long long timeoutSeconds = 0;
+    if (const char* t = std::getenv("PROTOJS_EXIT_TIMEOUT_SECONDS")) timeoutSeconds = std::atoll(t);
+    const auto timeout = std::chrono::seconds(timeoutSeconds);
 
     // PROTOJS_GC_STATS census, printed to stderr at exit.
     //
@@ -596,7 +602,7 @@ int main(int argc, char** argv) {
         }
 
         auto now = std::chrono::steady_clock::now();
-        if (now - start > timeout) {
+        if (timeoutSeconds > 0 && now - start > timeout) {
             std::cerr << "Warning: Event loop timeout reached. Some callbacks may not have completed." << std::endl;
             break;
         }

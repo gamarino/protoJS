@@ -258,6 +258,13 @@ add_test(NAME cli/objects-bounded-memory
             "${CMAKE_CURRENT_BINARY_DIR}/cli-scratch/objects-bounded-memory")
 set_tests_properties(cli/objects-bounded-memory PROPERTIES TIMEOUT 900)
 
+# Pending work keeps the process alive without a time limit (it used to be
+# 180 s); PROTOJS_EXIT_TIMEOUT_SECONDS sets one.
+add_test(NAME cli/exit-timeout
+    COMMAND ${PROTOJS_PYTHON} "${CMAKE_CURRENT_SOURCE_DIR}/cli/exit_timeout.py"
+            "$<TARGET_FILE:protojs>"
+            "${CMAKE_CURRENT_BINARY_DIR}/cli-scratch/exit-timeout")
+
 add_test(NAME cli/closure-loop-bounded-memory
     COMMAND ${PROTOJS_PYTHON} "${CMAKE_CURRENT_SOURCE_DIR}/cli/closure_loop_bounded_memory.py"
             "$<TARGET_FILE:protojs>"
