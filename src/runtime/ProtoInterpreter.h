@@ -122,6 +122,15 @@ const proto::ProtoObject** getCurrentGlobalRoot();
 void signalNativeException(const proto::ProtoObject* errorObj);
 
 /**
+ * The ECMAScript global object for the value of a global root slot.  The root
+ * script's top-level bindings live on a child of the global object (the
+ * module-scope split in runBytecode); for that scope this answers its parent,
+ * the object `globalThis` names.  Any other root is answered unchanged.
+ */
+const proto::ProtoObject* globalObjectForRoot(proto::ProtoContext* ctx,
+                                              const proto::ProtoObject* root);
+
+/**
  * Create an Error-like ProtoObject of the given type (e.g. "TypeError") with message.
  * Equivalent to the internal makeError() helper but accessible from native code.
  * The object inherits from the matching error prototype so `instanceof` works.

@@ -230,6 +230,19 @@ public:
     const proto::ProtoObject* getNativeGlobal();
 
     /**
+     * @brief Returns the ECMAScript global object: what `globalThis`, the
+     * top-level `this` and the `this` of a sloppy function called without a
+     * receiver all denote.
+     *
+     * Not always getNativeGlobal(): once the root script runs, the root slot
+     * holds the script's binding scope, a child of the global object
+     * (runBytecode's module-scope split), and this answers its parent.
+     * `ctx` is the calling thread's context (a Deferred pool thread reads
+     * through its own).
+     */
+    const proto::ProtoObject* getGlobalObject(proto::ProtoContext* ctx);
+
+    /**
      * @brief Update the native global (called after module init mutates it).
      */
     void updateNativeGlobal(const proto::ProtoObject* g) {

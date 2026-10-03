@@ -82,13 +82,12 @@ static bool fnIsCallable(proto::ProtoContext* ctx, const proto::ProtoObject* fn)
     return false;
 }
 
-// §10.2.1.2 OrdinaryCallBindThis steps 4–5 — ToObject-coerce a
-// primitive thisArg for non-strict bytecode closures.  Class
-// constructors and arrow functions skip this; bytecode closures
-// whose .__metadata__.__is_strict__ === true skip it too.  Returns
-// thisArg unchanged for: native methods, strict bytecode, nullish
-// (already rebound to globalThis by the caller), object types,
-// and Symbol primitives (boxed elsewhere).
+// §10.2.1.2 OrdinaryCallBindThis steps 4–5 — for a non-strict bytecode
+// closure, null / undefined become the global object and a primitive
+// thisArg is ToObject-coerced.  Class constructors and arrow functions
+// skip this; bytecode closures whose __is_strict__ === true skip it too.
+// Returns thisArg unchanged for: native methods, strict bytecode, object
+// types, and Symbol primitives (boxed elsewhere).
 static const proto::ProtoObject* bindThisIfNonStrict(
     proto::ProtoContext* ctx,
     const proto::ProtoObject* fn,
@@ -113,11 +112,14 @@ static const proto::ProtoObject* bindThisIfNonStrict(
         const proto::ProtoObject* iv = fn->getAttribute(ctx, isK, false);
         if (iv == PROTO_TRUE) return thisArg;
     }
+    JSContextWrapper* w = JSContextWrapper::current();
     if (thisArg == PROTO_NONE
         || thisArg == getNullSentinel()
-        || thisArg == getUndefinedSentinel()) return thisArg;
+        || thisArg == getUndefinedSentinel()) {
+        const proto::ProtoObject* g = w ? w->getGlobalObject(ctx) : nullptr;
+        return g ? g : thisArg;
+    }
     // Object types: pass through.  Primitives: box per ToObject.
-    JSContextWrapper* w = JSContextWrapper::current();
     if (!w || !ctx->space) return thisArg;
     auto wrap = [&](const proto::ProtoObject* protoForWrapper)
         -> const proto::ProtoObject* {
@@ -154,23 +156,12 @@ static const proto::ProtoObject* fnCall(
     int argc = args ? static_cast<int>(args->getSize(ctx)) : 0;
     const proto::ProtoObject* thisArg = (argc > 0) ? args->getAt(ctx, 0) : PROTO_NONE;
     if (!thisArg) thisArg = PROTO_NONE;
-    // §10.2.1.2 OrdinaryCallBindThis: non-strict + null/undefined thisArg
-    // → globalThis.  Native receivers (Array.prototype.find etc.) are
-    // spec-strict — they must see the nullish thisArg and throw TypeError
-    // themselves.  Apply only to bytecode closures (which carry a
-    // __bytecode_id__ marker).
-    if ((thisArg == PROTO_NONE || thisArg == getUndefinedSentinel()
-         || thisArg == getNullSentinel()) && !self->isMethod(ctx)) {
-        const proto::ProtoString* bcK = JSSymbols::bytecodeId(ctx);
-        if (bcK && self->hasAttribute(ctx, bcK) == PROTO_TRUE) {
-            JSContextWrapper* w = JSContextWrapper::current();
-            if (w && w->getNativeGlobal()) thisArg = w->getNativeGlobal();
-        }
-    }
-    // §10.2.1.2 step 5.b — ToObject-coerce a primitive thisArg when
-    // the callee is a non-strict bytecode closure.  bindThisIfNonStrict
-    // reads __metadata__.__is_strict__ and gates the box on that flag,
-    // so strict closures still see the raw primitive.
+    // §10.2.1.2 OrdinaryCallBindThis: a non-strict bytecode closure sees
+    // the global object for null / undefined and a wrapper for a
+    // primitive; a strict closure and a native method (spec-strict: it
+    // must see the nullish thisArg and throw TypeError itself) see thisArg
+    // as it is.  Pre-fix null / undefined became the global object for
+    // strict closures as well.
     thisArg = bindThisIfNonStrict(ctx, self, thisArg);
 
     const proto::ProtoList* callArgs = ctx->newList();
@@ -201,21 +192,7 @@ static const proto::ProtoObject* fnApply(
     int argc = args ? static_cast<int>(args->getSize(ctx)) : 0;
     const proto::ProtoObject* thisArg = (argc > 0) ? args->getAt(ctx, 0) : PROTO_NONE;
     if (!thisArg) thisArg = PROTO_NONE;
-    // §10.2.1.2 OrdinaryCallBindThis: bind nullish thisArg → globalThis
-    // only when the callee is a bytecode user closure (non-strict).
-    // Native methods are spec-strict and must see the nullish thisArg
-    // so they can throw TypeError themselves.
-    if ((thisArg == PROTO_NONE || thisArg == getUndefinedSentinel()
-         || thisArg == getNullSentinel()) && !self->isMethod(ctx)) {
-        const proto::ProtoString* bcK = JSSymbols::bytecodeId(ctx);
-        if (bcK && self->hasAttribute(ctx, bcK) == PROTO_TRUE) {
-            JSContextWrapper* w = JSContextWrapper::current();
-            if (w && w->getNativeGlobal()) thisArg = w->getNativeGlobal();
-        }
-    }
-    // §10.2.1.2 step 5.b — ToObject-coerce a primitive thisArg when
-    // the callee is a non-strict bytecode closure.  Same helper as
-    // fnCall — strict closures see the raw primitive untouched.
+    // §10.2.1.2 OrdinaryCallBindThis, as in fnCall.
     thisArg = bindThisIfNonStrict(ctx, self, thisArg);
     const proto::ProtoObject* argsArray = (argc > 1) ? args->getAt(ctx, 1) : nullptr;
     // §20.2.3.1 step 4 + §7.3.18 CreateListFromArrayLike: argArray must
@@ -357,7 +334,13 @@ static const proto::ProtoObject* fnBind(
     const proto::ProtoString* btKey = JSSymbols::boundThis(ctx);
     const proto::ProtoString* baKey = JSSymbols::boundArgs(ctx);
     if (bfKey) bound = bound->setAttribute(ctx, bfKey, self);
-    if (btKey) bound = bound->setAttribute(ctx, btKey, thisArg);
+    // §10.2.1.2 OrdinaryCallBindThis boxes a primitive bound `this` for a
+    // non-strict target.  The bound function is called through several
+    // paths that pass __bound_this__ straight to callJSFunction, so the box
+    // is made here, once: every call of the bound function sees the same
+    // wrapper, where the specification makes a new one per call.  Pre-fix a
+    // sloppy target bound to a primitive saw the bare primitive.
+    if (btKey) bound = bound->setAttribute(ctx, btKey, bindThisIfNonStrict(ctx, self, thisArg));
     if (baKey) bound = bound->setAttribute(ctx, baKey, boundArgsArr);
 
     // Set bound.length = max(0, target.length - pre_bound_arg_count).
