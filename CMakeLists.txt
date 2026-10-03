@@ -185,6 +185,7 @@ set_source_files_properties(${QUICKJS_SRCS} PROPERTIES COMPILE_FLAGS "-D_GNU_SOU
 add_library(protojs_core STATIC
     src/TypeBridge.cpp
     src/JSContext.cpp
+    src/HeapLimit.cpp
     src/GCBridge.cpp
     src/ExecutionEngine.cpp
     src/ErrorHandler.cpp

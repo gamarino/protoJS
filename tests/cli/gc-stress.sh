@@ -2,7 +2,7 @@
 #
 # CLI check: programs that churn memory under a small heap ceiling.
 #
-# protoJS sets a heap ceiling by default (10M cells), so protoCore's collector
+# protoJS sets a heap ceiling by default (75 % of memory), so protoCore's collector
 # runs during ordinary programs, frees cells and reuses their addresses. Every
 # script in tests/integration/gc/ exercises one place where that used to go
 # wrong: a C++ cache keyed by a cell's address (the address is reused by a new

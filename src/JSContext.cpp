@@ -1,4 +1,5 @@
 #include "JSContext.h"
+#include "HeapLimit.h"
 #include "CPUThreadPool.h"
 #include "DeferredPool.h"
 #include "ObjectPrototype.h"
@@ -89,18 +90,24 @@ static JSModuleDef* protojs_load_module(JSContext* ctx, const char* module_name,
 }
 
 // ---------------------------------------------------------------------------
-// Memory policy -- the same as protoST's (protoST src/runtime/STRuntime.cpp,
-// configureHeap).
+// Memory policy.
 //
 // protoCore's collector defers work until it is needed: it runs in parallel
 // and triggers as the heap approaches the configured ceiling. With no ceiling
 // it is never needed, so garbage is never reclaimed during a run: a loop that
 // created 1,000,000 closures exhausted the machine's memory. Every space
 // protoJS creates (the main one and each worker's) therefore gets a hard
-// ceiling by default: 10M cells (640 MB of 64-byte cells), or a quarter of
-// physical memory if that is smaller. An explicit PROTOCORE_HEAP_LIMIT_CELLS,
-// which protoCore has already applied when the space was constructed, takes
-// precedence (0 disables the ceiling).
+// ceiling by default: 75 % of physical memory, or of the cgroup memory limit
+// when one is set and smaller (src/HeapLimit.h). An explicit
+// PROTOCORE_HEAP_LIMIT_CELLS, which protoCore has already applied when the
+// space was constructed, takes precedence (0 disables the ceiling).
+//
+// Until 2026-10-02 the default was 10M cells (640 MB), or a quarter of
+// physical memory if smaller: programs with a larger live set died with
+// "out of memory" on machines with plenty to spare.  Since the collector
+// runs only near the ceiling, a program now grows towards it before its
+// garbage is collected; protoCore's planned adaptive heap controller is meant
+// to bound that, and configureHeap is the one place that adopts it.
 //
 // A live set that itself reaches the ceiling is reported by protoCore through
 // outOfMemoryCallback, after which it would abort; protoJS ends the process
@@ -109,27 +116,12 @@ static JSModuleDef* protojs_load_module(JSContext* ctx, const char* module_name,
 // ---------------------------------------------------------------------------
 namespace {
 
-constexpr long long kHeapCellBytes = 64;
-constexpr long long kDefaultHardCells = 10'000'000;  // 640 MB of cells
+constexpr long long kHeapCellBytes = protojs::heaplimit::kCellBytes;
 
 long long configuredHardCells() {
     if (const char* env = std::getenv("PROTOCORE_HEAP_LIMIT_CELLS"))
         return std::atoll(env);
-    long long cells = kDefaultHardCells;
-#if defined(_WIN32)
-    MEMORYSTATUSEX status;
-    status.dwLength = sizeof(status);
-    if (::GlobalMemoryStatusEx(&status) && status.ullTotalPhys > 0)
-        cells = std::min(cells,
-            static_cast<long long>(status.ullTotalPhys / 4 / kHeapCellBytes));
-#elif defined(_SC_PHYS_PAGES) && defined(_SC_PAGESIZE)
-    const long pages = ::sysconf(_SC_PHYS_PAGES);
-    const long pageSize = ::sysconf(_SC_PAGESIZE);
-    if (pages > 0 && pageSize > 0)
-        cells = std::min(cells,
-            static_cast<long long>(pages) * pageSize / 4 / kHeapCellBytes);
-#endif
-    return std::min<long long>(cells, INT_MAX);
+    return protojs::heaplimit::processDefaultHeapLimitCells();
 }
 
 proto::ProtoObject* reportOutOfMemory(proto::ProtoContext*) {

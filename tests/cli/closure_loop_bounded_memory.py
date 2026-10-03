@@ -7,8 +7,8 @@ protoCore's collector starts a cycle only as the heap approaches a configured
 ceiling, and protoJS configured none, so nothing a program discarded was ever
 reclaimed: each closure cost about 20 KB that stayed allocated until exit, and a
 1,000,000-iteration closure loop exhausted the machine's memory. protoJS now
-sets protoST's default ceiling (10M cells = 640 MB, or a quarter of physical
-memory if smaller; PROTOCORE_HEAP_LIMIT_CELLS overrides it).
+sets a default ceiling (75 % of physical memory since 2026-10-02;
+PROTOCORE_HEAP_LIMIT_CELLS overrides it).
 
 A ceiling alone was not enough: every closure carried fn.prototype, whose
 `constructor` points back at the closure, and protoCore never collects a cycle
@@ -25,8 +25,10 @@ an ordinary `function` expression with the `function` argument.
 What this checks
 ----------------
 The script prints the sum it computed, and the run must finish with status 0,
-that exact output, and a peak resident set below PEAK_LIMIT_MB -- with the
-default policy, so PROTOCORE_HEAP_LIMIT_CELLS is removed from the environment.
+that exact output, and a peak resident set below PEAK_LIMIT_MB, under an
+explicit ceiling of HEAP_LIMIT_CELLS (640 MB of cells, the former default):
+the default is now 75 % of the machine's memory, which would let the loop's
+garbage grow past the safety cap before the first collection.
 
 The run is also capped: the child is killed as soon as its resident set exceeds
 KILL_LIMIT_MB, so a regression fails this test instead of exhausting the
@@ -46,7 +48,8 @@ KINDS = {"arrow": "(x) => x + i",
          "function": "function (x) { return x + i; }"}
 EXPECTED = "closure-loop: %d closures, sum %d" % (
     ITERATIONS, ITERATIONS + ITERATIONS * (ITERATIONS - 1) // 2)
-PEAK_LIMIT_MB = 1024     # the default ceiling is 640 MB of cells
+HEAP_LIMIT_CELLS = "10000000"   # 640 MB of cells
+PEAK_LIMIT_MB = 1024     # the ceiling is 640 MB of cells
 KILL_LIMIT_MB = 2048     # safety cap for this machine, not the verdict
 TIMEOUT_S = 900
 
@@ -124,7 +127,7 @@ def main():
         f.write(SCRIPT % (KINDS[kind], ITERATIONS, ITERATIONS))
 
     env = dict(os.environ)
-    env.pop("PROTOCORE_HEAP_LIMIT_CELLS", None)   # the default policy is under test
+    env["PROTOCORE_HEAP_LIMIT_CELLS"] = HEAP_LIMIT_CELLS
 
     is_windows = sys.platform.startswith("win")
     is_linux = sys.platform.startswith("linux")
