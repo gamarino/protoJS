@@ -82,7 +82,7 @@ cheap order.
 | `a[i] = i` on `new Array(N)` | 31.6 | 30.6 |
 | `a.push(i)` | 30.6 | 29.7 |
 | `o.x = i` (existing key) | 14.1 | 12.0 |
-| `m.set(i, i)` on a `Map` (1,000 keys / 4,000 keys / 50,000 keys) | 1,081 / 4,088 / out of memory | 68 / 68 / 78 |
+| `m.set(i, i)` on a `Map` (1,000 keys / 4,000 keys / 50,000 keys) | 1,081 / 4,088 / out of memory | 68 / 68 / 78 (44 after the ProtoMap storage of 2026-10-03) |
 | `s.add(k)` on a `Set` (4,000 keys) | 2,081 | 68 |
 | a call `f(i)`, a closure call, `o.x` read | 0 | 0 |
 

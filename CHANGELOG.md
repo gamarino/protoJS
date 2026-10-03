@@ -4,6 +4,37 @@ All notable changes to protoJS are documented in this file.
 
 ## [Unreleased]
 
+### Changed — structure-heavy code: for-of, Map/Set, map/filter (2026-10-03)
+
+Found while building `benchmarks/structures/` (report:
+`benchmarks/reports/2026-10-03-structure-benchmarks.md`):
+
+- **for-of**: each loop kept its iterator state at slot `0x10000 + pc`, so
+  every call of a function containing a for-of allocated, filled and freed a
+  512 KB slot array; glibc returned it to the kernel each time and half the
+  run time was system time. The state now lives in three slots per loop past
+  the frame (a document-transform task: 8.4 s -> 1.7 s). The built-in Array
+  Iterator `next()` interned none of its keys and copied the iterator kind
+  into a `std::string` per step; for-of now steps array iterators without
+  building a result object. `tests/integration/basic/for_of_state.js`.
+- **Map and Set**: iteration was quadratic (each `next()` walked the entries
+  from the start; spreading a 4,000-entry Map allocated 2,000 cells per
+  entry), and `forEach` rescanned the entries for every callback. Storage now
+  uses protoCore's `ProtoMap` hashed helper with SameValueZero key semantics
+  (`src/HashedCollection.*`, the pattern protoClojure, protoScala and protoST
+  use), the whole state in one record so every mutation publishes one
+  snapshot: `Map.set` of a new key 79.6 -> 44.1 cells, `Set.add` 61.4 ->
+  42.8, `Map.delete` 32.4 -> 19.2. BigInt keys are compared by value (they
+  were compared by identity). `tests/integration/collections/
+  map_set_semantics.js`, `map_set_scaling.js`.
+- **Array.prototype.map / filter** publish their result once for a plain
+  result array (map 100.7 -> 23.7 cells per element, filter 59.6 -> 13.8);
+  callback argument lists are one cell; array iterators are built immutable
+  (array destructuring 96 -> 57 cells). `tests/integration/basic/
+  array_map_filter.js`.
+- The per-thread caches of accessor-sidecar names held uninterned strings, so
+  every prototype-chain probe searched the symbol table by content.
+
 ### Changed — default heap ceiling is 75 % of memory (2026-10-02)
 
 The default `PROTOCORE_HEAP_LIMIT_CELLS` was 10,000,000 cells (640 MB), or a

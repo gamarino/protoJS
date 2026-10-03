@@ -79,3 +79,7 @@ tests/test262/reports/
 /tasks/
 benchmarks/deferred/results.jsonl
 build_tsan/
+
+# Default output of the structure benchmark runners
+benchmarks/structures/results.jsonl
+benchmarks/structures/cad/cad.jsonl
