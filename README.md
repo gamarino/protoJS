@@ -235,7 +235,7 @@ For details, see [ARCHITECTURE.md](ARCHITECTURE.md) and [src/runtime/README.md](
 
 protoJS has **one** authoritative Test262 figure. It is the whole corpus, not a subset.
 
-**As of 2026-10-02: 32 373 of 53 571 tests pass — 60.43 %** (CI run 37041194943).
+**As of 2026-10-03: 32 859 of 53 571 tests pass — 61.34 %** (CI run 37104513254).
 
 Reproduce it (about 1 h; the run must be sequential):
 
@@ -252,10 +252,10 @@ node tests/test262/runner/test262_runner.js
 | Corpus | the whole Test262 `test/` tree — `annexB`, `built-ins`, `harness`, `intl402`, `language`, `staging` |
 | Corpus commit | `aae8cf6eed6d6c6a203be48c1184bb194880f66b` |
 | Discovered / skipped / denominator | 53 582 / 11 / **53 571** |
-| Passed | **32 373** (60.43 %) |
-| Failures | 19 036 semantics, 1 239 syntax, 682 async, 7 negative, 234 timeouts |
-| Wall clock | 3 364 s sequential (`TEST262_CONCURRENCY=1`), GitHub Actions Ubuntu runner |
-| protoCore | 2.7.0 (`fc5d79db`), the CI pin |
+| Passed | **32 859** (61.34 %) |
+| Failures | 18 611 semantics, 1 240 syntax, 625 async, 7 negative, 229 timeouts |
+| Wall clock | 2 707 s sequential (`TEST262_CONCURRENCY=1`), GitHub Actions Ubuntu runner |
+| protoCore | 2.7.0 (`fc5d79db`), the CI pin at the time of the run |
 
 Nothing is excluded for being unimplemented: `intl402` (0.60 %) and `staging`
 (43.70 %) are in the denominator, and tests requiring features protoJS lacks are
@@ -302,7 +302,7 @@ To reproduce, build protoJS and run `node tests/benchmarks/run_standard_comparis
 
 **Known gaps:**
 
-- Test262 conformance is **60.43 %** of the whole corpus as of 2026-10-02 (see [Test262 Conformance](#test262-conformance)). The largest single gaps: ECMA-402 is not implemented at all (`intl402` passes 0.60 %), 234 tests time out on the CI runner, and classes and generators are incomplete (async functions and async generators follow the specification's job order since 2026-10; their remaining differences are listed in [Promises and async functions](docs/API_REFERENCE.md#promises-and-async-functions)). The failures catalogued on 2026-06-13 also remain: real `eval()` execution, the `$262` cross-realm harness, source text of generator and async functions for `Function.prototype.toString`, and resizable `ArrayBuffer` and `SuppressedError` subclassing. Property enumeration order is a deliberate deviation, not a pending fix: object keys come in protoCore's attribute order, not insertion order (see [Deliberate deviations](docs/API_REFERENCE.md#deliberate-deviations)).
+- Test262 conformance is **61.34 %** of the whole corpus as of 2026-10-03 (see [Test262 Conformance](#test262-conformance)). The largest single gaps: ECMA-402 is not implemented at all (`intl402` passes 0.60 %), 229 tests time out on the CI runner, and classes and generators are incomplete (async functions and async generators follow the specification's job order since 2026-10; their remaining differences are listed in [Promises and async functions](docs/API_REFERENCE.md#promises-and-async-functions)). The failures catalogued on 2026-06-13 also remain: real `eval()` execution, the `$262` cross-realm harness, source text of generator and async functions for `Function.prototype.toString`, and resizable `ArrayBuffer` and `SuppressedError` subclassing. Property enumeration order is a deliberate deviation, not a pending fix: object keys come in protoCore's attribute order, not insertion order (see [Deliberate deviations](docs/API_REFERENCE.md#deliberate-deviations)).
 - Strict-mode Test262 variants are not run yet: each test file executes once, in sloppy mode, so roughly half of Test262's required executions are unmeasured.
 - npm registry and semver components exist in `src/npm/`, but the `protojs` command line has no package-management command.
 - The interpreter is 15.2× slower than QuickJS and about 95× slower than Node.js on the benchmark reading above.

@@ -4,9 +4,9 @@ This page holds protoJS's **one authoritative Test262 figure**. Every other
 Test262 number in this repository is historical or a named subset, and says so
 where it appears. If two figures ever disagree again, this one wins.
 
-## Headline figure — as of 2026-10-02
+## Headline figure — as of 2026-10-03
 
-**32,373 of 53,571 tests pass — 60.43 %** of the whole Test262 corpus.
+**32,859 of 53,571 tests pass — 61.34 %** of the whole Test262 corpus.
 
 Reproduce it:
 
@@ -26,38 +26,38 @@ whole corpus keeps the runner's log and snapshot as the artifact
 
 | Field | Value |
 |---|---|
-| Date | 2026-10-02 |
-| Run | GitHub Actions CI run 37041194943 (workflow_dispatch, Ubuntu runner), branch `feature/spec-promises` at `0e343f754`, merged to master the same day |
+| Date | 2026-10-03 |
+| Run | GitHub Actions CI run 37104513254 (workflow_dispatch, Ubuntu runner), master at `f4fac9c67` |
 | Corpus | `../test262` at commit `aae8cf6eed6d6c6a203be48c1184bb194880f66b` |
 | Scope | the whole corpus: `annexB`, `built-ins`, `harness`, `intl402`, `language`, `staging` |
 | Discovered | 53,582 files (every `.js` under `test/` that is not a `_FIXTURE`) |
 | Skipped | 11 (the skip list; see below) |
 | Denominator | 53,571 |
-| Passed | **32,373** |
-| Failed — semantics | 19,036 |
-| Failed — syntax | 1,239 |
+| Passed | **32,859** |
+| Failed — semantics | 18,611 |
+| Failed — syntax | 1,240 |
 | Failed — negative (engine accepted source Test262 requires it to reject) | 7 |
-| Failed — async (no `Test262:AsyncTestComplete`) | 682 |
-| Timeouts (5,000 ms each) | 234 |
-| Pass rate | **60.43 %** |
-| Wall clock | 3,364 s (56 min), sequential, `TEST262_CONCURRENCY=1` |
+| Failed — async (no `Test262:AsyncTestComplete`) | 625 |
+| Timeouts (5,000 ms each) | 229 |
+| Pass rate | **61.34 %** |
+| Wall clock | 2,707 s (45 min), sequential, `TEST262_CONCURRENCY=1` |
 | protoCore | 2.7.0 (`fc5d79db`), the CI pin |
 
-`TEST262_CONCURRENCY=1` is not a preference. Parallel Test262 runs and parallel
-protoJS builds (`-j` greater than 1) hang the development machine, so the build
-is `-j1` and the run is sequential.
+`TEST262_CONCURRENCY=1` is not a preference: parallel Test262 runs hang the
+development machine, so the run is sequential. Builds may use `-j4`, which was
+verified safe on that machine on 2026-10-02.
 
 ### By directory
 
 | Directory | Denominator | Passed | Pass rate |
 |---|---:|---:|---:|
 | `annexB` | 1,086 | 545 | 50.18 % |
-| `built-ins` | 23,814 | 13,731 | 57.66 % |
+| `built-ins` | 23,814 | 13,898 | 58.36 % |
 | `harness` | 116 | 90 | 77.59 % |
 | `intl402` | 3,357 | 20 | 0.60 % |
-| `language` | 23,715 | 17,339 | 73.11 % |
-| `staging` | 1,483 | 648 | 43.70 % |
-| **Whole corpus** | **53,571** | **32,373** | **60.43 %** |
+| `language` | 23,715 | 17,653 | 74.44 % |
+| `staging` | 1,483 | 653 | 44.03 % |
+| **Whole corpus** | **53,571** | **32,859** | **61.34 %** |
 
 Subordinate view, for comparison with engines that publish it: excluding
 `intl402` (no ECMA-402 in protoJS) and `staging` (not normative in Test262),
