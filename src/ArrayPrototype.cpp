@@ -3548,11 +3548,10 @@ static const proto::ProtoList* makeIterArgs(proto::ProtoContext* ctx,
                                              const proto::ProtoObject* elem,
                                              long long idx,
                                              const proto::ProtoObject* arr) {
-    const proto::ProtoList* a = ctx->newList();
-    a = a->appendLast(ctx, elem ? elem : PROTO_NONE);
-    a = a->appendLast(ctx, ctx->fromInteger(idx));
-    a = a->appendLast(ctx, iterReceiver(ctx, arr));
-    return a;
+    // One cell (newList(n, items)) instead of four.
+    const proto::ProtoObject* items[3] = {
+        elem ? elem : PROTO_NONE, ctx->fromInteger(idx), iterReceiver(ctx, arr)};
+    return ctx->newList(3, items);
 }
 
 // Helper: extract callback and optional thisArg from args.
@@ -3738,6 +3737,18 @@ static const proto::ProtoObject* arrayCreateDataPropertyOrThrow(
 // ---------------------------------------------------------------------------
 // map(callback[, thisArg])
 // ---------------------------------------------------------------------------
+// True for an array that ArraySpeciesCreate made with the default
+// constructor: a real Array whose prototype is Array.prototype.  Nothing
+// else can observe it while map/filter fill it, so its elements can be
+// published once at the end instead of written one by one.
+static bool isPlainFreshArray(proto::ProtoContext* ctx, const proto::ProtoObject* arr) {
+    if (!arr || arr == PROTO_NONE || proto::isSmallInt(arr)) return false;
+    const proto::ProtoString* isArrKey = JSSymbols::isArray(ctx);
+    if (!isArrKey || arr->hasOwnAttribute(ctx, isArrKey) != PROTO_TRUE) return false;
+    const proto::ProtoObject* ap = getArrayProto();
+    return ap && arr->getPrototype(ctx) == ap && !getJSProtoOverride(ctx, arr);
+}
+
 static const proto::ProtoObject* arrayMap(
     proto::ProtoContext* ctx,
     const proto::ProtoObject* self,
@@ -3776,8 +3787,16 @@ static const proto::ProtoObject* arrayMap(
     // Pre-fix [1,2,3].map(() => undefined) returned an array whose
     // [k] reads bled through to Array.prototype inheritance.
     const proto::ProtoObject* undefSent = getUndefinedSentinel();
+    // A plain result collects the mapped values in a list and publishes it
+    // once (one snapshot of the array instead of one per element) while the
+    // source has no holes; at the first hole it switches to per-element
+    // writes, which leave the hole in place.
+    const proto::ProtoList* acc = isPlainFreshArray(ctx, result) ? ctx->newList() : nullptr;
     for (proto::proto_ulong i = 0; i < len; i++) {
-        if (!arrHasProperty(ctx, self, i)) continue;
+        if (!arrHasProperty(ctx, self, i)) {
+            if (acc) { setArrayElements(ctx, result, acc); acc = nullptr; }
+            continue;
+        }
         const proto::ProtoObject* elem = arrGet(ctx, self, i);
         // §23.1.3.18 step 6.f.ii: ? Get(O, Pk).  Throwing getter
         // terminates iteration BEFORE callback runs.
@@ -3786,9 +3805,14 @@ static const proto::ProtoObject* arrayMap(
             callJSFunction(ctx, fn, thisArg, makeIterArgs(ctx, elem, (long long)i, self));
         if (hasCallException()) return PROTO_NONE;
         if (!mapped || mapped == PROTO_NONE) mapped = undefSent;
+        if (acc) {
+            acc = acc->appendLast(ctx, mapped);
+            continue;
+        }
         result = arrayCreateDataPropertyOrThrow(ctx, result, i, mapped);
         if (hasCallException()) return PROTO_NONE;
     }
+    if (acc) setArrayElements(ctx, result, acc);
     // §23.1.3.18: A was created via ArraySpeciesCreate(O, len).  The
     // SPEC says A.length must equal len AT RETURN — visiting holes
     // doesn't shrink the result.  Pre-fix sparse sources like
@@ -3834,6 +3858,9 @@ static const proto::ProtoObject* arrayFilter(
     // surface undefined, not 100, in the filter result).
     const proto::ProtoObject* undefSent = getUndefinedSentinel();
     proto::proto_ulong outIdx = 0;
+    // A plain result collects the kept elements and publishes them once
+    // (see arrayMap); the kept elements are always contiguous.
+    const proto::ProtoList* acc = isPlainFreshArray(ctx, result) ? ctx->newList() : nullptr;
     for (proto::proto_ulong i = 0; i < len; i++) {
         if (!arrHasProperty(ctx, self, i)) continue;
         const proto::ProtoObject* elem = arrGet(ctx, self, i);
@@ -3845,10 +3872,19 @@ static const proto::ProtoObject* arrayFilter(
         if (hasCallException()) return PROTO_NONE;
         if (isTruthy(ctx, keep)) {
             if (!elem || elem == PROTO_NONE) elem = undefSent;
-            result = arrayCreateDataPropertyOrThrow(ctx, result, outIdx, elem);
-            if (hasCallException()) return PROTO_NONE;
+            if (acc) {
+                acc = acc->appendLast(ctx, elem);
+            } else {
+                result = arrayCreateDataPropertyOrThrow(ctx, result, outIdx, elem);
+                if (hasCallException()) return PROTO_NONE;
+            }
             outIdx++;
         }
+    }
+    if (acc && outIdx > 0) {
+        setArrayElements(ctx, result, acc);
+        const proto::ProtoString* lk = JSSymbols::length(ctx);
+        if (lk) result->setAttribute(ctx, lk, ctx->fromInteger(static_cast<long long>(outIdx)));
     }
     return result;
 }
@@ -5139,9 +5175,12 @@ static const proto::ProtoObject* makeArrayIterator(
     const proto::ProtoObject* arr,
     const char* kind)
 {
+    // Built immutable and made mutable with one clone (one publication
+    // instead of four): every for-of over an array and every array
+    // destructuring creates one.
     const proto::ProtoObject* protoParent = getArrayIteratorProto(ctx);
     const proto::ProtoObject* iter = protoParent
-        ? protoParent->newChild(ctx, true) : ctx->newObject(true);
+        ? protoParent->newChild(ctx, false) : ctx->newObject(false);
     const proto::ProtoString* idxKey  = JSSymbols::iterIdx(ctx);
     const proto::ProtoString* refKey  = JSSymbols::iterArr(ctx);
     const proto::ProtoString* kindKey = JSSymbols::iterKind(ctx);
@@ -5153,7 +5192,7 @@ static const proto::ProtoObject* makeArrayIterator(
         const proto::ProtoObject* nextFn = ctx->fromMethod(nullptr, arrayIteratorNext);
         if (nextFn) iter = iter->setAttribute(ctx, nextKey, nextFn);
     }
-    return iter;
+    return iter->clone(ctx, true);
 }
 
 static const proto::ProtoObject* arrayEntries(

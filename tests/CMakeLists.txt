@@ -300,6 +300,7 @@ foreach(js_test
         basic/number_representation
         basic/object_literal_build
         basic/for_of_state
+        basic/array_map_filter
         basic/regexp_global_advance
         basic/generator_for_of_yield
         modules/test_require_file
