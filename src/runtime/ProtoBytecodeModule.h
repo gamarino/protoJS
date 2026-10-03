@@ -122,6 +122,11 @@ struct ProtoBytecodeModule {
     const proto::ProtoObject* funcNameValue{nullptr};
     const proto::ProtoObject* funcSourceValue{nullptr};
 
+    /** Byte offsets of the OP_for_of_start instructions in the final
+     *  bytecode, ascending: a loop's ordinal selects its state slots
+     *  (forOfStateSlot in ProtoInterpreter.cpp). */
+    std::vector<uint32_t> forOfStartPcs;
+
     unsigned argCount() const { return argCount_; }
     unsigned varCount() const { return varCount_; }
     unsigned stackSize() const { return stackSize_; }

@@ -4679,17 +4679,39 @@ enum ContinuationField {
     kContFieldCount
 };
 
-// for-of keeps each loop's iterator state in the slots at 0x10000 + pc (see
-// L_OP_for_of_start), outside the [locals][operand stack] window that
-// snapshotAutomaticLocals copies.  Collect the ones in use as (index, value)
-// pairs, or nullptr when there are none.
+// The first of the three slots holding the state of the for-of loop whose
+// OP_for_of_start is at `opPc`: past the frame's [locals][operand stack]
+// region, in the order of the loops in the function (a loop the loader did
+// not index keeps the old slot, 0x10000 + opPc).  Until 2026-10-02 the
+// state lived at slot 0x10000 + opPc, so a function with a for-of grew its
+// slot array to more than 65,536 entries (512 KB, allocated and filled) on
+// every call.
+static unsigned int forOfStateSlot(proto::ProtoContext* ctx, const ProtoBytecodeModule* mod,
+                                   int opPc) {
+    const InterpFrame* f = currentFrame(ctx);
+    const unsigned int highBase = f ? f->stackBase + f->stackCap : ctx->getAutomaticLocalsCount();
+    const auto& pcs = mod->forOfStartPcs;
+    const auto it = std::lower_bound(pcs.begin(), pcs.end(), static_cast<uint32_t>(opPc));
+    if (it == pcs.end() || *it != static_cast<uint32_t>(opPc))
+        return 0x10000u + static_cast<unsigned int>(opPc);   // not indexed: the old scheme
+    return highBase + 3u * static_cast<unsigned int>(it - pcs.begin());
+}
+
+// for-of keeps each loop's iterator state in three slots past the frame's
+// reserved region (forOfStateSlot, see L_OP_for_of_start), outside the
+// [locals][operand stack] window that snapshotAutomaticLocals copies.
+// Collect the ones in use as (index, value) pairs, or nullptr when there are
+// none.
 static PROTOJS_NOINLINE const proto::ProtoList* snapshotHighSlots(proto::ProtoContext* ctx) {
     const unsigned int count = ctx->getAutomaticLocalsCount();
-    if (count <= 0x10000u) return nullptr;
+    const InterpFrame* f = currentFrame(ctx);
+    unsigned int highBase = f ? f->stackBase + f->stackCap : count;
+    if (highBase > 0x10000u) highBase = 0x10000u;   // includes unindexed loops' old slots
+    if (count <= highBase) return nullptr;
     const proto::ProtoObject* const* slots = ctx->getAutomaticLocals();
     if (!slots) return nullptr;
     const proto::ProtoList* list = nullptr;
-    for (unsigned int i = 0x10000u; i < count; ++i) {
+    for (unsigned int i = highBase; i < count; ++i) {
         const proto::ProtoObject* v = slots[i];
         if (!v || v == PROTO_NONE) continue;
         if (!list) list = ctx->newList();
@@ -16720,12 +16742,12 @@ const proto::ProtoObject* runBytecode(proto::ProtoContext* pContext,
                     const proto::ProtoObject* nextFn2 = iterable->getAttribute(pContext, nextKey2, false);
                     const proto::ProtoObject* iterArrVal = iterable->getAttribute(pContext, iterArrKey2, false);
                     if (nextFn2 && nextFn2 != PROTO_NONE && iterArrVal && iterArrVal != PROTO_NONE) {
-                        uint32_t baseSlot = 0x10000u + static_cast<uint32_t>(pc - 1);
+                        uint32_t baseSlot = forOfStateSlot(pContext, module, pc - 1);
                         setSlot(pContext, baseSlot,     iterable);
                         setSlot(pContext, baseSlot + 1, pContext->fromInteger(-1LL)); // sentinel
                         setSlot(pContext, baseSlot + 2, pContext->fromInteger(0LL));  // done flag
-                        // setSlot at baseSlot (≥ 0x10000) forces a massive
-                        // resize of automaticLocals on first hit, invalidating
+                        // setSlot past the frame's slots resizes
+                        // automaticLocals on first hit, invalidating
                         // the pAutomaticLocals pointer cached at the top of
                         // runBytecode.  Without refresh, the next opcode reads
                         // stale freed memory — the for-of body sees garbage
@@ -16762,11 +16784,11 @@ const proto::ProtoObject* runBytecode(proto::ProtoContext* pContext,
                         DISPATCH();
                     }
                     if (!iterator || iterator == PROTO_NONE) return PROTO_NONE;
-                    uint32_t baseSlotC = 0x10000u + static_cast<uint32_t>(pc - 1);
+                    uint32_t baseSlotC = forOfStateSlot(pContext, module, pc - 1);
                     setSlot(pContext, baseSlotC,     iterator);
                     setSlot(pContext, baseSlotC + 1, pContext->fromInteger(-1LL)); // sentinel: next()-based
                     setSlot(pContext, baseSlotC + 2, pContext->fromInteger(0LL));  // done flag
-                    REFRESH_INTERP_STATE(); // setSlot(≥0x10000) resized automaticLocals — see Case A comment.
+                    REFRESH_INTERP_STATE(); // setSlot past the frame resized automaticLocals — see Case A comment.
                     const proto::ProtoObject* iterObjC = pContext->newObject(false);
                     if (!iterObjC) return PROTO_NONE;
                     const proto::ProtoString* slotKeyC = JSSymbols::iterSlot(pContext);
@@ -16783,10 +16805,10 @@ const proto::ProtoObject* runBytecode(proto::ProtoContext* pContext,
                 const proto::ProtoString* lenKey2 = JSSymbols::length(pContext);
                 const proto::ProtoObject* lenVal = lenKey2 ? iterable->getAttribute(pContext, lenKey2, true) : PROTO_NONE;
                 if (lenVal && lenVal != PROTO_NONE && lenVal->isInteger(pContext)) {
-                    uint32_t baseSlot = 0x10000u + static_cast<uint32_t>(pc - 1);
+                    uint32_t baseSlot = forOfStateSlot(pContext, module, pc - 1);
                     setSlot(pContext, baseSlot,     iterable);
                     setSlot(pContext, baseSlot + 1, pContext->fromInteger(0LL));
-                    REFRESH_INTERP_STATE(); // setSlot(≥0x10000) resized automaticLocals — see Case A comment.
+                    REFRESH_INTERP_STATE(); // setSlot past the frame resized automaticLocals — see Case A comment.
                     // Build a lightweight iterator object carrying the slot base.
                     const proto::ProtoObject* iterObj = pContext->newObject(false);
                     if (iterObj) {
@@ -16871,6 +16893,18 @@ const proto::ProtoObject* runBytecode(proto::ProtoContext* pContext,
                     const proto::ProtoObject* nextFnFO = (nextKeyFO && arrObj != PROTO_NONE)
                         ? arrObj->getAttribute(pContext, nextKeyFO, false) : PROTO_NONE;
                     const proto::ProtoObject* resultFO = PROTO_NONE;
+                    // The built-in Array Iterator next(): take one step
+                    // without building the {value, done} result object.
+                    if (nextFnFO && nextFnFO != PROTO_NONE && nextFnFO->isMethod(pContext)
+                        && protojs::isArrayIteratorNext(nextFnFO->asMethod(pContext))) {
+                        const proto::ProtoObject* stepVal = PROTO_NONE;
+                        const bool stepDone = protojs::arrayIteratorStep(pContext, arrObj, stepVal);
+                        REFRESH_INTERP_STATE();
+                        if (stepDone) setSlot(pContext, bs + 2, pContext->fromInteger(1LL));
+                        stackPush(pContext, stepDone ? PROTO_NONE : stepVal);
+                        stackPush(pContext, stepDone ? PROTO_TRUE : PROTO_FALSE);
+                        DISPATCH();
+                    }
                     if (nextFnFO && nextFnFO != PROTO_NONE) {
                         if (nextFnFO->isMethod(pContext)) {
                             proto::ProtoMethod nativeFnFO = nextFnFO->asMethod(pContext);

@@ -299,6 +299,7 @@ foreach(js_test
         basic/native_function_prototype
         basic/number_representation
         basic/object_literal_build
+        basic/for_of_state
         basic/regexp_global_advance
         basic/generator_for_of_yield
         modules/test_require_file

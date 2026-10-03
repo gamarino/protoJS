@@ -4966,6 +4966,72 @@ static const proto::ProtoObject* arrayAt(
 // Array iterators: entries(), keys(), values()
 // ---------------------------------------------------------------------------
 
+// The hidden slot marking an exhausted array iterator, interned once.
+static const proto::ProtoString* iterDoneKey(proto::ProtoContext* ctx) {
+    static const proto::ProtoString* const s_key =
+        proto::ProtoString::createSymbol(ctx, "__iter_done__");
+    return s_key;
+}
+
+// 0 values, 1 keys, 2 entries: the __iter_kind__ string, compared by content
+// against interned names instead of being copied into a std::string per step.
+static int arrayIteratorKind(proto::ProtoContext* ctx, const proto::ProtoObject* kindObj) {
+    if (!kindObj || kindObj == PROTO_NONE || !kindObj->isString(ctx)) return 0;
+    static const proto::ProtoString* const s_keys = proto::ProtoString::createSymbol(ctx, "keys");
+    static const proto::ProtoString* const s_entries = proto::ProtoString::createSymbol(ctx, "entries");
+    if (s_keys && kindObj->compare(ctx, s_keys->asObject(ctx)) == 0) return 1;
+    if (s_entries && kindObj->compare(ctx, s_entries->asObject(ctx)) == 0) return 2;
+    return 0;
+}
+
+// One step of an Array Iterator (ECMA-262 §23.1.5.2.1): returns true when the
+// iteration is done; otherwise sets `value` and advances the iterator.
+bool arrayIteratorStep(proto::ProtoContext* ctx, const proto::ProtoObject* self,
+                       const proto::ProtoObject*& value) {
+    value = PROTO_NONE;
+    if (!self || self == PROTO_NONE) return true;
+    const proto::ProtoString* idxKey  = JSSymbols::iterIdx(ctx);
+    const proto::ProtoString* refKey  = JSSymbols::iterArr(ctx);
+    const proto::ProtoString* kindKey = JSSymbols::iterKind(ctx);
+    if (!idxKey || !refKey || !kindKey) return true;
+
+    // Sticky done: once the iterator has reported done it keeps doing so
+    // even if the array grows (built-ins/Array/prototype/values/
+    // iteration-mutable).
+    const proto::ProtoString* doneKs = iterDoneKey(ctx);
+    if (doneKs && self->getAttribute(ctx, doneKs, false) == PROTO_TRUE) return true;
+
+    const proto::ProtoObject* arrRef  = self->getAttribute(ctx, refKey,  false);
+    const proto::ProtoObject* idxVal  = self->getAttribute(ctx, idxKey,  false);
+    long long idx = (idxVal && idxVal != PROTO_NONE && idxVal->isInteger(ctx))
+                    ? idxVal->asLong(ctx) : 0LL;
+    if ((proto::proto_ulong)idx >= arrLen(ctx, arrRef)) {
+        if (doneKs) self->setAttribute(ctx, doneKs, PROTO_TRUE);
+        return true;
+    }
+    // Advance the index in place (the iterator is mutable).
+    self->setAttribute(ctx, idxKey, ctx->fromInteger(idx + 1));
+
+    switch (arrayIteratorKind(ctx, self->getAttribute(ctx, kindKey, false))) {
+        case 1:
+            value = ctx->fromInteger(idx);
+            break;
+        case 2: {
+            const proto::ProtoObject* elem = arrGet(ctx, arrRef, (proto::proto_ulong)idx);
+            const proto::ProtoObject* pair = createNewArray(ctx, nullptr);
+            pair = arrSet(ctx, pair, 0, ctx->fromInteger(idx));
+            pair = arrSet(ctx, pair, 1, elem);
+            value = pair;
+            break;
+        }
+        default:
+            value = arrGet(ctx, arrRef, (proto::proto_ulong)idx);
+            break;
+    }
+    if (!value) value = PROTO_NONE;
+    return false;
+}
+
 /** Native next() for all three iterator kinds (controlled by __iter_kind__ attribute). */
 static const proto::ProtoObject* arrayIteratorNext(
     proto::ProtoContext* ctx,
@@ -4974,89 +5040,18 @@ static const proto::ProtoObject* arrayIteratorNext(
     const proto::ProtoList*,
     const proto::ProtoSparseList*)
 {
-    if (!self || self == PROTO_NONE) {
-        // Return {value: undefined, done: true}.
-        const proto::ProtoObject* r = ctx->newObject(true);
-        const proto::ProtoString* vk = JSSymbols::value(ctx);
-        const proto::ProtoString* dk = JSSymbols::done(ctx);
-        if (vk) r = r->setAttribute(ctx, vk, PROTO_NONE);
-        if (dk) r = r->setAttribute(ctx, dk, PROTO_TRUE);
-        return r;
-    }
-
-    const proto::ProtoString* idxKey  = JSSymbols::iterIdx(ctx);
-    const proto::ProtoString* refKey  = JSSymbols::iterArr(ctx);
-    const proto::ProtoString* kindKey = JSSymbols::iterKind(ctx);
-    const proto::ProtoString* valueK  = JSSymbols::value(ctx);
-    const proto::ProtoString* doneK   = JSSymbols::done(ctx);
-
-    if (!idxKey || !refKey || !kindKey || !valueK || !doneK) return PROTO_NONE;
-
-    // Sticky-done guard per ECMA-262 §23.1.5.2.1: once a CreateArrayIterator
-    // result has yielded {done: true} every subsequent call must keep
-    // doing so even if the underlying array grows.  Pre-fix the
-    // iterator only tracked idx/length, so push() after exhaustion
-    // re-enabled iteration (built-ins/Array/prototype/values/iteration-
-    // mutable observed the second 'b' surface after done).
-    const proto::ProtoObject* doneKo = ctx->fromUTF8String("__iter_done__");
-    const proto::ProtoString* doneKs = doneKo ? doneKo->asString(ctx) : nullptr;
-    if (doneKs && self->hasAttribute(ctx, doneKs) == PROTO_TRUE) {
-        const proto::ProtoObject* d = self->getAttribute(ctx, doneKs, false);
-        if (d == PROTO_TRUE) {
-            const proto::ProtoObject* r = ctx->newObject(true);
-            r = r->setAttribute(ctx, valueK, PROTO_NONE);
-            r = r->setAttribute(ctx, doneK,  PROTO_TRUE);
-            return r;
-        }
-    }
-
-    const proto::ProtoObject* arrRef  = self->getAttribute(ctx, refKey,  false);
-    const proto::ProtoObject* idxVal  = self->getAttribute(ctx, idxKey,  false);
-    const proto::ProtoObject* kindObj = self->getAttribute(ctx, kindKey, false);
-
-    long long idx = (idxVal && idxVal != PROTO_NONE && idxVal->isInteger(ctx))
-                    ? idxVal->asLong(ctx) : 0LL;
-    proto::proto_ulong arrLen_ = arrLen(ctx, arrRef);
-
-    // Build result object.
-    const proto::ProtoObject* r = ctx->newObject(true);
-
-    if ((proto::proto_ulong)idx >= arrLen_) {
-        // Iteration done — mark sticky so future calls stay done.
-        if (doneKs) self->setAttribute(ctx, doneKs, PROTO_TRUE);
-        r = r->setAttribute(ctx, valueK, PROTO_NONE);
-        r = r->setAttribute(ctx, doneK,  PROTO_TRUE);
-        return r;
-    }
-
-    // Advance index in-place (self is mutable).
-    const proto::ProtoObject* nextSelf = self->setAttribute(ctx, idxKey, ctx->fromInteger(idx + 1));
-
-    // Determine value based on kind.
-    std::string kind = "values";
-    if (kindObj && kindObj != PROTO_NONE && kindObj->isString(ctx)) {
-        const proto::ProtoString* ks = kindObj->asString(ctx);
-        if (ks) ks->toUTF8String(ctx, kind);
-    }
-
-    const proto::ProtoObject* value;
-    if (kind == "keys") {
-        value = ctx->fromInteger(idx);
-    } else if (kind == "entries") {
-        // [index, element]
-        const proto::ProtoObject* elem = arrGet(ctx, arrRef, (proto::proto_ulong)idx);
-        const proto::ProtoObject* pair = createNewArray(ctx, nullptr);
-        pair = arrSet(ctx, pair, 0, ctx->fromInteger(idx));
-        pair = arrSet(ctx, pair, 1, elem);
-        value = pair;
-    } else { // "values"
-        value = arrGet(ctx, arrRef, (proto::proto_ulong)idx);
-    }
-
-    r = r->setAttribute(ctx, valueK, value ? value : PROTO_NONE);
-    r = r->setAttribute(ctx, doneK,  PROTO_FALSE);
-    return r;
+    const proto::ProtoObject* value = PROTO_NONE;
+    const bool done = arrayIteratorStep(ctx, self, value);
+    // The result object is built immutable and made mutable with one clone.
+    const proto::ProtoObject* r = ctx->newObject(false);
+    const proto::ProtoString* valueK = JSSymbols::value(ctx);
+    const proto::ProtoString* doneK  = JSSymbols::done(ctx);
+    if (valueK) r = r->setAttribute(ctx, valueK, done ? PROTO_NONE : value);
+    if (doneK)  r = r->setAttribute(ctx, doneK, done ? PROTO_TRUE : PROTO_FALSE);
+    return r->clone(ctx, true);
 }
+
+bool isArrayIteratorNext(proto::ProtoMethod m) { return m == &arrayIteratorNext; }
 
 /** Create an iterator object for the given array and kind. */
 // %ArrayIteratorPrototype% — shared parent object for the iterators

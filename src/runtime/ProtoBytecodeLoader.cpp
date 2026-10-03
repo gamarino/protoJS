@@ -225,6 +225,17 @@ static bool loadBytecodeRecursive(JSContext* ctx,
     }
     std::vector<uint8_t> specBuf = specialise(litBuf.data(), len, getSpecialiseMode());
     lowerClassConstructorPush(specBuf);
+    {
+        const uint8_t* sizes = getOpSizes();
+        out->forOfStartPcs.clear();
+        for (size_t pc = 0; pc < specBuf.size(); ) {
+            const uint8_t op = specBuf[pc];
+            if (op == OP_for_of_start) out->forOfStartPcs.push_back(static_cast<uint32_t>(pc));
+            const uint8_t sz = sizes[op];
+            if (sz == 0) { out->forOfStartPcs.clear(); break; }
+            pc += sz;
+        }
+    }
     out->pBytecode = pContext->newByteBuffer(
         reinterpret_cast<const char*>(specBuf.data()),
         static_cast<proto::proto_ulong>(specBuf.size()));

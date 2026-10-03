@@ -23,6 +23,13 @@ void ensureArrayPrototype(proto::ProtoContext* ctx,
  * Equivalent to [] in JavaScript.  If arrayProto is null, falls back to
  * a plain mutable object.
  */
+/** One step of an Array Iterator: true when done, else `value` is set and
+ *  the iterator advanced.  for-of uses it to skip the result object. */
+bool arrayIteratorStep(proto::ProtoContext* ctx, const proto::ProtoObject* iterator,
+                       const proto::ProtoObject*& value);
+/** True for the native next() of Array Iterators. */
+bool isArrayIteratorNext(proto::ProtoMethod m);
+
 const proto::ProtoObject* createNewArray(proto::ProtoContext* ctx,
                                          const proto::ProtoObject* arrayProto);
 
