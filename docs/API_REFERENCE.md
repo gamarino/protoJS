@@ -76,6 +76,31 @@ protojs [options] -e "<code>"
 
 Timer functions such as `setTimeout` and `setInterval` are not installed.
 
+### Shared objects, Deferreds and grouped writes
+
+A `Deferred` runs its function in parallel and shares the script's objects
+([DEFERRED_USAGE.md](DEFERRED_USAGE.md#sharing-objects-what-a-deferred-sees)).
+Each write to a shared object is atomic: a reader sees the object before the
+write or after it, never half of it. A run of consecutive writes to one object
+whose values cannot run code (`o.a = x; o.b = y + 1; o.c = 0`) is published as
+one new version (see `PROTOJS_PUTFIELD_GROUPS` above and
+[PERFORMANCE_NOTES.md](PERFORMANCE_NOTES.md)), and is atomic as a whole: another
+thread sees all of the run or none of it. When the runtime declines to group a
+run, each of its writes is published on its own.
+
+**A thread terminated in the middle of a run.** When the thread executing a run
+of writes to one object is terminated before the run completes -- the process
+exits from another thread, or the thread ends abnormally -- which of the run's
+writes survive is indeterminate: none of them when the run was grouped and its
+single publication had not happened yet, the ones already executed when it was
+not grouped. This is the intended behaviour, not a defect. Grouping is an
+optimisation the runtime applies or declines at run time, and the language
+promises no order in which another thread observes the writes of a run, so a
+program must not rely on a partial run having become visible. A run that must
+be observed as a unit should be written as one: build the new state and
+publish it with a single write (`shared.state = { a, b, c }`), or use
+protoCore's collections, which republish with a compare-and-swap.
+
 ---
 
 ## Promises and async functions

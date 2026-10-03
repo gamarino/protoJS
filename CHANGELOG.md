@@ -4,6 +4,64 @@ All notable changes to protoJS are documented in this file.
 
 ## [Unreleased]
 
+### Fixed — writes to a property of a primitive, undefined or null (2026-10-03)
+
+- In strict code `s.foo = 1` on a string, number, boolean or BigInt was
+  silently dropped, and in both modes `undefined.foo = 1` and `null.foo = 1`
+  were dropped as well; only Symbols, `null[key]` and some forms of
+  `undefined[key]` threw.  ECMA-262 §6.2.5.6 PutValue
+  requires TypeError for undefined and null in every mode, and for a
+  primitive a [[Set]] with the primitive as receiver: a setter on the
+  prototype chain runs with the primitive as `this`, anything else fails --
+  TypeError in strict code, ignored in sloppy code.  `OP_put_field`,
+  `OP_put_array_el` and the write groups now share one path
+  (`putOnNonObjectBase`, src/runtime/ProtoInterpreter.cpp); compound
+  assignment, `++`, and destructuring targets go through the same opcodes.
+  The write-group check also declines BigInt receivers, which are object
+  cells in protoJS.
+- BigInt has no boxed form in protoJS (`Object(1n)` answers the BigInt
+  itself), so a strict write to `Object(1n).foo` throws where the
+  specification writes to the wrapper.
+- Tests: `js/basic/primitive_property_writes` (144 checks, Node.js's results;
+  65 failed before), and two of the three checks restored in
+  `js/basic/put_field_groups` (primitive and undefined receivers).
+
+### Fixed — `this` of a sloppy function called without a receiver (2026-10-03)
+
+- A non-strict function called with `this` undefined or null -- `f()`,
+  `f.call(null)`, `f.bind(undefined)()`, and every `Function(...)`-built
+  function, including Test262's `fnGlobalObject()` -- received the root
+  script's binding scope instead of the global object.  That scope is a
+  child of the global object that holds the root script's top-level
+  bindings (the module-scope split in runBytecode), so `this` was neither
+  `globalThis` nor the top-level `this`, and `this.x = 1` in such a function
+  was invisible through `globalThis.x`.  `OP_push_this`, the `this` an arrow
+  function captures, and `Function.prototype.call` / `apply` / `bind` now use
+  the global object (`globalObjectForRoot`,
+  `JSContextWrapper::getGlobalObject`).  Arrow functions created in such a
+  sloppy function captured `undefined`; they capture the global object now.
+- `f.call(undefined)` / `f.apply(null)` on a strict function returned the
+  global object as `this`; they now pass the value through, as for any strict
+  callee.  `f.bind(7)` on a sloppy function now boxes the primitive (once, at
+  bind time: every call of the bound function sees the same wrapper, where
+  the specification creates one per call).
+- Remaining deviation, now observable through `this`: top-level `var` and
+  function declarations of the root script live on that binding scope, not
+  on the global object, so `var x = 1; Function("return this.x")()` reads
+  `undefined` (it read 1 before only because `this` was the binding scope).
+  docs/TEST262_STATUS.md, "Top-level declarations and the global object".
+- Tests: `js/basic/sloppy_this_binding` (27 checks, Node.js's results; 17
+  failed before) and the third restored check of `js/basic/put_field_groups`
+  (a Function()-built function writing through `this`).
+
+### Documented — a thread terminated in the middle of a run of writes (2026-10-03)
+
+- docs/API_REFERENCE.md, "Shared objects, Deferreds and grouped writes":
+  when the thread executing a run of writes to one object is terminated
+  before the run completes, which of the run's writes survive is
+  indeterminate (none when the run was grouped and not yet published, the
+  executed prefix when it was not), and that is the intended behaviour.
+
 ### Changed — a run of writes to one object is published once (2026-10-03)
 
 - `o.a = x; o.b = y + 1; o.c = 0` published three versions of `o` into
