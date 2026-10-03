@@ -253,6 +253,11 @@ JSContextWrapper::JSContextWrapper(size_t cpuThreads, size_t ioThreads, double i
     // Event loop is initialized on first access (singleton)
 }
 
+const proto::ProtoObject* JSContextWrapper::getGlobalObject(proto::ProtoContext* ctx) {
+    const proto::ProtoObject* root = getNativeGlobal();
+    return (root && ctx) ? protojs::globalObjectForRoot(ctx, root) : root;
+}
+
 const proto::ProtoObject* JSContextWrapper::getNativeGlobal() {
     // A Deferred pool thread reads its own copy of the root slot (ThreadView).
     if (const ThreadView* v = t_threadView_) return v->globalSlot ? *v->globalSlot : nullptr;

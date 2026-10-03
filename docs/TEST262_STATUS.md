@@ -209,6 +209,27 @@ in cross-platform run 36973056352; `defineProperties/15.2.3.7-6-a-93-1` and
 and report its diff, but do not fail on it. Since the deviation is permanent,
 so is that arrangement: the Linux and macOS jobs gate, the Windows jobs report.
 
+### Top-level declarations and the global object
+
+The root script's top-level `var` and function declarations live on a child of
+the global object (the module-scope split in `runBytecode`,
+`src/runtime/ProtoInterpreter.cpp`), not on the global object itself, which
+ECMA-262 requires (GlobalDeclarationInstantiation). Reads of the bare names are
+unaffected -- the child inherits from the global object -- but the bindings are
+not properties of `globalThis`: `var x = 1; globalThis.x` is `undefined`.
+
+Since 2026-10-03 a sloppy function called without a receiver sees the global
+object as `this`, as `globalThis` and the top-level `this` do. Before, it saw
+the child, so `var x = 1; Function("return this.x")()` read 1 while
+`globalThis.x` did not. Three Test262 tests passed only through that
+inconsistency and fail now: `built-ins/Function/S15.3_A3_T2.js`, `-T5` and
+`-T6` (each reads a top-level `var` through `this` in a `Function()`-built
+function); in the same targeted subset 81 tests changed from fail to pass
+(CHANGELOG, 2026-10-03). The split is a performance decision (a top-level
+write grows a small object instead of path-copying the global object's
+attribute tree); putting the declarations on the global object is the fix and
+has not been made.
+
 ---
 
 ## Historical: `language` + `built-ins`, lenient classification (2026-06-01)

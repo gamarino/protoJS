@@ -4654,6 +4654,10 @@ static bool putFieldGroupApplies(proto::ProtoContext* ctx, ProtoBytecodeModule* 
     if (isArrK && recv->getAttribute(ctx, isArrK, true) == PROTO_TRUE) return false;
     const proto::ProtoString* isSymK = JSSymbols::isSymbol(ctx);
     if (isSymK && recv->getAttribute(ctx, isSymK, false) == PROTO_TRUE) return false;
+    // A BigInt is an object cell here but a primitive to JavaScript: its
+    // writes take OP_put_field's primitive path (putOnNonObjectBase).
+    const proto::ProtoString* bigK = JSSymbols::bigIntValue(ctx);
+    if (bigK && recv->hasOwnAttribute(ctx, bigK) == PROTO_TRUE) return false;
     const proto::ProtoString* hapKey = JSSymbols::hasAccessorProps(ctx);
     if (hapKey && recv->hasOwnAttribute(ctx, hapKey) == PROTO_TRUE
         && recv->getAttribute(ctx, hapKey, false) == PROTO_TRUE)
@@ -4722,6 +4726,166 @@ static void putFieldGroupCommit(proto::ProtoContext* ctx, ProtoBytecodeModule* m
         updateMapping(ctx, recv, newObj);
         updateSpacePrototypeIfMatching(ctx, recv, newObj);
     }
+}
+
+// ---------------------------------------------------------------------------
+// Writes to a property of a value that is not an object
+//
+// ECMA-262 §6.2.5.6 PutValue: `base.key = value` on undefined or null throws
+// TypeError (ToObject, step 3.a) in strict and sloppy code alike.  On any
+// other primitive -- string, number, boolean, Symbol, BigInt -- the write
+// runs [[Set]] on a transient wrapper with the primitive itself as Receiver
+// (§10.1.9.2 OrdinarySetWithOwnDescriptor): a setter found on the prototype
+// chain is called with the primitive as `this`, and in every other case the
+// write fails, because a primitive cannot hold an own property.  A failed
+// write is a TypeError in strict code (PutValue step 3.d) and is ignored in
+// sloppy code.  OP_put_field, OP_put_array_el and the write groups all take
+// this one path, so they agree on every receiver.
+// ---------------------------------------------------------------------------
+
+// The type name of a primitive base, for the error message; nullptr when
+// `v` is an object (or undefined / null, which the caller handles first).
+// protoJS carries Symbols and BigInts as object cells: a Symbol carries its
+// own __is_symbol__ marker, a BigInt its own __bigint_value__ slot.  A boxed
+// Symbol (Object(sym)) is a distinct wrapper without the own marker.  BigInt
+// has no boxed form of its own (Object(1n) answers the value itself), so a
+// write to Object(1n) is treated as a write to the BigInt.
+static const char* putBasePrimitiveType(proto::ProtoContext* ctx, const proto::ProtoObject* v) {
+    if (proto::isSmallInt(v)) return "number";
+    const uintptr_t tag = reinterpret_cast<uintptr_t>(v) & 0x3F;
+    if (tag == 15) return "number";  // POINTER_TAG_DOUBLE
+    if (v == PROTO_TRUE || v == PROTO_FALSE) return "boolean";
+    if (proto::ProtoObject::isStringTagFast(v)) {
+        // Well-known Symbols are carried as "Symbol.<name>" strings.
+        std::string sv;
+        v->asString(ctx)->toUTF8String(ctx, sv);
+        return (sv.compare(0, 7, "Symbol.") == 0) ? "symbol" : "string";
+    }
+    if (tag != 0) return nullptr;  // other tagged protoCore values are not JS primitives
+    const proto::ProtoString* symK = JSSymbols::isSymbol(ctx);
+    if (symK && v->getAttribute(ctx, symK, false) == PROTO_TRUE) return "symbol";
+    const proto::ProtoString* bigK = JSSymbols::bigIntValue(ctx);
+    if (bigK && v->hasOwnAttribute(ctx, bigK) == PROTO_TRUE) return "bigint";
+    return nullptr;
+}
+
+static inline bool putBaseIsNullish(const proto::ProtoObject* v) {
+    return v == PROTO_NONE || v == t_undefinedSentinel || v == t_nullSentinel;
+}
+
+// Is `index` a canonical array index below the length of string `s`?  The
+// own index properties of a String wrapper are non-writable (§10.4.3.5).
+static bool putKeyIsStringIndex(proto::ProtoContext* ctx, const proto::ProtoObject* s,
+                                const std::string& key) {
+    if (key.empty() || key.size() > 10) return false;
+    if (key.size() > 1 && key[0] == '0') return false;
+    unsigned long long idx = 0;
+    for (char c : key) {
+        if (c < '0' || c > '9') return false;
+        idx = idx * 10 + static_cast<unsigned long long>(c - '0');
+    }
+    const proto::ProtoString* str = s->asString(ctx);
+    return str && idx < static_cast<unsigned long long>(str->getSize(ctx));
+}
+
+// Answers false when `base` is an object and the caller's ordinary write
+// path applies.  Otherwise performs the write described above and answers
+// true; an abrupt completion (the TypeError, or one thrown by a setter or a
+// Proxy trap) is left in t_hasCallException / t_callException.
+static bool putOnNonObjectBase(proto::ProtoContext* ctx, const proto::ProtoObject* base,
+                               const proto::ProtoString* key, const proto::ProtoObject* val,
+                               bool isStrict) {
+    if (putBaseIsNullish(base)) {
+        std::string ks;
+        if (key) key->toUTF8String(ctx, ks);
+        std::string msg = std::string("Cannot set properties of ")
+            + (base == t_nullSentinel ? "null" : "undefined");
+        if (key) msg += " (setting '" + ks + "')";
+        signalNativeException(makeNativeError(ctx, "TypeError", msg.c_str()));
+        return true;
+    }
+    const char* typeName = putBasePrimitiveType(ctx, base);
+    if (!typeName) return false;
+    if (!key) return true;
+
+    std::string ks;
+    key->toUTF8String(ctx, ks);
+    bool fails = true;
+    const bool ownStringProperty = !std::strcmp(typeName, "string")
+        && (key == JSSymbols::length(ctx) || putKeyIsStringIndex(ctx, base, ks));
+    if (!ownStringProperty) {
+        // Walk the wrapper's prototype chain for the first object that has
+        // `key`: a setter is called with the primitive as receiver, a Proxy
+        // gets its set trap with the primitive as receiver, and a data
+        // property or a getter-only accessor makes the write fail.
+        const proto::ProtoString* gk = putFieldGroupSidecar(ctx, key, 0);
+        const proto::ProtoString* sk = putFieldGroupSidecar(ctx, key, 1);
+        const proto::ProtoObject* cur = base;
+        for (int depth = 0; depth < 100; ++depth) {
+            const proto::ProtoObject* over = protojs::getJSProtoOverride(ctx, cur);
+            const proto::ProtoObject* next = over ? over : cur->getPrototype(ctx);
+            if (!next || next == PROTO_NONE || next == t_nullSentinel || next == cur) break;
+            cur = next;
+            if (protojs::isProxy(ctx, cur)) {
+                const proto::ProtoObject* ok = protojs::proxyDispatchSet(ctx, cur, key, val, base);
+                if (hasCallException()) return true;
+                fails = (ok == PROTO_FALSE);
+                break;
+            }
+            if (sk && cur->hasOwnAttribute(ctx, sk) == PROTO_TRUE) {
+                const proto::ProtoObject* setter = cur->getAttribute(ctx, sk, false);
+                if (setter && setter != PROTO_NONE && setter != t_undefinedSentinel) {
+                    const proto::ProtoList* args = ctx->newList()->appendLast(ctx, val ? val : PROTO_NONE);
+                    (void)callJSFunction(ctx, setter, base, args);
+                    return true;
+                }
+                break;
+            }
+            if ((gk && cur->hasOwnAttribute(ctx, gk) == PROTO_TRUE)
+                || cur->hasOwnAttribute(ctx, key) == PROTO_TRUE)
+                break;
+        }
+    }
+    if (fails && isStrict) {
+        const std::string msg = "Cannot create property '" + ks + "' on " + typeName;
+        signalNativeException(makeNativeError(ctx, "TypeError", msg.c_str()));
+    }
+    return true;
+}
+
+// The own marker of the root script's binding scope (the module-scope split
+// in runBytecode).
+static const proto::ProtoString* moduleScopedKey(proto::ProtoContext* ctx) {
+    static const proto::ProtoString* key =
+        proto::ProtoString::createSymbol(ctx, "__module_scoped__");
+    return key;
+}
+
+const proto::ProtoObject* globalObjectForRoot(proto::ProtoContext* ctx,
+                                              const proto::ProtoObject* root) {
+    if (!root || root == PROTO_NONE || !ctx) return root;
+    const proto::ProtoString* k = moduleScopedKey(ctx);
+    if (k && root->hasOwnAttribute(ctx, k) == PROTO_TRUE) {
+        const proto::ProtoObject* g = root->getPrototype(ctx);
+        if (g && g != PROTO_NONE) return g;
+    }
+    return root;
+}
+
+// The `this` an arrow function created in this frame captures.  In a sloppy
+// function called without a receiver it is the global object, as OP_push_this
+// reads it (§10.2.1.2 OrdinaryCallBindThis); pre-fix the arrow captured the
+// raw undefined and read `this` as undefined.
+static const proto::ProtoObject* lexicalThisForArrow(proto::ProtoContext* ctx,
+                                                     const ProtoBytecodeModule* module,
+                                                     const proto::ProtoObject* thisObj,
+                                                     const proto::ProtoObject** pGlobalRoot) {
+    if (module && !module->isStrict && !module->isArrow
+        && (!thisObj || thisObj == PROTO_NONE || thisObj == t_undefinedSentinel
+            || thisObj == t_nullSentinel)
+        && pGlobalRoot && *pGlobalRoot)
+        return globalObjectForRoot(ctx, *pGlobalRoot);
+    return thisObj ? thisObj : PROTO_NONE;
 }
 
 // ---------------------------------------------------------------------------
@@ -6880,8 +7044,7 @@ const proto::ProtoObject* runBytecode(proto::ProtoContext* pContext,
     JSContextWrapper* const splitOwner = JSContextWrapper::current();
     if (module == t_rootModule && pGlobalRoot && *pGlobalRoot && splitOwner
         && pGlobalRoot == splitOwner->getNativeGlobalRootPtr()) {
-        static const proto::ProtoString* s_scopedKey =
-            proto::ProtoString::createSymbol(pContext, "__module_scoped__");
+        const proto::ProtoString* s_scopedKey = moduleScopedKey(pContext);
         if (s_scopedKey && (*pGlobalRoot)->hasOwnAttribute(pContext, s_scopedKey) != PROTO_TRUE) {
             const proto::ProtoObject* moduleScope = (*pGlobalRoot)->newChild(pContext, true);
             if (moduleScope) {
@@ -7825,10 +7988,17 @@ const proto::ProtoObject* runBytecode(proto::ProtoContext* pContext,
                     }
                     stackPush(pContext, tv);
                 } else {
+                    // §10.2.1.2 OrdinaryCallBindThis: the global object,
+                    // which is not the root slot once the root script's
+                    // bindings moved to their own scope (module-scope
+                    // split).  Pre-fix a sloppy function called without a
+                    // receiver -- including every Function()-built one --
+                    // saw that binding scope as `this`, an object distinct
+                    // from globalThis and from the top-level `this`.
                     REFRESH_GLOBAL_OBJ();
                     const proto::ProtoObject* finalThis = thisObj;
                     if (!finalThis || finalThis == PROTO_NONE || finalThis == t_undefinedSentinel || finalThis == t_nullSentinel) {
-                        finalThis = globalObj ? globalObj : PROTO_NONE;
+                        finalThis = globalObj ? globalObjectForRoot(pContext, globalObj) : PROTO_NONE;
                     }
                     stackPush(pContext, finalThis);
                 }
@@ -10242,31 +10412,25 @@ const proto::ProtoObject* runBytecode(proto::ProtoContext* pContext,
                 stackPop(pContext);
                 const proto::ProtoString* key = resolveAtom(mod, pContext, atomIndex);
                 if (!key || !obj) { DISPATCH(); }
-                protojs::materializeLazyPrototypeForKey(pContext, obj, key);  // LazyPrototype.h
-                // §10.1.9 OrdinarySet on a primitive receiver: ToObject
-                // materialises a transient wrapper, the set happens on
-                // that wrapper, the wrapper is discarded.  Net effect:
-                // the primitive itself is untouched.  Strict mode
-                // surfaces TypeError because the wrapper's slot is
-                // effectively non-writable on a fresh primitive box
-                // (the spec phrasing: "[[Set]] on a primitive value
-                // returns false").  Sloppy mode silently no-ops.
-                // Pre-fix sloppy fell through to setAttribute(sym, …)
-                // and the primitive grew an own property
-                // (built-ins/Symbol/auto-boxing-non-strict.js).
-                {
-                    const proto::ProtoString* isSymK =
-                        protojs::JSSymbols::isSymbol(pContext);
-                    if (isSymK
-                        && obj->getAttribute(pContext, isSymK, false) == PROTO_TRUE) {
-                        if (module && module->isStrict) {
-                            pending_exception = makeError(pContext, "TypeError",
-                                "Cannot assign property to a Symbol", pGlobalRoot);
-                            has_pending_exception = true;
-                        }
-                        DISPATCH();
+                // undefined / null / primitive receivers ("Writes to a
+                // property of a value that is not an object" above
+                // runBytecode): TypeError for undefined and null, a
+                // setter on the wrapper's chain, or a failed write
+                // (TypeError in strict code, ignored in sloppy code).
+                // Pre-fix only Symbols were caught; a write to a string,
+                // number, boolean or BigInt, or to undefined / null,
+                // was silently dropped in strict code as well.
+                if (putOnNonObjectBase(pContext, obj, key, val, module && module->isStrict)) {
+                    REFRESH_INTERP_STATE();
+                    if (hasCallException()) {
+                        pending_exception     = t_callException;
+                        has_pending_exception = true;
+                        t_hasCallException    = false;
+                        t_callException       = nullptr;
                     }
+                    DISPATCH();
                 }
+                protojs::materializeLazyPrototypeForKey(pContext, obj, key);  // LazyPrototype.h
 
                 // §10.1.9.2 OrdinarySet step 2.c: when the receiver is
                 // non-extensible and the property doesn't already exist
@@ -12284,31 +12448,38 @@ const proto::ProtoObject* runBytecode(proto::ProtoContext* pContext,
                 const proto::ProtoObject* index = pAutomaticLocals[currentStackBase + --_PF().stackTop];
                 const proto::ProtoObject* obj = pAutomaticLocals[currentStackBase + --_PF().stackTop];
 
-                if (!obj || obj == PROTO_NONE || obj == t_nullSentinel) {
+                if (!obj) {
                     pending_exception = makeError(pContext, "TypeError", "Cannot set property on null/undefined", pGlobalRoot);
                     has_pending_exception = true;
                     DISPATCH();
                 }
 
-                // Symbol primitive receiver — see OP_put_field for the
-                // rationale.  Strict throws, sloppy silently no-ops;
-                // either way the put NEVER reaches setAttribute, so
-                // bracket-access auto-boxing matches the primitive
-                // semantics (built-ins/Symbol/auto-boxing-non-strict's
-                // sym['a'+'b']=0 / sym[62]=0 cases).
-                {
-                    const proto::ProtoString* isSymK =
-                        protojs::JSSymbols::isSymbol(pContext);
-                    if (isSymK
-                        && obj->getAttribute(pContext, isSymK, false) == PROTO_TRUE) {
-                        if (module && module->isStrict) {
-                            pending_exception = makeError(pContext, "TypeError",
-                                "Cannot assign property to a Symbol", pGlobalRoot);
-                            has_pending_exception = true;
-                        }
-                        DISPATCH();
-                    }
+                // undefined / null / primitive receivers take the same
+                // path as OP_put_field ("Writes to a property of a value
+                // that is not an object" above runBytecode).  undefined
+                // and null throw before the key is converted (PutValue
+                // step 3.a); a primitive converts the key first.  Pre-fix
+                // the undefined sentinel and every primitive except a
+                // Symbol were written to, or silently ignored in strict
+                // code.
+                if (putBaseIsNullish(obj)) {
+                    (void)putOnNonObjectBase(pContext, obj, nullptr, value, true);
+                } else if (putBasePrimitiveType(pContext, obj)) {
+                    const proto::ProtoString* pk = protojs::toPropertyKey(pContext, index);
+                    if (!hasCallException())
+                        (void)putOnNonObjectBase(pContext, obj, pk, value, module && module->isStrict);
+                } else {
+                    goto put_array_el_object;
                 }
+                REFRESH_INTERP_STATE();
+                if (hasCallException()) {
+                    pending_exception     = t_callException;
+                    has_pending_exception = true;
+                    t_hasCallException    = false;
+                    t_callException       = nullptr;
+                }
+                DISPATCH();
+            put_array_el_object:
 
                 // Proxy receiver via bracket access — dispatch to
                 // handler.set.  Pre-fix OP_put_field handled this for
@@ -16532,7 +16703,7 @@ const proto::ProtoObject* runBytecode(proto::ProtoContext* pContext,
                         // Capture lexical this for arrow functions.
                         if (nm8.isArrow) {
                             fnInst = fnInst->setAttribute(pContext, JSSymbols::arrowThis(pContext),
-                                thisObj ? thisObj : PROTO_NONE);
+                                lexicalThisForArrow(pContext, module, thisObj, pGlobalRoot));
                         }
                         // Mark async functions so callJSFunction can wrap the result in a Promise.
                         if (nm8.isAsync) {
@@ -16739,7 +16910,7 @@ const proto::ProtoObject* runBytecode(proto::ProtoContext* pContext,
                         // Capture lexical this for arrow functions.
                         if (nm2.isArrow) {
                             fnInst2 = fnInst2->setAttribute(pContext, JSSymbols::arrowThis(pContext),
-                                thisObj ? thisObj : PROTO_NONE);
+                                lexicalThisForArrow(pContext, module, thisObj, pGlobalRoot));
                         }
                         // Mark async functions so callJSFunction can wrap the result in a Promise.
                         if (nm2.isAsync) {
