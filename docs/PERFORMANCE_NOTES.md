@@ -4,6 +4,68 @@ Measurements of specific changes, kept so that a later reader can see what a
 change cost and how that was established. Dispatch (computed goto, switch, the
 `runBytecode` frame) has its own page, [PERFORMANCE_DISPATCH.md](PERFORMANCE_DISPATCH.md).
 
+## Runs of writes published once (2026-10-03)
+
+Every write to a mutable object publishes a new version of it into protoCore's
+mutable table: a new immutable snapshot plus a path copy in the table, about 12
+cells. That cost is the price of protoCore's model (lock-free sharing, a
+collector without write barriers), not a defect; but a run of writes to one
+object with nothing between them that can observe the object does not need a
+publication per write. `o.a = x; o.b = y + 1; o.c = 0` is compiled, at load
+time, into the immutable-style program it is equivalent to: compute the values
+in order, derive the new version from the current one, publish it once
+(`ProtoObject::setAttributes`, protoCore 2.11.0). Other threads see the whole
+run or none of it.
+
+**What is grouped** (`markPutFieldGroups`, `src/runtime/BytecodeSpecialiser.cpp`):
+two or more consecutive `recv.name = value` statements on the same receiver
+(`this`, an argument or a local), where every value after the first uses only
+constants, argument / local / closure reads, the receiver's own fields
+(`p.x += 1`), arithmetic, comparisons, `!` and `typeof`. Calls, `new`, reads of
+other objects, TDZ checks on other bindings, `await`, `yield`, `with` and
+every other opcode end the run, and no instruction inside a run may be a jump
+target. Names the runtime gives a meaning beyond a data property are never
+grouped: `length`, `prototype`, array indices and `__..__` names.
+
+**When the runtime declines** ("Write groups", `src/runtime/ProtoInterpreter.cpp`):
+at the first write of a run it checks, once, that every write would take
+`OP_put_field`'s plain data path and that nothing still to be computed can run
+code or throw; otherwise every write of the run takes the per-write path,
+unchanged. The run is declined when the receiver is not an ordinary object (a
+primitive, the global object, a Proxy, an array, a Map / Set / typed array or
+any other non-default behavior, a Symbol wrapper), is non-extensible, sealed
+or frozen, has an own accessor, or when a written name has a setter or getter
+on the chain, a Proxy on the chain or a non-writable descriptor; when a later
+statement reads a field that is not an own data property with a defined value;
+and when an arithmetic operand (an argument, a local or a field read) is not a
+number, a string or a boolean, since an object operand runs `valueOf` and a
+BigInt or Symbol one can throw.
+
+**Measured** (`process.memoryUsage().heapUsed` around 50,000 operations, no
+collection in between; Release, protoCore 2.11.0):
+
+| Operation | Per write | Grouped |
+|-----------|----------:|--------:|
+| `new P(i)`, constructor with five `this.x = ...` | 111.4 cells | 32.1 cells |
+| `v.move(dx, dy)`: `this.x = this.x + dx; this.y = this.y + dy` | 23.1 | 11.0 |
+| `p.x += 1; p.y += 1` | 23.1 | 11.0 |
+
+The structure benchmarks do not change: `records` and `doctree`
+(`benchmarks/structures/`, one task, `REPS=5`, three interleaved rounds) contain
+no such run (they build objects as literals, which `markObjectLiterals` already
+publishes once), and their single-task medians were 2161 / 2157 ms and
+1608 / 1547 ms per write / grouped, within the run-to-run spread of 1.8-2.3 s
+and 1.4-1.7 s.
+
+Tests: `js/basic/put_field_groups` (31 cases, each with the result Node.js
+gives, including setters, frozen and non-extensible receivers, Proxies,
+`valueOf` observing the receiver and exceptions mid-run; 12 of them fail when
+the runtime check is removed), `js/basic/put_field_group_cells` (the
+allocation above; fails per write) and `js/deferred/put_field_group_atomicity`
+(three Deferreds write their own groups on one object while two read
+snapshots; per write, readers saw about 2,200 partial groups per run, grouped
+none).
+
 ## Every closure records its function table (2026-10-02)
 
 Commit d1673bbbb made `OP_fclosure` / `OP_fclosure8` stamp `__closure_module__`

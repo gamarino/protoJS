@@ -4,6 +4,44 @@ All notable changes to protoJS are documented in this file.
 
 ## [Unreleased]
 
+### Changed — a run of writes to one object is published once (2026-10-03)
+
+- `o.a = x; o.b = y + 1; o.c = 0` published three versions of `o` into
+  protoCore's mutable table, about 12 cells each, and another thread could
+  see any prefix of the run.  A load-time pass (`markPutFieldGroups`,
+  src/runtime/BytecodeSpecialiser.cpp) finds runs of two or more
+  `recv.name = value` statements on one receiver (`this`, an argument or a
+  local) whose values cannot run code: constants, argument / local / closure
+  reads, the receiver's own fields (`p.x += 1`), arithmetic, comparisons,
+  `!`, `typeof`.  Each write but the last leaves its value on the operand
+  stack; the last publishes the run as one version with protoCore's
+  `ProtoObject::setAttributes`.  At the first write the runtime checks once
+  that every write would take `OP_put_field`'s plain data path (no setter,
+  getter or Proxy on the chain, no frozen, sealed, non-extensible, array,
+  exotic or global receiver, no non-writable property) and that no operand
+  can run `valueOf` or throw; otherwise the run takes the per-write path,
+  unchanged ("Write groups", src/runtime/ProtoInterpreter.cpp).
+  `PROTOJS_PUTFIELD_GROUPS=off` disables it.
+- Measured: a constructor with five `this.x = ...` allocates 32.1 cells
+  instead of 111.4; `this.x = this.x + dx; this.y = this.y + dy` and
+  `p.x += 1; p.y += 1` 11.0 instead of 23.1.  The `records` and `doctree`
+  structure benchmarks contain no such run and do not change (single-task
+  medians within run-to-run noise).  docs/PERFORMANCE_NOTES.md.
+- Tests: `js/basic/put_field_groups` (31 cases with Node.js's results,
+  including setters, frozen receivers, Proxies, `valueOf` observing the
+  receiver and exceptions mid-run; 12 fail if the runtime check is removed),
+  `js/basic/put_field_group_cells` (fails per write) and
+  `js/deferred/put_field_group_atomicity` (readers saw about 2,200 partial
+  groups per run per write, none now).
+
+### Changed — protoCore 2.11.0 is required (2026-10-03)
+
+- The floor moves from 2.7.0 to 2.11.0, the first release with
+  `ProtoObject::setAttributes` (`PROTOCORE_MIN_VERSION` in CMakeLists.txt;
+  the developer fallback probes `protoCore.h` for it).  `ci.yml` and
+  `cross-platform.yml` build protoCore 2.11.0 (tag v2.11.0, commit
+  69b56afe); the Windows job on the old 2.7.0 floor is removed.
+
 ### Fixed — typed arrays from arrays, iterables and buffers (2026-10-03)
 
 - `new Uint8Array([5])` produced an empty array, and so did every typed-array

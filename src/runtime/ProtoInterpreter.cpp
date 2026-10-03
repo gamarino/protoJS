@@ -4529,6 +4529,202 @@ static void updateSpacePrototypeIfMatching(proto::ProtoContext* pContext,
 }
 
 // ---------------------------------------------------------------------------
+// Write groups
+//
+// markPutFieldGroups (BytecodeSpecialiser.cpp) rewrites a run of
+// `recv.name = value` statements whose values cannot run code into
+// OP_PROTO_PUT_FIELD_GROUP ... OP_PROTO_PUT_FIELD_GROUP_END.  At the first
+// write of the run the interpreter checks, once, that every write of the run
+// would take OP_put_field's plain data path on this receiver and that the
+// values still to be computed cannot run code or throw
+// (putFieldGroupApplies).  Then each write leaves its value on the operand
+// stack and the last one publishes the whole run as one new version of the
+// object (ProtoObject::setAttributes): one mutable-table publication instead
+// of one per name, and atomic to other threads.  Otherwise every write of
+// the run takes OP_put_field's own path, unchanged.
+//
+// Equivalence with the per-write path rests on: (1) between the check and the
+// publication nothing runs that could observe the receiver -- the statements
+// are constants, slot reads, the receiver's own data fields and arithmetic on
+// inert values; (2) no write of the run can have an effect beyond storing its
+// value -- no setter, Proxy, frozen / non-extensible receiver, non-writable
+// property, exotic receiver or special name; (3) nothing in the run can throw.
+// A write by another thread between the check and the publication is ordered
+// before or after the whole group, exactly as it could be ordered around a
+// single write.
+// ---------------------------------------------------------------------------
+
+// A value no arithmetic or comparison operator runs code on or throws for:
+// a number, a string or a boolean.  undefined and null are not included:
+// they are sentinel objects here, and objects are what the rule excludes.
+static inline bool putFieldGroupInertValue(const proto::ProtoObject* v) {
+    if (!v) return false;
+    if (proto::isSmallInt(v)) return true;
+    if (v == PROTO_TRUE || v == PROTO_FALSE) return true;
+    if (proto::ProtoObject::isStringTagFast(v)) return true;
+    return (reinterpret_cast<uintptr_t>(v) & 0x3F) == 15;  // POINTER_TAG_DOUBLE
+}
+
+static const proto::ProtoString* putFieldGroupSidecar(proto::ProtoContext* ctx,
+                                                      const proto::ProtoString* key,
+                                                      int which) {
+    // which: 0 = getter, 1 = setter, 2 = property descriptor bits.  Interned
+    // and cached per thread, scoped to a collection cycle like the
+    // interpreter's own sidecar caches (GcScopedCache.h).
+    static thread_local GcScopedCache<const proto::ProtoString*, const proto::ProtoString*> caches[3];
+    auto& cache = caches[which].get(ctx);
+    auto it = cache.find(key);
+    if (it != cache.end()) return it->second;
+    std::string ks;
+    key->toUTF8String(ctx, ks);
+    static const char* const prefixes[3] = {"__get_", "__set_", "__pd_"};
+    const std::string full = std::string(prefixes[which]) + ks + "__";
+    const proto::ProtoString* sym = proto::ProtoString::createSymbol(ctx, full.c_str());
+    cache[key] = sym;
+    return sym;
+}
+
+// Would OP_put_field store `key` on `recv` as a plain data write, with no
+// other effect?  Mirrors the checks of OP_put_field and resolvePutFieldOOP
+// for a receiver that already passed the receiver-level checks; any doubt
+// answers false, which only costs the per-write path.
+static bool putFieldGroupPlainWrite(proto::ProtoContext* ctx, const proto::ProtoObject* recv,
+                                    const proto::ProtoString* key, bool maybeNonWritable) {
+    if (!key) return false;
+    if (recv->hasOwnAttribute(ctx, key) != PROTO_TRUE) {
+        // A new own property: no own accessor, no Proxy, setter or getter on
+        // the chain (OP_put_field's chain walk and resolvePutFieldOOP's
+        // accessor walk).
+        const proto::ProtoString* gk = putFieldGroupSidecar(ctx, key, 0);
+        const proto::ProtoString* sk = putFieldGroupSidecar(ctx, key, 1);
+        if (recv->hasOwnAttribute(ctx, gk) == PROTO_TRUE
+            || recv->hasOwnAttribute(ctx, sk) == PROTO_TRUE)
+            return false;
+        const proto::ProtoObject* cur = recv;
+        for (int depth = 0; depth < 100; ++depth) {
+            const proto::ProtoObject* over = protojs::getJSProtoOverride(ctx, cur);
+            cur = over ? over : cur->getPrototype(ctx);
+            if (!cur || cur == PROTO_NONE || cur == t_nullSentinel) break;
+            if (protojs::isProxy(ctx, cur)) return false;
+            if (cur->hasOwnAttribute(ctx, sk) == PROTO_TRUE
+                || cur->hasOwnAttribute(ctx, gk) == PROTO_TRUE)
+                return false;
+            if (cur->hasOwnAttribute(ctx, key) == PROTO_TRUE) break;
+        }
+        // resolvePutFieldOOP walks getPrototype (not the overrides) for the
+        // accessor; check that chain as well.
+        cur = recv->getPrototype(ctx);
+        for (int depth = 0; depth < 100 && cur && cur != PROTO_NONE; ++depth) {
+            if (cur->hasOwnAttribute(ctx, sk) == PROTO_TRUE
+                || cur->hasOwnAttribute(ctx, gk) == PROTO_TRUE)
+                return false;
+            if (cur->hasOwnAttribute(ctx, key) == PROTO_TRUE) break;
+            cur = cur->getPrototype(ctx);
+        }
+    }
+    if (maybeNonWritable) {
+        const proto::ProtoString* pdk = putFieldGroupSidecar(ctx, key, 2);
+        const proto::ProtoObject* pdv = recv->getAttribute(ctx, pdk, true);
+        if (pdv && pdv != PROTO_NONE && pdv->isInteger(ctx) && !(pdv->asLong(ctx) & 0x1))
+            return false;
+    }
+    return true;
+}
+
+// The once-per-run check at the first write of a group.  `recv` is the
+// receiver on the stack, and the frame's argument and local slots are read
+// as OP_get_arg / OP_get_loc read them.
+static bool putFieldGroupApplies(proto::ProtoContext* ctx, ProtoBytecodeModule* mod,
+                                 const PutFieldGroup& g, const proto::ProtoObject* recv,
+                                 const proto::ProtoObject* globalObj,
+                                 unsigned argCount, unsigned varCount) {
+    if (!recv || recv == PROTO_NONE || recv == t_undefinedSentinel || recv == t_nullSentinel)
+        return false;
+    // An ordinary object: an object cell, not the global object, not a
+    // Proxy, not a Symbol wrapper, not an array, extensible, with the
+    // default behavior (no Map / Set / typed array / other exotic), and no
+    // own accessor anywhere on it.
+    if ((reinterpret_cast<uintptr_t>(recv) & 0x3F) != 0) return false;
+    if (recv == globalObj) return false;
+    if (protojs::isProxy(ctx, recv)) return false;
+    if (protojs::jsIsNonExtensible(ctx, recv)) return false;
+    const auto& reg = protojs::BehaviorRegistry::instance();
+    if (reg.resolve(ctx, recv) != reg.getDefault()) return false;
+    const proto::ProtoString* isArrK = JSSymbols::isArray(ctx);
+    if (isArrK && recv->getAttribute(ctx, isArrK, true) == PROTO_TRUE) return false;
+    const proto::ProtoString* isSymK = JSSymbols::isSymbol(ctx);
+    if (isSymK && recv->getAttribute(ctx, isSymK, false) == PROTO_TRUE) return false;
+    const proto::ProtoString* hapKey = JSSymbols::hasAccessorProps(ctx);
+    if (hapKey && recv->hasOwnAttribute(ctx, hapKey) == PROTO_TRUE
+        && recv->getAttribute(ctx, hapKey, false) == PROTO_TRUE)
+        return false;
+    const proto::ProtoString* hnwKey = JSSymbols::hasNonWritableProps(ctx);
+    const bool maybeNonWritable = hnwKey
+        && recv->hasAttribute(ctx, hnwKey) == PROTO_TRUE
+        && recv->getAttribute(ctx, hnwKey, true) == PROTO_TRUE;
+
+    const size_t n = g.atoms.size();
+    const proto::ProtoString* names[64];
+    if (n > 64) return false;
+    for (size_t k = 0; k < n; ++k) {
+        names[k] = resolveAtom(mod, ctx, g.atoms[k]);
+        if (!putFieldGroupPlainWrite(ctx, recv, names[k], maybeNonWritable)) return false;
+    }
+
+    // Reads of the receiver by later statements: an own data property with
+    // a defined value is read without a getter, a Proxy or a chain walk.
+    for (const auto& r : g.reads) {
+        const proto::ProtoString* rk = resolveAtom(mod, ctx, r.atom);
+        if (!rk) return false;
+        for (size_t k = 0; k < r.statement && k < n; ++k)
+            if (names[k] == rk) return false;  // would see a value not yet written
+        if (recv->hasOwnAttribute(ctx, rk) != PROTO_TRUE) return false;
+        const proto::ProtoObject* v = recv->getAttribute(ctx, rk, false);
+        if (!v || v == PROTO_NONE || v == t_undefinedSentinel) return false;
+        if (r.operand && !putFieldGroupInertValue(v)) return false;
+    }
+
+    // Arithmetic operands read from the frame.
+    for (uint16_t a : g.operandArgs) {
+        const proto::ProtoObject* v = a < argCount ? readCell(ctx, getSlot(ctx, a)) : PROTO_NONE;
+        if (!putFieldGroupInertValue(v)) return false;
+    }
+    for (uint16_t l : g.operandLocals) {
+        const proto::ProtoObject* v =
+            l < varCount ? readCell(ctx, getSlot(ctx, argCount + l)) : PROTO_NONE;
+        if (!putFieldGroupInertValue(v)) return false;
+    }
+    return true;
+}
+
+// The last write of a group that passed putFieldGroupApplies.  The stack
+// holds the values of the earlier writes, then the receiver and the last
+// value: [v0 .. v(n-2), recv, v(n-1)].  Pops them and publishes the group.
+// The popped slots are not cleared (see stackPop), so the values stay
+// reachable while setAttributes allocates.
+static void putFieldGroupCommit(proto::ProtoContext* ctx, ProtoBytecodeModule* mod,
+                                const PutFieldGroup& g) {
+    const size_t n = g.atoms.size();
+    const proto::ProtoString* names[64];
+    const proto::ProtoObject* values[64];
+    values[n - 1] = stackTop(ctx);
+    stackPop(ctx);
+    const proto::ProtoObject* recv = stackTop(ctx);
+    stackPop(ctx);
+    for (size_t k = n - 1; k-- > 0;) {
+        values[k] = stackTop(ctx);
+        stackPop(ctx);
+    }
+    for (size_t k = 0; k < n; ++k) names[k] = resolveAtom(mod, ctx, g.atoms[k]);
+    const proto::ProtoObject* newObj =
+        recv->setAttributes(ctx, static_cast<unsigned>(n), names, values);
+    if (newObj && newObj != recv) {
+        updateMapping(ctx, recv, newObj);
+        updateSpacePrototypeIfMatching(ctx, recv, newObj);
+    }
+}
+
+// ---------------------------------------------------------------------------
 // Generator protocol helpers (defined before runBytecode so OP_initial_yield
 // can reference the ProtoMethod function pointers).
 // These functions live in namespace protojs (same as runBytecode).
@@ -7163,6 +7359,8 @@ const proto::ProtoObject* runBytecode(proto::ProtoContext* pContext,
     X(246 /*OP_PROTO_LT_LOC_VAR_JFALSE*/,   L_OP_proto_lt_loc_var_jfalse) \
     X(247 /*OP_PROTO_OBJECT_IMM*/,          L_OP_proto_object_imm) \
     X(248 /*OP_PROTO_DEFINE_FIELD_LAST*/,   L_OP_proto_define_field_last) \
+    X(249 /*OP_PROTO_PUT_FIELD_GROUP*/,     L_OP_proto_put_field_group) \
+    X(250 /*OP_PROTO_PUT_FIELD_GROUP_END*/, L_OP_proto_put_field_group_end) \
     X(OP_add, L_OP_add) \
     X(OP_add_loc, L_OP_add_loc) \
     X(OP_and, L_OP_and) \
@@ -7399,6 +7597,11 @@ const proto::ProtoObject* runBytecode(proto::ProtoContext* pContext,
     // current value without a per-case re-read.
     const proto::ProtoObject* globalObj = (pGlobalRoot && *pGlobalRoot) ? *pGlobalRoot : PROTO_NONE;
     int opcode = 0;
+    // Write groups (see above runBytecode): the atom OP_put_field's body
+    // stores, and the state of the run in progress (0 none, 1 published at
+    // its last write, 2 every write takes the per-write path).
+    uint32_t putFieldAtom = 0;
+    int putFieldGroupState = 0;
 
     // Local cache of stack pointers. MUST be re-fetched after any recursive call
     // (OP_call, OP_get_field if it triggers a getter, etc.) because the
@@ -9981,14 +10184,58 @@ const proto::ProtoObject* runBytecode(proto::ProtoContext* pContext,
                 stackPush(pContext, val && val != PROTO_NONE ? val : PROTO_NONE);
                 DISPATCH();
             }
-            L_OP_put_field: {
+            L_OP_proto_put_field_group: {
+                // A write of a run published once (markPutFieldGroups; see
+                // "Write groups" above runBytecode).  Operands: group (u16),
+                // position (u16).  The first write checks the run once.
+                if (pc + 4 > len || stackSize(pContext) < 2) return PROTO_NONE;
+                const uint16_t gid = get_u16(buf + pc);
+                const uint16_t gpos = get_u16(buf + pc + 2);
+                pc += 4;
+                const PutFieldGroup& g = mod->putFieldGroups[gid];
+                if (gpos == 0) {
+                    REFRESH_GLOBAL_OBJ();
+                    putFieldGroupState = putFieldGroupApplies(pContext, mod, g, stackAt(pContext, 1),
+                                                              globalObj, argCount, varCount) ? 1 : 2;
+                }
+                if (putFieldGroupState == 1) {
+                    // Keep the value, drop the receiver: [.., recv, v] -> [.., v].
+                    const proto::ProtoObject* gv = stackTop(pContext);
+                    stackPop(pContext);
+                    stackPop(pContext);
+                    stackPush(pContext, gv);
+                    DISPATCH();
+                }
+                putFieldAtom = g.atoms[gpos];
+                goto put_field_body;
+            }
+            L_OP_proto_put_field_group_end: {
+                if (pc + 4 > len || stackSize(pContext) < 2) return PROTO_NONE;
+                const uint16_t gid = get_u16(buf + pc);
+                const uint16_t gpos = get_u16(buf + pc + 2);
+                pc += 4;
+                const PutFieldGroup& g = mod->putFieldGroups[gid];
+                if (putFieldGroupState == 1) {
+                    putFieldGroupState = 0;
+                    putFieldGroupCommit(pContext, mod, g);
+                    REFRESH_INTERP_STATE();
+                    DISPATCH();
+                }
+                putFieldGroupState = 0;
+                putFieldAtom = g.atoms[gpos];
+                goto put_field_body;
+            }
+            L_OP_put_field:
                 // DEF(put_field, 5, 2, 0, atom) — n_pop=2, n_push=0.
                 // Pops obj (second) and val (top), sets obj[key]=val. Pushes NOTHING.
                 // QuickJS peephole-optimizes "insert2 + put_field + drop" → "put_field" so
                 // the result value is never on the stack here.
-                if (pc + 4 > len || stackSize(pContext) < 2) return PROTO_NONE;
-                uint32_t atomIndex = get_u32(buf + pc);
+                if (pc + 4 > len) return PROTO_NONE;
+                putFieldAtom = get_u32(buf + pc);
                 pc += 4;
+            put_field_body: {
+                if (stackSize(pContext) < 2) return PROTO_NONE;
+                uint32_t atomIndex = putFieldAtom;
                 const proto::ProtoObject* val = stackTop(pContext);
                 stackPop(pContext);
                 const proto::ProtoObject* obj = stackTop(pContext);

@@ -49,7 +49,7 @@ set(QUICKJS_DIR ${CMAKE_CURRENT_SOURCE_DIR}/deps/quickjs)
 
 # --- protoCore -----------------------------------------------------------------
 # Resolution order (Phase I, decision D-I1):
-#   1. An installed protoCore CMake package: find_package(protoCore 2.7 CONFIG).
+#   1. An installed protoCore CMake package: find_package(protoCore 2.11 CONFIG).
 #      The only mode that checks protoCore's version and ABI, and therefore the
 #      only mode a distributable package may be built in. Name a prefix with
 #      -DPROTO_CORE_PREFIX=<prefix> or -DCMAKE_PREFIX_PATH=<prefix>.
@@ -61,16 +61,16 @@ set(QUICKJS_DIR ${CMAKE_CURRENT_SOURCE_DIR}/deps/quickjs)
 #      protoJS does not build protoCore itself; it must already be built.
 #      Refused by -DPROTOCORE_REQUIRE_PACKAGE=ON.
 #
-# The version floor is 2.7: protoJS spells protoCore's 64-bit integers
-# proto::proto_long / proto::proto_ulong (and PROTO_L / PROTO_UL / PROTO_FMT_U),
-# which protoCore declares from 2.7.0, its first release that builds on Windows.
-# On Linux and macOS those ARE long / unsigned long, so the ABI is the one 2.0
-# already had; the floor is about the headers. src/ProtoCoreTypes.h refuses an
-# older protoCore by name in the developer fallback, which checks no version.
+# The version floor is 2.11: the interpreter publishes a run of writes to one
+# object with ProtoObject::setAttributes, which protoCore declares from 2.11.0
+# (src/runtime/BytecodeSpecialiser.cpp, markPutFieldGroups). The previous
+# floor, 2.7.0, was the first release declaring proto::proto_long /
+# proto::proto_ulong (src/ProtoCoreTypes.h). The developer fallback checks no
+# package version, so it probes the header for setAttributes instead.
 # The ceiling is the next major, because protoCore's major version and its
 # soname move together.
-set(PROTOCORE_MIN_VERSION      "2.7")
-set(PROTOCORE_MIN_VERSION_FULL "2.7.0")
+set(PROTOCORE_MIN_VERSION      "2.11")
+set(PROTOCORE_MIN_VERSION_FULL "2.11.0")
 set(PROTOCORE_NEXT_MAJOR       "3.0.0")
 set(PROTOCORE_ABI_SOVERSION    "3")
 option(PROTOCORE_REQUIRE_PACKAGE
@@ -158,6 +158,14 @@ else()
             "${PROTOCORE_ABI_SOVERSION}. Rebuild ../protoCore from clean.")
     endif()
     unset(_protoCore_abi_file)
+    file(STRINGS "${PROTOCORE_DIR}/headers/protoCore.h" _protoCore_set_attributes
+         REGEX "const ProtoObject\\* setAttributes\\(")
+    if(NOT _protoCore_set_attributes)
+        message(FATAL_ERROR
+            "The protoCore in ${PROTOCORE_DIR} has no ProtoObject::setAttributes: "
+            "protoJS needs protoCore ${PROTOCORE_MIN_VERSION_FULL} or later.")
+    endif()
+    unset(_protoCore_set_attributes)
     set(PROTOCORE_INCLUDE_DIRS ${PROTOCORE_DIR} ${PROTOCORE_DIR}/headers)
     include_directories(${PROTOCORE_INCLUDE_DIRS})
     message(STATUS "Found protoCore: ${PROTOCORE_LIBRARY}")

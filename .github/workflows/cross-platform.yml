@@ -23,15 +23,14 @@ name: Cross-platform
 # runs protojs.exe from there with a PATH that holds nothing but the system
 # directories -- the proof that the ZIP is self-contained.
 #
-# protoCore versions, exactly:
-#   * macOS and the first Windows job build protoCore 2.10.2 (tag v2.10.2,
-#     commit b7f6d82a), the release ci.yml pins on Linux; that Windows job
-#     packages the ZIP with its DLL, protoCore-3.dll;
-#   * the "floor" Windows job builds protoCore 2.7.0 (tag v2.7.0, commit
-#     fc5d79db), the oldest release protoJS accepts (PROTOCORE_MIN_VERSION in
-#     CMakeLists.txt), whose DLL is still named protoCore.dll: between them the
-#     two Windows jobs prove the build and the tests do not depend on the
-#     DLL's name.
+# protoCore versions, exactly: macOS and Windows build protoCore 2.11.0 (tag
+# v2.11.0, commit 69b56afe), the release ci.yml pins on Linux; the Windows job
+# packages the ZIP with its DLL, protoCore-3.dll.  2.11.0 is also the oldest
+# release protoJS accepts (PROTOCORE_MIN_VERSION in CMakeLists.txt: the
+# interpreter needs ProtoObject::setAttributes), so the former "floor" job on
+# protoCore 2.7.0 is gone -- that release can no longer build protoJS, and every
+# release from 2.11.0 on names its DLL protoCore-3.dll, which was the other
+# thing the floor job covered.
 
 on:
   push:
@@ -61,18 +60,14 @@ jobs:
       fail-fast: false
       matrix:
         include:
-          - name: macOS (Apple clang, arm64, protoCore 2.10.2)
+          - name: macOS (Apple clang, arm64, protoCore 2.11.0)
             os: macos-14
-            protocore_ref: b7f6d82a3960cb74e070e053aa644ec2f79c7fc2
+            protocore_ref: 69b56afeee00d843d74f8e67d3add317bc1ce5d3
             package: false
-          - name: Windows (MSVC, x64, protoCore 2.10.2)
+          - name: Windows (MSVC, x64, protoCore 2.11.0)
             os: windows-2022
-            protocore_ref: b7f6d82a3960cb74e070e053aa644ec2f79c7fc2
+            protocore_ref: 69b56afeee00d843d74f8e67d3add317bc1ce5d3
             package: true
-          - name: Windows (MSVC, x64, protoCore 2.7.0 floor)
-            os: windows-2022
-            protocore_ref: fc5d79db4f89f8a6eb473a52766b1908140a19d1
-            package: false
     defaults:
       run:
         shell: bash

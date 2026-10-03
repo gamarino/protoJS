@@ -47,7 +47,7 @@ Four language runtimes (protoJS, protoPython, protoST, protoClojure) and protoCp
 
 - A **C++20** compiler: GCC or Clang, or MSVC (Visual Studio 2022) on Windows
 - **CMake** 3.16 or later
-- The **protoCore** shared library, **2.7.0 or newer** (`libprotoCore`), built from source or installed under a prefix
+- The **protoCore** shared library, **2.11.0 or newer** (`libprotoCore`), built from source or installed under a prefix
 - **OpenSSL** (`libssl`, `libcrypto`), **pthread** and **libdl**, which `protojs` links against
 - For the unit tests: **Catch2** v3; if CMake does not find it, the build downloads v3.5.2 with `FetchContent`
 
