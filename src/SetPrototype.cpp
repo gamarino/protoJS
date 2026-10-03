@@ -11,6 +11,7 @@
 #include <cmath>
 #include <cstring>
 #include <string>
+#include <mutex>
 
 namespace protojs {
 
@@ -39,12 +40,8 @@ static bool setSVZ(proto::ProtoContext* ctx,
     }
     if (a->isInteger(ctx) && b->isInteger(ctx))
         return a->asLong(ctx) == b->asLong(ctx);
-    if (a->isString(ctx) && b->isString(ctx)) {
-        std::string sa, sb;
-        a->asString(ctx)->toUTF8String(ctx, sa);
-        b->asString(ctx)->toUTF8String(ctx, sb);
-        return sa == sb;
-    }
+    if (a->isString(ctx) && b->isString(ctx))
+        return a->compare(ctx, b) == 0;  // by content
     return false;
 }
 
@@ -60,6 +57,25 @@ static const proto::ProtoObject* normalizeSetVal(proto::ProtoContext* ctx,
     return val;
 }
 
+// The hidden slots of a Set, as interned symbols created once per process
+// (each access used to build a fresh string).
+static const proto::ProtoString* setSlot(proto::ProtoContext* ctx, const char* name) {
+    static const char* const kNames[] = {
+        "__set_order__", "__set_core__", "__set_size__", "__set_next__"};
+    static std::once_flag s_flags[4];
+    static const proto::ProtoString* s_syms[4] = {};
+    for (int i = 0; i < 4; ++i) {
+        if (std::strcmp(name, kNames[i]) == 0) {
+            std::call_once(s_flags[i], [&]() {
+                s_syms[i] = proto::ProtoString::createSymbol(ctx, kNames[i]);
+            });
+            return s_syms[i];
+        }
+    }
+    const proto::ProtoObject* ko = ctx->fromUTF8String(name);
+    return ko ? ko->asString(ctx) : nullptr;
+}
+
 // Returns true if self is a valid Set receiver (has __set_order__ slot).
 // Signals TypeError and returns false otherwise.
 static bool requireSetThis(proto::ProtoContext* ctx, const proto::ProtoObject* self)
@@ -71,8 +87,7 @@ static bool requireSetThis(proto::ProtoContext* ctx, const proto::ProtoObject* s
             "Set operation called on non-Set"));
         return false;
     }
-    const proto::ProtoObject* ko = ctx->fromUTF8String("__set_order__");
-    const proto::ProtoString* ks = ko ? ko->asString(ctx) : nullptr;
+    const proto::ProtoString* ks = setSlot(ctx, "__set_order__");
     const proto::ProtoObject* v  = ks ? self->getAttribute(ctx, ks, false) : nullptr;
     if (!v || v == PROTO_NONE) {
         signalNativeException(makeNativeError(ctx, "TypeError",
@@ -88,8 +103,7 @@ static bool requireSetThis(proto::ProtoContext* ctx, const proto::ProtoObject* s
 static const proto::ProtoSet* getSetCore(proto::ProtoContext* ctx,
                                           const proto::ProtoObject* setObj)
 {
-    const proto::ProtoObject* ko = ctx->fromUTF8String("__set_core__");
-    const proto::ProtoString* ks = ko ? ko->asString(ctx) : nullptr;
+    const proto::ProtoString* ks = setSlot(ctx, "__set_core__");
     if (!ks || !setObj || setObj == PROTO_NONE) return nullptr;
     const proto::ProtoObject* v = setObj->getAttribute(ctx, ks, false);
     return (v && v != PROTO_NONE) ? v->asSet(ctx) : nullptr;
@@ -100,16 +114,14 @@ static void setSetCoreInPlace(proto::ProtoContext* ctx,
                                const proto::ProtoSet* core)
 {
     if (!core || !setObj || setObj == PROTO_NONE) return;
-    const proto::ProtoObject* ko = ctx->fromUTF8String("__set_core__");
-    const proto::ProtoString* ks = ko ? ko->asString(ctx) : nullptr;
+    const proto::ProtoString* ks = setSlot(ctx, "__set_core__");
     if (ks) setObj->setAttribute(ctx, ks, core->asObject(ctx));
 }
 
 static const proto::ProtoSparseList* getSetOrder(proto::ProtoContext* ctx,
                                                    const proto::ProtoObject* setObj)
 {
-    const proto::ProtoObject* ko = ctx->fromUTF8String("__set_order__");
-    const proto::ProtoString* ks = ko ? ko->asString(ctx) : nullptr;
+    const proto::ProtoString* ks = setSlot(ctx, "__set_order__");
     if (!ks || !setObj || setObj == PROTO_NONE) return nullptr;
     const proto::ProtoObject* v = setObj->getAttribute(ctx, ks, false);
     return (v && v != PROTO_NONE) ? v->asSparseList(ctx) : nullptr;
@@ -120,14 +132,12 @@ static void setSetOrderInPlace(proto::ProtoContext* ctx,
                                 const proto::ProtoSparseList* order)
 {
     if (!order || !setObj || setObj == PROTO_NONE) return;
-    const proto::ProtoObject* ko = ctx->fromUTF8String("__set_order__");
-    const proto::ProtoString* ks = ko ? ko->asString(ctx) : nullptr;
+    const proto::ProtoString* ks = setSlot(ctx, "__set_order__");
     if (ks) setObj->setAttribute(ctx, ks, order->asObject(ctx));
 }
 
 static proto::proto_long getSetSize(proto::ProtoContext* ctx, const proto::ProtoObject* setObj) {
-    const proto::ProtoObject* ko = ctx->fromUTF8String("__set_size__");
-    const proto::ProtoString* ks = ko ? ko->asString(ctx) : nullptr;
+    const proto::ProtoString* ks = setSlot(ctx, "__set_size__");
     if (!ks || !setObj || setObj == PROTO_NONE) return PROTO_L(0);
     const proto::ProtoObject* v = setObj->getAttribute(ctx, ks, false);
     return (v && v != PROTO_NONE && v->isInteger(ctx)) ? v->asLong(ctx) : PROTO_L(0);
@@ -137,10 +147,34 @@ static void setSetSizeInPlace(proto::ProtoContext* ctx,
                                const proto::ProtoObject* setObj,
                                proto::proto_long sz)
 {
-    const proto::ProtoObject* ko = ctx->fromUTF8String("__set_size__");
-    const proto::ProtoString* ks = ko ? ko->asString(ctx) : nullptr;
+    const proto::ProtoString* ks = setSlot(ctx, "__set_size__");
     if (ks && setObj && setObj != PROTO_NONE)
         setObj->setAttribute(ctx, ks, ctx->fromInteger(sz));
+}
+
+// Insertion order: a new element takes the slot after every slot used so
+// far, kept in __set_next__ (a delete leaves a hole, so the size is not the
+// next slot).  Without the slot, one walk of the order list finds it.
+// Pre-fix every add() walked the whole order list: O(n) per add.
+static proto::proto_ulong takeNextSetSlot(proto::ProtoContext* ctx,
+                                          const proto::ProtoObject* setObj,
+                                          const proto::ProtoSparseList* order) {
+    const proto::ProtoString* nk = setSlot(ctx, "__set_next__");
+    const proto::ProtoObject* v = nk ? setObj->getAttribute(ctx, nk, false) : nullptr;
+    proto::proto_ulong next = 0;
+    if (v && v != PROTO_NONE && proto::isSmallInt(v)) {
+        next = static_cast<proto::proto_ulong>(proto::asSmallInt(v));
+    } else {
+        const proto::ProtoSparseListIterator* it = order ? order->getIterator(ctx) : nullptr;
+        while (it && it->hasNext(ctx)) {
+            proto::proto_ulong slot = it->nextKey(ctx);
+            (void)it->nextValue(ctx);
+            it = const_cast<proto::ProtoSparseListIterator*>(it)->advance(ctx);
+            if (slot >= next) next = slot + 1;
+        }
+    }
+    if (nk) setObj->setAttribute(ctx, nk, ctx->fromInteger(static_cast<long long>(next + 1)));
+    return next;
 }
 
 // ---------------------------------------------------------------------------
@@ -366,24 +400,7 @@ static const proto::ProtoObject* setAdd(
     const proto::ProtoSparseList* order = getSetOrder(ctx, self);
     proto::proto_long sz = getSetSize(ctx, self);
     if (core)  setSetCoreInPlace(ctx, self, core->add(ctx, val));
-    if (order) {
-        // Pick max(slot)+1, not size — ProtoSparseList::removeAt
-        // leaves holes after Set.delete, so 'size' may already be
-        // occupied. Pre-fix `add` after a `delete` of a middle entry
-        // wiped the entry that previously sat at slot `size`.
-        proto::proto_ulong newIdx = 0;
-        bool hasAny = false;
-        const proto::ProtoSparseListIterator* it = order->getIterator(ctx);
-        while (it && it->hasNext(ctx)) {
-            proto::proto_ulong slot = it->nextKey(ctx);
-            (void)it->nextValue(ctx);
-            it = const_cast<proto::ProtoSparseListIterator*>(it)->advance(ctx);
-            if (!hasAny || slot >= newIdx) newIdx = slot + 1;
-            hasAny = true;
-        }
-        if (!hasAny) newIdx = static_cast<proto::proto_ulong>(sz);
-        setSetOrderInPlace(ctx, self, order->setAt(ctx, newIdx, val));
-    }
+    if (order) setSetOrderInPlace(ctx, self, order->setAt(ctx, takeNextSetSlot(ctx, self, order), val));
     setSetSizeInPlace(ctx, self, sz + 1);
     return self;
 }
@@ -866,7 +883,7 @@ static const proto::ProtoObject* setConstruct(
                             proto::proto_long sz = getSetSize(ctx, self);
                             if (core) setSetCoreInPlace(ctx, self, core->add(ctx, val));
                             if (order) setSetOrderInPlace(ctx, self,
-                                order->setAt(ctx, static_cast<proto::proto_ulong>(sz), val));
+                                order->setAt(ctx, takeNextSetSlot(ctx, self, order), val));
                             setSetSizeInPlace(ctx, self, sz + 1);
                         }
                         i += len;
@@ -1032,7 +1049,7 @@ static void setAddValue(proto::ProtoContext* ctx,
     proto::proto_long sz = getSetSize(ctx, setObj);
     if (core)  setSetCoreInPlace(ctx, setObj, core->add(ctx, val));
     if (order) setSetOrderInPlace(ctx, setObj,
-                   order->setAt(ctx, static_cast<proto::proto_ulong>(sz), val));
+                   order->setAt(ctx, takeNextSetSlot(ctx, setObj, order), val));
     setSetSizeInPlace(ctx, setObj, sz + 1);
 }
 
