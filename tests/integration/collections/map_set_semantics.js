@@ -36,6 +36,9 @@ check("long string built twice", m.get("x".repeat(100) + "x".repeat(100) + "y") 
 m.set(10n, "ten");
 check("BigInt by value", m.get(10n) === "ten" && m.get(BigInt(10)) === "ten" && m.get(5n * 2n) === "ten");
 check("BigInt vs number", m.get(10) === undefined);
+const huge = new Map([[2n ** 70n, "big"], [-(2n ** 65n), "neg"]]);
+check("large BigInt keys", huge.get(2n ** 70n) === "big" && huge.get(-(2n ** 65n)) === "neg" &&
+      new Set([2n ** 80n, 2n ** 80n]).size === 1);
 // Identity for objects, arrays, functions, symbols.
 const o = { a: 1 };
 const sym = Symbol("s");
