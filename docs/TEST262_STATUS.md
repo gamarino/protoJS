@@ -41,7 +41,7 @@ whole corpus keeps the runner's log and snapshot as the artifact
 | Timeouts (5,000 ms each) | 229 |
 | Pass rate | **61.34 %** |
 | Wall clock | 2,707 s (45 min), sequential, `TEST262_CONCURRENCY=1` |
-| protoCore | 2.7.0 (`fc5d79db`), the CI pin |
+| protoCore | 2.7.0 (`fc5d79db`), the CI pin at the time of the run (CI builds 2.10.2 since 2026-10-03) |
 
 `TEST262_CONCURRENCY=1` is not a preference: parallel Test262 runs hang the
 development machine, so the run is sequential. Builds may use `-j4`, which was

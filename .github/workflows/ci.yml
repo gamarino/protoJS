@@ -90,13 +90,14 @@ concurrency:
 
 env:
   PROTOCORE_REPO: numaes/protoCore
-  # protoCore 2.7.0 (tag v2.7.0), SOVERSION 3, except on the nightly schedule,
-  # which builds protoCore master.  Bump deliberately.  2.7.0 is protoJS's
-  # floor: the first release that declares proto::proto_long.  (macOS and
-  # Windows build 2.8.0, plus a Windows job on 2.7.0: cross-platform.yml.)
+  # protoCore 2.10.2 (tag v2.10.2, commit b7f6d82a), SOVERSION 3, except on the
+  # nightly schedule, which builds protoCore master.  Bump deliberately.
+  # protoJS's floor is 2.7.0, the first release that declares proto::proto_long
+  # (PROTOCORE_MIN_VERSION in CMakeLists.txt); cross-platform.yml keeps a
+  # Windows job on it, and builds 2.10.2 on macOS and Windows.
   # protoJS declares PROTOCORE_ABI_SOVERSION 3 at CMakeLists.txt:34 and the ldd
   # step below asserts the library actually loaded is this tree's.
-  PROTOCORE_REF: ${{ github.event_name == 'schedule' && 'master' || 'fc5d79db4f89f8a6eb473a52766b1908140a19d1' }}
+  PROTOCORE_REF: ${{ github.event_name == 'schedule' && 'master' || 'b7f6d82a3960cb74e070e053aa644ec2f79c7fc2' }}
   TEST262_REPO: tc39/test262
   # The corpus commit every published protoJS figure was measured against
   # (docs/TEST262_STATUS.md, tests/test262/config/regression_gate_baseline.json).

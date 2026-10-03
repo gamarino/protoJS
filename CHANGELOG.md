@@ -25,6 +25,15 @@ All notable changes to protoJS are documented in this file.
   now read the elements from the buffer.
 - Test: `js/basic/typed_array_construction` (40 checks; passes under Node.js).
 
+### Changed — CI builds protoCore 2.10.2 (2026-10-03)
+
+- `ci.yml` (Linux) and `cross-platform.yml` (macOS, Windows) build protoCore
+  2.10.2 (tag v2.10.2, commit b7f6d82a); Linux was on 2.7.0, macOS and Windows
+  on 2.8.0 and 2.9.0. The Windows floor job stays on 2.7.0, the minimum
+  CMakeLists.txt accepts. The separate 2.9.0 Windows job is gone: the 2.10.2
+  job packages the ZIP with `protoCore-3.dll`, and the floor job still builds
+  against a `protoCore.dll`.
+
 ### Changed — structure-heavy code: for-of, Map/Set, map/filter (2026-10-03)
 
 Found while building `benchmarks/structures/` (report:

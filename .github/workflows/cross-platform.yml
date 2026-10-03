@@ -24,13 +24,14 @@ name: Cross-platform
 # directories -- the proof that the ZIP is self-contained.
 #
 # protoCore versions, exactly:
-#   * macOS and the first Windows job build protoCore 2.8.0 (tag v2.8.0, commit
-#     43b6dc07), the first release whose setThreadStackBytes is honoured on macOS;
+#   * macOS and the first Windows job build protoCore 2.10.2 (tag v2.10.2,
+#     commit b7f6d82a), the release ci.yml pins on Linux; that Windows job
+#     packages the ZIP with its DLL, protoCore-3.dll;
 #   * the "floor" Windows job builds protoCore 2.7.0 (tag v2.7.0, commit
 #     fc5d79db), the oldest release protoJS accepts (PROTOCORE_MIN_VERSION in
-#     CMakeLists.txt) and the one ci.yml pins on Linux;
-#   * one more Windows job builds protoCore 2.9.0 (tag v2.9.0, commit
-#     21889c91), whose DLL is protoCore-3.dll, and packages the ZIP with it.
+#     CMakeLists.txt), whose DLL is still named protoCore.dll: between them the
+#     two Windows jobs prove the build and the tests do not depend on the
+#     DLL's name.
 
 on:
   push:
@@ -60,24 +61,18 @@ jobs:
       fail-fast: false
       matrix:
         include:
-          - name: macOS (Apple clang, arm64, protoCore 2.8.0)
+          - name: macOS (Apple clang, arm64, protoCore 2.10.2)
             os: macos-14
-            protocore_ref: 43b6dc0717e417aa6af1436a45bec187753a8130
+            protocore_ref: b7f6d82a3960cb74e070e053aa644ec2f79c7fc2
             package: false
-          - name: Windows (MSVC, x64, protoCore 2.8.0)
+          - name: Windows (MSVC, x64, protoCore 2.10.2)
             os: windows-2022
-            protocore_ref: 43b6dc0717e417aa6af1436a45bec187753a8130
+            protocore_ref: b7f6d82a3960cb74e070e053aa644ec2f79c7fc2
             package: true
           - name: Windows (MSVC, x64, protoCore 2.7.0 floor)
             os: windows-2022
             protocore_ref: fc5d79db4f89f8a6eb473a52766b1908140a19d1
             package: false
-          # protoCore 2.9.0 names its DLL protoCore-3.dll: this job proves the
-          # build, the tests and the ZIP do not depend on the DLL's name.
-          - name: Windows (MSVC, x64, protoCore 2.9.0)
-            os: windows-2022
-            protocore_ref: 21889c911b0d0c69bb99d53ea8c3b1bb349f547d
-            package: true
     defaults:
       run:
         shell: bash
