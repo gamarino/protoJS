@@ -47,6 +47,8 @@ static const uint8_t* getOpSizes() {
         sizes[244] = 3;
         sizes[245] = 7;
         sizes[246] = 8;
+        sizes[247] = 1;  // OP_PROTO_OBJECT_IMM
+        sizes[248] = 5;  // OP_PROTO_DEFINE_FIELD_LAST (atom)
         inited = true;
     }
     return sizes;
@@ -77,6 +79,7 @@ static void preResolveAllAtoms(JSContext* ctx, ProtoBytecodeModule* mod,
                         op == OP_get_field2       ||
                         op == OP_put_field        ||
                         op == OP_define_field     ||
+                        op == 248 /* OP_PROTO_DEFINE_FIELD_LAST */ ||
                         op == OP_set_name         ||
                         op == OP_make_var_ref     ||
                         op == OP_delete_var       ||
@@ -211,7 +214,16 @@ static bool loadBytecodeRecursive(JSContext* ctx,
     // and the two implementations.  When the pass returns the input
     // unchanged the resulting `specBuf` is a byte-identical copy, so
     // the loader downstream paths see the same bytes either way.
-    std::vector<uint8_t> specBuf = specialise(buf, len, getSpecialiseMode());
+    // Object literals are built immutable and made mutable once
+    // (markObjectLiterals); the pass needs QuickJS's stack levels, so it
+    // runs on the unmodified bytecode, before the specialiser.
+    std::vector<uint8_t> litBuf(buf, buf + len);
+    {
+        std::vector<uint16_t> levels(static_cast<size_t>(len));
+        if (protojs_bytecode_stack_levels(ctx, quickjsBytecode, levels.data()) == 0)
+            markObjectLiterals(litBuf, levels.data());
+    }
+    std::vector<uint8_t> specBuf = specialise(litBuf.data(), len, getSpecialiseMode());
     lowerClassConstructorPush(specBuf);
     out->pBytecode = pContext->newByteBuffer(
         reinterpret_cast<const char*>(specBuf.data()),

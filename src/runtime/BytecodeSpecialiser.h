@@ -82,6 +82,17 @@ std::vector<uint8_t> specialise(const uint8_t* buf,
                                 int len,
                                 SpecialiseMode mode);
 
+/**
+ * Rewrites object literals so that they are built immutable and made
+ * mutable once, after their last field (see the comment above the
+ * implementation).  `levels[pc]` is the stack level before the instruction
+ * at `pc` (0xffff: unreachable), as protojs_bytecode_stack_levels reports it
+ * for the unmodified QuickJS bytecode in `code`.  Instruction sizes are kept,
+ * so it runs before specialise().  Returns the number of literals rewritten;
+ * PROTOJS_LITERAL_BUILD=off disables it.
+ */
+int markObjectLiterals(std::vector<uint8_t>& code, const uint16_t* levels);
+
 }  // namespace protojs
 
 #endif  // PROTOJS_BYTECODE_SPECIALISER_H

@@ -284,6 +284,7 @@ foreach(js_test
         basic/symbol_key_order
         basic/native_function_prototype
         basic/number_representation
+        basic/object_literal_build
         basic/regexp_global_advance
         basic/generator_for_of_yield
         modules/test_require_file
@@ -291,6 +292,7 @@ foreach(js_test
         modules/test_require
         modules/test_events
         collections/protoCore_collections
+        collections/map_set_scaling
         workers/deep_recursion
         workers/promises_in_worker
         crypto/test_crypto_cipher
@@ -306,6 +308,9 @@ foreach(js_test
         COMMAND "$<TARGET_FILE:protojs>"
                 "${CMAKE_CURRENT_SOURCE_DIR}/integration/${js_test}.js")
 endforeach()
+
+# A quadratic Map.set / Set.add would not finish within this limit.
+set_tests_properties(js/collections/map_set_scaling PROPERTIES TIMEOUT 60)
 
 # util.format / util.inspect: Node.js's own test/parallel/test-util-format.js,
 # adapted like the path tests below (the cases protoJS cannot run are commented

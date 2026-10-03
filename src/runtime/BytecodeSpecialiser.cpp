@@ -4,6 +4,7 @@
 #include <cstdlib>
 #include <cstring>
 #include <cstdio>
+#include <utility>
 
 namespace protojs {
 
@@ -44,6 +45,15 @@ constexpr uint8_t OP_PROTO_LT_LOC8_LOC8_JFALSE = 245;
 /// even when the source used `if_false8` — widened at match time so
 /// the dispatched handler stays uniform.
 constexpr uint8_t OP_PROTO_LT_LOC_VAR_JFALSE = 246;
+
+/// Object literals built in one immutable step (markObjectLiterals):
+/// `OP_proto_object_imm` (1 byte) pushes an IMMUTABLE child of
+/// Object.prototype in place of OP_object; the literal's define_field
+/// opcodes extend it by structural sharing; the last of them is rewritten to
+/// `OP_proto_define_field_last atom` (5 bytes), which defines the field and
+/// then makes the object mutable with one clone.
+constexpr uint8_t OP_PROTO_OBJECT_IMM = 247;
+constexpr uint8_t OP_PROTO_DEFINE_FIELD_LAST = 248;
 
 constexpr int FUSED_ACC_LEN = 3;
 constexpr int FUSED_LT_JF_LEN = 7;
@@ -90,6 +100,8 @@ const uint8_t* getOpcodeSizes() {
         table[OP_PROTO_ACC_LOC8_LOC8]       = FUSED_ACC_LEN;
         table[OP_PROTO_LT_LOC8_LOC8_JFALSE] = FUSED_LT_JF_LEN;
         table[OP_PROTO_LT_LOC_VAR_JFALSE]   = FUSED_LT_LOC_VAR_JF_LEN;
+        table[OP_PROTO_OBJECT_IMM]          = 1;
+        table[OP_PROTO_DEFINE_FIELD_LAST]   = 5;
         return table;
     }();
     return sizes;
@@ -739,6 +751,162 @@ std::vector<uint8_t> specialiseCompact(const uint8_t* buf, int len) {
 }
 
 }  // namespace
+
+
+// ─────────────────────────────────────────────────────────────────
+// Object literals in one immutable step
+// ─────────────────────────────────────────────────────────────────
+//
+// QuickJS compiles `{a: x, b: y}` to
+//     object; <x>; define_field a; <y>; define_field b; ...
+// OP_object creates a MUTABLE object, so each define_field publishes a new
+// snapshot of it into protoCore's mutable table: about 12 cells per field
+// that become garbage at once.  No code can observe the object before the
+// literal is complete (a value expression only works above it on the
+// operand stack), so the fields can instead be added to an IMMUTABLE object,
+// which costs only the attribute tree's path copy, and the result made
+// mutable once, after the last field.
+//
+// The pass finds, for each OP_object, the define_field opcodes whose target
+// is that object, using the stack level before each instruction (computed
+// by QuickJS over the function's control-flow graph):
+//   - the object occupies slot d, where d is the level before OP_object;
+//   - an instruction at level L that pops p values reads slots L-p .. L-1,
+//     so it touches the object when L - p <= d;
+//   - a define_field at level d + 2 is a field of this literal;
+//   - the first other instruction that touches the object ends the literal
+//     part (it is the consumer, or set_proto / copy_data_properties /
+//     define_method / ..., which then run on the already-mutable object).
+// OP_object becomes OP_proto_object_imm and the last define_field before
+// the end becomes OP_proto_define_field_last.  The rewrite keeps every
+// instruction's size, so no jump needs remapping.  A literal is left alone
+// when the region contains an unreachable byte, a catch, or a jump into or
+// out of it, or when it has no define_field.
+namespace {
+
+enum QjsFmt {
+#define FMT(f) QF_##f,
+#define DEF(id, size, n_pop, n_push, f)
+#define def(id, size, n_pop, n_push, f)
+#include "quickjs-opcode.h"
+#undef def
+#undef DEF
+    QF_count
+};
+
+struct QjsOpInfo { uint8_t nPop; uint8_t fmt; };
+
+const QjsOpInfo* qjsOpInfo() {
+    static const QjsOpInfo table[] = {
+#define FMT(f)
+#define DEF(id, size, n_pop, n_push, f) { (uint8_t)(n_pop), (uint8_t)QF_##f },
+#define def(id, size, n_pop, n_push, f)
+#include "quickjs-opcode.h"
+#undef def
+#undef DEF
+        { 0, 0 }
+    };
+    return table;
+}
+
+// Values the instruction at `pc` pops (QuickJS's rule in compute_stack_size).
+int qjsPops(const uint8_t* buf, int pc) {
+    const uint8_t op = buf[pc];
+    if (op >= OP_COUNT) return -1;
+    const QjsOpInfo& oi = qjsOpInfo()[op];
+    int n = oi.nPop;
+    if (oi.fmt == QF_npop || oi.fmt == QF_npop_u16)
+        n += buf[pc + 1] | (buf[pc + 2] << 8);
+    else if (oi.fmt == QF_npopx)
+        n += op - OP_call0;
+    return n;
+}
+
+// Absolute target of a jump instruction at `pc`, or -1 if it is not a jump.
+int jumpTarget(const uint8_t* buf, int pc) {
+    auto rel32 = [&](int off) {
+        int32_t d = (int32_t)((uint32_t)buf[pc + off] | ((uint32_t)buf[pc + off + 1] << 8)
+                    | ((uint32_t)buf[pc + off + 2] << 16) | ((uint32_t)buf[pc + off + 3] << 24));
+        return pc + off + d;
+    };
+    switch (buf[pc]) {
+        case OP_if_false: case OP_if_true: case OP_goto: case OP_catch: case OP_gosub:
+            return rel32(1);
+        case OP_if_false8: case OP_if_true8: case OP_goto8:
+            return pc + 1 + (int8_t)buf[pc + 1];
+        case OP_goto16:
+            return pc + 1 + (int16_t)(uint16_t)(buf[pc + 1] | (buf[pc + 2] << 8));
+        case OP_with_get_var: case OP_with_put_var: case OP_with_delete_var:
+        case OP_with_make_ref: case OP_with_get_ref:
+            return rel32(5);
+        default:
+            return -1;
+    }
+}
+
+bool literalBuildEnabled() {
+    static const bool enabled = []() {
+        const char* v = std::getenv("PROTOJS_LITERAL_BUILD");
+        return !(v && !std::strcmp(v, "off"));
+    }();
+    return enabled;
+}
+
+}  // namespace
+
+int markObjectLiterals(std::vector<uint8_t>& code, const uint16_t* levels) {
+    if (!levels || code.empty() || !literalBuildEnabled()) return 0;
+    const uint8_t* sizes = getOpcodeSizes();
+    const uint8_t* buf = code.data();
+    const int len = (int)code.size();
+
+    // Instruction starts and jump edges, for the region checks.
+    std::vector<int> starts;
+    std::vector<std::pair<int, int>> jumps;  // (source pc, target pc)
+    for (int pc = 0; pc < len; ) {
+        const uint8_t op = buf[pc];
+        const int sz = sizes[op];
+        if (sz <= 0 || op >= OP_COUNT) return 0;  // unknown byte: leave the function alone
+        starts.push_back(pc);
+        const int t = jumpTarget(buf, pc);
+        if (t >= 0) jumps.emplace_back(pc, t);
+        pc += sz;
+    }
+
+    int rewritten = 0;
+    for (size_t si = 0; si < starts.size(); ++si) {
+        const int objPc = starts[si];
+        if (buf[objPc] != OP_object || levels[objPc] == 0xffff) continue;
+        const int d = levels[objPc];
+        int lastDefine = -1;
+        bool ok = true;
+        for (size_t sj = si + 1; sj < starts.size(); ++sj) {
+            const int pc = starts[sj];
+            const int L = levels[pc];
+            if (L == 0xffff) { ok = false; break; }
+            const int p = qjsPops(buf, pc);
+            if (p < 0) { ok = false; break; }
+            if (buf[pc] == OP_catch) { ok = false; break; }
+            if (L - p > d) continue;               // works above the object
+            if (buf[pc] == OP_define_field && L == d + 2) {
+                lastDefine = pc;                   // a field of this literal
+                continue;
+            }
+            break;                                 // first other use: end
+        }
+        if (!ok || lastDefine < 0) continue;
+        for (const auto& j : jumps) {
+            const bool srcIn = j.first > objPc && j.first < lastDefine;
+            const bool dstIn = j.second > objPc && j.second <= lastDefine;
+            if (srcIn != dstIn) { ok = false; break; }
+        }
+        if (!ok) continue;
+        code[objPc] = OP_PROTO_OBJECT_IMM;
+        code[lastDefine] = OP_PROTO_DEFINE_FIELD_LAST;
+        ++rewritten;
+    }
+    return rewritten;
+}
 
 // ─────────────────────────────────────────────────────────────────
 // Public entry points

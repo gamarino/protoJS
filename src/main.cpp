@@ -358,6 +358,7 @@ int main(int argc, char** argv) {
     std::vector<std::string> preloadFiles;
 
     // Parse arguments
+    int scriptArgStart = argc;
     int i = 1;
     while (i < argc) {
         std::string arg = argv[i];
@@ -408,6 +409,10 @@ int main(int argc, char** argv) {
             std::stringstream ss;
             ss << file.rdbuf();
             code = ss.str();
+            // As in Node.js, everything after the script name belongs to the
+            // script (process.argv), not to protojs.
+            scriptArgStart = i + 1;
+            break;
         } else {
             std::cerr << "Unknown option: " << arg << std::endl;
             printUsage(argv[0]);
@@ -415,6 +420,17 @@ int main(int argc, char** argv) {
         }
         i++;
     }
+
+    // process.argv as Node.js builds it: the executable, the script (when
+    // one was given) and the script's own arguments; protojs options are not
+    // included.
+    std::vector<char*> scriptArgv;
+    scriptArgv.push_back(argv[0]);
+    if (scriptArgStart <= argc && !executeCode && filename != "eval")
+        scriptArgv.push_back(argv[scriptArgStart - 1]);
+    for (int k = scriptArgStart; k < argc; ++k) scriptArgv.push_back(argv[k]);
+    const int scriptArgc = static_cast<int>(scriptArgv.size());
+    scriptArgv.push_back(nullptr);
 
     // Handle version flag
     if (showVersion) {
@@ -445,7 +461,7 @@ int main(int argc, char** argv) {
         // protoCore is the single execution path (compile → load → run).
         wrapper.setUseProtoEval(true);
 
-        installRuntimeGlobals(wrapper, argc, argv, filename, /*minimal=*/false);
+        installRuntimeGlobals(wrapper, scriptArgc, scriptArgv.data(), filename, /*minimal=*/false);
 
         protojs::REPL::start(wrapper.getJSContext());
         return 0;
@@ -464,7 +480,7 @@ int main(int argc, char** argv) {
     wrapper.setUseProtoEval(true);
 
     if (minimalInit) {
-        installRuntimeGlobals(wrapper, argc, argv, filename, /*minimal=*/true);
+        installRuntimeGlobals(wrapper, scriptArgc, scriptArgv.data(), filename, /*minimal=*/true);
         JSValue result = wrapper.eval(code, filename, inputTypeModule);
         JS_FreeValue(wrapper.getJSContext(), result);
         return 0;
@@ -477,7 +493,7 @@ int main(int argc, char** argv) {
     // keyed by module-relative bcId, which goes stale once that module's
     // compile-time tables are released).  Prepending keeps the polyfill
     // and user code in the same module so the references stay valid.
-    installRuntimeGlobals(wrapper, argc, argv, filename, /*minimal=*/false);
+    installRuntimeGlobals(wrapper, scriptArgc, scriptArgv.data(), filename, /*minimal=*/false);
 
     // Evaluate preload files as scripts to set up globals (e.g., harness for test262).
     for (const auto& preload : preloadFiles) {

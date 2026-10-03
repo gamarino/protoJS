@@ -33,6 +33,9 @@ int protojs_bytecode_len(void* bytecode);
 uint16_t protojs_bytecode_arg_count(void* bytecode);
 uint16_t protojs_bytecode_var_count(void* bytecode);
 uint16_t protojs_bytecode_stack_size(void* bytecode);
+/* Stack level before each instruction (0xffff: unreachable); `out` holds
+   protojs_bytecode_len entries.  0 on success, -1 on failure. */
+int protojs_bytecode_stack_levels(JSContext* ctx, void* bytecode, uint16_t* out);
 int protojs_bytecode_cpool_count(void* bytecode);
 /* Returns pointer to JSValue array; only valid while ctx/runtime alive. */
 const void* protojs_bytecode_cpool(void* bytecode);

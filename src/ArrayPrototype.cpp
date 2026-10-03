@@ -1048,12 +1048,16 @@ static long long normalizeIdxClamp(long long idx, long long len) {
 const proto::ProtoObject* createNewArray(proto::ProtoContext* ctx,
                                           const proto::ProtoObject* arrayProto) {
     const proto::ProtoObject* proto = arrayProto ? arrayProto : getArrayProto();
+    // Built immutable and made mutable with one clone at the end: one
+    // publication into protoCore's mutable table instead of three.
     const proto::ProtoObject* arr = proto
-        ? proto->newChild(ctx, true)
-        : ctx->newObject(true);
+        ? proto->newChild(ctx, false)
+        : ctx->newObject(false);
+    if (!arr) return arr;
     const proto::ProtoString* isArrKey = JSSymbols::isArray(ctx);
     if (isArrKey) arr = arr->setAttribute(ctx, isArrKey, PROTO_TRUE);
-    arr = arrSetLen(ctx, arr, 0);
+    const proto::ProtoString* lenKey = JSSymbols::length(ctx);
+    if (lenKey) arr = arr->setAttribute(ctx, lenKey, ctx->fromInteger(0LL));
     // ECMA-262 §22.1.5.1: Array's own .length descriptor is
     // {writable:true, enumerable:false, configurable:false} — bits 0x1.
     // Without the sidecar the default is fully enumerable+configurable,
@@ -1062,7 +1066,7 @@ const proto::ProtoObject* createNewArray(proto::ProtoContext* ctx,
     // creation so every fresh array honours the spec descriptor.
     const proto::ProtoString* pdLen = JSSymbols::pdLength(ctx);
     if (pdLen) arr = arr->setAttribute(ctx, pdLen, ctx->fromInteger(0x1LL));
-    return arr;
+    return arr->clone(ctx, true);
 }
 
 /**

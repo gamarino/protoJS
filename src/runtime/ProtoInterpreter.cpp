@@ -7018,8 +7018,17 @@ const proto::ProtoObject* runBytecode(proto::ProtoContext* pContext,
         // inherited accessor per §10.1.8 step 2, so the walk would
         // return PROTO_NONE anyway), and only chain-probe when own
         // data is absent.
-        const bool ownHasData = obj->hasOwnAttribute(pContext, key) == PROTO_TRUE;
-        if (ownHasData) return PROTO_NONE;
+        //
+        // An own ACCESSOR also has an own data slot: the placeholder
+        // (undefined) that keeps the key in the object's key list, next to
+        // its __get_<key>__ sidecar.  So only a defined own value shortcuts;
+        // an undefined one falls through to the walk, whose first level
+        // probes the own sidecar.  Pre-fix every own getter read through
+        // dot access returned undefined (`({get x(){return 1}}).x`).
+        if (obj->hasOwnAttribute(pContext, key) == PROTO_TRUE) {
+            const proto::ProtoObject* own = obj->getAttribute(pContext, key, false);
+            if (own && own != PROTO_NONE && own != t_undefinedSentinel) return PROTO_NONE;
+        }
         {
             const proto::ProtoString* hapKey = JSSymbols::hasAccessorProps(pContext);
             if (hapKey) {
@@ -7129,6 +7138,8 @@ const proto::ProtoObject* runBytecode(proto::ProtoContext* pContext,
     X(244 /*OP_PROTO_ACC_LOC8_LOC8*/,      L_OP_proto_acc_loc8_loc8) \
     X(245 /*OP_PROTO_LT_LOC8_LOC8_JFALSE*/, L_OP_proto_lt_loc8_loc8_jfalse) \
     X(246 /*OP_PROTO_LT_LOC_VAR_JFALSE*/,   L_OP_proto_lt_loc_var_jfalse) \
+    X(247 /*OP_PROTO_OBJECT_IMM*/,          L_OP_proto_object_imm) \
+    X(248 /*OP_PROTO_DEFINE_FIELD_LAST*/,   L_OP_proto_define_field_last) \
     X(OP_add, L_OP_add) \
     X(OP_add_loc, L_OP_add_loc) \
     X(OP_and, L_OP_and) \
@@ -8220,6 +8231,12 @@ const proto::ProtoObject* runBytecode(proto::ProtoContext* pContext,
                         const proto::ProtoObject* cp = topObj->getAttribute(pContext, cpk, false);
                         if (cp && cp != PROTO_NONE) parent = cp;
                     }
+                    // A home object's [[Prototype]] set from JavaScript
+                    // (`__proto__:` in a literal, Object.setPrototypeOf) is
+                    // the JS prototype override, not protoCore's parent.
+                    // Pre-fix `super.m()` in such an object's method found
+                    // Object.prototype and threw "is not a function".
+                    if (!parent) parent = protojs::getJSProtoOverride(pContext, topObj);
                     if (!parent) parent = topObj->getPrototype(pContext);
                 }
                 stackPush(pContext, parent ? parent : PROTO_NONE);
@@ -10057,18 +10074,17 @@ const proto::ProtoObject* runBytecode(proto::ProtoContext* pContext,
                 if (obj->hasOwnAttribute(pContext, key) != PROTO_TRUE) {
                     // Probe accessor sidecars first — an own setter
                     // (__set_<key>__) trumps the chain walk.
+                    // The sidecar names come from the per-thread caches:
+                    // building them here cost two string allocations on
+                    // every write of a new key (`this.x = v` in a
+                    // constructor).
                     bool hasOwnAccessor = false;
                     {
-                        std::string ks; key->toUTF8String(pContext, ks);
-                        for (const char* prefix : {"__get_", "__set_"}) {
-                            std::string sk = std::string(prefix) + ks + "__";
-                            const proto::ProtoObject* sko = pContext->fromUTF8String(sk.c_str());
-                            const proto::ProtoString* sks = sko ? sko->asString(pContext) : nullptr;
-                            if (sks && obj->hasOwnAttribute(pContext, sks) == PROTO_TRUE) {
-                                hasOwnAccessor = true;
-                                break;
-                            }
-                        }
+                        const proto::ProtoString* gks = getterSymbolFor(key);
+                        const proto::ProtoString* sks = setterSymbolFor(key);
+                        hasOwnAccessor =
+                            (gks && obj->hasOwnAttribute(pContext, gks) == PROTO_TRUE)
+                            || (sks && obj->hasOwnAttribute(pContext, sks) == PROTO_TRUE);
                     }
                     if (!hasOwnAccessor) {
                         auto advance = [&](const proto::ProtoObject* o) -> const proto::ProtoObject* {
@@ -10099,10 +10115,10 @@ const proto::ProtoObject* runBytecode(proto::ProtoContext* pContext,
                 // / non-coercible values throw RangeError. Pre-fix the
                 // put silently accepted any number, so a.length = -1
                 // / NaN / 2.5 set the slot to whatever junk landed.
+                // Atom keys are interned, so `length` is identified by
+                // pointer (pre-fix: a std::string built on every write).
                 {
-                    std::string lenProbe;
-                    key->toUTF8String(pContext, lenProbe);
-                    if (lenProbe == "length") {
+                    if (key == JSSymbols::length(pContext)) {
                         const proto::ProtoString* isArrK = JSSymbols::isArray(pContext);
                         const proto::ProtoObject* isArrV = isArrK
                             ? obj->getAttribute(pContext, isArrK, true) : PROTO_NONE;
@@ -11044,6 +11060,12 @@ const proto::ProtoObject* runBytecode(proto::ProtoContext* pContext,
                                 const proto::ProtoString* pdk2 = pdo2 ? pdo2->asString(pContext) : nullptr;
                                 long long pdBits = (op_flags & 0x10) ? 0x2LL : 0x6LL;
                                 if (pdk2) newObj3 = newObj3->setAttribute(pContext, pdk2, pContext->fromInteger(pdBits));
+                                // The own-accessor hint resolvePutFieldOOP
+                                // gates on, as Object.defineProperty stamps
+                                // it.  Pre-fix `o.x = v` on a literal or class
+                                // with `set x(v)` never ran the setter.
+                                const proto::ProtoString* hapK3 = JSSymbols::hasAccessorProps(pContext);
+                                if (hapK3 && newObj3) newObj3 = newObj3->setAttribute(pContext, hapK3, PROTO_TRUE);
                             }
                             stackPop(pContext);
                             stackPush(pContext, newObj3 ? newObj3 : obj3);
@@ -11297,6 +11319,39 @@ const proto::ProtoObject* runBytecode(proto::ProtoContext* pContext,
                     ? objProto->newChild(pContext, true)
                     : pContext->newObject(true);
                 pAutomaticLocals[currentStackBase + _PF().stackTop++] = newObj;
+                DISPATCH();
+            }
+            // Object literal built in one immutable step (markObjectLiterals in
+            // BytecodeSpecialiser.cpp): an IMMUTABLE child of Object.prototype,
+            // which the literal's define_field opcodes extend by structural
+            // sharing (L_OP_define_field pushes the new version), until
+            // L_OP_proto_define_field_last makes it mutable.  No code sees it
+            // in between.
+            L_OP_proto_object_imm: {
+                const proto::ProtoObject* objProto =
+                    (pContext->space) ? pContext->space->objectPrototype : nullptr;
+                const proto::ProtoObject* newObj = (objProto && objProto != PROTO_NONE)
+                    ? objProto->newChild(pContext, false)
+                    : pContext->newObject(false);
+                pAutomaticLocals[currentStackBase + _PF().stackTop++] = newObj;
+                DISPATCH();
+            }
+            L_OP_proto_define_field_last: {
+                if (pc + 4 > len || stackSize(pContext) < 2) return PROTO_NONE;
+                uint32_t atomIndex = get_u32(buf + pc);
+                pc += 4;
+                const proto::ProtoObject* value = stackTop(pContext);
+                stackPop(pContext);
+                const proto::ProtoObject* obj = stackTop(pContext);
+                stackPop(pContext);
+                const proto::ProtoString* key = resolveAtom(mod, pContext, atomIndex);
+                const proto::ProtoObject* built = (key && obj)
+                    ? obj->setAttribute(pContext, key, value) : obj;
+                if (!built || built == PROTO_NONE) built = obj;
+                // One clone publishes the finished attribute tree as the
+                // mutable object's first state (protoCore shares the tree).
+                const proto::ProtoObject* mut = built ? built->clone(pContext, true) : nullptr;
+                stackPush(pContext, (mut && mut != PROTO_NONE) ? mut : built);
                 DISPATCH();
             }
             // --- Array element helpers (implemented via property semantics) ---
@@ -16562,9 +16617,13 @@ const proto::ProtoObject* runBytecode(proto::ProtoContext* pContext,
                     (arrProtoLookupKey && globalObj && globalObj != PROTO_NONE)
                         ? globalObj->getAttribute(pContext, arrProtoLookupKey, false)
                         : nullptr;
+                // Built IMMUTABLE (marker, elements, length and its
+                // descriptor added by structural sharing), then made mutable
+                // with one clone below: one publication into protoCore's
+                // mutable table instead of one per attribute.
                 const proto::ProtoObject* arr = (arrProto && arrProto != PROTO_NONE)
-                    ? arrProto->newChild(pContext, true)   // mutable, inherits Array.prototype
-                    : pContext->newObject(true);            // fallback: mutable plain object
+                    ? arrProto->newChild(pContext, false)   // inherits Array.prototype
+                    : pContext->newObject(false);
                 if (!arr) { stackPush(pContext, PROTO_NONE); DISPATCH(); }
                 // Set the internal array marker so Array.isArray identifies it.
                 const proto::ProtoString* isArrKey = JSSymbols::isArray(pContext);
@@ -16599,7 +16658,13 @@ const proto::ProtoObject* runBytecode(proto::ProtoContext* pContext,
                         (elem && elem != PROTO_NONE) ? elem : undefElem);
                 }
                 for (uint16_t i = 0; i < count; i++) stackPop(pContext);
-                if (list) protojs::setArrayElements(pContext, arr, list);
+                {
+                    const proto::ProtoString* elsKey = JSSymbols::arrayElements(pContext);
+                    const proto::ProtoString* lenKey = JSSymbols::length(pContext);
+                    if (list && elsKey) arr = arr->setAttribute(pContext, elsKey, list->asObject(pContext));
+                    if (lenKey) arr = arr->setAttribute(pContext, lenKey,
+                        proto::makeSmallInt(static_cast<long long>(count)));
+                }
                 // ECMA-262 §22.1.5.1: Array.length descriptor is
                 // {writable:true, enumerable:false, configurable:false}
                 // (bits 0x1). OP_array_from is the hot path for array
@@ -16610,6 +16675,7 @@ const proto::ProtoObject* runBytecode(proto::ProtoContext* pContext,
                     const proto::ProtoString* pdk = JSSymbols::pdLength(pContext);
                     if (pdk) arr = arr->setAttribute(pContext, pdk, pContext->fromInteger(0x1LL));
                 }
+                if (arr) arr = arr->clone(pContext, true);
                 stackPush(pContext, arr ? arr : PROTO_NONE);
                 DISPATCH();
             }

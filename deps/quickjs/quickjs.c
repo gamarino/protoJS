@@ -35180,17 +35180,19 @@ static __exception int ss_check(JSContext *ctx, StackSizeState *s,
     return 0;
 }
 
-static __exception int compute_stack_size(JSContext *ctx,
-                                          JSFunctionDef *fd,
-                                          int *pstack_size)
+/* protoJS: the body of compute_stack_size over a bytecode buffer, which can
+   also hand back the stack level before each instruction (0xffff for an
+   unreachable byte) in `levels_out` (bc_len entries; NULL: not wanted). */
+static __exception int compute_stack_levels(JSContext *ctx,
+                                            const uint8_t *bc_buf, int bc_len,
+                                            int *pstack_size,
+                                            uint16_t *levels_out)
 {
     StackSizeState s_s, *s = &s_s;
     int i, diff, n_pop, pos_next, stack_len, pos, op, catch_pos, catch_level;
     const JSOpCode *oi;
-    const uint8_t *bc_buf;
 
-    bc_buf = fd->byte_code.buf;
-    s->bc_len = fd->byte_code.size;
+    s->bc_len = bc_len;
     /* bc_len > 0 */
     s->stack_level_tab = js_malloc(ctx, sizeof(s->stack_level_tab[0]) *
                                    s->bc_len);
@@ -35368,6 +35370,8 @@ static __exception int compute_stack_size(JSContext *ctx,
             goto fail;
     done_insn: ;
     }
+    if (levels_out)
+        memcpy(levels_out, s->stack_level_tab, sizeof(uint16_t) * s->bc_len);
     js_free(ctx, s->pc_stack);
     js_free(ctx, s->catch_pos_tab);
     js_free(ctx, s->stack_level_tab);
@@ -35379,6 +35383,14 @@ static __exception int compute_stack_size(JSContext *ctx,
     js_free(ctx, s->stack_level_tab);
     *pstack_size = 0;
     return -1;
+}
+
+static __exception int compute_stack_size(JSContext *ctx,
+                                          JSFunctionDef *fd,
+                                          int *pstack_size)
+{
+    return compute_stack_levels(ctx, fd->byte_code.buf, fd->byte_code.size,
+                                pstack_size, NULL);
 }
 
 static int add_global_variables(JSContext *ctx, JSFunctionDef *fd)
@@ -59689,6 +59701,22 @@ uint16_t protojs_bytecode_arg_count(void *bytecode) {
 uint16_t protojs_bytecode_var_count(void *bytecode) {
     JSFunctionBytecode *b = (JSFunctionBytecode *)bytecode;
     return b->var_count;
+}
+
+/* Stack level before each instruction of the function's final bytecode
+   (protojs_bytecode_len entries; 0xffff for unreachable bytes).  Returns 0 on
+   success, -1 on failure (the pending exception is cleared). */
+int protojs_bytecode_stack_levels(JSContext *ctx, void *bytecode, uint16_t *out) {
+    JSFunctionBytecode *b = (JSFunctionBytecode *)bytecode;
+    int stack_size;
+    if (b->byte_code_len <= 0)
+        return -1;
+    if (compute_stack_levels(ctx, b->byte_code_buf, b->byte_code_len,
+                             &stack_size, out) < 0) {
+        JS_FreeValue(ctx, JS_GetException(ctx));
+        return -1;
+    }
+    return 0;
 }
 
 uint16_t protojs_bytecode_stack_size(void *bytecode) {
