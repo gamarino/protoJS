@@ -308,6 +308,7 @@ foreach(js_test
         modules/test_events
         collections/protoCore_collections
         collections/map_set_scaling
+        collections/map_set_semantics
         workers/deep_recursion
         workers/promises_in_worker
         crypto/test_crypto_cipher

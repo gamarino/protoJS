@@ -186,6 +186,7 @@ add_library(protojs_core STATIC
     src/TypeBridge.cpp
     src/JSContext.cpp
     src/HeapLimit.cpp
+    src/HashedCollection.cpp
     src/GCBridge.cpp
     src/ExecutionEngine.cpp
     src/ErrorHandler.cpp

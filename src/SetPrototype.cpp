@@ -5,6 +5,7 @@
 #include "ArrayElementsStorage.h"
 #include "IteratorPrototype.h"
 #include "JSSymbols.h"
+#include "HashedCollection.h"
 #include "PrototypeUtils.h"
 #include "runtime/ProtoInterpreter.h"
 #include "protoCore.h"
@@ -24,72 +25,52 @@ static const proto::ProtoObject* s_setPrototype = nullptr;
 namespace {
 
 // ---------------------------------------------------------------------------
-// SameValueZero equality (required for Set membership checks on doubles/NaN).
+// Storage (src/HashedCollection.h): the whole state of a Set is one
+// immutable record [entries, index, next, size] in the hidden attribute
+// __set_state__; entries maps an insertion slot to the element, and index
+// (a protoCore ProtoMap with SameValueZero key semantics) maps an element to
+// its slot.  Every mutation publishes one new snapshot of the Set.
 // ---------------------------------------------------------------------------
+static const proto::ProtoString* setStateKey(proto::ProtoContext* ctx) {
+    static const proto::ProtoString* const s_key =
+        proto::ProtoString::createSymbol(ctx, "__set_state__");
+    return s_key;
+}
+
+static bool setLoad(proto::ProtoContext* ctx, const proto::ProtoObject* setObj, coll::State& st) {
+    return coll::load(ctx, setObj, setStateKey(ctx), st);
+}
+
+static void setStore(proto::ProtoContext* ctx, const proto::ProtoObject* setObj, const coll::State& st) {
+    coll::store(ctx, setObj, setStateKey(ctx), st);
+}
+
+static void setInitEmpty(proto::ProtoContext* ctx, const proto::ProtoObject* setObj) {
+    setStore(ctx, setObj, coll::emptyState(ctx));
+}
+
 static bool setSVZ(proto::ProtoContext* ctx,
                    const proto::ProtoObject* a,
                    const proto::ProtoObject* b)
 {
-    if (a == b) return true;
-    if (!a || !b) return false;
-    if ((a->isDouble(ctx) || a->isFloat(ctx)) &&
-        (b->isDouble(ctx) || b->isFloat(ctx))) {
-        double da = a->asDouble(ctx), db = b->asDouble(ctx);
-        if (std::isnan(da) && std::isnan(db)) return true;
-        return da == db;
-    }
-    if (a->isInteger(ctx) && b->isInteger(ctx))
-        return a->asLong(ctx) == b->asLong(ctx);
-    if (a->isString(ctx) && b->isString(ctx))
-        return a->compare(ctx, b) == 0;  // by content
-    return false;
+    return coll::sameValueZero(ctx, a, b);
 }
 
 // Normalize -0 to +0 per SameValueZero spec.
 static const proto::ProtoObject* normalizeSetVal(proto::ProtoContext* ctx,
                                                   const proto::ProtoObject* val)
 {
-    if (val && (val->isDouble(ctx) || val->isFloat(ctx))) {
-        double d = val->asDouble(ctx);
-        if (d == 0.0 && std::signbit(d))
-            return ctx->fromInteger(0LL);
-    }
-    return val;
+    return coll::normalizeKey(ctx, val);
 }
 
-// The hidden slots of a Set, as interned symbols created once per process
-// (each access used to build a fresh string).
-static const proto::ProtoString* setSlot(proto::ProtoContext* ctx, const char* name) {
-    static const char* const kNames[] = {
-        "__set_order__", "__set_core__", "__set_size__", "__set_next__"};
-    static std::once_flag s_flags[4];
-    static const proto::ProtoString* s_syms[4] = {};
-    for (int i = 0; i < 4; ++i) {
-        if (std::strcmp(name, kNames[i]) == 0) {
-            std::call_once(s_flags[i], [&]() {
-                s_syms[i] = proto::ProtoString::createSymbol(ctx, kNames[i]);
-            });
-            return s_syms[i];
-        }
-    }
-    const proto::ProtoObject* ko = ctx->fromUTF8String(name);
-    return ko ? ko->asString(ctx) : nullptr;
-}
-
-// Returns true if self is a valid Set receiver (has __set_order__ slot).
+// Returns true if self is a valid Set receiver (has the __set_state__ slot).
 // Signals TypeError and returns false otherwise.
 static bool requireSetThis(proto::ProtoContext* ctx, const proto::ProtoObject* self)
 {
+    coll::State st;
     if (!self || self == PROTO_NONE || self == PROTO_TRUE || self == PROTO_FALSE ||
-        self->isInteger(ctx) || self->isDouble(ctx) || self->isFloat(ctx) ||
-        self->isString(ctx)) {
-        signalNativeException(makeNativeError(ctx, "TypeError",
-            "Set operation called on non-Set"));
-        return false;
-    }
-    const proto::ProtoString* ks = setSlot(ctx, "__set_order__");
-    const proto::ProtoObject* v  = ks ? self->getAttribute(ctx, ks, false) : nullptr;
-    if (!v || v == PROTO_NONE) {
+        proto::isSmallInt(self) || self->isDouble(ctx) || self->isString(ctx) ||
+        !setLoad(ctx, self, st)) {
         signalNativeException(makeNativeError(ctx, "TypeError",
             "Set operation called on non-Set"));
         return false;
@@ -97,134 +78,47 @@ static bool requireSetThis(proto::ProtoContext* ctx, const proto::ProtoObject* s
     return true;
 }
 
-// ---------------------------------------------------------------------------
-// Helper: retrieve backing structures from setObj.
-// ---------------------------------------------------------------------------
-static const proto::ProtoSet* getSetCore(proto::ProtoContext* ctx,
-                                          const proto::ProtoObject* setObj)
-{
-    const proto::ProtoString* ks = setSlot(ctx, "__set_core__");
-    if (!ks || !setObj || setObj == PROTO_NONE) return nullptr;
-    const proto::ProtoObject* v = setObj->getAttribute(ctx, ks, false);
-    return (v && v != PROTO_NONE) ? v->asSet(ctx) : nullptr;
-}
-
-static void setSetCoreInPlace(proto::ProtoContext* ctx,
-                               const proto::ProtoObject* setObj,
-                               const proto::ProtoSet* core)
-{
-    if (!core || !setObj || setObj == PROTO_NONE) return;
-    const proto::ProtoString* ks = setSlot(ctx, "__set_core__");
-    if (ks) setObj->setAttribute(ctx, ks, core->asObject(ctx));
-}
-
+// The elements in insertion order: slot -> element (null when setObj is
+// not a native Set).  A ProtoSparseList iterates its slots in ascending
+// order, which is insertion order.
 static const proto::ProtoSparseList* getSetOrder(proto::ProtoContext* ctx,
                                                    const proto::ProtoObject* setObj)
 {
-    const proto::ProtoString* ks = setSlot(ctx, "__set_order__");
-    if (!ks || !setObj || setObj == PROTO_NONE) return nullptr;
-    const proto::ProtoObject* v = setObj->getAttribute(ctx, ks, false);
-    return (v && v != PROTO_NONE) ? v->asSparseList(ctx) : nullptr;
-}
-
-static void setSetOrderInPlace(proto::ProtoContext* ctx,
-                                const proto::ProtoObject* setObj,
-                                const proto::ProtoSparseList* order)
-{
-    if (!order || !setObj || setObj == PROTO_NONE) return;
-    const proto::ProtoString* ks = setSlot(ctx, "__set_order__");
-    if (ks) setObj->setAttribute(ctx, ks, order->asObject(ctx));
+    coll::State st;
+    return setLoad(ctx, setObj, st) ? st.entries : nullptr;
 }
 
 static proto::proto_long getSetSize(proto::ProtoContext* ctx, const proto::ProtoObject* setObj) {
-    const proto::ProtoString* ks = setSlot(ctx, "__set_size__");
-    if (!ks || !setObj || setObj == PROTO_NONE) return PROTO_L(0);
-    const proto::ProtoObject* v = setObj->getAttribute(ctx, ks, false);
-    return (v && v != PROTO_NONE && v->isInteger(ctx)) ? v->asLong(ctx) : PROTO_L(0);
+    coll::State st;
+    return setLoad(ctx, setObj, st) ? static_cast<proto::proto_long>(st.size) : PROTO_L(0);
 }
 
-static void setSetSizeInPlace(proto::ProtoContext* ctx,
-                               const proto::ProtoObject* setObj,
-                               proto::proto_long sz)
-{
-    const proto::ProtoString* ks = setSlot(ctx, "__set_size__");
-    if (ks && setObj && setObj != PROTO_NONE)
-        setObj->setAttribute(ctx, ks, ctx->fromInteger(sz));
-}
-
-// Insertion order: a new element takes the slot after every slot used so
-// far, kept in __set_next__ (a delete leaves a hole, so the size is not the
-// next slot).  Without the slot, one walk of the order list finds it.
-// Pre-fix every add() walked the whole order list: O(n) per add.
-// The slot the next added element will take (see takeNextSetSlot).
-static proto::proto_ulong peekNextSetSlot(proto::ProtoContext* ctx,
-                                          const proto::ProtoObject* setObj,
-                                          const proto::ProtoSparseList* order) {
-    const proto::ProtoString* nk = setSlot(ctx, "__set_next__");
-    const proto::ProtoObject* v = nk ? setObj->getAttribute(ctx, nk, false) : nullptr;
-    if (v && v != PROTO_NONE && proto::isSmallInt(v))
-        return static_cast<proto::proto_ulong>(proto::asSmallInt(v));
-    proto::proto_ulong next = 0;
-    const proto::ProtoSparseListIterator* it = order ? order->getIterator(ctx) : nullptr;
-    while (it && it->hasNext(ctx)) {
-        proto::proto_ulong slot = it->nextKey(ctx);
-        (void)it->nextValue(ctx);
-        it = const_cast<proto::ProtoSparseListIterator*>(it)->advance(ctx);
-        if (slot >= next) next = slot + 1;
-    }
-    return next;
-}
-
-static proto::proto_ulong takeNextSetSlot(proto::ProtoContext* ctx,
-                                          const proto::ProtoObject* setObj,
-                                          const proto::ProtoSparseList* order) {
-    const proto::ProtoString* nk = setSlot(ctx, "__set_next__");
-    const proto::ProtoObject* v = nk ? setObj->getAttribute(ctx, nk, false) : nullptr;
-    proto::proto_ulong next = 0;
-    if (v && v != PROTO_NONE && proto::isSmallInt(v)) {
-        next = static_cast<proto::proto_ulong>(proto::asSmallInt(v));
-    } else {
-        const proto::ProtoSparseListIterator* it = order ? order->getIterator(ctx) : nullptr;
-        while (it && it->hasNext(ctx)) {
-            proto::proto_ulong slot = it->nextKey(ctx);
-            (void)it->nextValue(ctx);
-            it = const_cast<proto::ProtoSparseListIterator*>(it)->advance(ctx);
-            if (slot >= next) next = slot + 1;
-        }
-    }
-    if (nk) setObj->setAttribute(ctx, nk, ctx->fromInteger(static_cast<long long>(next + 1)));
-    return next;
-}
-
-// ---------------------------------------------------------------------------
-// Check Set membership combining ProtoSet::has with SameValueZero fallback
-// (handles NaN and double edge cases that may not be interned by ProtoSet).
-// ---------------------------------------------------------------------------
+// Set membership (SameValueZero).
 static bool setContains(proto::ProtoContext* ctx,
                          const proto::ProtoObject* setObj,
                          const proto::ProtoObject* val)
 {
+    coll::State st;
+    proto::proto_ulong slot = 0;
+    return setLoad(ctx, setObj, st) && coll::find(ctx, st, normalizeSetVal(ctx, val), slot);
+}
+
+// Add a single value to a Set in place (normalized; no-op if present).
+static void setAddValue(proto::ProtoContext* ctx,
+                        const proto::ProtoObject* setObj,
+                        const proto::ProtoObject* val)
+{
     val = normalizeSetVal(ctx, val);
-    const proto::ProtoSet* core = getSetCore(ctx, setObj);
-    if (!core) return false;
-    if (core->has(ctx, val) == PROTO_TRUE) return true;
-    // Augment for double/NaN edge cases.
-    if (val && (val->isDouble(ctx) || val->isFloat(ctx))) {
-        const proto::ProtoSparseList* order = getSetOrder(ctx, setObj);
-        if (!order) return false;
-        const proto::ProtoSparseListIterator* it = order->getIterator(ctx);
-        while (it && it->hasNext(ctx)) {
-            const proto::ProtoObject* existing = it->nextValue(ctx);
-            it = const_cast<proto::ProtoSparseListIterator*>(it)->advance(ctx);
-            if (setSVZ(ctx, existing, val)) return true;
-        }
-    }
-    return false;
+    coll::State st;
+    proto::proto_ulong slot = 0;
+    if (!setLoad(ctx, setObj, st) || coll::find(ctx, st, val, slot)) return;
+    coll::insert(ctx, st, val, val);
+    setStore(ctx, setObj, st);
 }
 
 // setLikeHas — membership test for the seven Set collection methods'
 // `other` argument. When other is a real native Set, use the fast
-// path (setContains via the __set_core__ slot). Otherwise consult
+// path (setContains via the hashed index). Otherwise consult
 // the spec's Set-like protocol by calling other.has(val).
 // getSetRecord has already validated other.has is callable, so the
 // call here is safe; we only have to coerce the result to a bool.
@@ -271,7 +165,7 @@ static bool setLikeHas(proto::ProtoContext* ctx,
 // iterateSetLikeKeys — drive the Set-like iterator protocol over
 // other.keys() and invoke `emit(value)` for each yielded value.
 // Returns false on abrupt completion. Pre-fix Set ops only iterated
-// real native Sets through __set_order__, so union / symmetricDifference
+// real native Sets through their entries, so union / symmetricDifference
 // / isSupersetOf produced incomplete results for a class-style or
 // plain Set-like.
 template <typename Emit>
@@ -280,7 +174,7 @@ static bool iterateSetLikeKeys(proto::ProtoContext* ctx,
                                 Emit emit,
                                 const proto::ProtoObject* precomputedKeysFn = nullptr)
 {
-    // Real native Sets — fast path over __set_order__.
+    // Real native Sets — fast path over their entries.
     if (const proto::ProtoSparseList* order = getSetOrder(ctx, other)) {
         const proto::ProtoSparseListIterator* it = order->getIterator(ctx);
         while (it && it->hasNext(ctx)) {
@@ -413,14 +307,7 @@ static const proto::ProtoObject* setAdd(
     if (!val) val = PROTO_NONE;
     val = normalizeSetVal(ctx, val);
 
-    if (setContains(ctx, self, val)) return self;
-
-    const proto::ProtoSet* core  = getSetCore(ctx, self);
-    const proto::ProtoSparseList* order = getSetOrder(ctx, self);
-    proto::proto_long sz = getSetSize(ctx, self);
-    if (core)  setSetCoreInPlace(ctx, self, core->add(ctx, val));
-    if (order) setSetOrderInPlace(ctx, self, order->setAt(ctx, takeNextSetSlot(ctx, self, order), val));
-    setSetSizeInPlace(ctx, self, sz + 1);
+    setAddValue(ctx, self, val);
     return self;
 }
 
@@ -452,29 +339,11 @@ static const proto::ProtoObject* setDeleteFn(
     if (!val) val = PROTO_NONE;
     val = normalizeSetVal(ctx, val);
 
-    if (!setContains(ctx, self, val)) return PROTO_FALSE;
-
-    const proto::ProtoSet* core  = getSetCore(ctx, self);
-    const proto::ProtoSparseList* order = getSetOrder(ctx, self);
-    proto::proto_long sz = getSetSize(ctx, self);
-
-    if (core) setSetCoreInPlace(ctx, self, core->remove(ctx, val));
-
-    // Remove from order list: find matching index via SameValueZero scan.
-    if (order) {
-        const proto::ProtoSparseListIterator* it = order->getIterator(ctx);
-        while (it && it->hasNext(ctx)) {
-            proto::proto_ulong idx = it->nextKey(ctx);
-            const proto::ProtoObject* existing = it->nextValue(ctx);
-            it = const_cast<proto::ProtoSparseListIterator*>(it)->advance(ctx);
-            if (setSVZ(ctx, existing, val)) {
-                setSetOrderInPlace(ctx, self, order->removeAt(ctx, idx));
-                break;
-            }
-        }
-    }
-
-    setSetSizeInPlace(ctx, self, sz > 0 ? sz - 1 : 0);
+    coll::State st;
+    proto::proto_ulong slot = 0;
+    if (!setLoad(ctx, self, st) || !coll::find(ctx, st, val, slot)) return PROTO_FALSE;
+    coll::remove(ctx, st, val, slot);
+    setStore(ctx, self, st);
     return PROTO_TRUE;
 }
 
@@ -487,9 +356,14 @@ static const proto::ProtoObject* setClear(
     const proto::ProtoList*, const proto::ProtoSparseList*)
 {
     if (!requireSetThis(ctx, self)) return PROTO_NONE;
-    setSetCoreInPlace(ctx, self, ctx->newSet());
-    setSetOrderInPlace(ctx, self, ctx->newSparseList());
-    setSetSizeInPlace(ctx, self, PROTO_L(0));
+    // Slots keep growing past a clear, so a live iterator visits the
+    // elements added after it.
+    coll::State st;
+    if (!setLoad(ctx, self, st)) return PROTO_NONE;
+    const proto::proto_ulong next = st.next;
+    st = coll::emptyState(ctx);
+    st.next = next;
+    setStore(ctx, self, st);
     return PROTO_NONE;
 }
 
@@ -562,24 +436,14 @@ static const proto::ProtoObject* setForEach(
     // slot above pos and the loop discovers it on the next iteration.
     // Deletions hole-punch the slot (ProtoSparseList::removeAt) so
     // order->has(pos) yields false and we skip them.
+    // The state is re-read after every callback, which may mutate the set.
     proto::proto_ulong pos = 0;
     while (true) {
-        const proto::ProtoSparseList* order = getSetOrder(ctx, self);
-        if (!order) break;
-        proto::proto_ulong highWater = 0;
-        bool anyEntry = false;
-        const proto::ProtoSparseListIterator* probe = order->getIterator(ctx);
-        while (probe && probe->hasNext(ctx)) {
-            proto::proto_ulong slot = probe->nextKey(ctx);
-            (void)probe->nextValue(ctx);
-            probe = const_cast<proto::ProtoSparseListIterator*>(probe)->advance(ctx);
-            if (!anyEntry || slot >= highWater) highWater = slot + 1;
-            anyEntry = true;
-        }
-        if (!anyEntry || pos >= highWater) break;
-        if (!order->has(ctx, pos)) { ++pos; continue; }
-        const proto::ProtoObject* v = order->getAt(ctx, pos);
-        ++pos;
+        coll::State st;
+        proto::proto_ulong slot = 0;
+        if (!setLoad(ctx, self, st) || !coll::nextUsedSlot(ctx, st, pos, slot)) break;
+        const proto::ProtoObject* v = st.entries->getAt(ctx, slot);
+        pos = slot + 1;
         if (!v) v = PROTO_NONE;
         const proto::ProtoList* cbArgs = ctx->newList();
         cbArgs = cbArgs->appendLast(ctx, v);
@@ -592,7 +456,7 @@ static const proto::ProtoObject* setForEach(
 }
 
 // ---------------------------------------------------------------------------
-// Set iterator next() — advances through __set_order__ sparse list.
+// Set iterator next() — advances through the entries in slot order.
 // ---------------------------------------------------------------------------
 static const proto::ProtoObject* setIteratorNext(
     proto::ProtoContext* ctx, const proto::ProtoObject* self,
@@ -646,17 +510,11 @@ static const proto::ProtoObject* setIteratorNext(
         if (ks2) ks2->toUTF8String(ctx, kind);
     }
 
-    const proto::ProtoSparseList* order = getSetOrder(ctx, setObj);
-    if (!order) return markDone();
-
-    // Probe slots from pos up to the next unused one (see mapIteratorNext:
-    // the walk from the start of the order list made iteration quadratic).
-    const proto::proto_ulong limit = order->getSize(ctx) == 0 ? 0 : peekNextSetSlot(ctx, setObj, order);
-    for (proto::proto_ulong slotIdx = static_cast<proto::proto_ulong>(pos < 0 ? 0 : pos);
-         slotIdx < limit; ++slotIdx) {
-        if (!order->has(ctx, slotIdx)) continue;
-        const proto::ProtoObject* v = order->getAt(ctx, slotIdx);
-
+    coll::State st;
+    proto::proto_ulong slotIdx = 0;
+    if (!setLoad(ctx, setObj, st)) return markDone();
+    if (coll::nextUsedSlot(ctx, st, static_cast<proto::proto_ulong>(pos < 0 ? 0 : pos), slotIdx)) {
+        const proto::ProtoObject* v = st.entries->getAt(ctx, slotIdx);
         // Advance position past this slot (mutates iterator in place).
         self->setAttribute(ctx, idxKey, ctx->fromInteger(static_cast<long long>(slotIdx) + 1));
 
@@ -797,9 +655,7 @@ static const proto::ProtoObject* setConstruct(
 {
     if (!self) return PROTO_NONE;
 
-    setSetCoreInPlace(ctx, self, ctx->newSet());
-    setSetOrderInPlace(ctx, self, ctx->newSparseList());
-    setSetSizeInPlace(ctx, self, PROTO_L(0));
+    setInitEmpty(ctx, self);
 
     int argc = args ? static_cast<int>(args->getSize(ctx)) : 0;
     if (argc > 0) {
@@ -896,16 +752,7 @@ static const proto::ProtoObject* setConstruct(
                         std::string single = utf8.substr(i, len);
                         const proto::ProtoObject* val =
                             ctx->fromUTF8String(single.c_str());
-                        val = normalizeSetVal(ctx, val);
-                        if (!setContains(ctx, self, val)) {
-                            const proto::ProtoSet* core = getSetCore(ctx, self);
-                            const proto::ProtoSparseList* order = getSetOrder(ctx, self);
-                            proto::proto_long sz = getSetSize(ctx, self);
-                            if (core) setSetCoreInPlace(ctx, self, core->add(ctx, val));
-                            if (order) setSetOrderInPlace(ctx, self,
-                                order->setAt(ctx, takeNextSetSlot(ctx, self, order), val));
-                            setSetSizeInPlace(ctx, self, sz + 1);
-                        }
+                        setAddValue(ctx, self, val);
                         i += len;
                     }
                 }
@@ -1051,27 +898,10 @@ static const proto::ProtoObject* makeEmptySet(proto::ProtoContext* ctx)
         ? s_setPrototype->newChild(ctx, true)
         : ctx->newObject(true);
     if (!s) return PROTO_NONE;
-    setSetCoreInPlace(ctx, s, ctx->newSet());
-    setSetOrderInPlace(ctx, s, ctx->newSparseList());
-    setSetSizeInPlace(ctx, s, PROTO_L(0));
+    setInitEmpty(ctx, s);
     return s;
 }
 
-// Add a single value to a Set in place (with normalization, no-op if already present).
-static void setAddValue(proto::ProtoContext* ctx,
-                        const proto::ProtoObject* setObj,
-                        const proto::ProtoObject* val)
-{
-    val = normalizeSetVal(ctx, val);
-    if (setContains(ctx, setObj, val)) return;
-    const proto::ProtoSet* core  = getSetCore(ctx, setObj);
-    const proto::ProtoSparseList* order = getSetOrder(ctx, setObj);
-    proto::proto_long sz = getSetSize(ctx, setObj);
-    if (core)  setSetCoreInPlace(ctx, setObj, core->add(ctx, val));
-    if (order) setSetOrderInPlace(ctx, setObj,
-                   order->setAt(ctx, takeNextSetSlot(ctx, setObj, order), val));
-    setSetSizeInPlace(ctx, setObj, sz + 1);
-}
 
 // Iterate other (a Set or array-like) and add each element to setObj.
 static void setAddAllFrom(proto::ProtoContext* ctx,
@@ -1079,7 +909,7 @@ static void setAddAllFrom(proto::ProtoContext* ctx,
                           const proto::ProtoObject* other)
 {
     if (!other || other == PROTO_NONE) return;
-    // Prefer Set protocol (has __set_order__).
+    // Prefer Set protocol (a native Set has its state slot).
     const proto::ProtoSparseList* otherOrder = getSetOrder(ctx, other);
     if (otherOrder) {
         const proto::ProtoSparseListIterator* it = otherOrder->getIterator(ctx);
@@ -1156,7 +986,7 @@ static bool getSetRecord(proto::ProtoContext* ctx,
     }
     // Real native Sets store .size behind the __get_size__ accessor;
     // looking it up via the public "size" key returns nothing. Treat
-    // the presence of a __set_order__ slot as proof that obj is a Set
+    // the presence of the state slot as proof that obj is a Set
     // and skip the rest of the Set-like protocol validation. The spec
     // (§24.2.1.2 GetSetRecord) would otherwise call the size getter
     // via [[Get]], but for our native Sets the receiver invariants are
