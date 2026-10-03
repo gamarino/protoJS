@@ -1,5 +1,6 @@
 #include "ProtoCoreTypes.h"
 #include "ProtoCoreNativeBindings.h"
+#include <utility>
 #include "runtime/ThreadIdentity.h"
 #include "ProtoDeferred.h"
 #include "ArrayElementsStorage.h"
@@ -732,6 +733,33 @@ const proto::ProtoObject* isSmallIntegerFn(
     return proto::isSmallInt(args->getAt(ctx, 0)) ? PROTO_TRUE : PROTO_FALSE;
 }
 
+// protoCore.gcStats(): the collector's counters for this script's space, in
+// cells of 64 bytes: {cycles, liveCellsLastCycle, reclaimedLastCycle,
+// heapCells, freeCells, heapLimitCells}.  liveCellsLastCycle is what the last
+// completed cycle found reachable (0 before the first cycle); heapLimitCells
+// is the hard ceiling (0 when there is none).
+const proto::ProtoObject* gcStatsFn(
+    proto::ProtoContext* ctx, const proto::ProtoObject*,
+    const proto::ParentLink*, const proto::ProtoList*,
+    const proto::ProtoSparseList*) {
+    if (!ctx || !ctx->space) return PROTO_NONE;
+    proto::ProtoSpace* sp = ctx->space;
+    const std::pair<const char*, long long> fields[] = {
+        {"cycles", static_cast<long long>(sp->getGCCycleCount())},
+        {"liveCellsLastCycle", static_cast<long long>(sp->liveCellsLastCycle.load())},
+        {"reclaimedLastCycle", static_cast<long long>(sp->reclaimedLastCycle.load())},
+        {"heapCells", static_cast<long long>(sp->heapSize)},
+        {"freeCells", static_cast<long long>(sp->freeCellsCount)},
+        {"heapLimitCells", static_cast<long long>(sp->maxHeapSize)},
+    };
+    const proto::ProtoObject* obj = ctx->newObject(true);
+    for (const auto& f : fields) {
+        const proto::ProtoString* k = proto::ProtoString::createSymbol(ctx, f.first);
+        if (k) obj = obj->setAttribute(ctx, k, ctx->fromInteger(f.second));
+    }
+    return obj;
+}
+
 // ---- Constructor assembly ----------------------------------------------
 
 // Build a constructor object of the shape L_OP_call_constructor expects: a
@@ -822,6 +850,7 @@ const proto::ProtoObject* ProtoCoreNativeBindings::init(
         wrapNativeFunction(ctx, isImmutableFn, "isImmutable", 1, nullptr));
     put("runInThread", ctx->fromMethod(nullptr, runInThreadNative));
     put("threadId", wrapNativeFunction(ctx, threadIdFn, "threadId", 0, nullptr));
+    put("gcStats", wrapNativeFunction(ctx, gcStatsFn, "gcStats", 0, nullptr));
     put("isSmallInteger",
         wrapNativeFunction(ctx, isSmallIntegerFn, "isSmallInteger", 1, nullptr));
 

@@ -4,15 +4,25 @@
 #include "../ArrayPrototype.h"
 #include "../platform/ProcessExit.h"
 #include <cstdlib>
+#include "protoCore.h"
 #if defined(_WIN32)
 #include "../platform/Posix.h"
+#include <windows.h>
+#include <psapi.h>
 #else
 #include <unistd.h>
 #include <sys/utsname.h>
+#include <sys/resource.h>
+#include <cstdio>
+#endif
+#if defined(__APPLE__)
+#include <mach/mach.h>
 #endif
 #include <limits.h>
 #include <string>
 #include <vector>
+#include <initializer_list>
+#include <utility>
 #include <cwchar>
 
 #if !defined(_WIN32)
@@ -185,6 +195,97 @@ const proto::ProtoObject* buildEnvObject(proto::ProtoContext* ctx) {
     return env;
 }
 
+// ---- Memory ------------------------------------------------------------
+
+// Resident set size of the process now, in bytes (0 when unknown).
+long long currentRssBytes() {
+#if defined(_WIN32)
+    PROCESS_MEMORY_COUNTERS pmc;
+    if (::GetProcessMemoryInfo(::GetCurrentProcess(), &pmc, sizeof(pmc)))
+        return static_cast<long long>(pmc.WorkingSetSize);
+    return 0;
+#elif defined(__APPLE__)
+    mach_task_basic_info info;
+    mach_msg_type_number_t count = MACH_TASK_BASIC_INFO_COUNT;
+    if (task_info(mach_task_self(), MACH_TASK_BASIC_INFO,
+                  reinterpret_cast<task_info_t>(&info), &count) == KERN_SUCCESS)
+        return static_cast<long long>(info.resident_size);
+    return 0;
+#else
+    long long pages = 0, resident = 0;
+    if (FILE* f = std::fopen("/proc/self/statm", "r")) {
+        if (std::fscanf(f, "%lld %lld", &pages, &resident) != 2) resident = 0;
+        std::fclose(f);
+    }
+    return resident * static_cast<long long>(::sysconf(_SC_PAGESIZE));
+#endif
+}
+
+// Peak resident set size of the process, in bytes (0 when unknown).
+long long peakRssBytes() {
+#if defined(_WIN32)
+    PROCESS_MEMORY_COUNTERS pmc;
+    if (::GetProcessMemoryInfo(::GetCurrentProcess(), &pmc, sizeof(pmc)))
+        return static_cast<long long>(pmc.PeakWorkingSetSize);
+    return 0;
+#else
+    struct rusage usage;
+    if (::getrusage(RUSAGE_SELF, &usage) != 0) return 0;
+#if defined(__APPLE__)
+    return static_cast<long long>(usage.ru_maxrss);          // bytes on macOS
+#else
+    return static_cast<long long>(usage.ru_maxrss) * 1024;   // KiB on Linux
+#endif
+#endif
+}
+
+const proto::ProtoObject* newDataObject(
+        proto::ProtoContext* ctx,
+        std::initializer_list<std::pair<const char*, long long>> fields) {
+    const proto::ProtoObject* obj = ctx->newObject(/*mutable=*/true);
+    for (const auto& f : fields) {
+        const proto::ProtoString* k = proto::ProtoString::createSymbol(ctx, f.first);
+        if (k) obj = obj->setAttribute(ctx, k, ctx->fromInteger(f.second));
+    }
+    return obj;
+}
+
+// process.memoryUsage(): Node's field names.  heapTotal is the protoCore heap
+// (cells obtained from the OS, 64 bytes each); heapUsed excludes the cells on
+// the space's free list.  external and arrayBuffers are not tracked (0).
+const proto::ProtoObject* processMemoryUsage(
+    proto::ProtoContext* ctx,
+    const proto::ProtoObject* /*self*/,
+    const proto::ParentLink*,
+    const proto::ProtoList* /*args*/,
+    const proto::ProtoSparseList*) {
+    if (!ctx) return PROTO_NONE;
+    long long heapCells = 0, freeCells = 0;
+    if (ctx->space) {
+        heapCells = ctx->space->heapSize;
+        freeCells = ctx->space->freeCellsCount;
+    }
+    const long long used = heapCells > freeCells ? heapCells - freeCells : 0;
+    return newDataObject(ctx, {
+        {"rss", currentRssBytes()},
+        {"heapTotal", heapCells * 64},
+        {"heapUsed", used * 64},
+        {"external", 0},
+        {"arrayBuffers", 0},
+    });
+}
+
+// process.resourceUsage(): only maxRSS (KiB, as in Node.js) is reported.
+const proto::ProtoObject* processResourceUsage(
+    proto::ProtoContext* ctx,
+    const proto::ProtoObject* /*self*/,
+    const proto::ParentLink*,
+    const proto::ProtoList* /*args*/,
+    const proto::ProtoSparseList*) {
+    if (!ctx) return PROTO_NONE;
+    return newDataObject(ctx, {{"maxRSS", peakRssBytes() / 1024}});
+}
+
 }  // namespace
 
 const proto::ProtoObject* ProcessModule::init(
@@ -199,10 +300,12 @@ const proto::ProtoObject* ProcessModule::init(
         {"platform", processPlatform},
         {"arch",     processArch},
         {"exit",     processExit},
+        {"memoryUsage",   processMemoryUsage},
+        {"resourceUsage", processResourceUsage},
         NATIVE_MODULE_END
     };
     const proto::ProtoObject* processObj =
-        ProtoNativeModule::buildModule(ctx, entries, 4);
+        ProtoNativeModule::buildModule(ctx, entries, 6);
     if (!processObj) return globalObj;
 
     // Data attributes.
