@@ -54,6 +54,18 @@ const proto::ProtoObject* createTypedArrayFromBuffer(proto::ProtoContext* ctx,
                                                      long long byteOffset,
                                                      long long length);
 
+/**
+ * new <TypedArray>(...args) (ECMA-262 §23.2.5.1): a length, an ArrayBuffer
+ * view (buffer[, byteOffset[, length]]), a copy of another typed array, or
+ * the values of an iterable or array-like object.  Returns PROTO_NONE with
+ * the exception signalled (hasCallException) on a RangeError or when
+ * iterating the source throws.
+ */
+const proto::ProtoObject* constructTypedArray(proto::ProtoContext* ctx,
+                                              const proto::ProtoObject* proto,
+                                              uint8_t elemType,
+                                              const proto::ProtoList* args);
+
 const proto::ProtoObject* getTypedArrayBaseProto();
 const proto::ProtoObject* getTypedArrayConcreteProto(uint8_t elemType);
 

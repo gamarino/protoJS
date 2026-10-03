@@ -4,6 +4,27 @@ All notable changes to protoJS are documented in this file.
 
 ## [Unreleased]
 
+### Fixed — typed arrays from arrays, iterables and buffers (2026-10-03)
+
+- `new Uint8Array([5])` produced an empty array, and so did every typed-array
+  constructor given anything but an integer length: an array, an array-like,
+  an iterable (Set, generator), another typed array or an `ArrayBuffer`. The
+  constructors now accept every source ECMA-262 §23.2.5.1 lists
+  (`constructTypedArray`, src/TypedArrayPrototype.cpp): a length (a negative
+  one is a `RangeError`), a view on a buffer with byte offset and length
+  (validated as the spec requires), an element-wise converted copy of a typed
+  array, and the values of an iterable or array-like collected exactly as
+  `Array.from` collects them. `%TypedArray%.from` uses the same collection, so
+  it now iterates Sets and generators and honours `mapFn`.
+- Indexing a typed array read `undefined` and writes were lost: since May 2026
+  the integer-index read and write of `TypedArrayBehavior` were missing, so
+  `ta[i]` never reached the buffer (the methods did, so `ta.join()` and
+  `ta[0]` disagreed). Restored in src/runtime/BehaviorRegistry.cpp.
+- Spread (`[...ta]`), `i in ta` and the generic `Array.prototype` methods
+  called on a typed array (`Array.from(ta)`, `Array.prototype.join.call(ta)`)
+  now read the elements from the buffer.
+- Test: `js/basic/typed_array_construction` (40 checks; passes under Node.js).
+
 ### Changed — structure-heavy code: for-of, Map/Set, map/filter (2026-10-03)
 
 Found while building `benchmarks/structures/` (report:

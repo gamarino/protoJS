@@ -33,6 +33,18 @@ bool isArrayIteratorNext(proto::ProtoMethod m);
 const proto::ProtoObject* createNewArray(proto::ProtoContext* ctx,
                                          const proto::ProtoObject* arrayProto);
 
+/**
+ * The values of an iterable or array-like object, as Array.from(...args)
+ * collects them (args: items[, mapFn[, thisArg]]): the iterator protocol when
+ * items has a Symbol.iterator method, otherwise its length and indexed
+ * elements.  Returns nullptr with the exception signalled (hasCallException)
+ * when Array.from throws.  Used by the %TypedArray% constructors and
+ * %TypedArray%.from, whose source-list steps (ECMA-262 §23.2.5.1.4,
+ * §23.2.2.1) are the same iteration.
+ */
+const proto::ProtoList* collectArrayFromValues(proto::ProtoContext* ctx,
+                                               const proto::ProtoList* args);
+
 } // namespace protojs
 
 #endif // PROTOJS_ARRAYPROTOTYPE_H

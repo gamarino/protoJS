@@ -310,6 +310,7 @@ foreach(js_test
         basic/array_map_filter
         basic/regexp_global_advance
         basic/generator_for_of_yield
+        basic/typed_array_construction
         modules/test_require_file
         modules/test_cross_module_exception
         modules/test_require

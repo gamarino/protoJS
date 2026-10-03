@@ -2,6 +2,7 @@
 #include "runtime/PinnedBuiltin.h"
 #include "ArrayPrototype.h"
 #include "ArrayElementsStorage.h"
+#include "TypedArrayPrototype.h"
 #include "FunctionPrototype.h"
 #include "IteratorPrototype.h"
 #include "JSContext.h"
@@ -500,6 +501,16 @@ static const proto::ProtoObject* arrGet(proto::ProtoContext* ctx,
     // through to the string-key / accessor path below.
     if (const proto::ProtoObject* fastVal = arrayTryFastGet(ctx, arr, idx)) {
         if (fastVal != PROTO_NONE) return fastVal;
+    }
+
+    // A typed array (§10.4.5.4 [[Get]] of an integer index): the element is
+    // read from its buffer, undefined out of bounds; neither own attributes
+    // nor the prototype chain take part.  Typed arrays have no native list,
+    // so the fast path above always misses for them.
+    {
+        const uint8_t taType = getTypedArrayElementType(ctx, arr);
+        if (taType != 0xFF)
+            return typedArrayGetElement(ctx, arr, static_cast<uint32_t>(idx), taType);
     }
 
     // Step 3: OWN data slot — overrides any inherited accessor per
@@ -4207,6 +4218,9 @@ static bool arrHasProperty(proto::ProtoContext* ctx,
     if (arr->isString(ctx)) {
         return idx < arrLen(ctx, arr);
     }
+    // A typed array has exactly its in-bounds indices (§10.4.5.2).
+    if (getTypedArrayElementType(ctx, arr) != 0xFF)
+        return idx < getTypedArrayLength(ctx, arr);
 
     // String wrapper object — check __primitive_value__ length.
     {
@@ -4410,6 +4424,9 @@ static bool arrHas(proto::ProtoContext* ctx,
     if (const proto::ProtoList* els = getArrayElements(ctx, arr)) {
         if (idx < static_cast<proto::proto_ulong>(els->getSize(ctx))) return true;
     }
+    // A typed array has exactly its in-bounds indices (§10.4.5.2).
+    if (getTypedArrayElementType(ctx, arr) != 0xFF)
+        return idx < getTypedArrayLength(ctx, arr);
     const proto::ProtoString* key = JSSymbols::indexKey(ctx, static_cast<uint32_t>(idx));
     if (!key) return false;
     const proto::ProtoObject* result = arr->hasOwnAttribute(ctx, key);
@@ -6162,6 +6179,31 @@ void ensureArrayPrototype(proto::ProtoContext* ctx,
         JSSymbols::arrayProto(ctx);
     if (fastProtoKey)
         *globalRoot = (*globalRoot)->setAttribute(ctx, fastProtoKey, proto);
+}
+
+const proto::ProtoList* collectArrayFromValues(proto::ProtoContext* ctx,
+                                               const proto::ProtoList* args) {
+    // `this` is undefined, so Array.from builds a plain Array (§23.1.2.1
+    // step 5/8: IsConstructor(undefined) is false).
+    const proto::ProtoObject* arr =
+        arrayFrom(ctx, getUndefinedSentinel(), nullptr, args, nullptr);
+    if (hasCallException() || !arr || arr == PROTO_NONE) return nullptr;
+    const proto::ProtoObject* lenObj =
+        arr->getAttribute(ctx, JSSymbols::length(ctx), false);
+    const long long len = (lenObj && lenObj != PROTO_NONE && lenObj->isInteger(ctx))
+        ? std::max(0LL, static_cast<long long>(lenObj->asLong(ctx))) : 0;
+    const proto::ProtoList* els = getArrayElements(ctx, arr);
+    const long long dense = els ? static_cast<long long>(els->getSize(ctx)) : 0;
+    if (dense == len) return els;
+    // Elements beyond the native list live in indexed attributes.
+    const proto::ProtoList* out = ctx->newList();
+    for (long long i = 0; i < len; ++i) {
+        const proto::ProtoObject* v = i < dense ? els->getAt(ctx, static_cast<int>(i)) : nullptr;
+        if (!v || v == PROTO_NONE)
+            v = arr->getAttribute(ctx, JSSymbols::indexKey(ctx, static_cast<uint32_t>(i)), false);
+        out = out->appendLast(ctx, v ? v : PROTO_NONE);
+    }
+    return out;
 }
 
 } // namespace protojs

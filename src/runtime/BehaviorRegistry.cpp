@@ -7,6 +7,7 @@
 #include <vector>
 #include "../JSSymbols.h"
 #include "../ObjectPrototype.h"
+#include "../TypedArrayPrototype.h"
 
 namespace protojs {
 
@@ -40,12 +41,31 @@ namespace protojs {
         return obj;
     }
 
-    // Implementation of TypedArrayBehavior
+    // Implementation of TypedArrayBehavior: an integer-indexed exotic
+    // object (§10.4.5). Integer indices read and write the bytes of the
+    // underlying ArrayBuffer, never ordinary attributes; an index out of
+    // bounds reads undefined and a write to it is ignored (both are
+    // handled by typedArrayGetElement / typedArraySetElement).
     class TypedArrayBehavior : public JSObjectBehavior {
         uint8_t elemType;
     public:
         explicit TypedArrayBehavior(uint8_t et) : elemType(et) {}
         uint8_t getTypedArrayElementType() const override { return elemType; }
+
+        const proto::ProtoObject* getElement(proto::ProtoContext* ctx,
+                                             const proto::ProtoObject* obj,
+                                             uint32_t index) const override {
+            return typedArrayGetElement(ctx, obj, index, elemType);
+        }
+
+        // Returns the receiver itself (writes happen in place in the
+        // buffer), which tells resolvePutElementOOP the write was handled.
+        const proto::ProtoObject* putElement(proto::ProtoContext* ctx,
+                                             const proto::ProtoObject* obj,
+                                             uint32_t index,
+                                             const proto::ProtoObject* val) const override {
+            return typedArraySetElement(ctx, obj, index, val, elemType);
+        }
     };
 
     // Helper: Composite behavior for multiple inheritance markers

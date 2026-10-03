@@ -10679,9 +10679,15 @@ const proto::ProtoObject* runBytecode(proto::ProtoContext* pContext,
                     // in `__elements__` ProtoList, NOT as string-keyed
                     // attributes — getAttribute("0") returns nullptr on a
                     // dense array, so spread of `[1,2,3]` was silently
-                    // producing no elements).
+                    // producing no elements).  A typed array's elements
+                    // are bytes of its buffer: read them through
+                    // typedArrayGetElement (neither the list nor the
+                    // attributes hold them).
+                    const uint8_t apTaType = getTypedArrayElementType(pContext, apIterable);
                     for (long long i = 0; i < apSrcLen && !apError; i++) {
-                        const proto::ProtoObject* v = arrayTryFastGet(pContext, apIterable, static_cast<proto::proto_ulong>(i));
+                        const proto::ProtoObject* v = apTaType != 0xFF
+                            ? typedArrayGetElement(pContext, apIterable, static_cast<uint32_t>(i), apTaType)
+                            : arrayTryFastGet(pContext, apIterable, static_cast<proto::proto_ulong>(i));
                         if (!v) {
                             const proto::ProtoString* ik = JSSymbols::indexKey(pContext, static_cast<uint32_t>(i));
                             v = ik ? apIterable->getAttribute(pContext, ik, false) : PROTO_NONE;
@@ -14328,6 +14334,18 @@ const proto::ProtoObject* runBytecode(proto::ProtoContext* pContext,
                         }
                     }
                 }
+                // A typed array has exactly its in-bounds integer indices
+                // (§10.4.5.2 [[HasProperty]]); its elements are bytes of
+                // its buffer, so neither the list nor the attributes
+                // below know them.
+                if (arrIdxIn >= 0) {
+                    const uint8_t taTypeIn = getTypedArrayElementType(pContext, obj);
+                    if (taTypeIn != 0xFF) {
+                        stackPush(pContext, arrIdxIn < static_cast<long long>(getTypedArrayLength(pContext, obj))
+                            ? PROTO_TRUE : PROTO_FALSE);
+                        DISPATCH();
+                    }
+                }
                 if (arrIdxIn >= 0) {
                     const proto::ProtoList* els = protojs::getArrayElements(pContext, obj);
                     if (els && arrIdxIn < static_cast<long long>(els->getSize(pContext))) {
@@ -15388,9 +15406,19 @@ const proto::ProtoObject* runBytecode(proto::ProtoContext* pContext,
                         } else if (taAttr->isInteger(pContext)) {
                             uint8_t et = (uint8_t)taAttr->asLong(pContext);
                             const proto::ProtoObject* pr = func->getAttribute(pContext, JSSymbols::prototype(pContext), false);
-                            if (finalArgc > 0 && argsList->getAt(pContext,0)->isInteger(pContext)) {
-                                result = createTypedArrayFromLength(pContext, pr, et, (uint32_t)argsList->getAt(pContext,0)->asLong(pContext));
-                            } else result = createTypedArrayFromLength(pContext, pr, et, 0);
+                            // Every source §23.2.5.1 accepts: a length, an
+                            // ArrayBuffer, a typed array, an iterable or an
+                            // array-like. Pre-fix only an integer length was
+                            // honoured and `new Uint8Array([5])` was empty.
+                            result = constructTypedArray(pContext, pr, et, argsList);
+                            REFRESH_INTERP_STATE();
+                            if (t_hasCallException) {
+                                pending_exception = t_callException;
+                                has_pending_exception = true;
+                                t_hasCallException = false;
+                                t_callException = nullptr;
+                                DISPATCH();
+                            }
                         }
                     } else if (strAttr == PROTO_TRUE) {
                         // §22.1.1.1 String(value): when NewTarget is

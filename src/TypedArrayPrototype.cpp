@@ -5,6 +5,8 @@
 #include "JSSymbols.h"
 #include "protoCore.h"
 #include "runtime/BehaviorRegistry.h"
+#include "runtime/ProtoInterpreter.h"
+#include "ArrayPrototype.h"
 
 #include <algorithm>
 #include <climits>
@@ -995,6 +997,113 @@ static const proto::ProtoObject* ta_slice(
 }
 
 // ---------------------------------------------------------------------------
+// Construction from a list of values, and the constructor's dispatch
+// ---------------------------------------------------------------------------
+
+static const proto::ProtoObject* typedArrayFromValues(proto::ProtoContext* ctx,
+                                                      const proto::ProtoObject* proto,
+                                                      uint8_t et,
+                                                      const proto::ProtoList* values) {
+    const uint32_t len = values ? static_cast<uint32_t>(values->getSize(ctx)) : 0;
+    const proto::ProtoObject* result = createTypedArrayFromLength(ctx, proto, et, len);
+    if (!result || result == PROTO_NONE) return PROTO_NONE;
+    for (uint32_t i = 0; i < len; i++)
+        typedArraySetElement(ctx, result, i, values->getAt(ctx, static_cast<int>(i)), et);
+    return result;
+}
+
+static const proto::ProtoObject* throwTypedArrayRangeError(proto::ProtoContext* ctx,
+                                                           const char* message) {
+    signalNativeException(makeNativeError(ctx, "RangeError", message));
+    return PROTO_NONE;
+}
+
+// ToIndex (§7.1.22) of a constructor argument; false when it is out of range.
+static bool typedArrayToIndex(proto::ProtoContext* ctx, const proto::ProtoObject* v,
+                              long long& out) {
+    out = 0;
+    if (!v || v == PROTO_NONE || v == getUndefinedSentinel()) return true;
+    double d = 0.0;
+    if (v->isInteger(ctx)) d = static_cast<double>(v->asLong(ctx));
+    else if (v->isDouble(ctx) || v->isFloat(ctx)) d = v->asDouble(ctx);
+    else return true;
+    if (std::isnan(d)) return true;
+    d = std::trunc(d);
+    if (d < 0 || d > 9007199254740991.0) return false;
+    out = static_cast<long long>(d);
+    return true;
+}
+
+const proto::ProtoObject* constructTypedArray(proto::ProtoContext* ctx,
+                                              const proto::ProtoObject* proto,
+                                              uint8_t et,
+                                              const proto::ProtoList* args) {
+    const size_t argc = args ? args->getSize(ctx) : 0;
+    const proto::ProtoObject* first = argc > 0 ? args->getAt(ctx, 0) : PROTO_NONE;
+    const bool firstIsObject = first && first != PROTO_NONE
+        && first != getUndefinedSentinel() && first != getNullSentinel()
+        && !first->isInteger(ctx) && !first->isDouble(ctx) && !first->isFloat(ctx)
+        && !first->isBoolean(ctx) && !first->isString(ctx)
+        && first != PROTO_TRUE && first != PROTO_FALSE;
+
+    // §23.2.5.1 step 6: a non-object argument is a length.
+    if (!firstIsObject) {
+        if (first == getNullSentinel())
+            return typedArrayFromValues(ctx, proto, et, ctx->newList());
+        long long len = 0;
+        if (!typedArrayToIndex(ctx, first, len) || len > 0xFFFFFFFFLL)
+            return throwTypedArrayRangeError(ctx, "Invalid typed array length");
+        return createTypedArrayFromLength(ctx, proto, et, static_cast<uint32_t>(len));
+    }
+
+    // §23.2.5.1.3 InitializeTypedArrayFromArrayBuffer: a view on the
+    // buffer's bytes, not a copy.
+    if (isArrayBuffer(ctx, first)) {
+        const uint8_t elemSize = TA_ELEMENT_SIZE[et < 11 ? et : 0];
+        const long long bufLen = static_cast<long long>(getArrayBufferByteLength(ctx, first));
+        long long offset = 0;
+        if (!typedArrayToIndex(ctx, argc > 1 ? args->getAt(ctx, 1) : PROTO_NONE, offset))
+            return throwTypedArrayRangeError(ctx, "Start offset is out of bounds");
+        if (offset % elemSize != 0)
+            return throwTypedArrayRangeError(ctx, "Start offset must be a multiple of the element size");
+        const proto::ProtoObject* lenArg = argc > 2 ? args->getAt(ctx, 2) : PROTO_NONE;
+        long long newLength = -1;
+        if (lenArg && lenArg != PROTO_NONE && lenArg != getUndefinedSentinel()) {
+            if (!typedArrayToIndex(ctx, lenArg, newLength))
+                return throwTypedArrayRangeError(ctx, "Invalid typed array length");
+            if (offset + newLength * elemSize > bufLen)
+                return throwTypedArrayRangeError(ctx, "Invalid typed array length");
+        } else {
+            if (bufLen % elemSize != 0)
+                return throwTypedArrayRangeError(ctx, "Buffer length must be a multiple of the element size");
+            if (offset > bufLen)
+                return throwTypedArrayRangeError(ctx, "Start offset is out of bounds");
+        }
+        return createTypedArrayFromBuffer(ctx, proto, et, first, offset, newLength);
+    }
+
+    // §23.2.5.1.2 InitializeTypedArrayFromTypedArray: an element-wise copy
+    // into a new buffer, converted to this kind.
+    if (isTypedArray(ctx, first)) {
+        const uint8_t srcEt = getTypedArrayElementType(ctx, first);
+        const uint32_t srcLen = getTypedArrayLength(ctx, first);
+        const proto::ProtoObject* result = createTypedArrayFromLength(ctx, proto, et, srcLen);
+        if (!result || result == PROTO_NONE) return PROTO_NONE;
+        for (uint32_t i = 0; i < srcLen; i++)
+            typedArraySetElement(ctx, result, i, typedArrayGetElement(ctx, first, i, srcEt), et);
+        return result;
+    }
+
+    // §23.2.5.1.4 / .5: an iterable (through its iterator) or an
+    // array-like (through length and indices) -- the same collection
+    // Array.from performs.
+    const proto::ProtoList* values =
+        collectArrayFromValues(ctx, ctx->newList()->appendLast(ctx, first));
+    if (!values) return PROTO_NONE;
+    return typedArrayFromValues(ctx, proto, et, values);
+}
+
+// ---------------------------------------------------------------------------
 // Task 6: static methods — TypedArray.of() and TypedArray.from()
 // ---------------------------------------------------------------------------
 
@@ -1013,41 +1122,17 @@ struct TAStaticMethods {
         return result;
     }
 
+    // %TypedArray%.from(source[, mapFn[, thisArg]]) (§23.2.2.1): the
+    // source's values, iterated or read as an array-like and optionally
+    // mapped exactly as Array.from does, then written into a new typed
+    // array of this kind.
     static const proto::ProtoObject* makeFrom(
         proto::ProtoContext* ctx, uint8_t et,
         const proto::ProtoObject* proto, const proto::ProtoList* args)
     {
-        if (!args || args->getSize(ctx) == 0) return createTypedArrayFromLength(ctx, proto, et, 0);
-        const proto::ProtoObject* src = args->getAt(ctx, 0);
-        if (!src || src == PROTO_NONE) return createTypedArrayFromLength(ctx, proto, et, 0);
-
-        if (isTypedArray(ctx, src)) {
-            uint8_t srcEt = getTypedArrayElementType(ctx, src);
-            uint32_t srcLen = getTypedArrayLength(ctx, src);
-            const proto::ProtoObject* result = createTypedArrayFromLength(ctx, proto, et, srcLen);
-            if (!result || result == PROTO_NONE) return PROTO_NONE;
-            for (uint32_t i = 0; i < srcLen; i++) {
-                const proto::ProtoObject* elem = typedArrayGetElement(ctx, src, i, srcEt);
-                typedArraySetElement(ctx, result, i, elem, et);
-            }
-            return result;
-        }
-
-        // Array-like: get .length and indexed elements.
-        const proto::ProtoObject* lenObj = src->getAttribute(ctx, JSSymbols::length(ctx), true);
-        uint32_t srcLen = 0;
-        if (lenObj && lenObj != PROTO_NONE && lenObj->isInteger(ctx))
-            srcLen = static_cast<uint32_t>(std::max(0LL, lenObj->asLong(ctx)));
-
-        const proto::ProtoObject* result = createTypedArrayFromLength(ctx, proto, et, srcLen);
-        if (!result || result == PROTO_NONE) return PROTO_NONE;
-        for (uint32_t i = 0; i < srcLen; i++) {
-            const proto::ProtoString* idxKey = JSSymbols::indexKey(ctx, i);
-            const proto::ProtoObject* elem = src->getAttribute(ctx, idxKey, false);
-            if (elem && elem != PROTO_NONE)
-                typedArraySetElement(ctx, result, i, elem, et);
-        }
-        return result;
+        const proto::ProtoList* values = collectArrayFromValues(ctx, args ? args : ctx->newList());
+        if (!values) return PROTO_NONE;
+        return typedArrayFromValues(ctx, proto, et, values);
     }
 };
 
