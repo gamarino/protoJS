@@ -6964,8 +6964,10 @@ const proto::ProtoObject* runBytecode(proto::ProtoContext* pContext,
         std::string keyStr;
         key->toUTF8String(pContext, keyStr);
         std::string gkStr = "__get_" + keyStr + "__";
-        const proto::ProtoObject* gko = pContext->fromUTF8String(gkStr.c_str());
-        const proto::ProtoString* gk  = gko ? gko->asString(pContext) : nullptr;
+        // Interned: protoCore stores attribute keys interned, so a lookup
+        // with an uninterned string searched the symbol table by content on
+        // every probe (every method read walks the prototype chain here).
+        const proto::ProtoString* gk = proto::ProtoString::createSymbol(pContext, gkStr.c_str());
         t_getterSymCache[key] = gk;
         return gk;
     };
@@ -6977,8 +6979,7 @@ const proto::ProtoObject* runBytecode(proto::ProtoContext* pContext,
         std::string keyStr;
         key->toUTF8String(pContext, keyStr);
         std::string skStr = "__set_" + keyStr + "__";
-        const proto::ProtoObject* sko = pContext->fromUTF8String(skStr.c_str());
-        const proto::ProtoString* sk  = sko ? sko->asString(pContext) : nullptr;
+        const proto::ProtoString* sk = proto::ProtoString::createSymbol(pContext, skStr.c_str());
         t_setterSymCache[key] = sk;
         return sk;
     };

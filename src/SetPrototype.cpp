@@ -156,6 +156,25 @@ static void setSetSizeInPlace(proto::ProtoContext* ctx,
 // far, kept in __set_next__ (a delete leaves a hole, so the size is not the
 // next slot).  Without the slot, one walk of the order list finds it.
 // Pre-fix every add() walked the whole order list: O(n) per add.
+// The slot the next added element will take (see takeNextSetSlot).
+static proto::proto_ulong peekNextSetSlot(proto::ProtoContext* ctx,
+                                          const proto::ProtoObject* setObj,
+                                          const proto::ProtoSparseList* order) {
+    const proto::ProtoString* nk = setSlot(ctx, "__set_next__");
+    const proto::ProtoObject* v = nk ? setObj->getAttribute(ctx, nk, false) : nullptr;
+    if (v && v != PROTO_NONE && proto::isSmallInt(v))
+        return static_cast<proto::proto_ulong>(proto::asSmallInt(v));
+    proto::proto_ulong next = 0;
+    const proto::ProtoSparseListIterator* it = order ? order->getIterator(ctx) : nullptr;
+    while (it && it->hasNext(ctx)) {
+        proto::proto_ulong slot = it->nextKey(ctx);
+        (void)it->nextValue(ctx);
+        it = const_cast<proto::ProtoSparseListIterator*>(it)->advance(ctx);
+        if (slot >= next) next = slot + 1;
+    }
+    return next;
+}
+
 static proto::proto_ulong takeNextSetSlot(proto::ProtoContext* ctx,
                                           const proto::ProtoObject* setObj,
                                           const proto::ProtoSparseList* order) {
@@ -630,12 +649,13 @@ static const proto::ProtoObject* setIteratorNext(
     const proto::ProtoSparseList* order = getSetOrder(ctx, setObj);
     if (!order) return markDone();
 
-    const proto::ProtoSparseListIterator* it = order->getIterator(ctx);
-    while (it && it->hasNext(ctx)) {
-        proto::proto_ulong slotIdx = it->nextKey(ctx);
-        const proto::ProtoObject* v = it->nextValue(ctx);
-        it = const_cast<proto::ProtoSparseListIterator*>(it)->advance(ctx);
-        if (static_cast<long long>(slotIdx) < pos) continue;
+    // Probe slots from pos up to the next unused one (see mapIteratorNext:
+    // the walk from the start of the order list made iteration quadratic).
+    const proto::proto_ulong limit = order->getSize(ctx) == 0 ? 0 : peekNextSetSlot(ctx, setObj, order);
+    for (proto::proto_ulong slotIdx = static_cast<proto::proto_ulong>(pos < 0 ? 0 : pos);
+         slotIdx < limit; ++slotIdx) {
+        if (!order->has(ctx, slotIdx)) continue;
+        const proto::ProtoObject* v = order->getAt(ctx, slotIdx);
 
         // Advance position past this slot (mutates iterator in place).
         self->setAttribute(ctx, idxKey, ctx->fromInteger(static_cast<long long>(slotIdx) + 1));

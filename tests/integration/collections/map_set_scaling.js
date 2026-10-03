@@ -1,8 +1,10 @@
 // Map and Set: SameValueZero semantics, insertion order across deletes, hash
-// collisions, and linear cost. Map.set and Set.add used to walk every entry
-// on each insertion (4,000 Map.set calls allocated about 1 GB); the last
-// section inserts enough keys that a quadratic implementation would not
-// finish in the test's time limit. The file passes unchanged under Node.js.
+// collisions, and linear cost of insertion and iteration. Map.set and Set.add
+// used to walk every entry on each insertion (4,000 Map.set calls allocated
+// about 1 GB), and each iteration step walked the entries from the start; the
+// last sections insert and iterate enough entries that a quadratic
+// implementation would not finish in the test's time limit. The file passes
+// unchanged under Node.js.
 
 let failures = 0;
 let checks = 0;
@@ -73,6 +75,22 @@ check("big map deletes", big.size === N + N / 2 && !big.has("key0") && big.get("
 const bigSet = new Set();
 for (let i = 0; i < N; i++) bigSet.add("v" + (i % 1000));
 check("big set dedupe", bigSet.size === 1000);
+
+// Iteration is linear too (each step used to walk the entries from the
+// start): spread, for-of with destructuring, keys(), Set iteration.
+let iterSum = 0, iterCount = 0;
+for (const [k, v] of big) { if (typeof k === "number") iterSum += v; iterCount++; }
+check("for-of over a big map", iterCount === big.size && iterSum === -(N * (N - 1)) / 2);
+check("spread of entries", [...big.entries()].length === big.size);
+check("keys() order", [...new Map([[3, 0], [1, 0], [2, 0]]).keys()].join() === "3,1,2");
+let setCount = 0;
+for (const v of bigSet) setCount += v.length > 0 ? 1 : 0;
+check("for-of over a set", setCount === 1000);
+// Entries added during iteration are visited; deleted ones are not.
+const live = new Map([[1, "a"], [2, "b"], [3, "c"]]);
+const seen = [];
+for (const [k, v] of live) { seen.push(k + v); if (k === 1) { live.delete(2); live.set(4, "d"); } }
+check("mutation during iteration", seen.join() === "1a,3c,4d");
 
 if (failures === 0) {
     console.log("map_set_scaling: all " + checks + " checks passed");
