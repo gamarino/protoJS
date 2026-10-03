@@ -8,7 +8,7 @@ protoJS is not production ready. The version configured in `CMakeLists.txt` is 0
 
 ## Prerequisites
 
-- **protoCore 2.7.0 or newer**, installed, with its CMake package configuration — required. 2.7.0 is the first release that declares `proto::proto_long` / `proto::proto_ulong`, the spelling of protoCore's 64-bit integers protoJS uses (they are `long` / `unsigned long` on Linux and macOS, so the ABI is the one 2.0 had). protoJS links against the protoCore shared library and never bundles it. Build and install it from source: <https://github.com/numaes/protoCore>; see its `docs/INSTALLATION.md`.
+- **protoCore 2.11.0 or newer**, installed, with its CMake package configuration — required. 2.11.0 is the first release with `ProtoObject::setAttributes`, which the interpreter uses to publish a run of writes to one object as one version (docs/PERFORMANCE_NOTES.md, "Runs of writes published once"); the previous floor, 2.7.0, was the first release that declares `proto::proto_long` / `proto::proto_ulong`. protoJS links against the protoCore shared library and never bundles it. Build and install it from source: <https://github.com/numaes/protoCore>; see its `docs/INSTALLATION.md`.
 - **CMake** 3.16 or newer.
 - **A C++20 and C99 compiler**: GCC or Clang, or MSVC 19.44 (Visual Studio 2022) on Windows.
 - **OpenSSL development files.** The runtime links `ssl` and `crypto` directly (for example the `libssl-dev` package on Debian/Ubuntu or `openssl-devel` on Fedora).
@@ -45,7 +45,7 @@ cmake -S . -B build
 cmake --build build
 ```
 
-protoJS prefers an **installed protoCore CMake package**: the configure step runs `find_package(protoCore 2.7 CONFIG)` first, and it is the only discovery mode that checks protoCore's version and ABI. The version floor is `2.7` and the ceiling is the next major version, because protoCore's major version and its soname move together; protoJS additionally asserts that the package's `SOVERSION` is `3`.
+protoJS prefers an **installed protoCore CMake package**: the configure step runs `find_package(protoCore 2.11 CONFIG)` first, and it is the only discovery mode that checks protoCore's version and ABI (the developer fallback probes `protoCore.h` for `setAttributes` instead). The version floor is `2.11` and the ceiling is the next major version, because protoCore's major version and its soname move together; protoJS additionally asserts that the package's `SOVERSION` is `3`.
 
 When no installed package is found *and* no prefix was named, CMake falls back to a sibling build directory of protoCore, in this order:
 
@@ -99,7 +99,7 @@ If protoCore is installed in a different prefix, set `LD_LIBRARY_PATH` (Linux) o
 
 protoJS builds and runs natively on Windows with Visual Studio 2022 (MSVC
 19.44 verified, Windows 11), using the CMake and Ninja that ship with it.
-Build protoCore 2.7.0 or newer first (its `docs/INSTALLATION.md`, "Windows
+Build protoCore 2.11.0 or newer first (its `docs/INSTALLATION.md`, "Windows
 (MSVC)") and install it into a prefix: on Windows protoJS builds against an
 installed protoCore package only, because the sibling-tree fallback finds the
 library by its soname, which a DLL does not have. From an "x64 Native Tools
@@ -201,9 +201,10 @@ How Windows differs, by design:
   calendar.
 
 Test status. CI (`.github/workflows/cross-platform.yml`) builds and tests
-Windows Server 2022 (MSVC, x64) twice -- against protoCore 2.10.2 (whose DLL
-is `protoCore-3.dll`) and 2.7.0, the floor (whose DLL is `protoCore.dll`) --
-and macOS 14 (arm64, protoCore 2.10.2), on every push to `master`:
+Windows Server 2022 (MSVC, x64, protoCore 2.11.0, whose DLL is
+`protoCore-3.dll`) and macOS 14 (arm64, protoCore 2.11.0) on every push to
+`master`. Until 2026-10-03 a second Windows job built against protoCore
+2.7.0, then the floor; 2.11.0 is the floor now.
 
 - `ctest`: the whole suite with the Linux gate's exclusion (`-E
   "integration|network"`): 85 cases on 2026-10-02 -- the Catch2 units, the
