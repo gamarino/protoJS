@@ -49,6 +49,8 @@ static const uint8_t* getOpSizes() {
         sizes[246] = 8;
         sizes[247] = 1;  // OP_PROTO_OBJECT_IMM
         sizes[248] = 5;  // OP_PROTO_DEFINE_FIELD_LAST (atom)
+        sizes[OP_PROTO_PUT_FIELD_GROUP] = 5;      // group (u16), position (u16)
+        sizes[OP_PROTO_PUT_FIELD_GROUP_END] = 5;
         inited = true;
     }
     return sizes;
@@ -68,6 +70,26 @@ static void preResolveAllAtoms(JSContext* ctx, ProtoBytecodeModule* mod,
 
     const uint8_t* sizes = getOpSizes();
     const int maxOp = static_cast<int>(OP_COUNT) - 1; /* last real opcode byte value */
+
+    /* Write groups carry their atoms in the module, not in the bytecode. */
+    for (const PutFieldGroup& g : mod->putFieldGroups) {
+        for (uint32_t atomIndex : g.atoms) {
+            if (mod->atomToProto.find(atomIndex) != mod->atomToProto.end()) continue;
+            const char* str = JS_AtomToCString(ctx, (JSAtom)atomIndex);
+            if (!str) continue;
+            const proto::ProtoString* ps = proto::ProtoString::createSymbol(pContext, str);
+            JS_FreeCString(ctx, str);
+            if (ps) mod->atomToProto[atomIndex] = ps;
+        }
+        for (const auto& r : g.reads) {
+            if (mod->atomToProto.find(r.atom) != mod->atomToProto.end()) continue;
+            const char* str = JS_AtomToCString(ctx, (JSAtom)r.atom);
+            if (!str) continue;
+            const proto::ProtoString* ps = proto::ProtoString::createSymbol(pContext, str);
+            JS_FreeCString(ctx, str);
+            if (ps) mod->atomToProto[r.atom] = ps;
+        }
+    }
 
     int pc = 0;
     while (pc < len) {
@@ -190,6 +212,24 @@ static void lowerClassConstructorPush(std::vector<uint8_t>& code) {
     }
 }
 
+// Names a write group may carry (markPutFieldGroups).  Rejected: names the
+// runtime gives a meaning beyond a data property -- `length` (arrays,
+// functions, String wrappers), `prototype` (created lazily on functions),
+// array indices, and protoJS's own `__..__` sidecars and markers, which user
+// code can name too (`o.__proto__`) and which the per-write path interprets.
+static bool putFieldGroupNameEligible(void* user, uint32_t atom) {
+    JSContext* ctx = static_cast<JSContext*>(user);
+    const char* str = JS_AtomToCString(ctx, (JSAtom)atom);
+    if (!str) return false;
+    const std::string name(str);
+    JS_FreeCString(ctx, str);
+    if (name.empty() || name == "length" || name == "prototype") return false;
+    if (name.size() >= 2 && name[0] == '_' && name[1] == '_') return false;
+    bool digits = true;
+    for (char c : name) if (c < '0' || c > '9') { digits = false; break; }
+    return !digits;
+}
+
 static bool loadBytecodeRecursive(JSContext* ctx,
                                   void* quickjsBytecode,
                                   proto::ProtoContext* pContext,
@@ -223,6 +263,13 @@ static bool loadBytecodeRecursive(JSContext* ctx,
         if (protojs_bytecode_stack_levels(ctx, quickjsBytecode, levels.data()) == 0)
             markObjectLiterals(litBuf, levels.data());
     }
+    // Runs of writes to one object published once (markPutFieldGroups).
+    // The run keeps its values on the operand stack until its last write,
+    // so the frame needs that much more stack.
+    int putFieldGroupExtraStack = 0;
+    out->putFieldGroups.clear();
+    markPutFieldGroups(litBuf, putFieldGroupNameEligible, ctx,
+                       out->putFieldGroups, putFieldGroupExtraStack);
     std::vector<uint8_t> specBuf = specialise(litBuf.data(), len, getSpecialiseMode());
     lowerClassConstructorPush(specBuf);
     {
@@ -242,7 +289,8 @@ static bool loadBytecodeRecursive(JSContext* ctx,
     
     out->argCount_ = protojs_bytecode_arg_count(quickjsBytecode);
     out->varCount_ = protojs_bytecode_var_count(quickjsBytecode);
-    out->stackSize_ = protojs_bytecode_stack_size(quickjsBytecode);
+    out->stackSize_ = static_cast<uint16_t>(
+        protojs_bytecode_stack_size(quickjsBytecode) + putFieldGroupExtraStack);
     if (getenv("PROTO_DEBUG_LOAD")) {
         const char* fname = protojs_bytecode_func_name(ctx, quickjsBytecode);
         printf("[DEBUG] Loading function '%s': argCount=%u varCount=%u\n", fname ? fname : "<anon>", out->argCount_, out->varCount_);

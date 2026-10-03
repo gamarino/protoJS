@@ -4,6 +4,7 @@
 #include <cstdlib>
 #include <cstring>
 #include <cstdio>
+#include <algorithm>
 #include <utility>
 
 namespace protojs {
@@ -102,6 +103,8 @@ const uint8_t* getOpcodeSizes() {
         table[OP_PROTO_LT_LOC_VAR_JFALSE]   = FUSED_LT_LOC_VAR_JF_LEN;
         table[OP_PROTO_OBJECT_IMM]          = 1;
         table[OP_PROTO_DEFINE_FIELD_LAST]   = 5;
+        table[OP_PROTO_PUT_FIELD_GROUP]     = 5;
+        table[OP_PROTO_PUT_FIELD_GROUP_END] = 5;
         return table;
     }();
     return sizes;
@@ -904,6 +907,294 @@ int markObjectLiterals(std::vector<uint8_t>& code, const uint16_t* levels) {
         code[objPc] = OP_PROTO_OBJECT_IMM;
         code[lastDefine] = OP_PROTO_DEFINE_FIELD_LAST;
         ++rewritten;
+    }
+    return rewritten;
+}
+
+// ─────────────────────────────────────────────────────────────────
+// Write groups (markPutFieldGroups)
+//
+// `o.a = x; o.b = y + 1; o.c = 0` is three OP_put_field, three publications
+// of a new version of `o` into protoCore's mutable table.  When nothing
+// between the writes can run code or throw, no one can observe the object
+// between them, so the run can be published as ONE version
+// (ProtoObject::setAttributes): the values are computed in order as before,
+// each write but the last leaves its value on the operand stack instead of
+// writing it, and the last write publishes them all.  The runtime keeps the
+// exact per-write path whenever the receiver or the values could make a
+// difference (a setter, a frozen object, a Proxy, an operand that is an
+// object...): see "Write groups" in ProtoInterpreter.cpp.
+//
+// A statement is
+//     <receiver> <value> put_field name
+// where <receiver> loads `this`, an argument or a local, and <value> uses
+// only: constants; argument, local and closure-variable reads; the
+// receiver again, alone or followed by get_field / get_field2 (a read of
+// one of its fields: `o.x += 1`); unary and binary arithmetic, comparisons,
+// `!` and typeof.  Calls, `new`, property reads on any other object, TDZ
+// checks on other bindings, `await`, `yield`, `with` and every other opcode
+// end the run.  The first statement of a run is executed before the run is
+// checked, so its value may use anything that parses; the checks cover the
+// statements after it.  No instruction inside a run may be a jump target.
+// ─────────────────────────────────────────────────────────────────
+namespace {
+
+bool putFieldGroupsEnabled() {
+    static const bool enabled = []() {
+        const char* v = std::getenv("PROTOJS_PUTFIELD_GROUPS");
+        return !(v && !std::strcmp(v, "off"));
+    }();
+    return enabled;
+}
+
+uint16_t rdU16(const uint8_t* p) { return (uint16_t)(p[0] | (p[1] << 8)); }
+uint32_t rdU32(const uint8_t* p) {
+    return (uint32_t)p[0] | ((uint32_t)p[1] << 8) | ((uint32_t)p[2] << 16) | ((uint32_t)p[3] << 24);
+}
+
+// A slot load: `kind` 0 = none, 1 = local, 2 = argument, 3 = this (a local
+// in QuickJS, but kept apart for clarity), 4 = closure variable.
+struct SlotLoad { int kind; uint16_t idx; bool checked; };
+
+SlotLoad decodeSlotLoad(const uint8_t* b, int pc) {
+    const uint8_t op = b[pc];
+    if (op >= OP_get_loc0 && op <= OP_get_loc3) return {1, (uint16_t)(op - OP_get_loc0), false};
+    if (op == OP_get_loc8) return {1, b[pc + 1], false};
+    if (op == OP_get_loc) return {1, rdU16(b + pc + 1), false};
+    if (op == OP_get_loc_check) return {1, rdU16(b + pc + 1), true};
+    if (op >= OP_get_arg0 && op <= OP_get_arg3) return {2, (uint16_t)(op - OP_get_arg0), false};
+    if (op == OP_get_arg) return {2, rdU16(b + pc + 1), false};
+    if (op == OP_push_this) return {3, 0, false};
+    if (op >= OP_get_var_ref0 && op <= OP_get_var_ref3) return {4, (uint16_t)(op - OP_get_var_ref0), false};
+    if (op == OP_get_var_ref) return {4, rdU16(b + pc + 1), false};
+    return {0, 0, false};
+}
+
+bool sameReceiver(const SlotLoad& a, const SlotLoad& b) {
+    return a.kind == b.kind && a.idx == b.idx;
+}
+
+bool isConstantPush(uint8_t op) {
+    switch (op) {
+        case OP_push_i32: case OP_undefined: case OP_null: case OP_push_false:
+        case OP_push_true: case OP_push_minus1: case OP_push_0: case OP_push_1:
+        case OP_push_2: case OP_push_3: case OP_push_4: case OP_push_5:
+        case OP_push_6: case OP_push_7: case OP_push_i8: case OP_push_i16:
+        case OP_push_empty_string: case OP_push_atom_value:
+            return true;
+        default:
+            return false;
+    }
+}
+
+// Operators whose operands must be inert values (they may run valueOf /
+// toString / @@toPrimitive, or throw, on anything else).
+bool isCoercingUnary(uint8_t op) {
+    return op == OP_neg || op == OP_plus || op == OP_inc || op == OP_dec || op == OP_not;
+}
+bool isCoercingBinary(uint8_t op) {
+    switch (op) {
+        case OP_add: case OP_sub: case OP_mul: case OP_div: case OP_mod: case OP_pow:
+        case OP_shl: case OP_sar: case OP_shr: case OP_and: case OP_or: case OP_xor:
+        case OP_lt: case OP_lte: case OP_gt: case OP_gte: case OP_eq: case OP_neq:
+            return true;
+        default:
+            return false;
+    }
+}
+
+// One parsed statement.
+struct GroupStatement {
+    int start = 0;            // pc of the receiver load
+    int putPc = 0;            // pc of its OP_put_field
+    int end = 0;              // pc after it
+    SlotLoad receiver{};
+    uint32_t atom = 0;
+    std::vector<uint16_t> operandArgs, operandLocals;
+    std::vector<PutFieldGroup::Read> reads;
+};
+
+// Parses the statement whose receiver load is at `pc`.  `strict` applies the
+// operand rules (the first statement of a run runs before the check, so it
+// does not need them).  Returns false when the code at `pc` is not one.
+bool parseGroupStatement(const uint8_t* b, int len, int pc, const uint8_t* sizes,
+                         bool strict, GroupStatement& st) {
+    const SlotLoad recv = decodeSlotLoad(b, pc);
+    if (recv.kind == 0 || recv.kind == 4) return false;
+    st = GroupStatement{};
+    st.start = pc;
+    st.receiver = recv;
+
+    // The abstract operand stack above the statement's base.
+    enum Tag : uint8_t { R, CONST, VALUE, SLOT_ARG, SLOT_LOC, CLOSURE, FIELD };
+    struct Entry { Tag tag; uint16_t idx; int read; };
+    Entry stack[16];
+    int sp = 0;
+    stack[sp++] = {R, 0, -1};
+
+    auto operand = [&](const Entry& e) -> bool {
+        switch (e.tag) {
+            case CONST: case VALUE: return true;
+            case SLOT_ARG:
+                if (strict) st.operandArgs.push_back(e.idx);
+                return true;
+            case SLOT_LOC:
+                if (strict) st.operandLocals.push_back(e.idx);
+                return true;
+            case FIELD:
+                if (strict && e.read >= 0) st.reads[(size_t)e.read].operand = true;
+                return true;
+            default:  // the receiver itself, a closure variable: unknown objects
+                return !strict;
+        }
+    };
+
+    pc += sizes[b[pc]];
+    for (int steps = 0; steps < 64 && pc < len; ++steps) {
+        const uint8_t op = b[pc];
+        const int sz = sizes[op];
+        if (sz <= 0 || op >= OP_COUNT) return false;
+        if (op == OP_put_field) {
+            if (sp != 2 || stack[0].tag != R) return false;
+            st.putPc = pc;
+            st.atom = rdU32(b + pc + 1);
+            st.end = pc + sz;
+            return true;
+        }
+        if (sp >= 15) return false;
+        const SlotLoad ld = decodeSlotLoad(b, pc);
+        if (ld.kind != 0) {
+            if (sameReceiver(ld, recv)) {
+                stack[sp++] = {R, 0, -1};
+            } else if (ld.checked || ld.kind == 3) {
+                return false;  // a TDZ check on another binding can throw
+            } else if (ld.kind == 4) {
+                stack[sp++] = {CLOSURE, ld.idx, -1};
+            } else {
+                stack[sp++] = {ld.kind == 2 ? SLOT_ARG : SLOT_LOC, ld.idx, -1};
+            }
+        } else if (isConstantPush(op)) {
+            stack[sp++] = {CONST, 0, -1};
+        } else if (op == OP_get_field || op == OP_get_field2) {
+            if (stack[sp - 1].tag != R) return false;  // a read of another object
+            int readIdx = -1;
+            if (strict) {
+                readIdx = (int)st.reads.size();
+                st.reads.push_back({rdU32(b + pc + 1), 0, false});
+            }
+            if (op == OP_get_field) --sp;
+            stack[sp++] = {FIELD, 0, readIdx};
+        } else if (isCoercingUnary(op) || op == OP_lnot || op == OP_typeof) {
+            if (sp < 2) return false;
+            if (isCoercingUnary(op) && !operand(stack[sp - 1])) return false;
+            stack[sp - 1] = {VALUE, 0, -1};
+        } else if (isCoercingBinary(op) || op == OP_strict_eq || op == OP_strict_neq) {
+            if (sp < 3) return false;
+            if (isCoercingBinary(op) && (!operand(stack[sp - 2]) || !operand(stack[sp - 1])))
+                return false;
+            --sp;
+            stack[sp - 1] = {VALUE, 0, -1};
+        } else {
+            return false;
+        }
+        pc += sz;
+    }
+    return false;
+}
+
+void dumpGroup(const PutFieldGroup& g, int start) {
+    std::fprintf(stderr, "[putfield-groups] run at pc %d: %zu writes, %zu operand args, "
+                 "%zu operand locals, %zu reads\n", start, g.atoms.size(),
+                 g.operandArgs.size(), g.operandLocals.size(), g.reads.size());
+}
+
+}  // namespace
+
+int markPutFieldGroups(std::vector<uint8_t>& code,
+                       bool (*nameEligible)(void* user, uint32_t atom), void* user,
+                       std::vector<PutFieldGroup>& groups, int& extraStack) {
+    extraStack = 0;
+    if (code.empty() || !putFieldGroupsEnabled()) return 0;
+    const uint8_t* sizes = getOpcodeSizes();
+    const uint8_t* b = code.data();
+    const int len = (int)code.size();
+    const bool dump = std::getenv("PROTOJS_PUTFIELD_GROUPS_DUMP") != nullptr;
+
+    // Instruction starts and jump targets.  An unknown byte leaves the
+    // function alone, as markObjectLiterals does.
+    std::vector<int> starts;
+    std::vector<uint8_t> isTarget((size_t)len + 1, 0);
+    for (int pc = 0; pc < len; ) {
+        const uint8_t op = b[pc];
+        const int sz = sizes[op];
+        if (sz <= 0) return 0;
+        starts.push_back(pc);
+        const int t = jumpTarget(b, pc);
+        if (t >= 0 && t <= len) isTarget[(size_t)t] = 1;
+        pc += sz;
+    }
+    // Every instruction start strictly inside [from, to) must not be a target.
+    auto noTargetInside = [&](int from, int to) {
+        for (int pc = from + 1; pc < to; ++pc)
+            if (isTarget[(size_t)pc]) return false;
+        return true;
+    };
+
+    int rewritten = 0;
+    size_t si = 0;
+    while (si < starts.size()) {
+        GroupStatement first;
+        const int pc0 = starts[si];
+        if (!parseGroupStatement(b, len, pc0, sizes, /*strict=*/false, first)
+            || !nameEligible(user, first.atom)
+            || !noTargetInside(first.start, first.end)) {
+            ++si;
+            continue;
+        }
+        PutFieldGroup g;
+        std::vector<int> putPcs{first.putPc};
+        g.atoms.push_back(first.atom);
+        int end = first.end;
+        while (g.atoms.size() < 64 && end < len) {
+            GroupStatement st;
+            if (!parseGroupStatement(b, len, end, sizes, /*strict=*/true, st)) break;
+            if (!sameReceiver(st.receiver, first.receiver) || !nameEligible(user, st.atom)) break;
+            // The statement's start is inside the run, so it must not be a
+            // jump target either.
+            if (isTarget[(size_t)end] || !noTargetInside(st.start, st.end)) break;
+            // A read of a name the run already wrote would see the old
+            // value: end the run before it.
+            bool readsWritten = false;
+            for (const auto& r : st.reads)
+                for (uint32_t a : g.atoms)
+                    if (r.atom == a) readsWritten = true;
+            if (readsWritten) break;
+            const uint16_t position = (uint16_t)g.atoms.size();
+            for (auto r : st.reads) { r.statement = position; g.reads.push_back(r); }
+            for (uint16_t a : st.operandArgs) g.operandArgs.push_back(a);
+            for (uint16_t l : st.operandLocals) g.operandLocals.push_back(l);
+            g.atoms.push_back(st.atom);
+            putPcs.push_back(st.putPc);
+            end = st.end;
+        }
+        if (g.atoms.size() < 2 || groups.size() >= 0xffff) {
+            ++si;
+            continue;
+        }
+        const uint16_t gid = (uint16_t)groups.size();
+        for (size_t k = 0; k < putPcs.size(); ++k) {
+            uint8_t* ins = code.data() + putPcs[k];
+            ins[0] = (k + 1 == putPcs.size()) ? OP_PROTO_PUT_FIELD_GROUP_END : OP_PROTO_PUT_FIELD_GROUP;
+            ins[1] = (uint8_t)(gid & 0xff);
+            ins[2] = (uint8_t)(gid >> 8);
+            ins[3] = (uint8_t)(k & 0xff);
+            ins[4] = (uint8_t)(k >> 8);
+        }
+        if (dump) dumpGroup(g, pc0);
+        extraStack = std::max(extraStack, (int)g.atoms.size() - 1);
+        groups.push_back(std::move(g));
+        ++rewritten;
+        while (si < starts.size() && starts[si] < end) ++si;
     }
     return rewritten;
 }

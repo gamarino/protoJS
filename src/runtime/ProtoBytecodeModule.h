@@ -7,6 +7,7 @@
  */
 
 #include "protoCore.h"
+#include "BytecodeSpecialiser.h"
 #include <vector>
 #include <unordered_map>
 #include <cstdint>
@@ -126,6 +127,10 @@ struct ProtoBytecodeModule {
      *  bytecode, ascending: a loop's ordinal selects its state slots
      *  (forOfStateSlot in ProtoInterpreter.cpp). */
     std::vector<uint32_t> forOfStartPcs;
+
+    /** Runs of writes to one object published once, indexed by the group
+     *  operand of OP_PROTO_PUT_FIELD_GROUP / _END (markPutFieldGroups). */
+    std::vector<PutFieldGroup> putFieldGroups;
 
     unsigned argCount() const { return argCount_; }
     unsigned varCount() const { return varCount_; }
