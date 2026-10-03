@@ -1,4 +1,5 @@
 #include "ProtoCoreTypes.h"
+#include "JSNumber.h"
 #include "MathBuiltin.h"
 #include "JSSymbols.h"
 #include "ArrayElementsStorage.h"
@@ -36,7 +37,7 @@ static const proto::ProtoObject* makeDouble(proto::ProtoContext* ctx, double d) 
     if (d == std::trunc(d) && std::isfinite(d) &&
         d >= -9.007199254740992e15 && d <= 9.007199254740992e15)
         return ctx->fromInteger(static_cast<long long>(d));
-    return ctx->fromDouble(d);
+    return makeNumber(ctx, d);
 }
 
 // --- Math method implementations ---
@@ -48,7 +49,7 @@ static const proto::ProtoObject* math##name( \
     const proto::ProtoSparseList*) \
 { \
     double x = argToDouble(ctx, args, 0); \
-    return ctx->fromDouble(expr); \
+    return makeNumber(ctx, expr); \
 }
 
 MATH_ONE_ARG(Abs,   std::abs(x))
@@ -84,13 +85,13 @@ static const proto::ProtoObject* mathSign(
     const proto::ProtoSparseList*)
 {
     double x = argToDouble(ctx, args, 0);
-    if (std::isnan(x)) return ctx->fromDouble(x);
+    if (std::isnan(x)) return makeNumber(ctx, x);
     if (x > 0.0) return makeDouble(ctx, 1.0);
     if (x < 0.0) return makeDouble(ctx, -1.0);
     // Spec §20.3.2.29: preserve the sign of zero. signbit catches -0.
     // Bypass makeDouble for -0.0 because it normalises integral doubles
     // through fromInteger, which loses the sign bit.
-    if (std::signbit(x)) return ctx->fromDouble(-0.0);
+    if (std::signbit(x)) return makeNumber(ctx, -0.0);
     return makeDouble(ctx, 0.0);
 }
 
@@ -104,11 +105,11 @@ static const proto::ProtoObject* mathRound(
     // (-0.5, 0) range as rounding to -0. makeDouble normalises 0
     // through fromInteger which loses the sign bit, so cases where
     // the result is -0 must take the fromDouble path explicitly.
-    if (std::isnan(x))   return ctx->fromDouble(x);
-    if (std::isinf(x))   return ctx->fromDouble(x);
-    if (x == 0.0)        return ctx->fromDouble(x);  // preserves -0
-    if (x > 0 && x < 0.5)   return ctx->fromDouble(0.0);
-    if (x < 0 && x >= -0.5) return ctx->fromDouble(-0.0);
+    if (std::isnan(x))   return makeNumber(ctx, x);
+    if (std::isinf(x))   return makeNumber(ctx, x);
+    if (x == 0.0)        return makeNumber(ctx, x);  // preserves -0
+    if (x > 0 && x < 0.5)   return makeNumber(ctx, 0.0);
+    if (x < 0 && x >= -0.5) return makeNumber(ctx, -0.0);
     // §21.3.2.28: above the 2^52 boundary every float is an integer
     // and adding 0.5 loses precision (x + 0.5 either equals x or
     // rounds up an extra ULP). The spec says return x in that range.
@@ -116,7 +117,7 @@ static const proto::ProtoObject* mathRound(
     // the next representable value, breaking Math.round(-(2/EPSILON-1))
     // === -(2/EPSILON-1) and other ULP-precision identities.
     if (x >= 4503599627370496.0 || x <= -4503599627370496.0) {
-        return ctx->fromDouble(x);
+        return makeNumber(ctx, x);
     }
     // Ties go toward +Infinity (floor(x + 0.5)).
     return makeDouble(ctx, std::floor(x + 0.5));
@@ -128,7 +129,7 @@ static const proto::ProtoObject* mathFround(
     const proto::ProtoSparseList*)
 {
     double x = argToDouble(ctx, args, 0);
-    return ctx->fromDouble(static_cast<double>(static_cast<float>(x)));
+    return makeNumber(ctx, static_cast<double>(static_cast<float>(x)));
 }
 
 // ECMA-262 §21.3.2.20b Math.sumPrecise(items): returns the exact
@@ -227,19 +228,19 @@ static const proto::ProtoObject* mathSumPrecise(
     }
 
     if (state == State::NaN_)
-        return ctx->fromDouble(std::numeric_limits<double>::quiet_NaN());
+        return makeNumber(ctx, std::numeric_limits<double>::quiet_NaN());
     if (state == State::PlusInf)
-        return ctx->fromDouble(std::numeric_limits<double>::infinity());
+        return makeNumber(ctx, std::numeric_limits<double>::infinity());
     if (state == State::MinusInf)
-        return ctx->fromDouble(-std::numeric_limits<double>::infinity());
+        return makeNumber(ctx, -std::numeric_limits<double>::infinity());
     if (state == State::MinusZero)
-        return ctx->fromDouble(-0.0);
+        return makeNumber(ctx, -0.0);
 
     // Final accumulation: sum partials from largest (last) to smallest.
     double total = 0.0;
     for (auto it = partials.rbegin(); it != partials.rend(); ++it)
         total += *it;
-    return ctx->fromDouble(total);
+    return makeNumber(ctx, total);
 }
 
 // ECMA-262 §21.3.2.20a Math.f16round(x): round x to IEEE 754 binary16
@@ -253,12 +254,12 @@ static const proto::ProtoObject* mathF16round(
 {
     double x = argToDouble(ctx, args, 0);
     if (std::isnan(x))
-        return ctx->fromDouble(std::numeric_limits<double>::quiet_NaN());
+        return makeNumber(ctx, std::numeric_limits<double>::quiet_NaN());
 #if defined(__FLT16_MAX__)
     _Float16 h = static_cast<_Float16>(static_cast<float>(x));
-    return ctx->fromDouble(static_cast<double>(static_cast<float>(h)));
+    return makeNumber(ctx, static_cast<double>(static_cast<float>(h)));
 #else
-    return ctx->fromDouble(static_cast<double>(static_cast<float>(x)));
+    return makeNumber(ctx, static_cast<double>(static_cast<float>(x)));
 #endif
 }
 
@@ -304,7 +305,7 @@ static const proto::ProtoObject* mathAtan2(
 {
     double y = argToDouble(ctx, args, 0);
     double x = argToDouble(ctx, args, 1);
-    return ctx->fromDouble(std::atan2(y, x));
+    return makeNumber(ctx, std::atan2(y, x));
 }
 
 static const proto::ProtoObject* mathPow(
@@ -319,12 +320,12 @@ static const proto::ProtoObject* mathPow(
     // IEEE-754 base==1 special case (pow(1, NaN) == 1). Spec also
     // requires abs(base) == 1 with ±Infinity exponent to yield NaN.
     if (std::isnan(exp)) {
-        return ctx->fromDouble(std::numeric_limits<double>::quiet_NaN());
+        return makeNumber(ctx, std::numeric_limits<double>::quiet_NaN());
     }
     if (std::isinf(exp) && std::abs(base) == 1.0) {
-        return ctx->fromDouble(std::numeric_limits<double>::quiet_NaN());
+        return makeNumber(ctx, std::numeric_limits<double>::quiet_NaN());
     }
-    return ctx->fromDouble(std::pow(base, exp));
+    return makeNumber(ctx, std::pow(base, exp));
 }
 
 static const proto::ProtoObject* mathHypot(
@@ -353,11 +354,11 @@ static const proto::ProtoObject* mathHypot(
         if (std::isnan(v)) sawNaN = true;
         else if (std::isinf(v)) sawInf = true;
     }
-    if (sawInf) return ctx->fromDouble(std::numeric_limits<double>::infinity());
-    if (sawNaN) return ctx->fromDouble(std::numeric_limits<double>::quiet_NaN());
+    if (sawInf) return makeNumber(ctx, std::numeric_limits<double>::infinity());
+    if (sawNaN) return makeNumber(ctx, std::numeric_limits<double>::quiet_NaN());
     double sum = 0.0;
     for (double v : coerced) sum += v * v;
-    return ctx->fromDouble(std::sqrt(sum));
+    return makeNumber(ctx, std::sqrt(sum));
 }
 
 static const proto::ProtoObject* mathMax(
@@ -366,7 +367,7 @@ static const proto::ProtoObject* mathMax(
     const proto::ProtoSparseList*)
 {
     proto::proto_ulong argc = args ? static_cast<proto::proto_ulong>(args->getSize(ctx)) : 0;
-    if (argc == 0) return ctx->fromDouble(-std::numeric_limits<double>::infinity());
+    if (argc == 0) return makeNumber(ctx, -std::numeric_limits<double>::infinity());
     // Spec §20.3.2.24 step 1-2: coerce every argument first via ToNumber,
     // even when an early NaN would short-circuit the result. Mathematical
     // pass happens in a separate sweep.
@@ -379,9 +380,9 @@ static const proto::ProtoObject* mathMax(
         if (v == 0.0 && !std::signbit(v)) sawPositiveZero = true;
         if (v > result) result = v;
     }
-    if (anyNaN) return ctx->fromDouble(std::numeric_limits<double>::quiet_NaN());
+    if (anyNaN) return makeNumber(ctx, std::numeric_limits<double>::quiet_NaN());
     if (result == 0.0) {
-        return ctx->fromDouble(sawPositiveZero ? 0.0 : -0.0);
+        return makeNumber(ctx, sawPositiveZero ? 0.0 : -0.0);
     }
     return makeDouble(ctx, result);
 }
@@ -392,7 +393,7 @@ static const proto::ProtoObject* mathMin(
     const proto::ProtoSparseList*)
 {
     proto::proto_ulong argc = args ? static_cast<proto::proto_ulong>(args->getSize(ctx)) : 0;
-    if (argc == 0) return ctx->fromDouble(std::numeric_limits<double>::infinity());
+    if (argc == 0) return makeNumber(ctx, std::numeric_limits<double>::infinity());
     bool anyNaN = false;
     double result = std::numeric_limits<double>::infinity();
     bool sawNegativeZero = false;
@@ -402,9 +403,9 @@ static const proto::ProtoObject* mathMin(
         if (v == 0.0 && std::signbit(v)) sawNegativeZero = true;
         if (v < result) result = v;
     }
-    if (anyNaN) return ctx->fromDouble(std::numeric_limits<double>::quiet_NaN());
+    if (anyNaN) return makeNumber(ctx, std::numeric_limits<double>::quiet_NaN());
     if (result == 0.0) {
-        return ctx->fromDouble(sawNegativeZero ? -0.0 : 0.0);
+        return makeNumber(ctx, sawNegativeZero ? -0.0 : 0.0);
     }
     return makeDouble(ctx, result);
 }
@@ -415,7 +416,7 @@ static const proto::ProtoObject* mathRandom(
     const proto::ProtoSparseList*)
 {
     // Simple pseudo-random [0, 1)
-    return ctx->fromDouble(static_cast<double>(std::rand()) / (static_cast<double>(RAND_MAX) + 1.0));
+    return makeNumber(ctx, static_cast<double>(std::rand()) / (static_cast<double>(RAND_MAX) + 1.0));
 }
 
 } // anonymous namespace
@@ -498,7 +499,7 @@ void ensureMathObject(proto::ProtoContext* ctx,
     auto setConst = [&](const char* name, double val) {
         const proto::ProtoString* key = ctx->fromUTF8String(name)->asString(ctx);
         if (!key) return;
-        math = math->setAttribute(ctx, key, ctx->fromDouble(val));
+        math = math->setAttribute(ctx, key, makeNumber(ctx, val));
         // Math constants are spec'd { writable:false, enumerable:false,
         // configurable:false } — descriptor bits = 0x0.  Without setting
         // __pd_<name>__ they default to writable/enumerable/configurable,

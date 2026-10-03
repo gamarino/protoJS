@@ -283,6 +283,7 @@ foreach(js_test
         basic/object_integrity
         basic/symbol_key_order
         basic/native_function_prototype
+        basic/number_representation
         basic/regexp_global_advance
         basic/generator_for_of_yield
         modules/test_require_file

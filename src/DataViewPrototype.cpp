@@ -1,4 +1,5 @@
 #include "DataViewPrototype.h"
+#include "JSNumber.h"
 #include "ArrayBufferPrototype.h"
 #include "JSSymbols.h"
 #include "protoCore.h"
@@ -170,7 +171,7 @@ static const proto::ProtoObject* dv_getFloat32(
     if (le) u = bswap32(u);
 #endif
     float f; memcpy(&f, &u, 4);
-    return ctx->fromDouble(static_cast<double>(f));
+    return makeNumber(ctx, static_cast<double>(f));
 }
 
 static const proto::ProtoObject* dv_getFloat64(
@@ -188,7 +189,7 @@ static const proto::ProtoObject* dv_getFloat64(
     if (le) u = bswap64(u);
 #endif
     double d; memcpy(&d, &u, 8);
-    return ctx->fromDouble(d);
+    return makeNumber(ctx, d);
 }
 
 static const proto::ProtoObject* dv_getBigInt64(

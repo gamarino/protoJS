@@ -1,4 +1,5 @@
 #include "ProtoCoreTypes.h"
+#include "JSNumber.h"
 #include "runtime/PinnedBuiltin.h"
 #include "StringPrototype.h"
 #include "ArrayPrototype.h"
@@ -798,7 +799,7 @@ const proto::ProtoObject* stringCharCodeAt(
         if (str) {
             proto::proto_ulong size = str->getSize(ctx);
             if (size == 0) {
-                return ctx->fromDouble(std::numeric_limits<double>::quiet_NaN());
+                return makeNumber(ctx, std::numeric_limits<double>::quiet_NaN());
             }
             // getAt returns a ProtoObject tagged as EMBEDDED_UNICODE_CHAR
             // whose value bits encode the codepoint directly; asLong
@@ -819,7 +820,7 @@ const proto::ProtoObject* stringCharCodeAt(
     std::string s = objToStr(ctx, self);
     auto u16 = utf8ToUTF16(s);
     if (idx < 0 || static_cast<size_t>(idx) >= u16.size())
-        return ctx->fromDouble(std::numeric_limits<double>::quiet_NaN());
+        return makeNumber(ctx, std::numeric_limits<double>::quiet_NaN());
     return ctx->fromInteger(static_cast<long long>(u16[static_cast<size_t>(idx)]));
 }
 

@@ -1,4 +1,5 @@
 #include "ProtoCoreTypes.h"
+#include "JSNumber.h"
 #include "console.h"
 #include "ProtoNativeModule.h"
 #include "runtime/ProtoInterpreter.h"
@@ -479,7 +480,7 @@ const proto::ProtoObject* TimingAPIs::performanceNow(proto::ProtoContext* ctx,
     auto now = std::chrono::steady_clock::now();
     double ms = std::chrono::duration<double, std::milli>(now - kPerfEpoch).count();
     // High-resolution monotonic time in ms since program start, double-precision.
-    return ctx->fromDouble(ms);
+    return makeNumber(ctx, ms);
 }
 
 // ECMA-262 §21.4.3.2 — Date.parse(string) returns the number of ms
@@ -492,12 +493,12 @@ const proto::ProtoObject* TimingAPIs::dateParse(proto::ProtoContext* ctx,
                                                  const proto::ProtoSparseList* /*kwargs*/) {
     if (!ctx) return PROTO_NONE;
     double nan = std::numeric_limits<double>::quiet_NaN();
-    if (!args || args->getSize(ctx) == 0) return ctx->fromDouble(nan);
+    if (!args || args->getSize(ctx) == 0) return makeNumber(ctx, nan);
     const proto::ProtoObject* sObj = args->getAt(ctx, 0);
-    if (!sObj || sObj == PROTO_NONE || !sObj->isString(ctx)) return ctx->fromDouble(nan);
+    if (!sObj || sObj == PROTO_NONE || !sObj->isString(ctx)) return makeNumber(ctx, nan);
     std::string s;
     sObj->asString(ctx)->toUTF8String(ctx, s);
-    if (s.empty()) return ctx->fromDouble(nan);
+    if (s.empty()) return makeNumber(ctx, nan);
 
     // Try ISO 8601 / RFC3339 — YYYY-MM-DDTHH:MM:SS[.sss][Z|±HH:MM]
     // and the YYYY date-only form. Other formats (legacy RFC2822,
@@ -515,10 +516,10 @@ const proto::ProtoObject* TimingAPIs::dateParse(proto::ProtoContext* ctx,
             if (!in.fail()) { ok = true; break; }
         }
     }
-    if (!ok) return ctx->fromDouble(nan);
+    if (!ok) return makeNumber(ctx, nan);
     // No fractional/timezone parsing in this minimal impl.
     std::time_t t = timegm(&tmv);
-    if (t == (std::time_t)-1) return ctx->fromDouble(nan);
+    if (t == (std::time_t)-1) return makeNumber(ctx, nan);
     long long ms = static_cast<long long>(t) * 1000 + subsecMs;
     return ctx->fromLong(ms);
 }
@@ -533,7 +534,7 @@ const proto::ProtoObject* TimingAPIs::dateUTC(proto::ProtoContext* ctx,
     if (!ctx) return PROTO_NONE;
     double nan = std::numeric_limits<double>::quiet_NaN();
     int argc = args ? static_cast<int>(args->getSize(ctx)) : 0;
-    if (argc == 0) return ctx->fromDouble(nan);
+    if (argc == 0) return makeNumber(ctx, nan);
     // ECMA-262 §21.4.3.4: ToNumber runs on every supplied positional;
     // MakeDay (§21.4.1.13) and MakeTime (§21.4.1.12) return NaN if any
     // operand is not finite, and TimeClip (§21.4.1.14) collapses the
@@ -581,15 +582,15 @@ const proto::ProtoObject* TimingAPIs::dateUTC(proto::ProtoContext* ctx,
     tmv.tm_sec   = static_cast<int>(coerce(5, 0));
     long long ms = coerce(6, 0);
     if (aborted) return PROTO_NONE;
-    if (nonFinite) return ctx->fromDouble(nan);
+    if (nonFinite) return makeNumber(ctx, nan);
     std::time_t t = timegm(&tmv);
-    if (t == (std::time_t)-1) return ctx->fromDouble(nan);
+    if (t == (std::time_t)-1) return makeNumber(ctx, nan);
     long long total = static_cast<long long>(t) * 1000 + ms;
     // §21.4.1.14 TimeClip: |t| > 8.64e15 → NaN.  Pre-fix Date.UTC
     // returned exact-integer values past the spec's representable
     // range (e.g. Date.UTC(275760, 8, 13, 0, 0, 0, 1) = 8.64e15+1).
     constexpr long long kMaxTime = 8640000000000000LL;
-    if (total > kMaxTime || total < -kMaxTime) return ctx->fromDouble(nan);
+    if (total > kMaxTime || total < -kMaxTime) return makeNumber(ctx, nan);
     return ctx->fromLong(total);
 }
 

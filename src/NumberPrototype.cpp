@@ -1,4 +1,5 @@
 #include "NumberPrototype.h"
+#include "JSNumber.h"
 #include "FunctionPrototype.h"
 #include "JSSymbols.h"
 #include "PrototypeUtils.h"
@@ -82,7 +83,7 @@ const proto::ProtoObject* numberValueOf(
             (pv->isInteger(context) || pv->isDouble(context) || pv->isFloat(context)))
             return pv;
     }
-    return context->fromDouble(0.0); // fallback
+    return makeNumber(context, 0.0); // fallback
 }
 
 const proto::ProtoObject* numberToString(
@@ -670,7 +671,7 @@ const proto::ProtoObject* numberParseInt(
     const proto::ProtoList* args,
     const proto::ProtoSparseList*)
 {
-    if (!args || args->getSize(ctx) == 0) return ctx->fromDouble(std::numeric_limits<double>::quiet_NaN());
+    if (!args || args->getSize(ctx) == 0) return makeNumber(ctx, std::numeric_limits<double>::quiet_NaN());
     const proto::ProtoObject* strObj = args->getAt(ctx, 0);
     std::string s;
     if (strObj && strObj != PROTO_NONE) {
@@ -725,12 +726,12 @@ const proto::ProtoObject* numberParseInt(
         s = s.substr(2);
     }
 
-    if (radix < 2 || radix > 36) return ctx->fromDouble(std::numeric_limits<double>::quiet_NaN());
-    if (s.empty()) return ctx->fromDouble(std::numeric_limits<double>::quiet_NaN());
+    if (radix < 2 || radix > 36) return makeNumber(ctx, std::numeric_limits<double>::quiet_NaN());
+    if (s.empty()) return makeNumber(ctx, std::numeric_limits<double>::quiet_NaN());
 
     char* end = nullptr;
     long long result = std::strtoll(s.c_str(), &end, radix);
-    if (end == s.c_str()) return ctx->fromDouble(std::numeric_limits<double>::quiet_NaN());
+    if (end == s.c_str()) return makeNumber(ctx, std::numeric_limits<double>::quiet_NaN());
     return ctx->fromInteger(result);
 }
 
@@ -741,26 +742,26 @@ const proto::ProtoObject* numberParseFloat(
     const proto::ProtoList* args,
     const proto::ProtoSparseList*)
 {
-    if (!args || args->getSize(ctx) == 0) return ctx->fromDouble(std::numeric_limits<double>::quiet_NaN());
+    if (!args || args->getSize(ctx) == 0) return makeNumber(ctx, std::numeric_limits<double>::quiet_NaN());
     const proto::ProtoObject* strObj = args->getAt(ctx, 0);
-    if (!strObj || strObj == PROTO_NONE) return ctx->fromDouble(std::numeric_limits<double>::quiet_NaN());
+    if (!strObj || strObj == PROTO_NONE) return makeNumber(ctx, std::numeric_limits<double>::quiet_NaN());
     if (strObj->isInteger(ctx)) return strObj;
     if (strObj->isDouble(ctx) || strObj->isFloat(ctx)) return strObj;
     std::string s;
     if (strObj->isString(ctx)) {
         const proto::ProtoString* ps = strObj->asString(ctx);
         if (ps) ps->toUTF8String(ctx, s);
-    } else { return ctx->fromDouble(std::numeric_limits<double>::quiet_NaN()); }
+    } else { return makeNumber(ctx, std::numeric_limits<double>::quiet_NaN()); }
     // Trim leading whitespace
     size_t i = 0;
     while (i < s.size() && (s[i] == ' ' || s[i] == '\t' || s[i] == '\n' || s[i] == '\r' || s[i] == '\f' || s[i] == '\v')) i++;
     s = s.substr(i);
-    if (s == "Infinity" || s == "+Infinity") return ctx->fromDouble(std::numeric_limits<double>::infinity());
-    if (s == "-Infinity") return ctx->fromDouble(-std::numeric_limits<double>::infinity());
+    if (s == "Infinity" || s == "+Infinity") return makeNumber(ctx, std::numeric_limits<double>::infinity());
+    if (s == "-Infinity") return makeNumber(ctx, -std::numeric_limits<double>::infinity());
     char* end = nullptr;
     double result = std::strtod(s.c_str(), &end);
-    if (end == s.c_str()) return ctx->fromDouble(std::numeric_limits<double>::quiet_NaN());
-    return ctx->fromDouble(result);
+    if (end == s.c_str()) return makeNumber(ctx, std::numeric_limits<double>::quiet_NaN());
+    return makeNumber(ctx, result);
 }
 
 } // namespace
@@ -830,7 +831,7 @@ static const proto::ProtoObject* numberConstruct(
             }
             const proto::ProtoString* pvKey = JSSymbols::primitiveValue(ctx);
             if (pvKey)
-                self = self->setAttribute(ctx, pvKey, ctx->fromDouble(val));
+                self = self->setAttribute(ctx, pvKey, makeNumber(ctx, val));
             return self;
         }
         const proto::ProtoObject* coerced = jsToNumber(ctx, a);
@@ -848,7 +849,7 @@ static const proto::ProtoObject* numberConstruct(
     }
     const proto::ProtoString* pvKey = JSSymbols::primitiveValue(ctx);
     if (pvKey)
-        self = self->setAttribute(ctx, pvKey, ctx->fromDouble(val));
+        self = self->setAttribute(ctx, pvKey, makeNumber(ctx, val));
     return self;
 }
 
@@ -932,7 +933,7 @@ void ensureNumberConstructor(proto::ProtoContext* ctx,
         const proto::ProtoObject* keyObj = ctx->fromUTF8String(name);
         const proto::ProtoString* key = keyObj ? keyObj->asString(ctx) : nullptr;
         if (!key) return;
-        ctor = ctor->setAttribute(ctx, key, ctx->fromDouble(val));
+        ctor = ctor->setAttribute(ctx, key, makeNumber(ctx, val));
         // Constants: {writable: false, enumerable: false, configurable: false} → bits = 0x0
         std::string pdKeyStr = "__pd_";
         pdKeyStr += name;

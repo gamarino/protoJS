@@ -1,4 +1,5 @@
 #include "../ProtoCoreTypes.h"
+#include "../JSNumber.h"
 #include "ProtoInterpreter.h"
 #include "QuickJSOpcodeEnum.h"
 #include "QuickJSBytecodeExport.h"
@@ -2373,11 +2374,11 @@ static const proto::ProtoObject* globalParseInt(
     const proto::ParentLink*, const proto::ProtoList* args, const proto::ProtoSparseList*)
 {
     const double nan = std::numeric_limits<double>::quiet_NaN();
-    if (!args || args->getSize(ctx) == 0) return ctx->fromDouble(nan);
+    if (!args || args->getSize(ctx) == 0) return makeNumber(ctx, nan);
     const proto::ProtoObject* strObj = args->getAt(ctx, 0);
     std::string s;
     if (!strObj || strObj == PROTO_NONE
-        || strObj == getUndefinedSentinel()) return ctx->fromDouble(nan);
+        || strObj == getUndefinedSentinel()) return makeNumber(ctx, nan);
     if (strObj == getNullSentinel()) { s = "null"; }
     else if (strObj == PROTO_TRUE)  { s = "true"; }
     else if (strObj == PROTO_FALSE) { s = "false"; }
@@ -2444,7 +2445,7 @@ static const proto::ProtoObject* globalParseInt(
                 s = buf;
             }
         } else if (prim->isBoolean(ctx)) s = prim->asBoolean(ctx) ? "true" : "false";
-        else return ctx->fromDouble(nan);
+        else return makeNumber(ctx, nan);
     }
 
     // Trim leading whitespace per ECMA-262 §7.1.4.1.1 StringToNumber:
@@ -2546,12 +2547,12 @@ static const proto::ProtoObject* globalParseInt(
         // Else: explicit radix 10/2/8/etc — leave "0x..." in place;
         // the strtoull below will parse "0" and stop at 'x'.
     }
-    if (radix < 2 || radix > 36 || s.empty()) return ctx->fromDouble(nan);
+    if (radix < 2 || radix > 36 || s.empty()) return makeNumber(ctx, nan);
 
     char* end = nullptr;
     errno = 0;
     unsigned long long uval = std::strtoull(s.c_str(), &end, radix);
-    if (end == s.c_str()) return ctx->fromDouble(nan);
+    if (end == s.c_str()) return makeNumber(ctx, nan);
     // Overflow path: strtoull returns ULLONG_MAX and sets errno=ERANGE.
     // Re-compute as a double over the consumed prefix so very large
     // magnitudes (\"-10000000000000000000\" beyond INT64_MIN) round to
@@ -2575,7 +2576,7 @@ static const proto::ProtoObject* globalParseInt(
             mul *= radix;
         }
         if (negative) d = -d;
-        return ctx->fromDouble(d);
+        return makeNumber(ctx, d);
     }
     long long result = negative ? -static_cast<long long>(uval) : static_cast<long long>(uval);
     return ctx->fromInteger(result);
@@ -2586,10 +2587,10 @@ static const proto::ProtoObject* globalParseFloat(
     const proto::ParentLink*, const proto::ProtoList* args, const proto::ProtoSparseList*)
 {
     const double nan = std::numeric_limits<double>::quiet_NaN();
-    if (!args || args->getSize(ctx) == 0) return ctx->fromDouble(nan);
+    if (!args || args->getSize(ctx) == 0) return makeNumber(ctx, nan);
     const proto::ProtoObject* strObj = args->getAt(ctx, 0);
     if (!strObj || strObj == PROTO_NONE
-        || strObj == getUndefinedSentinel()) return ctx->fromDouble(nan);
+        || strObj == getUndefinedSentinel()) return makeNumber(ctx, nan);
     if (strObj->isInteger(ctx)) return strObj;
     if (strObj->isDouble(ctx) || strObj->isFloat(ctx)) {
         // ECMA-262 §19.2.7 step 1 runs ToString on the input first,
@@ -2665,7 +2666,7 @@ static const proto::ProtoObject* globalParseFloat(
                 s = buf;
             }
         } else if (prim->isBoolean(ctx)) s = prim->asBoolean(ctx) ? "true" : "false";
-        else return ctx->fromDouble(nan);
+        else return makeNumber(ctx, nan);
     }
     // Trim leading whitespace — full ECMA-262 StrWhiteSpace set
     // (matches toNumber's wsWidth). Pre-fix only ASCII whitespace
@@ -2713,11 +2714,11 @@ static const proto::ProtoObject* globalParseFloat(
             // any other partial form is NaN.
             if (s.compare(signSkip, 8, "Infinity") == 0) {
                 bool neg = signSkip == 1 && s[0] == '-';
-                return ctx->fromDouble(neg
+                return makeNumber(ctx, neg
                     ? -std::numeric_limits<double>::infinity()
                     :  std::numeric_limits<double>::infinity());
             }
-            return ctx->fromDouble(nan);
+            return makeNumber(ctx, nan);
         }
         if (s.size() > signSkip + 1 && s[signSkip] == '0' &&
             (s[signSkip + 1] == 'x' || s[signSkip + 1] == 'X')) {
@@ -2727,8 +2728,8 @@ static const proto::ProtoObject* globalParseFloat(
     }
     char* end = nullptr;
     double result = std::strtod(s.c_str(), &end);
-    if (end == s.c_str()) return ctx->fromDouble(nan);
-    return ctx->fromDouble(result);
+    if (end == s.c_str()) return makeNumber(ctx, nan);
+    return makeNumber(ctx, result);
 }
 
 // Both globals first apply ToNumber per spec §19.2.4 / §19.2.5 — that
@@ -3121,7 +3122,7 @@ static const proto::ProtoObject* toNumber(proto::ProtoContext* context,
 
     auto makeNaN = [&]() -> const proto::ProtoObject* {
         const double nan = std::numeric_limits<double>::quiet_NaN();
-        return context->fromDouble(nan);
+        return makeNumber(context, nan);
     };
 
     // ECMA-262 §7.1.3 (ToNumber): undefined → NaN, null → +0.
@@ -3217,9 +3218,9 @@ static const proto::ProtoObject* toNumber(proto::ProtoContext* context,
         if (trimmed.empty()) return context->fromInteger(0LL);
         // Handle special literals.
         if (trimmed == "Infinity" || trimmed == "+Infinity")
-            return context->fromDouble(std::numeric_limits<double>::infinity());
+            return makeNumber(context, std::numeric_limits<double>::infinity());
         if (trimmed == "-Infinity")
-            return context->fromDouble(-std::numeric_limits<double>::infinity());
+            return makeNumber(context, -std::numeric_limits<double>::infinity());
         // §7.1.4.1.1 StrNumericLiteral is case-sensitive: only the
         // exact spelling "Infinity" / "+Infinity" / "-Infinity" is
         // accepted. std::stod (next branch) is case-insensitive for
@@ -3280,15 +3281,15 @@ static const proto::ProtoObject* toNumber(proto::ProtoContext* context,
             size_t pos = 0;
             double d = std::stod(trimmed, &pos);
             if (pos != trimmed.size()) return makeNaN();
-            if (d == 0.0 && std::signbit(d)) return context->fromDouble(-0.0);
+            if (d == 0.0 && std::signbit(d)) return makeNumber(context, -0.0);
             if (d == std::trunc(d) && std::abs(d) < 9.007199254740992e15)
                 return context->fromInteger(static_cast<long long>(d));
-            return context->fromDouble(d);
+            return makeNumber(context, d);
         } catch (const std::out_of_range&) {
             // Numeric literal whose value rounds beyond the double range.
             // Preserve the leading sign — `"-10e10000"` is -Infinity.
             const double inf = std::numeric_limits<double>::infinity();
-            return context->fromDouble(trimmed[0] == '-' ? -inf : inf);
+            return makeNumber(context, trimmed[0] == '-' ? -inf : inf);
         } catch (...) {
             return makeNaN();
         }
@@ -5555,9 +5556,9 @@ const proto::ProtoObject* runBytecode(proto::ProtoContext* pContext,
             if (pdks) *pGlobalRoot = (*pGlobalRoot)->setAttribute(pContext, pdks, pContext->fromInteger(0x0LL));
         };
         ensureGlobalConst("Infinity",
-            pContext->fromDouble(std::numeric_limits<double>::infinity()));
+            makeNumber(pContext, std::numeric_limits<double>::infinity()));
         ensureGlobalConst("NaN",
-            pContext->fromDouble(std::numeric_limits<double>::quiet_NaN()));
+            makeNumber(pContext, std::numeric_limits<double>::quiet_NaN()));
         ensureGlobalConst("undefined", PROTO_NONE);
         // Register standard globals that are not yet fully implemented.
         // Constructor-type globals get minimal stub objects (with name + prototype attributes)
@@ -7432,9 +7433,9 @@ const proto::ProtoObject* runBytecode(proto::ProtoContext* pContext,
      * for the Number side and is the most common test262 usage). */
     #define BIGINT_REL_DISPATCH(less, equal, greater) do { \
         const proto::ProtoString* _bigK = JSSymbols::isBigInt(pContext); \
-        bool _aBig = _bigK && a && !proto::isSmallInt(a) \
+        bool _aBig = _bigK && a && !proto::isSmallInt(a) && !a->isDouble(pContext) \
             && a->getAttribute(pContext, _bigK, true) == PROTO_TRUE; \
-        bool _bBig = _bigK && b && !proto::isSmallInt(b) \
+        bool _bBig = _bigK && b && !proto::isSmallInt(b) && !b->isDouble(pContext) \
             && b->getAttribute(pContext, _bigK, true) == PROTO_TRUE; \
         if (_aBig && _bBig) { \
             const proto::ProtoString* _vk = JSSymbols::bigIntValue(pContext); \
@@ -7460,9 +7461,9 @@ const proto::ProtoObject* runBytecode(proto::ProtoContext* pContext,
      * wrappers. */
     #define BIGINT_BIN_DISPATCH(op_method) do { \
         const proto::ProtoString* _bigK = JSSymbols::isBigInt(pContext); \
-        bool _aBig = _bigK && a && !proto::isSmallInt(a) \
+        bool _aBig = _bigK && a && !proto::isSmallInt(a) && !a->isDouble(pContext) \
             && a->getAttribute(pContext, _bigK, true) == PROTO_TRUE; \
-        bool _bBig = _bigK && b && !proto::isSmallInt(b) \
+        bool _bBig = _bigK && b && !proto::isSmallInt(b) && !b->isDouble(pContext) \
             && b->getAttribute(pContext, _bigK, true) == PROTO_TRUE; \
         if (_aBig || _bBig) { \
             if (_aBig != _bBig) { \
@@ -8242,7 +8243,9 @@ const proto::ProtoObject* runBytecode(proto::ProtoContext* pContext,
                     key = prop->asString(pContext);
                     if (!key && prop->isInteger(pContext)) {
                         long long idx = prop->asLong(pContext);
-                        if (idx >= 0) key = JSSymbols::indexKey(pContext, static_cast<uint32_t>(idx));
+                        key = (idx >= 0 && idx <= 0xFFFFFFFELL)
+                            ? JSSymbols::indexKey(pContext, static_cast<uint32_t>(idx))
+                            : protojs::toPropertyKey(pContext, prop);
                     }
                 }
                 const proto::ProtoObject* val = (sObj && sObj != PROTO_NONE && key)
@@ -8268,7 +8271,9 @@ const proto::ProtoObject* runBytecode(proto::ProtoContext* pContext,
                     key = prop->asString(pContext);
                     if (!key && prop->isInteger(pContext)) {
                         long long idx = prop->asLong(pContext);
-                        if (idx >= 0) key = JSSymbols::indexKey(pContext, static_cast<uint32_t>(idx));
+                        key = (idx >= 0 && idx <= 0xFFFFFFFELL)
+                            ? JSSymbols::indexKey(pContext, static_cast<uint32_t>(idx))
+                            : protojs::toPropertyKey(pContext, prop);
                     }
                 }
                 if (tObj && tObj != PROTO_NONE && key) {
@@ -10442,8 +10447,14 @@ const proto::ProtoObject* runBytecode(proto::ProtoContext* pContext,
                 const proto::ProtoString* idxKey2 = nullptr;
                 if (idxVal && idxVal != PROTO_NONE && idxVal->isInteger(pContext)) {
                     long long i2 = idxVal->asLong(pContext);
-                    if (i2 >= 0)
+                    // An array index uses the shared index key; any other
+                    // integer (`{[-2]: v}`, `{[2 ** 40]: v}`) is keyed by its
+                    // decimal string.  Pre-fix a negative key was dropped and
+                    // a key above 2^32 was truncated to 32 bits.
+                    if (i2 >= 0 && i2 <= 0xFFFFFFFELL)
                         idxKey2 = JSSymbols::indexKey(pContext, static_cast<uint32_t>(i2));
+                    else
+                        idxKey2 = protojs::toPropertyKey(pContext, idxVal);
                 } else if (idxVal && idxVal != PROTO_NONE) {
                     // Symbol primitives have a per-instance
                     // __symbol_str_key__ that the put / hasOwn paths
@@ -11150,8 +11161,9 @@ const proto::ProtoObject* runBytecode(proto::ProtoContext* pContext,
                     keyStr2 = keyVal->asString(pContext);
                     if (!keyStr2 && keyVal->isInteger(pContext)) {
                         long long idx = keyVal->asLong(pContext);
-                        if (idx >= 0)
-                            keyStr2 = JSSymbols::indexKey(pContext, static_cast<uint32_t>(idx));
+                        keyStr2 = (idx >= 0 && idx <= 0xFFFFFFFELL)
+                            ? JSSymbols::indexKey(pContext, static_cast<uint32_t>(idx))
+                            : protojs::toPropertyKey(pContext, keyVal);
                     }
                 }
                 if (!keyStr2) {
@@ -12383,12 +12395,18 @@ const proto::ProtoObject* runBytecode(proto::ProtoContext* pContext,
                         DISPATCH();
                     }
                 }
-                if (a && b && a->isInteger(pContext) && b->isInteger(pContext)) {
-                    // Delegate to protoCore: handles SmallInt-out-of-range
-                    // promotion to LargeInteger via TempBignum, which the
-                    // manual `asLong + asLong` path silently truncated.
-                    pAutomaticLocals[currentStackBase + _PF().stackTop++] = a->add(pContext, b);
-                    DISPATCH();
+                // Number fast path: both operands are numbers (a double, or
+                // a sum outside the SmallInteger range).  JavaScript numbers
+                // are doubles, so the sum is computed as one and stored in
+                // canonical form (JSNumber.h); protoCore's Integer::add would
+                // instead promote to an exact LargeInteger, which is not a
+                // JavaScript value (2**53 + 1 must round to 2**53).
+                {
+                    double da, db;
+                    if (numberToDouble(pContext, a, da) && numberToDouble(pContext, b, db)) {
+                        pAutomaticLocals[currentStackBase + _PF().stackTop++] = makeNumber(pContext, da + db);
+                        DISPATCH();
+                    }
                 }
 
                 // Fallback: ToPrimitive
@@ -12416,7 +12434,11 @@ const proto::ProtoObject* runBytecode(proto::ProtoContext* pContext,
                     const proto::ProtoObject* ra = toNumber(pContext, pa);
                     const proto::ProtoObject* rb = toNumber(pContext, pb);
                     REFRESH_INTERP_STATE();
-                    res = ra ? ra->add(pContext, rb) : PROTO_NONE;
+                    double da, db;
+                    if (numberToDouble(pContext, ra, da) && numberToDouble(pContext, rb, db))
+                        res = makeNumber(pContext, da + db);
+                    else
+                        res = ra ? canonicalNumber(pContext, ra->add(pContext, rb)) : PROTO_NONE;
                 }
                 pAutomaticLocals[currentStackBase + _PF().stackTop++] = (res ? res : PROTO_NONE);
                 DISPATCH();
@@ -12434,24 +12456,41 @@ const proto::ProtoObject* runBytecode(proto::ProtoContext* pContext,
                 else if (b == PROTO_FALSE || b == t_nullSentinel) b = proto::makeSmallInt(0);
 
                 // Integer fast-path
+                // Taken only when the product is exact in 64 bits (both
+                // factors within 32 bits) and non-zero: a zero product may be
+                // -0 (`0 * -5`), which the double path below produces.
                 if (proto::isSmallInt(a) && proto::isSmallInt(b)) {
-                    long long resVal = proto::asSmallInt(a) * proto::asSmallInt(b);
-                    if (proto::smallIntInRange(resVal)) {
+                    const long long va = proto::asSmallInt(a);
+                    const long long vb = proto::asSmallInt(b);
+                    const bool exact = va == static_cast<int32_t>(va) && vb == static_cast<int32_t>(vb);
+                    const long long resVal = exact ? va * vb : 0;
+                    if (resVal != 0 && proto::smallIntInRange(resVal)) {
                         pAutomaticLocals[currentStackBase + _PF().stackTop++] = proto::makeSmallInt(resVal);
                         DISPATCH();
                     }
                 }
-                if (a && b && a->isInteger(pContext) && b->isInteger(pContext)) {
-                    // protoCore Integer::multiply handles bignum overflow.
-                    pAutomaticLocals[currentStackBase + _PF().stackTop++] = a->multiply(pContext, b);
-                    DISPATCH();
+                // Number fast path; see L_OP_add.  The double product also
+                // gives -0 for a zero product with a negative factor.
+                {
+                    double da, db;
+                    if (numberToDouble(pContext, a, da) && numberToDouble(pContext, b, db)) {
+                        pAutomaticLocals[currentStackBase + _PF().stackTop++] = makeNumber(pContext, da * db);
+                        DISPATCH();
+                    }
                 }
 
                 const proto::ProtoObject* na = toNumber(pContext, toPrimIfObject(a));
                 const proto::ProtoObject* nb = toNumber(pContext, toPrimIfObject(b));
                 REFRESH_INTERP_STATE();
                 if (has_pending_exception) DISPATCH();
-                const proto::ProtoObject* res = na->multiply(pContext, nb);
+                const proto::ProtoObject* res;
+                {
+                    double da, db;
+                    if (numberToDouble(pContext, na, da) && numberToDouble(pContext, nb, db))
+                        res = makeNumber(pContext, da * db);
+                    else
+                        res = canonicalNumber(pContext, na->multiply(pContext, nb));
+                }
                 pAutomaticLocals[currentStackBase + _PF().stackTop++] = (res ? res : PROTO_NONE);
                 DISPATCH();
             }
@@ -12509,7 +12548,7 @@ const proto::ProtoObject* runBytecode(proto::ProtoContext* pContext,
                 };
                 double da = toDoubleVal(a);
                 double db = toDoubleVal(b);
-                pAutomaticLocals[currentStackBase + _PF().stackTop++] = pContext->fromDouble(da / db);
+                pAutomaticLocals[currentStackBase + _PF().stackTop++] = makeNumber(pContext, da / db);
                 DISPATCH();
             }
             L_OP_sub: {
@@ -12533,17 +12572,27 @@ const proto::ProtoObject* runBytecode(proto::ProtoContext* pContext,
                         DISPATCH();
                     }
                 }
-                if (a && b && a->isInteger(pContext) && b->isInteger(pContext)) {
-                    // protoCore Integer::subtract handles bignum overflow.
-                    pAutomaticLocals[currentStackBase + _PF().stackTop++] = a->subtract(pContext, b);
-                    DISPATCH();
+                // Number fast path; see L_OP_add.
+                {
+                    double da, db;
+                    if (numberToDouble(pContext, a, da) && numberToDouble(pContext, b, db)) {
+                        pAutomaticLocals[currentStackBase + _PF().stackTop++] = makeNumber(pContext, da - db);
+                        DISPATCH();
+                    }
                 }
 
                 const proto::ProtoObject* na = toNumber(pContext, toPrimIfObject(a));
                 const proto::ProtoObject* nb = toNumber(pContext, toPrimIfObject(b));
                 REFRESH_INTERP_STATE();
                 if (has_pending_exception) DISPATCH();
-                const proto::ProtoObject* res = na->subtract(pContext, nb);
+                const proto::ProtoObject* res;
+                {
+                    double da, db;
+                    if (numberToDouble(pContext, na, da) && numberToDouble(pContext, nb, db))
+                        res = makeNumber(pContext, da - db);
+                    else
+                        res = canonicalNumber(pContext, na->subtract(pContext, nb));
+                }
                 pAutomaticLocals[currentStackBase + _PF().stackTop++] = (res ? res : PROTO_NONE);
                 DISPATCH();
             }
@@ -12558,18 +12607,19 @@ const proto::ProtoObject* runBytecode(proto::ProtoContext* pContext,
                 if (proto::isSmallInt(a) && proto::isSmallInt(b)) {
                     long long va = proto::asSmallInt(a);
                     long long vb = proto::asSmallInt(b);
-                    if (vb != 0) {
+                    // A zero remainder of a negative dividend is -0
+                    // (`-4 % 2`), which the double path below produces.
+                    if (vb != 0 && (va >= 0 || va % vb != 0)) {
                         pAutomaticLocals[currentStackBase + _PF().stackTop++] = proto::makeSmallInt(va % vb);
                         DISPATCH();
                     }
                 }
-                if (a && b && a->isInteger(pContext) && b->isInteger(pContext)) {
-                    // protoCore Integer::modulo handles bignum overflow.
-                    // The vb==0 check still gates: division by zero falls
-                    // through to the spec ToNumber NaN path below.
-                    long long vb = b->asLong(pContext);
-                    if (vb != 0) {
-                        pAutomaticLocals[currentStackBase + _PF().stackTop++] = a->modulo(pContext, b);
+                // Number fast path: fmod is ECMA-262's Number::remainder
+                // (NaN for a zero divisor, the dividend's sign otherwise).
+                {
+                    double da, db;
+                    if (numberToDouble(pContext, a, da) && numberToDouble(pContext, b, db)) {
+                        pAutomaticLocals[currentStackBase + _PF().stackTop++] = makeNumber(pContext, std::fmod(da, db));
                         DISPATCH();
                     }
                 }
@@ -12589,7 +12639,7 @@ const proto::ProtoObject* runBytecode(proto::ProtoContext* pContext,
                     };
                     double da = toDoubleVal2(na);
                     double db = toDoubleVal2(nb);
-                    pAutomaticLocals[currentStackBase + _PF().stackTop++] = pContext->fromDouble(std::fmod(da, db));
+                    pAutomaticLocals[currentStackBase + _PF().stackTop++] = makeNumber(pContext, std::fmod(da, db));
                 }
                 DISPATCH();
             }
@@ -13008,7 +13058,7 @@ const proto::ProtoObject* runBytecode(proto::ProtoContext* pContext,
                 if (ures <= static_cast<uint32_t>(std::numeric_limits<int32_t>::max())) {
                     pAutomaticLocals[currentStackBase + _PF().stackTop++] = pContext->fromInteger(static_cast<long long>(ures));
                 } else {
-                    pAutomaticLocals[currentStackBase + _PF().stackTop++] = pContext->fromDouble(static_cast<double>(ures));
+                    pAutomaticLocals[currentStackBase + _PF().stackTop++] = makeNumber(pContext, static_cast<double>(ures));
                 }
                 DISPATCH();
             }
@@ -13048,7 +13098,7 @@ const proto::ProtoObject* runBytecode(proto::ProtoContext* pContext,
                     DISPATCH();
                 }
                 if (a == PROTO_FALSE || a == t_nullSentinel) {
-                    pAutomaticLocals[currentStackBase + _PF().stackTop++] = pContext->fromDouble(-0.0);
+                    pAutomaticLocals[currentStackBase + _PF().stackTop++] = makeNumber(pContext, -0.0);
                     DISPATCH();
                 }
                 // §6.1.6.2.4 BigInt::unaryMinus — negate the inner Integer
@@ -13070,12 +13120,12 @@ const proto::ProtoObject* runBytecode(proto::ProtoContext* pContext,
                 }
                 const proto::ProtoObject* num = toNumber(pContext, toPrimIfObject(a));
                 if (has_pending_exception) DISPATCH();
-                if (!num || num == PROTO_NONE) { pAutomaticLocals[currentStackBase + _PF().stackTop++] = pContext->fromDouble(std::numeric_limits<double>::quiet_NaN()); DISPATCH(); }
+                if (!num || num == PROTO_NONE) { pAutomaticLocals[currentStackBase + _PF().stackTop++] = makeNumber(pContext, std::numeric_limits<double>::quiet_NaN()); DISPATCH(); }
                 if (num->isInteger(pContext)) {
                     long long v = num->asLong(pContext);
-                    pAutomaticLocals[currentStackBase + _PF().stackTop++] = (v == 0 ? pContext->fromDouble(-0.0) : pContext->fromInteger(-v));
+                    pAutomaticLocals[currentStackBase + _PF().stackTop++] = (v == 0 ? makeNumber(pContext, -0.0) : makeNumber(pContext, -num->asDouble(pContext)));
                 } else {
-                    pAutomaticLocals[currentStackBase + _PF().stackTop++] = pContext->fromDouble(-num->asDouble(pContext));
+                    pAutomaticLocals[currentStackBase + _PF().stackTop++] = makeNumber(pContext, -num->asDouble(pContext));
                 }
                 DISPATCH();
             }
@@ -13114,9 +13164,8 @@ const proto::ProtoObject* runBytecode(proto::ProtoContext* pContext,
                     }
                 }
                 const proto::ProtoObject* num = toNumber(pContext, a);
-                if (!num || num == PROTO_NONE) { pAutomaticLocals[currentStackBase + _PF().stackTop++] = pContext->fromDouble(std::numeric_limits<double>::quiet_NaN()); DISPATCH(); }
-                if (num->isInteger(pContext)) pAutomaticLocals[currentStackBase + _PF().stackTop++] = pContext->fromInteger(num->asLong(pContext) + 1);
-                else pAutomaticLocals[currentStackBase + _PF().stackTop++] = pContext->fromDouble(num->asDouble(pContext) + 1.0);
+                if (!num || num == PROTO_NONE) { pAutomaticLocals[currentStackBase + _PF().stackTop++] = makeNumber(pContext, std::numeric_limits<double>::quiet_NaN()); DISPATCH(); }
+                pAutomaticLocals[currentStackBase + _PF().stackTop++] = makeNumber(pContext, num->asDouble(pContext) + 1.0);
                 DISPATCH();
             }
             L_OP_dec: {
@@ -13146,9 +13195,8 @@ const proto::ProtoObject* runBytecode(proto::ProtoContext* pContext,
                     }
                 }
                 const proto::ProtoObject* num = toNumber(pContext, a);
-                if (!num || num == PROTO_NONE) { pAutomaticLocals[currentStackBase + _PF().stackTop++] = pContext->fromDouble(std::numeric_limits<double>::quiet_NaN()); DISPATCH(); }
-                if (num->isInteger(pContext)) pAutomaticLocals[currentStackBase + _PF().stackTop++] = pContext->fromInteger(num->asLong(pContext) - 1);
-                else pAutomaticLocals[currentStackBase + _PF().stackTop++] = pContext->fromDouble(num->asDouble(pContext) - 1.0);
+                if (!num || num == PROTO_NONE) { pAutomaticLocals[currentStackBase + _PF().stackTop++] = makeNumber(pContext, std::numeric_limits<double>::quiet_NaN()); DISPATCH(); }
+                pAutomaticLocals[currentStackBase + _PF().stackTop++] = makeNumber(pContext, num->asDouble(pContext) - 1.0);
                 DISPATCH();
             }
             L_OP_post_inc: {
@@ -13181,9 +13229,8 @@ const proto::ProtoObject* runBytecode(proto::ProtoContext* pContext,
                 }
                 const proto::ProtoObject* num = toNumber(pContext, a);
                 const proto::ProtoObject* inc;
-                if (!num || num == PROTO_NONE) inc = pContext->fromDouble(std::numeric_limits<double>::quiet_NaN());
-                else if (num->isInteger(pContext)) inc = pContext->fromInteger(num->asLong(pContext) + 1);
-                else inc = pContext->fromDouble(num->asDouble(pContext) + 1.0);
+                if (!num || num == PROTO_NONE) inc = makeNumber(pContext, std::numeric_limits<double>::quiet_NaN());
+                else inc = makeNumber(pContext, num->asDouble(pContext) + 1.0);
                 pAutomaticLocals[currentStackBase + _PF().stackTop++] = (num ? num : PROTO_NONE);
                 pAutomaticLocals[currentStackBase + _PF().stackTop++] = inc;
                 DISPATCH();
@@ -13218,9 +13265,8 @@ const proto::ProtoObject* runBytecode(proto::ProtoContext* pContext,
                 }
                 const proto::ProtoObject* num = toNumber(pContext, a);
                 const proto::ProtoObject* dec;
-                if (!num || num == PROTO_NONE) dec = pContext->fromDouble(std::numeric_limits<double>::quiet_NaN());
-                else if (num->isInteger(pContext)) dec = pContext->fromInteger(num->asLong(pContext) - 1);
-                else dec = pContext->fromDouble(num->asDouble(pContext) - 1.0);
+                if (!num || num == PROTO_NONE) dec = makeNumber(pContext, std::numeric_limits<double>::quiet_NaN());
+                else dec = makeNumber(pContext, num->asDouble(pContext) - 1.0);
                 pAutomaticLocals[currentStackBase + _PF().stackTop++] = (num ? num : PROTO_NONE);
                 pAutomaticLocals[currentStackBase + _PF().stackTop++] = dec;
                 DISPATCH();
@@ -13255,9 +13301,8 @@ const proto::ProtoObject* runBytecode(proto::ProtoContext* pContext,
                         nv = proto::makeSmallInt(proto::asSmallInt(cur) - 1);
                     } else {
                         const proto::ProtoObject* num = toNumber(pContext, cur);
-                        if (!num || num == PROTO_NONE) nv = pContext->fromDouble(std::numeric_limits<double>::quiet_NaN());
-                        else if (num->isInteger(pContext)) nv = pContext->fromInteger(num->asLong(pContext) - 1);
-                        else nv = pContext->fromDouble(num->asDouble(pContext) - 1.0);
+                        if (!num || num == PROTO_NONE) nv = makeNumber(pContext, std::numeric_limits<double>::quiet_NaN());
+                        else nv = makeNumber(pContext, num->asDouble(pContext) - 1.0);
                     }
                     if (cell) writeCell(pContext, cell, nv);
                     else setSlot(pContext, argCount + locIndex, nv);
@@ -13291,9 +13336,8 @@ const proto::ProtoObject* runBytecode(proto::ProtoContext* pContext,
                         nv = proto::makeSmallInt(proto::asSmallInt(cur) + 1);
                     } else {
                         const proto::ProtoObject* num = toNumber(pContext, cur);
-                        if (!num || num == PROTO_NONE) nv = pContext->fromDouble(std::numeric_limits<double>::quiet_NaN());
-                        else if (num->isInteger(pContext)) nv = pContext->fromInteger(num->asLong(pContext) + 1);
-                        else nv = pContext->fromDouble(num->asDouble(pContext) + 1.0);
+                        if (!num || num == PROTO_NONE) nv = makeNumber(pContext, std::numeric_limits<double>::quiet_NaN());
+                        else nv = makeNumber(pContext, num->asDouble(pContext) + 1.0);
                     }
                     if (cell) writeCell(pContext, cell, nv);
                     else setSlot(pContext, argCount + locIndex, nv);
@@ -13341,7 +13385,7 @@ const proto::ProtoObject* runBytecode(proto::ProtoContext* pContext,
                     } else {
                         const proto::ProtoObject* nc = toNumber(pContext, cur);
                         const proto::ProtoObject* nval = toNumber(pContext, val);
-                        nv = nc ? nc->add(pContext, nval) : PROTO_NONE;
+                        nv = nc ? numberAdd(pContext, nc, nval) : PROTO_NONE;
                     }
                     if (addCell) writeCell(pContext, addCell, nv);
                     else setSlot(pContext, argCount + locIndex, nv);
@@ -13416,7 +13460,7 @@ const proto::ProtoObject* runBytecode(proto::ProtoContext* pContext,
                 } else {
                     const proto::ProtoObject* nd = toNumber(pContext, dst);
                     const proto::ProtoObject* ns = toNumber(pContext, src);
-                    nv = nd ? nd->add(pContext, ns) : PROTO_NONE;
+                    nv = nd ? numberAdd(pContext, nd, ns) : PROTO_NONE;
                 }
                 if (dstCell) writeCell(pContext, dstCell, nv);
                 else setSlot(pContext, argCount + dstIdx, nv);
@@ -13671,10 +13715,8 @@ const proto::ProtoObject* runBytecode(proto::ProtoContext* pContext,
                 double da = (!a || a == PROTO_NONE) ? std::numeric_limits<double>::quiet_NaN() : a->asDouble(pContext);
                 double db = (!b || b == PROTO_NONE) ? std::numeric_limits<double>::quiet_NaN() : b->asDouble(pContext);
                 double result = std::pow(da, db);
-                if (result == std::trunc(result) && std::abs(result) < 9.007199254740992e15 && !std::isnan(result) && !std::isinf(result))
-                    pAutomaticLocals[currentStackBase + _PF().stackTop++] = pContext->fromInteger(static_cast<long long>(result));
-                else
-                    pAutomaticLocals[currentStackBase + _PF().stackTop++] = pContext->fromDouble(result);
+                // makeNumber keeps -0 ((-0) ** 3), which an integer test lost.
+                pAutomaticLocals[currentStackBase + _PF().stackTop++] = makeNumber(pContext, result);
                 DISPATCH();
             }
             L_OP_is_undefined_or_null: {

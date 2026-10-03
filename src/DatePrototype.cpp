@@ -1,4 +1,5 @@
 #include "ProtoCoreTypes.h"
+#include "JSNumber.h"
 #include "DatePrototype.h"
 #include "JSContext.h"
 // Notes on the choice of timezone primitives:
@@ -277,7 +278,7 @@ static const proto::ProtoObject* writeDateValue(proto::ProtoContext* ctx,
         // the canonical double NaN; readDateValue surfaces it back to
         // callers via std::isnan() which all getters / stringifiers
         // already branch on.
-        return self->setAttribute(ctx, k, ctx->fromDouble(std::nan("")));
+        return self->setAttribute(ctx, k, makeNumber(ctx, std::nan("")));
     }
     // Whole-millisecond values fit Integer; non-integral Date values
     // are NaN per TimeClip, so the Double branch is normally unused.
@@ -287,7 +288,7 @@ static const proto::ProtoObject* writeDateValue(proto::ProtoContext* ctx,
         return self->setAttribute(ctx, k,
             ctx->fromInteger(static_cast<long long>(value)));
     }
-    return self->setAttribute(ctx, k, ctx->fromDouble(value));
+    return self->setAttribute(ctx, k, makeNumber(ctx, value));
 }
 
 // ---------------------------------------------------------------------------
@@ -831,11 +832,11 @@ static const proto::ProtoObject* getComponent(proto::ProtoContext* ctx,
             "this is not a Date object"));
         return PROTO_NONE;
     }
-    if (std::isnan(t)) return ctx->fromDouble(std::nan(""));
+    if (std::isnan(t)) return makeNumber(ctx, std::nan(""));
     std::tm tmv;
     int msrem = 0;
     if (!decomposeTime(t, utc, &tmv, &msrem))
-        return ctx->fromDouble(std::nan(""));
+        return makeNumber(ctx, std::nan(""));
     return ctx->fromInteger(static_cast<long long>(pick(tmv, msrem)));
 }
 
@@ -1031,12 +1032,12 @@ static const proto::ProtoObject* dateGetTimezoneOffset(proto::ProtoContext* ctx,
             "this is not a Date object"));
         return PROTO_NONE;
     }
-    if (std::isnan(t)) return ctx->fromDouble(std::nan(""));
+    if (std::isnan(t)) return makeNumber(ctx, std::nan(""));
     long long secs = static_cast<long long>(t) / 1000;
     std::time_t tt = static_cast<std::time_t>(secs);
     std::tm utcTm, localTm;
     if (!gmtime_r(&tt, &utcTm) || !localtime_r(&tt, &localTm))
-        return ctx->fromDouble(std::nan(""));
+        return makeNumber(ctx, std::nan(""));
     // Compute the difference in minutes: localTime - utcTime then negate.
     // Use timegm on both — local tm carries tm_isdst that we keep, gmtime
     // pretends the broken-down time is UTC.
@@ -1063,7 +1064,7 @@ static const proto::ProtoObject* dateGetTime(proto::ProtoContext* ctx,
             "this is not a Date object"));
         return PROTO_NONE;
     }
-    if (std::isnan(t)) return ctx->fromDouble(std::nan(""));
+    if (std::isnan(t)) return makeNumber(ctx, std::nan(""));
     return ctx->fromInteger(static_cast<long long>(t));
 }
 
@@ -1171,7 +1172,7 @@ static const proto::ProtoObject* setComponent2(proto::ProtoContext* ctx,
         // (date-value-read-before-tonumber-when-date-is-invalid.js).
         // The saved t reflects the pre-coercion value; what's stored
         // in [[DateValue]] now is whatever setTime stamped.
-        return ctx->fromDouble(std::nan(""));
+        return makeNumber(ctx, std::nan(""));
     }
     std::tm tmv = {};
     int msrem = 0;
@@ -1180,19 +1181,19 @@ static const proto::ProtoObject* setComponent2(proto::ProtoContext* ctx,
         decomposeTime(0.0, /*utc=*/true, &tmv, &msrem);
     } else if (!decomposeTime(t, utc, &tmv, &msrem)) {
         writeDateValue(ctx, self, std::nan(""));
-        return ctx->fromDouble(std::nan(""));
+        return makeNumber(ctx, std::nan(""));
     }
     if (anyNan) {
         // Spec: any NaN-coerced present arg taints the result, but
         // ToNumber side effects already fired (Phase 1).
         writeDateValue(ctx, self, std::nan(""));
-        return ctx->fromDouble(std::nan(""));
+        return makeNumber(ctx, std::nan(""));
     }
     mutate(tmv, msrem, coerced, present, probe);
     double composed = composeTime(tmv, msrem, utc);
     composed = timeClip(composed);
     writeDateValue(ctx, self, composed);
-    if (std::isnan(composed)) return ctx->fromDouble(std::nan(""));
+    if (std::isnan(composed)) return makeNumber(ctx, std::nan(""));
     return ctx->fromInteger(static_cast<long long>(composed));
 }
 
@@ -1462,7 +1463,7 @@ static const proto::ProtoObject* dateSetTime(proto::ProtoContext* ctx,
     }
     t = timeClip(t);
     writeDateValue(ctx, self, t);
-    if (std::isnan(t)) return ctx->fromDouble(std::nan(""));
+    if (std::isnan(t)) return makeNumber(ctx, std::nan(""));
     return ctx->fromInteger(static_cast<long long>(t));
 }
 
@@ -1993,7 +1994,7 @@ static const proto::ProtoObject* dateUTCNew(proto::ProtoContext* ctx,
     if (!ctx) return PROTO_NONE;
     double nan = std::nan("");
     int argc = args ? static_cast<int>(args->getSize(ctx)) : 0;
-    if (argc == 0) return ctx->fromDouble(nan);
+    if (argc == 0) return makeNumber(ctx, nan);
     bool sawNaN = false;
     auto pull = [&](int idx, double dflt) -> double {
         if (idx >= argc) return dflt;
@@ -2018,7 +2019,7 @@ static const proto::ProtoObject* dateUTCNew(proto::ProtoContext* ctx,
         return dflt;
     };
     double year = pull(0, 0);
-    if (sawNaN) return ctx->fromDouble(nan);
+    if (sawNaN) return makeNumber(ctx, nan);
     // §21.4.3.4 step 8: 'If y is not NaN and 0 ≤ ToInteger(y) ≤ 99'.
     // The 0-99 check applies to the ToInteger-truncated value, not the
     // raw double — UTC/year-offset.js fixture exercises -0.999999
@@ -2032,7 +2033,7 @@ static const proto::ProtoObject* dateUTCNew(proto::ProtoContext* ctx,
     double mi    = pull(4, 0);
     double sec   = pull(5, 0);
     double ms    = pull(6, 0);
-    if (sawNaN) return ctx->fromDouble(nan);
+    if (sawNaN) return makeNumber(ctx, nan);
     std::tm tmv = {};
     tmv.tm_year = static_cast<int>(year) - 1900;
     tmv.tm_mon  = static_cast<int>(month);
@@ -2041,10 +2042,10 @@ static const proto::ProtoObject* dateUTCNew(proto::ProtoContext* ctx,
     tmv.tm_min  = static_cast<int>(mi);
     tmv.tm_sec  = static_cast<int>(sec);
     std::time_t epoch = timegm(&tmv);
-    if (epoch == static_cast<std::time_t>(-1)) return ctx->fromDouble(nan);
+    if (epoch == static_cast<std::time_t>(-1)) return makeNumber(ctx, nan);
     double total = static_cast<double>(epoch) * 1000.0 + ms;
     total = timeClip(total);
-    if (std::isnan(total)) return ctx->fromDouble(nan);
+    if (std::isnan(total)) return makeNumber(ctx, nan);
     return ctx->fromInteger(static_cast<long long>(total));
 }
 
@@ -2058,7 +2059,7 @@ static const proto::ProtoObject* dateParseNew(proto::ProtoContext* ctx,
                                               const proto::ProtoSparseList*) {
     if (!ctx) return PROTO_NONE;
     double nan = std::nan("");
-    if (!args || args->getSize(ctx) == 0) return ctx->fromDouble(nan);
+    if (!args || args->getSize(ctx) == 0) return makeNumber(ctx, nan);
     const proto::ProtoObject* v = args->getAt(ctx, 0);
     std::string s;
     if (v && v->isString(ctx)) {
@@ -2067,14 +2068,14 @@ static const proto::ProtoObject* dateParseNew(proto::ProtoContext* ctx,
         // Spec: ToString applied to non-string.  jsToNumber here is
         // wrong; use a simple coercion: integer → "<n>", null → "null",
         // undefined → "undefined".  For now, NaN on non-string.
-        return ctx->fromDouble(nan);
+        return makeNumber(ctx, nan);
     }
     double t = parseDateString(s);
     // §21.4.3.2 step 4: TimeClip the parse result.  A value past
     // ±8.64e15 ms must surface as NaN even when the parser can
     // represent it (parse/time-value-maximum-range.js).
     t = timeClip(t);
-    if (std::isnan(t)) return ctx->fromDouble(nan);
+    if (std::isnan(t)) return makeNumber(ctx, nan);
     return ctx->fromInteger(static_cast<long long>(t));
 }
 

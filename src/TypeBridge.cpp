@@ -1,4 +1,5 @@
 #include "ProtoCoreTypes.h"
+#include "JSNumber.h"
 #include "TypeBridge.h"
 #include "runtime/ProtoInterpreter.h"
 #include "GCBridge.h"
@@ -51,12 +52,12 @@ const proto::ProtoObject* TypeBridge::fromJS(JSContext* ctx, JSValue val, proto:
         // returning +0. The signbit test catches -0 specifically; all
         // other integer doubles go through the SmallInteger fast path.
         if (d == 0.0 && std::signbit(d)) {
-            return pContext->fromDouble(d);
+            return makeNumber(pContext, d);
         }
         if (d == (long long)d) {
             return pContext->fromInteger((long long)d);
         }
-        return pContext->fromDouble(d);
+        return makeNumber(pContext, d);
     }
 
     if (JS_IsString(val)) {

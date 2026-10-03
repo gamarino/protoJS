@@ -1,4 +1,5 @@
 #include "ProtoCoreTypes.h"
+#include "JSNumber.h"
 #include "TypedArrayPrototype.h"
 #include "ArrayBufferPrototype.h"
 #include "JSSymbols.h"
@@ -94,11 +95,11 @@ const proto::ProtoObject* typedArrayGetElement(proto::ProtoContext* ctx,
         }
         case 7: { // Float32
             float v; std::memcpy(&v, bytes, 4);
-            return ctx->fromDouble(static_cast<double>(v));
+            return makeNumber(ctx, static_cast<double>(v));
         }
         case 8: { // Float64
             double v; std::memcpy(&v, bytes, 8);
-            return ctx->fromDouble(v);
+            return makeNumber(ctx, v);
         }
         case 9: { // BigInt64
             int64_t v; std::memcpy(&v, bytes, 8);
@@ -861,14 +862,14 @@ static const proto::ProtoObject* ta_sort(
     for (uint32_t i = 0; i < len; i++) {
         const proto::ProtoObject* v;
         if (std::isnan(vals[i])) {
-            v = ctx->fromDouble(vals[i]);
+            v = makeNumber(ctx, vals[i]);
         } else if (et != 7 && et != 8 &&
                    vals[i] == std::floor(vals[i]) &&
                    vals[i] >= static_cast<double>(LLONG_MIN) &&
                    vals[i] <= static_cast<double>(LLONG_MAX)) {
             v = ctx->fromInteger(static_cast<long long>(vals[i]));
         } else {
-            v = ctx->fromDouble(vals[i]);
+            v = makeNumber(ctx, vals[i]);
         }
         typedArraySetElement(ctx, self, i, v, et);
     }

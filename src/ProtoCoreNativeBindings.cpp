@@ -720,6 +720,18 @@ const proto::ProtoObject* isImmutableFn(
     return isPrimitiveValue(ctx, args->getAt(ctx, 0)) ? PROTO_TRUE : PROTO_FALSE;
 }
 
+// protoCore.isSmallInteger(v): true when `v` is held as a tagged protoCore
+// SmallInteger (no cell), false for every other value, doubles included.
+// A diagnostic of the representation only: JavaScript semantics never depend
+// on it (typeof, ===, Object.is and arithmetic treat 3 and 3.0 alike).
+const proto::ProtoObject* isSmallIntegerFn(
+    proto::ProtoContext* ctx, const proto::ProtoObject*,
+    const proto::ParentLink*, const proto::ProtoList* args,
+    const proto::ProtoSparseList*) {
+    if (!args || args->getSize(ctx) < 1) return PROTO_FALSE;
+    return proto::isSmallInt(args->getAt(ctx, 0)) ? PROTO_TRUE : PROTO_FALSE;
+}
+
 // ---- Constructor assembly ----------------------------------------------
 
 // Build a constructor object of the shape L_OP_call_constructor expects: a
@@ -810,6 +822,8 @@ const proto::ProtoObject* ProtoCoreNativeBindings::init(
         wrapNativeFunction(ctx, isImmutableFn, "isImmutable", 1, nullptr));
     put("runInThread", ctx->fromMethod(nullptr, runInThreadNative));
     put("threadId", wrapNativeFunction(ctx, threadIdFn, "threadId", 0, nullptr));
+    put("isSmallInteger",
+        wrapNativeFunction(ctx, isSmallIntegerFn, "isSmallInteger", 1, nullptr));
 
     const proto::ProtoString* modName = ctx->fromUTF8String("protoCore")
         ? ctx->fromUTF8String("protoCore")->asString(ctx) : nullptr;
