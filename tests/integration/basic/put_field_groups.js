@@ -212,11 +212,21 @@ function statics(f) { f.count = 0; f.label = "fn"; }
 statics(Fn);
 check("function receiver", Fn.count === 0 && Fn.label === "fn");
 
-// Primitive, undefined and global receivers are not covered here: protoJS's
-// per-write path already deviates from the specification for them (no
-// TypeError for a write to a primitive or to undefined in strict code; a
-// Function()-built sloppy function does not see the global object as
-// `this`), and the runtime never groups writes on them.
+// Primitive, undefined and global receivers: the runtime never groups writes
+// on them, and every write takes the per-write path.  A primitive receiver
+// fails at the first write (TypeError in strict code, nothing written); an
+// undefined receiver throws TypeError; a sloppy function called without a
+// receiver writes to the global object.
+err = undefined;
+try { fillP("abc"); } catch (e) { err = e; }
+check("primitive receiver, strict", err instanceof TypeError && "abc".a === undefined);
+err = undefined;
+try { fillP(undefined); } catch (e) { err = e; }
+check("undefined receiver", err instanceof TypeError);
+sloppy("this.__pfgA = 1; this.__pfgB = 2;")();
+check("global receiver", globalThis.__pfgA === 1 && globalThis.__pfgB === 2);
+delete globalThis.__pfgA;
+delete globalThis.__pfgB;
 
 // A sealed receiver: existing fields can be written.
 const se = Object.seal({ a: 0, b: 0 });

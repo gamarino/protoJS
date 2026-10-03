@@ -307,6 +307,8 @@ foreach(js_test
         basic/number_representation
         basic/object_literal_build
         basic/put_field_groups
+        basic/primitive_property_writes
+        basic/sloppy_this_binding
         basic/put_field_group_cells
         basic/for_of_state
         basic/array_map_filter
