@@ -1,6 +1,6 @@
 # The `protoCore` Global
 
-The `protoCore` global exposes protoCore functionality that has no direct equivalent in standard JavaScript. Scripts run on the protoCore interpreter against the protoCore-native global object; on that object, `protoCore` is created by `src/ProtoCoreNativeBindings.cpp` and provides the collections (`Set`, `Multiset`, `SparseList`, `Tuple`), the mutability helpers (`ImmutableObject`, `MutableObject`, `isImmutable`, `makeImmutable`, `makeMutable`) and `runInThread`.
+The `protoCore` global exposes protoCore functionality that has no direct equivalent in standard JavaScript. Scripts run on the protoCore interpreter against the protoCore-native global object; on that object, `protoCore` is created by `src/ProtoCoreNativeBindings.cpp` and provides the collections (`Set`, `Multiset`, `SparseList`, `Tuple`), the mutability helpers (`ImmutableObject`, `MutableObject`, `isImmutable`, `makeImmutable`, `makeMutable`), `runInThread`, `threadId` and the representation diagnostic `isSmallInteger`.
 
 ## Native multithreading: `runInThread`
 
@@ -76,6 +76,10 @@ sparse.get(7);       // undefined — an unset index reads as undefined
 Writes to the result of `ImmutableObject` are **not** rejected; immutability is not enforced at the JavaScript level.
 
 `isImmutable(value)` is a **placeholder**: protoCore's public API exposes no mutability query, so primitives report `true` and every object reports `false`. This matches the behaviour of the QuickJS-side module it replaced. Reporting real mutability would need a public `isMutable` on `ProtoObject` in protoCore.
+
+## Diagnostics
+
+`protoCore.isSmallInteger(value)` is `true` when `value` is held as a tagged protoCore SmallInteger (no heap cell) and `false` for anything else, a boxed double included. It reports the representation only: JavaScript semantics never depend on it (`typeof`, `===`, `Object.is`, `Map` keys, arithmetic and formatting treat `3` and `3.0` alike). protoJS keeps every integral number with an absolute value up to `Number.MAX_SAFE_INTEGER`, other than `-0`, as a SmallInteger, whatever produced it (`Math.floor`, `Number("42")`, `6 / 2`, ...); fractions, `-0`, `NaN`, the infinities and integers beyond the safe range are doubles. The rule and its helper are in `src/JSNumber.h`; `tests/integration/basic/number_representation.js` checks both the values and the representation.
 
 ## Module discovery
 

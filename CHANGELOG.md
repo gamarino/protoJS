@@ -4,6 +4,40 @@ All notable changes to protoJS are documented in this file.
 
 ## [Unreleased]
 
+### Changed — integral numbers are always SmallIntegers (2026-10-02)
+
+Numbers produced by built-ins (`Math.ceil/floor/round/trunc/abs/max/min/pow/
+sqrt/...`, `Number(string)`, `Number(true)`, `parseFloat`, `Date` getters,
+typed-array and `DataView` reads) and by the interpreter's double arithmetic
+(`6 / 2`, `1.5 * 2`, `0.5 + 0.5`, `%`, `**`, `++`/`--`/unary `-` on a double)
+were boxed doubles even when integral, so they missed every SmallInteger fast
+path and allocated a cell per result: an integer loop bounded by
+`Math.ceil(n)` ran 8.4 times slower than one bounded by a literal. Every
+producer now builds its result with `makeNumber` (`src/JSNumber.h`): an
+integral value up to `Number.MAX_SAFE_INTEGER` in magnitude, other than -0,
+is a SmallInteger; fractions, -0, NaN, the infinities and larger integers stay
+doubles. `tests/benchmarks/dispatch/int_from_producers.js`: 22.59 G → 2.69 G
+cycles; `loop_sum` and `call_fib` unchanged within layout noise
+(`docs/PERFORMANCE_DISPATCH.md`).
+
+Fixed along the way (`tests/integration/basic/number_representation.js`):
+
+- `Map`/`Set` keys: `new Map([[2, x]]).get(Math.floor(2.5))` was `undefined`,
+  because the key was a double and the lookup an integer.
+- -0: `0 * -5`, `-5 * 0`, `-4 % 2` and `(-0) ** 3` gave +0.
+- Integer overflow: a sum, difference or product beyond 2^53 became an exact
+  protoCore LargeInteger instead of rounding like a double
+  (`2 ** 53 + 1 === 2 ** 53` was `false`); a product of two large SmallIntegers
+  could overflow 64 bits.
+- Object literals with integer computed keys outside the array-index range:
+  `{[-2]: v}` lost the property and `{[2 ** 40]: v}` was keyed by the low 32
+  bits; the same applied to computed method names and `super[key]`.
+- The BigInt check of the arithmetic opcodes no longer looks up an attribute
+  on every double operand.
+
+`protoCore.isSmallInteger(value)` reports the representation, for tests and
+diagnostics (`docs/PROTOCORE_MODULE.md`).
+
 ### Changed — `Deferred` runs its function in parallel again (2026-10-02)
 
 `new Deferred(fn)` had run `fn` on the event loop's next turn, on the main

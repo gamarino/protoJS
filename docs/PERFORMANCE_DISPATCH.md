@@ -45,6 +45,32 @@ cannot pass for a fast run.
 - `call_fib.js` -- recursive `fib(30)`: 2,692,537 JavaScript calls, so call
   and return dispatch and the `runBytecode` prologue.
 
+- `int_from_producers.js` -- 5,000,000 iterations of an integer loop whose
+  bound, step and modulus come from `Math.ceil`, `Number("1")` and
+  `parseInt("3")`: checks that numbers produced by built-ins take the same
+  SmallInteger fast paths as literals.
+
+## Integral numbers are SmallIntegers (2026-10-02)
+
+Built-ins (`Math.*`, `Number(string)`, `parseFloat`, `Date`, typed-array
+reads, ...) and the interpreter's double arithmetic (`6 / 2`, `0.5 + 0.5`,
+`x++` on a double) used to return a boxed double even for an integral value,
+so a loop bounded by `Math.ceil(n)` ran every operation on the slow path and
+allocated a 64-byte cell per result. They now build every number with
+`makeNumber` (`src/JSNumber.h`): an integral value up to
+`Number.MAX_SAFE_INTEGER` in magnitude, other than `-0`, is a SmallInteger.
+`perf stat -r 5`, same machine as below, protoCore 2.8.0:
+
+| Benchmark | cycles before | cycles after | change |
+|-----------|--------------:|-------------:|-------:|
+| `int_from_producers` | 22.59 G (±1.5 %) | 2.69 G (±1.7 %) | -88 % (8.4x) |
+| `loop_sum` | 4.42 G (±0.3 %) | 4.53 G (±0.4 %) | +2.5 % |
+| `call_fib` | 4.63 G (±1.0 %) | 4.52 G (±0.6 %) | -2.4 % |
+
+`loop_sum` and `call_fib` run only literal integers; their instruction counts
+moved by less than 0.4 %, and the cycle differences are of the size this page
+attributes to code layout.
+
 ## Linux: GCC and Clang on the same machine
 
 AMD Ryzen 5 5500U (Zen 2), Ubuntu 24.04, GCC 13.3.0, Clang 17.0.6, protoCore
