@@ -4,6 +4,51 @@ All notable changes to protoJS are documented in this file.
 
 ## [Unreleased]
 
+### Fixed — global declarations, function-kind constructors, BigInt wrappers, typed arrays (2026-10-04)
+
+- **Global declarations.** A classic script's top-level `var` and function
+  declarations are properties of the global object (non-configurable,
+  writable, enumerable), so `globalThis.x`, `this.x` and `Function("return
+  this.x")()` see them and a write through the global object reaches the
+  binding; `let` / `const` / `class` stay off it, on the root script's
+  binding scope.  Global `var` hoisting had never run (it tested an absent
+  attribute against nullptr); reading a top-level `let` before its
+  declaration now throws ReferenceError and assigning a top-level `const`
+  throws TypeError.  Test262 `built-ins/Function/S15.3_A3_T2`, `T5`, `T6` pass
+  again.  Cost, measured with `perf stat -r 3`: top-level `var` writes are
+  slower (a top-level `for (var ...)` loop +40-50 %, a global-access
+  micro-benchmark +23 % cycles), top-level `let` loops 14 % faster; see
+  docs/TEST262_STATUS.md.  Test: `js/basic/global_var_bindings`.
+- **GeneratorFunction, AsyncFunction, AsyncGeneratorFunction.**
+  `Object.getPrototypeOf(function* () {}).constructor` was `Function`; the
+  three intrinsics now exist (reached through `.constructor`, not global
+  bindings), build functions of their kind from source text, and their
+  prototypes carry the right [[Prototype]] and @@toStringTag.  Generator
+  objects inherit their function's `prototype`, which inherits
+  %GeneratorPrototype% (next / return / throw, which reject other receivers).
+  Test: `js/basic/function_kind_constructors`.
+- **BigInt wrappers.** `Object(1n)` is a wrapper object (typeof "object",
+  `valueOf()` is `1n`, BigInt.prototype methods accept it) instead of the
+  BigInt itself, as is the `this` of a sloppy function called with a BigInt;
+  the arithmetic, relational, bitwise and shift operators unwrap it, and a
+  BigInt compares with a Number by value (`2n > 1` was false).
+  `BigInt.prototype.toLocaleString` is added.  This supersedes the
+  2026-10-03 note that BigInt had no boxed form.  Test:
+  `js/basic/bigint_wrapper`.
+- **Typed arrays and ArrayBuffer.** Own keys of a typed array are its indices
+  (Object.keys, getOwnPropertyNames, for-in, Reflect.ownKeys,
+  hasOwnProperty, getOwnPropertyDescriptor); buffer / byteLength /
+  byteOffset / length and @@toStringTag are accessors of
+  %TypedArray%.prototype, and ArrayBuffer.prototype.byteLength is an accessor
+  (it used to return the getter function).  `Object.prototype.toString` gives
+  `[object Uint8Array]` etc.; `class X extends Uint8Array` and
+  `Reflect.construct(Uint8Array, args, newTarget)` build a typed array with
+  newTarget's prototype; BigInt64Array / BigUint64Array elements are BigInts
+  (and reject Numbers, as other kinds reject BigInts); length, byteOffset and
+  ArrayBuffer length arguments go through ToIndex (`new Uint8Array('3')` has
+  length 3, a negative length is a RangeError).  Test:
+  `js/basic/typed_array_objects`.
+
 ### Changed — CI builds protoCore 2.14.1; a floor job on 2.11.0 again (2026-10-04)
 
 - `ci.yml` (Linux) and the macOS and first Windows jobs of

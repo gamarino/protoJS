@@ -68,7 +68,7 @@ RegExp built-ins run on the protoCore interpreter (`src/RegExpPrototype.cpp`). `
 
 Every run in this report executes script code on the protoCore interpreter (compile, load, run). The March 2026 rows below are superseded (see [Summary](#summary)).
 
-**Native global:** top-level `var` assignments update the root script's binding scope, a child of the protoCore-native global object, so later reads see the new value (the bindings are not properties of `globalThis`; see [docs/TEST262_STATUS.md](docs/TEST262_STATUS.md#top-level-declarations-and-the-global-object)). `node tests/test262/runner/proto_eval_smoke.js` checks this among its six cases.
+**Native global:** top-level `var` and function declarations are properties of the global object (`var x = 1; globalThis.x === 1`); top-level `let` / `const` / `class` live on the root script's binding scope, a child of the global object, and are not (see [docs/TEST262_STATUS.md](docs/TEST262_STATUS.md#top-level-declarations-and-the-global-object)). `node tests/test262/runner/proto_eval_smoke.js` checks this among its six cases.
 
 **2026-03-08:** module mode wired end to end (`--input-type=module` → `JS_EVAL_TYPE_MODULE` with the QuickJS file-system module loader and Promise-based evaluation). 39 module-code tests, 7 line-terminator tests and 3 import tests were removed from the skip list, which went from 66 to 7 entries.
 

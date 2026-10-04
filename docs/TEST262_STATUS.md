@@ -211,24 +211,29 @@ so is that arrangement: the Linux and macOS jobs gate, the Windows jobs report.
 
 ### Top-level declarations and the global object
 
-The root script's top-level `var` and function declarations live on a child of
-the global object (the module-scope split in `runBytecode`,
-`src/runtime/ProtoInterpreter.cpp`), not on the global object itself, which
-ECMA-262 requires (GlobalDeclarationInstantiation). Reads of the bare names are
-unaffected -- the child inherits from the global object -- but the bindings are
-not properties of `globalThis`: `var x = 1; globalThis.x` is `undefined`.
+Since 2026-10-04 a classic script's top-level `var` and function declarations
+are properties of the global object, as ECMA-262 requires
+(GlobalDeclarationInstantiation, §16.1.7): writable, enumerable and not
+configurable, visible as `globalThis.x` and `this.x`, and a write through
+either name is seen by the other. `let`, `const` and `class` are not
+properties of the global object: they live on the root script's binding scope
+(the module-scope split in `runBytecode`, `src/runtime/ProtoInterpreter.cpp`),
+a child of the global object that now plays the part of the global
+environment's declarative record. Reading a top-level `let` before its
+declaration throws ReferenceError, and assigning a top-level `const` throws
+TypeError. `built-ins/Function/S15.3_A3_T2`, `-T5` and `-T6`, which failed
+after the 2026-10-03 sloppy-`this` fix, pass again.
 
-Since 2026-10-03 a sloppy function called without a receiver sees the global
-object as `this`, as `globalThis` and the top-level `this` do. Before, it saw
-the child, so `var x = 1; Function("return this.x")()` read 1 while
-`globalThis.x` did not. Three Test262 tests passed only through that
-inconsistency and fail now: `built-ins/Function/S15.3_A3_T2.js`, `-T5` and
-`-T6` (each reads a top-level `var` through `this` in a `Function()`-built
-function); in the same targeted subset 81 tests changed from fail to pass
-(CHANGELOG, 2026-10-03). The split is a performance decision (a top-level
-write grows a small object instead of path-copying the global object's
-attribute tree); putting the declarations on the global object is the fix and
-has not been made.
+Cost: a top-level `var` write updates the global object's attribute tree
+(about 300 entries with the built-ins and their descriptor sidecars) instead
+of the small binding scope. On a global-access micro-benchmark (`perf stat -r
+3`, protoCore 2.14.1) the whole benchmark takes 23 % more cycles
+(26.7e9 -> 32.8e9): a top-level `for (var i ...)` loop is about 40-50 % slower
+and a function writing a global `var` about 15-20 % slower; top-level `let`
+loops are about 14 % faster (the binding scope holds fewer names) and reads
+of globals and built-ins from functions are unchanged. Hot top-level loops are better written
+with `let` or inside a function. CommonJS and ES modules keep their own
+scope and are not affected.
 
 ---
 
