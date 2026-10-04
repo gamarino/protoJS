@@ -181,6 +181,17 @@ jobs:
         working-directory: protoJS
         run: ctest --test-dir build -E "integration|network" --output-on-failure --timeout 600 < /dev/null
 
+      - name: Record the recursion depth (printed, gated by the CTest case)
+        # js/workers/deep_recursion requires a RangeError at depth >= 2,000 on
+        # the main thread and in a worker; this prints the depths reached, the
+        # one figure that shows what the platform's stack and frame size allow.
+        working-directory: protoJS
+        shell: bash
+        run: |
+          OUT=$("$PROTOJS_BIN" tests/integration/workers/deep_recursion.js < /dev/null)
+          echo "$OUT"
+          echo "${{ matrix.name }}: $OUT" >> "$GITHUB_STEP_SUMMARY"
+
       - name: Test262 regression gate, built-ins/{Object,Reflect,Proxy}
         # The script, the baseline and the accounting of ci.yml's Linux gate:
         # the set of non-passing tests must equal the recorded one exactly.
