@@ -3481,8 +3481,14 @@ static const proto::ProtoObject* toString(proto::ProtoContext* context,
     // protoJS keeps two representations; either must coerce to the same string.
     const proto::ProtoObject* undefSent = getUndefinedSentinel();
     if (!value || value == PROTO_NONE || value->isNone(context) || value == undefSent) {
-        static const proto::ProtoObject* s_undef = nullptr;
-        if (!s_undef) s_undef = context->fromUTF8String("undefined");
+        // "undefined" is longer than an inline string, so it is a heap cell:
+        // kept per space and pinned (a plain static was collected, and
+        // `'' + undefined` then read whatever string reused the cell --
+        // tests/integration/gc/cached_undefined_string.js). "null" below is
+        // inline (at most 6 bytes) and needs no pin.
+        static PinnedBuiltin s_undefCache;
+        const proto::ProtoObject* s_undef = s_undefCache.get(context);
+        if (!s_undef) s_undef = s_undefCache.keep(context, context->fromUTF8String("undefined"));
         return s_undef;
     }
 

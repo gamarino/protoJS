@@ -250,6 +250,7 @@ allocates.
 | `t_bigIntPrototype`, `setProtoSlot` and its two siblings | built-in prototypes | Reachable from their constructors. After `delete globalThis.BigInt` the prototype is referenced by the cache and by existing wrappers; a stress run (`Object(5n)` after deleting `BigInt`, under a 300,000-cell ceiling) did not show a collection of it, but these caches are not pinned. Moving them to `PinnedBuiltin` is the remaining step. |
 | `tlReplacerFn` (`JSON.stringify`) | the replacer function | An argument of the running call, held by its arguments list. |
 | `GcScopedCache` instances | interned-string keys | Flushed on every collection cycle (`src/runtime/GcScopedCache.h`). |
+| `s_undef` in `toString` (a function-local `static`, not a thread-local) | the string `"undefined"` | Was a plain static holding a heap string (longer than the 6-byte inline strings): after a collection `'' + undefined` returned another string's contents. Now a `PinnedBuiltin` (`cli/gc-stale-caches`, `cached_undefined_string.js`). The other static string caches there hold inline strings (`""`, `"null"`, integers below 10,000), which are not cells. |
 
 ## Anti-patterns
 
