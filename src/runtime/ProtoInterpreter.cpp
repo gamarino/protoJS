@@ -2928,6 +2928,22 @@ static const bool s_debugBind  = (std::getenv("PROTO_DEBUG_BIND")  != nullptr);
 static PROTOJS_ALWAYS_INLINE bool debugSlotsEnabled() { return s_debugSlots; }
 static PROTOJS_ALWAYS_INLINE bool debugBindEnabled()  { return s_debugBind;  }
 
+// The outcome of a call made in a child context -- its exception when it threw,
+// otherwise its result -- becomes the child's return value, which
+// ~ProtoContext anchors in the parent's young generation before the child's
+// cells are handed to the collector. Without it an exception thrown by the
+// callee and allocated in the callee's context was reachable only from C++
+// locals (pending_exception, childEx, t_callException, a native's savedEx)
+// once the child context ended, and any allocation before it reached an
+// operand-stack slot could collect it: an IteratorClose whose return() method
+// allocates, between the throw and the catch, handed the catch block freed
+// cells (tests/integration/gc/exception_across_contexts.js).
+static PROTOJS_ALWAYS_INLINE void anchorCallOutcome(proto::ProtoContext& child,
+                                                    const proto::ProtoObject* result,
+                                                    const proto::ProtoObject* exception) {
+    child.returnValue = (exception && exception != PROTO_NONE) ? exception : result;
+}
+
 static PROTOJS_ALWAYS_INLINE InterpFrame* currentFrame(proto::ProtoContext* ctx) {
     if (t_interpFrames.empty()) return nullptr;
     InterpFrame* f = &t_interpFrames.back();
@@ -6022,6 +6038,14 @@ const proto::ProtoObject* runBytecode(proto::ProtoContext* pContext,
         // metadata, out of the operand stack's reach, so the collector sees
         // it for the whole activation.
         if (asyncOwner && totalSlots > 1) setSlot(pContext, totalSlots - 2, asyncOwner);
+        // The active function object (t_activeFunc) in the slot below that.
+        // The call sites pop the callee off the caller's operand stack before
+        // the call, so a function the program drops while it runs (`o.f =
+        // null` inside o.f) was reachable only from the thread-local, which
+        // the collector does not scan -- and getOrCreateFrameObj makes it a
+        // parent of the frame object lazily, after any number of allocations.
+        if (t_activeFunc && t_activeFunc != PROTO_NONE && totalSlots > 2)
+            setSlot(pContext, totalSlots - 3, t_activeFunc);
     }
     struct InterpFramePopOnExit {
         ~InterpFramePopOnExit() {
@@ -7368,6 +7392,7 @@ const proto::ProtoObject* runBytecode(proto::ProtoContext* pContext,
             const proto::ProtoObject* childEx = PROTO_NONE;
             const proto::ProtoObject* result = runBytecode(&childCtx, resolvedFn, effectiveThisLambda,
                                                             pContext->newList(), pGlobalRoot, &childEx);
+            anchorCallOutcome(childCtx, result, childEx);
             if (childEx && childEx != PROTO_NONE) {
                 pending_exception = childEx;
                 has_pending_exception = true;
@@ -15502,7 +15527,7 @@ const proto::ProtoObject* runBytecode(proto::ProtoContext* pContext,
                     t_activeFunc = prevActiveM;
                     t_activeNewTgt = prevTgtM;
                     t_activeArgs = prevArgsM;
-                    childCtx.returnValue = result;
+                    anchorCallOutcome(childCtx, result, childEx);
                     if (childEx && childEx != PROTO_NONE) {
                         pending_exception = childEx; has_pending_exception = true;
                         DISPATCH();
@@ -15943,6 +15968,7 @@ const proto::ProtoObject* runBytecode(proto::ProtoContext* pContext,
 
                     const proto::ProtoObject* childEx = PROTO_NONE;
                     result = runBytecode(&childCtx, &nf, newObj, argsList, pGlobalRoot, &childEx);
+                    anchorCallOutcome(childCtx, result, childEx);
                     if (childEx && childEx != PROTO_NONE) {
                         pending_exception = childEx; has_pending_exception = true;
                         DISPATCH();
@@ -16556,7 +16582,7 @@ const proto::ProtoObject* runBytecode(proto::ProtoContext* pContext,
                     t_activeNewTgt = prevTgtC;
                     t_activeArgs = prevArgsC;
                     REFRESH_INTERP_STATE();
-                    childCtx.returnValue = result;
+                    anchorCallOutcome(childCtx, result, childEx);
                     if (childEx && childEx != PROTO_NONE) {
                         pending_exception = childEx; has_pending_exception = true;
                         DISPATCH();
@@ -19069,6 +19095,7 @@ static const proto::ProtoObject* resumeGenerator(proto::ProtoContext* ctx,
 
     const proto::ProtoObject* result = runBytecode(&childCtx, mod, genThis,
                                                      nullptr, gr, &childEx);
+    anchorCallOutcome(childCtx, result, childEx);
 
     // Propagate exceptions from generator body.
     if (childEx && childEx != PROTO_NONE) return childEx;
@@ -20089,7 +20116,7 @@ const proto::ProtoObject* callJSFunction(
             runBytecode(&childCtx, &nf, effectiveThis, args, globalRoot, &childEx);
         t_activeFunc = prevActiveK;
         t_activeArgs = prevArgsK;
-        childCtx.returnValue = result;
+        anchorCallOutcome(childCtx, result, childEx);
         // Propagate exceptions from JS callbacks via thread-local so that
         // iterator-related call sites inside runBytecode can set pending_exception.
         if (childEx && childEx != PROTO_NONE) {

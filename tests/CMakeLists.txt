@@ -152,6 +152,17 @@ add_test(NAME cli/gc-stale-caches
             "${CMAKE_CURRENT_SOURCE_DIR}/integration/gc/collected_builtin_prototypes.js")
 set_tests_properties(cli/gc-stale-caches PROPERTIES TIMEOUT 900)
 
+# gc-exceptions: an exception thrown by a callee outlives the callee's context.
+# It travelled back only through C++ locals and the t_callException
+# thread-local, so a native that ran more JavaScript before rethrowing it
+# (IteratorClose calling return()) handed the catch block freed cells. Before
+# the fix all 10 runs failed (wrong values or SIGSEGV). About 20 s.
+add_test(NAME cli/gc-exceptions
+    COMMAND ${PROTOJS_SH} "${CMAKE_CURRENT_SOURCE_DIR}/cli/gc-stress.sh"
+            "$<TARGET_FILE:protojs>" 10 300000
+            "${CMAKE_CURRENT_SOURCE_DIR}/integration/gc/exception_across_contexts.js")
+set_tests_properties(cli/gc-exceptions PROPERTIES TIMEOUT 600)
+
 # gc-promises: pending reactions, queued jobs and async functions suspended at
 # an await are reachable only from the job queue and the promises themselves;
 # the collector must see all of them. Three runs under a small ceiling: the
