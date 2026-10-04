@@ -310,6 +310,7 @@ foreach(js_test
         basic/primitive_property_writes
         basic/sloppy_this_binding
         basic/global_var_bindings
+        basic/function_kind_constructors
         basic/put_field_group_cells
         basic/for_of_state
         basic/array_map_filter

@@ -4900,6 +4900,23 @@ static void writeGlobalBinding(proto::ProtoContext* ctx,
     *pGlobalRoot = root->setAttribute(ctx, key, val);
 }
 
+// Function-kind intrinsics; see "Function-kind intrinsics" further down.
+enum {
+    kIntrGeneratorFunctionProto = 0,
+    kIntrGeneratorProto = 1,
+    kIntrAsyncFunctionProto = 2,
+    kIntrAsyncGeneratorFunctionProto = 3,
+    kIntrAsyncGeneratorProto = 4,
+};
+static const proto::ProtoObject* closureBirthParent(proto::ProtoContext* ctx,
+                                                    const proto::ProtoObject** gr,
+                                                    const proto::ProtoObject* fp,
+                                                    const ProtoBytecodeModule* nm);
+static const proto::ProtoObject* generatorInstancePrototypeParent(proto::ProtoContext* ctx,
+                                                                  const proto::ProtoObject** gr,
+                                                                  const ProtoBytecodeModule* nm);
+static const proto::ProtoObject* generatorObjectPrototype(proto::ProtoContext* ctx, bool isAsync);
+
 // The `this` an arrow function created in this frame captures.  In a sloppy
 // function called without a receiver it is the global object, as OP_push_this
 // reads it (§10.2.1.2 OrdinaryCallBindThis); pre-fix the arrow captured the
@@ -5986,8 +6003,9 @@ const proto::ProtoObject* runBytecode(proto::ProtoContext* pContext,
             {"BigInt", 1}, {"AggregateError", 2},
             {"Proxy", 2}, {"WeakRef", 1}, {"WeakSet", 0},
             {"FinalizationRegistry", 1}, {"Iterator", 0}, {"Generator", 0},
-            {"GeneratorFunction", 1},
-            {"AsyncFunction", 1}, {"AsyncGenerator", 0}, {"AsyncGeneratorFunction", 1},
+            // GeneratorFunction, AsyncFunction and AsyncGeneratorFunction
+            // are not global bindings: functionKindIntrinsic builds them.
+            {"AsyncGenerator", 0},
             {"SharedArrayBuffer", 1},
             // ES2026+ disposable resource management proposal (Stage 3-4)
             // and the SuppressedError chain that goes with it.  Pre-fix
@@ -16706,15 +16724,6 @@ const proto::ProtoObject* runBytecode(proto::ProtoContext* pContext,
                     const proto::ProtoString* fpKey8 = JSSymbols::functionProto(pContext);
                     const proto::ProtoObject* fp8 = (gr8 && *gr8 && fpKey8)
                         ? (*gr8)->getAttribute(pContext, fpKey8, false) : nullptr;
-                    const proto::ProtoObject* fnInst = (fp8 && fp8 != PROTO_NONE)
-                        ? fp8->newChild(pContext, false)
-                        : pContext->newObject(false);
-                    // outer-frameObj + moduleScope as extra parents — see
-                    // L_OP_fclosure for rationale.
-                    const proto::ProtoObject* outerFrameForCapture8 =
-                        getOrCreateFrameObj(pContext, gr8);
-                    fnInst = fnInst->setAttribute(pContext, JSSymbols::bytecodeId(pContext),
-                        pContext->fromInteger(static_cast<long long>(fnBcId8)));
                     // Resolve function metadata against the module that owns
                     // this bytecode's function table — see the matching note
                     // in OP_fclosure (32-bit immediate variant).
@@ -16727,6 +16736,20 @@ const proto::ProtoObject* runBytecode(proto::ProtoContext* pContext,
                     else if (fnBcId8 >= 0 && t_rootModule &&
                             static_cast<size_t>(fnBcId8) < t_rootModule->nestedFunctions.size())
                         nm8Ptr = &t_rootModule->nestedFunctions[static_cast<size_t>(fnBcId8)];
+                    // A generator, async or async-generator function is born a
+                    // child of its kind's prototype (%GeneratorFunction.prototype%
+                    // ...), an ordinary one of Function.prototype.
+                    const proto::ProtoObject* birth8 = (fp8 && fp8 != PROTO_NONE)
+                        ? closureBirthParent(pContext, gr8, fp8, nm8Ptr) : nullptr;
+                    const proto::ProtoObject* fnInst = birth8
+                        ? birth8->newChild(pContext, false)
+                        : pContext->newObject(false);
+                    // outer-frameObj + moduleScope as extra parents — see
+                    // L_OP_fclosure for rationale.
+                    const proto::ProtoObject* outerFrameForCapture8 =
+                        getOrCreateFrameObj(pContext, gr8);
+                    fnInst = fnInst->setAttribute(pContext, JSSymbols::bytecodeId(pContext),
+                        pContext->fromInteger(static_cast<long long>(fnBcId8)));
                     // fn.prototype: see L_OP_fclosure for which functions get
                     // one and why a generator's has no constructor.
                     const bool needsProto8 = !nm8Ptr
@@ -16741,8 +16764,11 @@ const proto::ProtoObject* runBytecode(proto::ProtoContext* pContext,
                         if (const proto::ProtoString* lpk = JSSymbols::lazyPrototype(pContext))
                             fnInst = fnInst->setAttribute(pContext, lpk, PROTO_TRUE);
                     } else if (needsProto8) {
-                        const proto::ProtoObject* objProtoFc8 =
-                            (pContext->space && pContext->space->objectPrototype)
+                        // A generator function's prototype object inherits
+                        // %GeneratorPrototype% (§15.5.4), any other's Object.prototype.
+                        const proto::ProtoObject* objProtoFc8 = (nm8Ptr && nm8Ptr->isGenerator)
+                            ? generatorInstancePrototypeParent(pContext, gr8, nm8Ptr)
+                            : (pContext->space && pContext->space->objectPrototype)
                                 ? pContext->space->objectPrototype : nullptr;
                         fnDefProto8 = objProtoFc8
                             ? objProtoFc8->newChild(pContext, true)
@@ -16861,8 +16887,22 @@ const proto::ProtoObject* runBytecode(proto::ProtoContext* pContext,
                     const proto::ProtoString* fpKey2 = JSSymbols::functionProto(pContext);
                     const proto::ProtoObject* fp2 = (gr2 && *gr2 && fpKey2)
                         ? (*gr2)->getAttribute(pContext, fpKey2, false) : nullptr;
-                    const proto::ProtoObject* fnInst2 = (fp2 && fp2 != PROTO_NONE)
-                        ? fp2->newChild(pContext, false)
+                    const ProtoBytecodeModule* ownerTable2 =
+                        module ? module->functionTable() : t_rootModule;
+                    const ProtoBytecodeModule* nm2Ptr = nullptr;
+                    if (fnBcId2 >= 0 && ownerTable2 &&
+                            static_cast<size_t>(fnBcId2) < ownerTable2->nestedFunctions.size())
+                        nm2Ptr = &ownerTable2->nestedFunctions[static_cast<size_t>(fnBcId2)];
+                    else if (fnBcId2 >= 0 && t_rootModule &&
+                            static_cast<size_t>(fnBcId2) < t_rootModule->nestedFunctions.size())
+                        nm2Ptr = &t_rootModule->nestedFunctions[static_cast<size_t>(fnBcId2)];
+                    // A generator, async or async-generator function is born a
+                    // child of its kind's prototype (%GeneratorFunction.prototype%
+                    // ...), an ordinary one of Function.prototype.
+                    const proto::ProtoObject* birth2 = (fp2 && fp2 != PROTO_NONE)
+                        ? closureBirthParent(pContext, gr2, fp2, nm2Ptr) : nullptr;
+                    const proto::ProtoObject* fnInst2 = birth2
+                        ? birth2->newChild(pContext, false)
                         : pContext->newObject(false);
                     // Lexical scope chain: parents = [Function.prototype,
                     // outer-frameObj?, moduleScope].  outer-frameObj is
@@ -16891,15 +16931,6 @@ const proto::ProtoObject* runBytecode(proto::ProtoContext* pContext,
                     // silently ran an unrelated function's body.
                     // functionTable() names the owning root directly, so the
                     // answer no longer depends on thread-local state.
-                    const ProtoBytecodeModule* ownerTable2 =
-                        module ? module->functionTable() : t_rootModule;
-                    const ProtoBytecodeModule* nm2Ptr = nullptr;
-                    if (fnBcId2 >= 0 && ownerTable2 &&
-                            static_cast<size_t>(fnBcId2) < ownerTable2->nestedFunctions.size())
-                        nm2Ptr = &ownerTable2->nestedFunctions[static_cast<size_t>(fnBcId2)];
-                    else if (fnBcId2 >= 0 && t_rootModule &&
-                            static_cast<size_t>(fnBcId2) < t_rootModule->nestedFunctions.size())
-                        nm2Ptr = &t_rootModule->nestedFunctions[static_cast<size_t>(fnBcId2)];
                     // fn.prototype.  Only functions that can be constructors
                     // get one (§10.2.5 MakeConstructor): arrow functions and
                     // async functions have no `prototype` property at all, and
@@ -16935,8 +16966,11 @@ const proto::ProtoObject* runBytecode(proto::ProtoContext* pContext,
                         if (const proto::ProtoString* lpk2 = JSSymbols::lazyPrototype(pContext))
                             fnInst2 = fnInst2->setAttribute(pContext, lpk2, PROTO_TRUE);
                     } else if (needsProto2) {
-                        const proto::ProtoObject* objProtoFc =
-                            (pContext->space && pContext->space->objectPrototype)
+                        // A generator function's prototype object inherits
+                        // %GeneratorPrototype% (§15.5.4), any other's Object.prototype.
+                        const proto::ProtoObject* objProtoFc = (nm2Ptr && nm2Ptr->isGenerator)
+                            ? generatorInstancePrototypeParent(pContext, gr2, nm2Ptr)
+                            : (pContext->space && pContext->space->objectPrototype)
                                 ? pContext->space->objectPrototype : nullptr;
                         fnDefProto = objProtoFc
                             ? objProtoFc->newChild(pContext, true)
@@ -18325,29 +18359,16 @@ const proto::ProtoObject* runBytecode(proto::ProtoContext* pContext,
                     return gen ? gen : PROTO_NONE;
                 }
 
-                // Build the iterator object, parented at %IteratorPrototype%
-                // so [@@iterator] returning this and [@@toStringTag] =
-                // "Iterator" surface via the chain, with the generator's own
-                // [@@toStringTag] = "Generator" overriding per §27.5.1.5.
-                const proto::ProtoObject* iterParent = protojs::getIteratorPrototype(pContext);
+                // Build the generator object (§27.5.3.1): it inherits the
+                // generator function's `prototype`, which inherits
+                // %GeneratorPrototype% -- next / return / throw,
+                // [@@toStringTag] "Generator" and, through
+                // %IteratorPrototype%, [@@iterator].
+                const proto::ProtoObject* iterParent = generatorObjectPrototype(pContext, false);
                 const proto::ProtoObject* iterObj = iterParent
                     ? iterParent->newChild(pContext, true)
                     : pContext->newObject(true);
                 if (!iterObj) return PROTO_NONE;
-                // §27.5.1.5: %GeneratorPrototype%[@@toStringTag] === "Generator".
-                {
-                    const proto::ProtoString* tagK = JSSymbols::symbolToStringTag(pContext);
-                    if (tagK) {
-                        iterObj = iterObj->setAttribute(pContext, tagK,
-                            pContext->fromUTF8String("Generator"));
-                        const proto::ProtoObject* pdo = pContext->fromUTF8String("__pd_Symbol.toStringTag__");
-                        const proto::ProtoString* pdk = pdo ? pdo->asString(pContext) : nullptr;
-                        if (pdk) iterObj = iterObj->setAttribute(pContext, pdk,
-                            pContext->fromInteger(0x2LL));
-                    }
-                    const proto::ProtoString* hnwK = JSSymbols::hasNonWritableProps(pContext);
-                    if (hnwK) iterObj = iterObj->setAttribute(pContext, hnwK, PROTO_TRUE);
-                }
 
                 // Helper lambdas: set attributes on iterObj.
                 auto setA = [&](const char* name, const proto::ProtoObject* val) {
@@ -18408,16 +18429,6 @@ const proto::ProtoObject* runBytecode(proto::ProtoContext* pContext,
                 // State: 0 = suspended.
                 setI(kGenState, 0LL);
 
-                // Register .next, .return, .throw methods.
-                auto regM = [&](const char* name, proto::ProtoMethod fn) {
-                    const proto::ProtoObject* ko = pContext->fromUTF8String(name);
-                    const proto::ProtoString* k  = ko ? ko->asString(pContext) : nullptr;
-                    if (k) iterObj = iterObj->setAttribute(pContext, k,
-                                                            pContext->fromMethod(nullptr, fn));
-                };
-                regM("next",   generatorNext);
-                regM("return", generatorReturn);
-                regM("throw",  generatorThrow);
 
                 // Mark as a generator iterator for OP_for_of_start iterator detection.
                 // We add __iter_arr__ so that OP_for_of_start's existing "Case A" logic
@@ -18826,6 +18837,15 @@ static const proto::ProtoObject* resumeGenerator(proto::ProtoContext* ctx,
     return makeIterResult(ctx, result ? result : PROTO_NONE, true);
 }
 
+// §27.5.3.2 GeneratorValidate: the receiver must be a generator object, which
+// carries its suspended state as own attributes.
+static bool isGeneratorObject(proto::ProtoContext* ctx, const proto::ProtoObject* v) {
+    if (!jsIsObject(ctx, v)) return false;
+    const proto::ProtoObject* ko = ctx->fromUTF8String(kGenMod);
+    const proto::ProtoString* k = ko ? ko->asString(ctx) : nullptr;
+    return k && v->hasOwnAttribute(ctx, k) == PROTO_TRUE;
+}
+
 static const proto::ProtoObject* generatorNext(proto::ProtoContext* ctx,
     const proto::ProtoObject* thisVal,
     const proto::ParentLink* /*parent*/,
@@ -18833,6 +18853,11 @@ static const proto::ProtoObject* generatorNext(proto::ProtoContext* ctx,
     const proto::ProtoSparseList* /*named*/) {
     const proto::ProtoObject* sentVal = (args && args->getSize(ctx) > 0)
         ? args->getAt(ctx, 0) : PROTO_NONE;
+    if (!isGeneratorObject(ctx, thisVal)) {
+        signalNativeException(makeNativeError(ctx, "TypeError",
+            "Generator.prototype.next called on an object that is not a generator"));
+        return PROTO_NONE;
+    }
     return resumeGenerator(ctx, thisVal, sentVal, 0 /* next */);
 }
 
@@ -18843,6 +18868,11 @@ static const proto::ProtoObject* generatorReturn(proto::ProtoContext* ctx,
     const proto::ProtoSparseList* /*named*/) {
     const proto::ProtoObject* sentVal = (args && args->getSize(ctx) > 0)
         ? args->getAt(ctx, 0) : PROTO_NONE;
+    if (!isGeneratorObject(ctx, thisVal)) {
+        signalNativeException(makeNativeError(ctx, "TypeError",
+            "Generator.prototype.return called on an object that is not a generator"));
+        return PROTO_NONE;
+    }
     return resumeGenerator(ctx, thisVal, sentVal, 1 /* return */);
 }
 
@@ -18853,6 +18883,11 @@ static const proto::ProtoObject* generatorThrow(proto::ProtoContext* ctx,
     const proto::ProtoSparseList* /*named*/) {
     const proto::ProtoObject* sentVal = (args && args->getSize(ctx) > 0)
         ? args->getAt(ctx, 0) : PROTO_NONE;
+    if (!isGeneratorObject(ctx, thisVal)) {
+        signalNativeException(makeNativeError(ctx, "TypeError",
+            "Generator.prototype.throw called on an object that is not a generator"));
+        return PROTO_NONE;
+    }
     return resumeGenerator(ctx, thisVal, sentVal, 2 /* throw */);
 }
 
@@ -19203,8 +19238,188 @@ static const proto::ProtoObject* asyncGeneratorPrototype(proto::ProtoContext* ct
     return cache.keep(ctx, proto);
 }
 
+// ---------------------------------------------------------------------------
+// Function-kind intrinsics (ECMA-262 §27.3 GeneratorFunction, §27.5
+// %GeneratorPrototype%, §27.7 AsyncFunction, §27.4 AsyncGeneratorFunction).
+//
+//   %GeneratorFunction%            [[Prototype]] Function
+//     .prototype -> %GeneratorFunction.prototype%  [[Prototype]] Function.prototype
+//                     .prototype -> %GeneratorPrototype%  [[Prototype]] %IteratorPrototype%
+//   %AsyncFunction%                .prototype -> %AsyncFunction.prototype%
+//   %AsyncGeneratorFunction%       .prototype -> %AsyncGeneratorFunction.prototype%
+//                     .prototype -> %AsyncGeneratorPrototype%
+//
+// A generator / async / async-generator closure is born a child of its kind's
+// function prototype (OP_fclosure); a generator function's `prototype` object
+// inherits %GeneratorPrototype% (%AsyncGeneratorPrototype%), and the generator
+// objects it makes inherit that `prototype`.  None of the three constructors is
+// a global binding: they are reached as `.constructor` of the prototypes.
+//
+// They belong to the realm, like Function.prototype: built on first use and
+// kept as one immutable list on the global object (a hidden attribute), which
+// keeps them alive.
+// ---------------------------------------------------------------------------
+
+static const proto::ProtoString* functionKindIntrinsicsKey(proto::ProtoContext* ctx) {
+    static const proto::ProtoString* key =
+        proto::ProtoString::createSymbol(ctx, "__function_kind_intrinsics__");
+    return key;
+}
+
+// A data property with descriptor bits `pd` (0x1 writable, 0x2 configurable,
+// 0x4 enumerable) on a mutable object.
+static void defineIntrinsicProperty(proto::ProtoContext* ctx, const proto::ProtoObject* target,
+                                    const proto::ProtoString* key, const char* keyName,
+                                    const proto::ProtoObject* value, long long pd) {
+    target->setAttribute(ctx, key, value);
+    const std::string pdStr = std::string("__pd_") + keyName + "__";
+    const proto::ProtoObject* pdo = ctx->fromUTF8String(pdStr.c_str());
+    if (const proto::ProtoString* pdk = pdo ? pdo->asString(ctx) : nullptr)
+        target->setAttribute(ctx, pdk, ctx->fromInteger(pd));
+    if (!(pd & 0x1))
+        target->setAttribute(ctx, JSSymbols::hasNonWritableProps(ctx), PROTO_TRUE);
+}
+
+// %XFunction.prototype%: a child of Function.prototype tagged `tag`.
+static const proto::ProtoObject* makeFunctionKindPrototype(proto::ProtoContext* ctx,
+                                                           const proto::ProtoObject* fp,
+                                                           const char* tag) {
+    const proto::ProtoObject* proto = fp->newChild(ctx, true);
+    defineIntrinsicProperty(ctx, proto, JSSymbols::symbolToStringTag(ctx), "Symbol.toStringTag",
+                            ctx->fromUTF8String(tag), 0x2LL);
+    // An ordinary object, not a function (§27.3.3): hide the [[Call]] entry
+    // point Function.prototype carries, so typeof answers "object".
+    proto->setAttribute(ctx, JSSymbols::nativeFn(ctx), PROTO_NONE);
+    return proto;
+}
+
+// %XFunction%: a built-in constructor whose [[Prototype]] is Function
+// (§27.3.2), shaped like the Function constructor (FunctionPrototype.cpp).
+static const proto::ProtoObject* makeFunctionKindConstructor(proto::ProtoContext* ctx,
+                                                             const proto::ProtoObject* functionCtor,
+                                                             const proto::ProtoObject* kindProto,
+                                                             const char* name,
+                                                             proto::ProtoMethod call) {
+    const proto::ProtoObject* ctor = ctx->newObject(true);
+    ctor->setAttribute(ctx, JSSymbols::isConstructor(ctx), PROTO_TRUE);
+    ctor->setAttribute(ctx, JSSymbols::nativeFn(ctx), ctx->fromMethod(nullptr, call));
+    ctor->setAttribute(ctx, JSSymbols::construct(ctx), ctx->fromMethod(nullptr, call));
+    defineIntrinsicProperty(ctx, ctor, JSSymbols::name(ctx), "name", ctx->fromUTF8String(name), 0x2LL);
+    defineIntrinsicProperty(ctx, ctor, JSSymbols::length(ctx), "length", ctx->fromInteger(1LL), 0x2LL);
+    // §27.3.2.1: XFunction.prototype is { writable: false, enumerable: false,
+    // configurable: false }; §27.3.3.1: XFunction.prototype.constructor is
+    // { writable: false, enumerable: false, configurable: true }.
+    defineIntrinsicProperty(ctx, ctor, JSSymbols::prototype(ctx), "prototype", kindProto, 0x0LL);
+    defineIntrinsicProperty(ctx, kindProto, JSSymbols::constructor(ctx), "constructor", ctor, 0x2LL);
+    if (functionCtor && functionCtor != PROTO_NONE)
+        protojs::setJSProtoOverride(ctx, ctor, functionCtor);
+    return ctor;
+}
+
+static PROTOJS_NOINLINE const proto::ProtoObject* functionKindIntrinsic(
+        proto::ProtoContext* ctx, const proto::ProtoObject** gr, int which) {
+    if (!ctx || !gr || !*gr) return nullptr;
+    const proto::ProtoString* key = functionKindIntrinsicsKey(ctx);
+    const proto::ProtoObject* stored = (*gr)->getAttribute(ctx, key, false);
+    if (!stored || stored == PROTO_NONE || !stored->asList(ctx)) {
+        const proto::ProtoObject* fp = (*gr)->getAttribute(ctx, JSSymbols::functionProto(ctx), false);
+        if (!fp || fp == PROTO_NONE) return nullptr;
+        const proto::ProtoObject* functionCtor = (*gr)->getAttribute(ctx, JSSymbols::Function(ctx), false);
+        const proto::ProtoString* protoK = JSSymbols::prototype(ctx);
+        const proto::ProtoString* ctorK = JSSymbols::constructor(ctx);
+
+        // Generators.
+        const proto::ProtoObject* genFnProto = makeFunctionKindPrototype(ctx, fp, "GeneratorFunction");
+        const proto::ProtoObject* iterProto = protojs::getIteratorPrototype(ctx);
+        const proto::ProtoObject* genProto = iterProto ? iterProto->newChild(ctx, true)
+                                                       : ctx->newObject(true);
+        installMethod(ctx, genProto, "next", makeBuiltinMethod(ctx, "next", generatorNext, 1));
+        installMethod(ctx, genProto, "return", makeBuiltinMethod(ctx, "return", generatorReturn, 1));
+        installMethod(ctx, genProto, "throw", makeBuiltinMethod(ctx, "throw", generatorThrow, 1));
+        defineIntrinsicProperty(ctx, genProto, JSSymbols::symbolToStringTag(ctx), "Symbol.toStringTag",
+                                ctx->fromUTF8String("Generator"), 0x2LL);
+        // §27.3.3.2 / §27.5.1.1: both links are { writable: false,
+        // enumerable: false, configurable: true }.
+        defineIntrinsicProperty(ctx, genFnProto, protoK, "prototype", genProto, 0x2LL);
+        defineIntrinsicProperty(ctx, genProto, ctorK, "constructor", genFnProto, 0x2LL);
+        makeFunctionKindConstructor(ctx, functionCtor, genFnProto, "GeneratorFunction",
+                                    protojs::generatorFunctionConstructorCall);
+
+        // Async functions.
+        const proto::ProtoObject* asyncFnProto = makeFunctionKindPrototype(ctx, fp, "AsyncFunction");
+        makeFunctionKindConstructor(ctx, functionCtor, asyncFnProto, "AsyncFunction",
+                                    protojs::asyncFunctionConstructorCall);
+
+        // Async generators.
+        const proto::ProtoObject* asyncGenFnProto =
+            makeFunctionKindPrototype(ctx, fp, "AsyncGeneratorFunction");
+        const proto::ProtoObject* asyncGenProto = asyncGeneratorPrototype(ctx);
+        defineIntrinsicProperty(ctx, asyncGenFnProto, protoK, "prototype", asyncGenProto, 0x2LL);
+        defineIntrinsicProperty(ctx, asyncGenProto, ctorK, "constructor", asyncGenFnProto, 0x2LL);
+        makeFunctionKindConstructor(ctx, functionCtor, asyncGenFnProto, "AsyncGeneratorFunction",
+                                    protojs::asyncGeneratorFunctionConstructorCall);
+
+        const proto::ProtoList* list = ctx->newList()
+            ->appendLast(ctx, genFnProto)
+            ->appendLast(ctx, genProto)
+            ->appendLast(ctx, asyncFnProto)
+            ->appendLast(ctx, asyncGenFnProto)
+            ->appendLast(ctx, asyncGenProto);
+        stored = list->asObject(ctx);
+        const proto::ProtoObject* global = globalObjectForRoot(ctx, *gr);
+        if (global == *gr) *gr = (*gr)->setAttribute(ctx, key, stored);
+        else global->setAttribute(ctx, key, stored);
+    }
+    const proto::ProtoList* list = stored->asList(ctx);
+    if (!list || which < 0 || static_cast<unsigned long>(which) >= list->getSize(ctx)) return nullptr;
+    return list->getAt(ctx, which);
+}
+
+// The [[Prototype]] a closure of `nm`'s kind is born with: Function.prototype
+// (`fp`) for an ordinary function, arrow or method, else its kind's prototype.
+static const proto::ProtoObject* closureBirthParent(proto::ProtoContext* ctx,
+                                                    const proto::ProtoObject** gr,
+                                                    const proto::ProtoObject* fp,
+                                                    const ProtoBytecodeModule* nm) {
+    if (!nm || !(nm->isGenerator || nm->isAsync)) return fp;
+    const int which = nm->isGenerator
+        ? (nm->isAsync ? kIntrAsyncGeneratorFunctionProto : kIntrGeneratorFunctionProto)
+        : kIntrAsyncFunctionProto;
+    const proto::ProtoObject* p = functionKindIntrinsic(ctx, gr, which);
+    return (p && p != PROTO_NONE) ? p : fp;
+}
+
+// The parent of a generator function's own `prototype` object: the realm's
+// %GeneratorPrototype% / %AsyncGeneratorPrototype% (§15.5.4 step 4).
+static const proto::ProtoObject* generatorInstancePrototypeParent(proto::ProtoContext* ctx,
+                                                                  const proto::ProtoObject** gr,
+                                                                  const ProtoBytecodeModule* nm) {
+    const proto::ProtoObject* p = functionKindIntrinsic(
+        ctx, gr, nm->isAsync ? kIntrAsyncGeneratorProto : kIntrGeneratorProto);
+    if (p && p != PROTO_NONE) return p;
+    return (ctx->space && ctx->space->objectPrototype) ? ctx->space->objectPrototype : nullptr;
+}
+
+// OrdinaryCreateFromConstructor(F, "%GeneratorPrototype%") for the generator
+// object of the function now running (t_activeFunc): F.prototype when it is
+// an object, else the realm's intrinsic (§27.5.3.1 / §10.1.14 GetPrototypeFromConstructor).
+static PROTOJS_NOINLINE const proto::ProtoObject* generatorObjectPrototype(proto::ProtoContext* ctx,
+                                                                           bool isAsync) {
+    const proto::ProtoObject* fn = t_activeFunc;
+    if (fn && fn != PROTO_NONE) {
+        const proto::ProtoObject* p = fn->getAttribute(ctx, JSSymbols::prototype(ctx), false);
+        if (jsIsObject(ctx, p)) return p;
+    }
+    const proto::ProtoObject* intr = functionKindIntrinsic(
+        ctx, t_currentGlobalRoot, isAsync ? kIntrAsyncGeneratorProto : kIntrGeneratorProto);
+    if (intr && intr != PROTO_NONE) return intr;
+    return isAsync ? asyncGeneratorPrototype(ctx) : protojs::getIteratorPrototype(ctx);
+}
+
 static PROTOJS_NOINLINE const proto::ProtoObject* asyncGenObjectCreate(proto::ProtoContext* ctx) {
-    const proto::ProtoObject* proto = asyncGeneratorPrototype(ctx);
+    // §27.6.3.2: the object inherits the async generator function's
+    // `prototype`, which inherits %AsyncGeneratorPrototype%.
+    const proto::ProtoObject* proto = generatorObjectPrototype(ctx, true);
     const proto::ProtoObject* gen = proto ? proto->newChild(ctx, true) : ctx->newObject(true);
     gen->setAttribute(ctx, agKey(ctx, kAgQueue), ctx->newList()->asObject(ctx));
     gen->setAttribute(ctx, agKey(ctx, kAgState), ctx->fromInteger(kGenSuspendedStart));

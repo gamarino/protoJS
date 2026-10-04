@@ -669,12 +669,14 @@ static const proto::ProtoObject* fnToString(
 // "TypeError: is not a function". Around 50-80 test262 cases under
 // built-ins/Function/prototype/{apply,call,bind,...} that wrap a
 // Function(body) input were blocked by this single missing handler.
-static const proto::ProtoObject* functionConstructorCall(
+//
+// The same steps serve GeneratorFunction, AsyncFunction and
+// AsyncGeneratorFunction (§27.3.1.1, §27.7.1.1, §27.4.1.1): only the keyword
+// that opens the synthesised source differs.
+static const proto::ProtoObject* createDynamicFunction(
     proto::ProtoContext* ctx,
-    const proto::ProtoObject* /*self*/,
-    const proto::ParentLink*,
     const proto::ProtoList* args,
-    const proto::ProtoSparseList*)
+    const char* keyword)
 {
     if (!ctx) return PROTO_NONE;
     JSContextWrapper* wrapper = JSContextWrapper::current();
@@ -759,14 +761,43 @@ static const proto::ProtoObject* functionConstructorCall(
     // evaluator produces the function value as its result. Use
     // "anonymous" as the inferred name per the spec's
     // CreateDynamicFunction synthesis.
-    std::string source = "(function anonymous(" + params + "\n) {\n" + body + "\n})";
+    std::string source = std::string("(") + keyword + " anonymous(" + params
+        + "\n) {\n" + body + "\n})";
 
     const proto::ProtoObject* result =
         wrapper->evalIsolatedToProto(source, "<Function>");
     return (result && result != PROTO_NONE) ? result : PROTO_NONE;
 }
 
+static const proto::ProtoObject* functionConstructorCall(
+    proto::ProtoContext* ctx, const proto::ProtoObject*, const proto::ParentLink*,
+    const proto::ProtoList* args, const proto::ProtoSparseList*)
+{
+    return createDynamicFunction(ctx, args, "function");
+}
+
 } // anonymous namespace
+
+const proto::ProtoObject* generatorFunctionConstructorCall(
+    proto::ProtoContext* ctx, const proto::ProtoObject*, const proto::ParentLink*,
+    const proto::ProtoList* args, const proto::ProtoSparseList*)
+{
+    return createDynamicFunction(ctx, args, "function*");
+}
+
+const proto::ProtoObject* asyncFunctionConstructorCall(
+    proto::ProtoContext* ctx, const proto::ProtoObject*, const proto::ParentLink*,
+    const proto::ProtoList* args, const proto::ProtoSparseList*)
+{
+    return createDynamicFunction(ctx, args, "async function");
+}
+
+const proto::ProtoObject* asyncGeneratorFunctionConstructorCall(
+    proto::ProtoContext* ctx, const proto::ProtoObject*, const proto::ParentLink*,
+    const proto::ProtoList* args, const proto::ProtoSparseList*)
+{
+    return createDynamicFunction(ctx, args, "async function*");
+}
 
 void ensureFunctionPrototype(proto::ProtoContext* ctx,
                               const proto::ProtoObject** globalRoot)

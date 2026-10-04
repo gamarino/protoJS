@@ -36,6 +36,23 @@ const proto::ProtoObject* wrapNativeFunction(proto::ProtoContext* ctx,
                                               long long length,
                                               const proto::ProtoObject** globalRoot);
 
+/**
+ * [[Call]] / [[Construct]] of %GeneratorFunction%, %AsyncFunction% and
+ * %AsyncGeneratorFunction% (ECMA-262 §27.3.1.1, §27.7.1.1, §27.4.1.1):
+ * CreateDynamicFunction for a generator, async or async generator function.
+ * The constructor objects themselves are built by the interpreter with the
+ * other function-kind intrinsics (functionKindIntrinsic in ProtoInterpreter).
+ */
+const proto::ProtoObject* generatorFunctionConstructorCall(
+    proto::ProtoContext* ctx, const proto::ProtoObject* self, const proto::ParentLink* parent,
+    const proto::ProtoList* args, const proto::ProtoSparseList* named);
+const proto::ProtoObject* asyncFunctionConstructorCall(
+    proto::ProtoContext* ctx, const proto::ProtoObject* self, const proto::ParentLink* parent,
+    const proto::ProtoList* args, const proto::ProtoSparseList* named);
+const proto::ProtoObject* asyncGeneratorFunctionConstructorCall(
+    proto::ProtoContext* ctx, const proto::ProtoObject* self, const proto::ParentLink* parent,
+    const proto::ProtoList* args, const proto::ProtoSparseList* named);
+
 } // namespace protojs
 
 #endif // PROTOJS_FUNCTIONPROTOTYPE_H
