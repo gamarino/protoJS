@@ -11,6 +11,7 @@
 #include "LazyPrototype.h"
 #include "PinnedBuiltin.h"
 #include "ThreadIdentity.h"
+#include "NativeStackGuard.h"
 #include "../ArrayPrototype.h"
 #include "../StringPrototype.h"
 #include "../RegExpPrototype.h"
@@ -5814,6 +5815,19 @@ static const proto::ProtoObject* startAsyncActivation(proto::ProtoContext* pCont
                                                       const proto::ProtoObject** pGlobalRoot,
                                                       const proto::ProtoObject** outException);
 
+// The RangeError runBytecode throws when the native stack is nearly exhausted
+// (src/runtime/NativeStackGuard.h). Out of line: runBytecode's frame is what
+// limits the recursion depth, on MSVC above all.
+static PROTOJS_NOINLINE const proto::ProtoObject* raiseStackOverflow(
+        proto::ProtoContext* ctx, const proto::ProtoObject** pGlobalRoot,
+        const proto::ProtoObject** outException) {
+    const proto::ProtoObject* err = makeError(ctx, "RangeError",
+        "Maximum call stack size exceeded", pGlobalRoot ? pGlobalRoot : t_currentGlobalRoot);
+    if (outException) *outException = err ? err : PROTO_NONE;
+    else signalNativeException(err ? err : PROTO_NONE);
+    return PROTO_NONE;
+}
+
 const proto::ProtoObject* runBytecode(proto::ProtoContext* pContext,
                                       const ProtoBytecodeModule* module,
                                       const proto::ProtoObject* thisObj,
@@ -5821,6 +5835,8 @@ const proto::ProtoObject* runBytecode(proto::ProtoContext* pContext,
                                       const proto::ProtoObject** pGlobalRoot,
                                       const proto::ProtoObject** outException) {
     if (!pContext || !module || !module->pBytecode) return PROTO_NONE;
+    if (__builtin_expect(nativeStackExhausted(), 0))
+        return raiseStackOverflow(pContext, pGlobalRoot, outException);
     // An async function or async generator called afresh: startAsyncActivation
     // sets up its completion and re-enters here with the entry handshake set
     // (a resume arrives with t_asyncResumeCont set).  One predictable branch

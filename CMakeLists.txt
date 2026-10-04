@@ -22,7 +22,9 @@ if(MSVC)
 endif()
 if(WIN32)
     # Native stack reservation of protojs and its threads (see target protojs).
-    set(PROTOJS_WINDOWS_STACK_BYTES 67108864)
+    # 256 MiB: about 2,800 nested JavaScript calls with MSVC's frame, as many as
+    # Linux's 8 MiB gives with GCC's.
+    set(PROTOJS_WINDOWS_STACK_BYTES 268435456)
     # <windows.h> without min/max macros and without the old Winsock 1 header.
     add_compile_definitions(NOMINMAX WIN32_LEAN_AND_MEAN)
     # Threads, dynamic loading and libm come with the C/C++ runtime and the
@@ -279,6 +281,7 @@ add_library(protojs_core STATIC
     src/runtime/LazyPrototype.cpp
     src/runtime/PinnedBuiltin.cpp
     src/runtime/ThreadIdentity.cpp
+    src/runtime/NativeStackGuard.cpp
     src/runtime/BehaviorRegistry.cpp
     src/runtime/BytecodeSpecialiser.cpp
     # Native modules
@@ -441,10 +444,12 @@ if(WIN32)
     # runBytecode frame. Linux gives the main thread 8 MiB; Windows reserves
     # 1 MiB unless the program asks for more, and threads created without an
     # explicit size get the same reservation. MSVC also gives runBytecode a
-    # frame six times GCC's (about 46 KiB against 7.7 KiB: it does not share
-    # stack slots between the handlers' block-scoped locals), so the same
-    # recursion depth as on Linux takes about 48 MiB. The reservation is address
-    # space; pages are committed only as the stack grows.
+    # frame many times GCC's (it does not share stack slots between the
+    # handlers' block-scoped locals): a JavaScript call took about 90 KiB of
+    # stack on the CI runner (700 nested calls fit in 64 MiB, 720 did not), so
+    # the depth Linux reaches in 8 MiB (about 2,300 calls before the RangeError
+    # of src/runtime/NativeStackGuard.h) takes about 256 MiB. The reservation is
+    # address space; pages are committed only as the stack grows.
     target_link_options(protojs PRIVATE /STACK:${PROTOJS_WINDOWS_STACK_BYTES})
     # The threads that run JavaScript (workers, protoCore threads) get the same
     # reservation: src/main.cpp, configureThreadStacks.

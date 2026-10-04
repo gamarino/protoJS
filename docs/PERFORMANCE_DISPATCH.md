@@ -123,10 +123,12 @@ page calls `__chkstk`, which touches each page of the new frame in turn so the
 guard page can grow the stack: about a dozen page touches on every JavaScript
 call. The same mechanism appears in GCC's computed-goto build on Ubuntu
 (`-fstack-clash-protection` probes the first page). The stack depth this
-allows is covered in [INSTALLATION.md](INSTALLATION.md#windows-msvc) (64 MiB
-reserved; 700 nested calls succeed and 720 do not, measured on the CI runner on
-2026-10-02, which puts a JavaScript call at about 90 KiB of stack in the MSVC
-build).
+allows is covered in [INSTALLATION.md](INSTALLATION.md#windows-msvc): with the
+64 MiB then reserved, 700 nested calls succeeded and 720 did not (CI runner,
+2026-10-02), which puts a JavaScript call at about 90 KiB of stack in the MSVC
+build. Since 2026-10-04 the reservation is 256 MiB, and running out of native
+stack throws RangeError on every platform (`src/runtime/NativeStackGuard.h`)
+instead of ending the process.
 
 **Not done: shrinking the MSVC frame.** It would mean moving the handlers'
 large locals out of `runBytecode` (to the heap or a per-thread scratch area)

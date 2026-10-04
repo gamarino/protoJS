@@ -5,7 +5,7 @@
  * recursion depth a thread reaches is set by its stack. std::thread cannot be
  * given a stack size, and the platforms' defaults differ by two orders of
  * magnitude: 8 MiB on Linux (RLIMIT_STACK), the executable's /STACK reservation
- * on Windows (64 MiB for protojs.exe), and 512 KiB on macOS whatever the main
+ * on Windows (256 MiB for protojs.exe), and 512 KiB on macOS whatever the main
  * thread has. A worker_threads Worker running on a std::thread therefore died
  * on macOS at a depth the main thread reaches easily.
  *

@@ -181,19 +181,23 @@ How Windows differs, by design:
 - **Event loop.** Windows wakes sleeping threads on a 15.6 ms timer by
   default; while the event loop waits for work protojs sets it to 1 ms
   (`timeBeginPeriod`) and restores it when the loop ends.
-- **Stack.** `protojs.exe` reserves a 64 MiB stack, and every thread that
+- **Stack.** `protojs.exe` reserves a 256 MiB stack, and every thread that
   runs JavaScript -- `worker_threads` workers, and threads protoCore creates --
   gets the same reservation (workers are created with it explicitly; protoJS
   asks protoCore for it with `setThreadStackBytes`, which protoCore honours on
   Windows from 2.9.0, and a thread created without a size gets the
-  executable's reservation anyway). MSVC gives the
-  interpreter's `runBytecode` a much larger frame than GCC (3 KiB), and a
-  JavaScript call costs about 90 KiB of stack in the MSVC build: on the CI's
-  Windows Server 2022 runner, 700 nested calls succeed and 720 do not
-  (measured on 2026-10-02, cross-platform run 37024335790; the earlier
-  figure of about 1,400 no longer holds). `js/workers/deep_recursion` uses
-  700, so it is at the limit. As on Linux, going deeper ends the process
-  instead of raising a `RangeError`. The frame size and what it costs per call are discussed in
+  executable's reservation anyway). The reservation is address space; pages
+  are committed only as the stack grows. MSVC gives the interpreter's
+  `runBytecode` a much larger frame than GCC (3 KiB): a JavaScript call costs
+  about 90 KiB of stack in the MSVC build (on the CI's Windows Server 2022
+  runner 700 nested calls fit in the 64 MiB reservation used until 2026-10-04
+  and 720 did not, cross-platform run 37024335790), so 256 MiB gives about the
+  depth Linux reaches in 8 MiB. On every platform, recursion that would
+  exhaust the native stack throws `RangeError: Maximum call stack size
+  exceeded` (since 2026-10-04; before, the process ended).
+  `js/workers/deep_recursion` prints the depth at which the RangeError comes on
+  the main thread and in a worker, and requires at least 2,000. The frame size
+  and what it costs per call are discussed in
   [PERFORMANCE_DISPATCH.md](PERFORMANCE_DISPATCH.md).
 - **Dates** cover the whole JavaScript range: the C runtime's time functions
   stop at 1970..3000, so UTC conversions are protoJS's own calendar arithmetic
