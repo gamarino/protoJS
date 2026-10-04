@@ -144,12 +144,59 @@ const proto::ProtoObject* typedArrayGetElement(proto::ProtoContext* ctx,
 // typedArraySetElement
 // ---------------------------------------------------------------------------
 
+// The value a typed array of `elementType` stores for `value`: ToBigInt for
+// BigInt64Array / BigUint64Array, ToNumber for every other kind (§10.4.5.16
+// TypedArraySetElement steps 1-2). Calls valueOf / toString /
+// Symbol.toPrimitive on an object. Returns nullptr with the exception pending
+// when the coercion throws (a BigInt into a Number array, a Number into a
+// BigInt array, a Symbol, or a throwing callback).
+static const proto::ProtoObject* typedArrayCoerceValue(proto::ProtoContext* ctx,
+                                                       const proto::ProtoObject* value,
+                                                       uint8_t elementType) {
+    if (!value) value = PROTO_NONE;
+    if (elementType == 9 || elementType == 10) {
+        const proto::ProtoObject* integer = toBigIntInteger(ctx, value);
+        if (!integer || integer == PROTO_NONE || hasCallException()) return nullptr;
+        return integer;
+    }
+    if (proto::isSmallInt(value)) return value;   // the common case, no lookup
+    if (value != PROTO_NONE &&
+        (value->isInteger(ctx) || value->isDouble(ctx) || value->isFloat(ctx))
+        && !isBigInt(ctx, value))
+        return value;
+    if (isBigInt(ctx, value)) {
+        signalNativeException(makeNativeError(ctx, "TypeError",
+            "Cannot convert a BigInt value to a number"));
+        return nullptr;
+    }
+    const proto::ProtoObject* n = jsToNumber(ctx, value);
+    if (!n || n == PROTO_NONE || hasCallException()) return nullptr;
+    return n;
+}
+
+// ToInt32-style wrap of a Number for the integer element kinds: truncate, then
+// reduce modulo 2^32 (a multiple of 2^8 and 2^16, so the 8- and 16-bit kinds
+// take their low bits). NaN and the infinities give 0.
+static long long typedArrayWrapToInteger(double d) {
+    if (std::isnan(d) || std::isinf(d)) return 0;
+    double m = std::fmod(std::trunc(d), 4294967296.0);
+    if (m < 0) m += 4294967296.0;
+    return static_cast<long long>(m);
+}
+
 const proto::ProtoObject* typedArraySetElement(proto::ProtoContext* ctx,
                                                const proto::ProtoObject* ta,
                                                uint32_t index,
                                                const proto::ProtoObject* value,
                                                uint8_t elementType) {
     if (!ta || ta == PROTO_NONE) return const_cast<proto::ProtoObject*>(ta);
+
+    // §10.4.5.16 steps 1-2: coerce first, with its side effects, even when
+    // the index turns out to be out of range; the buffer is read afterwards
+    // because the coercion may have run arbitrary code.
+    const proto::ProtoObject* numeric = typedArrayCoerceValue(ctx, value, elementType);
+    if (!numeric) return const_cast<proto::ProtoObject*>(ta);
+    value = numeric;
 
     // Get length and bounds check
     const proto::ProtoObject* lenObj = ta->getAttribute(ctx, JSSymbols::length(ctx), false);
@@ -180,37 +227,22 @@ const proto::ProtoObject* typedArraySetElement(proto::ProtoContext* ctx,
 
     uint8_t* bytes = static_cast<uint8_t*>(rawPtr) + byteIndex;
 
-    // §10.4.5.16 TypedArraySetElement: a BigInt array takes ToBigInt(value),
-    // any other ToNumber(value) -- a BigInt there is a TypeError, and so is a
-    // Number in a BigInt array.
+    // A BigInt array stores the low 64 bits of ToBigInt(value).
     if (elementType == 9 || elementType == 10) {
-        const proto::ProtoObject* integer = toBigIntInteger(ctx, value ? value : PROTO_NONE);
-        if (!integer || integer == PROTO_NONE || hasCallException())
-            return const_cast<proto::ProtoObject*>(ta);
-        const uint64_t bits = bigIntLow64(ctx, integer);
+        const uint64_t bits = bigIntLow64(ctx, value);
         std::memcpy(bytes, &bits, 8);
         return const_cast<proto::ProtoObject*>(ta);
     }
-    if (isBigInt(ctx, value)) {
-        signalNativeException(makeNativeError(ctx, "TypeError",
-            "Cannot convert a BigInt value to a number"));
-        return const_cast<proto::ProtoObject*>(ta);
-    }
 
-    // Coerce value to integer or double
+    // `value` is a Number now (typedArrayCoerceValue).
     long long iv = 0;
     double dv = 0.0;
-    if (value && value != PROTO_NONE) {
-        if (value->isInteger(ctx)) {
-            iv = value->asLong(ctx);
-            dv = static_cast<double>(iv);
-        } else if (value->isDouble(ctx) || value->isFloat(ctx)) {
-            dv = value->asDouble(ctx);
-            if (!std::isnan(dv) && !std::isinf(dv))
-                iv = static_cast<long long>(dv);
-            else
-                iv = 0;
-        }
+    if (value->isInteger(ctx)) {
+        iv = value->asLong(ctx);
+        dv = static_cast<double>(iv);
+    } else {
+        dv = value->asDouble(ctx);
+        iv = typedArrayWrapToInteger(dv);
     }
 
     switch (elementType) {
@@ -418,8 +450,10 @@ static const proto::ProtoObject* ta_fill(
     if (et == 0xFF) return const_cast<proto::ProtoObject*>(self);
     uint32_t len = getTypedArrayLength(ctx, self);
 
-    const proto::ProtoObject* fillVal = (args && args->getSize(ctx) > 0)
-        ? args->getAt(ctx, 0) : PROTO_NONE;
+    // §23.2.3.9 step 5: the value is coerced once, before start and end.
+    const proto::ProtoObject* fillVal = typedArrayCoerceValue(ctx,
+        (args && args->getSize(ctx) > 0) ? args->getAt(ctx, 0) : PROTO_NONE, et);
+    if (!fillVal) return PROTO_NONE;
     long long start = 0, end = static_cast<long long>(len);
     if (args && args->getSize(ctx) > 1) {
         const proto::ProtoObject* a1 = args->getAt(ctx, 1);
@@ -814,8 +848,9 @@ static const proto::ProtoObject* ta_map(
     for (uint32_t i = 0; i < len; i++) {
         const proto::ProtoObject* elem = typedArrayGetElement(ctx, self, i, et);
         const proto::ProtoObject* mapped = invokeCallback(ctx, fn, elem, i, self);
-        if (mapped && mapped != PROTO_NONE)
-            typedArraySetElement(ctx, result, i, mapped, et);
+        if (hasCallException()) return PROTO_NONE;
+        typedArraySetElement(ctx, result, i, mapped ? mapped : PROTO_NONE, et);
+        if (hasCallException()) return PROTO_NONE;
     }
     return result;
 }
@@ -1152,8 +1187,10 @@ static const proto::ProtoObject* typedArrayFromValues(proto::ProtoContext* ctx,
     const uint32_t len = values ? static_cast<uint32_t>(values->getSize(ctx)) : 0;
     const proto::ProtoObject* result = createTypedArrayFromLength(ctx, proto, et, len);
     if (!result || result == PROTO_NONE) return PROTO_NONE;
-    for (uint32_t i = 0; i < len; i++)
+    for (uint32_t i = 0; i < len; i++) {
         typedArraySetElement(ctx, result, i, values->getAt(ctx, static_cast<int>(i)), et);
+        if (hasCallException()) return PROTO_NONE;
+    }
     return result;
 }
 
@@ -1322,6 +1359,7 @@ struct TAStaticMethods {
         for (uint32_t i = 0; i < len; i++) {
             const proto::ProtoObject* v = args->getAt(ctx, static_cast<int>(i));
             typedArraySetElement(ctx, result, i, v, et);
+            if (hasCallException()) return PROTO_NONE;
         }
         return result;
     }
