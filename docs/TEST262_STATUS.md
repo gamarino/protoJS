@@ -4,9 +4,9 @@ This page holds protoJS's **one authoritative Test262 figure**. Every other
 Test262 number in this repository is historical or a named subset, and says so
 where it appears. If two figures ever disagree again, this one wins.
 
-## Headline figure — as of 2026-10-03
+## Headline figure — as of 2026-10-04
 
-**32,859 of 53,571 tests pass — 61.34 %** of the whole Test262 corpus.
+**33,658 of 53,571 tests pass — 62.83 %** of the whole Test262 corpus.
 
 Reproduce it:
 
@@ -26,22 +26,22 @@ whole corpus keeps the runner's log and snapshot as the artifact
 
 | Field | Value |
 |---|---|
-| Date | 2026-10-03 |
-| Run | GitHub Actions CI run 37104513254 (workflow_dispatch, Ubuntu runner), master at `f4fac9c67` |
+| Date | 2026-10-04 |
+| Run | GitHub Actions CI run 37203655980 (workflow_dispatch, Ubuntu runner), branch `fix/windows-review` at `05ceb64e4`, merged to master the same day |
 | Corpus | `../test262` at commit `aae8cf6eed6d6c6a203be48c1184bb194880f66b` |
 | Scope | the whole corpus: `annexB`, `built-ins`, `harness`, `intl402`, `language`, `staging` |
 | Discovered | 53,582 files (every `.js` under `test/` that is not a `_FIXTURE`) |
 | Skipped | 11 (the skip list; see below) |
 | Denominator | 53,571 |
-| Passed | **32,859** |
-| Failed — semantics | 18,611 |
-| Failed — syntax | 1,240 |
-| Failed — negative (engine accepted source Test262 requires it to reject) | 7 |
-| Failed — async (no `Test262:AsyncTestComplete`) | 625 |
-| Timeouts (5,000 ms each) | 229 |
-| Pass rate | **61.34 %** |
-| Wall clock | 2,707 s (45 min), sequential, `TEST262_CONCURRENCY=1` |
-| protoCore | 2.7.0 (`fc5d79db`), the CI pin at the time of the run (CI builds 2.10.2 since 2026-10-03) |
+| Passed | **33,658** |
+| Failed — semantics | 17,625 |
+| Failed — syntax | 1,229 |
+| Failed — negative (engine accepted source Test262 requires it to reject) | 3 |
+| Failed — async (no `Test262:AsyncTestComplete`) | 825 |
+| Timeouts (5,000 ms each) | 231 |
+| Pass rate | **62.83 %** |
+| Wall clock | 2,635 s (44 min), sequential, `TEST262_CONCURRENCY=1` |
+| protoCore | 2.14.1 (`94951559`), the CI pin |
 
 `TEST262_CONCURRENCY=1` is not a preference: parallel Test262 runs hang the
 development machine, so the run is sequential. Builds may use `-j4`, which was
@@ -51,22 +51,37 @@ verified safe on that machine on 2026-10-02.
 
 | Directory | Denominator | Passed | Pass rate |
 |---|---:|---:|---:|
-| `annexB` | 1,086 | 545 | 50.18 % |
-| `built-ins` | 23,814 | 13,898 | 58.36 % |
-| `harness` | 116 | 90 | 77.59 % |
-| `intl402` | 3,357 | 20 | 0.60 % |
-| `language` | 23,715 | 17,653 | 74.44 % |
-| `staging` | 1,483 | 653 | 44.03 % |
-| **Whole corpus** | **53,571** | **32,859** | **61.34 %** |
+| `annexB` | 1,086 | 553 | 50.92 % |
+| `built-ins` | 23,814 | 14,431 | 60.60 % |
+| `harness` | 116 | 107 | 92.24 % |
+| `intl402` | 3,357 | 22 | 0.66 % |
+| `language` | 23,715 | 17,855 | 75.29 % |
+| `staging` | 1,483 | 690 | 46.53 % |
+| **Whole corpus** | **53,571** | **33,658** | **62.83 %** |
 
 Subordinate view, for comparison with engines that publish it: excluding
 `intl402` (no ECMA-402 in protoJS) and `staging` (not normative in Test262),
-**31,705 of 48,731 = 65.06 %**. This is *not* the headline. The headline
+**32,946 of 48,731 = 67.61 %**. This is *not* the headline. The headline
 includes both, because leaving them out raises the number without improving the
 engine.
 
 ### What changed since the previous figures
 
+- **2026-10-04, global declarations, GeneratorFunction / AsyncFunction /
+  AsyncGeneratorFunction, BigInt wrappers, typed arrays** (CHANGELOG).
+  Against the CI run of the same corpus on master's code (37169848799:
+  33,120 passed, 61.82 %), compared test by test from the two runs'
+  `test262-whole-corpus` snapshots: 539 tests newly pass and 1 changes from
+  pass to fail.  The gains: `built-ins/TypedArrayConstructors` 137,
+  `built-ins/TypedArray` 122, `language/expressions` 83,
+  `built-ins/ArrayBuffer` 24, `language/statements` 23, async-generator,
+  generator and function-kind built-ins 64, `built-ins/Array` 14, others.
+  The one pass->fail, `annexB/language/literals/regexp/
+  quantifiable-assertion-followed-by.js`, is not caused by these changes:
+  run alone with its harness files concatenated it aborts with `realloc():
+  invalid next size` (heap corruption) under master's binary as well; whether
+  it crashes inside the runner depends on the heap layout.  It is an open
+  memory-safety bug in the regular-expression path.
 - **2026-10-02, promises and async functions** (job queue, reactions, `await`
   that suspends, async generators, `for await`). Against master measured the
   same way the same day (CI run 37020796879: 29,083 passed, 54.29 %), 3,290

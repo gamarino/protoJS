@@ -55,6 +55,10 @@ All notable changes to protoJS are documented in this file.
   ArrayBuffer, Object.prototype.toString; 3,381 tests): 1,244 -> 1,596
   passed, 352 fail->pass, 0 pass->fail.  The per-commit gate
   (built-ins/{Object,Reflect,Proxy}) banks two improvements: 3,755 of 3,875.
+- Whole corpus in CI (run 37203655980): 33,658 of 53,571 (62.83 %), against
+  33,120 (61.82 %) for master's code (run 37169848799); 539 fail->pass and one
+  pass->fail, a layout-dependent heap-corruption crash in the RegExp path that
+  master's binary also shows (docs/TEST262_STATUS.md).
 - The new code paths in `runBytecode` live in out-of-line helpers: MSVC gives
   every block local its own frame slot, and the first version of these
   changes made `js/workers/deep_recursion` (700 nested calls) crash on
