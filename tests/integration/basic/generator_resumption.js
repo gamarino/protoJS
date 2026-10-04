@@ -88,5 +88,30 @@ let custom = 0;
 const iterable = { [Symbol.iterator]() { return { next() { custom++; return custom > 2 ? { done: true, value: "end" } : { value: custom, done: false }; } }; } };
 check([...(function* () { yield (yield* iterable); })()], [1, 2, "end"], "yield* a custom iterable");
 
+// return(v) at a yield runs the finally blocks; through yield* it calls the
+// inner iterator's return(); a non-object result there is a TypeError.
+const order = [];
+const g11 = (function* () { try { yield 1; yield 2; } finally { order.push("finally"); } })();
+g11.next();
+check([g11.return(7), order, g11.next()], [{ value: 7, done: true }, ["finally"], { done: true }], "return() runs finally");
+const g12 = (function* () { try { yield 1; } finally { yield "cleanup"; } })();
+g12.next();
+check([g12.return(5), g12.next()], [{ value: "cleanup", done: false }, { value: 5, done: true }], "return() into a finally that yields");
+const innerLog = [];
+const inner13 = { [Symbol.iterator]() { return this; }, next() { return { value: "v", done: false }; },
+                  return(v) { innerLog.push("inner return " + v); return { value: "r", done: true }; } };
+const g13 = (function* () { yield* inner13; })();
+g13.next();
+check([g13.return(3), innerLog], [{ value: "r", done: true }, ["inner return 3"]], "return() is forwarded through yield*");
+const bad = { [Symbol.iterator]() { return this; }, next() { return { done: false }; }, return() { return 23; } };
+let caught14;
+const g14 = (function* () { try { yield* bad; } catch (e) { caught14 = e; } })();
+g14.next();
+check([g14.return(), caught14 instanceof TypeError], [{ done: true }, true], "non-object return() result through yield*");
+let nonObject;
+try { const g = (function* () { yield* { [Symbol.iterator]() { return { next() { return 1; } }; } }; })(); g.next(); }
+catch (e) { nonObject = e; }
+check(nonObject instanceof TypeError, true, "non-object next() result through yield*");
+
 if (failures) { console.log(failures + " failure(s)"); process.exit(1); }
 console.log("generator_resumption: OK");

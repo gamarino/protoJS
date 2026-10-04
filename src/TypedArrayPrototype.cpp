@@ -185,6 +185,12 @@ static long long typedArrayWrapToInteger(double d) {
     return static_cast<long long>(m);
 }
 
+static const proto::ProtoObject* typedArrayStoreCoerced(proto::ProtoContext* ctx,
+                                                        const proto::ProtoObject* ta,
+                                                        uint32_t index,
+                                                        const proto::ProtoObject* value,
+                                                        uint8_t elementType);
+
 const proto::ProtoObject* typedArraySetElement(proto::ProtoContext* ctx,
                                                const proto::ProtoObject* ta,
                                                uint32_t index,
@@ -197,8 +203,16 @@ const proto::ProtoObject* typedArraySetElement(proto::ProtoContext* ctx,
     // because the coercion may have run arbitrary code.
     const proto::ProtoObject* numeric = typedArrayCoerceValue(ctx, value, elementType);
     if (!numeric) return const_cast<proto::ProtoObject*>(ta);
-    value = numeric;
+    return typedArrayStoreCoerced(ctx, ta, index, numeric, elementType);
+}
 
+// Store a value typedArrayCoerceValue produced (a Number, or the integer of a
+// BigInt for the BigInt kinds) at `index`; nothing when it is out of range.
+static const proto::ProtoObject* typedArrayStoreCoerced(proto::ProtoContext* ctx,
+                                                        const proto::ProtoObject* ta,
+                                                        uint32_t index,
+                                                        const proto::ProtoObject* value,
+                                                        uint8_t elementType) {
     // Get length and bounds check
     const proto::ProtoObject* lenObj = ta->getAttribute(ctx, JSSymbols::length(ctx), false);
     uint32_t length = 0;
@@ -476,7 +490,7 @@ static const proto::ProtoObject* ta_fill(
     else end = std::min(end, sLen);
 
     for (long long i = start; i < end; i++)
-        typedArraySetElement(ctx, self, static_cast<uint32_t>(i), fillVal, et);
+        typedArrayStoreCoerced(ctx, self, static_cast<uint32_t>(i), fillVal, et);
 
     return const_cast<proto::ProtoObject*>(self);
 }

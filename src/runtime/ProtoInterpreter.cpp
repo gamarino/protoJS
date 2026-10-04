@@ -730,6 +730,10 @@ thread_local std::vector<protojs::CatchFrame>*      t_genResumeCatchStack = null
 // The active generator iterator during a resume call.
 // Set by generatorNext before entering runBytecode; read by OP_yield to update state.
 thread_local const proto::ProtoObject*              t_genIterator       = nullptr;
+// Set by resumeGenerator for generator.return(v): the resumption pushes kind 1
+// (return), which the bytecode after a yield turns into a return that runs the
+// finally blocks, and which yield* forwards to the inner iterator's return().
+thread_local bool                                   t_genResumeReturn   = false;
 
 // ---------------------------------------------------------------------------
 // Async functions and async generators: the handshake between runBytecode
@@ -5736,6 +5740,16 @@ static PROTOJS_NOINLINE int forAwaitOfStartOp(proto::ProtoContext* ctx,
     return kAsyncOpContinue;
 }
 
+// OP_iterator_check_object: true, with a TypeError in `exception`, when the
+// value on top of the stack is not an object. The value stays on the stack.
+static PROTOJS_NOINLINE bool iteratorResultNotObject(proto::ProtoContext* ctx,
+                                                     const proto::ProtoObject* const* globalRoot,
+                                                     const proto::ProtoObject*& exception) {
+    if (stackEmpty(ctx) || jsIsObject(ctx, stackTop(ctx))) return false;
+    exception = makeNativeError(ctx, "TypeError", "iterator result is not an object", globalRoot);
+    return true;
+}
+
 // yield* in a sync generator compiles to OP_for_of_start followed by
 // [OP_drop, OP_undefined, OP_undefined, OP_iterator_next] (QuickJS
 // js_parse_assign_expr2) -- a pattern no for-of loop produces. The delegation
@@ -6057,7 +6071,8 @@ const proto::ProtoObject* runBytecode(proto::ProtoContext* pContext,
         //
         // Resume kind values match QuickJS: 0 = next, 1 = return, 2 = throw.
         gen_resume_sent_val   = PROTO_NONE;
-        gen_resume_kind       = 0;
+        gen_resume_kind       = t_genResumeReturn ? 1 : 0;   // return(v): kind 1
+        t_genResumeReturn     = false;
         gen_resume_active     = true;
         if (t_genIterator) {
             const proto::ProtoString* k2 = JSSymbols::genSent(pContext);
@@ -17989,10 +18004,15 @@ const proto::ProtoObject* runBytecode(proto::ProtoContext* pContext,
             }
 
             // OP_iterator_check_object: DEF(iterator_check_object, 1, 1, 1, none)
-            // Validates iterator result is object-like; protoCore accepts any non-null — no-op.
-            L_OP_iterator_check_object: ;
-                // Leave TOS unchanged; no validation throw in protoCore.
+            // The result of an iterator's next / return / throw (yield*, async
+            // iterator close) must be an object: TypeError otherwise
+            // (§27.5.3.7 steps 7.a.iii, 7.b.ii.4, 7.c.viii). Until 2026-10-04 a
+            // no-op.
+            L_OP_iterator_check_object: {
+                if (iteratorResultNotObject(pContext, pGlobalRoot, pending_exception))
+                    has_pending_exception = true;
                 DISPATCH();
+            }
 
             // OP_iterator_close: DEF(iterator_close, 1, 3, 0, none)
             // Pops [iter, nextMethod, catch_0] from stack.
@@ -19032,11 +19052,6 @@ static const proto::ProtoObject* resumeGenerator(proto::ProtoContext* ctx,
         return makeIterResult(ctx, mode == 1 ? sentVal : PROTO_NONE, true);
     }
 
-    if (mode == 1) {
-        // .return(val): mark done, return {value: val, done: true}.
-        iter = genSetInt(ctx, iter, kGenState, 1LL);
-        return makeIterResult(ctx, sentVal, true);
-    }
 
     // Recover module pointer.
     long long modRaw = genGetInt(ctx, iter, kGenMod);
@@ -19047,12 +19062,17 @@ static const proto::ProtoObject* resumeGenerator(proto::ProtoContext* ctx,
     long long resumePc = genGetInt(ctx, iter, kGenPc);
     if (resumePc < 0) return makeIterResult(ctx, PROTO_NONE, true);
 
-    // throw(v) on a generator suspended at its start completes it and throws v
-    // without running the body (§27.5.3.4 GeneratorResumeAbrupt step 2).
-    if (mode == 2 && mod->pBytecode && resumePc > 0) {
-        const uint8_t* code = reinterpret_cast<const uint8_t*>(mod->pBytecode->getBuffer(ctx));
-        if (code && code[resumePc - 1] == OP_initial_yield) {
+    // return(v) / throw(v) on a generator suspended at its start completes it
+    // without running the body: {v, done} / throw v (§27.5.3.4
+    // GeneratorResumeAbrupt step 2). Suspended at a yield, return(v) resumes
+    // the body with a return completion (kind 1), so finally blocks run and
+    // yield* forwards it; until 2026-10-04 it only marked the generator done.
+    if (mode == 1 || mode == 2) {
+        const uint8_t* code = mod->pBytecode
+            ? reinterpret_cast<const uint8_t*>(mod->pBytecode->getBuffer(ctx)) : nullptr;
+        if (!code || resumePc <= 0 || code[resumePc - 1] == OP_initial_yield) {
             genSetInt(ctx, iter, kGenState, 1LL);
+            if (mode == 1) return makeIterResult(ctx, sentVal, true);
             signalNativeException(sentVal ? sentVal : PROTO_NONE);
             return PROTO_NONE;
         }
@@ -19093,6 +19113,8 @@ static const proto::ProtoObject* resumeGenerator(proto::ProtoContext* ctx,
         const proto::ProtoString* kt = JSSymbols::genThrowVal(ctx);
         if (kt && iter) iter = iter->setAttribute(ctx, kt, PROTO_NONE);
     }
+
+    t_genResumeReturn = (mode == 1);
 
     // Set up resume thread-locals. The generator being resumed replaces the
     // one this thread may be running (a generator body that iterates another
