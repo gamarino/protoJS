@@ -9,6 +9,7 @@
 #include "ArrayPrototype.h"
 #include "BigIntPrototype.h"
 #include "ArrayElementsStorage.h"
+#include "PromisePrototype.h"   // jsIsCallable, jsToBoolean
 
 #include <algorithm>
 #include <climits>
@@ -732,29 +733,37 @@ static const proto::ProtoObject* ta_copyWithin(
 // Task 5: Callback-based TypedArray prototype methods
 // ---------------------------------------------------------------------------
 
-// Helper: invoke a native (ProtoMethod) callback with (elem, index, array) arguments.
-// JS bytecode callbacks are not supported here; they return PROTO_NONE.
+// The callback of forEach / map / some / every / find / findIndex (§23.2.3):
+// fn(element, index, array) with `this` = thisArg, a JavaScript or a native
+// function alike. The caller checks hasCallException() after each call.
 static const proto::ProtoObject* invokeCallback(
     proto::ProtoContext* ctx,
     const proto::ProtoObject* fn,
+    const proto::ProtoObject* thisArg,
     const proto::ProtoObject* elem,
     uint32_t idx,
     const proto::ProtoObject* arr)
 {
-    if (!fn || fn == PROTO_NONE) return PROTO_NONE;
-    if (!fn->isMethod(ctx)) return PROTO_NONE;
-    const proto::ProtoList* cargs = ctx->newList();
-    cargs = cargs->appendLast(ctx, elem);
-    cargs = cargs->appendLast(ctx, ctx->fromInteger(static_cast<long long>(idx)));
-    cargs = cargs->appendLast(ctx, arr);
-    proto::ProtoMethod m = fn->asMethod(ctx);
-    return m ? m(ctx, const_cast<proto::ProtoObject*>(fn), nullptr, cargs, nullptr) : PROTO_NONE;
+    const proto::ProtoObject* items[3] = {
+        elem ? elem : PROTO_NONE, ctx->fromInteger(static_cast<long long>(idx)), arr };
+    const proto::ProtoObject* r = callJSFunction(ctx, fn, thisArg, ctx->newList(3, items));
+    return r ? r : PROTO_NONE;
 }
 
-static bool isTruthy(proto::ProtoContext* ctx, const proto::ProtoObject* r) {
-    if (!r || r == PROTO_NONE || r == PROTO_FALSE) return false;
-    if (r->isInteger(ctx) && r->asLong(ctx) == 0) return false;
-    if ((r->isDouble(ctx) || r->isFloat(ctx)) && r->asDouble(ctx) == 0.0) return false;
+// The callback and thisArg of a callback method, or false with a TypeError
+// pending when the callback is not callable (§23.2.3 step 3 of each method).
+static bool taCallbackArgs(proto::ProtoContext* ctx, const proto::ProtoList* args,
+                           const char* method, const proto::ProtoObject*& fn,
+                           const proto::ProtoObject*& thisArg) {
+    const size_t n = args ? args->getSize(ctx) : 0;
+    fn = n > 0 ? args->getAt(ctx, 0) : PROTO_NONE;
+    thisArg = n > 1 ? args->getAt(ctx, 1) : PROTO_NONE;
+    if (!jsIsCallable(ctx, fn)) {
+        const std::string msg = std::string("%TypedArray%.prototype.") + method
+                              + ": callback is not a function";
+        signalNativeException(makeNativeError(ctx, "TypeError", msg.c_str()));
+        return false;
+    }
     return true;
 }
 
@@ -763,11 +772,14 @@ static const proto::ProtoObject* ta_forEach(
     const proto::ParentLink*, const proto::ProtoList* args, const proto::ProtoSparseList*)
 {
     uint8_t et = getTypedArrayElementType(ctx, self);
-    if (et == 0xFF || !args || args->getSize(ctx) == 0) return PROTO_NONE;
-    const proto::ProtoObject* fn = args->getAt(ctx, 0);
+    if (et == 0xFF) return PROTO_NONE;
+    const proto::ProtoObject *fn, *thisArg;
+    if (!taCallbackArgs(ctx, args, "forEach", fn, thisArg)) return PROTO_NONE;
     uint32_t len = getTypedArrayLength(ctx, self);
-    for (uint32_t i = 0; i < len; i++)
-        invokeCallback(ctx, fn, typedArrayGetElement(ctx, self, i, et), i, self);
+    for (uint32_t i = 0; i < len; i++) {
+        invokeCallback(ctx, fn, thisArg, typedArrayGetElement(ctx, self, i, et), i, self);
+        if (hasCallException()) return PROTO_NONE;
+    }
     return PROTO_NONE;
 }
 
@@ -777,13 +789,14 @@ static const proto::ProtoObject* ta_every(
 {
     uint8_t et = getTypedArrayElementType(ctx, self);
     if (et == 0xFF) return PROTO_TRUE;
-    if (!args || args->getSize(ctx) == 0) return PROTO_TRUE;
-    const proto::ProtoObject* fn = args->getAt(ctx, 0);
-    if (!fn || fn == PROTO_NONE) return PROTO_NONE;  // No callable: TypeError per ES spec
+    const proto::ProtoObject *fn, *thisArg;
+    if (!taCallbackArgs(ctx, args, "every", fn, thisArg)) return PROTO_NONE;
     uint32_t len = getTypedArrayLength(ctx, self);
     for (uint32_t i = 0; i < len; i++) {
-        const proto::ProtoObject* r = invokeCallback(ctx, fn, typedArrayGetElement(ctx, self, i, et), i, self);
-        if (!isTruthy(ctx, r)) return PROTO_FALSE;
+        const proto::ProtoObject* r =
+            invokeCallback(ctx, fn, thisArg, typedArrayGetElement(ctx, self, i, et), i, self);
+        if (hasCallException()) return PROTO_NONE;
+        if (!jsToBoolean(ctx, r)) return PROTO_FALSE;
     }
     return PROTO_TRUE;
 }
@@ -793,12 +806,15 @@ static const proto::ProtoObject* ta_some(
     const proto::ParentLink*, const proto::ProtoList* args, const proto::ProtoSparseList*)
 {
     uint8_t et = getTypedArrayElementType(ctx, self);
-    if (et == 0xFF || !args || args->getSize(ctx) == 0) return PROTO_FALSE;
-    const proto::ProtoObject* fn = args->getAt(ctx, 0);
+    if (et == 0xFF) return PROTO_FALSE;
+    const proto::ProtoObject *fn, *thisArg;
+    if (!taCallbackArgs(ctx, args, "some", fn, thisArg)) return PROTO_NONE;
     uint32_t len = getTypedArrayLength(ctx, self);
     for (uint32_t i = 0; i < len; i++) {
-        const proto::ProtoObject* r = invokeCallback(ctx, fn, typedArrayGetElement(ctx, self, i, et), i, self);
-        if (isTruthy(ctx, r)) return PROTO_TRUE;
+        const proto::ProtoObject* r =
+            invokeCallback(ctx, fn, thisArg, typedArrayGetElement(ctx, self, i, et), i, self);
+        if (hasCallException()) return PROTO_NONE;
+        if (jsToBoolean(ctx, r)) return PROTO_TRUE;
     }
     return PROTO_FALSE;
 }
@@ -808,12 +824,15 @@ static const proto::ProtoObject* ta_find(
     const proto::ParentLink*, const proto::ProtoList* args, const proto::ProtoSparseList*)
 {
     uint8_t et = getTypedArrayElementType(ctx, self);
-    if (et == 0xFF || !args || args->getSize(ctx) == 0) return PROTO_NONE;
-    const proto::ProtoObject* fn = args->getAt(ctx, 0);
+    if (et == 0xFF) return PROTO_NONE;
+    const proto::ProtoObject *fn, *thisArg;
+    if (!taCallbackArgs(ctx, args, "find", fn, thisArg)) return PROTO_NONE;
     uint32_t len = getTypedArrayLength(ctx, self);
     for (uint32_t i = 0; i < len; i++) {
         const proto::ProtoObject* elem = typedArrayGetElement(ctx, self, i, et);
-        if (isTruthy(ctx, invokeCallback(ctx, fn, elem, i, self))) return elem;
+        const proto::ProtoObject* r = invokeCallback(ctx, fn, thisArg, elem, i, self);
+        if (hasCallException()) return PROTO_NONE;
+        if (jsToBoolean(ctx, r)) return elem;
     }
     return PROTO_NONE;
 }
@@ -823,13 +842,15 @@ static const proto::ProtoObject* ta_findIndex(
     const proto::ParentLink*, const proto::ProtoList* args, const proto::ProtoSparseList*)
 {
     uint8_t et = getTypedArrayElementType(ctx, self);
-    if (et == 0xFF || !args || args->getSize(ctx) == 0) return ctx->fromInteger(-1LL);
-    const proto::ProtoObject* fn = args->getAt(ctx, 0);
+    if (et == 0xFF) return ctx->fromInteger(-1LL);
+    const proto::ProtoObject *fn, *thisArg;
+    if (!taCallbackArgs(ctx, args, "findIndex", fn, thisArg)) return PROTO_NONE;
     uint32_t len = getTypedArrayLength(ctx, self);
     for (uint32_t i = 0; i < len; i++) {
         const proto::ProtoObject* elem = typedArrayGetElement(ctx, self, i, et);
-        if (isTruthy(ctx, invokeCallback(ctx, fn, elem, i, self)))
-            return ctx->fromInteger(static_cast<long long>(i));
+        const proto::ProtoObject* r = invokeCallback(ctx, fn, thisArg, elem, i, self);
+        if (hasCallException()) return PROTO_NONE;
+        if (jsToBoolean(ctx, r)) return ctx->fromInteger(static_cast<long long>(i));
     }
     return ctx->fromInteger(-1LL);
 }
@@ -839,15 +860,16 @@ static const proto::ProtoObject* ta_map(
     const proto::ParentLink*, const proto::ProtoList* args, const proto::ProtoSparseList*)
 {
     uint8_t et = getTypedArrayElementType(ctx, self);
-    if (et == 0xFF || !args || args->getSize(ctx) == 0) return PROTO_NONE;
-    const proto::ProtoObject* fn = args->getAt(ctx, 0);
+    if (et == 0xFF) return PROTO_NONE;
+    const proto::ProtoObject *fn, *thisArg;
+    if (!taCallbackArgs(ctx, args, "map", fn, thisArg)) return PROTO_NONE;
     uint32_t len = getTypedArrayLength(ctx, self);
     const proto::ProtoObject* proto = (et < 11) ? s_taProtos[et] : nullptr;
     const proto::ProtoObject* result = createTypedArrayFromLength(ctx, proto, et, len);
     if (!result || result == PROTO_NONE) return PROTO_NONE;
     for (uint32_t i = 0; i < len; i++) {
         const proto::ProtoObject* elem = typedArrayGetElement(ctx, self, i, et);
-        const proto::ProtoObject* mapped = invokeCallback(ctx, fn, elem, i, self);
+        const proto::ProtoObject* mapped = invokeCallback(ctx, fn, thisArg, elem, i, self);
         if (hasCallException()) return PROTO_NONE;
         typedArraySetElement(ctx, result, i, mapped ? mapped : PROTO_NONE, et);
         if (hasCallException()) return PROTO_NONE;
@@ -860,11 +882,15 @@ static const proto::ProtoObject* ta_reduce(
     const proto::ParentLink*, const proto::ProtoList* args, const proto::ProtoSparseList*)
 {
     uint8_t et = getTypedArrayElementType(ctx, self);
-    if (et == 0xFF || !args || args->getSize(ctx) == 0) return PROTO_NONE;
-    const proto::ProtoObject* fn = args->getAt(ctx, 0);
+    if (et == 0xFF) return PROTO_NONE;
+    const proto::ProtoObject *fn, *unusedThis;
+    if (!taCallbackArgs(ctx, args, "reduce", fn, unusedThis)) return PROTO_NONE;
     uint32_t len = getTypedArrayLength(ctx, self);
     if (len == 0) {
-        return (args->getSize(ctx) > 1) ? args->getAt(ctx, 1) : PROTO_NONE;
+        if (args->getSize(ctx) > 1) return args->getAt(ctx, 1);
+        signalNativeException(makeNativeError(ctx, "TypeError",
+            "Reduce of empty array with no initial value"));
+        return PROTO_NONE;
     }
     const proto::ProtoObject* acc;
     uint32_t start = 0;
@@ -874,16 +900,12 @@ static const proto::ProtoObject* ta_reduce(
         acc = typedArrayGetElement(ctx, self, 0, et);
         start = 1;
     }
-    if (!fn || !fn->isMethod(ctx)) return acc;
     for (uint32_t i = start; i < len; i++) {
         const proto::ProtoObject* elem = typedArrayGetElement(ctx, self, i, et);
-        const proto::ProtoList* cargs = ctx->newList();
-        cargs = cargs->appendLast(ctx, acc);
-        cargs = cargs->appendLast(ctx, elem);
-        cargs = cargs->appendLast(ctx, ctx->fromInteger(static_cast<long long>(i)));
-        cargs = cargs->appendLast(ctx, self);
-        proto::ProtoMethod m = fn->asMethod(ctx);
-        const proto::ProtoObject* r = m ? m(ctx, PROTO_NONE, nullptr, cargs, nullptr) : PROTO_NONE;
+        const proto::ProtoObject* items[4] = {
+            acc, elem, ctx->fromInteger(static_cast<long long>(i)), self };
+        const proto::ProtoObject* r = callJSFunction(ctx, fn, PROTO_NONE, ctx->newList(4, items));
+        if (hasCallException()) return PROTO_NONE;
         acc = r ? r : PROTO_NONE;
     }
     return acc;
@@ -894,11 +916,15 @@ static const proto::ProtoObject* ta_reduceRight(
     const proto::ParentLink*, const proto::ProtoList* args, const proto::ProtoSparseList*)
 {
     uint8_t et = getTypedArrayElementType(ctx, self);
-    if (et == 0xFF || !args || args->getSize(ctx) == 0) return PROTO_NONE;
-    const proto::ProtoObject* fn = args->getAt(ctx, 0);
+    if (et == 0xFF) return PROTO_NONE;
+    const proto::ProtoObject *fn, *unusedThis;
+    if (!taCallbackArgs(ctx, args, "reduceRight", fn, unusedThis)) return PROTO_NONE;
     uint32_t len = getTypedArrayLength(ctx, self);
     if (len == 0) {
-        return (args->getSize(ctx) > 1) ? args->getAt(ctx, 1) : PROTO_NONE;
+        if (args->getSize(ctx) > 1) return args->getAt(ctx, 1);
+        signalNativeException(makeNativeError(ctx, "TypeError",
+            "Reduce of empty array with no initial value"));
+        return PROTO_NONE;
     }
     const proto::ProtoObject* acc;
     long long start;
@@ -909,16 +935,11 @@ static const proto::ProtoObject* ta_reduceRight(
         acc = typedArrayGetElement(ctx, self, len - 1, et);
         start = static_cast<long long>(len) - 2;
     }
-    if (!fn || !fn->isMethod(ctx)) return acc;
     for (long long i = start; i >= 0; i--) {
         const proto::ProtoObject* elem = typedArrayGetElement(ctx, self, static_cast<uint32_t>(i), et);
-        const proto::ProtoList* cargs = ctx->newList();
-        cargs = cargs->appendLast(ctx, acc);
-        cargs = cargs->appendLast(ctx, elem);
-        cargs = cargs->appendLast(ctx, ctx->fromInteger(i));
-        cargs = cargs->appendLast(ctx, self);
-        proto::ProtoMethod m = fn->asMethod(ctx);
-        const proto::ProtoObject* r = m ? m(ctx, PROTO_NONE, nullptr, cargs, nullptr) : PROTO_NONE;
+        const proto::ProtoObject* items[4] = { acc, elem, ctx->fromInteger(i), self };
+        const proto::ProtoObject* r = callJSFunction(ctx, fn, PROTO_NONE, ctx->newList(4, items));
+        if (hasCallException()) return PROTO_NONE;
         acc = r ? r : PROTO_NONE;
     }
     return acc;

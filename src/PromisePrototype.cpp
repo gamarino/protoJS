@@ -1174,6 +1174,10 @@ bool jsIsCallable(proto::ProtoContext* ctx, const proto::ProtoObject* v) {
     return isCallable(ctx, v);
 }
 
+bool jsToBoolean(proto::ProtoContext* ctx, const proto::ProtoObject* v) {
+    return toBooleanValue(ctx, v);
+}
+
 const proto::ProtoObject* newPromise(proto::ProtoContext* ctx) {
     const proto::ProtoObject* proto = intrinsicPromiseProto(ctx);
     const proto::ProtoObject* p = proto ? proto->newChild(ctx, true) : ctx->newObject(true);

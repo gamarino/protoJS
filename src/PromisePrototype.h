@@ -154,6 +154,8 @@ bool jsIsObject(proto::ProtoContext* ctx, const proto::ProtoObject* v);
 
 /** IsCallable(v). */
 bool jsIsCallable(proto::ProtoContext* ctx, const proto::ProtoObject* v);
+// ToBoolean (§7.1.2).
+bool jsToBoolean(proto::ProtoContext* ctx, const proto::ProtoObject* v);
 
 // ---------------------------------------------------------------------------
 // Jobs, run by MicrotaskQueue.

@@ -332,6 +332,7 @@ foreach(js_test
         basic/generator_for_of_yield
         basic/typed_array_construction
         basic/typed_array_coercion
+        basic/typed_array_callbacks
         modules/test_require_file
         modules/test_cross_module_exception
         modules/test_require
