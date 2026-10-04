@@ -67,6 +67,24 @@ engine.
 
 ### What changed since the previous figures
 
+- **2026-10-04, memory-safety pass: RegExp capture registers, exceptions
+  across contexts, typed-array coercion and callbacks, generators, native
+  stack guard** (CHANGELOG). Whole corpus in CI on the branch (run
+  37224674217, at `7c697779e`) against run 37203655980: 34,139 against
+  33,658 passed, 492 fail->pass and 11 pass->fail. The 11 were examined one
+  by one: seven `cpn-*-computed-property-name-from-yield-expression` tests and
+  `staging/sm/TypedArray/sort_small.js` had passed only because generators
+  returned their assertion failures as values or produced nothing; the
+  defects they then exposed are fixed (`f73365ff8`). Two decodeURI tests run
+  in about 4.8 s against the 5 s limit and time out on either binary
+  (locally both take about 14 s). `staging/sm/extensions/
+  element-setting-ToNumber-detaches.js` passed only because `valueOf` was
+  never called; it now is, and the test's detach helper needs `$262`, which
+  protoJS does not provide. Locally, master against the branch at `7c697779e` on the
+  touched directories (RegExp, annexB, TypedArray, TypedArrayConstructors,
+  generators, yield, for-of, try, class elements, Map, Set, Array.from,
+  Function; 9,458 tests): 5,352 -> 5,625 passed, 273 fail->pass, 0
+  pass->fail.
 - **2026-10-04, global declarations, GeneratorFunction / AsyncFunction /
   AsyncGeneratorFunction, BigInt wrappers, typed arrays** (CHANGELOG).
   Against the CI run of the same corpus on master's code (37169848799:
