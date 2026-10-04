@@ -77,6 +77,14 @@ check("generator object inherits fn.prototype", Object.getPrototypeOf(it) === de
 check("generator object next is inherited", it.next === GeneratorPrototype.next);
 check("generator object toString", Object.prototype.toString.call(it) === "[object Generator]");
 check("generator object iterates", it.next().value === 1 && it.next().done === true);
+var literal = { *method() { yield 7; } };
+check("generator method keeps its own prototype",
+      Object.prototype.hasOwnProperty.call(literal.method, "prototype")
+      && Object.getPrototypeOf(literal.method.prototype) === GeneratorPrototype);
+check("generator method's object", literal.method().next().value === 7
+      && Object.getPrototypeOf(literal.method()) === literal.method.prototype);
+var plain = { method() {} };
+check("ordinary method has no prototype", !Object.prototype.hasOwnProperty.call(plain.method, "prototype"));
 declared.prototype = null;
 check("non-object fn.prototype falls back to %GeneratorPrototype%",
       Object.getPrototypeOf(declared()) === GeneratorPrototype);

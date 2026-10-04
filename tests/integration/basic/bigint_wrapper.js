@@ -41,6 +41,7 @@ check("toLocaleString", typeof Object(5n).toLocaleString() === "string");
 check("Object.prototype.toString", Object.prototype.toString.call(w) === "[object BigInt]");
 check("String(wrapper)", String(Object(3n)) === "3" && `${Object(3n)}` === "3");
 check("no own properties", Object.getOwnPropertyNames(w).length === 0);
+check("JSON.stringify of a wrapper throws", threw(function () { JSON.stringify(Object(1n)); }, TypeError));
 
 // The wrapper converts back to its BigInt wherever a primitive is needed.
 check("wrapper + bigint", Object(1n) + 2n === 3n);

@@ -1,6 +1,7 @@
 #include "ProtoCoreTypes.h"
 #include "JSONBuiltin.h"
 #include "JSSymbols.h"
+#include "BigIntPrototype.h"
 #include "ArrayElementsStorage.h"
 #include "runtime/ProtoInterpreter.h"
 #include "JSContext.h"
@@ -351,7 +352,12 @@ void stringifyRecursive(proto::ProtoContext* ctx,
     // BigInt.prototype.toJSON (typically returning a string).
     {
         const proto::ProtoString* bigK = JSSymbols::isBigInt(ctx);
-        if (bigK && obj->getAttribute(ctx, bigK, true) == PROTO_TRUE) {
+        // A BigInt wrapper (Object(1n)) is unboxed first (step 4.d), so it
+        // reaches the same TypeError.
+        const proto::ProtoString* pvK = JSSymbols::primitiveValue(ctx);
+        const bool bigWrapper = pvK && obj->hasOwnAttribute(ctx, pvK) == PROTO_TRUE
+            && isBigInt(ctx, obj->getAttribute(ctx, pvK, false));
+        if (bigWrapper || (bigK && obj->getAttribute(ctx, bigK, true) == PROTO_TRUE)) {
             signalNativeException(makeNativeError(ctx, "TypeError",
                 "Do not know how to serialize a BigInt"));
             return;

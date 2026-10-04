@@ -4928,7 +4928,8 @@ static const proto::ProtoObject* closureBirthParent(proto::ProtoContext* ctx,
 static const proto::ProtoObject* generatorInstancePrototypeParent(proto::ProtoContext* ctx,
                                                                   const proto::ProtoObject** gr,
                                                                   const ProtoBytecodeModule* nm);
-static const proto::ProtoObject* generatorObjectPrototype(proto::ProtoContext* ctx, bool isAsync);
+static const proto::ProtoObject* generatorObjectPrototype(proto::ProtoContext* ctx, bool isAsync,
+                                                          const ProtoBytecodeModule* mod);
 
 // §7.2.13 IsLessThan between a BigInt (its protoCore Integer `big`) and the
 // Number `d`: -1, 0 or 1 as big is below, equal to or above d, and -2 when d
@@ -5134,6 +5135,21 @@ static PROTOJS_NOINLINE const proto::ProtoObject* constructBuiltinWithCtorProto(
     const proto::ProtoObject* built = protojs::constructTypedArrayOrBuffer(ctx, ctor, proto, args, handled);
     if (!handled) return nullptr;
     return built ? built : PROTO_NONE;
+}
+
+static PROTOJS_NOINLINE const proto::ProtoObject* functionKindIntrinsic(
+        proto::ProtoContext* ctx, const proto::ProtoObject** gr, int which);
+
+// Whether closure `fn` is a generator or async generator function: it was
+// born a child of the realm's %GeneratorFunction.prototype% or
+// %AsyncGeneratorFunction.prototype% (closureBirthParent).
+static PROTOJS_NOINLINE bool closureIsGeneratorKind(proto::ProtoContext* ctx,
+                                                    const proto::ProtoObject* fn) {
+    if (!fn || fn == PROTO_NONE || !t_currentGlobalRoot) return false;
+    const proto::ProtoObject* birth = fn->getPrototype(ctx);
+    if (!birth || birth == PROTO_NONE) return false;
+    return birth == functionKindIntrinsic(ctx, t_currentGlobalRoot, kIntrGeneratorFunctionProto)
+        || birth == functionKindIntrinsic(ctx, t_currentGlobalRoot, kIntrAsyncGeneratorFunctionProto);
 }
 
 // The `this` an arrow function created in this frame captures.  In a sloppy
@@ -5432,7 +5448,8 @@ enum AsyncGenState {
     kGenSuspendedStart = 0, kGenSuspendedYield = 1, kGenExecuting = 2,
     kGenAwaitingReturn = 3, kGenCompleted = 4
 };
-static PROTOJS_NOINLINE const proto::ProtoObject* asyncGenObjectCreate(proto::ProtoContext* ctx);
+static PROTOJS_NOINLINE const proto::ProtoObject* asyncGenObjectCreate(proto::ProtoContext* ctx,
+                                                                       const ProtoBytecodeModule* mod);
 static PROTOJS_NOINLINE void asyncGenSetContinuation(proto::ProtoContext* ctx, const proto::ProtoObject* gen,
                                     const proto::ProtoObject* cont, int state);
 static PROTOJS_NOINLINE void asyncGenSetState(proto::ProtoContext* ctx, const proto::ProtoObject* gen, int state);
@@ -5611,7 +5628,7 @@ static PROTOJS_NOINLINE const proto::ProtoObject* asyncInitialYieldOp(
         proto::ProtoContext* ctx, const ProtoBytecodeModule* mod, int pc,
         const proto::ProtoObject* thisObj, const proto::ProtoList* args,
         const std::vector<CatchFrame>& catchStack) {
-    const proto::ProtoObject* gen = asyncGenObjectCreate(ctx);
+    const proto::ProtoObject* gen = asyncGenObjectCreate(ctx, mod);
     if (!gen) return nullptr;
     const proto::ProtoObject* cont = makeContinuation(ctx, kAsyncGenerator, gen, mod, pc,
                                                       kSiteInitial, thisObj, args, catchStack);
@@ -11808,7 +11825,10 @@ const proto::ProtoObject* runBytecode(proto::ProtoContext* pContext,
                     // OP_define_method only for some method shapes; class-body
                     // shorthand often lacks it, leaving the function nameless.
                     if (flag == 0 && methodVal && methodVal != PROTO_NONE) {
-                        const proto::ProtoString* protoKeyDel = JSSymbols::prototype(pContext);
+                        // A generator or async generator method keeps it
+                        // (§15.5.4, §15.6.4): its generator objects inherit it.
+                        const proto::ProtoString* protoKeyDel =
+                            closureIsGeneratorKind(pContext, methodVal) ? nullptr : JSSymbols::prototype(pContext);
                         if (protoKeyDel) {
                             const proto::ProtoObject* stripped =
                                 methodVal->setAttribute(pContext, protoKeyDel, nullptr);
@@ -16978,7 +16998,9 @@ const proto::ProtoObject* runBytecode(proto::ProtoContext* pContext,
                         || !(nm8Ptr->isArrow || (nm8Ptr->isAsync && !nm8Ptr->isGenerator));
                     // An ordinary function's prototype is created on first
                     // need: see L_OP_fclosure and runtime/LazyPrototype.h.
-                    const bool lazyProto8 = nm8Ptr && nm8Ptr->hasLazyPrototype;
+                    // A generator's prototype object inherits %GeneratorPrototype%,
+                    // not Object.prototype: it is made eagerly, below.
+                    const bool lazyProto8 = nm8Ptr && nm8Ptr->hasLazyPrototype && !nm8Ptr->isGenerator;
                     const proto::ProtoObject* fnDefProto8 = nullptr;
                     if (lazyProto8) {
                         if (const proto::ProtoString* pdks = JSSymbols::pdPrototype(pContext))
@@ -17180,7 +17202,9 @@ const proto::ProtoObject* runBytecode(proto::ProtoContext* pContext,
                     // __lazy_prototype__ marker (runtime/LazyPrototype.h).
                     // A function that never touches `prototype` forms no
                     // cycle and is collected.
-                    const bool lazyProto2 = nm2Ptr && nm2Ptr->hasLazyPrototype;
+                    // A generator's prototype object inherits %GeneratorPrototype%,
+                    // not Object.prototype: it is made eagerly, below.
+                    const bool lazyProto2 = nm2Ptr && nm2Ptr->hasLazyPrototype && !nm2Ptr->isGenerator;
                     const proto::ProtoObject* fnDefProto = nullptr;
                     if (lazyProto2) {
                         if (const proto::ProtoString* pdks2 = JSSymbols::pdPrototype(pContext))
@@ -18590,7 +18614,7 @@ const proto::ProtoObject* runBytecode(proto::ProtoContext* pContext,
                 // %GeneratorPrototype% -- next / return / throw,
                 // [@@toStringTag] "Generator" and, through
                 // %IteratorPrototype%, [@@iterator].
-                const proto::ProtoObject* iterParent = generatorObjectPrototype(pContext, false);
+                const proto::ProtoObject* iterParent = generatorObjectPrototype(pContext, false, mod);
                 const proto::ProtoObject* iterObj = iterParent
                     ? iterParent->newChild(pContext, true)
                     : pContext->newObject(true);
@@ -19630,11 +19654,21 @@ static PROTOJS_NOINLINE const proto::ProtoObject* generatorInstancePrototypePare
 // object of the function now running (t_activeFunc): F.prototype when it is
 // an object, else the realm's intrinsic (§27.5.3.1 / §10.1.14 GetPrototypeFromConstructor).
 static PROTOJS_NOINLINE const proto::ProtoObject* generatorObjectPrototype(proto::ProtoContext* ctx,
-                                                                           bool isAsync) {
+                                                                           bool isAsync,
+                                                                           const ProtoBytecodeModule* mod) {
+    // t_activeFunc is the generator function only when the call that
+    // entered this body published it; a closure whose bytecode is not `mod`
+    // belongs to an enclosing call (a static block, an object-literal
+    // method), and its `prototype` is not this generator's.
     const proto::ProtoObject* fn = t_activeFunc;
-    if (fn && fn != PROTO_NONE) {
-        const proto::ProtoObject* p = fn->getAttribute(ctx, JSSymbols::prototype(ctx), false);
-        if (jsIsObject(ctx, p)) return p;
+    if (fn && fn != PROTO_NONE && mod) {
+        const int id = getBytecodeId(ctx, fn);
+        const ProtoBytecodeModule* tbl = mod->functionTable();
+        if (id >= 0 && tbl && static_cast<size_t>(id) < tbl->nestedFunctions.size()
+            && &tbl->nestedFunctions[static_cast<size_t>(id)] == mod) {
+            const proto::ProtoObject* p = fn->getAttribute(ctx, JSSymbols::prototype(ctx), false);
+            if (jsIsObject(ctx, p)) return p;
+        }
     }
     const proto::ProtoObject* intr = functionKindIntrinsic(
         ctx, t_currentGlobalRoot, isAsync ? kIntrAsyncGeneratorProto : kIntrGeneratorProto);
@@ -19642,10 +19676,11 @@ static PROTOJS_NOINLINE const proto::ProtoObject* generatorObjectPrototype(proto
     return isAsync ? asyncGeneratorPrototype(ctx) : protojs::getIteratorPrototype(ctx);
 }
 
-static PROTOJS_NOINLINE const proto::ProtoObject* asyncGenObjectCreate(proto::ProtoContext* ctx) {
+static PROTOJS_NOINLINE const proto::ProtoObject* asyncGenObjectCreate(proto::ProtoContext* ctx,
+                                                                       const ProtoBytecodeModule* mod) {
     // §27.6.3.2: the object inherits the async generator function's
     // `prototype`, which inherits %AsyncGeneratorPrototype%.
-    const proto::ProtoObject* proto = generatorObjectPrototype(ctx, true);
+    const proto::ProtoObject* proto = generatorObjectPrototype(ctx, true, mod);
     const proto::ProtoObject* gen = proto ? proto->newChild(ctx, true) : ctx->newObject(true);
     gen->setAttribute(ctx, agKey(ctx, kAgQueue), ctx->newList()->asObject(ctx));
     gen->setAttribute(ctx, agKey(ctx, kAgState), ctx->fromInteger(kGenSuspendedStart));
