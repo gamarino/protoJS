@@ -48,6 +48,17 @@ All notable changes to protoJS are documented in this file.
   ArrayBuffer length arguments go through ToIndex (`new Uint8Array('3')` has
   length 3, a negative length is a RangeError).  Test:
   `js/basic/typed_array_objects`.
+- Test262, local and sequential, master 7f479775e against this branch on the
+  touched areas (language/global-code, annexB global-code, built-ins/global,
+  Function, GeneratorFunction, GeneratorPrototype, AsyncFunction,
+  AsyncGeneratorFunction, BigInt, TypedArray, TypedArrayConstructors,
+  ArrayBuffer, Object.prototype.toString; 3,381 tests): 1,244 -> 1,596
+  passed, 352 fail->pass, 0 pass->fail.  The per-commit gate
+  (built-ins/{Object,Reflect,Proxy}) banks two improvements: 3,755 of 3,875.
+- The new code paths in `runBytecode` live in out-of-line helpers: MSVC gives
+  every block local its own frame slot, and the first version of these
+  changes made `js/workers/deep_recursion` (700 nested calls) crash on
+  Windows.
 
 ### Changed — CI builds protoCore 2.14.1; a floor job on 2.11.0 again (2026-10-04)
 
