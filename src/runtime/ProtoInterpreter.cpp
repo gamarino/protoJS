@@ -5736,6 +5736,48 @@ static PROTOJS_NOINLINE int forAwaitOfStartOp(proto::ProtoContext* ctx,
     return kAsyncOpContinue;
 }
 
+// yield* in a sync generator compiles to OP_for_of_start followed by
+// [OP_drop, OP_undefined, OP_undefined, OP_iterator_next] (QuickJS
+// js_parse_assign_expr2) -- a pattern no for-of loop produces. The delegation
+// loop then drives the iterator with iterator_next / iterator_call /
+// iterator_check_object, QuickJS semantics, which the plain iterator record
+// (the one for await uses) implements and the for-of slot wrapper does not:
+// the wrapper ignores the value next() is to receive and has no throw().
+static bool isYieldStarStart(const uint8_t* buf, int len, int pc) {
+    return pc + 4 <= len && buf[pc] == OP_drop && buf[pc + 1] == OP_undefined
+        && buf[pc + 2] == OP_undefined && buf[pc + 3] == OP_iterator_next;
+}
+
+// GetIterator(obj, sync) for yield*: [iterable] -> [iterator, next, catch].
+static PROTOJS_NOINLINE int yieldStarStartOp(proto::ProtoContext* ctx,
+                                             const proto::ProtoObject* const* globalRoot,
+                                             const proto::ProtoObject*& exception) {
+    const proto::ProtoObject* iterable = PROTO_NONE;
+    if (!stackEmpty(ctx)) { iterable = stackTop(ctx); stackPop(ctx); }
+    const proto::ProtoObject* method = PROTO_NONE;
+    if (iterable && iterable != PROTO_NONE && iterable != t_undefinedSentinel
+            && iterable != t_nullSentinel)
+        method = jsGetProperty(ctx, iterable, "Symbol.iterator");
+    if (t_hasCallException) return asyncTakeCallException(exception);
+    if (!jsIsCallable(ctx, method)) {
+        exception = makeNativeError(ctx, "TypeError", "object is not iterable", globalRoot);
+        return kAsyncOpThrow;
+    }
+    const proto::ProtoObject* iter = callJSFunction(ctx, method, iterable, ctx->newList());
+    if (t_hasCallException) return asyncTakeCallException(exception);
+    if (!jsIsObject(ctx, iter)) {
+        exception = makeNativeError(ctx, "TypeError",
+            "Result of the Symbol.iterator method is not an object", globalRoot);
+        return kAsyncOpThrow;
+    }
+    const proto::ProtoObject* next = jsGetProperty(ctx, iter, "next");
+    if (t_hasCallException) return asyncTakeCallException(exception);
+    stackPush(ctx, iter);
+    stackPush(ctx, next ? next : PROTO_NONE);
+    stackPush(ctx, ctx->fromInteger(0LL));
+    return kAsyncOpContinue;
+}
+
 // OP_for_await_of_next: [iterator, next, catch] -> [..., next.call(iterator)];
 // the OP_await that follows waits for the result.
 static PROTOJS_NOINLINE int forAwaitOfNextOp(proto::ProtoContext* ctx,
@@ -5820,6 +5862,49 @@ static const proto::ProtoObject* startAsyncActivation(proto::ProtoContext* pCont
                                                       const proto::ProtoList* args,
                                                       const proto::ProtoObject** pGlobalRoot,
                                                       const proto::ProtoObject** outException);
+
+// Suspend the running sync generator at a yield / yield* whose operand has
+// been popped: save pc (past the opcode), the frame's slots, operand stack
+// depth and catch stack on the generator object (t_genIterator), and signal
+// resumeGenerator that the body yielded (t_genResumePc = -2). False when no
+// generator is being resumed on this thread. Out of line, to keep the
+// handlers' locals out of runBytecode's frame.
+static PROTOJS_NOINLINE bool suspendGenerator(proto::ProtoContext* pContext, int pc,
+                                              const std::vector<CatchFrame>& catch_stack) {
+    if (!t_genIterator) return false;
+    const proto::ProtoObject* updIter = t_genIterator;
+    updIter = genSetInt(pContext, updIter, kGenPc, (long long)pc);
+    const proto::ProtoObject* newLoc = pContext->closureLocals
+        ? pContext->closureLocals->asObject(pContext) : PROTO_NONE;
+    updIter = genSetObj(pContext, updIter, kGenLocals, newLoc);
+    // The flat automaticLocals snapshot (see OP_initial_yield).
+    {
+        InterpFrame* f = currentFrame(pContext);
+        unsigned int snapCount = f
+            ? f->stackBase + f->stackTop
+            : pContext->getAutomaticLocalsCount();
+        const proto::ProtoList* slotList = snapshotAutomaticLocals(pContext, snapCount);
+        if (slotList) updIter = genSetObj(pContext, updIter, kGenSlots, slotList->asObject(pContext));
+        updIter = genSetInt(pContext, updIter, kGenStackTop, f ? (long long)f->stackTop : 0LL);
+        const proto::ProtoList* high = snapshotHighSlots(pContext);
+        updIter = updIter->setAttribute(pContext, genHighSlotsKey(pContext),
+            high ? high->asObject(pContext) : PROTO_NONE);
+    }
+    updIter = genSetInt(pContext, updIter, kGenNcc, (long long)catch_stack.size());
+    for (size_t ci = 0; ci < catch_stack.size(); ci++) {
+        std::string kpc = "__gen_cc_" + std::to_string(ci) + "_pc__";
+        std::string ksp = "__gen_cc_" + std::to_string(ci) + "_sp__";
+        updIter = genSetInt(pContext, updIter, kpc.c_str(), (long long)catch_stack[ci].handler_pc);
+        updIter = genSetInt(pContext, updIter, ksp.c_str(),
+                            (long long)catch_stack[ci].placeholder_stack_pos);
+    }
+    updIter = genSetInt(pContext, updIter, kGenState, 0LL); // still suspended
+    // Sync the updated iterator pointer back to the GC mapping table.
+    if (updIter != t_genIterator) updateMapping(pContext, t_genIterator, updIter);
+    t_genIterator = nullptr; // clear to signal we yielded
+    t_genResumePc = -2;      // resumeGenerator: OP_yield fired, not OP_return
+    return true;
+}
 
 // The RangeError runBytecode throws when the native stack is nearly exhausted
 // (src/runtime/NativeStackGuard.h). Out of line: runBytecode's frame is what
@@ -6143,8 +6228,17 @@ const proto::ProtoObject* runBytecode(proto::ProtoContext* pContext,
     // initStack ran on every resume (would have clobbered them anyway);
     // multi-yield generators returned {done:true} after the first yield.
     if (gen_resume_active) {
-        stackPush(pContext, gen_resume_sent_val);
-        stackPush(pContext, pContext->fromInteger(gen_resume_kind));
+        // generator.throw(v) at a plain `yield` throws v at that point
+        // (§27.5.3.4 GeneratorResumeAbrupt); QuickJS's bytecode after OP_yield
+        // handles only next (0) and return (1). At a yield* the kind is
+        // pushed, and the bytecode forwards the throw to the inner iterator.
+        if (gen_resume_kind == 2 && pc > 0 && buf[pc - 1] == OP_yield) {
+            pending_exception = gen_resume_sent_val;
+            has_pending_exception = true;
+        } else {
+            stackPush(pContext, gen_resume_sent_val);
+            stackPush(pContext, pContext->fromInteger(gen_resume_kind));
+        }
     }
 
     // Async resume: deliver the completion at the suspension point.
@@ -17566,6 +17660,12 @@ const proto::ProtoObject* runBytecode(proto::ProtoContext* pContext,
             //   Otherwise returns PROTO_NONE (vacuous pass for unsupported iterables).
             L_OP_for_of_start: {
                 if (stackEmpty(pContext)) return PROTO_NONE;
+                if (isYieldStarStart(buf, len, pc)) {
+                    if (yieldStarStartOp(pContext, pGlobalRoot, pending_exception) == kAsyncOpThrow)
+                        has_pending_exception = true;
+                    REFRESH_INTERP_STATE();
+                    DISPATCH();
+                }
                 const proto::ProtoObject* iterable = stackTop(pContext);
                 stackPop(pContext);
                 // Null and undefined are not iterable — throw TypeError per
@@ -18754,153 +18854,29 @@ const proto::ProtoObject* runBytecode(proto::ProtoContext* pContext,
                 }
                 const proto::ProtoObject* yieldVal = stackTop(pContext);
                 stackPop(pContext);
-
-                if (!t_genIterator) {
-                    // OP_yield outside a generator resume — return undefined.
-                    return PROTO_NONE;
-                }
-
-                // Save updated state back onto the iterator object.
-                // pc already points past OP_yield.
-                const proto::ProtoObject* updIter = t_genIterator;
-                updIter = genSetInt(pContext, updIter, kGenPc, (long long)pc);
-                const proto::ProtoObject* newLoc = pContext->closureLocals
-                    ? pContext->closureLocals->asObject(pContext) : PROTO_NONE;
-                updIter = genSetObj(pContext, updIter, kGenLocals, newLoc);
-                // Persist the flat automaticLocals snapshot (see OP_initial_yield).
-                {
-                    InterpFrame* f = currentFrame(pContext);
-                    unsigned int snapCount = f
-                        ? f->stackBase + f->stackTop
-                        : pContext->getAutomaticLocalsCount();
-                    const proto::ProtoList* slotList =
-                        snapshotAutomaticLocals(pContext, snapCount);
-                    if (slotList) updIter = genSetObj(pContext, updIter,
-                        kGenSlots, slotList->asObject(pContext));
-                    updIter = genSetInt(pContext, updIter, kGenStackTop,
-                        f ? (long long)f->stackTop : 0LL);
-                    const proto::ProtoList* high = snapshotHighSlots(pContext);
-                    updIter = updIter->setAttribute(pContext, genHighSlotsKey(pContext),
-                        high ? high->asObject(pContext) : PROTO_NONE);
-                }
-                updIter = genSetInt(pContext, updIter, kGenNcc, (long long)catch_stack.size());
-                for (size_t ci = 0; ci < catch_stack.size(); ci++) {
-                    std::string kpc = "__gen_cc_" + std::to_string(ci) + "_pc__";
-                    std::string ksp = "__gen_cc_" + std::to_string(ci) + "_sp__";
-                    updIter = genSetInt(pContext, updIter, kpc.c_str(),
-                                        (long long)catch_stack[ci].handler_pc);
-                    updIter = genSetInt(pContext, updIter, ksp.c_str(),
-                                        (long long)catch_stack[ci].placeholder_stack_pos);
-                }
-                updIter = genSetInt(pContext, updIter, kGenState, 0LL); // still suspended
-
-                // Sync the updated iterator pointer back to the GC mapping table.
-                if (updIter != t_genIterator) {
-                    updateMapping(pContext, t_genIterator, updIter);
-                }
-                t_genIterator = nullptr; // clear to signal we yielded
-
-                // Signal to resumeGenerator that OP_yield fired (not OP_return).
-                t_genResumePc = -2;
-
+                // OP_yield outside a generator resume: return undefined.
+                if (!suspendGenerator(pContext, pc, catch_stack)) return PROTO_NONE;
                 // Return {value: yieldVal, done: false} from this runBytecode invocation.
                 return makeIterResult(pContext, yieldVal, false);
             }
 
             // OP_yield_star: DEF(yield_star, 1, 1, 2, none)
-            // Delegates to inner iterable: calls inner.next() repeatedly, yielding each
-            // value to the outer caller. When inner is done, pushes the final value.
+            // yield* in a sync generator. QuickJS compiles the delegation loop
+            // into bytecode (iterator_call, iterator_check_object, ...); this
+            // opcode only suspends the generator with the inner iterator's
+            // result object, which next() returns AS IS (§27.5.3.7 step
+            // 7.a.vi: GeneratorYield(innerResult) for a sync generator). On
+            // resumption (sent value, resume kind) are pushed as for OP_yield,
+            // and the bytecode forwards next / return / throw to the inner
+            // iterator. Until 2026-10-04 this handler ran its own delegation
+            // loop on what it took for the inner iterator -- it was the result
+            // object -- so yield* produced nothing or failed.
             L_OP_yield_star: {
                 if (stackEmpty(pContext)) return PROTO_NONE;
-                const proto::ProtoObject* innerIter = stackTop(pContext);
+                const proto::ProtoObject* innerResult = stackTop(pContext);
                 stackPop(pContext);
-                if (!innerIter || innerIter == PROTO_NONE) {
-                    stackPush(pContext, PROTO_NONE);
-                    DISPATCH();
-                }
-
-                // Get .next method from the inner iterator.
-                const proto::ProtoString* nextKey3 = JSSymbols::next(pContext);
-                const proto::ProtoObject* nextFn = nextKey3
-                    ? innerIter->getAttribute(pContext, nextKey3, true) : PROTO_NONE;
-                if (!nextFn || nextFn == PROTO_NONE) {
-                    stackPush(pContext, PROTO_NONE);
-                    DISPATCH();
-                }
-
-                // Delegate: loop calling inner.next(sentToInner) and yield each value.
-                const proto::ProtoObject* sentToInner = PROTO_NONE;
-                while (true) {
-                    // Build args for inner.next(sentToInner).
-                    const proto::ProtoList* nextArgs = nullptr;
-                    if (sentToInner && sentToInner != PROTO_NONE) {
-                        const proto::ProtoList* tmp = pContext->newList();
-                        if (tmp) nextArgs = tmp->appendLast(pContext, sentToInner);
-                    }
-                    const proto::ProtoObject* iterResult = callJSFunction(pContext, nextFn,
-                                                                           innerIter, nextArgs);
-                    if (!iterResult || iterResult == PROTO_NONE) {
-                        stackPush(pContext, PROTO_NONE);
-                        break;
-                    }
-
-                    const proto::ProtoString* vk2  = JSSymbols::value(pContext);
-                    const proto::ProtoString* dk2  = JSSymbols::done(pContext);
-                    const proto::ProtoObject* val2 = vk2
-                        ? iterResult->getAttribute(pContext, vk2, false) : PROTO_NONE;
-                    const proto::ProtoObject* done2 = dk2
-                        ? iterResult->getAttribute(pContext, dk2, false) : PROTO_FALSE;
-
-                    bool isDone = (done2 == PROTO_TRUE ||
-                                   (done2 && done2 != PROTO_NONE &&
-                                    done2->isBoolean(pContext) && done2->asBoolean(pContext)));
-                    if (isDone) {
-                        // Inner iterator exhausted: push final value for yield* expression.
-                        stackPush(pContext, val2 ? val2 : PROTO_NONE);
-                        break;
-                    }
-
-                    if (!t_genIterator) {
-                        // Not inside a generator resume — push final value and break.
-                        stackPush(pContext, val2 ? val2 : PROTO_NONE);
-                        break;
-                    }
-
-                    // Yield this inner value to the outer caller.
-                    // Save state and have OP_yield_star re-entered next time .next() is called.
-                    // We save pc-1 (pointing back at OP_yield_star) so re-execution re-enters
-                    // this case and finds innerIter on the stack.
-                    stackPush(pContext, innerIter); // push inner iter back
-                    const proto::ProtoObject* newLoc2 = pContext->closureLocals
-                        ? pContext->closureLocals->asObject(pContext) : PROTO_NONE;
-                    const proto::ProtoObject* updIter = t_genIterator;
-                    updIter = genSetInt(pContext, updIter, kGenPc, (long long)(pc - 1));
-                    updIter = genSetObj(pContext, updIter, kGenLocals, newLoc2);
-                    // Persist the flat automaticLocals snapshot (see OP_initial_yield).
-                    {
-                        InterpFrame* f = currentFrame(pContext);
-                        unsigned int snapCount = f
-                            ? f->stackBase + f->stackTop
-                            : pContext->getAutomaticLocalsCount();
-                        const proto::ProtoList* slotList =
-                            snapshotAutomaticLocals(pContext, snapCount);
-                        if (slotList) updIter = genSetObj(pContext, updIter,
-                            kGenSlots, slotList->asObject(pContext));
-                        updIter = genSetInt(pContext, updIter, kGenStackTop,
-                            f ? (long long)f->stackTop : 0LL);
-                        const proto::ProtoList* high = snapshotHighSlots(pContext);
-                        updIter = updIter->setAttribute(pContext, genHighSlotsKey(pContext),
-                            high ? high->asObject(pContext) : PROTO_NONE);
-                    }
-                    updIter = genSetInt(pContext, updIter, kGenNcc, (long long)catch_stack.size());
-                    updIter = genSetInt(pContext, updIter, kGenState, 0LL);
-                    if (updIter != t_genIterator)
-                        updateMapping(pContext, t_genIterator, updIter);
-                    t_genIterator = nullptr;
-                    t_genResumePc = -2;
-                    return makeIterResult(pContext, val2, false);
-                }
-                DISPATCH();
+                if (!suspendGenerator(pContext, pc, catch_stack)) return PROTO_NONE;
+                return innerResult ? innerResult : PROTO_NONE;
             }
 
             // OP_return_async: DEF(return_async, 1, 1, 0, none)
@@ -19049,7 +19025,12 @@ static const proto::ProtoObject* resumeGenerator(proto::ProtoContext* ctx,
     if (!ctx || !iter || iter == PROTO_NONE) return makeIterResult(ctx, PROTO_NONE, true);
 
     long long state = genGetInt(ctx, iter, kGenState);
-    if (state == 1) return makeIterResult(ctx, PROTO_NONE, true); // already completed
+    if (state == 1) {
+        // Completed (§27.5.3.3-4): next() gives {undefined, done}, return(v)
+        // gives {v, done}, throw(v) throws v.
+        if (mode == 2) { signalNativeException(sentVal ? sentVal : PROTO_NONE); return PROTO_NONE; }
+        return makeIterResult(ctx, mode == 1 ? sentVal : PROTO_NONE, true);
+    }
 
     if (mode == 1) {
         // .return(val): mark done, return {value: val, done: true}.
@@ -19065,6 +19046,17 @@ static const proto::ProtoObject* resumeGenerator(proto::ProtoContext* ctx,
     // Recover saved pc.
     long long resumePc = genGetInt(ctx, iter, kGenPc);
     if (resumePc < 0) return makeIterResult(ctx, PROTO_NONE, true);
+
+    // throw(v) on a generator suspended at its start completes it and throws v
+    // without running the body (§27.5.3.4 GeneratorResumeAbrupt step 2).
+    if (mode == 2 && mod->pBytecode && resumePc > 0) {
+        const uint8_t* code = reinterpret_cast<const uint8_t*>(mod->pBytecode->getBuffer(ctx));
+        if (code && code[resumePc - 1] == OP_initial_yield) {
+            genSetInt(ctx, iter, kGenState, 1LL);
+            signalNativeException(sentVal ? sentVal : PROTO_NONE);
+            return PROTO_NONE;
+        }
+    }
 
     // Recover closureLocals.
     const proto::ProtoObject* ko = ctx->fromUTF8String(kGenLocals);
@@ -19102,7 +19094,12 @@ static const proto::ProtoObject* resumeGenerator(proto::ProtoContext* ctx,
         if (kt && iter) iter = iter->setAttribute(ctx, kt, PROTO_NONE);
     }
 
-    // Set up resume thread-locals.
+    // Set up resume thread-locals. The generator being resumed replaces the
+    // one this thread may be running (a generator body that iterates another
+    // generator); it is put back below, so the outer body's own yields still
+    // find their generator. Until 2026-10-04 it was left cleared, and a
+    // generator that consumed another one ended at its next yield.
+    const proto::ProtoObject* const outerGenIterator = t_genIterator;
     t_genResumePc         = (int)resumePc;
     t_genResumeLocals     = savedLocObj;
     t_genResumeCatchStack = restoredCatch.empty() ? nullptr : &restoredCatch;
@@ -19118,21 +19115,25 @@ static const proto::ProtoObject* resumeGenerator(proto::ProtoContext* ctx,
     const proto::ProtoObject* result = runBytecode(&childCtx, mod, genThis,
                                                      nullptr, gr, &childEx);
     anchorCallOutcome(childCtx, result, childEx);
+    const bool yielded = (t_genResumePc == -2);
+    if (yielded) t_genResumePc = -1;
+    t_genIterator = outerGenIterator;
 
-    // Propagate exceptions from generator body.
-    if (childEx && childEx != PROTO_NONE) return childEx;
-
-    if (t_genResumePc == -2) {
-        // OP_yield fired — result is already {value, done:false}.
-        t_genResumePc = -1;
-        return result;
+    // An exception that leaves the body completes the generator and is thrown
+    // to the caller of next / return / throw (§27.5.3.3 GeneratorResume).
+    // Until 2026-10-04 it was returned as the iterator result.
+    if (childEx && childEx != PROTO_NONE) {
+        genSetInt(ctx, iter, kGenState, 1LL);
+        signalNativeException(childEx);
+        return PROTO_NONE;
     }
+
+    // OP_yield fired: result is {value, done: false}; OP_yield_star: the inner
+    // iterator's result object, returned as is.
+    if (yielded) return result;
 
     // Generator body completed (OP_return or end of bytecode).
-    if (t_genIterator) {
-        t_genIterator = genSetInt(ctx, t_genIterator, kGenState, 1LL);
-    }
-    t_genIterator = nullptr;
+    genSetInt(ctx, iter, kGenState, 1LL);
     return makeIterResult(ctx, result ? result : PROTO_NONE, true);
 }
 

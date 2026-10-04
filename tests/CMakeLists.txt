@@ -332,6 +332,7 @@ foreach(js_test
         basic/regexp_global_advance
         basic/regexp_register_slots
         basic/generator_for_of_yield
+        basic/generator_resumption
         basic/typed_array_construction
         basic/typed_array_coercion
         basic/typed_array_callbacks
