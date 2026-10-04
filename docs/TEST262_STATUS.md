@@ -6,7 +6,7 @@ where it appears. If two figures ever disagree again, this one wins.
 
 ## Headline figure — as of 2026-10-04
 
-**33,658 of 53,571 tests pass — 62.83 %** of the whole Test262 corpus.
+**34,154 of 53,571 tests pass — 63.75 %** of the whole Test262 corpus.
 
 Reproduce it:
 
@@ -27,20 +27,20 @@ whole corpus keeps the runner's log and snapshot as the artifact
 | Field | Value |
 |---|---|
 | Date | 2026-10-04 |
-| Run | GitHub Actions CI run 37203655980 (workflow_dispatch, Ubuntu runner), branch `fix/windows-review` at `05ceb64e4`, merged to master the same day |
+| Run | GitHub Actions CI run 37230007262 (workflow_dispatch, Ubuntu runner), branch `fix/windows-review` at `0574d5dde` (the memory-safety pass), merged to master the same day |
 | Corpus | `../test262` at commit `aae8cf6eed6d6c6a203be48c1184bb194880f66b` |
 | Scope | the whole corpus: `annexB`, `built-ins`, `harness`, `intl402`, `language`, `staging` |
 | Discovered | 53,582 files (every `.js` under `test/` that is not a `_FIXTURE`) |
 | Skipped | 11 (the skip list; see below) |
 | Denominator | 53,571 |
-| Passed | **33,658** |
-| Failed — semantics | 17,625 |
-| Failed — syntax | 1,229 |
+| Passed | **34,154** |
+| Failed — semantics | 17,281 |
+| Failed — syntax | 1,228 |
 | Failed — negative (engine accepted source Test262 requires it to reject) | 3 |
-| Failed — async (no `Test262:AsyncTestComplete`) | 825 |
-| Timeouts (5,000 ms each) | 231 |
-| Pass rate | **62.83 %** |
-| Wall clock | 2,635 s (44 min), sequential, `TEST262_CONCURRENCY=1` |
+| Failed — async (no `Test262:AsyncTestComplete`) | 804 |
+| Timeouts (5,000 ms each) | 101 |
+| Pass rate | **63.75 %** |
+| Wall clock | 2,009 s (33 min), sequential, `TEST262_CONCURRENCY=1` |
 | protoCore | 2.14.1 (`94951559`), the CI pin |
 
 `TEST262_CONCURRENCY=1` is not a preference: parallel Test262 runs hang the
@@ -51,17 +51,17 @@ verified safe on that machine on 2026-10-02.
 
 | Directory | Denominator | Passed | Pass rate |
 |---|---:|---:|---:|
-| `annexB` | 1,086 | 553 | 50.92 % |
-| `built-ins` | 23,814 | 14,431 | 60.60 % |
+| `annexB` | 1,086 | 554 | 51.01 % |
+| `built-ins` | 23,814 | 14,630 | 61.43 % |
 | `harness` | 116 | 107 | 92.24 % |
 | `intl402` | 3,357 | 22 | 0.66 % |
-| `language` | 23,715 | 17,855 | 75.29 % |
-| `staging` | 1,483 | 690 | 46.53 % |
-| **Whole corpus** | **53,571** | **33,658** | **62.83 %** |
+| `language` | 23,715 | 18,132 | 76.46 % |
+| `staging` | 1,483 | 709 | 47.81 % |
+| **Whole corpus** | **53,571** | **34,154** | **63.75 %** |
 
 Subordinate view, for comparison with engines that publish it: excluding
 `intl402` (no ECMA-402 in protoJS) and `staging` (not normative in Test262),
-**32,946 of 48,731 = 67.61 %**. This is *not* the headline. The headline
+**33,423 of 48,731 = 68.59 %**. This is *not* the headline. The headline
 includes both, because leaving them out raises the number without improving the
 engine.
 
@@ -84,7 +84,15 @@ engine.
   touched directories (RegExp, annexB, TypedArray, TypedArrayConstructors,
   generators, yield, for-of, try, class elements, Map, Set, Array.from,
   Function; 9,458 tests): 5,352 -> 5,625 passed, 273 fail->pass, 0
-  pass->fail.
+  pass->fail. Final branch run (37230007262, the headline above): 34,154
+  passed, 499 fail->pass and 3 pass->fail against 37203655980. The three:
+  `element-setting-ToNumber-detaches.js` (above), and two
+  `cpn-class-*-accessors-computed-property-name-from-yield-expression` tests,
+  which passed on master only because the generator swallowed their
+  assertion failure; a getter or setter with a computed key that is
+  undefined or null is still not found under "undefined"/"null" (open).
+  Timeouts fell from 231 to 101: unbounded recursion now ends in a
+  RangeError instead of a crash or a hang.
 - **2026-10-04, global declarations, GeneratorFunction / AsyncFunction /
   AsyncGeneratorFunction, BigInt wrappers, typed arrays** (CHANGELOG).
   Against the CI run of the same corpus on master's code (37169848799:
