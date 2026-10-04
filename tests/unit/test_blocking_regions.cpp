@@ -16,7 +16,8 @@
 // broken build proves nothing, so the property is asserted directly instead:
 // `ProtoSpace::parkedThreads` is observable, and it says whether the blocked thread
 // left the quorum or not. No timing margin, no race, no reliance on a collection
-// happening to be due.
+// happening to be due: the pool task waits until it SEES the caller parked (or
+// gives up after a bound that only a failing run reaches).
 //
 // WHAT WOULD MAKE EACH CASE FAIL. Deleting the `ThreadUnmanagedScope` from
 // `ThreadPoolExecutor::shutdown` (src/ThreadPoolExecutor.cpp) makes the first case
@@ -71,6 +72,23 @@ struct RegisteredThread {
         return space.parkedThreads.load(std::memory_order_acquire);
     }
 };
+
+// Wait, polling, until `condition` holds; false if it still does not after
+// `limit`. The limit only bounds how long a FAILING run takes -- a passing run
+// returns as soon as the condition holds, however slow the machine -- so it is
+// not a timing margin. These cases used to sleep for fixed times instead (30 ms
+// for the worker to pick the task up, 150 ms for the caller to be inside
+// shutdown), and on a loaded macOS runner the caller was not there yet
+// (cross-platform run 37206587525).
+template <typename Condition>
+bool waitUntil(Condition condition, std::chrono::seconds limit = std::chrono::seconds(30)) {
+    const auto deadline = std::chrono::steady_clock::now() + limit;
+    while (!condition()) {
+        if (std::chrono::steady_clock::now() > deadline) return false;
+        std::this_thread::sleep_for(std::chrono::milliseconds(1));
+    }
+    return true;
+}
 
 }  // namespace
 
@@ -145,16 +163,21 @@ TEST_CASE("ThreadPoolExecutor::shutdown parks the calling thread", "[gc][blockin
     std::atomic<proto::proto_ulong> runningDuringShutdown{0};
     std::atomic<bool> sampled{false};
 
+    std::atomic<bool> started{false};
     pool.submit([&]() {
-        // Long enough that shutdown() is certainly inside its wait: it cannot
-        // return until activeCount reaches zero, which cannot happen until this
-        // task returns. So this is an ordering guarantee, not a timing margin.
-        std::this_thread::sleep_for(std::chrono::milliseconds(150));
+        started.store(true);
+        // shutdown() cannot return until this task does, so the caller is either
+        // on its way into the wait or inside it. Sample once the caller is
+        // parked; if it never parks (no guard), the wait gives up and the sample
+        // shows the caller still running.
+        waitUntil([&] { return self.running() >= 1 && self.parked() >= self.running(); });
         parkedDuringShutdown.store(self.parked());
         runningDuringShutdown.store(self.running());
         sampled.store(true);
         return 0;
     });
+    // The task is running, not queued, when shutdown begins.
+    REQUIRE(waitUntil([&] { return started.load(); }));
 
     pool.shutdown();
 
@@ -179,18 +202,21 @@ TEST_CASE("ThreadPoolExecutor::shutdownNow parks the calling thread", "[gc][bloc
     std::atomic<proto::proto_ulong> runningDuringShutdown{0};
     std::atomic<bool> sampled{false};
 
+    std::atomic<bool> started{false};
     pool.submit([&]() {
+        started.store(true);
         // shutdownNow clears the QUEUE but cannot abandon a task already running,
-        // so the join loop still has to wait for this one.
-        std::this_thread::sleep_for(std::chrono::milliseconds(150));
+        // so the join loop still has to wait for this one. Sample once the caller
+        // is parked in it (see the shutdown case).
+        waitUntil([&] { return self.running() >= 1 && self.parked() >= self.running(); });
         parkedDuringShutdown.store(self.parked());
         runningDuringShutdown.store(self.running());
         sampled.store(true);
         return 0;
     });
-    // Give the worker time to pick the task up, so it is running rather than queued
-    // when shutdownNow clears the queue.
-    std::this_thread::sleep_for(std::chrono::milliseconds(30));
+    // The worker has picked the task up, so it is running rather than queued when
+    // shutdownNow clears the queue.
+    REQUIRE(waitUntil([&] { return started.load(); }));
 
     pool.shutdownNow();
 
