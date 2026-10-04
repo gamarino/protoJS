@@ -730,10 +730,13 @@ thread_local std::vector<protojs::CatchFrame>*      t_genResumeCatchStack = null
 // The active generator iterator during a resume call.
 // Set by generatorNext before entering runBytecode; read by OP_yield to update state.
 thread_local const proto::ProtoObject*              t_genIterator       = nullptr;
-// Set by resumeGenerator for generator.return(v): the resumption pushes kind 1
-// (return), which the bytecode after a yield turns into a return that runs the
-// finally blocks, and which yield* forwards to the inner iterator's return().
-thread_local bool                                   t_genResumeReturn   = false;
+// Set by resumeGenerator: the resume kind of next (0), return(v) (1) and
+// throw(v) (2), with v stored as the generator's sent value. Kind 1 makes the
+// bytecode after a yield return (running the finally blocks) and yield*
+// forward it to the inner iterator's return(); kind 2 raises v at a yield and
+// is forwarded to throw() by yield*. Until 2026-10-04 the kind was inferred
+// from a stored throw value, so throw(undefined) acted as next().
+thread_local int                                    t_genResumeKind     = 0;
 
 // ---------------------------------------------------------------------------
 // Async functions and async generators: the handshake between runBytecode
@@ -5740,6 +5743,34 @@ static PROTOJS_NOINLINE int forAwaitOfStartOp(proto::ProtoContext* ctx,
     return kAsyncOpContinue;
 }
 
+// The error OP_throw_error raises, by its type operand as QuickJS defines
+// them (quickjs.c, CASE(OP_throw_error)). Until 2026-10-04 the types were
+// mapped 1 -> TypeError, 2 -> ReferenceError, anything else -> Error, so a
+// yield* whose inner iterator has no throw() raised a plain Error.
+static PROTOJS_NOINLINE const proto::ProtoObject* throwErrorOpValue(
+        proto::ProtoContext* ctx, ProtoBytecodeModule* mod, uint32_t atomIndex,
+        uint8_t errorType, const proto::ProtoObject* const* globalRoot) {
+    std::string name;
+    if (errorType <= 2) {
+        const proto::ProtoString* key = resolveAtom(mod, ctx, atomIndex);
+        if (key) key->toUTF8String(ctx, name);
+    }
+    switch (errorType) {
+        case 0:  // JS_THROW_VAR_RO
+            return makeError(ctx, "TypeError", ("'" + name + "' is read-only").c_str(), globalRoot);
+        case 1:  // JS_THROW_VAR_REDECL
+            return makeError(ctx, "SyntaxError", ("redeclaration of '" + name + "'").c_str(), globalRoot);
+        case 2:  // JS_THROW_VAR_UNINITIALIZED
+            return makeError(ctx, "ReferenceError", (name + " is not initialized").c_str(), globalRoot);
+        case 3:  // JS_THROW_ERROR_DELETE_SUPER
+            return makeError(ctx, "ReferenceError", "unsupported reference to 'super'", globalRoot);
+        case 4:  // JS_THROW_ERROR_ITERATOR_THROW
+            return makeError(ctx, "TypeError", "iterator does not have a throw method", globalRoot);
+        default:
+            return makeError(ctx, "InternalError", "invalid throw var type", globalRoot);
+    }
+}
+
 // OP_iterator_check_object: true, with a TypeError in `exception`, when the
 // value on top of the stack is not an object. The value stays on the stack.
 static PROTOJS_NOINLINE bool iteratorResultNotObject(proto::ProtoContext* ctx,
@@ -6071,8 +6102,8 @@ const proto::ProtoObject* runBytecode(proto::ProtoContext* pContext,
         //
         // Resume kind values match QuickJS: 0 = next, 1 = return, 2 = throw.
         gen_resume_sent_val   = PROTO_NONE;
-        gen_resume_kind       = t_genResumeReturn ? 1 : 0;   // return(v): kind 1
-        t_genResumeReturn     = false;
+        gen_resume_kind       = t_genResumeKind;   // next 0, return(v) 1, throw(v) 2
+        t_genResumeKind       = 0;
         gen_resume_active     = true;
         if (t_genIterator) {
             const proto::ProtoString* k2 = JSSymbols::genSent(pContext);
@@ -6082,19 +6113,6 @@ const proto::ProtoObject* runBytecode(proto::ProtoContext* pContext,
             }
         }
 
-        // mode==2 (throw): override sentVal with the throw value and signal
-        // throw kind.  The post-yield bytecode reads the kind, sees 2, and
-        // re-raises the value as an exception (caller of OP_yield site).
-        if (t_genIterator) {
-            const proto::ProtoString* k3 = JSSymbols::genThrowVal(pContext);
-            if (k3) {
-                const proto::ProtoObject* tv = t_genIterator->getAttribute(pContext, k3, false);
-                if (tv && tv != PROTO_NONE) {
-                    gen_resume_sent_val = tv;
-                    gen_resume_kind     = 2;
-                }
-            }
-        }
     } else {
         // Slot/stack storage lives in ProtoContext::automaticLocals (a flat
         // GC-visible array).  The InterpFrame for this call is pushed
@@ -14900,12 +14918,8 @@ const proto::ProtoObject* runBytecode(proto::ProtoContext* pContext,
                 uint32_t atomIndex = get_u32(buf + pc);
                 uint8_t errorType = buf[pc + 4];
                 pc += 5;
-                const proto::ProtoString* key = resolveAtom(mod, pContext, atomIndex);
-                std::string msg;
-                if (key) key->toUTF8String(pContext, msg);
-                const char* errName = (errorType == 1) ? "TypeError" :
-                                      (errorType == 2) ? "ReferenceError" : "Error";
-                pending_exception = makeError(pContext, errName, msg.c_str(), pGlobalRoot); has_pending_exception = true;
+                pending_exception = throwErrorOpValue(pContext, mod, atomIndex, errorType, pGlobalRoot);
+                has_pending_exception = true;
                 DISPATCH();
             }
             L_OP_catch: {
@@ -19098,23 +19112,13 @@ static const proto::ProtoObject* resumeGenerator(proto::ProtoContext* ctx,
                                   (proto::proto_ulong)genGetInt(ctx, iter, ksp.c_str())});
     }
 
-    // If mode == 2 (throw): pre-store the throw value on the iterator.
-    // Reads of these keys live in L_OP_yield's resumption path (see
-    // JSSymbols::genSent / JSSymbols::genThrowVal); writes MUST go through
-    // the same interned ProtoString* or the read won't find the write.
-    if (mode == 2 && sentVal && sentVal != PROTO_NONE) {
-        const proto::ProtoString* k = JSSymbols::genThrowVal(ctx);
-        if (k && iter) iter = iter->setAttribute(ctx, k, sentVal);
-    } else {
-        // Store sent value (result of yield expr on resume).
+    // The value next / return / throw passes in, read back by runBytecode's
+    // resume path through the same interned key (JSSymbols::genSent).
+    {
         const proto::ProtoString* ks = JSSymbols::genSent(ctx);
         if (ks && iter) iter = iter->setAttribute(ctx, ks, sentVal ? sentVal : PROTO_NONE);
-        // Clear any prior throw val.
-        const proto::ProtoString* kt = JSSymbols::genThrowVal(ctx);
-        if (kt && iter) iter = iter->setAttribute(ctx, kt, PROTO_NONE);
     }
-
-    t_genResumeReturn = (mode == 1);
+    t_genResumeKind = mode;
 
     // Set up resume thread-locals. The generator being resumed replaces the
     // one this thread may be running (a generator body that iterates another

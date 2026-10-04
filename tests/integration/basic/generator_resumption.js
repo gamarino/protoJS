@@ -113,5 +113,10 @@ try { const g = (function* () { yield* { [Symbol.iterator]() { return { next() {
 catch (e) { nonObject = e; }
 check(nonObject instanceof TypeError, true, "non-object next() result through yield*");
 
+// throw() without an argument throws undefined (it is not a next()).
+const g15 = (function* () { try { yield 1; } catch (e) { yield "caught " + e; } })();
+g15.next();
+check(g15.throw(), { value: "caught undefined", done: false }, "throw() without an argument");
+
 if (failures) { console.log(failures + " failure(s)"); process.exit(1); }
 console.log("generator_resumption: OK");
