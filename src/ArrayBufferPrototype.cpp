@@ -1,6 +1,8 @@
 #include "ProtoCoreTypes.h"
 #include "ArrayBufferPrototype.h"
 #include "JSSymbols.h"
+#include "TypedArrayPrototype.h"
+#include "runtime/ProtoInterpreter.h"
 #include "protoCore.h"
 #include <cstring>
 #include <algorithm>
@@ -22,6 +24,13 @@ static const proto::ProtoObject* ab_get_byteLength(
     proto::ProtoContext* ctx, const proto::ProtoObject* self,
     const proto::ParentLink*, const proto::ProtoList*, const proto::ProtoSparseList*)
 {
+    // §25.1.6.1 RequireInternalSlot(O, [[ArrayBufferData]]).
+    if (!self || self == PROTO_NONE
+        || self->hasOwnAttribute(ctx, JSSymbols::abData(ctx)) != PROTO_TRUE) {
+        signalNativeException(makeNativeError(ctx, "TypeError",
+            "ArrayBuffer.prototype.byteLength called on an object that is not an ArrayBuffer"));
+        return PROTO_NONE;
+    }
     proto::proto_ulong len = getArrayBufferByteLength(ctx, self);
     return ctx->fromInteger(static_cast<long long>(len));
 }
@@ -118,13 +127,46 @@ static const proto::ProtoObject* ab_isView(
 // Public API
 // ---------------------------------------------------------------------------
 
+static const proto::ProtoObject* createArrayBufferWithProto(proto::ProtoContext* ctx,
+                                                           const proto::ProtoObject* proto,
+                                                           proto::proto_ulong byteLength);
+
 const proto::ProtoObject* createArrayBuffer(proto::ProtoContext* ctx,
                                             proto::proto_ulong byteLength) {
+    return createArrayBufferWithProto(ctx, s_abProto, byteLength);
+}
+
+// The largest buffer protoJS allocates; a larger ToIndex result is the
+// RangeError CreateByteDataBlock (§6.2.9.1) raises when allocation fails.
+static constexpr long long kMaxArrayBufferLength = 0x7FFFFFFFLL;
+
+const proto::ProtoObject* constructArrayBuffer(proto::ProtoContext* ctx,
+                                               const proto::ProtoObject* proto,
+                                               const proto::ProtoList* args) {
+    if (!ctx) return PROTO_NONE;
+    const proto::ProtoObject* lenArg = (args && args->getSize(ctx) > 0)
+        ? args->getAt(ctx, 0) : PROTO_NONE;
+    long long len = 0;
+    if (!toIndex(ctx, lenArg, len, "Invalid array buffer length")) return PROTO_NONE;
+    if (len > kMaxArrayBufferLength) {
+        signalNativeException(makeNativeError(ctx, "RangeError", "Array buffer allocation failed"));
+        return PROTO_NONE;
+    }
+    const bool protoIsObject = proto && proto != PROTO_NONE && proto != getUndefinedSentinel()
+        && proto != getNullSentinel() && !proto->isInteger(ctx) && !proto->isDouble(ctx)
+        && !proto->isString(ctx) && !proto->isBoolean(ctx);
+    return createArrayBufferWithProto(ctx, protoIsObject ? proto : s_abProto,
+                                      static_cast<proto::proto_ulong>(len));
+}
+
+static const proto::ProtoObject* createArrayBufferWithProto(proto::ProtoContext* ctx,
+                                                           const proto::ProtoObject* proto,
+                                                           proto::proto_ulong byteLength) {
     if (!ctx) return PROTO_NONE;
 
     // Create instance inheriting from ArrayBuffer.prototype (if available).
-    const proto::ProtoObject* ab = s_abProto
-        ? s_abProto->newChild(ctx, true)
+    const proto::ProtoObject* ab = proto
+        ? proto->newChild(ctx, true)
         : ctx->newObject(true);
     if (!ab) return PROTO_NONE;
 
@@ -207,7 +249,6 @@ void ensureArrayBufferConstructor(proto::ProtoContext* ctx,
 
     // Register prototype methods.
     struct { const char* name; proto::ProtoMethod fn; long long len; } methods[] = {
-        { "byteLength", ab_get_byteLength, 0 },
         { "slice",      ab_slice,          2 },
     };
     for (auto& m : methods) {
@@ -220,6 +261,31 @@ void ensureArrayBufferConstructor(proto::ProtoContext* ctx,
         if (lenKey)  fn = fn->setAttribute(ctx, lenKey,  ctx->fromInteger(m.len));
         if (nameKey) fn = fn->setAttribute(ctx, nameKey, ctx->fromUTF8String(m.name));
         proto = proto->setAttribute(ctx, key, fn);
+    }
+
+    // §25.1.6.1 get ArrayBuffer.prototype.byteLength: an accessor with no
+    // setter, { !enumerable, configurable } (0x2).  Pre-fix it was a data
+    // property holding the getter function, so `buffer.byteLength` read the
+    // function itself.  The undefined data slot keeps the key in the
+    // prototype's own-key list next to its __get_byteLength__ sidecar.
+    {
+        const proto::ProtoObject* fnParent =
+            (ctx->space && ctx->space->methodPrototype) ? ctx->space->methodPrototype : nullptr;
+        const proto::ProtoObject* getter = fnParent ? fnParent->newChild(ctx, true)
+                                                    : ctx->newObject(true);
+        getter = getter->setAttribute(ctx, JSSymbols::nativeFn(ctx),
+                                      ctx->fromMethod(nullptr, ab_get_byteLength));
+        getter = getter->setAttribute(ctx, JSSymbols::length(ctx), ctx->fromInteger(0LL));
+        getter = getter->setAttribute(ctx, JSSymbols::pdLength(ctx), ctx->fromInteger(0x2LL));
+        getter = getter->setAttribute(ctx, JSSymbols::name(ctx), ctx->fromUTF8String("get byteLength"));
+        getter = getter->setAttribute(ctx, JSSymbols::pdName(ctx), ctx->fromInteger(0x2LL));
+        getter = getter->setAttribute(ctx, JSSymbols::hasNonWritableProps(ctx), PROTO_TRUE);
+        proto = proto->setAttribute(ctx, ctx->fromUTF8String("__get_byteLength__")->asString(ctx), getter);
+        proto = proto->setAttribute(ctx, ctx->fromUTF8String("byteLength")->asString(ctx), PROTO_NONE);
+        proto = proto->setAttribute(ctx, ctx->fromUTF8String("__pd_byteLength__")->asString(ctx),
+                                    ctx->fromInteger(0x2LL));
+        proto = proto->setAttribute(ctx, JSSymbols::hasAccessorProps(ctx), PROTO_TRUE);
+        proto = proto->setAttribute(ctx, JSSymbols::hasNonWritableProps(ctx), PROTO_TRUE);
     }
 
     // §25.1.4.4 ArrayBuffer.prototype[@@toStringTag] = "ArrayBuffer"

@@ -84,6 +84,16 @@ const proto::ProtoObject* wrapBigInt(proto::ProtoContext* ctx,
 const proto::ProtoObject* boxBigInt(proto::ProtoContext* ctx,
                                     const proto::ProtoObject* v);
 
+/**
+ * ToBigInt (§7.1.13): the protoCore Integer of a BigInt, a boolean, a
+ * string that parses as an integer, or an object whose ToPrimitive gives one
+ * of those.  PROTO_NONE with the exception signalled otherwise (a Number,
+ * undefined, null or a Symbol is a TypeError, an unparsable string a
+ * SyntaxError).
+ */
+const proto::ProtoObject* toBigIntInteger(proto::ProtoContext* ctx,
+                                          const proto::ProtoObject* v);
+
 } // namespace protojs
 
 #endif // PROTOJS_BIGINTPROTOTYPE_H

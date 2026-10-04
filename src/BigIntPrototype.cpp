@@ -652,6 +652,11 @@ const proto::ProtoObject* wrapBigInt(proto::ProtoContext* ctx,
     return w;
 }
 
+const proto::ProtoObject* toBigIntInteger(proto::ProtoContext* ctx,
+                                          const proto::ProtoObject* v) {
+    return toBigInt(ctx, v);
+}
+
 const proto::ProtoObject* boxBigInt(proto::ProtoContext* ctx,
                                     const proto::ProtoObject* v) {
     if (!isBigInt(ctx, v)) return v;

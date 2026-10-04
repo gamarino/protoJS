@@ -312,6 +312,7 @@ foreach(js_test
         basic/global_var_bindings
         basic/function_kind_constructors
         basic/bigint_wrapper
+        basic/typed_array_objects
         basic/put_field_group_cells
         basic/for_of_state
         basic/array_map_filter

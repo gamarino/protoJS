@@ -7,6 +7,8 @@
 #include "runtime/BehaviorRegistry.h"
 #include "runtime/ProtoInterpreter.h"
 #include "ArrayPrototype.h"
+#include "BigIntPrototype.h"
+#include "ArrayElementsStorage.h"
 
 #include <algorithm>
 #include <climits>
@@ -28,6 +30,28 @@ static const proto::ProtoObject* s_taProtos[11] = {};
 const proto::ProtoObject* getTypedArrayBaseProto() { return s_taBaseProto; }
 const proto::ProtoObject* getTypedArrayConcreteProto(uint8_t elemType) {
     return (elemType < 11) ? s_taProtos[elemType] : nullptr;
+}
+
+// The low 64 bits of a BigInt's protoCore Integer (two's complement), as
+// BigInt64Array / BigUint64Array store it (§7.1.15 ToBigInt64 / ToBigUint64).
+static uint64_t bigIntLow64(proto::ProtoContext* ctx, const proto::ProtoObject* integer) {
+    if (!integer || integer == PROTO_NONE) return 0;
+    const proto::ProtoObject* one = ctx->fromInteger(1LL);
+    const proto::ProtoObject* mask64 = one->shiftLeft(ctx, 64)->subtract(ctx, one);
+    const proto::ProtoObject* r = integer->bitwiseAnd(ctx, mask64);
+    const proto::ProtoObject* mask32 = ctx->fromInteger(0xFFFFFFFFLL);
+    const uint64_t lo = static_cast<uint64_t>(r->bitwiseAnd(ctx, mask32)->asLong(ctx));
+    const uint64_t hi = static_cast<uint64_t>(r->shiftRight(ctx, 32)->asLong(ctx));
+    return (hi << 32) | (lo & 0xFFFFFFFFULL);
+}
+
+// A BigInt holding the unsigned 64-bit value v.
+static const proto::ProtoObject* bigIntFromUint64(proto::ProtoContext* ctx, uint64_t v) {
+    if (v <= static_cast<uint64_t>(std::numeric_limits<long long>::max()))
+        return wrapBigInt(ctx, ctx->fromInteger(static_cast<long long>(v)));
+    const proto::ProtoObject* hi = ctx->fromInteger(static_cast<long long>(v >> 32));
+    const proto::ProtoObject* lo = ctx->fromInteger(static_cast<long long>(v & 0xFFFFFFFFULL));
+    return wrapBigInt(ctx, hi->shiftLeft(ctx, 32)->add(ctx, lo));
 }
 
 // ---------------------------------------------------------------------------
@@ -103,18 +127,13 @@ const proto::ProtoObject* typedArrayGetElement(proto::ProtoContext* ctx,
             double v; std::memcpy(&v, bytes, 8);
             return makeNumber(ctx, v);
         }
-        case 9: { // BigInt64
+        case 9: { // BigInt64: the element is a BigInt (§23.2 Table 71).
             int64_t v; std::memcpy(&v, bytes, 8);
-            return ctx->fromInteger(static_cast<long long>(v));
+            return wrapBigInt(ctx, ctx->fromInteger(static_cast<long long>(v)));
         }
         case 10: { // BigUint64
             uint64_t v; std::memcpy(&v, bytes, 8);
-            // NOTE: BigUint64 values > INT64_MAX cannot be represented as long long.
-            // Clamping to INT64_MAX until BigInt support is added.
-            long long safe = v > static_cast<uint64_t>(std::numeric_limits<long long>::max())
-                           ? std::numeric_limits<long long>::max()
-                           : static_cast<long long>(v);
-            return ctx->fromInteger(safe);
+            return bigIntFromUint64(ctx, v);
         }
         default:
             return PROTO_NONE;
@@ -160,6 +179,23 @@ const proto::ProtoObject* typedArraySetElement(proto::ProtoContext* ctx,
     if (!rawPtr) return const_cast<proto::ProtoObject*>(ta);
 
     uint8_t* bytes = static_cast<uint8_t*>(rawPtr) + byteIndex;
+
+    // §10.4.5.16 TypedArraySetElement: a BigInt array takes ToBigInt(value),
+    // any other ToNumber(value) -- a BigInt there is a TypeError, and so is a
+    // Number in a BigInt array.
+    if (elementType == 9 || elementType == 10) {
+        const proto::ProtoObject* integer = toBigIntInteger(ctx, value ? value : PROTO_NONE);
+        if (!integer || integer == PROTO_NONE || hasCallException())
+            return const_cast<proto::ProtoObject*>(ta);
+        const uint64_t bits = bigIntLow64(ctx, integer);
+        std::memcpy(bytes, &bits, 8);
+        return const_cast<proto::ProtoObject*>(ta);
+    }
+    if (isBigInt(ctx, value)) {
+        signalNativeException(makeNativeError(ctx, "TypeError",
+            "Cannot convert a BigInt value to a number"));
+        return const_cast<proto::ProtoObject*>(ta);
+    }
 
     // Coerce value to integer or double
     long long iv = 0;
@@ -280,6 +316,21 @@ uint32_t getTypedArrayLength(proto::ProtoContext* ctx, const proto::ProtoObject*
     return v > 0 ? static_cast<uint32_t>(v) : 0;
 }
 
+// The internal fields of a new typed array cannot be assigned: they stand for
+// accessors without a setter (a strict-mode write is a TypeError, a sloppy one
+// is ignored), so they are stamped read-only.
+static const proto::ProtoObject* stampTypedArrayFields(proto::ProtoContext* ctx,
+                                                       const proto::ProtoObject* ta) {
+    static const char* const kFields[] = {"__pd_buffer__", "__pd_byteLength__",
+                                          "__pd_byteOffset__", "__pd_length__"};
+    for (const char* f : kFields) {
+        const proto::ProtoObject* ko = ctx->fromUTF8String(f);
+        if (const proto::ProtoString* k = ko ? ko->asString(ctx) : nullptr)
+            ta = ta->setAttribute(ctx, k, ctx->fromInteger(0x0LL));
+    }
+    return ta->setAttribute(ctx, JSSymbols::hasNonWritableProps(ctx), PROTO_TRUE);
+}
+
 // ---------------------------------------------------------------------------
 // createTypedArrayFromLength
 // ---------------------------------------------------------------------------
@@ -306,7 +357,7 @@ const proto::ProtoObject* createTypedArrayFromLength(proto::ProtoContext* ctx,
                           ctx->fromInteger(static_cast<long long>(byteLen)));
     ta = ta->setAttribute(ctx, JSSymbols::length(ctx),
                           ctx->fromInteger(static_cast<long long>(length)));
-    return ta;
+    return stampTypedArrayFields(ctx, ta);
 }
 
 // ---------------------------------------------------------------------------
@@ -351,7 +402,7 @@ const proto::ProtoObject* createTypedArrayFromBuffer(proto::ProtoContext* ctx,
                           ctx->fromInteger(static_cast<long long>(viewByteLen)));
     ta = ta->setAttribute(ctx, JSSymbols::length(ctx),
                           ctx->fromInteger(static_cast<long long>(len)));
-    return ta;
+    return stampTypedArrayFields(ctx, ta);
 }
 
 // ---------------------------------------------------------------------------
@@ -509,6 +560,10 @@ static const proto::ProtoObject* ta_join(
                 char buf[64];
                 snprintf(buf, sizeof(buf), "%g", elem->asDouble(ctx));
                 result += buf;
+            } else if (isBigInt(ctx, elem)) {
+                const proto::ProtoObject* inner = unwrapBigInt(ctx, elem);
+                const proto::ProtoString* ds = inner ? inner->asIntegerString(ctx, 10) : nullptr;
+                if (ds) { std::string t; ds->toUTF8String(ctx, t); result += t; }
             }
         }
     }
@@ -843,6 +898,18 @@ static const proto::ProtoObject* ta_sort(
     uint32_t len = getTypedArrayLength(ctx, self);
     if (len <= 1) return const_cast<proto::ProtoObject*>(self);
 
+    // BigInt64Array / BigUint64Array: compare the BigInts' integers.
+    if (et == 9 || et == 10) {
+        std::vector<const proto::ProtoObject*> big(len);
+        for (uint32_t i = 0; i < len; i++) big[i] = typedArrayGetElement(ctx, self, i, et);
+        std::stable_sort(big.begin(), big.end(),
+            [&](const proto::ProtoObject* x, const proto::ProtoObject* y) {
+                return unwrapBigInt(ctx, x)->compare(ctx, unwrapBigInt(ctx, y)) < 0;
+            });
+        for (uint32_t i = 0; i < len; i++) typedArraySetElement(ctx, self, i, big[i], et);
+        return const_cast<proto::ProtoObject*>(self);
+    }
+
     // Extract all elements as doubles for sorting.
     std::vector<double> vals(len);
     for (uint32_t i = 0; i < len; i++) {
@@ -912,13 +979,22 @@ static const proto::ProtoObject* ta_set(
         uint32_t srcLen = 0;
         if (lenObj && lenObj != PROTO_NONE && lenObj->isInteger(ctx))
             srcLen = static_cast<uint32_t>(std::max(0LL, lenObj->asLong(ctx)));
+        // An Array keeps its dense elements in its element list, not as
+        // index attributes.
+        const proto::ProtoList* els = getArrayElements(ctx, src);
+        const uint32_t elsLen = els ? static_cast<uint32_t>(els->getSize(ctx)) : 0;
         for (uint32_t i = 0; i < srcLen; i++) {
             long long dstIdx = static_cast<long long>(i) + offset;
             if (dstIdx >= static_cast<long long>(selfLen)) break;
-            const proto::ProtoString* idxKey = JSSymbols::indexKey(ctx, i);
-            const proto::ProtoObject* elem = src->getAttribute(ctx, idxKey, false);
-            if (elem && elem != PROTO_NONE)
+            const proto::ProtoObject* elem = (i < elsLen) ? els->getAt(ctx, static_cast<int>(i)) : nullptr;
+            if (!elem || elem == PROTO_NONE) {
+                const proto::ProtoString* idxKey = JSSymbols::indexKey(ctx, i);
+                elem = src->getAttribute(ctx, idxKey, true);
+            }
+            if (elem && elem != PROTO_NONE) {
                 typedArraySetElement(ctx, self, static_cast<uint32_t>(dstIdx), elem, et);
+                if (hasCallException()) return PROTO_NONE;
+            }
         }
     }
     return PROTO_NONE;
@@ -928,12 +1004,29 @@ static const proto::ProtoObject* ta_set(
 // Task 6: property getters (buffer, byteOffset, byteLength) + slice
 // ---------------------------------------------------------------------------
 
+// The receiver of a %TypedArray%.prototype accessor: a typed array, which
+// carries its buffer as an own internal slot (an object that merely inherits
+// a typed-array prototype does not).  Otherwise a TypeError (§23.2.3
+// RequireInternalSlot(O, [[TypedArrayName]])).
+static bool requireTypedArray(proto::ProtoContext* ctx, const proto::ProtoObject* self,
+                              const char* what) {
+    if (self && self != PROTO_NONE && isTypedArray(ctx, self)
+        && self->hasOwnAttribute(ctx, JSSymbols::taBuffer(ctx)) == PROTO_TRUE)
+        return true;
+    std::string msg = std::string("%TypedArray%.prototype.") + what
+        + " called on an object that is not a typed array";
+    signalNativeException(makeNativeError(ctx, "TypeError", msg.c_str()));
+    return false;
+}
+
+// get %TypedArray%.prototype.buffer / byteOffset / byteLength / length
+// (§23.2.3.2, .3, .4, .21): the typed array's own internal fields.
 static const proto::ProtoObject* ta_get_buffer(
     proto::ProtoContext* ctx, const proto::ProtoObject* self,
     const proto::ParentLink*, const proto::ProtoList*, const proto::ProtoSparseList*)
 {
-    if (!self || self == PROTO_NONE) return PROTO_NONE;
-    const proto::ProtoObject* ab = self->getAttribute(ctx, JSSymbols::buffer(ctx), false);
+    if (!requireTypedArray(ctx, self, "buffer")) return PROTO_NONE;
+    const proto::ProtoObject* ab = self->getAttribute(ctx, JSSymbols::taBuffer(ctx), false);
     return (ab && ab != PROTO_NONE) ? ab : PROTO_NONE;
 }
 
@@ -941,11 +1034,8 @@ static const proto::ProtoObject* ta_get_byteOffset(
     proto::ProtoContext* ctx, const proto::ProtoObject* self,
     const proto::ParentLink*, const proto::ProtoList*, const proto::ProtoSparseList*)
 {
-    if (!self || self == PROTO_NONE) return ctx->fromInteger(0LL);
-    // Try the internal key first, fall back to the public key.
+    if (!requireTypedArray(ctx, self, "byteOffset")) return PROTO_NONE;
     const proto::ProtoObject* bo = self->getAttribute(ctx, JSSymbols::taByteOffset(ctx), false);
-    if (bo && bo != PROTO_NONE && bo->isInteger(ctx)) return bo;
-    bo = self->getAttribute(ctx, JSSymbols::byteOffset(ctx), false);
     if (bo && bo != PROTO_NONE && bo->isInteger(ctx)) return bo;
     return ctx->fromInteger(0LL);
 }
@@ -954,9 +1044,64 @@ static const proto::ProtoObject* ta_get_byteLength(
     proto::ProtoContext* ctx, const proto::ProtoObject* self,
     const proto::ParentLink*, const proto::ProtoList*, const proto::ProtoSparseList*)
 {
-    if (!self || self == PROTO_NONE) return ctx->fromInteger(0LL);
+    if (!requireTypedArray(ctx, self, "byteLength")) return PROTO_NONE;
     const proto::ProtoObject* bl = self->getAttribute(ctx, JSSymbols::byteLength(ctx), false);
     return (bl && bl != PROTO_NONE) ? bl : ctx->fromInteger(0LL);
+}
+
+static const proto::ProtoObject* ta_get_length(
+    proto::ProtoContext* ctx, const proto::ProtoObject* self,
+    const proto::ParentLink*, const proto::ProtoList*, const proto::ProtoSparseList*)
+{
+    if (!requireTypedArray(ctx, self, "length")) return PROTO_NONE;
+    return ctx->fromInteger(static_cast<long long>(getTypedArrayLength(ctx, self)));
+}
+
+static const char* const kTypedArrayNames[11] = {
+    "Int8Array", "Uint8Array", "Uint8ClampedArray", "Int16Array", "Uint16Array",
+    "Int32Array", "Uint32Array", "Float32Array", "Float64Array",
+    "BigInt64Array", "BigUint64Array",
+};
+
+// get %TypedArray%.prototype[@@toStringTag] (§23.2.3.38): the
+// [[TypedArrayName]], or undefined for any other receiver (no TypeError).
+static const proto::ProtoObject* ta_get_toStringTag(
+    proto::ProtoContext* ctx, const proto::ProtoObject* self,
+    const proto::ParentLink*, const proto::ProtoList*, const proto::ProtoSparseList*)
+{
+    if (!self || self == PROTO_NONE || !isTypedArray(ctx, self)
+        || self->hasOwnAttribute(ctx, JSSymbols::taBuffer(ctx)) != PROTO_TRUE)
+        return getUndefinedSentinel();
+    const uint8_t et = getTypedArrayElementType(ctx, self);
+    return (et < 11) ? ctx->fromUTF8String(kTypedArrayNames[et]) : getUndefinedSentinel();
+}
+
+// The own internal fields every typed array carries as attributes -- buffer,
+// byteLength, byteOffset, length -- are read directly by the runtime (and by
+// the generic Array methods through `length`), but they are not own properties
+// of the object: they are the accessors of %TypedArray%.prototype.  These
+// helpers let the own-key operations hide them and expose the element indices.
+bool isTypedArrayInternalField(const std::string& key) {
+    return key == "length" || key == "byteLength" || key == "byteOffset" || key == "buffer";
+}
+
+bool typedArrayOwnIndex(proto::ProtoContext* ctx, const proto::ProtoObject* ta,
+                        const std::string& key, uint32_t& index) {
+    if (key.empty() || key.size() > 10) return false;
+    if (key.size() > 1 && key[0] == '0') return false;
+    unsigned long long v = 0;
+    for (char c : key) {
+        if (c < '0' || c > '9') return false;
+        v = v * 10 + static_cast<unsigned long long>(c - '0');
+    }
+    if (v >= getTypedArrayLength(ctx, ta)) return false;
+    index = static_cast<uint32_t>(v);
+    return true;
+}
+
+bool isTypedArrayInstance(proto::ProtoContext* ctx, const proto::ProtoObject* obj) {
+    return obj && obj != PROTO_NONE && isTypedArray(ctx, obj)
+        && obj->hasOwnAttribute(ctx, JSSymbols::taBuffer(ctx)) == PROTO_TRUE;
 }
 
 static const proto::ProtoObject* ta_slice(
@@ -1018,20 +1163,37 @@ static const proto::ProtoObject* throwTypedArrayRangeError(proto::ProtoContext* 
     return PROTO_NONE;
 }
 
-// ToIndex (§7.1.22) of a constructor argument; false when it is out of range.
-static bool typedArrayToIndex(proto::ProtoContext* ctx, const proto::ProtoObject* v,
-                              long long& out) {
+bool toIndex(proto::ProtoContext* ctx, const proto::ProtoObject* v, long long& out,
+             const char* rangeMessage) {
     out = 0;
     if (!v || v == PROTO_NONE || v == getUndefinedSentinel()) return true;
+    // ToIntegerOrInfinity(ToNumber(value)): strings, booleans, null and
+    // objects (through valueOf) convert; a Symbol or BigInt throws TypeError.
+    const proto::ProtoObject* n = v;
+    if (!v->isInteger(ctx) && !v->isDouble(ctx) && !v->isFloat(ctx)) {
+        n = jsToNumber(ctx, v);
+        if (hasCallException()) return false;
+    }
     double d = 0.0;
-    if (v->isInteger(ctx)) d = static_cast<double>(v->asLong(ctx));
-    else if (v->isDouble(ctx) || v->isFloat(ctx)) d = v->asDouble(ctx);
-    else return true;
-    if (std::isnan(d)) return true;
-    d = std::trunc(d);
-    if (d < 0 || d > 9007199254740991.0) return false;
+    if (n && n != PROTO_NONE) {
+        if (n->isInteger(ctx)) d = static_cast<double>(n->asLong(ctx));
+        else if (n->isDouble(ctx) || n->isFloat(ctx)) d = n->asDouble(ctx);
+    }
+    if (std::isnan(d)) d = 0.0;
+    if (!std::isinf(d)) d = std::trunc(d);
+    if (d < 0 || d > 9007199254740991.0) {
+        signalNativeException(makeNativeError(ctx, "RangeError", rangeMessage));
+        return false;
+    }
     out = static_cast<long long>(d);
     return true;
+}
+
+// ToIndex (§7.1.22) of a constructor argument: false, with a TypeError or
+// RangeError signalled, when it does not convert or is out of range.
+static bool typedArrayToIndex(proto::ProtoContext* ctx, const proto::ProtoObject* v,
+                              long long& out, const char* rangeMessage) {
+    return toIndex(ctx, v, out, rangeMessage);
 }
 
 const proto::ProtoObject* constructTypedArray(proto::ProtoContext* ctx,
@@ -1040,18 +1202,29 @@ const proto::ProtoObject* constructTypedArray(proto::ProtoContext* ctx,
                                               const proto::ProtoList* args) {
     const size_t argc = args ? args->getSize(ctx) : 0;
     const proto::ProtoObject* first = argc > 0 ? args->getAt(ctx, 0) : PROTO_NONE;
+    // GetPrototypeFromConstructor (§10.1.14): a newTarget whose `prototype`
+    // is not an object gives the realm's intrinsic prototype of this kind.
+    if (!proto || proto == PROTO_NONE || proto == getUndefinedSentinel()
+        || proto == getNullSentinel() || proto->isInteger(ctx) || proto->isDouble(ctx)
+        || proto->isString(ctx) || proto->isBoolean(ctx))
+        proto = (et < 11) ? s_taProtos[et] : nullptr;
+    // protoJS carries Symbols and BigInts as object cells; they are
+    // primitives here, and reach ToIndex (which throws TypeError for both).
     const bool firstIsObject = first && first != PROTO_NONE
         && first != getUndefinedSentinel() && first != getNullSentinel()
         && !first->isInteger(ctx) && !first->isDouble(ctx) && !first->isFloat(ctx)
         && !first->isBoolean(ctx) && !first->isString(ctx)
-        && first != PROTO_TRUE && first != PROTO_FALSE;
+        && first != PROTO_TRUE && first != PROTO_FALSE
+        && !isBigInt(ctx, first)
+        && first->getAttribute(ctx, JSSymbols::isSymbol(ctx), true) != PROTO_TRUE;
 
-    // §23.2.5.1 step 6: a non-object argument is a length.
+    // §23.2.5.1 step 6: a non-object argument is a length, through ToIndex
+    // (§23.2.5.1.1 AllocateTypedArray): '3' is 3, true is 1, null is 0.
     if (!firstIsObject) {
-        if (first == getNullSentinel())
-            return typedArrayFromValues(ctx, proto, et, ctx->newList());
         long long len = 0;
-        if (!typedArrayToIndex(ctx, first, len) || len > 0xFFFFFFFFLL)
+        if (!typedArrayToIndex(ctx, first, len, "Invalid typed array length"))
+            return PROTO_NONE;
+        if (len > 0xFFFFFFFFLL)
             return throwTypedArrayRangeError(ctx, "Invalid typed array length");
         return createTypedArrayFromLength(ctx, proto, et, static_cast<uint32_t>(len));
     }
@@ -1062,15 +1235,16 @@ const proto::ProtoObject* constructTypedArray(proto::ProtoContext* ctx,
         const uint8_t elemSize = TA_ELEMENT_SIZE[et < 11 ? et : 0];
         const long long bufLen = static_cast<long long>(getArrayBufferByteLength(ctx, first));
         long long offset = 0;
-        if (!typedArrayToIndex(ctx, argc > 1 ? args->getAt(ctx, 1) : PROTO_NONE, offset))
-            return throwTypedArrayRangeError(ctx, "Start offset is out of bounds");
+        if (!typedArrayToIndex(ctx, argc > 1 ? args->getAt(ctx, 1) : PROTO_NONE, offset,
+                               "Start offset is out of bounds"))
+            return PROTO_NONE;
         if (offset % elemSize != 0)
             return throwTypedArrayRangeError(ctx, "Start offset must be a multiple of the element size");
         const proto::ProtoObject* lenArg = argc > 2 ? args->getAt(ctx, 2) : PROTO_NONE;
         long long newLength = -1;
         if (lenArg && lenArg != PROTO_NONE && lenArg != getUndefinedSentinel()) {
-            if (!typedArrayToIndex(ctx, lenArg, newLength))
-                return throwTypedArrayRangeError(ctx, "Invalid typed array length");
+            if (!typedArrayToIndex(ctx, lenArg, newLength, "Invalid typed array length"))
+                return PROTO_NONE;
             if (offset + newLength * elemSize > bufLen)
                 return throwTypedArrayRangeError(ctx, "Invalid typed array length");
         } else {
@@ -1099,8 +1273,38 @@ const proto::ProtoObject* constructTypedArray(proto::ProtoContext* ctx,
     // Array.from performs.
     const proto::ProtoList* values =
         collectArrayFromValues(ctx, ctx->newList()->appendLast(ctx, first));
-    if (!values) return PROTO_NONE;
+    if (!values) {
+        if (hasCallException()) return PROTO_NONE;
+        values = ctx->newList();  // an empty array-like ({ length: 0 })
+    }
     return typedArrayFromValues(ctx, proto, et, values);
+}
+
+const proto::ProtoObject* constructTypedArrayOrBuffer(proto::ProtoContext* ctx,
+                                                      const proto::ProtoObject* ctor,
+                                                      const proto::ProtoObject* proto,
+                                                      const proto::ProtoList* args,
+                                                      bool& handled) {
+    handled = false;
+    if (!ctx || !ctor || ctor == PROTO_NONE) return PROTO_NONE;
+    const proto::ProtoObject* marker = ctor->getAttribute(ctx, JSSymbols::taCtor(ctx), false);
+    if (!marker || marker == PROTO_NONE) return PROTO_NONE;
+    if (marker->isInteger(ctx)) {
+        handled = true;
+        const long long et = marker->asLong(ctx);
+        if (et < 0 || et >= 11) return PROTO_NONE;
+        return constructTypedArray(ctx, proto, static_cast<uint8_t>(et),
+                                   args ? args : ctx->newList());
+    }
+    if (marker->isString(ctx)) {
+        std::string name;
+        marker->asString(ctx)->toUTF8String(ctx, name);
+        if (name == "ArrayBuffer") {
+            handled = true;
+            return constructArrayBuffer(ctx, proto, args ? args : ctx->newList());
+        }
+    }
+    return PROTO_NONE;
 }
 
 // ---------------------------------------------------------------------------
@@ -1400,13 +1604,6 @@ void ensureTypedArrayConstructors(proto::ProtoContext* ctx,
         ctx->fromMethod(nullptr, ta_sort));
     baseProto = baseProto->setAttribute(ctx, JSSymbols::set(ctx),
         ctx->fromMethod(nullptr, ta_set));
-    // Register Task 6 prototype additions: property getters + slice
-    baseProto = baseProto->setAttribute(ctx, JSSymbols::buffer(ctx),
-        ctx->fromMethod(nullptr, ta_get_buffer));
-    baseProto = baseProto->setAttribute(ctx, JSSymbols::byteOffset(ctx),
-        ctx->fromMethod(nullptr, ta_get_byteOffset));
-    baseProto = baseProto->setAttribute(ctx, JSSymbols::byteLength(ctx),
-        ctx->fromMethod(nullptr, ta_get_byteLength));
     baseProto = baseProto->setAttribute(ctx, JSSymbols::slice(ctx),
         ctx->fromMethod(nullptr, ta_slice));
     // Register Task 7 iterator protocol methods.
@@ -1418,6 +1615,55 @@ void ensureTypedArrayConstructors(proto::ProtoContext* ctx,
         ctx->fromMethod(nullptr, ta_entries));
     baseProto = baseProto->setAttribute(ctx, JSSymbols::symbolIterator(ctx),
         ctx->fromMethod(nullptr, ta_values));
+    // §23.2.3: the methods are { writable, !enumerable, configurable } (0x3);
+    // without the descriptors for-in listed every one of them.
+    {
+        static const char* const kMethods[] = {
+            "fill", "indexOf", "lastIndexOf", "includes", "join", "reverse", "at",
+            "subarray", "copyWithin", "forEach", "every", "some", "find", "findIndex",
+            "map", "reduce", "reduceRight", "sort", "set", "slice", "keys", "values",
+            "entries", "Symbol.iterator"};
+        for (const char* m : kMethods) {
+            const std::string pd = std::string("__pd_") + m + "__";
+            const proto::ProtoObject* ko = ctx->fromUTF8String(pd.c_str());
+            if (const proto::ProtoString* k = ko ? ko->asString(ctx) : nullptr)
+                baseProto = baseProto->setAttribute(ctx, k, ctx->fromInteger(0x3LL));
+        }
+    }
+    // The accessors buffer / byteLength / byteOffset / length and
+    // @@toStringTag (§23.2.3): a getter, no setter, { !enumerable,
+    // configurable } (0x2).  The undefined data slot keeps each key in the
+    // prototype's own-key list next to its __get_<key>__ sidecar.
+    {
+        struct Getter { const char* key; const char* name; proto::ProtoMethod fn; };
+        static const Getter kGetters[] = {
+            {"buffer", "get buffer", ta_get_buffer},
+            {"byteLength", "get byteLength", ta_get_byteLength},
+            {"byteOffset", "get byteOffset", ta_get_byteOffset},
+            {"length", "get length", ta_get_length},
+            {"Symbol.toStringTag", "get [Symbol.toStringTag]", ta_get_toStringTag},
+        };
+        const proto::ProtoObject* fnParent =
+            (ctx->space && ctx->space->methodPrototype) ? ctx->space->methodPrototype : nullptr;
+        for (const Getter& g : kGetters) {
+            const proto::ProtoObject* getter = fnParent ? fnParent->newChild(ctx, true)
+                                                        : ctx->newObject(true);
+            getter = getter->setAttribute(ctx, JSSymbols::nativeFn(ctx), ctx->fromMethod(nullptr, g.fn));
+            getter = getter->setAttribute(ctx, JSSymbols::length(ctx), ctx->fromInteger(0LL));
+            getter = getter->setAttribute(ctx, JSSymbols::pdLength(ctx), ctx->fromInteger(0x2LL));
+            getter = getter->setAttribute(ctx, JSSymbols::name(ctx), ctx->fromUTF8String(g.name));
+            getter = getter->setAttribute(ctx, JSSymbols::pdName(ctx), ctx->fromInteger(0x2LL));
+            getter = getter->setAttribute(ctx, JSSymbols::hasNonWritableProps(ctx), PROTO_TRUE);
+            const std::string gk = std::string("__get_") + g.key + "__";
+            const std::string pd = std::string("__pd_") + g.key + "__";
+            baseProto = baseProto->setAttribute(ctx, ctx->fromUTF8String(gk.c_str())->asString(ctx), getter);
+            baseProto = baseProto->setAttribute(ctx, ctx->fromUTF8String(g.key)->asString(ctx), PROTO_NONE);
+            baseProto = baseProto->setAttribute(ctx, ctx->fromUTF8String(pd.c_str())->asString(ctx),
+                                                ctx->fromInteger(0x2LL));
+        }
+        baseProto = baseProto->setAttribute(ctx, JSSymbols::hasAccessorProps(ctx), PROTO_TRUE);
+        baseProto = baseProto->setAttribute(ctx, JSSymbols::hasNonWritableProps(ctx), PROTO_TRUE);
+    }
     s_taBaseProto = baseProto;
 
     // Register each concrete typed array constructor
@@ -1433,6 +1679,10 @@ void ensureTypedArrayConstructors(proto::ProtoContext* ctx,
             ctx,
             JSSymbols::BYTES_PER_ELEMENT(ctx),
             ctx->fromInteger(static_cast<long long>(cfg.elemSize)));
+        // §23.2.7.1: { writable: false, enumerable: false, configurable: false }.
+        concreteProto = concreteProto->setAttribute(ctx,
+            ctx->fromUTF8String("__pd_BYTES_PER_ELEMENT__")->asString(ctx), ctx->fromInteger(0x0LL));
+        concreteProto = concreteProto->setAttribute(ctx, JSSymbols::hasNonWritableProps(ctx), PROTO_TRUE);
         s_taProtos[i] = concreteProto;
 
         // Register TypedArray OOP behavior for this concrete prototype!
@@ -1460,6 +1710,9 @@ void ensureTypedArrayConstructors(proto::ProtoContext* ctx,
             if (bpeKey)
                 ctor = ctor->setAttribute(ctx, bpeKey,
                     ctx->fromInteger(static_cast<long long>(cfg.elemSize)));
+            // §23.2.6.1: same descriptor on the constructor.
+            ctor = ctor->setAttribute(ctx,
+                ctx->fromUTF8String("__pd_BYTES_PER_ELEMENT__")->asString(ctx), ctx->fromInteger(0x0LL));
         }
         {
             const proto::ProtoObject* nameStrObj = ctx->fromUTF8String("name");

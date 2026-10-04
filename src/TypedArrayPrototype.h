@@ -3,6 +3,7 @@
 
 #include "protoCore.h"
 #include <cstdint>
+#include <string>
 
 namespace protojs {
 
@@ -65,6 +66,43 @@ const proto::ProtoObject* constructTypedArray(proto::ProtoContext* ctx,
                                               const proto::ProtoObject* proto,
                                               uint8_t elemType,
                                               const proto::ProtoList* args);
+
+/**
+ * ToIndex (ECMA-262 §7.1.22): `out` is the integer index `v` denotes
+ * (undefined is 0; strings, booleans, null and objects convert through
+ * ToNumber).  Returns false with the exception signalled -- the TypeError of
+ * ToNumber (a Symbol or BigInt), or a RangeError carrying `rangeMessage` for a
+ * negative value or one above 2^53 - 1.
+ */
+bool toIndex(proto::ProtoContext* ctx, const proto::ProtoObject* v, long long& out,
+             const char* rangeMessage);
+
+/**
+ * [[Construct]] of a typed-array or ArrayBuffer constructor `ctor` (one that
+ * carries the __typed_array_ctor__ marker) with NewTarget's prototype `proto`:
+ * sets `handled` and returns the new object (PROTO_NONE with the exception
+ * signalled on failure); leaves `handled` false for any other constructor.
+ */
+const proto::ProtoObject* constructTypedArrayOrBuffer(proto::ProtoContext* ctx,
+                                                      const proto::ProtoObject* ctor,
+                                                      const proto::ProtoObject* proto,
+                                                      const proto::ProtoList* args,
+                                                      bool& handled);
+
+/** True for a typed array instance (one with its own buffer slot). */
+bool isTypedArrayInstance(proto::ProtoContext* ctx, const proto::ProtoObject* obj);
+
+/**
+ * The internal fields a typed array carries as own attributes (buffer,
+ * byteLength, byteOffset, length).  They are accessors of
+ * %TypedArray%.prototype, not own properties, so the own-key operations
+ * hide them.
+ */
+bool isTypedArrayInternalField(const std::string& key);
+
+/** True when `key` is a canonical index below the typed array's length. */
+bool typedArrayOwnIndex(proto::ProtoContext* ctx, const proto::ProtoObject* ta,
+                        const std::string& key, uint32_t& index);
 
 const proto::ProtoObject* getTypedArrayBaseProto();
 const proto::ProtoObject* getTypedArrayConcreteProto(uint8_t elemType);

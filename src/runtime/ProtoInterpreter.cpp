@@ -1144,6 +1144,13 @@ static const proto::ProtoObject* reflectConstruct(
             || v->isString(ctx) || v->isBoolean(ctx)) return false;
         return true;
     };
+    {
+        // Typed arrays and ArrayBuffer: built with newTarget's prototype.
+        bool handled = false;
+        const proto::ProtoObject* built =
+            protojs::constructTypedArrayOrBuffer(ctx, target, proto, callArgs, handled);
+        if (handled) return hasCallException() ? PROTO_NONE : built;
+    }
     if (constructFn && constructFn->isMethod(ctx)) {
         const proto::ProtoObject* res = callJSFunction(ctx, constructFn, newObj, callArgs);
         if (hasCallException()) return PROTO_NONE;
@@ -1475,6 +1482,12 @@ static const proto::ProtoObject* reflectOwnKeys(
     // identity. Pre-fix reflectOwnKeys pushed the string form of every
     // key, including Symbols, so compareArray failed identity
     // (test262 Proxy/ownKeys/trap-is-missing-target-is-proxy.js).
+    // Typed arrays: the element indices; the internal fields are skipped.
+    const bool targetIsTA = protojs::isTypedArrayInstance(ctx, target);
+    if (targetIsTA) {
+        const uint32_t taLen = protojs::getTypedArrayLength(ctx, target);
+        for (uint32_t i = 0; i < taLen; ++i) idxKeys.push_back(i);
+    }
     std::vector<const proto::ProtoObject*> symKeys;
     const proto::ProtoSparseList* own = target->getOwnAttributes(ctx);
     const proto::ProtoSparseListIterator* it = own ? own->getIterator(ctx) : nullptr;
@@ -1506,6 +1519,7 @@ static const proto::ProtoObject* reflectOwnKeys(
             continue;
         }
         if (ks.compare(0, 2, "__") == 0) continue;
+        if (targetIsTA && protojs::isTypedArrayInternalField(ks)) continue;
         if (ks == "length" && (targetIsArr || targetIsStringWrapper)) continue;  // emitted at end
         bool isNumeric = !ks.empty() &&
             std::all_of(ks.begin(), ks.end(),
@@ -8691,6 +8705,14 @@ const proto::ProtoObject* runBytecode(proto::ProtoContext* pContext,
                                 if (edK) newObj = newObj->setAttribute(pContext, edK, PROTO_TRUE);
                             }
                             ret = newObj;
+                        } else if (taAttr && taAttr != PROTO_NONE) {
+                            // class X extends Uint8Array / ArrayBuffer: the
+                            // object is built with NewTarget's prototype,
+                            // the one newObj was allocated with.
+                            bool handled = false;
+                            const proto::ProtoObject* built = constructTypedArrayOrBuffer(
+                                pContext, parent, newObj->getPrototype(pContext), forwardArgs, handled);
+                            ret = handled ? built : callJSFunction(pContext, parent, newObj, forwardArgs);
                         } else if (reAttr == PROTO_TRUE) {
                             ret = regexpConstructor(pContext, newObj, nullptr, forwardArgs, nullptr);
                         } else if (strAttr == PROTO_TRUE) {
@@ -16091,30 +16113,22 @@ const proto::ProtoObject* runBytecode(proto::ProtoContext* pContext,
                         const proto::ProtoObject* re = (pr && pr != PROTO_NONE) ? pr->newChild(pContext, true) : pContext->newObject(true);
                         result = regexpConstructor(pContext, re, nullptr, argsList, nullptr);
                     } else if (taAttr && taAttr != PROTO_NONE) {
-                        if (taAttr->isString(pContext)) {
-                            std::string name; taAttr->asString(pContext)->toUTF8String(pContext, name);
-                            if (name == "ArrayBuffer") {
-                                proto::proto_ulong bl = 0;
-                                if (finalArgc > 0 && argsList->getAt(pContext,0)->isInteger(pContext)) bl = (proto::proto_ulong)std::max(0LL, argsList->getAt(pContext,0)->asLong(pContext));
-                                result = createArrayBuffer(pContext, bl);
-                            }
-                        } else if (taAttr->isInteger(pContext)) {
-                            uint8_t et = (uint8_t)taAttr->asLong(pContext);
-                            const proto::ProtoObject* pr = func->getAttribute(pContext, JSSymbols::prototype(pContext), false);
-                            // Every source §23.2.5.1 accepts: a length, an
-                            // ArrayBuffer, a typed array, an iterable or an
-                            // array-like. Pre-fix only an integer length was
-                            // honoured and `new Uint8Array([5])` was empty.
-                            result = constructTypedArray(pContext, pr, et, argsList);
-                            REFRESH_INTERP_STATE();
-                            if (t_hasCallException) {
-                                pending_exception = t_callException;
-                                has_pending_exception = true;
-                                t_hasCallException = false;
-                                t_callException = nullptr;
-                                DISPATCH();
-                            }
+                        // Every source §23.2.5.1 accepts: a length, an
+                        // ArrayBuffer, a typed array, an iterable or an
+                        // array-like; ArrayBuffer(length) through ToIndex.
+                        const proto::ProtoObject* pr = func->getAttribute(pContext, JSSymbols::prototype(pContext), false);
+                        bool handled = false;
+                        const proto::ProtoObject* built =
+                            constructTypedArrayOrBuffer(pContext, func, pr, argsList, handled);
+                        REFRESH_INTERP_STATE();
+                        if (t_hasCallException) {
+                            pending_exception = t_callException;
+                            has_pending_exception = true;
+                            t_hasCallException = false;
+                            t_callException = nullptr;
+                            DISPATCH();
                         }
+                        if (handled) result = built;
                     } else if (strAttr == PROTO_TRUE) {
                         // §22.1.1.1 String(value): when NewTarget is
                         // defined and value is a Symbol, ToString
@@ -18387,6 +18401,18 @@ const proto::ProtoObject* runBytecode(proto::ProtoContext* pContext,
                                     u16 += (cl == 4) ? 2 : 1;
                                     i += cl;
                                 }
+                            }
+                        }
+                    }
+
+                    // Typed arrays: the element indices are own enumerable keys.
+                    if (protojs::isTypedArrayInstance(pContext, fiObj)) {
+                        const uint32_t taLen = protojs::getTypedArrayLength(pContext, fiObj);
+                        for (uint32_t i = 0; i < taLen; ++i) {
+                            std::string k = std::to_string(i);
+                            if (!fiSeen.count(k)) {
+                                fiSeen.insert(k);
+                                addFiKey(k);
                             }
                         }
                     }

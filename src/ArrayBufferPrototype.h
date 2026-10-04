@@ -18,6 +18,17 @@ proto::proto_ulong getArrayBufferByteLength(proto::ProtoContext* ctx, const prot
 
 bool isArrayBuffer(proto::ProtoContext* ctx, const proto::ProtoObject* ab);
 
+/**
+ * new ArrayBuffer(length) with NewTarget's prototype `proto` (ECMA-262
+ * §25.1.4.1): the length goes through ToIndex, so a string or boolean
+ * converts and a negative or too-large length is a RangeError.  `proto` that
+ * is not an object selects ArrayBuffer.prototype.  Returns PROTO_NONE with
+ * the exception signalled (hasCallException) on failure.
+ */
+const proto::ProtoObject* constructArrayBuffer(proto::ProtoContext* ctx,
+                                               const proto::ProtoObject* proto,
+                                               const proto::ProtoList* args);
+
 } // namespace protojs
 
 #endif // PROTOJS_ARRAYBUFFERPROTOTYPE_H

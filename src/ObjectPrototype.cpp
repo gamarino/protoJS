@@ -4,6 +4,7 @@
 #include "ArrayPrototype.h"
 #include "ProxyBuiltin.h"
 #include "BigIntPrototype.h"
+#include "TypedArrayPrototype.h"
 #include "ArrayElementsStorage.h"
 #include "FunctionPrototype.h"
 #include "JSSymbols.h"
@@ -26,6 +27,34 @@
 #include <cmath>
 
 namespace protojs {
+
+// CanonicalNumericIndexString (§7.1.21) for the forms protoJS meets: "-0",
+// the non-finite names, and decimal numbers written as ToString writes them
+// (no exponent, no leading zeros, no trailing fractional zeros).
+static bool isCanonicalNumericString(const std::string& s) {
+    if (s == "-0" || s == "NaN" || s == "Infinity" || s == "-Infinity") return true;
+    size_t i = (!s.empty() && s[0] == '-') ? 1 : 0;
+    if (i >= s.size() || s[i] < '0' || s[i] > '9') return false;
+    if (s[i] == '0' && i + 1 < s.size() && s[i + 1] != '.') return false;
+    const size_t intStart = i;
+    while (i < s.size() && s[i] >= '0' && s[i] <= '9') ++i;
+    // ToString writes 1e21 and above with an exponent.
+    if (i - intStart > 21) return false;
+    if (i == s.size()) return true;
+    if (s[i] != '.' || i + 1 == s.size()) return false;
+    ++i;
+    const size_t fracStart = i;
+    while (i < s.size() && s[i] >= '0' && s[i] <= '9') ++i;
+    if (i != s.size() || s.back() == '0') return false;
+    // ToString writes values below 1e-6 with an exponent ("1e-7").
+    if (s.compare(intStart, fracStart - intStart, "0.") == 0) {
+        size_t zeros = 0;
+        while (fracStart + zeros < s.size() && s[fracStart + zeros] == '0') ++zeros;
+        if (zeros >= 6) return false;
+    }
+    return true;
+}
+
 
 namespace {
 
@@ -152,6 +181,20 @@ static void collectOwnKeys(
         // (str[5] = "de", str.foo = ..., etc.) and the "length" key.
     }
 
+    // §10.4.5.7 Integer-indexed exotic objects: a typed array's own keys
+    // are its element indices, then its ordinary own properties.  Its
+    // internal fields (buffer, byteLength, byteOffset, length) are accessors
+    // of %TypedArray%.prototype and are skipped by the walk below.
+    const bool isTA = isTypedArrayInstance(ctx, obj);
+    if (isTA) {
+        const uint8_t et = getTypedArrayElementType(ctx, obj);
+        const uint32_t taLen = getTypedArrayLength(ctx, obj);
+        for (uint32_t i = 0; i < taLen; ++i) {
+            keys.push_back(std::to_string(i));
+            if (vals) vals->push_back(typedArrayGetElement(ctx, obj, i, et));
+        }
+    }
+
     // Detect arrays to suppress the "length" key (length is non-enumerable on arrays).
     const proto::ProtoString* isArrKey = JSSymbols::isArray(ctx);
     bool isArr = false;
@@ -244,10 +287,11 @@ static void collectOwnKeys(
         bool mightHaveNonWritable;
         bool mightHaveAccessors;
         bool aborted;
+        bool isTA;
     } state{ctx, obj, &keys, vals, isArr ? &arrayIndexSet : nullptr,
             lenSymbol, isArr,
             includeNonEnumerable, mightHaveNonWritable,
-            mightHaveAccessors, false};
+            mightHaveAccessors, false, isTA};
     auto cb = [](proto::ProtoContext* cbCtx, void* selfV,
                  proto::proto_ulong rawKey, const proto::ProtoObject* val) {
         CollectState* s = static_cast<CollectState*>(selfV);
@@ -281,6 +325,7 @@ static void collectOwnKeys(
             && !s->includeNonEnumerable) return;
         std::string kstr;
         propKey->toUTF8String(cbCtx, kstr);
+        if (s->isTA && isTypedArrayInternalField(kstr)) return;
         // For Array exotics, fold canonical-integer-string keys
         // into arrayIndexSet (the post-walk emitter visits the
         // numeric union of __elements__ + sparse own attrs in
@@ -2936,6 +2981,42 @@ static const proto::ProtoObject* objectDefineProperty(
     const proto::ProtoObject* existingVal = propExists ? target->getAttribute(ctx, k, false) : nullptr;
     std::string kstr;
     k->toUTF8String(ctx, kstr);
+    // §10.4.5.3 [[DefineOwnProperty]] of a typed array: a canonical numeric
+    // key names an element.  An index outside the array, or a descriptor an
+    // element cannot have (accessor, non-configurable, non-enumerable,
+    // non-writable), is rejected with TypeError; otherwise the value is
+    // stored in the buffer.
+    if (isTypedArrayInstance(ctx, target) && isCanonicalNumericString(kstr)) {
+        auto has = [&](const char* f) {
+            const proto::ProtoObject* fo = ctx->fromUTF8String(f);
+            const proto::ProtoString* fk = fo ? fo->asString(ctx) : nullptr;
+            return fk && desc->hasAttribute(ctx, fk) == PROTO_TRUE;
+        };
+        auto get = [&](const char* f) -> const proto::ProtoObject* {
+            const proto::ProtoObject* fo = ctx->fromUTF8String(f);
+            const proto::ProtoString* fk = fo ? fo->asString(ctx) : nullptr;
+            return fk ? desc->getAttribute(ctx, fk, true) : PROTO_NONE;
+        };
+        auto isFalse = [&](const char* f) {
+            if (!has(f)) return false;
+            const proto::ProtoObject* v = get(f);
+            return !v || v == PROTO_NONE || v == PROTO_FALSE || v == getUndefinedSentinel()
+                || v == getNullSentinel() || (v->isInteger(ctx) && v->asLong(ctx) == 0);
+        };
+        uint32_t idx = 0;
+        if (!typedArrayOwnIndex(ctx, target, kstr, idx) || has("get") || has("set")
+            || isFalse("configurable") || isFalse("enumerable") || isFalse("writable")) {
+            signalNativeException(makeNativeError(ctx, "TypeError",
+                "Cannot define this property of a typed array"));
+            return PROTO_NONE;
+        }
+        if (has("value")) {
+            typedArraySetElement(ctx, target, idx, get("value"),
+                                 getTypedArrayElementType(ctx, target));
+            if (hasCallException()) return PROTO_NONE;
+        }
+        return args->getAt(ctx, 0);
+    }
     // §10.4.2.4 step 4.b — eagerly reject any indexed-property define
     // that would extend an Array whose length is non-writable. Pre-fix
     // the per-property mutations (sparse own attr, __elements__ mirror)
@@ -3975,6 +4056,25 @@ static const proto::ProtoObject* objectGetOwnPropertyDescriptor(
 
     std::string kstr;
     k->toUTF8String(ctx, kstr);
+
+    // §10.4.5.1 [[GetOwnProperty]] of a typed array: an element is
+    // { value, writable: true, enumerable: true, configurable: true }; the
+    // internal fields are not own properties.
+    if (isTypedArrayInstance(ctx, target)) {
+        uint32_t idx = 0;
+        if (typedArrayOwnIndex(ctx, target, kstr, idx)) {
+            JSContextWrapper* w = JSContextWrapper::current();
+            const proto::ProtoObject* op = w ? w->getJSObjectPrototype() : nullptr;
+            const proto::ProtoObject* res = op ? op->newChild(ctx, true) : ctx->newObject(true);
+            setAttr(res, "value", typedArrayGetElement(ctx, target, idx,
+                                                       getTypedArrayElementType(ctx, target)));
+            setAttr(res, "writable", PROTO_TRUE);
+            setAttr(res, "enumerable", PROTO_TRUE);
+            setAttr(res, "configurable", PROTO_TRUE);
+            return res;
+        }
+        if (isTypedArrayInternalField(kstr)) return PROTO_NONE;
+    }
 
     // 1. Check accessor sidecars first.
     std::string gkStr = "__get_" + kstr + "__";
@@ -5078,6 +5178,16 @@ static const proto::ProtoObject* objectHasOwnProperty(
             return PROTO_TRUE;
         }
         return PROTO_FALSE;
+    }
+
+    // §10.4.5.1 typed arrays: an index below the length is own, the
+    // internal fields are not (they are %TypedArray%.prototype accessors).
+    if (isTypedArrayInstance(ctx, self)) {
+        std::string ks;
+        k->toUTF8String(ctx, ks);
+        uint32_t idx = 0;
+        if (typedArrayOwnIndex(ctx, self, ks, idx)) return PROTO_TRUE;
+        if (isTypedArrayInternalField(ks)) return PROTO_FALSE;
     }
 
     if (self->hasOwnAttribute(ctx, k) == PROTO_TRUE) {
