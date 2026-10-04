@@ -41,10 +41,13 @@ int protojs_bytecode_cpool_count(void* bytecode);
 const void* protojs_bytecode_cpool(void* bytecode);
 uint16_t protojs_bytecode_closure_var_count(void* bytecode);
 
-/** Return variable name for closure var at index idx; caller must JS_FreeCString. */
+/** Return variable name for closure var at index idx; caller must JS_FreeCString.
+ *  NULL for an out-of-range index or a variable without a name (JS_ATOM_NULL). */
 const char* protojs_bytecode_closure_var_name(struct JSContext* ctx, void* bytecode, uint16_t idx);
 
-/** Return variable name for local var (arg or local) at index idx; caller must JS_FreeCString. */
+/** Return variable name for local var (arg or local) at index idx; caller must JS_FreeCString.
+ *  NULL for an out-of-range index or a variable without a name: the hidden
+ *  argument of a destructured parameter, `function f([a])`, is JS_ATOM_NULL. */
 const char* protojs_bytecode_var_name(struct JSContext* ctx, void* bytecode, uint16_t idx);
 
 /** Return 1 if closure var at idx is lexical (const/let), 0 otherwise. */
