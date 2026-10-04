@@ -286,3 +286,33 @@ All with tests; see `CHANGELOG.md`.
 Raw results (JSON lines, one per configuration):
 `benchmarks/reports/2026-10-03-structure-benchmarks.jsonl` (structure
 workloads) and `2026-10-03-structure-benchmarks-cad.jsonl` (CAD).
+
+## Addendum (2026-10-04): after the collector work and write coalescing
+
+The structure benchmarks were run again, in the configuration above (scale
+1, N = 1-12, three repetitions per process, 40 M-cell limit, 4 GB cap), with
+the binary measured on 2026-10-03 (`4b02a9565` on protoCore 2.10.2) and the
+master of 2026-10-04 (`a9db7f8e3`, write groups, on protoCore 2.14.1),
+interleaved in one session on the same notebook (Ryzen 5 5500U), every
+checksum equal to Node.js's.  Synthetic, notebook-class; full tables and
+method in protoCore's
+[`docs/reports/2026-10-04-final-remeasurement.md`](https://github.com/numaes/protoCore/blob/master/docs/reports/2026-10-04-final-remeasurement.md)
+(section 3; data in `docs/reports/data/2026-10-04-final-remeasurement/`).
+
+| Workload | Deferreds, N = 12: before -> after | speed-up over sequential at N = 12 | Deferreds, N = 6 |
+|---|---|---|---|
+| records | 12,363 -> 6,098 ms (-51 %) | 1.87 -> 3.67 | 4,286 -> 3,059 ms (-29 %) |
+| join | 10,408 -> 7,014 ms (-33 %) | 2.03 -> 2.98 | 4,348 -> 3,229 ms (-26 %) |
+| doctree | 7,958 -> 5,223 ms (-34 %) | 2.22 -> 3.34 | 2,909 -> 3,302 ms (**+14 %**) |
+| wordfreq | 4,142 -> 3,556 ms (-14 %) | 3.26 -> 3.72 | 1,979 -> 1,958 ms (-1 %) |
+| graph | 18,092 -> 14,242 ms (-21 %) | 1.88 -> 2.41 | 5,502 -> 4,956 ms (-10 %) |
+
+- The gain is the collector's (protoCore 2.12-2.14: pacing, a multi-cursor
+  sweep, helper threads); sequential runs move by -8 to +4 % except two
+  rows, and these workloads contain no runs of writes that the write groups
+  would publish once (identical instruction counts with one task).
+- `doctree` with 6 Deferreds got slower: the collector, which already kept
+  up there, now runs twice the cycles (pacing).
+- Per task, protoJS is still 60-140 times slower than Node.js in this
+  mutable-style code; that comparison is unchanged and was not a goal of
+  this work.
