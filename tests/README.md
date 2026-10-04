@@ -69,6 +69,26 @@ The script builds `build/` (override with `BUILD_DIR`; the binary with `PROTOJS`
 
 Integration, conformity and benchmark scripts are not run by `run_all_tests.sh`.
 
+## AddressSanitizer runs
+
+Configure with `-DCMAKE_BUILD_TYPE=RelWithDebInfo` and
+`-fsanitize=address -fno-omit-frame-pointer` in `CMAKE_C_FLAGS`,
+`CMAKE_CXX_FLAGS` and `CMAKE_EXE_LINKER_FLAGS`, then run the gating suite as
+
+```sh
+ulimit -s 1048576
+ASAN_OPTIONS=detect_leaks=0:quarantine_size_mb=16 \
+  ctest --test-dir <build> -E "integration|network" --output-on-failure < /dev/null
+```
+
+Both settings are needed and neither hides a defect. AddressSanitizer gives
+`runBytecode` a frame of about 135 KiB (red zones around every local), so 8 MiB
+holds about 50 nested JavaScript calls: `js/workers/deep_recursion`, which
+needs 700 and a RangeError beyond 2,000, gets a 1 GiB stack (threads that run
+JavaScript take the main thread's size). The quarantine of freed blocks
+(256 MiB by default) counts towards the resident set that
+`cli/objects-bounded-memory` bounds at 400 MB.
+
 ## Continuous integration
 
 `.github/workflows/ci.yml`. Two jobs, and which one a check sits in is the whole

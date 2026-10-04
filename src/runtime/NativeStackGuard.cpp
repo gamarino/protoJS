@@ -5,6 +5,10 @@
 #include <cstddef>
 #include <cstdint>
 
+#if defined(_MSC_VER) && !defined(__clang__)
+#include <intrin.h>
+#endif
+
 namespace protojs {
 
 namespace {
@@ -35,9 +39,15 @@ thread_local ThreadStackLimit t_stack;
 #define PROTOJS_GUARD_NOINLINE __attribute__((noinline))
 #endif
 
+// The frame address, not the address of a local: under AddressSanitizer a
+// local whose address is taken may live on a heap "fake stack"
+// (detect_stack_use_after_return), far from the thread's real stack.
 PROTOJS_GUARD_NOINLINE std::uintptr_t currentStackAddress() {
-    volatile char here = 0;
-    return reinterpret_cast<std::uintptr_t>(&here);
+#if defined(_MSC_VER) && !defined(__clang__)
+    return reinterpret_cast<std::uintptr_t>(_AddressOfReturnAddress());
+#else
+    return reinterpret_cast<std::uintptr_t>(__builtin_frame_address(0));
+#endif
 }
 
 PROTOJS_GUARD_NOINLINE void computeLimit(std::uintptr_t sp) {
