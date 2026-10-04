@@ -4,6 +4,19 @@ All notable changes to protoJS are documented in this file.
 
 ## [Unreleased]
 
+### Changed — CI builds protoCore 2.14.1; a floor job on 2.11.0 again (2026-10-04)
+
+- `ci.yml` (Linux) and the macOS and first Windows jobs of
+  `cross-platform.yml` build protoCore 2.14.1 (tag v2.14.1, commit 94951559)
+  instead of 2.11.0: the collector's pacing and multi-cursor sweep (2.12.0),
+  its control law (2.13.0), the sweep's helper threads (2.14.0) and the
+  thread-exit quorum fix (2.14.1). The Windows ZIP now carries 2.14.1's
+  `protoCore-3.dll`. Because the pin no longer equals the floor, a second
+  Windows job builds and tests against protoCore 2.11.0 (commit 69b56afe),
+  the declared minimum; it does not package. No source change was needed:
+  `ctest` passes 133/133 locally against 2.14.1 (ldd-verified). protoJS does
+  not enable protoCore's adaptive heap.
+
 ### Fixed — writes to a property of a primitive, undefined or null (2026-10-03)
 
 - In strict code `s.foo = 1` on a string, number, boolean or BigInt was
