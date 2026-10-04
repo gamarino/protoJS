@@ -4893,7 +4893,7 @@ const proto::ProtoObject* globalObjectForRoot(proto::ProtoContext* ctx,
 // visible as `globalThis.x` and `this.x`.  A name already bound in the
 // declarative part (a `let` from this or an earlier script) is written there.
 // Any other root slot is written unchanged.
-static void writeGlobalBinding(proto::ProtoContext* ctx,
+static PROTOJS_NOINLINE void writeGlobalBinding(proto::ProtoContext* ctx,
                                const proto::ProtoObject** pGlobalRoot,
                                const proto::ProtoString* key,
                                const proto::ProtoObject* val,
@@ -4953,47 +4953,187 @@ static int compareBigIntWithNumber(proto::ProtoContext* ctx, const proto::ProtoO
     return c;
 }
 
-// BigInt division of two primitives (after ToPrimitive): the quotient as a
-// BigInt, nullptr when neither operand is a BigInt (the Number path applies),
-// or nullptr with errType / errMsg set for a mix of types or a zero divisor.
-static const proto::ProtoObject* bigIntDivideOperands(proto::ProtoContext* ctx,
-                                                      const proto::ProtoObject* a,
-                                                      const proto::ProtoObject* b,
-                                                      const char*& errType,
-                                                      const char*& errMsg) {
-    const bool aBig = protojs::isBigInt(ctx, a);
-    const bool bBig = protojs::isBigInt(ctx, b);
-    if (!aBig && !bBig) return nullptr;
-    if (aBig != bBig) {
-        errType = "TypeError";
-        errMsg = "Cannot mix BigInt and other types, use explicit conversions";
-        return nullptr;
-    }
-    const proto::ProtoObject* ai = protojs::unwrapBigInt(ctx, a);
-    const proto::ProtoObject* bi = protojs::unwrapBigInt(ctx, b);
-    if (!bi || bi == PROTO_NONE || bi->integerSign(ctx) == 0) {
-        errType = "RangeError";
-        errMsg = "Division by zero";
-        return nullptr;
-    }
-    const proto::ProtoObject* q = ai->divide(ctx, bi);
-    return q ? protojs::wrapBigInt(ctx, q) : nullptr;
-}
 
 // A BigInt wrapper object (Object(1n), boxBigInt) as the operand of a numeric
 // operator: ToPrimitive answers its BigInt (the wrapper protocol toPrimIfObject
 // also follows), so the operator's BigInt path sees a BigInt, not an object it
 // would take for a Number.  Any other value is returned unchanged; tagged
 // values (numbers, strings, booleans) cost one test.
+static PROTOJS_NOINLINE const proto::ProtoObject* unwrapBigIntWrapperSlow(proto::ProtoContext* ctx,
+                                                                         const proto::ProtoObject* v);
 static inline const proto::ProtoObject* unwrapBigIntWrapper(proto::ProtoContext* ctx,
                                                             const proto::ProtoObject* v) {
     if (!v || v == PROTO_NONE || proto::isSmallInt(v)
         || (reinterpret_cast<uintptr_t>(v) & 0x3F) != 0
         || v == t_nullSentinel || v == t_undefinedSentinel) return v;
+    return unwrapBigIntWrapperSlow(ctx, v);
+}
+static PROTOJS_NOINLINE const proto::ProtoObject* unwrapBigIntWrapperSlow(proto::ProtoContext* ctx,
+                                                                         const proto::ProtoObject* v) {
     const proto::ProtoString* pvK = JSSymbols::primitiveValue(ctx);
     if (!pvK || v->hasOwnAttribute(ctx, pvK) != PROTO_TRUE) return v;
     const proto::ProtoObject* pv = v->getAttribute(ctx, pvK, false);
     return protojs::isBigInt(ctx, pv) ? pv : v;
+}
+
+// BigInt operators, out of line (see BIGINT_REL_DISPATCH in runBytecode).
+enum BigIntBinaryOpKind { kBigAdd, kBigSub, kBigMul, kBigDiv, kBigMod, kBigAnd, kBigOr, kBigXor };
+enum { kBigOpNone = 0, kBigOpResult = 1, kBigOpThrow = 2, kBigOpDeferred = 3 };
+enum { kBigRelNotApplicable = -3, kBigRelUndefined = -2 };
+
+static inline bool isBigIntOperand(proto::ProtoContext* ctx, const proto::ProtoObject* v) {
+    if (!v || proto::isSmallInt(v) || v->isDouble(ctx)) return false;
+    const proto::ProtoString* bigK = JSSymbols::isBigInt(ctx);
+    return bigK && v->getAttribute(ctx, bigK, true) == PROTO_TRUE;
+}
+
+// a <op> b when either is a BigInt: kBigOpNone when neither is; kBigOpResult
+// with the BigInt in `out`; kBigOpThrow with the error in `out` (a mix of
+// types, a BigInt division by zero); kBigOpDeferred when deferObjects and the
+// other operand is an object, whose ToPrimitive decides.
+static PROTOJS_NOINLINE int bigIntBinaryOp(proto::ProtoContext* ctx, const proto::ProtoObject* a,
+                                           const proto::ProtoObject* b, int op, bool deferObjects,
+                                           const proto::ProtoObject*& out) {
+    const bool aBig = isBigIntOperand(ctx, a);
+    const bool bBig = isBigIntOperand(ctx, b);
+    if (!aBig && !bBig) return kBigOpNone;
+    if (aBig != bBig) {
+        const proto::ProtoObject* other = aBig ? b : a;
+        if (deferObjects && other && other != PROTO_NONE && !proto::isSmallInt(other)
+            && (reinterpret_cast<uintptr_t>(other) & 0x3F) == 0
+            && other != t_nullSentinel && other != t_undefinedSentinel)
+            return kBigOpDeferred;
+        out = makeNativeError(ctx, "TypeError",
+                              "Cannot mix BigInt and other types, use explicit conversions");
+        return kBigOpThrow;
+    }
+    const proto::ProtoString* vk = JSSymbols::bigIntValue(ctx);
+    const proto::ProtoObject* ai = a->getAttribute(ctx, vk, false);
+    const proto::ProtoObject* bi = b->getAttribute(ctx, vk, false);
+    if (!ai || !bi) { out = PROTO_NONE; return kBigOpResult; }
+    const proto::ProtoObject* r = nullptr;
+    switch (op) {
+        case kBigAdd: r = ai->add(ctx, bi); break;
+        case kBigSub: r = ai->subtract(ctx, bi); break;
+        case kBigMul: r = ai->multiply(ctx, bi); break;
+        case kBigMod: r = ai->modulo(ctx, bi); break;
+        case kBigAnd: r = ai->bitwiseAnd(ctx, bi); break;
+        case kBigOr:  r = ai->bitwiseOr(ctx, bi); break;
+        case kBigXor: r = ai->bitwiseXor(ctx, bi); break;
+        case kBigDiv:
+            if (bi->integerSign(ctx) == 0) {
+                out = makeNativeError(ctx, "RangeError", "Division by zero");
+                return kBigOpThrow;
+            }
+            r = ai->divide(ctx, bi);
+            break;
+        default: break;
+    }
+    out = r ? protojs::wrapBigInt(ctx, r) : PROTO_NONE;
+    return kBigOpResult;
+}
+
+// a <=> b when either is a BigInt (§7.2.13): -1, 0 or 1; kBigRelUndefined
+// against NaN; kBigRelNotApplicable when neither is a BigInt or the other is
+// not a Number (the handler's general path decides).
+static PROTOJS_NOINLINE int bigIntRelational(proto::ProtoContext* ctx, const proto::ProtoObject* a,
+                                             const proto::ProtoObject* b) {
+    const bool aBig = isBigIntOperand(ctx, a);
+    const bool bBig = isBigIntOperand(ctx, b);
+    if (!aBig && !bBig) return kBigRelNotApplicable;
+    const proto::ProtoString* vk = JSSymbols::bigIntValue(ctx);
+    if (aBig && bBig) {
+        const proto::ProtoObject* ai = a->getAttribute(ctx, vk, false);
+        const proto::ProtoObject* bi = b->getAttribute(ctx, vk, false);
+        const int c = (ai && bi) ? ai->compare(ctx, bi) : 0;
+        return (c < 0) ? -1 : (c > 0 ? 1 : 0);
+    }
+    double d;
+    if (!numberToDouble(ctx, aBig ? b : a, d)) return kBigRelNotApplicable;
+    int c = compareBigIntWithNumber(ctx, (aBig ? a : b)->getAttribute(ctx, vk, false), d);
+    if (c != kBigRelUndefined && !aBig) c = -c;
+    return c;
+}
+
+// GlobalDeclarationInstantiation's var and function bindings (§16.1.7), out of
+// runBytecode's frame: see the hoisting comment at its call site.
+static PROTOJS_NOINLINE void hoistGlobalDeclarations(proto::ProtoContext* ctx,
+                                                     const ProtoBytecodeModule* module,
+                                                     const proto::ProtoObject** pGlobalRoot) {
+    for (size_t gi = 0; gi < module->closureVarNames.size(); ++gi) {
+        bool isDeclared = (gi < module->closureVarIsDeclared.size()) && module->closureVarIsDeclared[gi];
+        if (!isDeclared) continue;
+        if (gi < module->closureVarIsLexical.size() && module->closureVarIsLexical[gi]) continue;
+        // Use the pre-interned symbol stored in module->closureSymbols
+        // (loaded once via createSymbol) — see L_OP_put_var_ref's
+        // matching comment for the lookupByContent cost rationale.
+        const proto::ProtoString* vkey =
+            (module->closureSymbols && gi < module->closureSymbols->getSize(ctx))
+                ? module->closureSymbols->getAt(ctx, static_cast<int>(gi))->asString(ctx)
+                : nullptr;
+        if (!vkey) continue;
+        // Only set when the global object has no own property of that
+        // name (§9.1.1.4.17 step 3).  An absent attribute reads back as
+        // PROTO_NONE, not nullptr, so presence is asked with
+        // hasOwnAttribute.
+        const proto::ProtoObject* declTarget =
+            globalObjectForRoot(ctx, *pGlobalRoot);
+        if (declTarget->hasOwnAttribute(ctx, vkey) != PROTO_TRUE
+            && (*pGlobalRoot)->hasOwnAttribute(ctx, vkey) != PROTO_TRUE) {
+            // `undefined` as a stored value is the undefined sentinel: a
+            // PROTO_NONE slot reads as a deleted property.
+            const proto::ProtoObject* undef = getUndefinedSentinel();
+            writeGlobalBinding(ctx, pGlobalRoot, vkey, undef ? undef : PROTO_NONE, false);
+            const std::string pdStr = "__pd_" + module->closureVarNames[gi] + "__";
+            const proto::ProtoObject* pdo = ctx->fromUTF8String(pdStr.c_str());
+            const proto::ProtoString* pdk = pdo ? pdo->asString(ctx) : nullptr;
+            // 0x1 writable | 0x4 enumerable; the configurable bit 0x2 is clear.
+            if (pdk)
+                writeGlobalBinding(ctx, pGlobalRoot, pdk, ctx->fromInteger(0x5LL), false);
+        }
+    }
+}
+
+// The TypeError of an assignment to a `const` binding (§9.1.1.1.5).
+static PROTOJS_NOINLINE const proto::ProtoObject* constAssignmentError(
+        proto::ProtoContext* ctx, const std::string& name, const proto::ProtoObject** pGlobalRoot) {
+    const std::string msg = "Assignment to constant variable '" + name + "'";
+    return makeError(ctx, "TypeError", msg.c_str(), pGlobalRoot);
+}
+
+// for-in over a typed array: its element indices, appended to the key array
+// the way runBytecode's addFiKey does.
+static PROTOJS_NOINLINE void forInTypedArrayIndices(proto::ProtoContext* ctx,
+                                                    const proto::ProtoObject* ta,
+                                                    std::unordered_set<std::string>& seen,
+                                                    const proto::ProtoObject*& keyArr,
+                                                    long long& count) {
+    const uint32_t len = protojs::getTypedArrayLength(ctx, ta);
+    for (uint32_t i = 0; i < len; ++i) {
+        std::string k = std::to_string(i);
+        if (!seen.insert(k).second) continue;
+        const proto::ProtoString* slot = JSSymbols::indexKey(ctx, static_cast<uint32_t>(count));
+        const proto::ProtoObject* kv = ctx->fromUTF8String(k.c_str());
+        if (slot && kv) keyArr = keyArr->setAttribute(ctx, slot, kv);
+        count++;
+    }
+}
+
+// [[Construct]] of a typed-array or ArrayBuffer constructor, out of
+// runBytecode's frame.  The prototype is `receiver`'s (the object a derived
+// class allocated with NewTarget's prototype) or, without one, ctor.prototype.
+// nullptr when ctor is neither (the caller goes on); PROTO_NONE with the
+// exception signalled on failure.
+static PROTOJS_NOINLINE const proto::ProtoObject* constructBuiltinWithCtorProto(
+        proto::ProtoContext* ctx, const proto::ProtoObject* ctor,
+        const proto::ProtoObject* receiver, const proto::ProtoList* args) {
+    const proto::ProtoObject* proto = receiver
+        ? receiver->getPrototype(ctx)
+        : ctor->getAttribute(ctx, JSSymbols::prototype(ctx), false);
+    bool handled = false;
+    const proto::ProtoObject* built = protojs::constructTypedArrayOrBuffer(ctx, ctor, proto, args, handled);
+    if (!handled) return nullptr;
+    return built ? built : PROTO_NONE;
 }
 
 // The `this` an arrow function created in this frame captures.  In a sloppy
@@ -7131,40 +7271,8 @@ const proto::ProtoObject* runBytecode(proto::ProtoContext* pContext,
     // CreateGlobalFunctionBinding).  A `let` / `const` / `class` is not hoisted:
     // its absence is the TDZ that OP_get_var reports as a ReferenceError until
     // the declaration initialises it.
-    if (pGlobalRoot && *pGlobalRoot && module) {
-        for (size_t gi = 0; gi < module->closureVarNames.size(); ++gi) {
-            bool isDeclared = (gi < module->closureVarIsDeclared.size()) && module->closureVarIsDeclared[gi];
-            if (!isDeclared) continue;
-            if (gi < module->closureVarIsLexical.size() && module->closureVarIsLexical[gi]) continue;
-            // Use the pre-interned symbol stored in module->closureSymbols
-            // (loaded once via createSymbol) — see L_OP_put_var_ref's
-            // matching comment for the lookupByContent cost rationale.
-            const proto::ProtoString* vkey =
-                (module->closureSymbols && gi < module->closureSymbols->getSize(pContext))
-                    ? module->closureSymbols->getAt(pContext, static_cast<int>(gi))->asString(pContext)
-                    : nullptr;
-            if (!vkey) continue;
-            // Only set when the global object has no own property of that
-            // name (§9.1.1.4.17 step 3).  An absent attribute reads back as
-            // PROTO_NONE, not nullptr, so presence is asked with
-            // hasOwnAttribute.
-            const proto::ProtoObject* declTarget =
-                globalObjectForRoot(pContext, *pGlobalRoot);
-            if (declTarget->hasOwnAttribute(pContext, vkey) != PROTO_TRUE
-                && (*pGlobalRoot)->hasOwnAttribute(pContext, vkey) != PROTO_TRUE) {
-                // `undefined` as a stored value is the undefined sentinel: a
-                // PROTO_NONE slot reads as a deleted property.
-                const proto::ProtoObject* undef = getUndefinedSentinel();
-                writeGlobalBinding(pContext, pGlobalRoot, vkey, undef ? undef : PROTO_NONE, false);
-                const std::string pdStr = "__pd_" + module->closureVarNames[gi] + "__";
-                const proto::ProtoObject* pdo = pContext->fromUTF8String(pdStr.c_str());
-                const proto::ProtoString* pdk = pdo ? pdo->asString(pContext) : nullptr;
-                // 0x1 writable | 0x4 enumerable; the configurable bit 0x2 is clear.
-                if (pdk)
-                    writeGlobalBinding(pContext, pGlobalRoot, pdk, pContext->fromInteger(0x5LL), false);
-            }
-        }
-    }
+    if (pGlobalRoot && *pGlobalRoot && module && !module->closureVarNames.empty())
+        hoistGlobalDeclarations(pContext, module, pGlobalRoot);
 
     // Module-scope split: top-level module bindings live in a small child
     // mutable whose parent is the built-in/stdlib root.  Reads chain-walk
@@ -7972,85 +8080,42 @@ const proto::ProtoObject* runBytecode(proto::ProtoContext* pContext,
         globalObj = (pGlobalRoot && *pGlobalRoot) ? *pGlobalRoot : PROTO_NONE; \
     } while(0)
 
-    /* BigInt relational comparison.  Inserted at the top of L_OP_lt /
-     * lte / gt / gte.  When both operands are BigInt, compare via
-     * protoCore::compare on the inner Integers and push the correct
-     * boolean.  Mixed BigInt vs Number is left to the existing
-     * toNumber path for now (spec § 7.2.13 calls for bignum vs Number
-     * comparison via numericCompare, which routes through asDouble
-     * for the Number side and is the most common test262 usage). */
+    /* BigInt operators.  The work is done out of line (bigIntRelational,
+     * bigIntBinaryOp): every local a macro declares is a slot in
+     * runBytecode's frame for each expansion, and MSVC does not overlap the
+     * slots of disjoint blocks, so the frame -- and the native stack one
+     * JavaScript call costs -- grows with each one (docs/INSTALLATION.md,
+     * Windows recursion depth).
+     *
+     * BIGINT_REL_DISPATCH, at the top of L_OP_lt / lte / gt / gte: two
+     * BigInts, or a BigInt and a Number, compare by mathematical value
+     * (§7.2.13); NaN makes the comparison false. */
     #define BIGINT_REL_DISPATCH(less, equal, greater) do { \
-        const proto::ProtoString* _bigK = JSSymbols::isBigInt(pContext); \
-        bool _aBig = _bigK && a && !proto::isSmallInt(a) && !a->isDouble(pContext) \
-            && a->getAttribute(pContext, _bigK, true) == PROTO_TRUE; \
-        bool _bBig = _bigK && b && !proto::isSmallInt(b) && !b->isDouble(pContext) \
-            && b->getAttribute(pContext, _bigK, true) == PROTO_TRUE; \
-        if (_aBig && _bBig) { \
-            const proto::ProtoString* _vk = JSSymbols::bigIntValue(pContext); \
-            const proto::ProtoObject* _ai = a->getAttribute(pContext, _vk, false); \
-            const proto::ProtoObject* _bi = b->getAttribute(pContext, _vk, false); \
-            int _c = (_ai && _bi) ? _ai->compare(pContext, _bi) : 0; \
-            const proto::ProtoObject* _r = (_c < 0) ? (less) \
-                : ((_c == 0) ? (equal) : (greater)); \
-            pAutomaticLocals[currentStackBase + _PF().stackTop++] = _r; \
+        const int _c = bigIntRelational(pContext, a, b); \
+        if (_c != kBigRelNotApplicable) { \
+            pAutomaticLocals[currentStackBase + _PF().stackTop++] = \
+                (_c == kBigRelUndefined) ? PROTO_FALSE \
+                : (_c < 0) ? (less) : ((_c == 0) ? (equal) : (greater)); \
             DISPATCH(); \
-        } \
-        if (_aBig != _bBig) { \
-            /* §7.2.13 steps 3-4: a BigInt against a Number compares the */ \
-            /* mathematical values; NaN makes the comparison false. */ \
-            double _d; \
-            if (numberToDouble(pContext, _aBig ? b : a, _d)) { \
-                const proto::ProtoObject* _big = (_aBig ? a : b) \
-                    ->getAttribute(pContext, JSSymbols::bigIntValue(pContext), false); \
-                int _c = compareBigIntWithNumber(pContext, _big, _d); \
-                if (_c != -2 && !_aBig) _c = -_c; \
-                const proto::ProtoObject* _r = (_c == -2) ? PROTO_FALSE \
-                    : (_c < 0) ? (less) : ((_c == 0) ? (equal) : (greater)); \
-                pAutomaticLocals[currentStackBase + _PF().stackTop++] = _r; \
-                DISPATCH(); \
-            } \
         } \
     } while(0)
 
-    /* BigInt binary-operator dispatch.  Inserted at the top of every
-     * binary arithmetic / bitwise / shift handler — checks whether
-     * either operand carries the __is_bigint__ marker (via the chain),
-     * raises TypeError on mixed-type combinations, otherwise unwraps
-     * and routes through protoCore's bignum operator method.  A
-     * successful dispatch DISPATCH()es with the result already on the
-     * stack so the existing Number arithmetic below stays unchanged.
-     * `op_method` is a member name (add / subtract / multiply / ...);
-     * cheap rejection: SmallInt-tagged operands can't be BigInt
-     * wrappers. */
-    #define BIGINT_BIN_DISPATCH(op_method) BIGINT_BIN_DISPATCH_IMPL(op_method, false)
-    /* deferObjects: a BigInt met by an object operand is not yet a mix of
-     * types -- the object's ToPrimitive may answer a BigInt (a BigInt
-     * wrapper does) -- so the handler's slow path decides, through
-     * BIGINT_AFTER_TOPRIM.  Only handlers that have that slow path pass true. */
-    #define BIGINT_BIN_DISPATCH_IMPL(op_method, deferObjects) do { \
-        const proto::ProtoString* _bigK = JSSymbols::isBigInt(pContext); \
-        bool _aBig = _bigK && a && !proto::isSmallInt(a) && !a->isDouble(pContext) \
-            && a->getAttribute(pContext, _bigK, true) == PROTO_TRUE; \
-        bool _bBig = _bigK && b && !proto::isSmallInt(b) && !b->isDouble(pContext) \
-            && b->getAttribute(pContext, _bigK, true) == PROTO_TRUE; \
-        const proto::ProtoObject* _other = _aBig ? b : a; \
-        const bool _otherIsObject = (deferObjects) && _other && _other != PROTO_NONE \
-            && !proto::isSmallInt(_other) \
-            && (reinterpret_cast<uintptr_t>(_other) & 0x3F) == 0 \
-            && _other != t_nullSentinel && _other != t_undefinedSentinel; \
-        if ((_aBig || _bBig) && !(_aBig != _bBig && _otherIsObject)) { \
-            if (_aBig != _bBig) { \
-                pending_exception = makeNativeError(pContext, "TypeError", \
-                    "Cannot mix BigInt and other types, use explicit conversions"); \
-                has_pending_exception = true; \
-                DISPATCH(); \
-            } \
-            const proto::ProtoString* _vk = JSSymbols::bigIntValue(pContext); \
-            const proto::ProtoObject* _ai = a->getAttribute(pContext, _vk, false); \
-            const proto::ProtoObject* _bi = b->getAttribute(pContext, _vk, false); \
-            const proto::ProtoObject* _r = (_ai && _bi) ? _ai->op_method(pContext, _bi) : nullptr; \
-            pAutomaticLocals[currentStackBase + _PF().stackTop++] = \
-                _r ? wrapBigInt(pContext, _r) : PROTO_NONE; \
+    /* BigInt binary-operator dispatch, at the top of the arithmetic and
+     * bitwise handlers: two BigInts give a BigInt (pushed, DISPATCH), a
+     * BigInt and another primitive a TypeError.  With deferObjects a BigInt
+     * met by an object is left to the handler's ToPrimitive slow path
+     * (BIGINT_AFTER_TOPRIM): the object may be a BigInt wrapper. */
+    #define BIGINT_BIN_DISPATCH(op) BIGINT_BIN_DISPATCH_IMPL(op, false)
+    #define BIGINT_BIN_DISPATCH_IMPL(op, deferObjects) do { \
+        const proto::ProtoObject* _bigOut = nullptr; \
+        const int _st = bigIntBinaryOp(pContext, a, b, (op), (deferObjects), _bigOut); \
+        if (_st == kBigOpResult) { \
+            pAutomaticLocals[currentStackBase + _PF().stackTop++] = _bigOut; \
+            DISPATCH(); \
+        } \
+        if (_st == kBigOpThrow) { \
+            pending_exception = _bigOut; \
+            has_pending_exception = true; \
             DISPATCH(); \
         } \
     } while(0)
@@ -8060,16 +8125,14 @@ const proto::ProtoObject* runBytecode(proto::ProtoContext* pContext,
      * object, or an object whose valueOf answers a BigInt -- finish as a
      * BigInt operation (§13.15.3 ApplyStringOrNumericBinaryOperator).  Only
      * reached after the Number fast paths, so plain arithmetic pays nothing. */
-    #define BIGINT_AFTER_TOPRIM(op_method) do { \
-        const proto::ProtoObject* _pa = toPrimIfObject(a); \
+    #define BIGINT_AFTER_TOPRIM(op) do { \
+        a = toPrimIfObject(a); \
         REFRESH_INTERP_STATE(); \
         if (has_pending_exception) DISPATCH(); \
-        const proto::ProtoObject* _pb = toPrimIfObject(b); \
+        b = toPrimIfObject(b); \
         REFRESH_INTERP_STATE(); \
         if (has_pending_exception) DISPATCH(); \
-        a = _pa; \
-        b = _pb; \
-        BIGINT_BIN_DISPATCH(op_method); \
+        BIGINT_BIN_DISPATCH(op); \
     } while(0)
 
     DISPATCH();
@@ -8709,10 +8772,8 @@ const proto::ProtoObject* runBytecode(proto::ProtoContext* pContext,
                             // class X extends Uint8Array / ArrayBuffer: the
                             // object is built with NewTarget's prototype,
                             // the one newObj was allocated with.
-                            bool handled = false;
-                            const proto::ProtoObject* built = constructTypedArrayOrBuffer(
-                                pContext, parent, newObj->getPrototype(pContext), forwardArgs, handled);
-                            ret = handled ? built : callJSFunction(pContext, parent, newObj, forwardArgs);
+                            ret = constructBuiltinWithCtorProto(pContext, parent, newObj, forwardArgs);
+                            if (!ret) ret = callJSFunction(pContext, parent, newObj, forwardArgs);
                         } else if (reAttr == PROTO_TRUE) {
                             ret = regexpConstructor(pContext, newObj, nullptr, forwardArgs, nullptr);
                         } else if (strAttr == PROTO_TRUE) {
@@ -9760,8 +9821,7 @@ const proto::ProtoObject* runBytecode(proto::ProtoContext* pContext,
                     if (opcode == OP_put_var
                         && static_cast<size_t>(idx) < module->closureVarIsConst.size()
                         && module->closureVarIsConst[idx]) {
-                        const std::string msg = "Assignment to constant variable '" + name + "'";
-                        pending_exception = makeError(pContext, "TypeError", msg.c_str(), pGlobalRoot);
+                        pending_exception = constAssignmentError(pContext, name, pGlobalRoot);
                         has_pending_exception = true;
                         DISPATCH();
                     }
@@ -13097,7 +13157,7 @@ const proto::ProtoObject* runBytecode(proto::ProtoContext* pContext,
                 const proto::ProtoObject* a = pAutomaticLocals[currentStackBase + --_PF().stackTop];
 
                 // §13.15.3 + on BigInt — see BIGINT_BIN_DISPATCH macro.
-                BIGINT_BIN_DISPATCH_IMPL(add, true);
+                BIGINT_BIN_DISPATCH_IMPL(kBigAdd, true);
 
                 // Numerify booleans and null ONLY when neither operand is a
                 // string — otherwise `'x' + null` would coerce null to 0
@@ -13136,7 +13196,7 @@ const proto::ProtoObject* runBytecode(proto::ProtoContext* pContext,
                 }
 
                 // Fallback: ToPrimitive
-                BIGINT_AFTER_TOPRIM(add);
+                BIGINT_AFTER_TOPRIM(kBigAdd);
                 const proto::ProtoObject* pa = toPrimIfObject(a);
                 const proto::ProtoObject* pb = toPrimIfObject(b);
                 REFRESH_INTERP_STATE();
@@ -13175,7 +13235,7 @@ const proto::ProtoObject* runBytecode(proto::ProtoContext* pContext,
                 const proto::ProtoObject* b = pAutomaticLocals[currentStackBase + --_PF().stackTop];
                 const proto::ProtoObject* a = pAutomaticLocals[currentStackBase + --_PF().stackTop];
 
-                BIGINT_BIN_DISPATCH_IMPL(multiply, true);
+                BIGINT_BIN_DISPATCH_IMPL(kBigMul, true);
 
                 if (a == PROTO_TRUE)  a = proto::makeSmallInt(1);
                 else if (a == PROTO_FALSE || a == t_nullSentinel) a = proto::makeSmallInt(0);
@@ -13206,7 +13266,7 @@ const proto::ProtoObject* runBytecode(proto::ProtoContext* pContext,
                     }
                 }
 
-                BIGINT_AFTER_TOPRIM(multiply);
+                BIGINT_AFTER_TOPRIM(kBigMul);
                 const proto::ProtoObject* na = toNumber(pContext, toPrimIfObject(a));
                 const proto::ProtoObject* nb = toNumber(pContext, toPrimIfObject(b));
                 REFRESH_INTERP_STATE();
@@ -13225,44 +13285,21 @@ const proto::ProtoObject* runBytecode(proto::ProtoContext* pContext,
             L_OP_div: {
                 if (_PF().stackTop < 2) return PROTO_NONE;
                 const proto::ProtoObject* b_raw = pAutomaticLocals[currentStackBase + --_PF().stackTop];
-                // BigInt division: integer divide (no Infinity / NaN —
-                // BigInt(5)/BigInt(0) throws RangeError per spec) so we
-                // must dispatch BEFORE the toNumber→double conversion.
+                // BigInt division: integer divide (no Infinity / NaN; a zero
+                // divisor is a RangeError), dispatched before the Number path.
                 {
-                    const proto::ProtoObject* a_peek = pAutomaticLocals[currentStackBase + _PF().stackTop - 1];
-                    const proto::ProtoObject* b_peek = b_raw;
-                    const proto::ProtoString* bigK = JSSymbols::isBigInt(pContext);
-                    bool aBig = bigK && a_peek && !proto::isSmallInt(a_peek)
-                        && a_peek->getAttribute(pContext, bigK, true) == PROTO_TRUE;
-                    bool bBig = bigK && b_peek && !proto::isSmallInt(b_peek)
-                        && b_peek->getAttribute(pContext, bigK, true) == PROTO_TRUE;
-                    // A BigInt against an object is decided after ToPrimitive
-                    // (below): the object may be a BigInt wrapper.
-                    const proto::ProtoObject* other = aBig ? b_peek : a_peek;
-                    const bool otherIsObject = (aBig != bBig) && other && other != PROTO_NONE
-                        && !proto::isSmallInt(other)
-                        && (reinterpret_cast<uintptr_t>(other) & 0x3F) == 0
-                        && other != t_nullSentinel && other != t_undefinedSentinel;
-                    if ((aBig || bBig) && !otherIsObject) {
+                    const proto::ProtoObject* a = pAutomaticLocals[currentStackBase + _PF().stackTop - 1];
+                    const proto::ProtoObject* b = b_raw;
+                    const proto::ProtoObject* _bigOut = nullptr;
+                    const int _st = bigIntBinaryOp(pContext, a, b, kBigDiv, true, _bigOut);
+                    if (_st == kBigOpResult || _st == kBigOpThrow) {
                         --_PF().stackTop;  // pop the a slot we peeked
-                        if (aBig != bBig) {
-                            pending_exception = makeNativeError(pContext, "TypeError",
-                                "Cannot mix BigInt and other types, use explicit conversions");
+                        if (_st == kBigOpThrow) {
+                            pending_exception = _bigOut;
                             has_pending_exception = true;
                             DISPATCH();
                         }
-                        const proto::ProtoString* vk = JSSymbols::bigIntValue(pContext);
-                        const proto::ProtoObject* ai = a_peek->getAttribute(pContext, vk, false);
-                        const proto::ProtoObject* bi = b_peek->getAttribute(pContext, vk, false);
-                        if (!bi || bi->integerSign(pContext) == 0) {
-                            pending_exception = makeNativeError(pContext, "RangeError",
-                                "Division by zero");
-                            has_pending_exception = true;
-                            DISPATCH();
-                        }
-                        const proto::ProtoObject* q = ai->divide(pContext, bi);
-                        pAutomaticLocals[currentStackBase + _PF().stackTop++] =
-                            q ? wrapBigInt(pContext, q) : PROTO_NONE;
+                        pAutomaticLocals[currentStackBase + _PF().stackTop++] = _bigOut;
                         DISPATCH();
                     }
                 }
@@ -13277,19 +13314,9 @@ const proto::ProtoObject* runBytecode(proto::ProtoContext* pContext,
                 REFRESH_INTERP_STATE();
                 if (has_pending_exception) DISPATCH();
                 {
-                    const char* errType = nullptr;
-                    const char* errMsg = nullptr;
-                    const proto::ProtoObject* q = bigIntDivideOperands(pContext, a_prim, b_prim,
-                                                                       errType, errMsg);
-                    if (errType) {
-                        pending_exception = makeNativeError(pContext, errType, errMsg);
-                        has_pending_exception = true;
-                        DISPATCH();
-                    }
-                    if (q) {
-                        pAutomaticLocals[currentStackBase + _PF().stackTop++] = q;
-                        DISPATCH();
-                    }
+                    const proto::ProtoObject* a = a_prim;
+                    const proto::ProtoObject* b = b_prim;
+                    BIGINT_BIN_DISPATCH(kBigDiv);
                 }
                 const proto::ProtoObject* b = toNumber(pContext, b_prim);
                 REFRESH_INTERP_STATE();
@@ -13315,7 +13342,7 @@ const proto::ProtoObject* runBytecode(proto::ProtoContext* pContext,
                 const proto::ProtoObject* b = pAutomaticLocals[currentStackBase + --_PF().stackTop];
                 const proto::ProtoObject* a = pAutomaticLocals[currentStackBase + --_PF().stackTop];
 
-                BIGINT_BIN_DISPATCH_IMPL(subtract, true);
+                BIGINT_BIN_DISPATCH_IMPL(kBigSub, true);
 
                 // see L_OP_add for null / boolean numerify rationale.
                 if (a == PROTO_TRUE)  a = proto::makeSmallInt(1);
@@ -13340,7 +13367,7 @@ const proto::ProtoObject* runBytecode(proto::ProtoContext* pContext,
                     }
                 }
 
-                BIGINT_AFTER_TOPRIM(subtract);
+                BIGINT_AFTER_TOPRIM(kBigSub);
                 const proto::ProtoObject* na = toNumber(pContext, toPrimIfObject(a));
                 const proto::ProtoObject* nb = toNumber(pContext, toPrimIfObject(b));
                 REFRESH_INTERP_STATE();
@@ -13361,7 +13388,7 @@ const proto::ProtoObject* runBytecode(proto::ProtoContext* pContext,
                 const proto::ProtoObject* b = pAutomaticLocals[currentStackBase + --_PF().stackTop];
                 const proto::ProtoObject* a = pAutomaticLocals[currentStackBase + --_PF().stackTop];
 
-                BIGINT_BIN_DISPATCH_IMPL(modulo, true);
+                BIGINT_BIN_DISPATCH_IMPL(kBigMod, true);
 
                 // Integer fast-path
                 if (proto::isSmallInt(a) && proto::isSmallInt(b)) {
@@ -13385,7 +13412,7 @@ const proto::ProtoObject* runBytecode(proto::ProtoContext* pContext,
                 }
 
                 // Fallback to double/toNumber
-                BIGINT_AFTER_TOPRIM(modulo);
+                BIGINT_AFTER_TOPRIM(kBigMod);
                 const proto::ProtoObject* na = toNumber(pContext, toPrimIfObject(a));
                 const proto::ProtoObject* nb = toNumber(pContext, toPrimIfObject(b));
                 REFRESH_INTERP_STATE();
@@ -13695,7 +13722,7 @@ const proto::ProtoObject* runBytecode(proto::ProtoContext* pContext,
                 const proto::ProtoObject* a = pAutomaticLocals[currentStackBase + --_PF().stackTop];
                 a = unwrapBigIntWrapper(pContext, a);
                 b = unwrapBigIntWrapper(pContext, b);
-                BIGINT_BIN_DISPATCH(bitwiseAnd);
+                BIGINT_BIN_DISPATCH(kBigAnd);
                 a = toPrimIfObject(a);
                 if (has_pending_exception) DISPATCH();
                 b = toPrimIfObject(b);
@@ -13710,7 +13737,7 @@ const proto::ProtoObject* runBytecode(proto::ProtoContext* pContext,
                 const proto::ProtoObject* a = pAutomaticLocals[currentStackBase + --_PF().stackTop];
                 a = unwrapBigIntWrapper(pContext, a);
                 b = unwrapBigIntWrapper(pContext, b);
-                BIGINT_BIN_DISPATCH(bitwiseOr);
+                BIGINT_BIN_DISPATCH(kBigOr);
                 a = toPrimIfObject(a);
                 if (has_pending_exception) DISPATCH();
                 b = toPrimIfObject(b);
@@ -13725,7 +13752,7 @@ const proto::ProtoObject* runBytecode(proto::ProtoContext* pContext,
                 const proto::ProtoObject* a = pAutomaticLocals[currentStackBase + --_PF().stackTop];
                 a = unwrapBigIntWrapper(pContext, a);
                 b = unwrapBigIntWrapper(pContext, b);
-                BIGINT_BIN_DISPATCH(bitwiseXor);
+                BIGINT_BIN_DISPATCH(kBigXor);
                 a = toPrimIfObject(a);
                 if (has_pending_exception) DISPATCH();
                 b = toPrimIfObject(b);
@@ -16116,10 +16143,8 @@ const proto::ProtoObject* runBytecode(proto::ProtoContext* pContext,
                         // Every source §23.2.5.1 accepts: a length, an
                         // ArrayBuffer, a typed array, an iterable or an
                         // array-like; ArrayBuffer(length) through ToIndex.
-                        const proto::ProtoObject* pr = func->getAttribute(pContext, JSSymbols::prototype(pContext), false);
-                        bool handled = false;
                         const proto::ProtoObject* built =
-                            constructTypedArrayOrBuffer(pContext, func, pr, argsList, handled);
+                            constructBuiltinWithCtorProto(pContext, func, nullptr, argsList);
                         REFRESH_INTERP_STATE();
                         if (t_hasCallException) {
                             pending_exception = t_callException;
@@ -16128,7 +16153,7 @@ const proto::ProtoObject* runBytecode(proto::ProtoContext* pContext,
                             t_callException = nullptr;
                             DISPATCH();
                         }
-                        if (handled) result = built;
+                        if (built) result = built;
                     } else if (strAttr == PROTO_TRUE) {
                         // §22.1.1.1 String(value): when NewTarget is
                         // defined and value is a Symbol, ToString
@@ -18406,16 +18431,8 @@ const proto::ProtoObject* runBytecode(proto::ProtoContext* pContext,
                     }
 
                     // Typed arrays: the element indices are own enumerable keys.
-                    if (protojs::isTypedArrayInstance(pContext, fiObj)) {
-                        const uint32_t taLen = protojs::getTypedArrayLength(pContext, fiObj);
-                        for (uint32_t i = 0; i < taLen; ++i) {
-                            std::string k = std::to_string(i);
-                            if (!fiSeen.count(k)) {
-                                fiSeen.insert(k);
-                                addFiKey(k);
-                            }
-                        }
-                    }
+                    if (protojs::isTypedArrayInstance(pContext, fiObj))
+                        forInTypedArrayIndices(pContext, fiObj, fiSeen, fiKeyArr, fiCount);
 
                     // Walk the full [[Prototype]] chain per ES2015+ EnumerateObjectProperties.
                     // Keys seen at closer levels shadow the same key from ancestors.
@@ -19586,7 +19603,7 @@ static PROTOJS_NOINLINE const proto::ProtoObject* functionKindIntrinsic(
 
 // The [[Prototype]] a closure of `nm`'s kind is born with: Function.prototype
 // (`fp`) for an ordinary function, arrow or method, else its kind's prototype.
-static const proto::ProtoObject* closureBirthParent(proto::ProtoContext* ctx,
+static PROTOJS_NOINLINE const proto::ProtoObject* closureBirthParent(proto::ProtoContext* ctx,
                                                     const proto::ProtoObject** gr,
                                                     const proto::ProtoObject* fp,
                                                     const ProtoBytecodeModule* nm) {
@@ -19600,7 +19617,7 @@ static const proto::ProtoObject* closureBirthParent(proto::ProtoContext* ctx,
 
 // The parent of a generator function's own `prototype` object: the realm's
 // %GeneratorPrototype% / %AsyncGeneratorPrototype% (§15.5.4 step 4).
-static const proto::ProtoObject* generatorInstancePrototypeParent(proto::ProtoContext* ctx,
+static PROTOJS_NOINLINE const proto::ProtoObject* generatorInstancePrototypeParent(proto::ProtoContext* ctx,
                                                                   const proto::ProtoObject** gr,
                                                                   const ProtoBytecodeModule* nm) {
     const proto::ProtoObject* p = functionKindIntrinsic(
