@@ -276,7 +276,12 @@ const proto::ProtoObject* regexpExec(
 
     auto u16 = utf8ToUTF16(input);
     int capture_count = lre_get_capture_count(bc);
-    uint8_t** captures = new uint8_t*[capture_count * 2];
+    // lre_exec uses this array for the capture pointers AND, after them, for
+    // the registers of loop counters and position checks, so it must hold
+    // lre_get_alloc_count(bc) slots, not 2 * capture_count (QuickJS's own
+    // js_regexp_exec sizes it the same way).
+    std::vector<uint8_t*> captureSlots(static_cast<size_t>(lre_get_alloc_count(bc)));
+    uint8_t** captures = captureSlots.data();
 
     const proto::ProtoString* lastIndexKey = JSSymbols::lastIndex(ctx);
     long long lastIndex = 0;
@@ -383,13 +388,11 @@ const proto::ProtoObject* regexpExec(
             self->setAttribute(ctx, lastIndexKey, ctx->fromInteger(newLastIndex));
         }
 
-        delete[] captures;
         return result;
     } else {
         if (lre_get_flags(bc) & (LRE_FLAG_GLOBAL | LRE_FLAG_STICKY)) {
             self->setAttribute(ctx, lastIndexKey, ctx->fromInteger(0));
         }
-        delete[] captures;
         // §22.2.7.2 step 31: RegExpBuiltinExec returns null on no match.
         // Pre-fix the PROTO_NONE return surfaced as `undefined` at the
         // JS level, so the standard `while ((m = re.exec(s)) !== null)`
@@ -875,7 +878,9 @@ const proto::ProtoObject* regexpSymbolSplit(
     auto u16 = utf8ToUTF16(str);
     const size_t strLen = u16.size();
     int captureCount = lre_get_capture_count(stickyBc);
-    uint8_t** captures = new uint8_t*[captureCount * 2];
+    // Captures plus registers: see regexpExec.
+    std::vector<uint8_t*> captureSlots(static_cast<size_t>(lre_get_alloc_count(stickyBc)));
+    uint8_t** captures = captureSlots.data();
 
     const proto::ProtoObject* result = createNewArray(ctx, nullptr);
     long long resultLen = 0;
@@ -942,7 +947,6 @@ done:
 
     result = result->setAttribute(ctx, JSSymbols::length(ctx), ctx->fromInteger(resultLen));
     free(stickyBc);
-    delete[] captures;
     return result;
 }
 

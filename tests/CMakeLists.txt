@@ -317,6 +317,7 @@ foreach(js_test
         basic/for_of_state
         basic/array_map_filter
         basic/regexp_global_advance
+        basic/regexp_register_slots
         basic/generator_for_of_yield
         basic/typed_array_construction
         modules/test_require_file
