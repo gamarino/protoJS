@@ -118,5 +118,13 @@ const g15 = (function* () { try { yield 1; } catch (e) { yield "caught " + e; } 
 g15.next();
 check(g15.throw(), { value: "caught undefined", done: false }, "throw() without an argument");
 
+// A computed key that is undefined (a local, or the value next() resumes a
+// yield with) is the key "undefined"; it was dropped inside functions.
+function computedUndefined() { let u; return JSON.stringify({ [u]: 9 }); }
+check(computedUndefined(), '{"undefined":9}', "computed undefined key in a function");
+const g16 = (function* () { const o = { [yield 1]: 9 }; yield Object.keys(o); })();
+g16.next();
+check(g16.next().value, ["undefined"], "computed key from a yield resumed with undefined");
+
 if (failures) { console.log(failures + " failure(s)"); process.exit(1); }
 console.log("generator_resumption: OK");

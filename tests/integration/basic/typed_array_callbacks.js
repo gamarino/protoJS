@@ -36,5 +36,9 @@ check(thrownName(() => a.map(() => { throw new SyntaxError("m"); })), "SyntaxErr
 check(thrownName(() => a.reduce(() => { throw new EvalError("r"); })), "EvalError", "reduce throws");
 check(thrownName(() => a.forEach(42)), "TypeError", "non-callable callback");
 
+// The default sort puts -0 before +0 and NaN last.
+const z = new Float64Array([0, NaN, -0, -1]).sort();
+check([Object.is(z[1], -0), Object.is(z[2], 0), z[0], Number.isNaN(z[3])], [true, true, -1, true], "sort -0 before +0");
+
 if (failures) { console.log(failures + " failure(s)"); process.exit(1); }
 console.log("typed_array_callbacks: OK");

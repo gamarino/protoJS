@@ -11878,8 +11878,15 @@ const proto::ProtoObject* runBytecode(proto::ProtoContext* pContext,
             L_OP_to_propkey: {
                 // Converts TOS to a canonical property key (string, integer, or symbol).
                 // In our protoCore world the value on stack is already a ProtoObject that
-                // can be used directly as an attribute key via asString(). This is a no-op:
-                // the key remains on the stack unchanged.
+                // can be used directly as an attribute key via asString(), with one
+                // exception: undefined held as PROTO_NONE (a local, a parameter, the
+                // value a generator resumes with) was dropped by the define paths, so
+                // `{[u]: 9}` inside a function gave {}. It becomes the undefined
+                // sentinel, which they key as "undefined", as at top level.
+                if (!stackEmpty(pContext) && stackTop(pContext) == PROTO_NONE) {
+                    stackPop(pContext);
+                    stackPush(pContext, getUndefinedSentinel());
+                }
                 DISPATCH();
             }
             L_OP_define_method: {

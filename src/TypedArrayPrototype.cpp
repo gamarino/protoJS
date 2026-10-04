@@ -990,10 +990,12 @@ static const proto::ProtoObject* ta_sort(
         }
     }
 
-    // Default numeric sort (NaN goes to end per spec).
+    // Default numeric sort (§23.2.3.29 TypedArraySortCompare): NaN last, and
+    // -0 before +0.
     std::sort(vals.begin(), vals.end(), [](double a, double b) {
         if (std::isnan(a)) return false;
         if (std::isnan(b)) return true;
+        if (a == 0.0 && b == 0.0) return std::signbit(a) && !std::signbit(b);
         return a < b;
     });
 
