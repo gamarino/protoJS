@@ -76,6 +76,14 @@ const proto::ProtoObject* unwrapBigInt(proto::ProtoContext* ctx,
 const proto::ProtoObject* wrapBigInt(proto::ProtoContext* ctx,
                                      const proto::ProtoObject* integer);
 
+/**
+ * ToObject for a BigInt (§7.1.18): a fresh wrapper object inheriting
+ * BigInt.prototype whose [[BigIntData]] (__primitive_value__) is v.  typeof
+ * the wrapper is "object".  Any other value is returned unchanged.
+ */
+const proto::ProtoObject* boxBigInt(proto::ProtoContext* ctx,
+                                    const proto::ProtoObject* v);
+
 } // namespace protojs
 
 #endif // PROTOJS_BIGINTPROTOTYPE_H

@@ -3,6 +3,7 @@
 #include "runtime/LazyPrototype.h"
 #include "ArrayPrototype.h"
 #include "ProxyBuiltin.h"
+#include "BigIntPrototype.h"
 #include "ArrayElementsStorage.h"
 #include "FunctionPrototype.h"
 #include "JSSymbols.h"
@@ -832,6 +833,9 @@ static const proto::ProtoObject* objectAssign(
                 }
             }
             target = wrapPrimitive(target, symProto);
+        } else if (isBigInt(ctx, target)) {
+            // §7.1.18 ToObject on a BigInt: a BigInt wrapper object.
+            target = boxBigInt(ctx, target);
         }
     }
 
@@ -6757,6 +6761,10 @@ void ensureObjectConstructor(proto::ProtoContext* ctx,
         // (built-ins/Symbol/keyFor/arg-non-symbol.js's wrapped-Symbol
         // arm pinned the divergence).  Wrap explicitly via the
         // primitive-value protocol used by the other primitives.
+        // §7.1.18 ToObject on a BigInt: a wrapper whose [[BigIntData]] is
+        // the value.  Pre-fix Object(1n) answered the BigInt itself, so
+        // typeof Object(1n) was "bigint".
+        if (isBigInt(ctx, val)) return boxBigInt(ctx, val);
         const proto::ProtoString* isSymK = JSSymbols::isSymbol(ctx);
         bool valIsSymbol = isSymK && val
             && val->getAttribute(ctx, isSymK, true) == PROTO_TRUE;

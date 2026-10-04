@@ -311,6 +311,7 @@ foreach(js_test
         basic/sloppy_this_binding
         basic/global_var_bindings
         basic/function_kind_constructors
+        basic/bigint_wrapper
         basic/put_field_group_cells
         basic/for_of_state
         basic/array_map_filter

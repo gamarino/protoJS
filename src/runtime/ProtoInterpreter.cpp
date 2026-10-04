@@ -4747,9 +4747,8 @@ static void putFieldGroupCommit(proto::ProtoContext* ctx, ProtoBytecodeModule* m
 // `v` is an object (or undefined / null, which the caller handles first).
 // protoJS carries Symbols and BigInts as object cells: a Symbol carries its
 // own __is_symbol__ marker, a BigInt its own __bigint_value__ slot.  A boxed
-// Symbol (Object(sym)) is a distinct wrapper without the own marker.  BigInt
-// has no boxed form of its own (Object(1n) answers the value itself), so a
-// write to Object(1n) is treated as a write to the BigInt.
+// Symbol (Object(sym)) or BigInt (Object(1n), boxBigInt) is a distinct
+// wrapper object without them, written like any other object.
 static const char* putBasePrimitiveType(proto::ProtoContext* ctx, const proto::ProtoObject* v) {
     if (proto::isSmallInt(v)) return "number";
     const uintptr_t tag = reinterpret_cast<uintptr_t>(v) & 0x3F;
@@ -4916,6 +4915,72 @@ static const proto::ProtoObject* generatorInstancePrototypeParent(proto::ProtoCo
                                                                   const proto::ProtoObject** gr,
                                                                   const ProtoBytecodeModule* nm);
 static const proto::ProtoObject* generatorObjectPrototype(proto::ProtoContext* ctx, bool isAsync);
+
+// §7.2.13 IsLessThan between a BigInt (its protoCore Integer `big`) and the
+// Number `d`: -1, 0 or 1 as big is below, equal to or above d, and -2 when d
+// is NaN (the comparison is undefined, so every relational operator is false).
+static int compareBigIntWithNumber(proto::ProtoContext* ctx, const proto::ProtoObject* big,
+                                   double d) {
+    if (std::isnan(d) || !big || big == PROTO_NONE) return -2;
+    if (std::isinf(d)) return d > 0 ? -1 : 1;
+    const double fl = std::floor(d);
+    int c;
+    if (fl >= -9.0e18 && fl <= 9.0e18) {
+        c = big->compare(ctx, ctx->fromInteger(static_cast<long long>(fl)));
+        c = (c < 0) ? -1 : (c > 0 ? 1 : 0);
+    } else {
+        // |d| >= 2^63: d is an integer, and a double has no more precision
+        // than the BigInt's nearest double, which orders them correctly
+        // unless the two round to the same double.
+        const double bd = big->asDouble(ctx);
+        c = (bd < fl) ? -1 : (bd > fl ? 1 : 0);
+    }
+    if (c == 0 && d > fl) return -1;  // big == floor(d) < d
+    return c;
+}
+
+// BigInt division of two primitives (after ToPrimitive): the quotient as a
+// BigInt, nullptr when neither operand is a BigInt (the Number path applies),
+// or nullptr with errType / errMsg set for a mix of types or a zero divisor.
+static const proto::ProtoObject* bigIntDivideOperands(proto::ProtoContext* ctx,
+                                                      const proto::ProtoObject* a,
+                                                      const proto::ProtoObject* b,
+                                                      const char*& errType,
+                                                      const char*& errMsg) {
+    const bool aBig = protojs::isBigInt(ctx, a);
+    const bool bBig = protojs::isBigInt(ctx, b);
+    if (!aBig && !bBig) return nullptr;
+    if (aBig != bBig) {
+        errType = "TypeError";
+        errMsg = "Cannot mix BigInt and other types, use explicit conversions";
+        return nullptr;
+    }
+    const proto::ProtoObject* ai = protojs::unwrapBigInt(ctx, a);
+    const proto::ProtoObject* bi = protojs::unwrapBigInt(ctx, b);
+    if (!bi || bi == PROTO_NONE || bi->integerSign(ctx) == 0) {
+        errType = "RangeError";
+        errMsg = "Division by zero";
+        return nullptr;
+    }
+    const proto::ProtoObject* q = ai->divide(ctx, bi);
+    return q ? protojs::wrapBigInt(ctx, q) : nullptr;
+}
+
+// A BigInt wrapper object (Object(1n), boxBigInt) as the operand of a numeric
+// operator: ToPrimitive answers its BigInt (the wrapper protocol toPrimIfObject
+// also follows), so the operator's BigInt path sees a BigInt, not an object it
+// would take for a Number.  Any other value is returned unchanged; tagged
+// values (numbers, strings, booleans) cost one test.
+static inline const proto::ProtoObject* unwrapBigIntWrapper(proto::ProtoContext* ctx,
+                                                            const proto::ProtoObject* v) {
+    if (!v || v == PROTO_NONE || proto::isSmallInt(v)
+        || (reinterpret_cast<uintptr_t>(v) & 0x3F) != 0
+        || v == t_nullSentinel || v == t_undefinedSentinel) return v;
+    const proto::ProtoString* pvK = JSSymbols::primitiveValue(ctx);
+    if (!pvK || v->hasOwnAttribute(ctx, pvK) != PROTO_TRUE) return v;
+    const proto::ProtoObject* pv = v->getAttribute(ctx, pvK, false);
+    return protojs::isBigInt(ctx, pv) ? pv : v;
+}
 
 // The `this` an arrow function created in this frame captures.  In a sloppy
 // function called without a receiver it is the global object, as OP_push_this
@@ -7233,7 +7298,8 @@ const proto::ProtoObject* runBytecode(proto::ProtoContext* pContext,
             const proto::ProtoObject* pv = obj->getAttribute(pContext, pvKey, false);
             if (pv && pv != PROTO_NONE && !pv->isNone(pContext) &&
                 (pv->isBoolean(pContext) || pv->isInteger(pContext) ||
-                 pv->isDouble(pContext) || pv->isFloat(pContext) || pv->asString(pContext)))
+                 pv->isDouble(pContext) || pv->isFloat(pContext) || pv->asString(pContext)
+                 || protojs::isBigInt(pContext, pv)))
                 return pv;
         }
         bool valueOfPresent = false;
@@ -7915,6 +7981,21 @@ const proto::ProtoObject* runBytecode(proto::ProtoContext* pContext,
             pAutomaticLocals[currentStackBase + _PF().stackTop++] = _r; \
             DISPATCH(); \
         } \
+        if (_aBig != _bBig) { \
+            /* §7.2.13 steps 3-4: a BigInt against a Number compares the */ \
+            /* mathematical values; NaN makes the comparison false. */ \
+            double _d; \
+            if (numberToDouble(pContext, _aBig ? b : a, _d)) { \
+                const proto::ProtoObject* _big = (_aBig ? a : b) \
+                    ->getAttribute(pContext, JSSymbols::bigIntValue(pContext), false); \
+                int _c = compareBigIntWithNumber(pContext, _big, _d); \
+                if (_c != -2 && !_aBig) _c = -_c; \
+                const proto::ProtoObject* _r = (_c == -2) ? PROTO_FALSE \
+                    : (_c < 0) ? (less) : ((_c == 0) ? (equal) : (greater)); \
+                pAutomaticLocals[currentStackBase + _PF().stackTop++] = _r; \
+                DISPATCH(); \
+            } \
+        } \
     } while(0)
 
     /* BigInt binary-operator dispatch.  Inserted at the top of every
@@ -7927,13 +8008,23 @@ const proto::ProtoObject* runBytecode(proto::ProtoContext* pContext,
      * `op_method` is a member name (add / subtract / multiply / ...);
      * cheap rejection: SmallInt-tagged operands can't be BigInt
      * wrappers. */
-    #define BIGINT_BIN_DISPATCH(op_method) do { \
+    #define BIGINT_BIN_DISPATCH(op_method) BIGINT_BIN_DISPATCH_IMPL(op_method, false)
+    /* deferObjects: a BigInt met by an object operand is not yet a mix of
+     * types -- the object's ToPrimitive may answer a BigInt (a BigInt
+     * wrapper does) -- so the handler's slow path decides, through
+     * BIGINT_AFTER_TOPRIM.  Only handlers that have that slow path pass true. */
+    #define BIGINT_BIN_DISPATCH_IMPL(op_method, deferObjects) do { \
         const proto::ProtoString* _bigK = JSSymbols::isBigInt(pContext); \
         bool _aBig = _bigK && a && !proto::isSmallInt(a) && !a->isDouble(pContext) \
             && a->getAttribute(pContext, _bigK, true) == PROTO_TRUE; \
         bool _bBig = _bigK && b && !proto::isSmallInt(b) && !b->isDouble(pContext) \
             && b->getAttribute(pContext, _bigK, true) == PROTO_TRUE; \
-        if (_aBig || _bBig) { \
+        const proto::ProtoObject* _other = _aBig ? b : a; \
+        const bool _otherIsObject = (deferObjects) && _other && _other != PROTO_NONE \
+            && !proto::isSmallInt(_other) \
+            && (reinterpret_cast<uintptr_t>(_other) & 0x3F) == 0 \
+            && _other != t_nullSentinel && _other != t_undefinedSentinel; \
+        if ((_aBig || _bBig) && !(_aBig != _bBig && _otherIsObject)) { \
             if (_aBig != _bBig) { \
                 pending_exception = makeNativeError(pContext, "TypeError", \
                     "Cannot mix BigInt and other types, use explicit conversions"); \
@@ -7948,6 +8039,23 @@ const proto::ProtoObject* runBytecode(proto::ProtoContext* pContext,
                 _r ? wrapBigInt(pContext, _r) : PROTO_NONE; \
             DISPATCH(); \
         } \
+    } while(0)
+
+    /* The slow path of a numeric binary operator: ToPrimitive both operands
+     * (left first) and, when either becomes a BigInt -- a BigInt wrapper
+     * object, or an object whose valueOf answers a BigInt -- finish as a
+     * BigInt operation (§13.15.3 ApplyStringOrNumericBinaryOperator).  Only
+     * reached after the Number fast paths, so plain arithmetic pays nothing. */
+    #define BIGINT_AFTER_TOPRIM(op_method) do { \
+        const proto::ProtoObject* _pa = toPrimIfObject(a); \
+        REFRESH_INTERP_STATE(); \
+        if (has_pending_exception) DISPATCH(); \
+        const proto::ProtoObject* _pb = toPrimIfObject(b); \
+        REFRESH_INTERP_STATE(); \
+        if (has_pending_exception) DISPATCH(); \
+        a = _pa; \
+        b = _pb; \
+        BIGINT_BIN_DISPATCH(op_method); \
     } while(0)
 
     DISPATCH();
@@ -12967,7 +13075,7 @@ const proto::ProtoObject* runBytecode(proto::ProtoContext* pContext,
                 const proto::ProtoObject* a = pAutomaticLocals[currentStackBase + --_PF().stackTop];
 
                 // §13.15.3 + on BigInt — see BIGINT_BIN_DISPATCH macro.
-                BIGINT_BIN_DISPATCH(add);
+                BIGINT_BIN_DISPATCH_IMPL(add, true);
 
                 // Numerify booleans and null ONLY when neither operand is a
                 // string — otherwise `'x' + null` would coerce null to 0
@@ -13006,6 +13114,7 @@ const proto::ProtoObject* runBytecode(proto::ProtoContext* pContext,
                 }
 
                 // Fallback: ToPrimitive
+                BIGINT_AFTER_TOPRIM(add);
                 const proto::ProtoObject* pa = toPrimIfObject(a);
                 const proto::ProtoObject* pb = toPrimIfObject(b);
                 REFRESH_INTERP_STATE();
@@ -13044,7 +13153,7 @@ const proto::ProtoObject* runBytecode(proto::ProtoContext* pContext,
                 const proto::ProtoObject* b = pAutomaticLocals[currentStackBase + --_PF().stackTop];
                 const proto::ProtoObject* a = pAutomaticLocals[currentStackBase + --_PF().stackTop];
 
-                BIGINT_BIN_DISPATCH(multiply);
+                BIGINT_BIN_DISPATCH_IMPL(multiply, true);
 
                 if (a == PROTO_TRUE)  a = proto::makeSmallInt(1);
                 else if (a == PROTO_FALSE || a == t_nullSentinel) a = proto::makeSmallInt(0);
@@ -13075,6 +13184,7 @@ const proto::ProtoObject* runBytecode(proto::ProtoContext* pContext,
                     }
                 }
 
+                BIGINT_AFTER_TOPRIM(multiply);
                 const proto::ProtoObject* na = toNumber(pContext, toPrimIfObject(a));
                 const proto::ProtoObject* nb = toNumber(pContext, toPrimIfObject(b));
                 REFRESH_INTERP_STATE();
@@ -13104,7 +13214,14 @@ const proto::ProtoObject* runBytecode(proto::ProtoContext* pContext,
                         && a_peek->getAttribute(pContext, bigK, true) == PROTO_TRUE;
                     bool bBig = bigK && b_peek && !proto::isSmallInt(b_peek)
                         && b_peek->getAttribute(pContext, bigK, true) == PROTO_TRUE;
-                    if (aBig || bBig) {
+                    // A BigInt against an object is decided after ToPrimitive
+                    // (below): the object may be a BigInt wrapper.
+                    const proto::ProtoObject* other = aBig ? b_peek : a_peek;
+                    const bool otherIsObject = (aBig != bBig) && other && other != PROTO_NONE
+                        && !proto::isSmallInt(other)
+                        && (reinterpret_cast<uintptr_t>(other) & 0x3F) == 0
+                        && other != t_nullSentinel && other != t_undefinedSentinel;
+                    if ((aBig || bBig) && !otherIsObject) {
                         --_PF().stackTop;  // pop the a slot we peeked
                         if (aBig != bBig) {
                             pending_exception = makeNativeError(pContext, "TypeError",
@@ -13127,12 +13244,36 @@ const proto::ProtoObject* runBytecode(proto::ProtoContext* pContext,
                         DISPATCH();
                     }
                 }
-                const proto::ProtoObject* b = toNumber(pContext, toPrimIfObject(b_raw));
+                const proto::ProtoObject* a_raw = pAutomaticLocals[currentStackBase + --_PF().stackTop];
+                // ToPrimitive, left operand first: a BigInt wrapper (or an
+                // object whose valueOf answers a BigInt) becomes a BigInt,
+                // which the Number path below cannot take.
+                const proto::ProtoObject* a_prim = toPrimIfObject(a_raw);
                 REFRESH_INTERP_STATE();
                 if (has_pending_exception) DISPATCH();
-                const proto::ProtoObject* a_raw = pAutomaticLocals[currentStackBase + --_PF().stackTop];
+                const proto::ProtoObject* b_prim = toPrimIfObject(b_raw);
+                REFRESH_INTERP_STATE();
+                if (has_pending_exception) DISPATCH();
+                {
+                    const char* errType = nullptr;
+                    const char* errMsg = nullptr;
+                    const proto::ProtoObject* q = bigIntDivideOperands(pContext, a_prim, b_prim,
+                                                                       errType, errMsg);
+                    if (errType) {
+                        pending_exception = makeNativeError(pContext, errType, errMsg);
+                        has_pending_exception = true;
+                        DISPATCH();
+                    }
+                    if (q) {
+                        pAutomaticLocals[currentStackBase + _PF().stackTop++] = q;
+                        DISPATCH();
+                    }
+                }
+                const proto::ProtoObject* b = toNumber(pContext, b_prim);
+                REFRESH_INTERP_STATE();
+                if (has_pending_exception) DISPATCH();
                 // No zeroing for 'a' as result will overwrite it.
-                const proto::ProtoObject* a = toNumber(pContext, toPrimIfObject(a_raw));
+                const proto::ProtoObject* a = toNumber(pContext, a_prim);
                 REFRESH_INTERP_STATE();
                 if (has_pending_exception) DISPATCH();
                 // JS division always yields double (handles /0 → ±Infinity, 0/0 → NaN, -0 correctly).
@@ -13152,7 +13293,7 @@ const proto::ProtoObject* runBytecode(proto::ProtoContext* pContext,
                 const proto::ProtoObject* b = pAutomaticLocals[currentStackBase + --_PF().stackTop];
                 const proto::ProtoObject* a = pAutomaticLocals[currentStackBase + --_PF().stackTop];
 
-                BIGINT_BIN_DISPATCH(subtract);
+                BIGINT_BIN_DISPATCH_IMPL(subtract, true);
 
                 // see L_OP_add for null / boolean numerify rationale.
                 if (a == PROTO_TRUE)  a = proto::makeSmallInt(1);
@@ -13177,6 +13318,7 @@ const proto::ProtoObject* runBytecode(proto::ProtoContext* pContext,
                     }
                 }
 
+                BIGINT_AFTER_TOPRIM(subtract);
                 const proto::ProtoObject* na = toNumber(pContext, toPrimIfObject(a));
                 const proto::ProtoObject* nb = toNumber(pContext, toPrimIfObject(b));
                 REFRESH_INTERP_STATE();
@@ -13197,7 +13339,7 @@ const proto::ProtoObject* runBytecode(proto::ProtoContext* pContext,
                 const proto::ProtoObject* b = pAutomaticLocals[currentStackBase + --_PF().stackTop];
                 const proto::ProtoObject* a = pAutomaticLocals[currentStackBase + --_PF().stackTop];
 
-                BIGINT_BIN_DISPATCH(modulo);
+                BIGINT_BIN_DISPATCH_IMPL(modulo, true);
 
                 // Integer fast-path
                 if (proto::isSmallInt(a) && proto::isSmallInt(b)) {
@@ -13221,6 +13363,7 @@ const proto::ProtoObject* runBytecode(proto::ProtoContext* pContext,
                 }
 
                 // Fallback to double/toNumber
+                BIGINT_AFTER_TOPRIM(modulo);
                 const proto::ProtoObject* na = toNumber(pContext, toPrimIfObject(a));
                 const proto::ProtoObject* nb = toNumber(pContext, toPrimIfObject(b));
                 REFRESH_INTERP_STATE();
@@ -13392,6 +13535,11 @@ const proto::ProtoObject* runBytecode(proto::ProtoContext* pContext,
                 const proto::ProtoObject* pb = toPrimIfObject(b);
                 REFRESH_INTERP_STATE();
                 if (has_pending_exception) DISPATCH();
+                {   // A wrapper's ToPrimitive may answer a BigInt.
+                    const proto::ProtoObject* a = pa;
+                    const proto::ProtoObject* b = pb;
+                    BIGINT_REL_DISPATCH(PROTO_TRUE, PROTO_FALSE, PROTO_FALSE);
+                }
                 int cmp = relCmpAfterPrim(pa, pb);
                 pAutomaticLocals[currentStackBase + _PF().stackTop++] = ((cmp == -1) ? PROTO_TRUE : PROTO_FALSE);
                 DISPATCH();
@@ -13427,6 +13575,11 @@ const proto::ProtoObject* runBytecode(proto::ProtoContext* pContext,
                 const proto::ProtoObject* pb = toPrimIfObject(b);
                 REFRESH_INTERP_STATE();
                 if (has_pending_exception) DISPATCH();
+                {   // A wrapper's ToPrimitive may answer a BigInt.
+                    const proto::ProtoObject* a = pa;
+                    const proto::ProtoObject* b = pb;
+                    BIGINT_REL_DISPATCH(PROTO_TRUE, PROTO_TRUE, PROTO_FALSE);
+                }
                 int cmp = relCmpAfterPrim(pa, pb);
                 pAutomaticLocals[currentStackBase + _PF().stackTop++] = ((cmp == -1 || cmp == 0) ? PROTO_TRUE : PROTO_FALSE);
                 DISPATCH();
@@ -13461,6 +13614,11 @@ const proto::ProtoObject* runBytecode(proto::ProtoContext* pContext,
                 const proto::ProtoObject* pb = toPrimIfObject(b);
                 REFRESH_INTERP_STATE();
                 if (has_pending_exception) DISPATCH();
+                {   // A wrapper's ToPrimitive may answer a BigInt.
+                    const proto::ProtoObject* a = pa;
+                    const proto::ProtoObject* b = pb;
+                    BIGINT_REL_DISPATCH(PROTO_FALSE, PROTO_FALSE, PROTO_TRUE);
+                }
                 int cmp = relCmpAfterPrim(pa, pb);
                 pAutomaticLocals[currentStackBase + _PF().stackTop++] = ((cmp == 1) ? PROTO_TRUE : PROTO_FALSE);
                 DISPATCH();
@@ -13495,6 +13653,11 @@ const proto::ProtoObject* runBytecode(proto::ProtoContext* pContext,
                 const proto::ProtoObject* pb = toPrimIfObject(b);
                 REFRESH_INTERP_STATE();
                 if (has_pending_exception) DISPATCH();
+                {   // A wrapper's ToPrimitive may answer a BigInt.
+                    const proto::ProtoObject* a = pa;
+                    const proto::ProtoObject* b = pb;
+                    BIGINT_REL_DISPATCH(PROTO_FALSE, PROTO_TRUE, PROTO_TRUE);
+                }
                 int cmp = relCmpAfterPrim(pa, pb);
                 pAutomaticLocals[currentStackBase + _PF().stackTop++] = ((cmp == 1 || cmp == 0) ? PROTO_TRUE : PROTO_FALSE);
                 DISPATCH();
@@ -13508,6 +13671,8 @@ const proto::ProtoObject* runBytecode(proto::ProtoContext* pContext,
                 // BigInt.prototype.toString → string, losing the type).
                 const proto::ProtoObject* b = pAutomaticLocals[currentStackBase + --_PF().stackTop];
                 const proto::ProtoObject* a = pAutomaticLocals[currentStackBase + --_PF().stackTop];
+                a = unwrapBigIntWrapper(pContext, a);
+                b = unwrapBigIntWrapper(pContext, b);
                 BIGINT_BIN_DISPATCH(bitwiseAnd);
                 a = toPrimIfObject(a);
                 if (has_pending_exception) DISPATCH();
@@ -13521,6 +13686,8 @@ const proto::ProtoObject* runBytecode(proto::ProtoContext* pContext,
                 if (_PF().stackTop < 2) return PROTO_NONE;
                 const proto::ProtoObject* b = pAutomaticLocals[currentStackBase + --_PF().stackTop];
                 const proto::ProtoObject* a = pAutomaticLocals[currentStackBase + --_PF().stackTop];
+                a = unwrapBigIntWrapper(pContext, a);
+                b = unwrapBigIntWrapper(pContext, b);
                 BIGINT_BIN_DISPATCH(bitwiseOr);
                 a = toPrimIfObject(a);
                 if (has_pending_exception) DISPATCH();
@@ -13534,6 +13701,8 @@ const proto::ProtoObject* runBytecode(proto::ProtoContext* pContext,
                 if (_PF().stackTop < 2) return PROTO_NONE;
                 const proto::ProtoObject* b = pAutomaticLocals[currentStackBase + --_PF().stackTop];
                 const proto::ProtoObject* a = pAutomaticLocals[currentStackBase + --_PF().stackTop];
+                a = unwrapBigIntWrapper(pContext, a);
+                b = unwrapBigIntWrapper(pContext, b);
                 BIGINT_BIN_DISPATCH(bitwiseXor);
                 a = toPrimIfObject(a);
                 if (has_pending_exception) DISPATCH();
@@ -13550,6 +13719,8 @@ const proto::ProtoObject* runBytecode(proto::ProtoContext* pContext,
                 // (see L_OP_and for the rationale on ordering).
                 const proto::ProtoObject* b = pAutomaticLocals[currentStackBase + --_PF().stackTop];
                 const proto::ProtoObject* a = pAutomaticLocals[currentStackBase + --_PF().stackTop];
+                a = unwrapBigIntWrapper(pContext, a);
+                b = unwrapBigIntWrapper(pContext, b);
                 // §6.1.6.2.7 BigInt::leftShift — both operands must be
                 // BigInt, the shift amount must fit in an int32, and the
                 // result preserves bignum precision.
@@ -13590,6 +13761,8 @@ const proto::ProtoObject* runBytecode(proto::ProtoContext* pContext,
                 if (_PF().stackTop < 2) return PROTO_NONE;
                 const proto::ProtoObject* b = pAutomaticLocals[currentStackBase + --_PF().stackTop];
                 const proto::ProtoObject* a = pAutomaticLocals[currentStackBase + --_PF().stackTop];
+                a = unwrapBigIntWrapper(pContext, a);
+                b = unwrapBigIntWrapper(pContext, b);
                 // §6.1.6.2.8 BigInt::signedRightShift — semantics mirror
                 // BigInt::leftShift but in the opposite direction.
                 {
@@ -13629,6 +13802,8 @@ const proto::ProtoObject* runBytecode(proto::ProtoContext* pContext,
                 if (_PF().stackTop < 2) return PROTO_NONE;
                 const proto::ProtoObject* b = pAutomaticLocals[currentStackBase + --_PF().stackTop];
                 const proto::ProtoObject* a = pAutomaticLocals[currentStackBase + --_PF().stackTop];
+                a = unwrapBigIntWrapper(pContext, a);
+                b = unwrapBigIntWrapper(pContext, b);
                 // §6.1.6.2.9 — BigInt has NO unsigned right shift; throw.
                 {
                     const proto::ProtoString* bigK = JSSymbols::isBigInt(pContext);
@@ -13701,6 +13876,10 @@ const proto::ProtoObject* runBytecode(proto::ProtoContext* pContext,
                 // and re-wrap.  protoCore's negate preserves bignum
                 // precision (BigInt(-0n) === BigInt(0n) per spec — no
                 // distinct -0n exists).
+                // ToNumeric: a BigInt wrapper's ToPrimitive answers its BigInt.
+                a = toPrimIfObject(a);
+                REFRESH_INTERP_STATE();
+                if (has_pending_exception) DISPATCH();
                 {
                     const proto::ProtoString* bigK = JSSymbols::isBigInt(pContext);
                     bool aBig = bigK && a && !proto::isSmallInt(a)
@@ -14262,6 +14441,10 @@ const proto::ProtoObject* runBytecode(proto::ProtoContext* pContext,
                 // RangeError (no fractional BigInt result).  Must run
                 // BEFORE toNumber so Number+BigInt → TypeError stays.
                 {
+                    pAutomaticLocals[currentStackBase + _PF().stackTop - 2] = unwrapBigIntWrapper(
+                        pContext, pAutomaticLocals[currentStackBase + _PF().stackTop - 2]);
+                    pAutomaticLocals[currentStackBase + _PF().stackTop - 1] = unwrapBigIntWrapper(
+                        pContext, pAutomaticLocals[currentStackBase + _PF().stackTop - 1]);
                     const proto::ProtoObject* a_peek = pAutomaticLocals[currentStackBase + _PF().stackTop - 2];
                     const proto::ProtoObject* b_peek = pAutomaticLocals[currentStackBase + _PF().stackTop - 1];
                     const proto::ProtoString* bigK = JSSymbols::isBigInt(pContext);

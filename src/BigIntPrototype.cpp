@@ -265,6 +265,19 @@ static const proto::ProtoObject* bigIntConstruct(proto::ProtoContext* ctx,
     return PROTO_NONE;
 }
 
+// §21.2.3 thisBigIntValue(value): the BigInt itself, or the [[BigIntData]] of
+// a BigInt wrapper object (boxBigInt); nullptr for any other receiver.
+static const proto::ProtoObject* thisBigIntValue(proto::ProtoContext* ctx,
+                                                 const proto::ProtoObject* v) {
+    if (isBigInt(ctx, v)) return v;
+    if (!v || v == PROTO_NONE || proto::isSmallInt(v)
+        || (reinterpret_cast<uintptr_t>(v) & 0x3F) != 0) return nullptr;
+    const proto::ProtoString* pvK = JSSymbols::primitiveValue(ctx);
+    if (!pvK || v->hasOwnAttribute(ctx, pvK) != PROTO_TRUE) return nullptr;
+    const proto::ProtoObject* pv = v->getAttribute(ctx, pvK, false);
+    return isBigInt(ctx, pv) ? pv : nullptr;
+}
+
 // §21.2.3.3 BigInt.prototype.toString( [ radix ] ).  Per spec the
 // receiver may be either a BigInt primitive or an Object whose
 // [[BigIntData]] is a BigInt — we honour both via isBigInt.  Radix
@@ -280,7 +293,8 @@ static const proto::ProtoObject* bigIntToString(proto::ProtoContext* ctx,
     // [[BigIntData]] — prototype-call.js tests this directly).  MUST
     // run before the radix range-check so the TypeError surfaces
     // instead of a RangeError on `BigInt.prototype.toString(1)`.
-    if (!isBigInt(ctx, self)) {
+    self = thisBigIntValue(ctx, self);
+    if (!self) {
         signalNativeException(makeNativeError(ctx, "TypeError",
             "BigInt.prototype.toString requires that 'this' be a BigInt"));
         return PROTO_NONE;
@@ -318,22 +332,31 @@ static const proto::ProtoObject* bigIntToString(proto::ProtoContext* ctx,
     return s->asObject(ctx);
 }
 
-// §21.2.3.4 BigInt.prototype.valueOf.  Returns the receiver if it's a
-// BigInt; otherwise TypeError.  Pre-spec: protoJS doesn't have a
-// primitive vs boxed-BigInt distinction (every BigInt is the wrapper),
-// so we just return self unchanged.
+// §21.2.3.4 BigInt.prototype.valueOf: thisBigIntValue(this) -- the BigInt
+// itself, or the one a BigInt wrapper object holds; otherwise TypeError.
 static const proto::ProtoObject* bigIntValueOf(proto::ProtoContext* ctx,
                                                const proto::ProtoObject* self,
                                                const proto::ParentLink*,
                                                const proto::ProtoList*,
                                                const proto::ProtoSparseList*) {
     if (!ctx) return PROTO_NONE;
-    if (!isBigInt(ctx, self)) {
+    const proto::ProtoObject* v = thisBigIntValue(ctx, self);
+    if (!v) {
         signalNativeException(makeNativeError(ctx, "TypeError",
             "BigInt.prototype.valueOf requires that 'this' be a BigInt"));
         return PROTO_NONE;
     }
-    return self;
+    return v;
+}
+
+// §21.2.3.2 BigInt.prototype.toLocaleString: protoJS has no ECMA-402, so the
+// implementation-defined form is toString()'s (§21.2.3.2 permits it).
+static const proto::ProtoObject* bigIntToLocaleString(proto::ProtoContext* ctx,
+                                                      const proto::ProtoObject* self,
+                                                      const proto::ParentLink* parent,
+                                                      const proto::ProtoList*,
+                                                      const proto::ProtoSparseList* named) {
+    return bigIntToString(ctx, self, parent, nullptr, named);
 }
 
 // §7.1.22 ToIndex(value): coerce to a non-negative integer in
@@ -629,6 +652,24 @@ const proto::ProtoObject* wrapBigInt(proto::ProtoContext* ctx,
     return w;
 }
 
+const proto::ProtoObject* boxBigInt(proto::ProtoContext* ctx,
+                                    const proto::ProtoObject* v) {
+    if (!isBigInt(ctx, v)) return v;
+    // The wrapper inherits the BigInt's own prototype (BigInt.prototype)
+    // and holds the BigInt as its [[BigIntData]].  The BigInt primitive is
+    // recognised through the __is_bigint__ marker on BigInt.prototype; the
+    // wrapper's own false marker hides it, so typeof answers "object" and
+    // every arithmetic / ToNumber site treats the wrapper as an object (its
+    // ToPrimitive reaches valueOf, which unwraps it).
+    const proto::ProtoObject* proto = v->getPrototype(ctx);
+    const proto::ProtoObject* w = (proto && proto != PROTO_NONE)
+        ? proto->newChild(ctx, true) : ctx->newObject(true);
+    if (!w) return v;
+    w->setAttribute(ctx, JSSymbols::primitiveValue(ctx), v);
+    w->setAttribute(ctx, JSSymbols::isBigInt(ctx), PROTO_FALSE);
+    return w;
+}
+
 // ---------------------------------------------------------------------
 // Build BigInt.prototype + install Constructor
 // ---------------------------------------------------------------------
@@ -722,6 +763,7 @@ void buildBigIntPrototype(proto::ProtoSpace* /*space*/,
     if (ctx->space && ctx->space->methodPrototype) {
         proto = installMethod(ctx, proto, "toString", bigIntToString, 0);
         proto = installMethod(ctx, proto, "valueOf",  bigIntValueOf,  0);
+        proto = installMethod(ctx, proto, "toLocaleString", bigIntToLocaleString, 0);
         t_bigIntMethodsInstalled = true;
     }
     // §21.2.3.5 Symbol.toStringTag = "BigInt" with descriptor
@@ -785,6 +827,8 @@ void ensureBigIntConstructor(proto::ProtoContext* ctx,
                                           bigIntToString, 0);
         t_bigIntPrototype = installMethod(ctx, t_bigIntPrototype, "valueOf",
                                           bigIntValueOf, 0);
+        t_bigIntPrototype = installMethod(ctx, t_bigIntPrototype, "toLocaleString",
+                                          bigIntToLocaleString, 0);
         t_bigIntMethodsInstalled = true;
     }
     // BigInt constructor object: a function with __native_fn__ for

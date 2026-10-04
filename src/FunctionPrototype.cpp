@@ -6,6 +6,7 @@
 #include "ObjectPrototype.h"
 #include "PrototypeUtils.h"
 #include "ProxyBuiltin.h"
+#include "BigIntPrototype.h"
 #include "ArrayElementsStorage.h"
 #include "runtime/ProtoInterpreter.h"
 #include "protoCore.h"
@@ -138,6 +139,7 @@ static const proto::ProtoObject* bindThisIfNonStrict(
         return wrap(ctx->space->doublePrototype);
     if (thisArg == PROTO_TRUE || thisArg == PROTO_FALSE)
         return wrap(ctx->space->booleanPrototype);
+    if (isBigInt(ctx, thisArg)) return boxBigInt(ctx, thisArg);
     return thisArg;
 }
 
