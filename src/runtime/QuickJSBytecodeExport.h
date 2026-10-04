@@ -50,6 +50,9 @@ const char* protojs_bytecode_var_name(struct JSContext* ctx, void* bytecode, uin
 /** Return 1 if closure var at idx is lexical (const/let), 0 otherwise. */
 int protojs_bytecode_closure_var_is_lexical(void* bytecode, uint16_t idx);
 
+/** Return 1 if closure var at idx is a `const` binding, 0 otherwise. */
+int protojs_bytecode_closure_var_is_const(void* bytecode, uint16_t idx);
+
 /** Return the JSClosureTypeEnum value for closure var at idx.
  *  0=LOCAL (parent local var), 1=ARG (parent arg), 2=REF (parent closure var),
  *  3=GLOBAL_REF, 4=GLOBAL_DECL, 5=GLOBAL, 6=MODULE_DECL, 7=MODULE_IMPORT.

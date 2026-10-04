@@ -4872,6 +4872,34 @@ const proto::ProtoObject* globalObjectForRoot(proto::ProtoContext* ctx,
     return root;
 }
 
+// Write the global binding `key` (ECMA-262 §9.1.1.4, the global Environment
+// Record).  The root script's binding scope (the module-scope split in
+// runBytecode) is the declarative part of that record: `let`, `const` and
+// `class` live on it.  Its parent, the global object, is the object part:
+// `var` and function declarations and implicit globals are properties of it,
+// visible as `globalThis.x` and `this.x`.  A name already bound in the
+// declarative part (a `let` from this or an earlier script) is written there.
+// Any other root slot is written unchanged.
+static void writeGlobalBinding(proto::ProtoContext* ctx,
+                               const proto::ProtoObject** pGlobalRoot,
+                               const proto::ProtoString* key,
+                               const proto::ProtoObject* val,
+                               bool isLexical) {
+    const proto::ProtoObject* root = *pGlobalRoot;
+    if (!isLexical
+        && root->hasOwnAttribute(ctx, moduleScopedKey(ctx)) == PROTO_TRUE
+        && root->hasOwnAttribute(ctx, key) != PROTO_TRUE) {
+        const proto::ProtoObject* global = root->getPrototype(ctx);
+        if (global && global != PROTO_NONE) {
+            // The global object is mutable: setAttribute keeps its handle,
+            // so the binding scope's parent link stays valid.
+            global->setAttribute(ctx, key, val);
+            return;
+        }
+    }
+    *pGlobalRoot = root->setAttribute(ctx, key, val);
+}
+
 // The `this` an arrow function created in this frame captures.  In a sloppy
 // function called without a receiver it is the global object, as OP_push_this
 // reads it (§10.2.1.2 OrdinaryCallBindThis); pre-fix the arrow captured the
@@ -6999,10 +7027,18 @@ const proto::ProtoObject* runBytecode(proto::ProtoContext* pContext,
     // Only vars marked JS_CLOSURE_GLOBAL_DECL (closureVarIsDeclared) are hoisted; undeclared
     // references (JS_CLOSURE_GLOBAL) are left absent so Fix1 correctly throws ReferenceError.
     // This is idempotent: we skip vars already present in globalRoot.
+    //
+    // A `var` or function declaration becomes a property of the global object
+    // (writeGlobalBinding) that is writable, enumerable and not configurable
+    // (§9.1.1.4.17 CreateGlobalVarBinding, §9.1.1.4.18
+    // CreateGlobalFunctionBinding).  A `let` / `const` / `class` is not hoisted:
+    // its absence is the TDZ that OP_get_var reports as a ReferenceError until
+    // the declaration initialises it.
     if (pGlobalRoot && *pGlobalRoot && module) {
         for (size_t gi = 0; gi < module->closureVarNames.size(); ++gi) {
             bool isDeclared = (gi < module->closureVarIsDeclared.size()) && module->closureVarIsDeclared[gi];
             if (!isDeclared) continue;
+            if (gi < module->closureVarIsLexical.size() && module->closureVarIsLexical[gi]) continue;
             // Use the pre-interned symbol stored in module->closureSymbols
             // (loaded once via createSymbol) — see L_OP_put_var_ref's
             // matching comment for the lookupByContent cost rationale.
@@ -7011,10 +7047,24 @@ const proto::ProtoObject* runBytecode(proto::ProtoContext* pContext,
                     ? module->closureSymbols->getAt(pContext, static_cast<int>(gi))->asString(pContext)
                     : nullptr;
             if (!vkey) continue;
-            // Only set if key is COMPLETELY absent (getAttribute returns nullptr).
-            const proto::ProtoObject* existing = (*pGlobalRoot)->getAttribute(pContext, vkey, false);
-            if (!existing) {
-                *pGlobalRoot = (*pGlobalRoot)->setAttribute(pContext, vkey, PROTO_NONE);
+            // Only set when the global object has no own property of that
+            // name (§9.1.1.4.17 step 3).  An absent attribute reads back as
+            // PROTO_NONE, not nullptr, so presence is asked with
+            // hasOwnAttribute.
+            const proto::ProtoObject* declTarget =
+                globalObjectForRoot(pContext, *pGlobalRoot);
+            if (declTarget->hasOwnAttribute(pContext, vkey) != PROTO_TRUE
+                && (*pGlobalRoot)->hasOwnAttribute(pContext, vkey) != PROTO_TRUE) {
+                // `undefined` as a stored value is the undefined sentinel: a
+                // PROTO_NONE slot reads as a deleted property.
+                const proto::ProtoObject* undef = getUndefinedSentinel();
+                writeGlobalBinding(pContext, pGlobalRoot, vkey, undef ? undef : PROTO_NONE, false);
+                const std::string pdStr = "__pd_" + module->closureVarNames[gi] + "__";
+                const proto::ProtoObject* pdo = pContext->fromUTF8String(pdStr.c_str());
+                const proto::ProtoString* pdk = pdo ? pdo->asString(pContext) : nullptr;
+                // 0x1 writable | 0x4 enumerable; the configurable bit 0x2 is clear.
+                if (pdk)
+                    writeGlobalBinding(pContext, pGlobalRoot, pdk, pContext->fromInteger(0x5LL), false);
             }
         }
     }
@@ -9457,8 +9507,11 @@ const proto::ProtoObject* runBytecode(proto::ProtoContext* pContext,
                     const proto::ProtoString* key = closureSymbols->getAt(pContext, static_cast<int>(idx))->asString(pContext);
                     if (key) {
                         rawVal = liveGlobal->getAttribute(pContext, key, false);
-                            /* TDZ check: absent key for a lexical variable means uninitialized. */
-                            if (isLexical && !rawVal) {
+                            /* TDZ check: absent key for a lexical variable means uninitialized.
+                             * An absent attribute reads back as PROTO_NONE, the same value an
+                             * initialised `let x;` holds, so presence is asked separately. */
+                            if (isLexical && (!rawVal || (rawVal == PROTO_NONE
+                                    && liveGlobal->hasAttribute(pContext, key) != PROTO_TRUE))) {
                                 const std::string& vname = module->closureVarNames[idx];
                                 std::string msg = "Cannot access '";
                                 msg += vname.empty() ? "?" : vname;
@@ -9554,6 +9607,17 @@ const proto::ProtoObject* runBytecode(proto::ProtoContext* pContext,
                         DISPATCH();
                     }
 
+                    // §9.1.1.1.5 SetMutableBinding: assigning a `const` (after
+                    // its initialisation, which is OP_put_var_init) is a TypeError.
+                    if (opcode == OP_put_var
+                        && static_cast<size_t>(idx) < module->closureVarIsConst.size()
+                        && module->closureVarIsConst[idx]) {
+                        const std::string msg = "Assignment to constant variable '" + name + "'";
+                        pending_exception = makeError(pContext, "TypeError", msg.c_str(), pGlobalRoot);
+                        has_pending_exception = true;
+                        DISPATCH();
+                    }
+
                     // Global assignment to `undefined` should throw instead of mutating.
                     if (name == "undefined") {
                         pending_exception = makeError(pContext, "ReferenceError",
@@ -9565,7 +9629,9 @@ const proto::ProtoObject* runBytecode(proto::ProtoContext* pContext,
                     if (closureSymbols && static_cast<size_t>(idx) < closureSymbols->getSize(pContext)) {
                         const proto::ProtoString* key = closureSymbols->getAt(pContext, static_cast<int>(idx))->asString(pContext);
                         if (key)
-                            *pGlobalRoot = (*pGlobalRoot)->setAttribute(pContext, key, val ? val : PROTO_NONE);
+                            writeGlobalBinding(pContext, pGlobalRoot, key, val ? val : PROTO_NONE,
+                                               static_cast<size_t>(idx) < module->closureVarIsLexical.size()
+                                                   && module->closureVarIsLexical[idx]);
                     }
                 }
                 DISPATCH();
@@ -9643,7 +9709,9 @@ const proto::ProtoObject* runBytecode(proto::ProtoContext* pContext,
                         const proto::ProtoString* key =
                             closureSymbols->getAt(pContext, static_cast<int>(refIndex))->asString(pContext);
                         if (key)
-                            *pGlobalRoot = (*pGlobalRoot)->setAttribute(pContext, key, val ? val : PROTO_NONE);
+                            writeGlobalBinding(pContext, pGlobalRoot, key, val ? val : PROTO_NONE,
+                                               static_cast<size_t>(refIndex) < module->closureVarIsLexical.size()
+                                                   && module->closureVarIsLexical[refIndex]);
                     }
                 }
                 DISPATCH();
@@ -9687,7 +9755,9 @@ const proto::ProtoObject* runBytecode(proto::ProtoContext* pContext,
                         const proto::ProtoString* key =
                             closureSymbols->getAt(pContext, static_cast<int>(refIndex))->asString(pContext);
                         if (key)
-                            *pGlobalRoot = (*pGlobalRoot)->setAttribute(pContext, key, val ? val : PROTO_NONE);
+                            writeGlobalBinding(pContext, pGlobalRoot, key, val ? val : PROTO_NONE,
+                                               static_cast<size_t>(refIndex) < module->closureVarIsLexical.size()
+                                                   && module->closureVarIsLexical[refIndex]);
                     }
                 }
                 DISPATCH();
@@ -9755,7 +9825,9 @@ const proto::ProtoObject* runBytecode(proto::ProtoContext* pContext,
                         const proto::ProtoString* key =
                             closureSymbols->getAt(pContext, static_cast<int>(refIndex))->asString(pContext);
                         if (key)
-                            *pGlobalRoot = (*pGlobalRoot)->setAttribute(pContext, key, val ? val : PROTO_NONE);
+                            writeGlobalBinding(pContext, pGlobalRoot, key, val ? val : PROTO_NONE,
+                                               static_cast<size_t>(refIndex) < module->closureVarIsLexical.size()
+                                                   && module->closureVarIsLexical[refIndex]);
                     }
                 }
                 DISPATCH();
@@ -9797,7 +9869,9 @@ const proto::ProtoObject* runBytecode(proto::ProtoContext* pContext,
                         const proto::ProtoString* key =
                             closureSymbols->getAt(pContext, static_cast<int>(refIndex))->asString(pContext);
                         if (key)
-                            *pGlobalRoot = (*pGlobalRoot)->setAttribute(pContext, key, val ? val : PROTO_NONE);
+                            writeGlobalBinding(pContext, pGlobalRoot, key, val ? val : PROTO_NONE,
+                                               static_cast<size_t>(refIndex) < module->closureVarIsLexical.size()
+                                                   && module->closureVarIsLexical[refIndex]);
                     }
                 }
                 DISPATCH();
@@ -9848,7 +9922,9 @@ const proto::ProtoObject* runBytecode(proto::ProtoContext* pContext,
                         const proto::ProtoString* key =
                             closureSymbols->getAt(pContext, static_cast<int>(refIndex))->asString(pContext);
                         if (key)
-                            *pGlobalRoot = (*pGlobalRoot)->setAttribute(pContext, key, val ? val : PROTO_NONE);
+                            writeGlobalBinding(pContext, pGlobalRoot, key, val ? val : PROTO_NONE,
+                                               static_cast<size_t>(refIndex) < module->closureVarIsLexical.size()
+                                                   && module->closureVarIsLexical[refIndex]);
                     }
                 }
                 DISPATCH();

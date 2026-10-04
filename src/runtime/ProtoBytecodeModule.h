@@ -74,6 +74,8 @@ struct ProtoBytecodeModule {
     std::vector<std::string> closureVarNames;
     /** Whether each closure var is lexical (const/let = true, var = false). */
     std::vector<bool> closureVarIsLexical;
+    /** Whether each closure var is a `const` binding (an assignment throws). */
+    std::vector<bool> closureVarIsConst;
     /** Whether each closure var is a declared global. */
     std::vector<bool> closureVarIsDeclared;
     /** Full closure type for each closure var. */

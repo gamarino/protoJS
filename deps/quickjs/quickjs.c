@@ -59760,6 +59760,13 @@ int protojs_bytecode_closure_var_is_lexical(void *bytecode, uint16_t idx) {
     return b->closure_var[idx].is_lexical ? 1 : 0;
 }
 
+int protojs_bytecode_closure_var_is_const(void *bytecode, uint16_t idx) {
+    JSFunctionBytecode *b = (JSFunctionBytecode *)bytecode;
+    if (idx >= (uint16_t)b->closure_var_count)
+        return 0;
+    return b->closure_var[idx].is_const ? 1 : 0;
+}
+
 int protojs_bytecode_closure_var_type(void *bytecode, uint16_t idx) {
     JSFunctionBytecode *b = (JSFunctionBytecode *)bytecode;
     if (idx >= (uint16_t)b->closure_var_count)
