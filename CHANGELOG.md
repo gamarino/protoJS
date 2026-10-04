@@ -54,6 +54,15 @@ All notable changes to protoJS are documented in this file.
 - **Flaky macOS unit test.** `ThreadPoolExecutor::shutdownNow parks the
   calling thread` slept for fixed times; both shutdown cases now wait for the
   conditions they need.
+- Also: `{[u]: 9}` with an undefined `u` inside a function gave `{}`;
+  OP_throw_error raises QuickJS's error types; the default typed-array sort
+  puts -0 before +0; generator `return(v)` runs finally blocks.
+- Test262 whole corpus (CI run 37230007262): 34,154 of 53,571 (63.75 %),
+  against 33,658 (run 37203655980); 499 fail->pass, 3 pass->fail, all three
+  explained in docs/TEST262_STATUS.md (accidental passes on master). Timeouts
+  231 -> 101. The per-commit gate is unchanged (3,755 of 3,875). Cost: the
+  stack check and the exception anchoring add about 1.5 % cycles to
+  `call_fib` (perf stat -r 3, 4.71e9 -> 4.78e9); `loop_sum` unchanged.
 - Not fixed, documented with reproductions and proposals in
   docs/MEMORY_SAFETY_PROPOSALS.md: prototype statics shared by every space
   (after a worker has run, the main thread's arrays from `map` get the dead
