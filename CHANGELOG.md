@@ -14,8 +14,11 @@ All notable changes to protoJS are documented in this file.
   `protoCore-3.dll`. Because the pin no longer equals the floor, a second
   Windows job builds and tests against protoCore 2.11.0 (commit 69b56afe),
   the declared minimum; it does not package. No source change was needed:
-  `ctest` passes 133/133 locally against 2.14.1 (ldd-verified). protoJS does
-  not enable protoCore's adaptive heap.
+  `ctest` passes 133/133 locally against 2.14.1 (ldd-verified). CI on the
+  branch: run 37169848799 (Linux gate 3,753 of 3,875, exactly the baseline;
+  whole Test262 corpus 33,120 passed, 61.82 %) and cross-platform
+  37169850272 (macOS, Windows 2.14.1 and Windows 2.11.0, 132 of 132 each).
+  protoJS does not enable protoCore's adaptive heap.
 
 ### Fixed — writes to a property of a primitive, undefined or null (2026-10-03)
 
