@@ -4,6 +4,61 @@ All notable changes to protoJS are documented in this file.
 
 ## [Unreleased]
 
+### Fixed — memory safety, typed arrays, generators, stack overflow (2026-10-04, second pass)
+
+- **RegExp heap corruption.** `lre_exec` keeps loop counters and position
+  registers after the capture pointers, so its array needs
+  `lre_get_alloc_count(bc)` slots; `exec` and `split` allocated
+  `2 * capture_count`, and patterns such as `/.(?=Z)*/` or `/(a|b){2,3}c/`
+  wrote past the block (`realloc(): invalid next size` in Test262
+  annexB/language/literals/regexp/quantifiable-assertion-followed-by.js).
+  Test: `js/basic/regexp_register_slots`.
+- **Bytecode loader overflow.** The hidden argument of a destructured
+  parameter has no name; the loader read the non-terminated string
+  `JS_AtomToCString(JS_ATOM_NULL)` returns. The name exports return NULL for
+  it (this is 39263760d again, reverted earlier only because it moved the
+  address order of interned keys, now a documented deviation). Test:
+  `BytecodeExport` unit cases.
+- **Exceptions across contexts (GC).** An exception thrown by a callee lived
+  only in C++ locals and the `t_callException` thread-local once the callee's
+  context ended; a native that ran more JavaScript before rethrowing it
+  (IteratorClose in `Array.from`, `new Map`, `new Set`) handed the catch block
+  freed cells. Every child-context call site now anchors the call's outcome
+  in the caller's context, and the active function is kept in a frame slot.
+  docs/GC_BRIDGING.md records the audit of the interpreter's thread-locals.
+  Test: `cli/gc-exceptions`.
+- **`'' + undefined` after a collection.** The `"undefined"` string was cached
+  in a plain static and collected; it is now pinned per space. Test:
+  `cached_undefined_string.js` in `cli/gc-stale-caches`.
+- **Typed-array writes coerce.** Element writes, `set`, `fill`, `of`, `from`,
+  `map` and the constructors stored 0 for any value that was not already a
+  Number (an object with `valueOf`, a string, a boolean); they now apply
+  ToNumber / ToBigInt with its side effects, before the index check, and
+  `fill` coerces once. Test: `js/basic/typed_array_coercion`.
+- **Typed-array callbacks.** `forEach`, `map`, `some`, `every`, `find`,
+  `findIndex`, `reduce` and `reduceRight` ignored JavaScript callbacks (only
+  native ones were called); they now call them with `thisArg`, stop at their
+  exceptions, and reject non-callables. The `sort` comparator is still
+  ignored. Test: `js/basic/typed_array_callbacks`.
+- **Generators.** An exception leaving the body is thrown by `next()` instead
+  of being returned as its value; a generator that iterates another one no
+  longer stops at its next `yield`; `throw(v)` raises `v` at the `yield`;
+  `yield*` delegates `next(v)`, `return` and `throw` to the inner iterator
+  (it produced nothing or failed). Test: `js/basic/generator_resumption`.
+- **Stack overflow is a RangeError.** Unbounded recursion ended the process
+  (SIGSEGV after about 2,700 calls on Linux, about 720 on Windows). runBytecode
+  now checks the remaining native stack and throws `RangeError: Maximum call
+  stack size exceeded` while a margin is left; the Windows stack reservation
+  is 256 MiB (was 64 MiB). Test: `js/workers/deep_recursion`, which now
+  reports the depth reached on each platform.
+- **Flaky macOS unit test.** `ThreadPoolExecutor::shutdownNow parks the
+  calling thread` slept for fixed times; both shutdown cases now wait for the
+  conditions they need.
+- Not fixed, documented with reproductions and proposals in
+  docs/MEMORY_SAFETY_PROPOSALS.md: prototype statics shared by every space
+  (after a worker has run, the main thread's arrays from `map` get the dead
+  worker space's prototype) and computed property keys interned for ever.
+
 ### Fixed — global declarations, function-kind constructors, BigInt wrappers, typed arrays (2026-10-04)
 
 - **Global declarations.** A classic script's top-level `var` and function
