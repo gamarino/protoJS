@@ -61,9 +61,10 @@ name: CI
 # five repositories this split was vindicated on the first real run: a test
 # failed its own timing precondition with no defect present, and the run still
 # concluded success because it sat in an informational job.  protoJS's registered
-# Catch2 cases were checked for wall-clock assertions and have none -- the two
-# sleeps in tests/unit/test_blocking_regions.cpp are ordering guarantees, not
-# margins: shutdown() cannot return until the task it is waiting for does.  So the
+# Catch2 cases were checked for wall-clock assertions and have none.  The two
+# fixed sleeps that tests/unit/test_blocking_regions.cpp had were taken for
+# ordering guarantees and were not: one failed on a loaded macOS runner, and
+# both cases now wait for the condition they need (2026-10-04).  So the
 # informational job here carries the things that are red or slow BY DESIGN -- the
 # static conformance ratchet and the whole-corpus run -- rather than a quarantined
 # clock-dependent case.  If a timing assertion is ever added to the Catch2 suite, it

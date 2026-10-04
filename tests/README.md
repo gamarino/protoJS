@@ -82,10 +82,11 @@ design:
 Nothing timing-sensitive gates: a runner is a shared machine, and in the other
 five repositories of this family a test failed its own timing precondition on the
 first real run with no defect present. protoJS's registered Catch2 cases were
-checked and contain no wall-clock assertion — the two sleeps in
-`tests/unit/test_blocking_regions.cpp` are ordering guarantees, not margins, since
-`shutdown()` cannot return until the task it waits for does. If a timing assertion is
-ever added, it belongs in `informational`.
+checked and contain no wall-clock assertion. The two fixed sleeps that
+`tests/unit/test_blocking_regions.cpp` had were meant as ordering guarantees and
+were not -- one failed on a loaded macOS runner -- so both cases now poll for the
+condition they need, with a bound only a failing run reaches. If a timing assertion
+is ever added, it belongs in `informational`.
 
 **No parallelism anywhere.** Every build omits `-j` and every Test262 invocation
 sets `TEST262_CONCURRENCY=1`. A runner is not assumed to be exempt from the
