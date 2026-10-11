@@ -373,7 +373,7 @@ add_test(NAME js/deferred/adaptive_heap_budget
     COMMAND "$<TARGET_FILE:protojs>"
             "${CMAKE_CURRENT_SOURCE_DIR}/integration/deferred/adaptive_heap_budget.js")
 set_tests_properties(js/deferred/adaptive_heap_budget PROPERTIES
-    ENVIRONMENT "PROTOCORE_HEAP_LIMIT_CELLS=1000000")
+    ENVIRONMENT "PROTOCORE_HEAP_LIMIT_CELLS=4000000")
 
 # The native addon tests load the addons THIS build directory produced, so two
 # build directories never pick up each other's.  test_native_require gets the

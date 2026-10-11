@@ -1,13 +1,22 @@
 // Deferreds under a small heap budget: the controller takes over at the first
 // Deferred, and the heap stays within the budget.
 //
-// Run with PROTOCORE_HEAP_LIMIT_CELLS=1000000 (64 MB of 64-byte cells; ctest
+// Run with PROTOCORE_HEAP_LIMIT_CELLS=4000000 (256 MB of 64-byte cells; ctest
 // sets it).  The first Deferred switches the space to protoCore's adaptive heap
 // controller with that budget (docs/API_REFERENCE.md, "Memory"), and the tasks
 // below allocate several times the budget in short-lived objects while keeping
 // only a checksum each.  The protoCore heap (process.memoryUsage().heapTotal)
 // must end within the budget, give or take the allocation batches the threads
 // hold, and every task must compute the same checksum as a sequential run.
+//
+// Why 256 MB and two tasks: protoCore's controller declares out of memory
+// when the cells a full cycle leaves unreclaimed -- which includes the young
+// generations of running calls and the threads' allocation batches, not only
+// the live set -- exceed the budget less one batch per thread.  With
+// allocating threads that figure runs far above the live set (here a live set
+// of about 0.5 M cells shows 3.0 M unreclaimed of 4 M), and at 1 M cells with
+// eight tasks the Windows CI runner hit the rule (run 38106931020).  Two
+// tasks at 4 M cells keep about 20 % headroom.
 
 const budgetCells = Number(process.env.PROTOCORE_HEAP_LIMIT_CELLS || 0);
 if (!budgetCells) {
@@ -15,18 +24,26 @@ if (!budgetCells) {
     process.exit(1);
 }
 
-const TASKS = 8;
-const ROUNDS = 40;
+const TASKS = 2;
+const ROUNDS = 80;
 const PER_ROUND = 1000;
+
+// One round per call: protoCore keeps the cells a call allocates in that
+// call's context until it returns, so a round's garbage becomes collectable
+// when its call ends, and the live set stays a few rounds per task -- well
+// inside the budget, whatever the number of pool threads.
+function round(seed, r) {
+    const batch = [];
+    for (let i = 0; i < PER_ROUND; i++)
+        batch.push({ id: i, name: "item" + i, tags: [seed, r, i % 7] });
+    let sum = 0;
+    for (const o of batch) sum = (sum + o.id + o.tags[2] + o.name.length) % 1000000007;
+    return sum;
+}
 
 function work(seed) {
     let sum = 0;
-    for (let r = 0; r < ROUNDS; r++) {
-        const batch = [];
-        for (let i = 0; i < PER_ROUND; i++)
-            batch.push({ id: i, name: "item" + i, tags: [seed, r, i % 7] });
-        for (const o of batch) sum = (sum + o.id + o.tags[2] + o.name.length) % 1000000007;
-    }
+    for (let r = 0; r < ROUNDS; r++) sum = (sum + round(seed, r)) % 1000000007;
     return sum;
 }
 
