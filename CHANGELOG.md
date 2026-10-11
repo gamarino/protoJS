@@ -14,7 +14,7 @@ mode in protoJS; protoCore is not changed.
   made every computed key one: `obj[k] = v` -- and even `obj[k]` reads,
   `delete`, `in` and descriptor lookups -- `JSON.parse` keys and string
   values, `Object.assign`, `Object.fromEntries`, worker messages, HTTP header
-  names. A program that keyed objects by data grew by about 470 bytes per
+  names. A program that keyed objects by data grew by about 480 bytes per
   distinct key for its whole life. Keys that are data -- heap strings that are
   neither program vocabulary (an identifier or literal of any loaded code, a
   built-in name) nor already a property of the object or its prototypes -- now

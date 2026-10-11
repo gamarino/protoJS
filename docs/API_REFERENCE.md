@@ -113,7 +113,7 @@ The resident set of a program that keeps using new keys therefore stays
 bounded by its live data: 500,000 distinct keys through `obj[k] = v` and
 `JSON.parse` under a 1,000,000-cell heap ceiling grow it by under 1 MB
 (`cli/dynamic-keys-bounded-memory`); before, every such key cost about
-460 bytes for the life of the process. `JSON.parse` also no longer interns
+480 bytes for the life of the process. `JSON.parse` also no longer interns
 string values.
 
 Dictionary keys enumerate in insertion order, after the named string keys; see

@@ -12,7 +12,7 @@ What failed
 protoCore interns every heap-string attribute key (and JSON.parse interned
 every string value as well) in its process-wide SymbolTable, whose entries are
 never collected. The resident set therefore grew with the number of distinct
-keys the program had ever used, about 460 bytes per key here, whatever the heap
+keys the program had ever used, about 480 bytes per key here, whatever the heap
 ceiling (docs/MEMORY_SAFETY_PROPOSALS.md, section 2).
 
 What this checks
@@ -21,9 +21,10 @@ Objects now keep keys that are not program vocabulary in a dictionary of
 collectable strings (src/runtime/PropertyDictionary.h), and JSON.parse no
 longer interns string values. Under a small heap ceiling the run must print the
 expected checksum, and the resident set may grow by at most GROWTH_LIMIT_MB
-between the first mark (KEYS_FIRST_MARK keys) and the end (KEYS keys): the
-same loop grew by about 180 MB over that interval before. The child is killed
-past KILL_LIMIT_MB so a regression cannot exhaust the machine.
+between the first mark (KEYS_FIRST_MARK keys) and the end (KEYS keys). Before
+the change the loop grew by 45.4 MB over its second 100,000 keys (476 bytes
+per key; run with 200,000 keys, since 500,000 did not finish in 1,500 s). The
+child is killed past KILL_LIMIT_MB so a regression cannot exhaust the machine.
 
 Usage: dynamic_keys_bounded_memory.py <path-to-protojs> <scratch-dir> [keys]
 """
