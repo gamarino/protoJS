@@ -257,6 +257,17 @@ add_test(NAME cli/promise-rejections-bounded-memory
             "${CMAKE_CURRENT_BINARY_DIR}/cli-scratch/promise-rejections-bounded-memory")
 set_tests_properties(cli/promise-rejections-bounded-memory PROPERTIES TIMEOUT 1200)
 
+# 500,000 distinct computed keys (obj[k] = v and JSON.parse) through a
+# long-running loop under a small heap ceiling: the resident set must stay flat.
+# Keys that are data live in the object's property dictionary as collectable
+# strings (src/runtime/PropertyDictionary.h); before, every one was interned in
+# protoCore's SymbolTable for good. About 15 s.
+add_test(NAME cli/dynamic-keys-bounded-memory
+    COMMAND ${PROTOJS_PYTHON} "${CMAKE_CURRENT_SOURCE_DIR}/cli/dynamic_keys_bounded_memory.py"
+            "$<TARGET_FILE:protojs>"
+            "${CMAKE_CURRENT_BINARY_DIR}/cli-scratch/dynamic-keys-bounded-memory")
+set_tests_properties(cli/dynamic-keys-bounded-memory PROPERTIES TIMEOUT 900)
+
 # The default heap ceiling is 75 % of physical memory (or of a smaller cgroup
 # limit), and PROTOCORE_HEAP_LIMIT_CELLS overrides it (src/HeapLimit.h).
 add_test(NAME cli/heap-limit-default
@@ -360,7 +371,10 @@ foreach(js_test
         basic/computed_accessor_names
         basic/method_enumerability
         basic/super_in_computed_methods
-        basic/super_property_accessors)
+        basic/super_property_accessors
+        basic/dictionary_keys
+        deferred/dictionary_keys_shared
+        workers/dictionary_keys_message)
     add_test(NAME js/${js_test}
         COMMAND "$<TARGET_FILE:protojs>"
                 "${CMAKE_CURRENT_SOURCE_DIR}/integration/${js_test}.js")
