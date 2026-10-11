@@ -373,6 +373,7 @@ foreach(js_test
         basic/super_in_computed_methods
         basic/super_property_accessors
         basic/dictionary_keys
+        basic/dictionary_shadowing
         deferred/dictionary_keys_shared
         workers/dictionary_keys_message)
     add_test(NAME js/${js_test}
