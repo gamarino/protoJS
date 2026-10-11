@@ -488,6 +488,16 @@ static const proto::ProtoString* ensureInternedOOP(proto::ProtoContext* ctx, con
     return ensureInterned(ctx, obj->asString(ctx));
 }
 
+// The property key of an element access whose key is a symbol (its
+// per-instance __symbol_str_key__) or a string, interned; nullptr for any
+// other value, which the caller converts with ToString.  Out of line so the
+// element opcodes do not grow runBytecode's frame.
+PROTOJS_NOINLINE
+static const proto::ProtoString* elementKeyIfSymbolOrString(proto::ProtoContext* ctx,
+                                                            const proto::ProtoObject* index) {
+    return ensureInternedOOP(ctx, index);
+}
+
 // The getter / setter arm of OP_define_method_computed: installs `method` as
 // the accessor of `key` on `obj` and returns the new object, or nullptr when
 // the sidecar key cannot be built (the caller then defines a data property).
@@ -12822,12 +12832,15 @@ const proto::ProtoObject* runBytecode(proto::ProtoContext* pContext,
                     if (arrIdxFast2 >= 0) {
                         key = JSSymbols::indexKey(pContext, static_cast<uint32_t>(arrIdxFast2));
                     } else {
-                        const proto::ProtoObject* keyObj = index;
-                        if (!index->isString(pContext)) {
-                            keyObj = toString(pContext, index);
+                        // A symbol's key is its per-instance identity, as in
+                        // OP_get_array_el: ToString would give "Symbol(desc)",
+                        // so `o[sym]()` missed the method `o[sym]` finds.
+                        key = elementKeyIfSymbolOrString(pContext, index);
+                        if (!key) {
+                            const proto::ProtoObject* keyObj = toString(pContext, index);
                             REFRESH_INTERP_STATE();
+                            key = keyObj ? keyObj->asString(pContext) : nullptr;
                         }
-                        key = keyObj ? keyObj->asString(pContext) : nullptr;
                     }
                     protojs::materializeLazyPrototypeForKey(pContext, obj, key);  // LazyPrototype.h
                     val = (obj && key) ? obj->getAttribute(pContext, key, true) : PROTO_NONE;
@@ -12910,9 +12923,12 @@ const proto::ProtoObject* runBytecode(proto::ProtoContext* pContext,
                     if (arrIdxFast3 >= 0) {
                         key = JSSymbols::indexKey(pContext, static_cast<uint32_t>(arrIdxFast3));
                     } else {
-                        const proto::ProtoObject* keyObj = toString(pContext, index);
-                        REFRESH_INTERP_STATE();
-                        key = keyObj ? keyObj->asString(pContext) : nullptr;
+                        key = elementKeyIfSymbolOrString(pContext, index);
+                        if (!key) {
+                            const proto::ProtoObject* keyObj = toString(pContext, index);
+                            REFRESH_INTERP_STATE();
+                            key = keyObj ? keyObj->asString(pContext) : nullptr;
+                        }
                     }
                     protojs::materializeLazyPrototypeForKey(pContext, obj, key);  // LazyPrototype.h
                     val = (obj && key) ? obj->getAttribute(pContext, key, true) : PROTO_NONE;

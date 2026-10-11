@@ -354,7 +354,8 @@ foreach(js_test
         deferred/test_deferred_reject
         test_deferred_basic
         basic/computed_accessor_keys
-        basic/typed_array_sort)
+        basic/typed_array_sort
+        basic/symbol_keyed_calls)
     add_test(NAME js/${js_test}
         COMMAND "$<TARGET_FILE:protojs>"
                 "${CMAKE_CURRENT_SOURCE_DIR}/integration/${js_test}.js")
