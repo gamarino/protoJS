@@ -488,6 +488,47 @@ static const proto::ProtoString* ensureInternedOOP(proto::ProtoContext* ctx, con
     return ensureInterned(ctx, obj->asString(ctx));
 }
 
+// The getter / setter arm of OP_define_method_computed: installs `method` as
+// the accessor of `key` on `obj` and returns the new object, or nullptr when
+// the sidecar key cannot be built (the caller then defines a data property).
+// The accessor lives in the __get_<key>__ / __set_<key>__ sidecar with an
+// undefined data slot and the accessor descriptor (configurable, 0x2), and
+// the object is stamped with the own-accessor hint, exactly as
+// OP_define_method does for a literal name.  Without the hint the element
+// paths (`o[k]`, `o[k] = v`) take their plain-data fast path and miss the
+// accessor, so `({ get [null]() {...} })[null]` was undefined.  Kept out of
+// runBytecode so its locals do not grow the dispatch loop's frame.
+PROTOJS_NOINLINE
+static const proto::ProtoObject* defineComputedAccessor(proto::ProtoContext* ctx,
+                                                        const proto::ProtoObject* obj,
+                                                        const proto::ProtoString* key,
+                                                        const proto::ProtoObject* method,
+                                                        bool isGetter) {
+    std::string name;
+    key->toUTF8String(ctx, name);
+    const std::string sidecar = (isGetter ? "__get_" : "__set_") + name + "__";
+    const proto::ProtoObject* sko = ctx->fromUTF8String(sidecar.c_str());
+    const proto::ProtoString* skp = sko ? sko->asString(ctx) : nullptr;
+    if (!skp) return nullptr;
+    // Getter and setter functions have no `prototype` (ECMA-262 §15.4.4).
+    if (method && method != PROTO_NONE) {
+        if (const proto::ProtoString* protoKey = JSSymbols::prototype(ctx)) {
+            if (const proto::ProtoObject* stripped = method->setAttribute(ctx, protoKey, nullptr))
+                method = stripped;
+        }
+    }
+    const proto::ProtoObject* out = obj->setAttribute(ctx, key, PROTO_NONE);
+    out = out->setAttribute(ctx, skp, method ? method : PROTO_NONE);
+    if (!out) return nullptr;
+    const std::string pdName = "__pd_" + name + "__";
+    const proto::ProtoObject* pdo = ctx->fromUTF8String(pdName.c_str());
+    if (const proto::ProtoString* pdk = pdo ? pdo->asString(ctx) : nullptr)
+        out = out->setAttribute(ctx, pdk, ctx->fromInteger(0x2LL));
+    if (const proto::ProtoString* hapK = JSSymbols::hasAccessorProps(ctx))
+        out = out->setAttribute(ctx, hapK, PROTO_TRUE);
+    return out;
+}
+
 
 
 namespace {
@@ -12115,44 +12156,24 @@ const proto::ProtoObject* runBytecode(proto::ProtoContext* pContext,
                 }
                 if (!keyStr2) {
                     // ToPropertyKey: coerce via ToString (handles undefined\xe2\x86\x92"undefined",
-                    // null\xe2\x86\x92"null", numbers, objects, etc.).
+                    // null\xe2\x86\x92"null", numbers, objects, etc.), interned like
+                    // every other property key so get / put find the same key.
                     const proto::ProtoObject* coerced = toString(pContext, keyVal);
-                    keyStr2 = coerced ? coerced->asString(pContext) : nullptr;
+                    keyStr2 = coerced ? ensureInterned(pContext, coerced->asString(pContext)) : nullptr;
                 }
                 if (!keyStr2) DISPATCH();
                 int flag = op_flags & 0x3;
-                std::string nameStrC;
-                keyStr2->toUTF8String(pContext, nameStrC);
                 if (flag == 1 || flag == 2) {
-                    const std::string prefix = (flag == 1) ? "__get_" : "__set_";
-                    std::string sidecar = prefix + nameStrC + "__";
-                    const proto::ProtoObject* sko = pContext->fromUTF8String(sidecar.c_str());
-                    const proto::ProtoString* skp = sko ? sko->asString(pContext) : nullptr;
-                    if (skp) {
-                        // Strip the spurious .prototype on getter/setter
-                        // functions (ECMA-262 §14.3.9).
-                        if (methodVal && methodVal != PROTO_NONE) {
-                            const proto::ProtoString* protoKeyDel = JSSymbols::prototype(pContext);
-                            if (protoKeyDel) {
-                                const proto::ProtoObject* stripped =
-                                    methodVal->setAttribute(pContext, protoKeyDel, nullptr);
-                                if (stripped) methodVal = stripped;
-                            }
-                        }
-                        const proto::ProtoObject* tmp = obj2->setAttribute(pContext, keyStr2, PROTO_NONE);
-                        const proto::ProtoObject* newObj2 = tmp->setAttribute(pContext, skp, methodVal ? methodVal : PROTO_NONE);
-                        // Accessor descriptor: bits 0x2 (configurable only).
-                        if (newObj2) {
-                            std::string pdName = "__pd_" + nameStrC + "__";
-                            const proto::ProtoObject* pdo = pContext->fromUTF8String(pdName.c_str());
-                            const proto::ProtoString* pdk = pdo ? pdo->asString(pContext) : nullptr;
-                            if (pdk) newObj2 = newObj2->setAttribute(pContext, pdk, pContext->fromInteger(0x2LL));
-                        }
+                    const proto::ProtoObject* withAccessor =
+                        defineComputedAccessor(pContext, obj2, keyStr2, methodVal, flag == 1);
+                    if (withAccessor) {
                         stackPop(pContext);
-                        stackPush(pContext, newObj2 ? newObj2 : obj2);
+                        stackPush(pContext, withAccessor);
                         DISPATCH();
                     }
                 }
+                std::string nameStrC;
+                keyStr2->toUTF8String(pContext, nameStrC);
                 const proto::ProtoObject* newObj2 =
                     obj2->setAttribute(pContext, keyStr2, methodVal ? methodVal : PROTO_NONE);
                 // Method descriptor: bits 0x3.
