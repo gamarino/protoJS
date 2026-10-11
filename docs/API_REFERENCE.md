@@ -69,8 +69,8 @@ one and each worker's), in two modes:
   "Adaptive heap controller"). Its budget is the same 75 % of the memory
   available (or `PROTOCORE_HEAP_LIMIT_CELLS`); within it, collection starts at
   128 MiB and the limit grows only while the threads wait for the collector.
-  Several threads allocating at once keep the heap far below the budget and,
-  in protoCore's measurements, run faster than under the fixed ceiling.
+  Several threads allocating at once then keep the heap far below the
+  budget, at a time cost that depends on the program (below).
 
 `PROTOCORE_ADAPTIVE_HEAP=1` / `=0` force the controller on / off;
 `protoCore.gcStats().adaptiveHeap` says which mode a space is in.
@@ -78,11 +78,12 @@ one and each worker's), in two modes:
 In both modes, memory the heap has taken from the operating system is not
 returned to it until the process ends: the resident size of a process is its
 peak heap. The measured trade-off (synthetic workloads, one notebook-class
-machine): the controller makes sequential structure benchmarks 13-36 % slower
-for 77-96 % less memory, which is why it is not the default for them, and
-makes the same benchmarks with 12 Deferreds about 10 % faster with 46-73 %
-less memory (protoCore `docs/reports/2026-10-04-final-remeasurement.md`;
-protoJS's own before/after figures are in the CHANGELOG entry of 2026-10-10).
+machine): run on every program, the controller makes sequential structure
+benchmarks 13-36 % slower for 77-96 % less memory (protoCore
+`docs/reports/2026-10-04-final-remeasurement.md`), which is why sequential
+programs keep the fixed ceiling. With 6 or 12 Deferreds, protoJS's own
+before/after (CHANGELOG, 2026-10-10) measured 23-65 % less peak memory and
+wall time from 11 % faster to 26 % slower depending on the workload.
 
 ---
 

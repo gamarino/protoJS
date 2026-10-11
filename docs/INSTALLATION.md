@@ -212,7 +212,7 @@ Windows Server 2022 (MSVC, x64, protoCore 2.14.2, whose DLL is
 protoCore 2.7.0, the floor then.
 
 - `ctest`: the whole suite with the Linux gate's exclusion (`-E
-  "integration|network"`): 85 cases on 2026-10-02 -- the Catch2 units, the
+  "integration|network"`): 159 cases on 2026-10-10 (CI run 38102672554) -- the Catch2 units, the
   CLI fixtures in `tests/cli` (run through Git for Windows' `bash`, the Python
   ones through the interpreter CMake finds) and the asserting JavaScript
   fixtures, Node's own `path` tests among them. All pass on all three

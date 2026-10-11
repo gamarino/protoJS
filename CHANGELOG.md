@@ -4,6 +4,87 @@ All notable changes to protoJS are documented in this file.
 
 ## [Unreleased]
 
+### Changed — the adaptive heap controller runs once Deferreds do; CI on protoCore 2.14.2 (2026-10-10)
+
+- **Memory policy.** A sequential program keeps the fixed heap ceiling (75 %
+  of physical memory or of the cgroup limit). The first time a space's
+  Deferred pool starts, the space switches to protoCore's adaptive heap
+  controller (`ProtoSpace::enableAdaptiveHeap`), whose budget is the same
+  75 % (or `PROTOCORE_HEAP_LIMIT_CELLS`). `PROTOCORE_ADAPTIVE_HEAP=1` / `=0`
+  force it on / off; `PROTOCORE_HEAP_LIMIT_CELLS=0` keeps it off.
+  `protoCore.gcStats()` gains `adaptiveHeap` and `softLimitCells`. Heap
+  memory is still never returned to the operating system. See
+  [Memory](docs/API_REFERENCE.md#memory). Tests: `[AdaptiveHeap]` units,
+  `js/deferred/adaptive_heap_budget`.
+- **Measured** (`benchmarks/structures`, scale 1, REPS=1 per process,
+  median of 3 interleaved rounds; each process in a systemd scope with
+  `MemoryMax=8G`, so both policies get a 6 GB budget; no
+  `PROTOCORE_HEAP_LIMIT_CELLS`; master `517875da0` against this branch, both
+  on protoCore 2.14.2). **Synthetic workloads, one notebook-class machine
+  (Ryzen 5 5500U, 6 cores), and the machine was not quiet**: another agent
+  was compiling and measuring, 1-minute load 3.5-6.5 during the runs, so
+  differences under about 10 % are noise.
+
+  | Workload | Mode, N | Wall s | Peak RSS MB | GC cycles |
+  |---|---|---|---|---|
+  | records | seq 6 | 13.0 -> 12.5 | 3983 -> 3983 | 0 -> 0 |
+  | records | par 6 | 4.9 -> 5.2 (+6 %) | 4088 -> 1621 (-60 %) | 0 -> 6 |
+  | records | par 12 | 8.1 -> 7.9 (-2 %) | 6326 -> 4262 (-33 %) | 1 -> 7 |
+  | join | seq 6 | 12.4 -> 12.7 | 2806 -> 2806 | 0 -> 0 |
+  | join | par 6 | 4.2 -> 3.8 (-11 %) | 2882 -> 1412 (-51 %) | 0 -> 8 |
+  | join | par 12 | 7.1 -> 7.5 (+5 %) | 5627 -> 3115 (-45 %) | 0 -> 8 |
+  | doctree | seq 6 | 9.1 -> 9.2 | 2046 -> 2045 | 0 -> 0 |
+  | doctree | par 6 | 3.8 -> 3.4 (-11 %) | 2118 -> 987 (-53 %) | 0 -> 7 |
+  | doctree | par 12 | 6.0 -> 5.8 (-3 %) | 4180 -> 2003 (-52 %) | 0 -> 8 |
+  | wordfreq | seq 6 | 8.4 -> 8.2 | 2071 -> 2071 | 0 -> 0 |
+  | wordfreq | par 6 | 3.1 -> 4.0 (**+26 %**) | 2074 -> 728 (-65 %) | 0 -> 7 |
+  | wordfreq | par 12 | 4.6 -> 5.2 (**+13 %**) | 4113 -> 1795 (-56 %) | 0 -> 8 |
+  | graph | seq 6 | 17.0 -> 16.9 | 5403 -> 5402 | 0 -> 0 |
+  | graph | par 6 | 5.4 -> 5.9 (+9 %) | 5561 -> 2568 (-54 %) | 0 -> 6 |
+  | graph | par 12 | 10.3 -> 10.9 (+6 %) | 6414 -> 4957 (-23 %) | 3 -> 7 |
+
+  Sequential runs are unchanged (same policy, no cycle). With Deferreds peak
+  memory falls 23-65 % everywhere; wall time ranges from 11 % faster to 26 %
+  slower. **Regressions:** `wordfreq` with 6 and 12 Deferreds (+26 %, +13 %)
+  and `graph` with 6 (+9 %): under the fixed 6 GB ceiling these runs never
+  collect, and the controller's 6-8 cycles are the cost. protoCore's
+  re-measurement (12 Deferreds, 12 GB default) found the controller 10 %
+  faster on `records` and `wordfreq`; this run does not reproduce that gain.
+  Seq N=12 was not measured (the sequential policy is unchanged).
+- **CI** pins protoCore 2.14.2 (tag `v2.14.2`, commit `17bc118e`) on Linux,
+  macOS and Windows; the Windows floor job stays on 2.11.0.
+
+### Fixed — methods, accessors and `super` (2026-10-10, second pass)
+
+- **Computed methods and accessors are named.** `({ get [k]() {} })` and
+  every other computed member had an empty `name`; they now get "get k",
+  "set k" or "k", and a symbol key "[description]" (SetFunctionName). Both
+  define opcodes now delegate to out-of-line helpers (`defineMethodNamed`,
+  `defineMethodComputed`, `makeMethod`) outside `runBytecode`'s frame. Test:
+  `js/basic/computed_accessor_names`.
+- **Enumerability.** Object-literal methods were non-enumerable
+  (`Object.keys({ m() {} })` was `[]`) and so were computed object-literal
+  accessors, while class getters and setters were enumerable: the code read
+  a flag bit QuickJS never sets. It now follows QuickJS's
+  `OP_DEFINE_METHOD_ENUMERABLE`: object-literal members enumerable, class
+  members (static or not) non-enumerable. Test: `js/basic/method_enumerability`.
+- **`super` in computed methods and in accessors.** Only literal-named
+  methods had a [[HomeObject]]; computed methods and every getter and setter
+  now get one. `super.x` now runs an inherited getter with the caller's
+  `this` (it returned the raw slot, so undefined) and `super.x = v` runs an
+  inherited setter (it wrote onto `this`); a refused write throws in strict
+  code, and a null super base is a TypeError. Tests:
+  `js/basic/super_in_computed_methods`, `js/basic/super_property_accessors`.
+- **`o[sym]()`** threw "is not a function" for any method stored under a
+  user symbol: the call form of element access converted the symbol with
+  ToString. Test: `js/basic/symbol_keyed_calls`.
+
+Test262, locally, master's binary (`517875da0`) against the branch, both on
+protoCore 2.14.2, sequential: `language/expressions/object`,
+`language/statements/class`, `language/expressions/class`,
+`language/computed-property-names` and `built-ins/Function/prototype` (9,953
+tests): 6,532 -> 6,564 passed, 32 fail->pass, 0 pass->fail.
+
 ### Fixed — computed accessors, typed-array sort, test addon output (2026-10-10)
 
 - **Getters and setters with a computed key.** `OP_define_method_computed`

@@ -67,6 +67,16 @@ engine.
 
 ### What changed since the previous figures
 
+- **2026-10-10, methods, accessors and `super`** (CHANGELOG, second pass:
+  computed member names, method and accessor enumerability, [[HomeObject]]
+  for computed methods and accessors, super property get/set through the
+  receiver, `o[sym]()`). Locally, master's binary (`517875da0`) against the
+  branch, both on protoCore 2.14.2, sequentially, on
+  `language/expressions/object`, `language/statements/class`,
+  `language/expressions/class`, `language/computed-property-names` and
+  `built-ins/Function/prototype` (9,953 tests): 6,532 -> 6,564 passed, 32
+  fail->pass (the `fn-name-*`, `*-super*`, `*-prop-desc`, `accessors` and
+  symbol-method tests), 0 pass->fail.
 - **2026-10-10, computed accessors and typed-array sort** (CHANGELOG).
   Locally, master's binary (`f37e855b4`) against the branch on the touched
   directories (`built-ins/TypedArray`, `built-ins/TypedArrayConstructors`,
