@@ -37,6 +37,16 @@
 //     one key, not data flowing through a loop.
 //   - Only ordinary extensible objects get new dictionary entries: not arrays,
 //     typed arrays, functions, proxies, String wrappers or the global object.
+//   - Own properties shadow inherited ones. A key enters a dictionary only when
+//     no prototype has it as a named attribute, but a prototype may gain one
+//     later: code loaded afterwards names the key (new Function, a module) and
+//     assigns it, defines an accessor of that name, or the object gets a new
+//     prototype. A lookup of a key that MAY be held by a dictionary
+//     (mayBeDictionaryKey) therefore consults the dictionaries along the chain
+//     (shadowingValue) before the named lookup. Keys the code names (atoms)
+//     qualify only when their spelling was stored in a dictionary before it
+//     became a name; a process-wide flag keeps every other named lookup at one
+//     relaxed load (see "Spellings named after they were data" below).
 //
 // Order: the named string keys (protoCore's attribute order, the documented
 // deviation), then the dictionary keys in insertion order; when the object has
@@ -49,6 +59,7 @@
 
 #include <protoCore.h>
 
+#include <atomic>
 #include <cstdint>
 #include <string>
 #include <utility>
@@ -78,6 +89,39 @@ inline void noteVocabulary(const std::string& s) { noteVocabulary(s.data(), s.si
 /** True when `utf8` was recorded as vocabulary. */
 bool isVocabulary(const std::string& utf8);
 
+// ---- Spellings named after they were data -------------------------------------
+//
+// Every spelling a dictionary takes is recorded in a fixed-size Bloom filter
+// (no false negatives, bounded memory). When a spelling becomes a NAME --
+// program vocabulary (noteVocabulary), or a named attribute made from a
+// dictionary key (evict, a computed method or accessor name) -- and the filter
+// may hold it, the spelling is recorded as "named after data" and a
+// process-wide flag is raised. Only such spellings, and heap-string keys,
+// can be a named attribute of a prototype and a dictionary key of an object
+// below it, so only they need the dictionaries consulted first. A false
+// positive of the filter costs that spelling the slower lookup, nothing else.
+
+namespace detail {
+/** Raised once any spelling has been named after a dictionary held it. */
+extern std::atomic<bool> g_anyNamedAfterData;
+bool isNamedAfterData(proto::ProtoContext* ctx, const proto::ProtoString* key);
+}  // namespace detail
+
+/** Record that `utf8` becomes a named attribute name although it is not
+ *  vocabulary (evict, computed method and accessor names). */
+void noteNamedSpelling(const std::string& utf8);
+
+/** True when an object on a chain may hold `key` in its dictionary while an
+ *  object above it has `key` as a named attribute: `key` is a heap string, or
+ *  a name whose spelling was data first. One relaxed load for a program name
+ *  in a process where that never happened. */
+inline bool mayBeDictionaryKey(proto::ProtoContext* ctx, const proto::ProtoString* key) {
+    if (!key) return false;
+    if (isHeapStringKey(key)) return true;
+    if (!detail::g_anyNamedAfterData.load(std::memory_order_relaxed)) return false;
+    return detail::isNamedAfterData(ctx, key);
+}
+
 // ---- Dictionary access (own properties) --------------------------------------
 
 /** True when `obj` holds a dictionary (it may be empty). */
@@ -95,11 +139,23 @@ inline bool hasOwn(proto::ProtoContext* ctx, const proto::ProtoObject* obj,
 
 /** The value of `key` in the dictionary of `obj` or of the first object on its
  *  prototype chain (JS overrides included) whose dictionary holds it; nullptr
- *  when none does. Stops at an object that has `key` as a named attribute.
- *  `holder`, when given, receives the object that held it. */
+ *  when none does. Stops at an object above `obj` that has `key` as a named
+ *  attribute or that is a proxy (whose traps decide). `holder`, when given,
+ *  receives the object that held it. */
 const proto::ProtoObject* findInChain(proto::ProtoContext* ctx, const proto::ProtoObject* obj,
                                       const proto::ProtoString* key,
                                       const proto::ProtoObject** holder = nullptr);
+
+/** [[Get]] precedence for a key a dictionary may hold: the dictionary value
+ *  that the chain reaches before any named attribute of `key` (findInChain),
+ *  or nullptr when the named lookup decides. nullptr at once, without a
+ *  lookup, when mayBeDictionaryKey is false. */
+inline const proto::ProtoObject* shadowingValue(proto::ProtoContext* ctx,
+                                                const proto::ProtoObject* obj,
+                                                const proto::ProtoString* key,
+                                                const proto::ProtoObject** holder = nullptr) {
+    return mayBeDictionaryKey(ctx, key) ? findInChain(ctx, obj, key, holder) : nullptr;
+}
 
 /** Number of own dictionary keys. */
 std::size_t size(proto::ProtoContext* ctx, const proto::ProtoObject* obj);

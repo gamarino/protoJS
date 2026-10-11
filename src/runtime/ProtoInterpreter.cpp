@@ -110,9 +110,21 @@ extern thread_local const proto::ProtoObject* t_undefinedSentinel;
 // compiler can keep the inlined path branch-free; the virtual-dispatch
 // path stays available for the rare custom-behavior objects.
 
-static const proto::ProtoObject* resolveFieldOOP(proto::ProtoContext* ctx, const proto::ProtoObject* obj, const proto::ProtoString* key) {
+// `dictDone`: the caller has already applied dict::shadowingValue to this
+// (obj, key) and it answered nothing.
+static const proto::ProtoObject* resolveFieldOOP(proto::ProtoContext* ctx, const proto::ProtoObject* obj, const proto::ProtoString* key, bool dictDone = false) {
     if (!obj || !key || obj == PROTO_NONE) return PROTO_NONE;
     protojs::materializeLazyPrototypeForKey(ctx, obj, key);  // LazyPrototype.h
+    // A key held by a property dictionary on the chain below any named
+    // attribute of that spelling: the own (or nearer) data property shadows
+    // what a prototype gained later (runtime/PropertyDictionary.h).
+    const bool mayDict = !dictDone && protojs::dict::mayBeDictionaryKey(ctx, key);
+    if (mayDict) {
+        if (const proto::ProtoObject* dv = protojs::dict::findInChain(ctx, obj, key)) return dv;
+    }
+    // Every dictionary that could answer has been probed when mayDict, or
+    // by the caller when dictDone; the probe below remains for the others.
+    const bool dictProbed = mayDict || (dictDone && protojs::dict::mayBeDictionaryKey(ctx, key));
     const auto& reg = protojs::BehaviorRegistry::instance();
     const protojs::JSObjectBehavior* behavior = reg.resolve(ctx, obj);
     const proto::ProtoObject* res;
@@ -159,10 +171,10 @@ static const proto::ProtoObject* resolveFieldOOP(proto::ProtoContext* ctx, const
         }
     }
     // No named attribute answers: a key of the receiver's or a prototype's
-    // property dictionary (runtime/PropertyDictionary.h). A dictionary key is
-    // never also a named attribute of the object or, when it was stored, of
-    // its prototypes, so a named hit above never hides one.
-    if (!res || res == PROTO_NONE) {
+    // property dictionary (runtime/PropertyDictionary.h). A named hit above
+    // cannot hide one: shadowingValue answered first for every key a
+    // dictionary may hold below a named attribute of the same spelling.
+    if ((!res || res == PROTO_NONE) && !dictProbed) {
         if (const proto::ProtoObject* dv = protojs::dict::findInChain(ctx, obj, key)) return dv;
     }
     return res;
@@ -440,6 +452,27 @@ static const proto::ProtoObject* putDictionaryProperty(proto::ProtoContext* ctx,
         if (const proto::ProtoObject* r = protojs::dict::update(ctx, obj, key, val)) return r;
         return obj;
     }
+    // A prototype's dictionary key that the chain reaches before any named
+    // property of the spelling (a prototype gained one later): OrdinarySet
+    // finds that data property, so the write defines an own data property on
+    // the receiver -- refused when the holder is frozen -- and no setter
+    // further up runs.
+    const proto::ProtoObject* holder = nullptr;
+    if (protojs::dict::shadowingValue(ctx, obj, key, &holder) && holder && holder != obj) {
+        const bool readOnly = protojs::jsIsFrozen(ctx, holder);
+        if (readOnly || protojs::jsIsNonExtensible(ctx, obj)) {
+            if (isStrict) {
+                std::string ks;
+                key->toUTF8String(ctx, ks);
+                signalNativeException(makeNativeError(ctx, "TypeError",
+                    (readOnly ? "Cannot assign to read only property '" + ks + "'"
+                              : "Cannot add property " + ks + ", object is not extensible").c_str()));
+            }
+            return obj;
+        }
+        if (const proto::ProtoObject* r = protojs::dict::put(ctx, obj, key, val)) return r;
+        return obj->setAttribute(ctx, key, val);
+    }
     if (!protojs::dict::isHeapStringKey(key)) return nullptr;
     return protojs::dict::put(ctx, obj, key, val);
 }
@@ -538,6 +571,9 @@ static const proto::ProtoString* internedKey(proto::ProtoContext* ctx, const pro
     if (!s || s->isSymbol()) return s;
     std::string utf8;
     s->toUTF8String(ctx, utf8);
+    // A data spelling may become the name of a method or accessor here; the
+    // objects that hold it in a property dictionary must still shadow it.
+    if (protojs::dict::isHeapStringKey(s)) protojs::dict::noteNamedSpelling(utf8);
     return proto::ProtoString::createSymbol(ctx, utf8.c_str());
 }
 
@@ -1477,7 +1513,14 @@ static const proto::ProtoObject* reflectSet(
     // "writable bit off → return false" branch wrote the property off
     // before the setter ever ran (built-ins/Reflect/set/
     // set-value-on-accessor-descriptor.js).
-    {
+    // A data property of a property dictionary that the chain reaches before
+    // any named property of the key (runtime/PropertyDictionary.h) is what
+    // OrdinarySet finds: writable unless its holder is frozen, and no setter
+    // above it runs.
+    const proto::ProtoObject* dictHolder = nullptr;
+    const bool dictData = protojs::dict::shadowingValue(ctx, target, k, &dictHolder) != nullptr;
+    if (dictData && dictHolder && protojs::jsIsFrozen(ctx, dictHolder)) return PROTO_FALSE;
+    if (!dictData) {
         std::string kstr;
         k->toUTF8String(ctx, kstr);
         // Prototype-chain (or own) accessor: invoke its setter with
@@ -11059,10 +11102,18 @@ const proto::ProtoObject* runBytecode(proto::ProtoContext* pContext,
                     pAutomaticLocals[currentStackBase + _PF().stackTop++] = (val) ? (val) : PROTO_NONE;
                     DISPATCH();
                 }
+                // An own (or nearer) property-dictionary key shadows a named
+                // property or accessor a prototype gained after the object
+                // stored it (runtime/PropertyDictionary.h). One relaxed load
+                // for a name that was never data.
+                if (const proto::ProtoObject* dv = protojs::dict::shadowingValue(pContext, obj, name)) {
+                    pAutomaticLocals[currentStackBase + _PF().stackTop++] = dv;
+                    DISPATCH();
+                }
                 val = name ? invokeGetterIfPresentFast(obj, name) : PROTO_NONE;
                 if (has_pending_exception) DISPATCH();
                 if (!val || val == PROTO_NONE) {
-                    val = resolveFieldOOP(pContext, obj, name);
+                    val = resolveFieldOOP(pContext, obj, name, /*dictDone=*/true);
                 }
                 REFRESH_INTERP_STATE();
                 if (has_pending_exception) DISPATCH();
@@ -11197,10 +11248,15 @@ const proto::ProtoObject* runBytecode(proto::ProtoContext* pContext,
                 // canonical chain walk; the BehaviorRegistry-resolved
                 // behavior already handles the protocol callbacks
                 // correctly.
+                // Own (or nearer) dictionary key first, as in OP_get_field.
+                if (const proto::ProtoObject* dv = protojs::dict::shadowingValue(pContext, obj, key)) {
+                    stackPush(pContext, dv);
+                    DISPATCH();
+                }
                 const proto::ProtoObject* val = key ? invokeGetterIfPresentFast(obj, key) : PROTO_NONE;
                 if (has_pending_exception) DISPATCH();
                 if (!val || val == PROTO_NONE) {
-                    val = resolveFieldOOP(pContext, obj, key);
+                    val = resolveFieldOOP(pContext, obj, key, /*dictDone=*/true);
                 }
                 // \xc2\xa710.1.8.1 OrdinaryGet step 6 — same Proxy-ancestor
                 // walk OP_get_field uses above.  When obj's prototype
@@ -11400,7 +11456,11 @@ const proto::ProtoObject* runBytecode(proto::ProtoContext* pContext,
                 // proto}.js, trap-is-missing-receiver-multiple-calls.js
                 // and the matching trap-is-null/undefined-receiver
                 // forwarding cases).
-                if (obj->hasOwnAttribute(pContext, key) != PROTO_TRUE) {
+                // (A key of the receiver's or a nearer prototype's property
+                // dictionary is a data property that the walk would pass:
+                // resolvePutFieldOOP writes it.)
+                if (obj->hasOwnAttribute(pContext, key) != PROTO_TRUE
+                    && !protojs::dict::shadowingValue(pContext, obj, key)) {
                     // Probe accessor sidecars first — an own setter
                     // (__set_<key>__) trumps the chain walk.
                     // The sidecar names come from the per-thread caches:
@@ -12867,6 +12927,7 @@ const proto::ProtoObject* runBytecode(proto::ProtoContext* pContext,
                         const bool ownMayHaveAccessor = hapKey
                             && obj->hasOwnAttribute(pContext, hapKey) == PROTO_TRUE
                             && obj->getAttribute(pContext, hapKey, false) == PROTO_TRUE;
+                        const bool mayDictGAE = protojs::dict::mayBeDictionaryKey(pContext, key);
 
                         std::string keyStrGAE;
                         std::string gkStrGAE;
@@ -12892,11 +12953,15 @@ const proto::ProtoObject* runBytecode(proto::ProtoContext* pContext,
                             // Own data property — return without walking
                             // the prototype chain.
                             val = obj->getAttribute(pContext, key, false);
-                        } else if (const proto::ProtoObject* dv =
-                                       protojs::dict::getOwn(pContext, obj, key)) {
-                            // Own key of the object's property dictionary
+                        } else if (const proto::ProtoObject* dv = mayDictGAE
+                                       ? protojs::dict::findInChain(pContext, obj, key)
+                                       : protojs::dict::getOwn(pContext, obj, key)) {
+                            // A key of the object's property dictionary
                             // (runtime/PropertyDictionary.h): a plain data
-                            // property, which shadows the prototype chain.
+                            // property, which shadows the prototype chain;
+                            // or, for a key a dictionary may hold below a
+                            // named property of the same spelling, the
+                            // nearest prototype's dictionary entry.
                             val = dv;
                         } else {
                             // Not own — only NOW pay the inherited-
@@ -12922,10 +12987,10 @@ const proto::ProtoObject* runBytecode(proto::ProtoContext* pContext,
                             }
                         }
                         if (!val || val == PROTO_NONE) {
-                            val = resolveFieldOOP(pContext, obj, key);
+                            val = resolveFieldOOP(pContext, obj, key, mayDictGAE);
                         }
                         // An inherited key of a prototype's dictionary.
-                        if ((!val || val == PROTO_NONE) && key) {
+                        if ((!val || val == PROTO_NONE) && key && !mayDictGAE) {
                             if (const proto::ProtoObject* dv =
                                     protojs::dict::findInChain(pContext, obj, key))
                                 val = dv;

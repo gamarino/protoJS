@@ -5091,6 +5091,16 @@ static const proto::ProtoObject* objectHasOwn(
     if (hasCallException()) return PROTO_NONE;
     if (!strKey) return PROTO_FALSE;
     materializeLazyPrototypeForKey(ctx, obj, strKey);  // runtime/LazyPrototype.h
+    // §20.1.2.13 step 3 HasOwnProperty -> [[GetOwnProperty]]: on a Proxy that
+    // is the getOwnPropertyDescriptor trap or its target, as
+    // Object.prototype.hasOwnProperty does. Pre-fix the probe ran on the
+    // proxy cell and reported false for every property of the target.
+    if (isProxy(ctx, obj)) {
+        const proto::ProtoObject* desc = proxyDispatchGetOwnPropertyDescriptor(ctx, obj, strKey);
+        if (hasCallException()) return PROTO_NONE;
+        return (desc && desc != PROTO_NONE && desc != getUndefinedSentinel()
+                && desc != getNullSentinel()) ? PROTO_TRUE : PROTO_FALSE;
+    }
     std::string keyStr;
     strKey->toUTF8String(ctx, keyStr);
     // hasOwnAttribute returns PROTO_TRUE if own, PROTO_FALSE if inherited, nullptr if absent
