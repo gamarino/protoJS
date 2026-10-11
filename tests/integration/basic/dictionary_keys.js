@@ -243,18 +243,23 @@ const sorted = (a) => a.slice().sort();
 
 // ---- 10. JSON --------------------------------------------------------------------------
 {
+    // The keys are read through names built at run time: a key spelled as a
+    // literal anywhere in the program is vocabulary and stays a named
+    // attribute, whose order is the documented deviation (platform-dependent).
+    const J = (...parts) => parts.join('-');
     const text = '{"id-0001-aaaa":{"name-field-x":"Ann","list-field":[1,"two",{"deep-key-1":true}]},' +
                  '"short-key":1,"id-0002-bbbb":null}';
     const p = JSON.parse(text);
-    eq('parse values', [p['id-0001-aaaa']['name-field-x'], p['id-0001-aaaa']['list-field'][2]['deep-key-1'],
-                        p['short-key'], p['id-0002-bbbb']], ['Ann', true, 1, null]);
-    eq('parse order', Object.keys(p), ['id-0001-aaaa', 'short-key', 'id-0002-bbbb']);
+    const first = p[J('id', '0001', 'aaaa')];
+    eq('parse values', [first[J('name', 'field', 'x')], first[J('list', 'field')][2][J('deep', 'key', '1')],
+                        p[J('short', 'key')], p[J('id', '0002', 'bbbb')]], ['Ann', true, 1, null]);
+    eq('parse order', Object.keys(p), [J('id', '0001', 'aaaa'), J('short', 'key'), J('id', '0002', 'bbbb')]);
     eq('parse round trip', JSON.stringify(p), text);
     const mixed = JSON.parse('{"zz-data-key":1,"short":2,"name":3,"aa-data-key":4}');
     eq('mixed parse keys', sorted(Object.keys(mixed)), ['aa-data-key', 'name', 'short', 'zz-data-key']);
     eq('mixed parse values', [mixed.short, mixed.name, mixed['zz-data-key']], [2, 3, 1]);
-    eq('parsed array is an Array', [Array.isArray(p['id-0001-aaaa']['list-field']),
-                                    p['id-0001-aaaa']['list-field'].map(x => typeof x)],
+    eq('parsed array is an Array', [Array.isArray(first[J('list', 'field')]),
+                                    first[J('list', 'field')].map(x => typeof x)],
        [true, ['number', 'string', 'object']]);
     const revived = JSON.parse('{"keep-this-key":1,"drop-this-key":2}',
                                (k, v) => (k === 'drop-this-key' ? undefined : v));
