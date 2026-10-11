@@ -15,14 +15,15 @@ function check(name, condition, detail) {
     }
 }
 
-// The addon is built next to the binary, so look under both build directories.
-// A relative specifier resolves against THIS script's directory, so the paths
-// are written relative to tests/integration/native_addons/ and work whether
-// protojs was given a relative or an absolute path for this file.
-var candidates = [
-    '../../../build_release/tests/native_addons/simple/simple',
-    '../../../build/tests/native_addons/simple/simple'
-];
+// ctest passes the path of the addon its own build directory produced, so two
+// build directories never load each other's addon.  Run by hand without an
+// argument, the script falls back to the conventional build directories; a
+// relative specifier resolves against THIS script's directory, so those paths
+// are written relative to tests/integration/native_addons/.
+var candidates = process.argv.length > 2
+    ? [process.argv[2]]
+    : ['../../../build_release/tests/native_addons/simple/simple',
+       '../../../build/tests/native_addons/simple/simple'];
 
 var addon = null;
 var lastError = null;

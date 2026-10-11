@@ -493,7 +493,12 @@ target_link_libraries(simple_addon PRIVATE ${PROTOJS_ADDON_LIBS})
 target_compile_options(simple_addon PRIVATE ${PROTOJS_MSVC_WARNINGS})
 target_link_options(simple_addon PRIVATE ${PROTOJS_ADDON_LINK_OPTIONS})
 
-# Fixture addon for resolution-order test (output next to fixture.js)
+# Fixture addon for the resolution-order test.  It is written into this build
+# directory, never into the source tree (several build directories then each
+# have their own), and test_resolution.js and fixture.js are copied next to it
+# after every link: the test needs the addon and the sibling .js in one
+# directory.  TARGET_FILE_DIR follows multi-config generators' per-config
+# subdirectory.
 add_library(fixture_addon SHARED tests/native_addons/fixture/fixture_addon.cpp)
 target_include_directories(fixture_addon PRIVATE
     ${CMAKE_SOURCE_DIR}/src
@@ -502,9 +507,15 @@ target_include_directories(fixture_addon PRIVATE
 set_target_properties(fixture_addon PROPERTIES
     PREFIX ""
     OUTPUT_NAME "fixture"
-    LIBRARY_OUTPUT_DIRECTORY ${CMAKE_SOURCE_DIR}/tests/integration/native_addons
-    RUNTIME_OUTPUT_DIRECTORY ${CMAKE_SOURCE_DIR}/tests/integration/native_addons
+    LIBRARY_OUTPUT_DIRECTORY ${CMAKE_CURRENT_BINARY_DIR}/tests/integration/native_addons
+    RUNTIME_OUTPUT_DIRECTORY ${CMAKE_CURRENT_BINARY_DIR}/tests/integration/native_addons
 )
+add_custom_command(TARGET fixture_addon POST_BUILD
+    COMMAND ${CMAKE_COMMAND} -E copy_if_different
+            ${CMAKE_CURRENT_SOURCE_DIR}/tests/integration/native_addons/fixture.js
+            ${CMAKE_CURRENT_SOURCE_DIR}/tests/integration/native_addons/test_resolution.js
+            $<TARGET_FILE_DIR:fixture_addon>
+    VERBATIM)
 target_link_libraries(fixture_addon PRIVATE ${PROTOJS_ADDON_LIBS})
 target_compile_options(fixture_addon PRIVATE ${PROTOJS_MSVC_WARNINGS})
 target_link_options(fixture_addon PRIVATE ${PROTOJS_ADDON_LINK_OPTIONS})

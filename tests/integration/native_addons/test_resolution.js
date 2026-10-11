@@ -1,7 +1,10 @@
 // Resolution order: a native addon (.node / .so) wins over a sibling .js file.
 //
-// fixture.js and fixture.so both sit in this directory, so require('./fixture')
-// must load the native addon and `require.resolve` must report its path.
+// The build writes the fixture addon (fixture.so / .dylib / .dll) into its own
+// build directory and copies this script and fixture.js next to it, so the
+// copy that ctest runs sees both, and require('./fixture') must load the
+// native addon and `require.resolve` must report its path.  Nothing is written
+// into the source tree, so several build directories do not interfere.
 //
 // Asserting test: prints the failures and exits 1 when anything is wrong.
 

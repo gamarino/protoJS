@@ -353,12 +353,25 @@ foreach(js_test
         deferred/put_field_group_atomicity
         deferred/test_deferred_reject
         test_deferred_basic
-        native_addons/test_native_require
-        native_addons/test_resolution)
+        basic/computed_accessor_keys
+        basic/typed_array_sort)
     add_test(NAME js/${js_test}
         COMMAND "$<TARGET_FILE:protojs>"
                 "${CMAKE_CURRENT_SOURCE_DIR}/integration/${js_test}.js")
 endforeach()
+
+# The native addon tests load the addons THIS build directory produced, so two
+# build directories never pick up each other's.  test_native_require gets the
+# addon's path; test_resolution runs from the copy placed next to the fixture
+# addon (CMakeLists.txt: the addon and the sibling fixture.js must share a
+# directory).
+add_test(NAME js/native_addons/test_native_require
+    COMMAND "$<TARGET_FILE:protojs>"
+            "${CMAKE_CURRENT_SOURCE_DIR}/integration/native_addons/test_native_require.js"
+            "$<TARGET_FILE:simple_addon>")
+add_test(NAME js/native_addons/test_resolution
+    COMMAND "$<TARGET_FILE:protojs>"
+            "$<TARGET_FILE_DIR:fixture_addon>/test_resolution.js")
 
 # process.argv carries the arguments after the script; process.memoryUsage().
 add_test(NAME js/modules/process_argv_memory
