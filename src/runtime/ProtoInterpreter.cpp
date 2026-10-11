@@ -1444,6 +1444,54 @@ static const proto::ProtoObject* reflectSet(
     return PROTO_TRUE;
 }
 
+// A super property reference `super[prop]` / `super.x` (ECMA-262 §13.3.7):
+// its base is the home object's prototype, `superBase`, and its `this` is
+// the caller's.  GetValue is superBase.[[Get]](key, this) and PutValue is
+// superBase.[[Set]](key, value, this) (§6.2.5.5, §6.2.5.6), which are
+// Reflect.get / Reflect.set with an explicit receiver: an inherited getter
+// or setter runs with the caller's `this`, and a data write lands on `this`.
+// A null or undefined base is a TypeError (RequireObjectCoercible of
+// GetSuperBase's result).  The exception, if any, is left in
+// t_callException for the caller to raise.
+static bool superBaseIsCoercible(proto::ProtoContext* ctx, const proto::ProtoObject* superBase) {
+    if (superBase && superBase != PROTO_NONE && superBase != getNullSentinel()
+        && superBase != getUndefinedSentinel())
+        return true;
+    signalNativeException(makeNativeError(ctx, "TypeError",
+        "Cannot read properties of the super base: the home object has no prototype"));
+    return false;
+}
+
+PROTOJS_NOINLINE
+static const proto::ProtoObject* superPropertyGet(proto::ProtoContext* ctx,
+                                                  const proto::ProtoObject* superBase,
+                                                  const proto::ProtoObject* thisObj,
+                                                  const proto::ProtoObject* prop) {
+    if (!superBaseIsCoercible(ctx, superBase)) return PROTO_NONE;
+    const proto::ProtoList* args = ctx->newList()
+        ->appendLast(ctx, superBase)
+        ->appendLast(ctx, prop ? prop : PROTO_NONE)
+        ->appendLast(ctx, thisObj ? thisObj : PROTO_NONE);
+    return reflectGet(ctx, nullptr, nullptr, args, nullptr);
+}
+
+// Returns false when the [[Set]] was refused (a non-writable data property or
+// an accessor without a setter); PutValue then throws in strict code.
+PROTOJS_NOINLINE
+static bool superPropertySet(proto::ProtoContext* ctx,
+                             const proto::ProtoObject* superBase,
+                             const proto::ProtoObject* thisObj,
+                             const proto::ProtoObject* prop,
+                             const proto::ProtoObject* value) {
+    if (!superBaseIsCoercible(ctx, superBase)) return true;
+    const proto::ProtoList* args = ctx->newList()
+        ->appendLast(ctx, superBase)
+        ->appendLast(ctx, prop ? prop : PROTO_NONE)
+        ->appendLast(ctx, value ? value : PROTO_NONE)
+        ->appendLast(ctx, thisObj ? thisObj : PROTO_NONE);
+    return reflectSet(ctx, nullptr, nullptr, args, nullptr) != PROTO_FALSE;
+}
+
 static const proto::ProtoObject* reflectOwnKeys(
     proto::ProtoContext* ctx, const proto::ProtoObject*,
     const proto::ParentLink*, const proto::ProtoList* args, const proto::ProtoSparseList*)
@@ -5347,7 +5395,7 @@ static const proto::ProtoObject* defineMethodComputed(proto::ProtoContext* ctx,
     if (!key) return nullptr;
     const int kind = op_flags & 0x3;
     const bool enumerable = (op_flags & 0x4) != 0;
-    method = makeMethod(ctx, method, keyVal, key, kind, nullptr);
+    method = makeMethod(ctx, method, keyVal, key, kind, obj);
     if (kind == 1 || kind == 2) {
         if (const proto::ProtoObject* withAccessor =
                 defineComputedAccessor(ctx, obj, key, method, kind == 1, enumerable))
@@ -5383,7 +5431,7 @@ static const proto::ProtoObject* defineMethodNamed(proto::ProtoContext* ctx,
                                                    uint8_t op_flags) {
     const int kind = op_flags & 0x3;
     const bool enumerable = (op_flags & 0x4) != 0;
-    method = makeMethod(ctx, method, nullptr, key, kind, kind == 0 ? obj : nullptr);
+    method = makeMethod(ctx, method, nullptr, key, kind, obj);
     std::string name;
     key->toUTF8String(ctx, name);
     const proto::ProtoObject* out = nullptr;
@@ -9326,57 +9374,50 @@ const proto::ProtoObject* runBytecode(proto::ProtoContext* pContext,
             L_OP_get_super_value: {
                 // DEF(get_super_value, 1, 3, 1, none)
                 // Stack [..., this, super_obj, prop] → [..., value]
-                // Implements `super[prop]` (or computed `super.x`) per
-                // ECMA-262 §13.3.7.3 GetSuperBase / GetValue: look up
-                // `prop` on `super_obj` walking its prototype chain with
-                // `this` as receiver (no receiver semantics implemented
-                // here — we just read the property; getters that consult
-                // `this` would need an explicit receiver-aware lookup).
+                // GetValue of a super reference: super_obj.[[Get]](prop, this),
+                // so an inherited getter runs with the caller's `this`
+                // (superPropertyGet).
                 if (stackSize(pContext) < 3) DISPATCH();
                 const proto::ProtoObject* prop  = stackTop(pContext); stackPop(pContext);
                 const proto::ProtoObject* sObj  = stackTop(pContext); stackPop(pContext);
-                /* thisObj */                     stackPop(pContext);
-                const proto::ProtoString* key = nullptr;
-                if (prop && prop != PROTO_NONE) {
-                    key = prop->asString(pContext);
-                    if (!key && prop->isInteger(pContext)) {
-                        long long idx = prop->asLong(pContext);
-                        key = (idx >= 0 && idx <= 0xFFFFFFFELL)
-                            ? JSSymbols::indexKey(pContext, static_cast<uint32_t>(idx))
-                            : protojs::toPropertyKey(pContext, prop);
-                    }
+                const proto::ProtoObject* tObj  = stackTop(pContext); stackPop(pContext);
+                const proto::ProtoObject* val = superPropertyGet(pContext, sObj, tObj, prop);
+                REFRESH_INTERP_STATE();
+                if (t_hasCallException) {
+                    pending_exception     = t_callException;
+                    has_pending_exception = true;
+                    t_hasCallException    = false;
+                    t_callException       = nullptr;
+                    DISPATCH();
                 }
-                const proto::ProtoObject* val = (sObj && sObj != PROTO_NONE && key)
-                    ? sObj->getAttribute(pContext, key, true) : PROTO_NONE;
                 stackPush(pContext, val ? val : PROTO_NONE);
                 DISPATCH();
             }
             L_OP_put_super_value: {
                 // DEF(put_super_value, 1, 4, 0, none)
                 // Stack [..., this, super_obj, prop, value] → []
-                // Implements `super[prop] = value` / `super.x = value`.
-                // Per spec the write targets `this` (NOT super_obj) so the
-                // property lives on the receiver — but the lookup of
-                // existing setters walks super_obj's chain.  Minimal impl
-                // writes to thisObj.
+                // PutValue of a super reference: super_obj.[[Set]](prop,
+                // value, this) -- an inherited setter runs with the caller's
+                // `this`, a data write lands on `this` -- and a refused write
+                // throws in strict code (superPropertySet).
                 if (stackSize(pContext) < 4) DISPATCH();
                 const proto::ProtoObject* val   = stackTop(pContext); stackPop(pContext);
                 const proto::ProtoObject* prop  = stackTop(pContext); stackPop(pContext);
-                /* sObj */                       stackPop(pContext);
+                const proto::ProtoObject* sObj  = stackTop(pContext); stackPop(pContext);
                 const proto::ProtoObject* tObj  = stackTop(pContext); stackPop(pContext);
-                const proto::ProtoString* key = nullptr;
-                if (prop && prop != PROTO_NONE) {
-                    key = prop->asString(pContext);
-                    if (!key && prop->isInteger(pContext)) {
-                        long long idx = prop->asLong(pContext);
-                        key = (idx >= 0 && idx <= 0xFFFFFFFELL)
-                            ? JSSymbols::indexKey(pContext, static_cast<uint32_t>(idx))
-                            : protojs::toPropertyKey(pContext, prop);
-                    }
+                const bool stored = superPropertySet(pContext, sObj, tObj, prop, val);
+                REFRESH_INTERP_STATE();
+                if (t_hasCallException) {
+                    pending_exception     = t_callException;
+                    has_pending_exception = true;
+                    t_hasCallException    = false;
+                    t_callException       = nullptr;
+                    DISPATCH();
                 }
-                if (tObj && tObj != PROTO_NONE && key) {
-                    const proto::ProtoObject* updated = tObj->setAttribute(pContext, key, val);
-                    if (updated) updateMapping(pContext, tObj, updated);
+                if (!stored && module->isStrict) {
+                    pending_exception = makeError(pContext, "TypeError",
+                        "Cannot assign to a read-only property through super", pGlobalRoot);
+                    has_pending_exception = true;
                 }
                 DISPATCH();
             }
