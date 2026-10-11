@@ -205,8 +205,8 @@ How Windows differs, by design:
   calendar.
 
 Test status. CI (`.github/workflows/cross-platform.yml`) builds and tests
-Windows Server 2022 (MSVC, x64, protoCore 2.14.1, whose DLL is
-`protoCore-3.dll`) and macOS 14 (arm64, protoCore 2.14.1) on every push to
+Windows Server 2022 (MSVC, x64, protoCore 2.14.2, whose DLL is
+`protoCore-3.dll`) and macOS 14 (arm64, protoCore 2.14.2) on every push to
 `master`, and a second Windows job builds and tests against protoCore
 2.11.0, the floor (it does not package). Until 2026-10-03 that job built
 protoCore 2.7.0, the floor then.
@@ -225,7 +225,7 @@ protoCore 2.7.0, the floor then.
   ([TEST262_STATUS.md](TEST262_STATUS.md#property-enumeration-order)); there
   the gate's diff is reported, not enforced. The whole corpus is measured on
   Linux only.
-- The ZIP is built (with protoCore 2.14.1's `protoCore-3.dll`), unpacked into an empty directory and run with a PATH
+- The ZIP is built (with protoCore 2.14.2's `protoCore-3.dll`), unpacked into an empty directory and run with a PATH
   holding only the Windows system directories.
 
 A 7,316-test Test262 subset was also run once by hand during the port, on a
