@@ -24,7 +24,7 @@ name: Cross-platform
 # directories -- the proof that the ZIP is self-contained.
 #
 # protoCore versions, exactly: macOS and the first Windows job build protoCore
-# 2.14.2 (tag v2.14.2, commit 17bc118e), the release ci.yml pins on Linux; that
+# 2.14.5 (tag v2.14.5, commit 063c6d55), the release ci.yml pins on Linux; that
 # Windows job packages the ZIP with its DLL, protoCore-3.dll.  The second
 # Windows job is THE FLOOR JOB, the only one: protoCore 2.11.0 (tag v2.11.0,
 # commit 69b56afe), the oldest release protoJS accepts (PROTOCORE_MIN_VERSION
@@ -60,13 +60,13 @@ jobs:
       fail-fast: false
       matrix:
         include:
-          - name: macOS (Apple clang, arm64, protoCore 2.14.2)
+          - name: macOS (Apple clang, arm64, protoCore 2.14.5)
             os: macos-14
-            protocore_ref: 17bc118e3af265b84fe322901c9e6b9a448a82d3
+            protocore_ref: 063c6d55e11fd4439758578d664c869aaa3a596a
             package: false
-          - name: Windows (MSVC, x64, protoCore 2.14.2)
+          - name: Windows (MSVC, x64, protoCore 2.14.5)
             os: windows-2022
-            protocore_ref: 17bc118e3af265b84fe322901c9e6b9a448a82d3
+            protocore_ref: 063c6d55e11fd4439758578d664c869aaa3a596a
             package: true
           - name: Windows (MSVC, x64, protoCore 2.11.0 floor)
             os: windows-2022
