@@ -959,14 +959,83 @@ static const proto::ProtoObject* ta_reduceRight(
     return acc;
 }
 
+// SortCompare of %TypedArray%.prototype.sort with a comparator (ECMA-262
+// §23.2.4.7 CompareTypedArrayElements step 2): ToNumber(comparefn(x, y)),
+// with NaN counting as +0.  Returns the number's sign, or false with the
+// exception pending when the call or the conversion throws.
+static bool taCompareWith(proto::ProtoContext* ctx, const proto::ProtoObject* fn,
+                          const proto::ProtoObject* x, const proto::ProtoObject* y,
+                          int& sign) {
+    const proto::ProtoObject* items[2] = { x, y };
+    const proto::ProtoObject* r = callJSFunction(ctx, fn, PROTO_NONE, ctx->newList(2, items));
+    if (hasCallException()) return false;
+    const proto::ProtoObject* n = jsToNumber(ctx, r ? r : PROTO_NONE);
+    if (hasCallException()) return false;
+    double v = 0.0;
+    if (n && n != PROTO_NONE) {
+        if (n->isInteger(ctx)) v = static_cast<double>(n->asLong(ctx));
+        else if (n->isDouble(ctx) || n->isFloat(ctx)) v = n->asDouble(ctx);
+    }
+    sign = (v > 0.0) ? 1 : (v < 0.0) ? -1 : 0;   // NaN -> 0
+    return true;
+}
+
+// Sorts `vals` with a user comparator: a bottom-up merge sort, stable as
+// §23.2.3.29 requires, that takes the right element only when the comparator
+// says the left one is greater.  It never relies on the comparator being
+// consistent, so an arbitrary comparator cannot drive it out of bounds (the
+// std:: sorts assume a strict weak ordering).  Stops at the first exception;
+// returns false with it pending.
+static bool taMergeSortWith(proto::ProtoContext* ctx, const proto::ProtoObject* fn,
+                            std::vector<const proto::ProtoObject*>& vals) {
+    const size_t n = vals.size();
+    std::vector<const proto::ProtoObject*> buf(n);
+    for (size_t width = 1; width < n; width *= 2) {
+        for (size_t lo = 0; lo < n; lo += 2 * width) {
+            const size_t mid = std::min(lo + width, n), hi = std::min(lo + 2 * width, n);
+            size_t i = lo, j = mid, k = lo;
+            while (i < mid && j < hi) {
+                int sign = 0;
+                if (!taCompareWith(ctx, fn, vals[i], vals[j], sign)) return false;
+                buf[k++] = (sign > 0) ? vals[j++] : vals[i++];
+            }
+            while (i < mid) buf[k++] = vals[i++];
+            while (j < hi) buf[k++] = vals[j++];
+        }
+        vals.swap(buf);
+    }
+    return true;
+}
+
 static const proto::ProtoObject* ta_sort(
     proto::ProtoContext* ctx, const proto::ProtoObject* self,
     const proto::ParentLink*, const proto::ProtoList* args, const proto::ProtoSparseList*)
 {
+    // Step 1: a comparator other than undefined must be callable, checked
+    // before anything else (so even an empty array throws).
+    const proto::ProtoObject* fn = (args && args->getSize(ctx) > 0) ? args->getAt(ctx, 0) : PROTO_NONE;
+    if (fn == getUndefinedSentinel()) fn = PROTO_NONE;
+    if (fn && fn != PROTO_NONE && !jsIsCallable(ctx, fn)) {
+        signalNativeException(makeNativeError(ctx, "TypeError",
+            "%TypedArray%.prototype.sort: the comparison function must be either a function or undefined"));
+        return PROTO_NONE;
+    }
+    const bool hasFn = fn && fn != PROTO_NONE;
     uint8_t et = getTypedArrayElementType(ctx, self);
     if (et == 0xFF) return const_cast<proto::ProtoObject*>(self);
     uint32_t len = getTypedArrayLength(ctx, self);
     if (len <= 1) return const_cast<proto::ProtoObject*>(self);
+
+    // With a comparator: read every element first, sort, then write back
+    // (SortIndexedProperties, steps 6-9).  protoJS cannot detach or resize
+    // a buffer, so the length read above still holds for the write-back.
+    if (hasFn) {
+        std::vector<const proto::ProtoObject*> vals(len);
+        for (uint32_t i = 0; i < len; i++) vals[i] = typedArrayGetElement(ctx, self, i, et);
+        if (!taMergeSortWith(ctx, fn, vals)) return PROTO_NONE;
+        for (uint32_t i = 0; i < len; i++) typedArraySetElement(ctx, self, i, vals[i], et);
+        return const_cast<proto::ProtoObject*>(self);
+    }
 
     // BigInt64Array / BigUint64Array: compare the BigInts' integers.
     if (et == 9 || et == 10) {
