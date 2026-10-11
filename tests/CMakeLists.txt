@@ -345,6 +345,7 @@ foreach(js_test
         collections/map_set_semantics
         workers/deep_recursion
         workers/promises_in_worker
+        workers/prototypes_after_worker
         crypto/test_crypto_cipher
         crypto/test_crypto_keygen
         crypto/test_crypto_sign
@@ -374,6 +375,15 @@ add_test(NAME js/deferred/adaptive_heap_budget
             "${CMAKE_CURRENT_SOURCE_DIR}/integration/deferred/adaptive_heap_budget.js")
 set_tests_properties(js/deferred/adaptive_heap_budget PROPERTIES
     ENVIRONMENT "PROTOCORE_HEAP_LIMIT_CELLS=4000000")
+
+# Workers start and stop while the main thread allocates arrays, typed arrays,
+# maps and sets under a small heap ceiling: nothing the main thread makes may
+# refer to a destroyed worker space (docs/MEMORY_SAFETY_PROPOSALS.md, section 1).
+add_test(NAME js/workers/workers_churn_small_heap
+    COMMAND "$<TARGET_FILE:protojs>"
+            "${CMAKE_CURRENT_SOURCE_DIR}/integration/workers/workers_churn_small_heap.js")
+set_tests_properties(js/workers/workers_churn_small_heap PROPERTIES
+    ENVIRONMENT "PROTOCORE_HEAP_LIMIT_CELLS=300000" TIMEOUT 300)
 
 # The native addon tests load the addons THIS build directory produced, so two
 # build directories never pick up each other's.  test_native_require gets the
