@@ -1,4 +1,5 @@
 #include "ProtoCoreTypes.h"
+#include "runtime/PropertyDictionary.h"
 #include "ProxyBuiltin.h"
 #include "runtime/LazyPrototype.h"
 #include "ArrayPrototype.h"
@@ -240,6 +241,18 @@ static OwnDescriptor probeOwnDescriptor(proto::ProtoContext* ctx,
         }
     }
 
+    // A key of the property dictionary (runtime/PropertyDictionary.h): a
+    // plain data property, its writability and configurability set by the
+    // target's integrity level.
+    if (const proto::ProtoObject* dv = dict::getOwn(ctx, target, key)) {
+        d.present = true;
+        d.value = dv;
+        d.writable = !jsIsFrozen(ctx, target);
+        d.configurable = !(jsIsSealed(ctx, target) || jsIsFrozen(ctx, target));
+        d.enumerable = true;
+        return d;
+    }
+
     // §10.4.2 exotic array — index keys are own data properties
     // resolved from __elements__ rather than own attributes. Without
     // this branch a Proxy wrapping `[42]` reported "0" as absent and
@@ -410,8 +423,7 @@ static const proto::ProtoObject* defaultGet(proto::ProtoContext* ctx,
             }
         }
     }
-    const proto::ProtoObject* v = target->getAttribute(ctx, key, true);
-    return v ? v : PROTO_NONE;
+    return dict::getDataProperty(ctx, target, key);
 }
 
 const proto::ProtoObject* proxyDispatchGet(proto::ProtoContext* ctx,
@@ -464,6 +476,40 @@ const proto::ProtoObject* proxyDispatchGet(proto::ProtoContext* ctx,
     // Recurse when the target itself is a Proxy.
     if (isProxy(ctx, target)) return proxyDispatchGet(ctx, target, propKey, receiver);
     return defaultGet(ctx, target, propKey, receiver ? receiver : proxy);
+}
+
+const proto::ProtoObject* proxyCreateDataProperty(proto::ProtoContext* ctx,
+                                                  const proto::ProtoObject* receiver,
+                                                  const proto::ProtoString* propKey,
+                                                  const proto::ProtoObject* value) {
+    JSContextWrapper* w = JSContextWrapper::current();
+    const proto::ProtoObject* objProto = w ? w->getJSObjectPrototype() : nullptr;
+    const proto::ProtoObject* desc = objProto ? objProto->newChild(ctx, true) : ctx->newObject(true);
+    if (desc) {
+        auto set = [&](const char* name, const proto::ProtoObject* slot) {
+            const proto::ProtoObject* ko = ctx->fromUTF8String(name);
+            const proto::ProtoString* ks = ko ? ko->asString(ctx) : nullptr;
+            if (ks) desc = desc->setAttribute(ctx, ks, slot ? slot : getUndefinedSentinel());
+        };
+        set("value", value);
+        set("writable",     PROTO_TRUE);
+        set("enumerable",   PROTO_TRUE);
+        set("configurable", PROTO_TRUE);
+        const proto::ProtoObject* r =
+            proxyDispatchDefineProperty(ctx, receiver, propKey, desc);
+        if (hasCallException()) return PROTO_NONE;
+        if (r == PROTO_FALSE) return PROTO_FALSE;
+        if (r == PROTO_TRUE)  return PROTO_TRUE;
+    }
+    // r == nullptr (no dP trap) — land on the underlying target.
+    const proto::ProtoObject* deepest = receiver;
+    while (isProxy(ctx, deepest)) {
+        const proto::ProtoObject* t = proxyTarget(ctx, deepest);
+        if (!t) return PROTO_FALSE;
+        deepest = t;
+    }
+    dict::createDataProperty(ctx, deepest, propKey, value ? value : PROTO_NONE);
+    return PROTO_TRUE;
 }
 
 const proto::ProtoObject* proxyDispatchSet(proto::ProtoContext* ctx,
@@ -620,7 +666,7 @@ const proto::ProtoObject* proxyDispatchSet(proto::ProtoContext* ctx,
         // Build the value descriptor and CreateDataProperty on Receiver.
         const proto::ProtoObject* desc = newDataDesc(value);
         if (!desc) {
-            const_cast<proto::ProtoObject*>(target)->setAttribute(ctx, propKey,
+            dict::createDataProperty(ctx, target, propKey,
                 value ? value : PROTO_NONE);
             return PROTO_TRUE;
         }
@@ -629,34 +675,15 @@ const proto::ProtoObject* proxyDispatchSet(proto::ProtoContext* ctx,
         // there is no dP trap, the spec forwards to the unwrapped
         // target's [[DefineOwnProperty]] — for a plain Object that's a
         // raw setAttribute on the deepest non-proxy target.
-        if (isProxy(ctx, receiver)) {
-            const proto::ProtoObject* r =
-                proxyDispatchDefineProperty(ctx, receiver, propKey, desc);
-            if (hasCallException()) return PROTO_NONE;
-            if (r == PROTO_FALSE) return PROTO_FALSE;
-            if (r == PROTO_TRUE)  return PROTO_TRUE;
-            // r == nullptr (no dP trap) — recurse via proxyTarget so a
-            // proxy-of-proxy receiver dispatches its inner dP trap if
-            // present; otherwise land on the underlying target and
-            // setAttribute there.
-            const proto::ProtoObject* deepest = receiver;
-            while (isProxy(ctx, deepest)) {
-                const proto::ProtoObject* t = proxyTarget(ctx, deepest);
-                if (!t) return PROTO_FALSE;
-                deepest = t;
-            }
-            const_cast<proto::ProtoObject*>(deepest)->setAttribute(ctx, propKey,
-                value ? value : PROTO_NONE);
-            return PROTO_TRUE;
-        }
+        if (isProxy(ctx, receiver))
+            return proxyCreateDataProperty(ctx, receiver, propKey, value);
         // Non-Proxy Receiver — simple raw write on Receiver.
-        const_cast<proto::ProtoObject*>(receiver)->setAttribute(ctx, propKey,
+        dict::createDataProperty(ctx, receiver, propKey,
             value ? value : PROTO_NONE);
         return PROTO_TRUE;
     }
     if (propKey) {
-        const_cast<proto::ProtoObject*>(target)->setAttribute(ctx, propKey,
-            value ? value : PROTO_NONE);
+        dict::createDataProperty(ctx, target, propKey, value ? value : PROTO_NONE);
     }
     return PROTO_TRUE;
 }
@@ -721,6 +748,7 @@ const proto::ProtoObject* proxyDispatchHas(proto::ProtoContext* ctx,
     if (isProxy(ctx, target)) return proxyDispatchHas(ctx, target, propKey);
     if (propKey && target->hasAttribute(ctx, propKey) == PROTO_TRUE)
         return PROTO_TRUE;
+    if (propKey && dict::findInChain(ctx, target, propKey)) return PROTO_TRUE;
     // Array exotic dense-element fallback — §10.4.2 [[HasProperty]]
     // returns true for any integer index in the __array_elements__
     // storage.  Pre-fix hasAttribute alone returned false for every
@@ -854,13 +882,18 @@ const proto::ProtoObject* proxyDispatchDelete(proto::ProtoContext* ctx,
                 if (kstr == "length") return PROTO_FALSE;
             }
         }
+        // A key of the property dictionary (runtime/PropertyDictionary.h).
+        if (dict::remove(ctx, target, propKey)) return PROTO_TRUE;
         // Pass nullptr (not PROTO_NONE) so protoCore's setAttribute
         // routes to implRemoveAt — actually removing the entry from
         // the own-attribute sparse list.  Pre-fix PROTO_NONE was
         // silently treated as "present but valueless", so
         // hasOwnProperty still returned true and the inherited
         // hasAttribute walk continued reporting the property.
-        const_cast<proto::ProtoObject*>(target)->setAttribute(ctx, propKey, nullptr);
+        // Only an own key: removing an absent heap-string key would
+        // intern it.
+        if (target->hasOwnAttribute(ctx, propKey) == PROTO_TRUE)
+            const_cast<proto::ProtoObject*>(target)->setAttribute(ctx, propKey, nullptr);
         // Accessor descriptors live in __get_<k>__ / __set_<k>__
         // sidecars rather than under the propKey itself. Pre-fix
         // `delete proxy.foo` on a `{ get foo(){} }` target chain
@@ -1034,6 +1067,21 @@ const proto::ProtoObject* proxyDispatchOwnKeys(
                 return PROTO_NONE;
             }
         }
+        // The keys of the target's property dictionary (runtime/
+        // PropertyDictionary.h): non-configurable once the target is
+        // sealed or frozen, which also makes it non-extensible.
+        if (targetNonExt) {
+            std::vector<std::string> dkeys;
+            dict::keys(ctx, target, dkeys);
+            for (const std::string& ks : dkeys) {
+                if (!seenKeys.count("S:" + ks)) {
+                    signalNativeException(makeNativeError(ctx, "TypeError",
+                        "'ownKeys' on proxy: trap result missed a "
+                        "non-configurable own property of the target"));
+                    return PROTO_NONE;
+                }
+            }
+        }
     }
     // §10.5.11 step 19 — when target is non-extensible, the trap
     // result must not contain any keys not present on target.  Applies
@@ -1064,7 +1112,8 @@ const proto::ProtoObject* proxyDispatchOwnKeys(
                 probeKey = kv->asString(ctx);
             }
             if (!probeKey) continue;
-            if (target->hasOwnAttribute(ctx, probeKey) != PROTO_TRUE) {
+            if (target->hasOwnAttribute(ctx, probeKey) != PROTO_TRUE
+                && !dict::hasOwn(ctx, target, probeKey)) {
                 signalNativeException(makeNativeError(ctx, "TypeError",
                     "'ownKeys' on proxy: trap result contains a key not "
                     "present on the non-extensible target"));

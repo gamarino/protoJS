@@ -51,6 +51,14 @@ const proto::ProtoObject* proxyDispatchGet(proto::ProtoContext* ctx,
                                             const proto::ProtoObject* receiver);
 
 /** Same shape, for [[Set]]. Returns PROTO_TRUE / PROTO_FALSE. */
+// CreateDataProperty(receiver, key, value) for a Proxy receiver (§7.3.5): its
+// defineProperty trap, or the innermost target when no proxy in the chain
+// has one. PROTO_TRUE / PROTO_FALSE, PROTO_NONE with an exception pending.
+const proto::ProtoObject* proxyCreateDataProperty(proto::ProtoContext* ctx,
+                                                  const proto::ProtoObject* receiver,
+                                                  const proto::ProtoString* propKey,
+                                                  const proto::ProtoObject* value);
+
 const proto::ProtoObject* proxyDispatchSet(proto::ProtoContext* ctx,
                                             const proto::ProtoObject* proxy,
                                             const proto::ProtoString* propKey,

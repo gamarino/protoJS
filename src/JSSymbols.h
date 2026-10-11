@@ -186,6 +186,8 @@ const proto::ProtoString* hasNonWritableProps(proto::ProtoContext* ctx); // "__h
 // protojs::jsIsFrozen / jsIsSealed / jsIsNonExtensible (ObjectPrototype.h),
 // which probe own attributes only.
 const proto::ProtoString* integrity(proto::ProtoContext* ctx);         // "__integrity__"
+// The record of an object's property dictionary (runtime/PropertyDictionary.h).
+const proto::ProtoString* propsDict(proto::ProtoContext* ctx);         // "__props_dict__"
 
 // The JS [[Prototype]] recorded by Object.create(null) / Object.setPrototypeOf /
 // class definitions, as an OWN attribute of the object it belongs to (read with

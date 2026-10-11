@@ -1,5 +1,7 @@
 #include "ProtoCoreTypes.h"
 #include "JSSymbols.h"
+#include "runtime/PropertyDictionary.h"
+#include <cstring>
 #include <mutex>
 #include <string>
 #include <array>
@@ -21,10 +23,19 @@ namespace protojs::JSSymbols {
  * valid ctx suffices: createSymbol interns at ProtoSpace level, so
  * the result is globally unique regardless of which ctx wins the
  * initialisation race. */
+// Every name defined here is also program vocabulary for the property
+// dictionary (runtime/PropertyDictionary.h): a computed key with one of these
+// spellings stays a named attribute.
+static const proto::ProtoString* internVocabulary(proto::ProtoContext* ctx, const char* literal) {
+    const proto::ProtoString* sym = proto::ProtoString::createSymbol(ctx, literal);
+    dict::noteVocabulary(literal, std::strlen(literal));
+    return sym;
+}
+
 #define DEFINE_SYMBOL(getter, literal)                                      \
     const proto::ProtoString* getter(proto::ProtoContext* ctx) {            \
         static const proto::ProtoString* const s_sym =                      \
-            proto::ProtoString::createSymbol(ctx, literal);                 \
+            internVocabulary(ctx, literal);                                  \
         return s_sym;                                                        \
     }
 
@@ -150,6 +161,7 @@ DEFINE_SYMBOL(hasIndexedSetters,"__has_indexed_setters__")
 DEFINE_SYMBOL(hasAccessorProps, "__has_accessor_props__")
 DEFINE_SYMBOL(hasNonWritableProps,"__has_nonwritable_props__")
 DEFINE_SYMBOL(integrity,        "__integrity__")
+DEFINE_SYMBOL(propsDict,        "__props_dict__")
 DEFINE_SYMBOL(protoOverride,    "__js_proto_override__")
 DEFINE_SYMBOL(lazyPrototype,    "__lazy_prototype__")
 DEFINE_SYMBOL(getLength,        "__get_length__")

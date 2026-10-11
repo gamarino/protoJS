@@ -1,4 +1,5 @@
 #include "../../ProtoCoreTypes.h"
+#include "../../runtime/PropertyDictionary.h"
 #include "../../runtime/PinnedBuiltin.h"
 #include "HTTPModule.h"
 #include "../../ProtoNativeModule.h"
@@ -202,8 +203,11 @@ const proto::ProtoObject* makeHeadersObject(
     for (const auto& [k, v] : headers) {
         const proto::ProtoString* sk =
             ctx->fromUTF8String(k.c_str())->asString(ctx);
-        if (sk) obj->setAttribute(ctx, sk,
-                                   ctx->fromUTF8String(v.c_str()));
+        // Header names come from the peer: a name that is data goes to
+        // the property dictionary (runtime/PropertyDictionary.h) instead of
+        // being interned for the life of the process.
+        if (sk) obj = dict::createDataProperty(ctx, obj, sk,
+                                               ctx->fromUTF8String(v.c_str()));
     }
     return obj;
 }
@@ -224,7 +228,7 @@ const proto::ProtoObject* incomingGetHeader(
     const proto::ProtoString* nk =
         ctx->fromUTF8String(name.c_str())->asString(ctx);
     if (!nk) return PROTO_NONE;
-    const proto::ProtoObject* v = hdrs->getAttribute(ctx, nk, false);
+    const proto::ProtoObject* v = dict::getDataProperty(ctx, hdrs, nk);
     return (v && v != PROTO_NONE) ? v : PROTO_NONE;
 }
 
@@ -320,6 +324,18 @@ void appendHeadersFromObject(proto::ProtoContext* ctx,
         }
         if (keyStr == "Content-Type" || keyStr == "content-type")
             haveContentType = true;
+        out << keyStr << ": " << valStr << "\r\n";
+    }
+    // The keys of the property dictionary (runtime/PropertyDictionary.h).
+    std::vector<std::pair<const proto::ProtoString*, const proto::ProtoObject*>> de;
+    dict::entries(ctx, hdrsObj, de);
+    for (const auto& e : de) {
+        std::string keyStr, valStr;
+        e.first->toUTF8String(ctx, keyStr);
+        const proto::ProtoObject* v = e.second;
+        if (v && v->isString(ctx)) v->asString(ctx)->toUTF8String(ctx, valStr);
+        else if (v && v->isInteger(ctx)) valStr = std::to_string(v->asLong(ctx));
+        else continue;
         out << keyStr << ": " << valStr << "\r\n";
     }
 }

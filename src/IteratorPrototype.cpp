@@ -1,4 +1,5 @@
 #include "ProtoCoreTypes.h"
+#include "runtime/PropertyDictionary.h"
 #include "runtime/PinnedBuiltin.h"
 #include "IteratorPrototype.h"
 #include "ArrayPrototype.h"
@@ -1420,7 +1421,7 @@ static const proto::ProtoObject* iteratorZipKeyedNext(
         const proto::ProtoObject* key = keysEls->getAt(ctx, static_cast<int>(i));
         if (key && key->isString(ctx)) {
             const proto::ProtoString* keyS = key->asString(ctx);
-            if (keyS) out = out->setAttribute(ctx, keyS, val ? val : PROTO_NONE);
+            if (keyS) out = dict::createDataProperty(ctx, out, keyS, val ? val : PROTO_NONE);
         }
     }
     return makeIterResult(ctx, out, false);
@@ -1476,6 +1477,25 @@ static const proto::ProtoObject* iteratorZipKeyed(
                 return PROTO_NONE;
             }
             keysEls = keysEls->appendLast(ctx, ctx->fromUTF8String(ks.c_str()));
+            itersEls = itersEls->appendLast(ctx, inner);
+            count++;
+        }
+    }
+    // The keys of the property dictionary (runtime/PropertyDictionary.h).
+    {
+        std::vector<std::pair<const proto::ProtoString*, const proto::ProtoObject*>> de;
+        dict::entries(ctx, obj, de);
+        for (const auto& e : de) {
+            const proto::ProtoObject* inner = getIteratorFor(ctx, e.second);
+            if (!inner) {
+                proto::proto_ulong sz = itersEls->getSize(ctx);
+                for (proto::proto_ulong j = 0; j < sz; j++) {
+                    const proto::ProtoObject* prev = itersEls->getAt(ctx, static_cast<int>(j));
+                    if (prev && prev != PROTO_NONE) iterClose(ctx, prev);
+                }
+                return PROTO_NONE;
+            }
+            keysEls = keysEls->appendLast(ctx, e.first->asObject(ctx));
             itersEls = itersEls->appendLast(ctx, inner);
             count++;
         }

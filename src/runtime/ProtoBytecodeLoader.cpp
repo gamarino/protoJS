@@ -4,6 +4,8 @@
 #include "QuickJSBytecodeExport.h"
 #include "QuickJSOpcodeEnum.h"
 #include "../JSSymbols.h"
+#include "PropertyDictionary.h"
+#include <cstring>
 #include "../TypeBridge.h"
 #include "quickjs.h"
 #include "protoCore.h"
@@ -78,6 +80,7 @@ static void preResolveAllAtoms(JSContext* ctx, ProtoBytecodeModule* mod,
             const char* str = JS_AtomToCString(ctx, (JSAtom)atomIndex);
             if (!str) continue;
             const proto::ProtoString* ps = proto::ProtoString::createSymbol(pContext, str);
+            protojs::dict::noteVocabulary(str, std::strlen(str));  // program vocabulary
             JS_FreeCString(ctx, str);
             if (ps) mod->atomToProto[atomIndex] = ps;
         }
@@ -86,6 +89,7 @@ static void preResolveAllAtoms(JSContext* ctx, ProtoBytecodeModule* mod,
             const char* str = JS_AtomToCString(ctx, (JSAtom)r.atom);
             if (!str) continue;
             const proto::ProtoString* ps = proto::ProtoString::createSymbol(pContext, str);
+            protojs::dict::noteVocabulary(str, std::strlen(str));  // program vocabulary
             JS_FreeCString(ctx, str);
             if (ps) mod->atomToProto[r.atom] = ps;
         }
@@ -115,6 +119,7 @@ static void preResolveAllAtoms(JSContext* ctx, ProtoBytecodeModule* mod,
                 const char* str = JS_AtomToCString(ctx, (JSAtom)atomIndex);
                 if (str) {
                     const proto::ProtoString* ps = proto::ProtoString::createSymbol(pContext, str);
+                    protojs::dict::noteVocabulary(str, std::strlen(str));  // program vocabulary
                     JS_FreeCString(ctx, str);
                     if (ps) mod->atomToProto[atomIndex] = ps;
                 }
@@ -349,6 +354,7 @@ static bool loadBytecodeRecursive(JSContext* ctx,
         const char* name = protojs_bytecode_var_name(ctx, quickjsBytecode, i);
         const std::string nameStr = name ? name : "";
         const proto::ProtoString* sym = proto::ProtoString::createSymbol(pContext, nameStr);
+        protojs::dict::noteVocabulary(nameStr);  // program vocabulary
         pNames = pNames->appendLast(pContext, sym->asObject(pContext));
         if (name) JS_FreeCString(ctx, name);
     }
@@ -371,6 +377,7 @@ static bool loadBytecodeRecursive(JSContext* ctx,
         
         // [NEW] Pre-intern the name as a symbol for O(1) resolution.
         const proto::ProtoString* sym = proto::ProtoString::createSymbol(pContext, nameStr);
+        protojs::dict::noteVocabulary(nameStr);  // program vocabulary
         cSymbols = cSymbols->appendLast(pContext, sym->asObject(pContext));
         
         out->closureVarIsLexical.push_back(

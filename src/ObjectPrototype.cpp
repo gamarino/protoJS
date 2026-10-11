@@ -14,6 +14,7 @@
 #include "runtime/ProtoInterpreter.h"
 #include "runtime/BehaviorRegistry.h"
 #include "runtime/PinnedBuiltin.h"
+#include "runtime/PropertyDictionary.h"
 #include <algorithm>
 #include <atomic>
 #include <mutex>
@@ -398,6 +399,54 @@ static void collectOwnKeys(
     };
     own->processElements(ctx, &state,
         static_cast<void(*)(proto::ProtoContext*, void*, proto::proto_ulong, const proto::ProtoObject*)>(cb));
+
+    // The property dictionary (runtime/PropertyDictionary.h): enumerable
+    // plain data keys in insertion order, after the named string keys. Arrays
+    // never hold one. With dictionary keys present, the integer indices among
+    // all the keys are moved to the front in ascending order (§10.1.11.1
+    // OrdinaryOwnPropertyKeys); the named string keys keep protoCore's
+    // attribute order, the documented deviation.
+    if (!state.aborted && !isArr) {
+        std::vector<std::pair<const proto::ProtoString*, const proto::ProtoObject*>> dEntries;
+        dict::entries(ctx, obj, dEntries);
+        if (!dEntries.empty()) {
+            for (const auto& e : dEntries) {
+                std::string k;
+                e.first->toUTF8String(ctx, k);
+                keys.push_back(std::move(k));
+                if (vals) vals->push_back(e.second);
+            }
+            auto indexOf = [](const std::string& k, unsigned long long& n) {
+                if (k.empty() || k.size() > 10 || (k[0] == '0' && k.size() > 1)) return false;
+                n = 0;
+                for (char c : k) {
+                    if (c < '0' || c > '9') return false;
+                    n = n * 10 + static_cast<unsigned long long>(c - '0');
+                }
+                return n < 0xFFFFFFFFULL;
+            };
+            std::vector<size_t> order(keys.size());
+            std::vector<unsigned long long> idx(keys.size(), 0);
+            std::vector<bool> isIdx(keys.size(), false);
+            for (size_t i = 0; i < keys.size(); ++i) {
+                order[i] = i;
+                isIdx[i] = indexOf(keys[i], idx[i]);
+            }
+            std::stable_sort(order.begin(), order.end(), [&](size_t a, size_t b) {
+                if (isIdx[a] != isIdx[b]) return static_cast<bool>(isIdx[a]);
+                return isIdx[a] && idx[a] < idx[b];
+            });
+            std::vector<std::string> k2;
+            std::vector<const proto::ProtoObject*> v2;
+            k2.reserve(keys.size());
+            for (size_t i : order) {
+                k2.push_back(std::move(keys[i]));
+                if (vals) v2.push_back((*vals)[i]);
+            }
+            keys.swap(k2);
+            if (vals) vals->swap(v2);
+        }
+    }
 
     // Post-walk emission of array indices in ascending numeric order
     // (§7.3.20 OrdinaryOwnPropertyKeys step 2.b).  Probe each candidate
@@ -1138,6 +1187,15 @@ static const proto::ProtoObject* objectAssign(
                 byName.emplace(ks, std::make_pair(k, val));
                 order.push_back(std::move(ks));
             }
+            // The keys of the source's property dictionary (runtime/
+            // PropertyDictionary.h), after the named ones.
+            std::vector<std::pair<const proto::ProtoString*, const proto::ProtoObject*>> dEntries;
+            dict::entries(ctx, src, dEntries);
+            for (const auto& e : dEntries) {
+                std::string ks;
+                e.first->toUTF8String(ctx, ks);
+                if (byName.emplace(ks, e).second) order.push_back(std::move(ks));
+            }
             orderOwnPropertyKeys(order);
             assignEntries.reserve(order.size());
             for (const std::string& ks : order) assignEntries.push_back(byName[ks]);
@@ -1201,7 +1259,8 @@ static const proto::ProtoObject* objectAssign(
             {
                 std::string tk;
                 propKey->toUTF8String(ctx, tk);
-                bool targetHasOwn = target->hasOwnAttribute(ctx, propKey) == PROTO_TRUE;
+                bool targetHasOwn = target->hasOwnAttribute(ctx, propKey) == PROTO_TRUE
+                    || dict::hasOwn(ctx, target, propKey);
                 if (!targetHasOwn) {
                     // Probe accessor sidecars too — accessor-only slots
                     // are own properties even without a data key.
@@ -1374,6 +1433,24 @@ static const proto::ProtoObject* objectAssign(
                         }
                     }
                 }
+            }
+            // A key of the target's property dictionary, or a dynamic key
+            // the dictionary takes; otherwise a named attribute.
+            if (dict::hasOwn(ctx, target, propKey)) {
+                if (jsIsFrozen(ctx, target)) {
+                    signalNativeException(makeNativeError(ctx, "TypeError",
+                        "Cannot assign to read only property"));
+                    return PROTO_NONE;
+                }
+                if (const proto::ProtoObject* r = dict::update(ctx, target, propKey,
+                        effective ? effective : PROTO_NONE))
+                    target = r;
+                continue;
+            }
+            if (const proto::ProtoObject* r = dict::put(ctx, target, propKey,
+                    effective ? effective : PROTO_NONE)) {
+                target = r;
+                continue;
             }
             target = target->setAttribute(ctx, propKey,
                 effective ? effective : PROTO_NONE);
@@ -1650,6 +1727,7 @@ static const proto::ProtoObject* objectFreeze(
                     if (!isSym && isInternalKey(ctx, ks)) continue;
                     defaultKeys.push_back(std::move(s));
                 }
+                dict::keys(ctx, tgt, defaultKeys);  // runtime/PropertyDictionary.h
             }
         }
         // The attribute walk meets keys in key-address order; report them as
@@ -1893,6 +1971,9 @@ static const proto::ProtoObject* objectIsFrozen(
                 if (bits & 0x2) { allFrozen = false; break; }
             }
         }
+        // A key of the property dictionary is writable and configurable
+        // unless the object is frozen, which was answered above.
+        if (dict::size(ctx, obj) > 0) return PROTO_FALSE;
         if (!anyOwn || allFrozen) return PROTO_TRUE;
     }
     return PROTO_FALSE;
@@ -1978,6 +2059,7 @@ static const proto::ProtoObject* objectSeal(
                     if (!isSym && isInternalKey(ctx, ks)) continue;
                     defaultKeys.push_back(std::move(s));
                 }
+                dict::keys(ctx, tgt, defaultKeys);  // runtime/PropertyDictionary.h
             }
         }
         // The attribute walk meets keys in key-address order; report them as
@@ -2904,6 +2986,12 @@ static const proto::ProtoObject* objectDefineProperty(
     const proto::ProtoString* k = coercePropNameToKey(ctx, propNameObj);
     if (!k) return target;
     materializeLazyPrototypeForKey(ctx, target, k);  // runtime/LazyPrototype.h
+    // A key of the property dictionary (runtime/PropertyDictionary.h) becomes
+    // a named attribute before its descriptor changes: the dictionary holds
+    // plain data properties only. The redefinition below then sees an
+    // ordinary own data property.
+    if (!isProxy(ctx, target) && dict::hasOwn(ctx, target, k))
+        target = dict::evict(ctx, target, k);
 
     if (!desc || desc == PROTO_NONE || desc == getNullSentinel() || desc == getUndefinedSentinel() ||
         desc->isBoolean(ctx) || desc->isInteger(ctx) ||
@@ -2974,6 +3062,32 @@ static const proto::ProtoObject* objectDefineProperty(
             return PROTO_NONE;
         } else {
             return args->getAt(ctx, 0);  // return the original proxy
+        }
+    }
+
+    // A new dynamic key with the default data descriptor {value, writable:
+    // true, enumerable: true, configurable: true} -- CreateDataProperty as
+    // transpilers spell it for computed keys -- goes to the property
+    // dictionary (runtime/PropertyDictionary.h) like `o[k] = v`. Only a plain
+    // descriptor object qualifies (no own accessor fields, so reading its
+    // fields here is not observable); anything else takes the general path.
+    if (dict::isHeapStringKey(k) && target->hasOwnAttribute(ctx, k) != PROTO_TRUE
+        && !isProxy(ctx, desc)) {
+        const proto::ProtoString* hap = JSSymbols::hasAccessorProps(ctx);
+        const bool plainDesc = !(hap && desc->hasOwnAttribute(ctx, hap) == PROTO_TRUE
+                                 && desc->getAttribute(ctx, hap, false) == PROTO_TRUE);
+        auto field = [&](const proto::ProtoString* name) -> const proto::ProtoObject* {
+            if (!name || desc->hasAttribute(ctx, name) != PROTO_TRUE) return nullptr;
+            const proto::ProtoObject* v = desc->getAttribute(ctx, name, true);
+            return v ? v : PROTO_NONE;
+        };
+        if (plainDesc && !field(JSSymbols::get(ctx)) && !field(JSSymbols::set(ctx))
+            && field(JSSymbols::writable(ctx)) == PROTO_TRUE
+            && field(JSSymbols::enumerable(ctx)) == PROTO_TRUE
+            && field(JSSymbols::configurable(ctx)) == PROTO_TRUE) {
+            const proto::ProtoObject* value = field(JSSymbols::value(ctx));
+            if (!value || value == PROTO_NONE) value = getUndefinedSentinel();
+            if (dict::put(ctx, target, k, value)) return args->getAt(ctx, 0);
         }
     }
 
@@ -4076,19 +4190,43 @@ static const proto::ProtoObject* objectGetOwnPropertyDescriptor(
         if (isTypedArrayInternalField(kstr)) return PROTO_NONE;
     }
 
-    // 1. Check accessor sidecars first.
+    // A key of the property dictionary (runtime/PropertyDictionary.h): a
+    // plain data property, whose writability and configurability follow the
+    // object's integrity level.
+    if (target->hasOwnAttribute(ctx, k) != PROTO_TRUE) {
+        if (const proto::ProtoObject* dv = dict::getOwn(ctx, target, k)) {
+            JSContextWrapper* w = JSContextWrapper::current();
+            const proto::ProtoObject* op = w ? w->getJSObjectPrototype() : nullptr;
+            const proto::ProtoObject* res = op ? op->newChild(ctx, true) : ctx->newObject(true);
+            const bool frozen = jsIsFrozen(ctx, target);
+            const bool sealed = frozen || jsIsSealed(ctx, target);
+            setAttr(res, "value", dv);
+            setAttr(res, "writable", frozen ? PROTO_FALSE : PROTO_TRUE);
+            setAttr(res, "enumerable", PROTO_TRUE);
+            setAttr(res, "configurable", sealed ? PROTO_FALSE : PROTO_TRUE);
+            return res;
+        }
+    }
+
+    // 1. Check accessor sidecars first. The sidecar names are looked up by
+    // content, not interned: interning them made every descriptor query of
+    // a computed key a perennial SymbolTable entry.
+    auto sidecarKey = [&](const std::string& name) -> const proto::ProtoString* {
+        const proto::ProtoObject* o = ctx->fromUTF8String(name.c_str());
+        return o ? o->asString(ctx) : nullptr;
+    };
     std::string gkStr = "__get_" + kstr + "__";
-    const proto::ProtoString* gk = proto::ProtoString::createSymbol(ctx, gkStr);
+    const proto::ProtoString* gk = sidecarKey(gkStr);
     bool hasG = gk && (target->hasOwnAttribute(ctx, gk) == PROTO_TRUE);
     const proto::ProtoObject* gv = hasG ? target->getAttribute(ctx, gk, false) : nullptr;
 
     std::string skStr = "__set_" + kstr + "__";
-    const proto::ProtoString* sk = proto::ProtoString::createSymbol(ctx, skStr);
+    const proto::ProtoString* sk = sidecarKey(skStr);
     bool hasS = sk && (target->hasOwnAttribute(ctx, sk) == PROTO_TRUE);
     const proto::ProtoObject* sv = hasS ? target->getAttribute(ctx, sk, false) : nullptr;
 
     std::string pdKeyStr = "__pd_" + kstr + "__";
-    const proto::ProtoString* pdk = proto::ProtoString::createSymbol(ctx, pdKeyStr);
+    const proto::ProtoString* pdk = sidecarKey(pdKeyStr);
     bool hasPd = pdk && (target->hasOwnAttribute(ctx, pdk) == PROTO_TRUE);
     const proto::ProtoObject* bitsObj = hasPd ? target->getAttribute(ctx, pdk, false) : nullptr;
 
@@ -4389,8 +4527,13 @@ static const proto::ProtoObject* objectGetOwnPropertyDescriptors(
         const proto::ProtoObject* desc =
             objectGetOwnPropertyDescriptor(ctx, nullptr, nullptr, keyArgs, nullptr);
         if (!desc || desc == PROTO_NONE) continue;
-        const proto::ProtoString* kk = proto::ProtoString::createSymbol(ctx, k);
-        if (kk) result = result->setAttribute(ctx, kk, desc);
+        // The key as the source holds it: a dynamic key stays a collectable
+        // string in the result's property dictionary.
+        const proto::ProtoObject* ko = ctx->fromUTF8String(k.c_str());
+        const proto::ProtoString* kk = ko ? ko->asString(ctx) : nullptr;
+        if (kk && !dict::wantsNewKey(ctx, result, kk))
+            kk = proto::ProtoString::createSymbol(ctx, k);
+        if (kk) result = dict::createDataProperty(ctx, result, kk, desc);
     }
 
     // \xc2\xa720.1.2.11 step 2 iterates ALL own keys, including symbol-keyed
@@ -4765,7 +4908,7 @@ static const proto::ProtoObject* objectFromEntries(
         const proto::ProtoString* entryKey = coercePropNameToKey(ctx, keyObj);
         if (hasCallException()) return;
         if (!entryKey) return;
-        result = result->setAttribute(ctx, entryKey, valObj);
+        result = dict::createDataProperty(ctx, result, entryKey, valObj);
     };
 
     // Iterator-first path: try Symbol.iterator, or treat iterable as
@@ -4953,6 +5096,7 @@ static const proto::ProtoObject* objectHasOwn(
     // hasOwnAttribute returns PROTO_TRUE if own, PROTO_FALSE if inherited, nullptr if absent
     const proto::ProtoObject* own = obj->hasOwnAttribute(ctx, strKey);
     if (own == PROTO_TRUE) return PROTO_TRUE;
+    if (dict::hasOwn(ctx, obj, strKey)) return PROTO_TRUE;
     // Also check accessor sidecars — accessor properties have no data key when
     // defined via Object.defineProperty (the data key is removed on creation).
     for (const char* prefix : {"__get_", "__set_"}) {
@@ -5101,7 +5245,8 @@ static const proto::ProtoObject* objectGroupBy(
         const proto::ProtoString* keyStr = coercePropNameToKey(ctx, keyVal);
         if (!keyStr) continue;
         // Append v to result[key]'s element list; create a new array if absent.
-        const proto::ProtoObject* bucket = result->getAttribute(ctx, keyStr, false);
+        const proto::ProtoObject* bucket = dict::getOwn(ctx, result, keyStr);
+        if (!bucket) bucket = result->getAttribute(ctx, keyStr, false);
         const proto::ProtoList* bucketEls = nullptr;
         if (bucket && bucket != PROTO_NONE) {
             bucketEls = protojs::getArrayElements(ctx, bucket);
@@ -5115,7 +5260,7 @@ static const proto::ProtoObject* objectGroupBy(
         const proto::ProtoString* lenK = JSSymbols::length(ctx);
         if (lenK) bucket = bucket->setAttribute(ctx, lenK,
             ctx->fromInteger(static_cast<long long>(bucketEls->getSize(ctx))));
-        result = result->setAttribute(ctx, keyStr, bucket);
+        result = dict::createDataProperty(ctx, result, keyStr, bucket);
     }
     return result;
 }
@@ -5204,6 +5349,8 @@ static const proto::ProtoObject* objectHasOwnProperty(
         // Allow the accessor-sidecar / array-index fallbacks below to
         // confirm even when the data slot is PROTO_NONE (accessor-only
         // properties have no value attribute).
+    } else if (dict::hasOwn(ctx, self, k)) {
+        return PROTO_TRUE;  // a key of the property dictionary
     }
 
     // Also check accessor sidecars — accessor properties have no data key when
@@ -5354,6 +5501,9 @@ static const proto::ProtoObject* objectPropertyIsEnumerable(
         return PROTO_FALSE;
     }
 
+    // A key of the property dictionary is a plain, enumerable data property.
+    if (self->hasOwnAttribute(ctx, k) != PROTO_TRUE && dict::hasOwn(ctx, self, k))
+        return PROTO_TRUE;
     if (self->hasOwnAttribute(ctx, k) != PROTO_TRUE) {
         // Also check accessors
         std::string keyStr;

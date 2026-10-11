@@ -9,6 +9,7 @@
 #include "ArrayElementsStorage.h"
 #include "JSSymbols.h"
 #include "BigIntPrototype.h"
+#include "runtime/PropertyDictionary.h"
 #include <cmath>
 #include <string>
 #include <vector>
@@ -28,6 +29,81 @@ void initializeNullSentinel(proto::ProtoContext* ctx) {
 
 const proto::ProtoObject* getUndefinedSentinel() { return t_undefinedSentinel; }
 const proto::ProtoObject* getNullSentinel() { return t_nullSentinel; }
+
+const proto::ProtoObject* TypeBridge::fromJSON(JSContext* ctx, JSValue val, proto::ProtoContext* pContext) {
+    if (JS_IsString(val)) {
+        size_t len = 0;
+        const char* str = JS_ToCStringLen(ctx, &len, val);
+        if (!str) return PROTO_NONE;
+        const proto::ProtoObject* s = pContext->fromUTF8String(str);
+        JS_FreeCString(ctx, str);
+        return s ? s : PROTO_NONE;
+    }
+    if (JS_IsArray(ctx, val)) {
+        JSContextWrapper* wrapper = static_cast<JSContextWrapper*>(JS_GetContextOpaque(ctx));
+        const proto::ProtoObject* arrayProto = wrapper ? wrapper->getJSArrayPrototype() : nullptr;
+        JSValue lenVal = JS_GetPropertyStr(ctx, val, "length");
+        uint32_t len = 0;
+        JS_ToUint32(ctx, &len, lenVal);
+        JS_FreeValue(ctx, lenVal);
+        std::vector<const proto::ProtoObject*> items;
+        items.reserve(len);
+        for (uint32_t i = 0; i < len; i++) {
+            JSValue item = JS_GetPropertyUint32(ctx, val, i);
+            const proto::ProtoObject* pItem = JS_IsException(item) ? PROTO_NONE : fromJSON(ctx, item, pContext);
+            JS_FreeValue(ctx, item);
+            items.push_back(pItem ? pItem : PROTO_NONE);
+        }
+        const proto::ProtoObject* backing = arrayProto
+            ? arrayProto->newChild(pContext, true) : ProtoArrayAdapter::createArray(pContext);
+        const proto::ProtoList* list = pContext->newList();
+        for (const proto::ProtoObject* it : items) list = list->appendLast(pContext, it);
+        backing = backing->setAttribute(pContext, JSSymbols::length(pContext),
+                                        pContext->fromInteger(static_cast<long long>(len)));
+        if (const proto::ProtoString* isArrKey = JSSymbols::isArray(pContext))
+            backing = backing->setAttribute(pContext, isArrKey, PROTO_TRUE);
+        protojs::setArrayElements(pContext, backing, list);
+        return backing;
+    }
+    if (JS_IsObject(val) && !JS_IsFunction(ctx, val)) {
+        JSContextWrapper* wrapper = static_cast<JSContextWrapper*>(JS_GetContextOpaque(ctx));
+        const proto::ProtoObject* objectProto = wrapper ? wrapper->getJSObjectPrototype() : nullptr;
+        // Built immutable and made mutable with one clone at the end: one
+        // publication into protoCore's mutable table instead of one per key.
+        const proto::ProtoObject* pObj = objectProto ? objectProto->newChild(pContext, false)
+                                                     : pContext->newObject(false);
+        dict::Builder dictionary(pContext);
+        JSPropertyEnum* props = nullptr;
+        uint32_t count = 0;
+        if (JS_GetOwnPropertyNames(ctx, &props, &count, val, JS_GPN_STRING_MASK) == 0) {
+            for (uint32_t i = 0; i < count; i++) {
+                JSValue propVal = JS_GetProperty(ctx, val, props[i].atom);
+                const char* name = JS_AtomToCString(ctx, props[i].atom);
+                const proto::ProtoObject* pVal = fromJSON(ctx, propVal, pContext);
+                if (name) {
+                    const proto::ProtoObject* ko = pContext->fromUTF8String(name);
+                    const proto::ProtoString* key = ko ? ko->asString(pContext) : nullptr;
+                    if (key && dict::isDynamicKeyFor(pContext, objectProto, key)) {
+                        dictionary.add(key, pVal);
+                    } else if (key) {
+                        // Vocabulary, internal and inline spellings stay named
+                        // (setAttribute interns a heap one: it is interned
+                        // already, or it is an internal name such as __proto__).
+                        pObj = pObj->setAttribute(pContext, key, pVal ? pVal : PROTO_NONE);
+                    }
+                    JS_FreeCString(ctx, name);
+                }
+                JS_FreeValue(ctx, propVal);
+                JS_FreeAtom(ctx, props[i].atom);
+            }
+            js_free(ctx, props);
+        }
+        pObj = dictionary.finish(pObj);
+        return pObj->clone(pContext, true);
+    }
+    // null, undefined, booleans and numbers convert as fromJS does.
+    return fromJS(ctx, val, pContext);
+}
 
 const proto::ProtoObject* TypeBridge::fromJS(JSContext* ctx, JSValue val, proto::ProtoContext* pContext) {
     if (JS_IsNull(val)) {

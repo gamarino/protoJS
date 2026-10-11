@@ -10,6 +10,7 @@
 #include "GcScopedCache.h"
 #include "LazyPrototype.h"
 #include "PinnedBuiltin.h"
+#include "PropertyDictionary.h"
 #include "ThreadIdentity.h"
 #include "NativeStackGuard.h"
 #include "../ArrayPrototype.h"
@@ -157,8 +158,21 @@ static const proto::ProtoObject* resolveFieldOOP(proto::ProtoContext* ctx, const
             cur = parent;
         }
     }
+    // No named attribute answers: a key of the receiver's or a prototype's
+    // property dictionary (runtime/PropertyDictionary.h). A dictionary key is
+    // never also a named attribute of the object or, when it was stored, of
+    // its prototypes, so a named hit above never hides one.
+    if (!res || res == PROTO_NONE) {
+        if (const proto::ProtoObject* dv = protojs::dict::findInChain(ctx, obj, key)) return dv;
+    }
     return res;
 }
+
+static const proto::ProtoObject* putDictionaryProperty(proto::ProtoContext* ctx,
+                                                       const proto::ProtoObject* obj,
+                                                       const proto::ProtoString* key,
+                                                       const proto::ProtoObject* val,
+                                                       bool isStrict);
 
 static const proto::ProtoObject* resolvePutFieldOOP(proto::ProtoContext* ctx, const proto::ProtoObject* obj, const proto::ProtoString* key, const proto::ProtoObject* val, bool isStrict = false) {
     if (!obj || obj == PROTO_NONE || !key) return obj;
@@ -187,6 +201,10 @@ static const proto::ProtoObject* resolvePutFieldOOP(proto::ProtoContext* ctx, co
     // own data exists AND the receiver carries no own getter/setter
     // for that key, the spec just overwrites the data slot.
     const bool ownHasData = obj->hasOwnAttribute(ctx, key) == PROTO_TRUE;
+    if (!ownHasData && !ownMayHaveAccessor) {
+        if (const proto::ProtoObject* r = putDictionaryProperty(ctx, obj, key, val, isStrict))
+            return r;
+    }
     const bool needAccessorWalk = ownMayHaveAccessor
         || (!ownHasData
             && hapKey
@@ -382,7 +400,13 @@ static const proto::ProtoObject* resolvePutElementOOP(proto::ProtoContext* ctx, 
     const protojs::JSObjectBehavior* behavior = reg.resolve(ctx, obj);
     if (behavior == reg.getDefault()) {
         // Default putElement returns nullptr → caller falls back to
-        // setAttribute on the indexed key.
+        // setAttribute on the indexed key. An index of seven or more digits
+        // is a heap string: on an ordinary object it goes to the property
+        // dictionary instead of becoming a perennial symbol.
+        if (index >= 1000000u) {
+            const proto::ProtoString* hk = protojs::dict::indexKeyNoIntern(ctx, index);
+            if (const proto::ProtoObject* r = protojs::dict::put(ctx, obj, hk, val)) return r;
+        }
         return obj->setAttribute(ctx, JSSymbols::indexKey(ctx, index), val);
     }
     const proto::ProtoObject* res = behavior->putElement(ctx, obj, index, val);
@@ -390,10 +414,54 @@ static const proto::ProtoObject* resolvePutElementOOP(proto::ProtoContext* ctx, 
     return obj->setAttribute(ctx, JSSymbols::indexKey(ctx, index), val);
 }
 
+// [[Set]] of a key held, or to be held, by the receiver's property dictionary
+// (runtime/PropertyDictionary.h): updates an own dictionary key (refused on a
+// frozen object: TypeError in strict code), or stores a new dynamic key. Returns
+// the resulting object, or nullptr when the key is not a dictionary key and the
+// caller stores it as a named attribute. A key the dictionary may take has no
+// named attribute on the object or its prototypes, hence no inherited setter or
+// read-only property to honour.
+PROTOJS_NOINLINE
+static const proto::ProtoObject* putDictionaryProperty(proto::ProtoContext* ctx,
+                                                       const proto::ProtoObject* obj,
+                                                       const proto::ProtoString* key,
+                                                       const proto::ProtoObject* val,
+                                                       bool isStrict) {
+    if (protojs::dict::hasOwn(ctx, obj, key)) {
+        if (protojs::jsIsFrozen(ctx, obj)) {
+            if (isStrict) {
+                std::string ks;
+                key->toUTF8String(ctx, ks);
+                signalNativeException(makeNativeError(ctx, "TypeError",
+                    ("Cannot assign to read only property '" + ks + "'").c_str()));
+            }
+            return obj;
+        }
+        if (const proto::ProtoObject* r = protojs::dict::update(ctx, obj, key, val)) return r;
+        return obj;
+    }
+    if (!protojs::dict::isHeapStringKey(key)) return nullptr;
+    return protojs::dict::put(ctx, obj, key, val);
+}
+
 // ---------------------------------------------------------------------------
 // Property key interning optimization
 // ---------------------------------------------------------------------------
-static const proto::ProtoString* ensureInterned(proto::ProtoContext* ctx, const proto::ProtoString* s) {
+// The attribute key of a computed property name `s`, for reading and writing
+// element properties (obj[k], k in obj, delete obj[k], {[k]: v}).
+//
+// A symbol is returned as is. An inline string (ASCII of up to six bytes,
+// held in the pointer) and a heap string whose spelling is program vocabulary
+// (runtime/PropertyDictionary.h) map to the interned symbol, which costs no new
+// SymbolTable entry. Any other heap string is returned AS IS, never interned:
+// it is data (a request id, a word, a JSON key), and an interned spelling is a
+// perennial cell. protoCore's getAttribute / hasOwnAttribute find a named
+// attribute by the content of a heap-string name without inserting it, and the
+// object's property dictionary holds such keys when they are written (see
+// resolvePutFieldOOP). Before 2026-10-11 every computed key was interned here,
+// on reads as well as writes, and the SymbolTable grew with every distinct key
+// a program ever used (docs/MEMORY_SAFETY_PROPOSALS.md, section 2).
+static const proto::ProtoString* propertyKey(proto::ProtoContext* ctx, const proto::ProtoString* s) {
     if (!s) return nullptr;
     if (s->isSymbol()) return s;
     // Inline strings (≤ INLINE_STRING_MAX_BYTES of pure ASCII packed
@@ -456,12 +524,25 @@ static const proto::ProtoString* ensureInterned(proto::ProtoContext* ctx, const 
     std::string utf8;
     s->toUTF8String(ctx, utf8);
     const proto::ProtoString* result =
-        proto::ProtoString::createSymbol(ctx, utf8.c_str());
+        (!protojs::dict::isHeapStringKey(s) || protojs::dict::isVocabulary(utf8))
+            ? proto::ProtoString::createSymbol(ctx, utf8.c_str())
+            : s;
     s_internCache[s] = result;
     return result;
 }
 
-static const proto::ProtoString* ensureInternedOOP(proto::ProtoContext* ctx, const proto::ProtoObject* obj) {
+// The interned symbol of `s`: for the property names that become named
+// attributes by definition (methods and accessors defined with a computed
+// name), which intern their name anyway.
+static const proto::ProtoString* internedKey(proto::ProtoContext* ctx, const proto::ProtoString* s) {
+    if (!s || s->isSymbol()) return s;
+    std::string utf8;
+    s->toUTF8String(ctx, utf8);
+    return proto::ProtoString::createSymbol(ctx, utf8.c_str());
+}
+
+
+static const proto::ProtoString* propertyKeyOOP(proto::ProtoContext* ctx, const proto::ProtoObject* obj) {
     if (!obj) return nullptr;
     // Symbol-tagged objects carry a per-instance __symbol_str_key__
     // (installed by Symbol() ctor).  Return that ProtoString identity
@@ -480,12 +561,12 @@ static const proto::ProtoString* ensureInternedOOP(proto::ProtoContext* ctx, con
                 const proto::ProtoObject* keyStr =
                     obj->getAttribute(ctx, sskK, true);
                 if (keyStr && keyStr != PROTO_NONE && keyStr->isString(ctx))
-                    return ensureInterned(ctx, keyStr->asString(ctx));
+                    return propertyKey(ctx, keyStr->asString(ctx));
             }
         }
     }
     if (!obj->isString(ctx)) return nullptr;
-    return ensureInterned(ctx, obj->asString(ctx));
+    return propertyKey(ctx, obj->asString(ctx));
 }
 
 // The property key of an element access whose key is a symbol (its
@@ -495,7 +576,7 @@ static const proto::ProtoString* ensureInternedOOP(proto::ProtoContext* ctx, con
 PROTOJS_NOINLINE
 static const proto::ProtoString* elementKeyIfSymbolOrString(proto::ProtoContext* ctx,
                                                             const proto::ProtoObject* index) {
-    return ensureInternedOOP(ctx, index);
+    return propertyKeyOOP(ctx, index);
 }
 
 // The getter / setter arm of OP_define_method_computed: installs `method` as
@@ -1274,6 +1355,7 @@ static const proto::ProtoObject* reflectHas(
     if (protojs::isProxy(ctx, target))
         return protojs::proxyDispatchHas(ctx, target, k);
     const proto::ProtoObject* v = target->getAttribute(ctx, k, true);
+    if (!v || v == PROTO_NONE) v = protojs::dict::findInChain(ctx, target, k);
     return (v && v != PROTO_NONE) ? PROTO_TRUE : PROTO_FALSE;
 }
 
@@ -1307,7 +1389,7 @@ static const proto::ProtoObject* reflectGet(
     const proto::ProtoObject* receiver = (args->getSize(ctx) > 2)
         ? args->getAt(ctx, 2) : target;
     if (!receiver || receiver == PROTO_NONE) receiver = target;
-    const proto::ProtoObject* v = target->getAttribute(ctx, k, true);
+    const proto::ProtoObject* v = protojs::dict::getDataProperty(ctx, target, k);
     // §9.1.8 step 7: if the lookup landed on an accessor (data slot is
     // undefined sentinel and __get_<key>__ is present), invoke the
     // getter with receiver as `this`.
@@ -1440,6 +1522,25 @@ static const proto::ProtoObject* reflectSet(
             }
         }
     }
+    // §10.1.9.2 step 2.e: CreateDataProperty(Receiver, P, V) -- for a Proxy
+    // receiver (a set trap forwarding with Reflect.set(t, k, v, proxy)) that
+    // is the proxy's defineProperty, or its target; a write on the proxy cell
+    // itself was invisible through the proxy.
+    if (receiverProvided && protojs::isProxy(ctx, receiver)) {
+        const proto::ProtoObject* r =
+            protojs::proxyCreateDataProperty(ctx, receiver, k, value ? value : PROTO_NONE);
+        return r == PROTO_NONE ? PROTO_NONE : r;
+    }
+    // A key of the receiver's property dictionary, or a dynamic key it takes
+    // (runtime/PropertyDictionary.h).
+    if (protojs::dict::hasOwn(ctx, receiver, k)) {
+        if (protojs::jsIsFrozen(ctx, receiver)) return PROTO_FALSE;
+        protojs::dict::update(ctx, receiver, k, value ? value : PROTO_NONE);
+        return PROTO_TRUE;
+    }
+    if (receiver->hasOwnAttribute(ctx, k) != PROTO_TRUE
+        && protojs::dict::put(ctx, receiver, k, value ? value : PROTO_NONE))
+        return PROTO_TRUE;
     receiver->setAttribute(ctx, k, value ? value : PROTO_NONE);
     return PROTO_TRUE;
 }
@@ -1635,6 +1736,20 @@ static const proto::ProtoObject* reflectOwnKeys(
         }
         strKeys.push_back(ks);
     }
+    // The keys of the property dictionary (runtime/PropertyDictionary.h):
+    // integer indices join the sorted indices, the others follow the named
+    // string keys in insertion order.
+    {
+        std::vector<std::string> dictKeys;
+        protojs::dict::keys(ctx, target, dictKeys);
+        for (std::string& ks : dictKeys) {
+            bool isIdx = !ks.empty() && ks.size() <= 10 && (ks.size() == 1 || ks[0] != '0')
+                && std::all_of(ks.begin(), ks.end(), [](unsigned char c){ return c >= '0' && c <= '9'; });
+            unsigned long long iv = isIdx ? std::stoull(ks) : 0;
+            if (isIdx && iv < 0xFFFFFFFFULL) idxKeys.push_back(static_cast<uint32_t>(iv));
+            else strKeys.push_back(std::move(ks));
+        }
+    }
     std::sort(idxKeys.begin(), idxKeys.end());
     for (uint32_t i : idxKeys)
         els = els->appendLast(ctx, ctx->fromUTF8String(std::to_string(i).c_str()));
@@ -1712,6 +1827,26 @@ static const proto::ProtoObject* reflectDeleteProperty(
             }
         }
     }
+    // A key of the property dictionary (runtime/PropertyDictionary.h).
+    if (protojs::dict::remove(ctx, target, k)) return PROTO_TRUE;
+    // An own named property is removed, with its accessor and descriptor
+    // sidecars, as `delete` does. Before, the slot was overwritten with
+    // PROTO_NONE, so the key stayed an own property.
+    if (target->hasOwnAttribute(ctx, k) == PROTO_TRUE) {
+        const proto::ProtoObject* t = target->setAttribute(ctx, k, nullptr);
+        std::string kstr;
+        k->toUTF8String(ctx, kstr);
+        for (const char* prefix : {"__get_", "__set_", "__pd_"}) {
+            const std::string sk = std::string(prefix) + kstr + "__";
+            const proto::ProtoObject* sko = ctx->fromUTF8String(sk.c_str());
+            const proto::ProtoString* sks = sko ? sko->asString(ctx) : nullptr;
+            if (t && sks && t->hasOwnAttribute(ctx, sks) == PROTO_TRUE)
+                t = t->setAttribute(ctx, sks, nullptr);
+        }
+        return PROTO_TRUE;
+    }
+    // An absent heap-string key: nothing to delete, and nothing to intern.
+    if (protojs::dict::isHeapStringKey(k)) return PROTO_TRUE;
     target->setAttribute(ctx, k, PROTO_NONE);
     return PROTO_TRUE;
 }
@@ -2350,9 +2485,9 @@ static const proto::ProtoObject* symbolConstructor(
             const std::string storageKey = protojs::makeSymbolStorageKey();
             const char* buf = storageKey.c_str();
             // Intern via createSymbol so the per-instance key is the
-            // canonical SymbolTable entry — same identity ensureInterned
+            // canonical SymbolTable entry — same identity propertyKey
             // and protoCore's attribute store key off of.  fromUTF8String
-            // would produce a rope that ensureInterned later canonicalises
+            // would produce a rope that propertyKey later canonicalises
             // through createSymbol, but the intermediate rope wouldn't
             // match the canonical pointer by identity.
             const proto::ProtoString* keyStr =
@@ -4799,6 +4934,10 @@ static bool putFieldGroupApplies(proto::ProtoContext* ctx, ProtoBytecodeModule* 
     if (hapKey && recv->hasOwnAttribute(ctx, hapKey) == PROTO_TRUE
         && recv->getAttribute(ctx, hapKey, false) == PROTO_TRUE)
         return false;
+    // A receiver with a property dictionary (runtime/PropertyDictionary.h)
+    // takes the per-field path, which keeps a key that the dictionary holds
+    // in the dictionary.
+    if (protojs::dict::hasDictionary(ctx, recv)) return false;
     const proto::ProtoString* hnwKey = JSSymbols::hasNonWritableProps(ctx);
     const bool maybeNonWritable = hnwKey
         && recv->hasAttribute(ctx, hnwKey) == PROTO_TRUE
@@ -5378,7 +5517,8 @@ static const proto::ProtoObject* defineMethodComputed(proto::ProtoContext* ctx,
     // `set [sym](v)` is found by a later `obj[sym] = v`.  Undefined and null
     // become "undefined" / "null"; every key is interned like every other
     // property key.
-    const proto::ProtoString* key = ensureInternedOOP(ctx, keyVal);
+    const proto::ProtoString* key = propertyKeyOOP(ctx, keyVal);
+    if (key) key = internedKey(ctx, key);
     if (!key && keyVal && keyVal != PROTO_NONE) {
         key = keyVal->asString(ctx);
         if (!key && keyVal->isInteger(ctx)) {
@@ -5390,9 +5530,12 @@ static const proto::ProtoObject* defineMethodComputed(proto::ProtoContext* ctx,
     }
     if (!key) {
         const proto::ProtoObject* coerced = toString(ctx, keyVal);
-        key = coerced ? ensureInterned(ctx, coerced->asString(ctx)) : nullptr;
+        key = coerced ? internedKey(ctx, coerced->asString(ctx)) : nullptr;
     }
     if (!key) return nullptr;
+    // A method or accessor replaces a data key of the property dictionary
+    // (runtime/PropertyDictionary.h) of the same name.
+    if (const proto::ProtoObject* without = protojs::dict::remove(ctx, obj, key)) obj = without;
     const int kind = op_flags & 0x3;
     const bool enumerable = (op_flags & 0x4) != 0;
     method = makeMethod(ctx, method, keyVal, key, kind, obj);
@@ -11194,7 +11337,8 @@ const proto::ProtoObject* runBytecode(proto::ProtoContext* pContext,
                 // broader strict-mode add-to-non-extensible suite).
                 {
                     if (protojs::jsIsNonExtensible(pContext, obj)
-                        && obj->hasOwnAttribute(pContext, key) != PROTO_TRUE) {
+                        && obj->hasOwnAttribute(pContext, key) != PROTO_TRUE
+                        && !protojs::dict::hasOwn(pContext, obj, key)) {
                         // Also check accessor sidecars before rejecting —
                         // a non-extensible target with an installed setter
                         // for `key` still accepts writes.  Probe the
@@ -11551,6 +11695,14 @@ const proto::ProtoObject* runBytecode(proto::ProtoContext* pContext,
                     }
                 }
                 if (key && obj) {
+                    // A literal whose computed keys put some keys in the
+                    // property dictionary may name one of them again: the
+                    // later definition replaces the dictionary entry.
+                    if (const proto::ProtoObject* dictObj =
+                            protojs::dict::update(pContext, obj, key, value)) {
+                        stackPush(pContext, dictObj);
+                        DISPATCH();
+                    }
                     const proto::ProtoObject* newObj = obj->setAttribute(pContext, key, value);
                     if (newObj && newObj != PROTO_NONE) {
                         // If the key is a pure numeric index (e.g. "32", "33") and the object
@@ -11653,13 +11805,13 @@ const proto::ProtoObject* runBytecode(proto::ProtoContext* pContext,
                     // decimal string.  Pre-fix a negative key was dropped and
                     // a key above 2^32 was truncated to 32 bits.
                     if (i2 >= 0 && i2 <= 0xFFFFFFFELL)
-                        idxKey2 = JSSymbols::indexKey(pContext, static_cast<uint32_t>(i2));
+                        idxKey2 = protojs::dict::indexKeyNoIntern(pContext, static_cast<uint32_t>(i2));
                     else
                         idxKey2 = protojs::toPropertyKey(pContext, idxVal);
                 } else if (idxVal && idxVal != PROTO_NONE) {
                     // Symbol primitives have a per-instance
                     // __symbol_str_key__ that the put / hasOwn paths
-                    // key off of.  Route through ensureInternedOOP so
+                    // key off of.  Route through propertyKeyOOP so
                     // an object literal \`{[sym]: v}\` stores under the
                     // SAME ProtoString identity \`obj[sym] = v\` would
                     // use elsewhere; pre-fix the asString fallback
@@ -11669,7 +11821,7 @@ const proto::ProtoObject* runBytecode(proto::ProtoContext* pContext,
                     // existing-data-property and the matching sealed
                     // variant pinned the case via Object.assign onto
                     // a literal { [sym]: 1 } source).
-                    idxKey2 = ensureInternedOOP(pContext, idxVal);
+                    idxKey2 = propertyKeyOOP(pContext, idxVal);
                     if (!idxKey2) idxKey2 = idxVal->asString(pContext);
                     if (!idxKey2) {
                         // Not already a ProtoString — coerce via the user's
@@ -11680,6 +11832,28 @@ const proto::ProtoObject* runBytecode(proto::ProtoContext* pContext,
                     }
                 }
                 if (!idxKey2) DISPATCH();
+                // A computed key that is data goes to the object's property
+                // dictionary (runtime/PropertyDictionary.h): CreateDataProperty
+                // on the literal under construction.
+                if (const proto::ProtoObject* dictObj = protojs::dict::put(
+                        pContext, arrObj2, idxKey2, elemVal2 ? elemVal2 : PROTO_NONE)) {
+                    if (dictObj != arrObj2) {
+                        updateMapping(pContext, arrObj2, dictObj);
+                        stackPop(pContext);            // pop index
+                        stackPop(pContext);            // pop old object
+                        stackPush(pContext, dictObj);
+                        stackPush(pContext, idxVal);
+                    }
+                    DISPATCH();
+                }
+                if (protojs::dict::isHeapStringKey(idxKey2)
+                    && JSSymbols::isArray(pContext)
+                    && arrObj2->getAttribute(pContext, JSSymbols::isArray(pContext), false) == PROTO_TRUE) {
+                    // An array element index of seven or more digits.
+                    std::string ik;
+                    idxKey2->toUTF8String(pContext, ik);
+                    idxKey2 = proto::ProtoString::createSymbol(pContext, ik.c_str());
+                }
                 // Set array[index] = value; update array pointer in slot below index.
                 const proto::ProtoObject* newArr = arrObj2->setAttribute(
                     pContext, idxKey2, elemVal2 ? elemVal2 : PROTO_NONE);
@@ -12078,7 +12252,7 @@ const proto::ProtoObject* runBytecode(proto::ProtoContext* pContext,
                                     cdpExcl->getAttribute(pContext, nameKey, false);
                                 if (exclCheck && exclCheck != PROTO_NONE) continue;
                             }
-                            cdpTarget = cdpTarget->setAttribute(pContext, nameKey,
+                            cdpTarget = protojs::dict::createDataProperty(pContext, cdpTarget, nameKey,
                                 getRes ? getRes : PROTO_NONE);
                             continue;
                         }
@@ -12132,8 +12306,21 @@ const proto::ProtoObject* runBytecode(proto::ProtoContext* pContext,
                                 }
                             }
                         }
-                        cdpTarget = cdpTarget->setAttribute(pContext, propKey,
+                        cdpTarget = protojs::dict::createDataProperty(pContext, cdpTarget, propKey,
                             effective ? effective : PROTO_NONE);
+                    }
+                }
+                // The source's property dictionary (runtime/PropertyDictionary.h):
+                // enumerable data keys in insertion order.
+                {
+                    std::vector<std::pair<const proto::ProtoString*, const proto::ProtoObject*>> cdpDict;
+                    protojs::dict::entries(pContext, cdpSource, cdpDict);
+                    for (const auto& de : cdpDict) {
+                        if (cdpHasExcl
+                            && (cdpExcl->hasAttribute(pContext, de.first) == PROTO_TRUE
+                                || protojs::dict::hasOwn(pContext, cdpExcl, de.first)))
+                            continue;
+                        cdpTarget = protojs::dict::createDataProperty(pContext, cdpTarget, de.first, de.second);
                     }
                 }
 
@@ -12518,7 +12705,7 @@ const proto::ProtoObject* runBytecode(proto::ProtoContext* pContext,
                         bool ownSidecarHit = false;
                         if (!ownDenseHit) {
                             const proto::ProtoString* ik =
-                                JSSymbols::indexKey(pContext, static_cast<uint32_t>(arrIdxFast));
+                                protojs::dict::indexKeyNoIntern(pContext, static_cast<uint32_t>(arrIdxFast));
                             if (ik && obj->hasOwnAttribute(pContext, ik) == PROTO_TRUE) {
                                 const proto::ProtoObject* ov = obj->getAttribute(pContext, ik, false);
                                 if (ov && ov != PROTO_NONE) ownSidecarHit = true;
@@ -12574,9 +12761,9 @@ const proto::ProtoObject* runBytecode(proto::ProtoContext* pContext,
                 if (!val) {
                     const proto::ProtoString* key = nullptr;
                     if (arrIdxFast >= 0) {
-                        key = JSSymbols::indexKey(pContext, static_cast<uint32_t>(arrIdxFast));
+                        key = protojs::dict::indexKeyNoIntern(pContext, static_cast<uint32_t>(arrIdxFast));
                     } else {
-                        key = ensureInternedOOP(pContext, index);
+                        key = propertyKeyOOP(pContext, index);
                         if (!key) {
                             const proto::ProtoObject* keyObj = toString(pContext, index);
                             // \xc2\xa77.1.21 ToPropertyKey -> \xc2\xa77.1.17 ToString: a throwing
@@ -12599,7 +12786,7 @@ const proto::ProtoObject* runBytecode(proto::ProtoContext* pContext,
                                 t_callException       = nullptr;
                                 DISPATCH();
                             }
-                            key = keyObj ? ensureInternedOOP(pContext, keyObj) : nullptr;
+                            key = keyObj ? propertyKeyOOP(pContext, keyObj) : nullptr;
                         }
                     }
                     // String primitives expose .length via the dedicated
@@ -12622,7 +12809,17 @@ const proto::ProtoObject* runBytecode(proto::ProtoContext* pContext,
                         }
                     }
                     protojs::materializeLazyPrototypeForKey(pContext, obj, key);  // LazyPrototype.h
-                    if (obj && key) {
+                    // A heap-string key that is not vocabulary (propertyKey
+                    // turned vocabulary into its symbol) is held, when the
+                    // object has it at all, by the object's property
+                    // dictionary (runtime/PropertyDictionary.h): probe it
+                    // first, which spares the by-content lookup of a name
+                    // that is not interned.
+                    if (obj && key && protojs::dict::isHeapStringKey(key)) {
+                        if (const proto::ProtoObject* dv = protojs::dict::getOwn(pContext, obj, key))
+                            val = dv;
+                    }
+                    if (obj && key && !val) {
                         // §10.1.8 OrdinaryGet: own descriptor wins over
                         // anything inherited.  Walk own-first so a data
                         // property defined on obj shadows an accessor
@@ -12695,6 +12892,12 @@ const proto::ProtoObject* runBytecode(proto::ProtoContext* pContext,
                             // Own data property — return without walking
                             // the prototype chain.
                             val = obj->getAttribute(pContext, key, false);
+                        } else if (const proto::ProtoObject* dv =
+                                       protojs::dict::getOwn(pContext, obj, key)) {
+                            // Own key of the object's property dictionary
+                            // (runtime/PropertyDictionary.h): a plain data
+                            // property, which shadows the prototype chain.
+                            val = dv;
                         } else {
                             // Not own — only NOW pay the inherited-
                             // accessor lookup, and only when the chain
@@ -12720,6 +12923,12 @@ const proto::ProtoObject* runBytecode(proto::ProtoContext* pContext,
                         }
                         if (!val || val == PROTO_NONE) {
                             val = resolveFieldOOP(pContext, obj, key);
+                        }
+                        // An inherited key of a prototype's dictionary.
+                        if ((!val || val == PROTO_NONE) && key) {
+                            if (const proto::ProtoObject* dv =
+                                    protojs::dict::findInChain(pContext, obj, key))
+                                val = dv;
                         }
                         // [[Get]] chain walk dispatching a Proxy ancestor.
                         // When obj inherits from a Proxy via Object.create,
@@ -12835,7 +13044,7 @@ const proto::ProtoObject* runBytecode(proto::ProtoContext* pContext,
                 if (!val) {
                     const proto::ProtoString* key = nullptr;
                     if (arrIdxFast2 >= 0) {
-                        key = JSSymbols::indexKey(pContext, static_cast<uint32_t>(arrIdxFast2));
+                        key = protojs::dict::indexKeyNoIntern(pContext, static_cast<uint32_t>(arrIdxFast2));
                     } else {
                         // A symbol's key is its per-instance identity, as in
                         // OP_get_array_el: ToString would give "Symbol(desc)",
@@ -12848,7 +13057,7 @@ const proto::ProtoObject* runBytecode(proto::ProtoContext* pContext,
                         }
                     }
                     protojs::materializeLazyPrototypeForKey(pContext, obj, key);  // LazyPrototype.h
-                    val = (obj && key) ? obj->getAttribute(pContext, key, true) : PROTO_NONE;
+                    val = protojs::dict::getDataProperty(pContext, obj, key);
                     REFRESH_INTERP_STATE();
                     if ((!val || val == PROTO_NONE) && key) {
                         std::string keyStrGAE2;
@@ -12926,7 +13135,7 @@ const proto::ProtoObject* runBytecode(proto::ProtoContext* pContext,
                 if (!val) {
                     const proto::ProtoString* key = nullptr;
                     if (arrIdxFast3 >= 0) {
-                        key = JSSymbols::indexKey(pContext, static_cast<uint32_t>(arrIdxFast3));
+                        key = protojs::dict::indexKeyNoIntern(pContext, static_cast<uint32_t>(arrIdxFast3));
                     } else {
                         key = elementKeyIfSymbolOrString(pContext, index);
                         if (!key) {
@@ -12936,7 +13145,7 @@ const proto::ProtoObject* runBytecode(proto::ProtoContext* pContext,
                         }
                     }
                     protojs::materializeLazyPrototypeForKey(pContext, obj, key);  // LazyPrototype.h
-                    val = (obj && key) ? obj->getAttribute(pContext, key, true) : PROTO_NONE;
+                    val = protojs::dict::getDataProperty(pContext, obj, key);
                     if ((!val || val == PROTO_NONE) && key) {
                         std::string keyStrGAE3;
                         key->toUTF8String(pContext, keyStrGAE3);
@@ -13168,10 +13377,10 @@ const proto::ProtoObject* runBytecode(proto::ProtoContext* pContext,
                         DISPATCH();
                     }
                 } else {
-                    const proto::ProtoString* key = ensureInternedOOP(pContext, index);
+                    const proto::ProtoString* key = propertyKeyOOP(pContext, index);
                     if (!key) {
                         const proto::ProtoObject* keyObj = toString(pContext, index);
-                        key = keyObj ? ensureInternedOOP(pContext, keyObj) : nullptr;
+                        key = keyObj ? propertyKeyOOP(pContext, keyObj) : nullptr;
                     }
                     protojs::materializeLazyPrototypeForKey(pContext, obj, key);  // LazyPrototype.h
                     if (key) {
@@ -13184,7 +13393,8 @@ const proto::ProtoObject* runBytecode(proto::ProtoContext* pContext,
                         // the Symbol-key path through this site.
                         {
                             if (protojs::jsIsNonExtensible(pContext, obj)
-                                && obj->hasOwnAttribute(pContext, key) != PROTO_TRUE) {
+                                && obj->hasOwnAttribute(pContext, key) != PROTO_TRUE
+                                && !protojs::dict::hasOwn(pContext, obj, key)) {
                                 bool hasAccessor = false;
                                 std::string ks;
                                 key->toUTF8String(pContext, ks);
@@ -15279,7 +15489,7 @@ const proto::ProtoObject* runBytecode(proto::ProtoContext* pContext,
                 // because the toString path produced a different
                 // ProtoString* than the storage key
                 // (built-ins/Object/defineProperty/symbol-data-property-*).
-                const proto::ProtoString* key = ensureInternedOOP(pContext, keyVal);
+                const proto::ProtoString* key = propertyKeyOOP(pContext, keyVal);
                 if (!key) {
                     const proto::ProtoObject* keyObj = toString(pContext, keyVal);
                     key = keyObj ? keyObj->asString(pContext) : nullptr;
@@ -15355,9 +15565,15 @@ const proto::ProtoObject* runBytecode(proto::ProtoContext* pContext,
                         const proto::ProtoString* sks = sko ? sko->asString(pContext) : nullptr;
                         if (sks && obj->hasAttribute(pContext, sks) == PROTO_TRUE) {
                             hasResult = PROTO_TRUE;
-                            DISPATCH();
+                            break;
                         }
                     }
+                }
+                // A key of the property dictionary of obj or of a prototype
+                // (runtime/PropertyDictionary.h).
+                if (hasResult != PROTO_TRUE && key
+                    && protojs::dict::findInChain(pContext, obj, key)) {
+                    hasResult = PROTO_TRUE;
                 }
                 // §10.1.7.1 OrdinaryHasProperty step 5: when not found
                 // on own attrs, recurse into the [[Prototype]] chain
@@ -15405,7 +15621,7 @@ const proto::ProtoObject* runBytecode(proto::ProtoContext* pContext,
                 // their per-instance __symbol_str_key__ — see L_OP_in for
                 // the matching pattern (the put / hasOwn / delete paths
                 // share storage identity).
-                const proto::ProtoString* key = ensureInternedOOP(pContext, keyVal);
+                const proto::ProtoString* key = propertyKeyOOP(pContext, keyVal);
                 if (!key) {
                     const proto::ProtoObject* keyObj = toString(pContext, keyVal);
                     key = keyObj ? keyObj->asString(pContext) : nullptr;
@@ -15438,6 +15654,26 @@ const proto::ProtoObject* runBytecode(proto::ProtoContext* pContext,
                         DISPATCH();
                     }
                     stackPush(pContext, r == PROTO_TRUE ? PROTO_TRUE : PROTO_FALSE);
+                    DISPATCH();
+                }
+                // An own key of the property dictionary (runtime/
+                // PropertyDictionary.h): configurable unless the object is
+                // sealed or frozen.
+                if (obj && obj != PROTO_NONE && key
+                    && protojs::dict::hasOwn(pContext, obj, key)) {
+                    if (protojs::jsIsSealed(pContext, obj) || protojs::jsIsFrozen(pContext, obj)) {
+                        if (module && module->isStrict) {
+                            pending_exception = makeError(pContext, "TypeError",
+                                "Cannot delete non-configurable property", pGlobalRoot);
+                            has_pending_exception = true;
+                            DISPATCH();
+                        }
+                        stackPush(pContext, PROTO_FALSE);
+                        DISPATCH();
+                    }
+                    const proto::ProtoObject* dictObj = protojs::dict::remove(pContext, obj, key);
+                    if (dictObj && dictObj != obj) updateMapping(pContext, obj, dictObj);
+                    stackPush(pContext, PROTO_TRUE);
                     DISPATCH();
                 }
                 if (obj && obj != PROTO_NONE && key) {
@@ -15513,7 +15749,13 @@ const proto::ProtoObject* runBytecode(proto::ProtoContext* pContext,
                             }
                         }
                     }
-                    const proto::ProtoObject* newObj = obj->setAttribute(pContext, key, nullptr);
+                    // Remove only what is there: setAttribute(name, nullptr)
+                    // interns a heap-string name, so deleting an absent
+                    // computed key -- or the sidecars of a key that has none
+                    // -- used to add perennial SymbolTable entries.
+                    const proto::ProtoObject* newObj = obj;
+                    if (obj->hasOwnAttribute(pContext, key) == PROTO_TRUE)
+                        newObj = obj->setAttribute(pContext, key, nullptr);
                     // Also remove accessor sidecars (__get_<name>__, __set_<name>__,
                     // __pd_<name>__) so the property is fully deleted per the spec.
                     if (newObj) {
@@ -15521,7 +15763,8 @@ const proto::ProtoObject* runBytecode(proto::ProtoContext* pContext,
                             std::string sk = prefix + propNameStrDel + "__";
                             const proto::ProtoObject* sko = pContext->fromUTF8String(sk.c_str());
                             const proto::ProtoString* sks = sko ? sko->asString(pContext) : nullptr;
-                            if (sks && newObj) newObj = newObj->setAttribute(pContext, sks, nullptr);
+                            if (sks && newObj && newObj->hasOwnAttribute(pContext, sks) == PROTO_TRUE)
+                                newObj = newObj->setAttribute(pContext, sks, nullptr);
                         }
                     }
                     if (newObj && newObj != obj) {
@@ -18746,6 +18989,18 @@ const proto::ProtoObject* runBytecode(proto::ProtoContext* pContext,
                                     }
                                 }
                                 addFiKey(kstr);
+                            }
+                        }
+                        // The level's property dictionary (runtime/
+                        // PropertyDictionary.h): enumerable data keys, in
+                        // insertion order, after its named keys.
+                        {
+                            std::vector<std::string> fiDictKeys;
+                            protojs::dict::keys(pContext, cursor, fiDictKeys);
+                            for (const std::string& dk : fiDictKeys) {
+                                if (fiSeen.count(dk)) continue;
+                                fiSeen.insert(dk);
+                                addFiKey(dk);
                             }
                         }
                         // Advance to the next prototype level.

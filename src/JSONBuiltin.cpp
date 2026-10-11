@@ -1,4 +1,6 @@
 #include "ProtoCoreTypes.h"
+#include "runtime/PropertyDictionary.h"
+#include <algorithm>
 #include "JSONBuiltin.h"
 #include "JSSymbols.h"
 #include "BigIntPrototype.h"
@@ -11,6 +13,7 @@
 #include "ObjectPrototype.h"
 #include <cmath>
 #include <string>
+#include <unordered_set>
 #include <vector>
 #include <sstream>
 
@@ -528,9 +531,9 @@ void stringifyRecursive(proto::ProtoContext* ctx,
         // (__get_X__ / __set_X__) the property name 'X' is added once
         // (its value will be fetched via the getter chain below).
         std::vector<std::string> keysSeen;
+        std::unordered_set<std::string> keysSeenSet;
         auto pushKey = [&](const std::string& s) {
-            for (const auto& e : keysSeen) if (e == s) return;
-            keysSeen.push_back(s);
+            if (keysSeenSet.insert(s).second) keysSeen.push_back(s);
         };
         const proto::ProtoSparseList* attrs = obj->getOwnAttributes(ctx);
         if (attrs) {
@@ -570,11 +573,46 @@ void stringifyRecursive(proto::ProtoContext* ctx,
                         // underscore filter and JSON.stringify({[s]:1})
                         // emitted the raw '@@sym#...' (built-ins/
                         // JSON/stringify/value-symbol.js).
-                    } else if (key[0] != '_') {
+                    } else if (!(key.size() >= 4 && key[0] == '_' && key[1] == '_'
+                                 && key[key.size() - 1] == '_' && key[key.size() - 2] == '_')
+                               && key.compare(0, 7, "Symbol.") != 0
+                               && key.compare(0, 7, "Symbol(") != 0) {
+                        // Internal bookkeeping attributes follow the
+                        // __name__ pattern; well-known symbol keys are
+                        // stored as "Symbol.<name>". Any other key is an
+                        // own string-keyed property. Pre-fix every key
+                        // starting with '_' was dropped, so
+                        // JSON.stringify({_a: 1}) gave '{}'.
                         pushKey(key);
                     }
                 }
                 it = const_cast<proto::ProtoSparseListIterator*>(it)->advance(ctx);
+            }
+        }
+        // The keys of the property dictionary (runtime/PropertyDictionary.h),
+        // after the named keys; with dictionary keys present, integer
+        // indices go first in ascending order, as Object.keys reports them.
+        {
+            std::vector<std::string> dkeys;
+            dict::keys(ctx, obj, dkeys);
+            if (!dkeys.empty()) {
+                for (const std::string& k : dkeys) pushKey(k);
+                auto isIndex = [](const std::string& k, unsigned long long& n) {
+                    if (k.empty() || k.size() > 10 || (k[0] == '0' && k.size() > 1)) return false;
+                    n = 0;
+                    for (char c : k) {
+                        if (c < '0' || c > '9') return false;
+                        n = n * 10 + static_cast<unsigned long long>(c - '0');
+                    }
+                    return n < 0xFFFFFFFFULL;
+                };
+                std::stable_sort(keysSeen.begin(), keysSeen.end(),
+                    [&](const std::string& a, const std::string& b) {
+                        unsigned long long na = 0, nb = 0;
+                        const bool ia = isIndex(a, na), ib = isIndex(b, nb);
+                        if (ia != ib) return ia;
+                        return ia && na < nb;
+                    });
             }
         }
         // §25.5.2.5 SerializeJSONObject step 5.a: when a PropertyList
@@ -596,7 +634,7 @@ void stringifyRecursive(proto::ProtoContext* ctx,
             const proto::ProtoString* propKs =
                 ctx->fromUTF8String(key.c_str())->asString(ctx);
             const proto::ProtoObject* val = propKs
-                ? obj->getAttribute(ctx, propKs, true) : PROTO_NONE;
+                ? dict::getDataProperty(ctx, obj, propKs) : PROTO_NONE;
             // Accessor lookup: data attribute miss → check __get_<key>__
             // and invoke. Pre-fix accessor-backed properties came back
             // as missing because their storage lives at __get_<key>__,
@@ -1209,13 +1247,19 @@ static const proto::ProtoObject* internalizeJSONProperty(
                 if (ks.compare(0, 2, "__") == 0) continue;
                 keys.push_back(pk);
             }
+            // The keys of the property dictionary (runtime/PropertyDictionary.h).
+            {
+                std::vector<std::pair<const proto::ProtoString*, const proto::ProtoObject*>> de;
+                dict::entries(ctx, val, de);
+                for (const auto& e : de) keys.push_back(e.first);
+            }
             for (auto* pk : keys) {
                 // Spec InternalizeJSONProperty step 2.c.ii.1: [[Get]]
                 // the value (chain-aware). Pre-fix the impl read only
                 // own attributes, so a reviver that deleted its own
                 // key didn't re-read through the prototype.
                 const proto::ProtoObject* item =
-                    val->getAttribute(ctx, pk, true);
+                    dict::getDataProperty(ctx, val, pk);
                 const proto::ProtoObject* keyObj2 = pk->asObject(ctx);
                 const proto::ProtoObject* newItem =
                     internalizeJSONProperty(
@@ -1223,9 +1267,15 @@ static const proto::ProtoObject* internalizeJSONProperty(
                 // step 2.c.ii.2-3: undefined → delete; else CreateDataProperty.
                 if (!newItem || newItem == PROTO_NONE
                     || newItem == getUndefinedSentinel()) {
-                    val = val->setAttribute(ctx, pk, PROTO_NONE);
+                    // [[Delete]]: the key goes away (it used to be kept with
+                    // an undefined value, still listed by Object.keys).
+                    if (const proto::ProtoObject* r = dict::remove(ctx, val, pk)) {
+                        val = r;
+                    } else if (val->hasOwnAttribute(ctx, pk) == PROTO_TRUE) {
+                        val = val->setAttribute(ctx, pk, nullptr);
+                    }
                 } else {
-                    val = val->setAttribute(ctx, pk, newItem);
+                    val = dict::createDataProperty(ctx, val, pk, newItem);
                 }
             }
         }
@@ -1438,7 +1488,7 @@ const proto::ProtoObject* JSONBuiltin::parse(proto::ProtoContext* ctx,
             "JSON.parse: unexpected character"));
         return PROTO_NONE;
     }
-    const proto::ProtoObject* res = TypeBridge::fromJS(qjsCtx, jv, ctx);
+    const proto::ProtoObject* res = TypeBridge::fromJSON(qjsCtx, jv, ctx);
     JS_FreeValue(qjsCtx, jv);
 
     // Spec §25.5.1 step 7: if reviver is callable, wrap `res` in a

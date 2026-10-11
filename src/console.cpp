@@ -1,4 +1,6 @@
 #include "ProtoCoreTypes.h"
+#include "runtime/PropertyDictionary.h"
+#include <vector>
 #include "JSNumber.h"
 #include "console.h"
 #include "ProtoNativeModule.h"
@@ -142,6 +144,17 @@ static void printProtoValue(proto::ProtoContext* ctx, const proto::ProtoObject* 
                 first = false;
             }
             it = const_cast<proto::ProtoSparseListIterator*>(it)->advance(ctx);
+        }
+        // The keys of the property dictionary (runtime/PropertyDictionary.h).
+        std::vector<std::pair<const proto::ProtoString*, const proto::ProtoObject*>> de;
+        dict::entries(ctx, val, de);
+        for (const auto& e : de) {
+            std::string key;
+            e.first->toUTF8String(ctx, key);
+            if (!first) out << ", ";
+            out << key << ": ";
+            printProtoValue(ctx, e.second, out, depth + 1);
+            first = false;
         }
     }
     out << '}';

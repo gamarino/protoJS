@@ -1,4 +1,5 @@
 #include "../../ProtoCoreTypes.h"
+#include "../../runtime/PropertyDictionary.h"
 #include "../../runtime/PinnedBuiltin.h"
 #include "WorkerThreadsModule.h"
 #include <vector>
@@ -152,6 +153,21 @@ void serializeJSON(proto::ProtoContext* ctx,
             first = false;
         }
     }
+    // The keys of the property dictionary (runtime/PropertyDictionary.h).
+    {
+        std::vector<std::pair<const proto::ProtoString*, const proto::ProtoObject*>> de;
+        dict::entries(ctx, val, de);
+        bool firstD = !own || out.back() == '{';
+        for (const auto& e : de) {
+            std::string ks;
+            e.first->toUTF8String(ctx, ks);
+            if (!firstD) out.push_back(',');
+            escapeJSONString(ks, out);
+            out.push_back(':');
+            serializeJSON(ctx, e.second, out);
+            firstD = false;
+        }
+    }
     out.push_back('}');
 }
 
@@ -286,7 +302,9 @@ const proto::ProtoObject* JSONParser::parseObject() {
         skipWS();
         const proto::ProtoObject* v = parseValue();
         const proto::ProtoString* k = keyObj->asString(ctx);
-        if (k) obj->setAttribute(ctx, k, v ? v : PROTO_NONE);
+        // A key that is data goes to the property dictionary
+        // (runtime/PropertyDictionary.h) instead of being interned.
+        if (k) obj = dict::createDataProperty(ctx, obj, k, v ? v : PROTO_NONE);
         skipWS();
         if (p < end && *p == ',') { ++p; continue; }
         if (p < end && *p == '}') { ++p; break; }
