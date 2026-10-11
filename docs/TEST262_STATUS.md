@@ -4,9 +4,9 @@ This page holds protoJS's **one authoritative Test262 figure**. Every other
 Test262 number in this repository is historical or a named subset, and says so
 where it appears. If two figures ever disagree again, this one wins.
 
-## Headline figure — as of 2026-10-04
+## Headline figure — as of 2026-10-11
 
-**34,154 of 53,571 tests pass — 63.75 %** of the whole Test262 corpus.
+**34,276 of 53,571 tests pass — 63.98 %** of the whole Test262 corpus.
 
 Reproduce it:
 
@@ -26,22 +26,22 @@ whole corpus keeps the runner's log and snapshot as the artifact
 
 | Field | Value |
 |---|---|
-| Date | 2026-10-04 |
-| Run | GitHub Actions CI run 37230007262 (workflow_dispatch, Ubuntu runner), branch `fix/windows-review` at `0574d5dde` (the memory-safety pass), merged to master the same day |
+| Date | 2026-10-11 |
+| Run | GitHub Actions CI run 38153596074 (workflow_dispatch, Ubuntu runner), branch `fix/windows-review` at `0e9c3f8c1` (per-space built-ins and dictionary mode for computed keys), merged to master the same day |
 | Corpus | `../test262` at commit `aae8cf6eed6d6c6a203be48c1184bb194880f66b` |
 | Scope | the whole corpus: `annexB`, `built-ins`, `harness`, `intl402`, `language`, `staging` |
 | Discovered | 53,582 files (every `.js` under `test/` that is not a `_FIXTURE`) |
 | Skipped | 11 (the skip list; see below) |
 | Denominator | 53,571 |
-| Passed | **34,154** |
-| Failed — semantics | 17,281 |
+| Passed | **34,276** |
+| Failed — semantics | 17,159 |
 | Failed — syntax | 1,228 |
 | Failed — negative (engine accepted source Test262 requires it to reject) | 3 |
 | Failed — async (no `Test262:AsyncTestComplete`) | 804 |
 | Timeouts (5,000 ms each) | 101 |
-| Pass rate | **63.75 %** |
-| Wall clock | 2,009 s (33 min), sequential, `TEST262_CONCURRENCY=1` |
-| protoCore | 2.14.1 (`94951559`), the CI pin |
+| Pass rate | **63.98 %** |
+| Wall clock | 1,993 s (33 min), sequential, `TEST262_CONCURRENCY=1` |
+| protoCore | 2.14.5 (`063c6d55`), the CI pin |
 
 `TEST262_CONCURRENCY=1` is not a preference: parallel Test262 runs hang the
 development machine, so the run is sequential. Builds may use `-j4`, which was
@@ -52,16 +52,16 @@ verified safe on that machine on 2026-10-02.
 | Directory | Denominator | Passed | Pass rate |
 |---|---:|---:|---:|
 | `annexB` | 1,086 | 554 | 51.01 % |
-| `built-ins` | 23,814 | 14,630 | 61.43 % |
-| `harness` | 116 | 107 | 92.24 % |
+| `built-ins` | 23,814 | 14,638 | 61.47 % |
+| `harness` | 116 | 112 | 96.55 % |
 | `intl402` | 3,357 | 22 | 0.66 % |
-| `language` | 23,715 | 18,132 | 76.46 % |
-| `staging` | 1,483 | 709 | 47.81 % |
-| **Whole corpus** | **53,571** | **34,154** | **63.75 %** |
+| `language` | 23,715 | 18,227 | 76.86 % |
+| `staging` | 1,483 | 723 | 48.75 % |
+| **Whole corpus** | **53,571** | **34,276** | **63.98 %** |
 
 Subordinate view, for comparison with engines that publish it: excluding
 `intl402` (no ECMA-402 in protoJS) and `staging` (not normative in Test262),
-**33,423 of 48,731 = 68.59 %**. This is *not* the headline. The headline
+**33,531 of 48,731 = 68.81 %**. This is *not* the headline. The headline
 includes both, because leaving them out raises the number without improving the
 engine.
 
@@ -80,6 +80,13 @@ engine.
   property dictionary) and `reverse/get_if_present_with_delete.js`, which
   had passed only because `in` corrupted the operand stack for an
   accessor-only property; `reverse` now follows §23.1.3.26.
+  Whole corpus on CI, master's code (run 38136003322, `f12e5a19`) against the
+  branch (run 38153596074): 34,267 -> 34,276, 0 pass->fail, 9 fail->pass
+  (`harness/deepEqual-{array,deep,mapset,object,primitives}.js`,
+  `staging/sm/JSON/parse.js`, `staging/sm/JSON/parse-crockford-01.js`,
+  `staging/sm/Symbol/json-stringify-keys.js`,
+  `staging/sm/Array/reverse-order-of-low-high-accesses.js`). The 2026-10-04
+  headline (34,154) had also moved to 34,267 with the work between the two.
 - **2026-10-10, methods, accessors and `super`** (CHANGELOG, second pass:
   computed member names, method and accessor enumerability, [[HomeObject]]
   for computed methods and accessors, super property get/set through the
@@ -120,7 +127,7 @@ engine.
   touched directories (RegExp, annexB, TypedArray, TypedArrayConstructors,
   generators, yield, for-of, try, class elements, Map, Set, Array.from,
   Function; 9,458 tests): 5,352 -> 5,625 passed, 273 fail->pass, 0
-  pass->fail. Final branch run (37230007262, the headline above): 34,154
+  pass->fail. Final branch run (37230007262, the headline of 2026-10-04): 34,154
   passed, 499 fail->pass and 3 pass->fail against 37203655980. The three:
   `element-setting-ToNumber-detaches.js` (above), and two
   `cpn-class-*-accessors-computed-property-name-from-yield-expression` tests,
