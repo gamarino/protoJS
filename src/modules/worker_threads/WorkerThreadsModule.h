@@ -34,6 +34,20 @@ public:
      *  loop checks this so the process keeps the event loop alive
      *  while at least one worker is in flight. */
     static int getActiveWorkerCount();
+
+    /**
+     * Release every Worker that `owner` created and that is still held:
+     * stop it if it still runs, join its thread, drop its pin and destroy
+     * its JSContextWrapper (and with it the worker's ProtoSpace and that
+     * space's collector thread).  Called by ~JSContextWrapper before the
+     * owner's space goes away.  A Worker pins itself, so its finalizer runs
+     * only at the owner space's teardown, where it can merely post an orphan
+     * that no event loop drains any more: without this call a worker left
+     * to finish on its own kept its space -- and a running collector thread
+     * -- into the process's static destructors, which then crashed
+     * (cli/blocking-joins-and-finalizers, worker-to-completion).
+     */
+    static void releaseWorkersOf(JSContextWrapper* owner);
 };
 
 } // namespace protojs

@@ -2,6 +2,7 @@
 #include "HeapLimit.h"
 #include "CPUThreadPool.h"
 #include "DeferredPool.h"
+#include "modules/worker_threads/WorkerThreadsModule.h"
 #include "ObjectPrototype.h"
 #include "runtime/PinnedBuiltin.h"
 #include "IOThreadPool.h"
@@ -371,6 +372,11 @@ JSContextWrapper::~JSContextWrapper() {
         deferredPool_->shutdown();
         deferredPool_.reset();
     }
+
+    // Then the workers this wrapper created and still holds: each owns a
+    // whole ProtoSpace with its own collector thread, which must not outlive
+    // the process's orderly shutdown (WorkerThreadsModule::releaseWorkersOf).
+    WorkerThreadsModule::releaseWorkersOf(this);
 
     // The job queue first: its holder is pinned in the root set released next.
     microtasks_.reset();

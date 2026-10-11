@@ -393,6 +393,10 @@ private:
      *  for while a pool worker waits for the collector.  A counter needs no lock.
      */
     static std::atomic<size_t> poolOwners_;
+
+public:
+    /** Wrappers alive in the process (diagnostics and tests). */
+    static size_t liveWrapperCount() { return poolOwners_.load(); }
 };
 
 } // namespace protojs

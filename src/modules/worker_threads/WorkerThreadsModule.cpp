@@ -1,6 +1,9 @@
 #include "../../ProtoCoreTypes.h"
 #include "../../runtime/PinnedBuiltin.h"
 #include "WorkerThreadsModule.h"
+#include <vector>
+#include <mutex>
+#include <algorithm>
 #include "../../ProtoDeferred.h"
 #include "../../ProtoNativeModule.h"
 #include "../../ArrayElementsStorage.h"
@@ -365,6 +368,22 @@ struct WorkerState : GcOrphanQueue::Orphan {
     void releaseOnMutator() override;
 };
 
+// Every WorkerState not yet deleted, so ~JSContextWrapper can release the
+// workers its wrapper owns (WorkerThreadsModule::releaseWorkersOf).
+std::mutex g_workerStatesMutex;
+std::vector<WorkerState*> g_workerStates;
+
+void registerWorkerState(WorkerState* s) {
+    std::lock_guard<std::mutex> lock(g_workerStatesMutex);
+    g_workerStates.push_back(s);
+}
+
+void unregisterWorkerState(WorkerState* s) {
+    std::lock_guard<std::mutex> lock(g_workerStatesMutex);
+    g_workerStates.erase(std::remove(g_workerStates.begin(), g_workerStates.end(), s),
+                         g_workerStates.end());
+}
+
 // Ask the worker to stop. Two atomic stores; blocks on nothing, calls no protoCore
 // API. This is all a finalizer is allowed to do here.
 void requestWorkerTeardown(WorkerState* s) {
@@ -420,6 +439,7 @@ void WorkerState::releaseOnMutator() {
     // it reads is THIS thread's rather than the worker wrapper's context, it parks
     // the right thread.
     workerWrapper.reset();
+    unregisterWorkerState(this);
     delete this;
 }
 
@@ -882,6 +902,7 @@ const proto::ProtoObject* workerConstructor(
         delete state;
         return PROTO_NONE;
     }
+    registerWorkerState(state);
     worker->setAttribute(ctx, keyWorkerState(ctx), extPtr);
 
     g_activeWorkers.fetch_add(1);
@@ -961,6 +982,36 @@ const proto::ProtoObject* workerDataImpl(
 
 int WorkerThreadsModule::getActiveWorkerCount() {
     return g_activeWorkers.load();
+}
+
+void WorkerThreadsModule::releaseWorkersOf(JSContextWrapper* owner) {
+    if (!owner) return;
+    std::vector<WorkerState*> owned;
+    {
+        std::lock_guard<std::mutex> lock(g_workerStatesMutex);
+        for (WorkerState* s : g_workerStates)
+            if (s->mainWrapper == owner) owned.push_back(s);
+        // The states leave the registry: the owner is going away, and the
+        // finalizer that may still run at its space's teardown only posts an
+        // orphan, whose release is then a no-op on these fields.
+        for (WorkerState* s : owned)
+            g_workerStates.erase(std::remove(g_workerStates.begin(), g_workerStates.end(), s),
+                                 g_workerStates.end());
+    }
+    proto::ProtoContext* ctx = owner->getProtoContext();
+    for (WorkerState* s : owned) {
+        // The process drain loop has already waited for running workers; a
+        // worker still running here (the loop's timeout, an embedder) is
+        // asked to stop, as Node stops workers at exit.
+        requestWorkerTeardown(s);
+        awaitWorkerTeardown(s, ctx);
+        if (s->workerPin != proto::ProtoRootSet::kNullHandle) {
+            if (proto::ProtoRootSet* rs = owner->getRootSet()) rs->remove(s->workerPin);
+            s->workerPin = proto::ProtoRootSet::kNullHandle;
+        }
+        s->workerWrapper.reset();
+        s->mainWrapper = nullptr;
+    }
 }
 
 const proto::ProtoObject* WorkerThreadsModule::init(

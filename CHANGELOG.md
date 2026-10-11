@@ -4,6 +4,22 @@ All notable changes to protoJS are documented in this file.
 
 ## [Unreleased]
 
+### Fixed — a crash at exit after a worker left to finish (2026-10-11)
+
+- A `worker_threads` Worker pins itself, so its finalizer runs only when the
+  creating space is torn down, where it can only post an orphan nobody
+  drains. A worker that finished on its own therefore kept its
+  `JSContextWrapper` -- a whole protoCore space with a running collector
+  thread -- into the process's static destructors, and the process
+  sometimes died with SIGSEGV in protoCore's collector loop at exit
+  (`cli/blocking-joins-and-finalizers`, case `worker-to-completion`: 3-6 of
+  25 runs locally on protoCore 2.14.2, 1 of 25 on 2.14.1; master Linux CI
+  run 38108654993). `~JSContextWrapper` now releases the workers it created
+  (`WorkerThreadsModule::releaseWorkersOf`: stop if still running, join,
+  unpin, destroy the worker's wrapper) before its own space goes. 0 of 40
+  runs after the fix. Test: `A finished worker is released with the wrapper
+  that created it` (Catch2; failed before: one wrapper left alive).
+
 ### Changed — the adaptive heap controller runs once Deferreds do; CI on protoCore 2.14.2 (2026-10-10)
 
 - **Memory policy.** A sequential program keeps the fixed heap ceiling (75 %
