@@ -66,7 +66,7 @@ mode in protoJS; protoCore is not changed.
   named attributes (and interned), as are all keys of arrays, functions,
   proxies and the global object; each `Symbol()` value still interns one
   perennial key (`@@sym#<n>`). See [Memory](docs/API_REFERENCE.md#property-keys-that-are-data).
-- Tests: `js/basic/dictionary_keys` (92 checks against Node.js),
+- Tests: `js/basic/dictionary_keys` (95 checks against Node.js),
   `cli/dynamic-keys-bounded-memory` (fails before), `js/deferred/
   dictionary_keys_shared`, `js/workers/dictionary_keys_message`.
 
