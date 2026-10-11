@@ -502,38 +502,32 @@ static const proto::ProtoString* elementKeyIfSymbolOrString(proto::ProtoContext*
 // the accessor of `key` on `obj` and returns the new object, or nullptr when
 // the sidecar key cannot be built (the caller then defines a data property).
 // The accessor lives in the __get_<key>__ / __set_<key>__ sidecar with an
-// undefined data slot and the accessor descriptor (configurable, 0x2), and
-// the object is stamped with the own-accessor hint, exactly as
-// OP_define_method does for a literal name.  Without the hint the element
-// paths (`o[k]`, `o[k] = v`) take their plain-data fast path and miss the
-// accessor, so `({ get [null]() {...} })[null]` was undefined.  Kept out of
-// runBytecode so its locals do not grow the dispatch loop's frame.
+// undefined data slot and the accessor descriptor -- configurable (0x2), plus
+// enumerable (0x4) in an object literal -- and the object is stamped with the
+// own-accessor hint, exactly as OP_define_method does for a literal name.
+// Without the hint the element paths (`o[k]`, `o[k] = v`) take their
+// plain-data fast path and miss the accessor, so `({ get [null]() {...} })[null]`
+// was undefined.  `method` has already been through makeMethod.
 PROTOJS_NOINLINE
 static const proto::ProtoObject* defineComputedAccessor(proto::ProtoContext* ctx,
                                                         const proto::ProtoObject* obj,
                                                         const proto::ProtoString* key,
                                                         const proto::ProtoObject* method,
-                                                        bool isGetter) {
+                                                        bool isGetter,
+                                                        bool enumerable) {
     std::string name;
     key->toUTF8String(ctx, name);
     const std::string sidecar = (isGetter ? "__get_" : "__set_") + name + "__";
     const proto::ProtoObject* sko = ctx->fromUTF8String(sidecar.c_str());
     const proto::ProtoString* skp = sko ? sko->asString(ctx) : nullptr;
     if (!skp) return nullptr;
-    // Getter and setter functions have no `prototype` (ECMA-262 §15.4.4).
-    if (method && method != PROTO_NONE) {
-        if (const proto::ProtoString* protoKey = JSSymbols::prototype(ctx)) {
-            if (const proto::ProtoObject* stripped = method->setAttribute(ctx, protoKey, nullptr))
-                method = stripped;
-        }
-    }
     const proto::ProtoObject* out = obj->setAttribute(ctx, key, PROTO_NONE);
     out = out->setAttribute(ctx, skp, method ? method : PROTO_NONE);
     if (!out) return nullptr;
     const std::string pdName = "__pd_" + name + "__";
     const proto::ProtoObject* pdo = ctx->fromUTF8String(pdName.c_str());
     if (const proto::ProtoString* pdk = pdo ? pdo->asString(ctx) : nullptr)
-        out = out->setAttribute(ctx, pdk, ctx->fromInteger(0x2LL));
+        out = out->setAttribute(ctx, pdk, ctx->fromInteger(enumerable ? 0x6LL : 0x2LL));
     if (const proto::ProtoString* hapK = JSSymbols::hasAccessorProps(ctx))
         out = out->setAttribute(ctx, hapK, PROTO_TRUE);
     return out;
@@ -5231,6 +5225,196 @@ static PROTOJS_NOINLINE bool closureIsGeneratorKind(proto::ProtoContext* ctx,
     if (!birth || birth == PROTO_NONE) return false;
     return birth == functionKindIntrinsic(ctx, t_currentGlobalRoot, kIntrGeneratorFunctionProto)
         || birth == functionKindIntrinsic(ctx, t_currentGlobalRoot, kIntrAsyncGeneratorFunctionProto);
+}
+
+// The name SetFunctionName (ECMA-262 §10.2.9) gives a method whose key is
+// `keyVal` (nullptr for a literal name, which is `key`): a symbol contributes "[<description>]" (or "" without one), a
+// well-known symbol (a "Symbol.<name>" string in protoJS) "[Symbol.<name>]",
+// anything else its property-key string; getters and setters are prefixed
+// with "get " / "set ".
+static std::string methodNameForKey(proto::ProtoContext* ctx,
+                                    const proto::ProtoObject* keyVal,
+                                    const proto::ProtoString* key, int kind) {
+    std::string name;
+    bool done = false;
+    const proto::ProtoString* isSymK = JSSymbols::isSymbol(ctx);
+    if (keyVal && keyVal != PROTO_NONE && isSymK
+        && keyVal->getAttribute(ctx, isSymK, true) == PROTO_TRUE) {
+        const proto::ProtoObject* descKo = ctx->fromUTF8String("__symbol_desc__");
+        const proto::ProtoString* descK = descKo ? descKo->asString(ctx) : nullptr;
+        const proto::ProtoObject* desc = descK ? keyVal->getAttribute(ctx, descK, true) : nullptr;
+        const proto::ProtoString* ds =
+            (desc && desc != PROTO_NONE && desc != t_undefinedSentinel) ? desc->asString(ctx) : nullptr;
+        if (ds) {
+            std::string d;
+            ds->toUTF8String(ctx, d);
+            name = "[" + d + "]";
+        }
+        done = true;
+    }
+    if (!done && key) {
+        key->toUTF8String(ctx, name);
+        // Only a computed key can be a well-known symbol; a literal name
+        // "Symbol.x" is a string.
+        if (keyVal && name.compare(0, 7, "Symbol.") == 0) name = "[" + name + "]";
+    }
+    if (kind == 1) return "get " + name;
+    if (kind == 2) return "set " + name;
+    return name;
+}
+
+// MakeMethod and SetFunctionName for a method, getter or setter about to be
+// defined on `home` (ECMA-262 §15.4.4, §15.4.5): the function gets the
+// [[HomeObject]] that `super` resolves against, and its name when it has none
+// yet.  Getters, setters and plain methods have no `prototype`; generator
+// methods keep theirs (§15.5.4, §15.6.4).  Returns the updated function.
+PROTOJS_NOINLINE
+static const proto::ProtoObject* makeMethod(proto::ProtoContext* ctx,
+                                            const proto::ProtoObject* method,
+                                            const proto::ProtoObject* keyVal,
+                                            const proto::ProtoString* key,
+                                            int kind,
+                                            const proto::ProtoObject* home) {
+    if (!method || method == PROTO_NONE) return method;
+    const proto::ProtoString* protoKey =
+        (kind == 0 && closureIsGeneratorKind(ctx, method)) ? nullptr : JSSymbols::prototype(ctx);
+    if (protoKey) {
+        if (const proto::ProtoObject* stripped = method->setAttribute(ctx, protoKey, nullptr))
+            method = stripped;
+    }
+    if (const proto::ProtoString* nameKey = JSSymbols::name(ctx)) {
+        const proto::ProtoObject* cur = method->getAttribute(ctx, nameKey, false);
+        bool needs = !cur || cur == PROTO_NONE;
+        if (!needs) {
+            if (const proto::ProtoString* ns = cur->asString(ctx)) needs = ns->getSize(ctx) == 0;
+        }
+        if (needs) {
+            const std::string name = methodNameForKey(ctx, keyVal, key, kind);
+            if (const proto::ProtoObject* nv = ctx->fromUTF8String(name.c_str())) {
+                if (const proto::ProtoObject* upd = method->setAttribute(ctx, nameKey, nv))
+                    method = upd;
+                // name: { writable: false, enumerable: false, configurable: true }.
+                if (const proto::ProtoString* pdk = JSSymbols::pdName(ctx)) {
+                    if (const proto::ProtoObject* withPd =
+                            method->setAttribute(ctx, pdk, ctx->fromInteger(0x2LL)))
+                        method = withPd;
+                }
+            }
+        }
+    }
+    if (home && home != PROTO_NONE) {
+        const proto::ProtoObject* hoKo = ctx->fromUTF8String("__home_object__");
+        if (const proto::ProtoString* hoK = hoKo ? hoKo->asString(ctx) : nullptr) {
+            if (const proto::ProtoObject* withHome = method->setAttribute(ctx, hoK, home))
+                method = withHome;
+        }
+    }
+    return method;
+}
+
+// OP_define_method_computed (QuickJS DEF(define_method_computed, 2, 3, 1, u8)):
+// defines `method` on `obj` under ToPropertyKey(keyVal) and returns the new
+// object.  op_flags & 3 is the kind (0 method, 1 getter, 2 setter) and
+// op_flags & 4 (OP_DEFINE_METHOD_ENUMERABLE) marks an object literal, whose
+// methods and accessors are enumerable; a class body's are not.  Returns
+// nullptr when the key cannot be converted (the caller leaves `obj` as is).
+// Kept out of runBytecode so its locals do not grow the dispatch loop's frame.
+PROTOJS_NOINLINE
+static const proto::ProtoObject* defineMethodComputed(proto::ProtoContext* ctx,
+                                                      const proto::ProtoObject* obj,
+                                                      const proto::ProtoObject* keyVal,
+                                                      const proto::ProtoObject* method,
+                                                      uint8_t op_flags) {
+    // ToPropertyKey.  Symbols use their per-instance __symbol_str_key__
+    // identity, the key the put / get / hasOwn paths use, so a computed
+    // `set [sym](v)` is found by a later `obj[sym] = v`.  Undefined and null
+    // become "undefined" / "null"; every key is interned like every other
+    // property key.
+    const proto::ProtoString* key = ensureInternedOOP(ctx, keyVal);
+    if (!key && keyVal && keyVal != PROTO_NONE) {
+        key = keyVal->asString(ctx);
+        if (!key && keyVal->isInteger(ctx)) {
+            long long idx = keyVal->asLong(ctx);
+            key = (idx >= 0 && idx <= 0xFFFFFFFELL)
+                ? JSSymbols::indexKey(ctx, static_cast<uint32_t>(idx))
+                : protojs::toPropertyKey(ctx, keyVal);
+        }
+    }
+    if (!key) {
+        const proto::ProtoObject* coerced = toString(ctx, keyVal);
+        key = coerced ? ensureInterned(ctx, coerced->asString(ctx)) : nullptr;
+    }
+    if (!key) return nullptr;
+    const int kind = op_flags & 0x3;
+    const bool enumerable = false;
+    method = makeMethod(ctx, method, keyVal, key, kind, nullptr);
+    if (kind == 1 || kind == 2) {
+        if (const proto::ProtoObject* withAccessor =
+                defineComputedAccessor(ctx, obj, key, method, kind == 1, enumerable))
+            return withAccessor;
+    }
+    const proto::ProtoObject* out = obj->setAttribute(ctx, key, method ? method : PROTO_NONE);
+    if (out) {
+        // Method descriptor: writable and configurable (0x3), plus enumerable
+        // (0x4) in an object literal.
+        std::string name;
+        key->toUTF8String(ctx, name);
+        const std::string pdName = "__pd_" + name + "__";
+        const proto::ProtoObject* pdo = ctx->fromUTF8String(pdName.c_str());
+        if (const proto::ProtoString* pdk = pdo ? pdo->asString(ctx) : nullptr)
+            out = out->setAttribute(ctx, pdk, ctx->fromInteger(enumerable ? 0x7LL : 0x3LL));
+    }
+    return out;
+}
+
+// OP_define_method (QuickJS DEF(define_method, 6, 2, 1, atom_u8)): defines
+// `method` on `obj` under the literal name `key`, with the same op_flags as
+// defineMethodComputed.  A getter or setter is stored in the
+// __get_<name>__ / __set_<name>__ sidecar, after dropping any data property
+// of that name so the prototype-chain lookup routes through the accessor,
+// and the object gets the own-accessor hint resolvePutFieldOOP gates on
+// (without it `o.x = v` on a literal or class with `set x(v)` never ran the
+// setter).  Returns the new object, or nullptr when nothing was defined.
+PROTOJS_NOINLINE
+static const proto::ProtoObject* defineMethodNamed(proto::ProtoContext* ctx,
+                                                   const proto::ProtoObject* obj,
+                                                   const proto::ProtoString* key,
+                                                   const proto::ProtoObject* method,
+                                                   uint8_t op_flags) {
+    const int kind = op_flags & 0x3;
+    const bool enumerable = (op_flags & 0x4) != 0;
+    method = makeMethod(ctx, method, nullptr, key, kind, kind == 0 ? obj : nullptr);
+    std::string name;
+    key->toUTF8String(ctx, name);
+    const proto::ProtoObject* out = nullptr;
+    long long pdBits;
+    if (kind == 1 || kind == 2) {
+        const std::string sidecar = (kind == 1 ? "__get_" : "__set_") + name + "__";
+        const proto::ProtoObject* sko = ctx->fromUTF8String(sidecar.c_str());
+        const proto::ProtoString* skp = sko ? sko->asString(ctx) : nullptr;
+        if (!skp) return nullptr;
+        out = obj->setAttribute(ctx, key, PROTO_NONE);
+        out = out ? out->setAttribute(ctx, skp, method ? method : PROTO_NONE) : nullptr;
+        // Accessor descriptor: configurable (0x2), plus enumerable (0x4) in
+        // an object literal (ECMA-262 §13.2.5.5); a class body's are not
+        // (§15.7.14).
+        pdBits = (op_flags & 0x10) ? 0x2LL : 0x6LL;
+    } else {
+        out = obj->setAttribute(ctx, key, method ? method : PROTO_NONE);
+        // Method descriptor: writable and configurable (0x3), plus enumerable
+        // (0x4) in an object literal.
+        pdBits = 0x3LL;
+    }
+    if (!out) return nullptr;
+    const std::string pdName = "__pd_" + name + "__";
+    const proto::ProtoObject* pdo = ctx->fromUTF8String(pdName.c_str());
+    if (const proto::ProtoString* pdk = pdo ? pdo->asString(ctx) : nullptr)
+        out = out->setAttribute(ctx, pdk, ctx->fromInteger(pdBits));
+    if (kind == 1 || kind == 2) {
+        if (const proto::ProtoString* hapK = JSSymbols::hasAccessorProps(ctx))
+            out = out->setAttribute(ctx, hapK, PROTO_TRUE);
+    }
+    return out;
 }
 
 // The `this` an arrow function created in this frame captures.  In a sloppy
@@ -11943,9 +12127,7 @@ const proto::ProtoObject* runBytecode(proto::ProtoContext* pContext,
             L_OP_define_method: {
                 // DEF(define_method, 6, 2, 1, atom_u8)
                 // Format: 4-byte atomIndex, 1-byte op_flags. Stack: [..., obj, method] → [..., obj].
-                // QuickJS op_flags: 0 = METHOD, 1 = GETTER, 2 = SETTER (plus high
-                // bits for enumerability — ignored here, the existing
-                // setAttribute path defaults to writable/configurable).
+                // The work is in defineMethodNamed, outside this frame.
                 if (pc + 5 > len || stackSize(pContext) < 2) return PROTO_NONE;
                 uint32_t atomIndex = get_u32(buf + pc);
                 pc += 4;
@@ -11954,247 +12136,29 @@ const proto::ProtoObject* runBytecode(proto::ProtoContext* pContext,
                 const proto::ProtoObject* obj3      = stackTop(pContext);
                 const proto::ProtoString* key3 = resolveAtom(mod, pContext, atomIndex);
                 if (key3 && obj3) {
-                    // GETTER / SETTER: store under accessor sidecar key
-                    // (__get_<name>__ / __set_<name>__) and remove any
-                    // pre-existing data key so prototype-chain dispatch
-                    // routes through the accessor.  Pre-fix: object literal
-                    // `{ get foo() {...} }` stored the getter as a regular
-                    // data attribute, so `o.foo` returned the function
-                    // object instead of invoking it.
-                    int flag = op_flags & 0x3;
-                    if (flag == 1 || flag == 2) {
-                        std::string nameStr;
-                        key3->toUTF8String(pContext, nameStr);
-                        const std::string prefix = (flag == 1) ? "__get_" : "__set_";
-                        std::string sidecar = prefix + nameStr + "__";
-                        const proto::ProtoObject* sko = pContext->fromUTF8String(sidecar.c_str());
-                        const proto::ProtoString* skp = sko ? sko->asString(pContext) : nullptr;
-                        if (skp) {
-                            // Per ECMA-262 §14.3.9, getter/setter functions do
-                            // NOT have a `prototype` property — strip the one
-                            // OP_fclosure installed so verifyProperty checks
-                            // (`'prototype' in desc.get` === false) pass.
-                            // Also set function.name = "get X" / "set X"
-                            // per SetFunctionName(prefix, name) when missing.
-                            if (methodVal && methodVal != PROTO_NONE) {
-                                const proto::ProtoString* protoKeyDel = JSSymbols::prototype(pContext);
-                                if (protoKeyDel) {
-                                    const proto::ProtoObject* stripped =
-                                        methodVal->setAttribute(pContext, protoKeyDel, nullptr);
-                                    if (stripped) methodVal = stripped;
-                                }
-                                const proto::ProtoString* nameKey = JSSymbols::name(pContext);
-                                if (nameKey) {
-                                    const proto::ProtoObject* curName = methodVal->getAttribute(pContext, nameKey, false);
-                                    bool needs = !curName || curName == PROTO_NONE;
-                                    if (!needs && curName) {
-                                        const proto::ProtoString* ns = curName->asString(pContext);
-                                        if (ns) {
-                                            std::string s;
-                                            ns->toUTF8String(pContext, s);
-                                            needs = s.empty();
-                                        }
-                                    }
-                                    if (needs) {
-                                        std::string prefixed = (flag == 1 ? "get " : "set ") + nameStr;
-                                        const proto::ProtoObject* nv = pContext->fromUTF8String(prefixed.c_str());
-                                        if (nv) {
-                                            const proto::ProtoObject* upd =
-                                                methodVal->setAttribute(pContext, nameKey, nv);
-                                            if (upd) methodVal = upd;
-                                            const proto::ProtoString* pdk = JSSymbols::pdName(pContext);
-                                            if (pdk) {
-                                                const proto::ProtoObject* withPd =
-                                                    methodVal->setAttribute(pContext, pdk, pContext->fromInteger(0x2LL));
-                                                if (withPd) methodVal = withPd;
-                                            }
-                                        }
-                                    }
-                                }
-                            }
-                            // Drop any pre-existing data key (so prototype-chain
-                            // lookup sees the accessor, not a stale value).
-                            const proto::ProtoObject* tmp = obj3->setAttribute(pContext, key3, PROTO_NONE);
-                            const proto::ProtoObject* newObj3 = tmp->setAttribute(pContext, skp, methodVal ? methodVal : PROTO_NONE);
-                            // Accessor descriptor per ECMA-262 §6.2.5
-                            // PropertyDefinitionEvaluation for getter /
-                            // setter in object literals: {enumerable:true,
-                            // configurable:true} → bits 0x6 (bit 1
-                            // configurable + bit 2 enumerable). Class
-                            // bodies want enumerable:false (bits 0x2) —
-                            // QuickJS sets a high bit on op_flags to flag
-                            // the class context. Bit 5 (METHOD_IS_CLASS)
-                            // is the conventional QuickJS marker. When
-                            // present, fall back to 0x2; otherwise use
-                            // the object-literal enumerable form.
-                            if (newObj3) {
-                                std::string pdName2 = "__pd_" + nameStr + "__";
-                                const proto::ProtoObject* pdo2 = pContext->fromUTF8String(pdName2.c_str());
-                                const proto::ProtoString* pdk2 = pdo2 ? pdo2->asString(pContext) : nullptr;
-                                long long pdBits = (op_flags & 0x10) ? 0x2LL : 0x6LL;
-                                if (pdk2) newObj3 = newObj3->setAttribute(pContext, pdk2, pContext->fromInteger(pdBits));
-                                // The own-accessor hint resolvePutFieldOOP
-                                // gates on, as Object.defineProperty stamps
-                                // it.  Pre-fix `o.x = v` on a literal or class
-                                // with `set x(v)` never ran the setter.
-                                const proto::ProtoString* hapK3 = JSSymbols::hasAccessorProps(pContext);
-                                if (hapK3 && newObj3) newObj3 = newObj3->setAttribute(pContext, hapK3, PROTO_TRUE);
-                            }
-                            stackPop(pContext);
-                            stackPush(pContext, newObj3 ? newObj3 : obj3);
-                            DISPATCH();
-                        }
-                    }
-                    // METHOD shorthand (op_flags == 0): per ECMA-262 §14.3.9,
-                    // functions declared as methods do NOT define a
-                    // \`prototype\` property.  OP_fclosure unconditionally
-                    // installs one; strip it for the method case so
-                    // \`Object.prototype.hasOwnProperty.call(method, 'prototype')\`
-                    // returns false as the spec requires.
-                    //
-                    // Also set the method's .name to the declared key when it
-                    // is missing or empty — QuickJS emits OP_set_name before
-                    // OP_define_method only for some method shapes; class-body
-                    // shorthand often lacks it, leaving the function nameless.
-                    if (flag == 0 && methodVal && methodVal != PROTO_NONE) {
-                        // A generator or async generator method keeps it
-                        // (§15.5.4, §15.6.4): its generator objects inherit it.
-                        const proto::ProtoString* protoKeyDel =
-                            closureIsGeneratorKind(pContext, methodVal) ? nullptr : JSSymbols::prototype(pContext);
-                        if (protoKeyDel) {
-                            const proto::ProtoObject* stripped =
-                                methodVal->setAttribute(pContext, protoKeyDel, nullptr);
-                            if (stripped) methodVal = stripped;
-                        }
-                        const proto::ProtoString* nameKey = JSSymbols::name(pContext);
-                        if (nameKey) {
-                            const proto::ProtoObject* curName = methodVal->getAttribute(pContext, nameKey, false);
-                            bool needs = !curName || curName == PROTO_NONE;
-                            if (!needs && curName) {
-                                const proto::ProtoString* ns = curName->asString(pContext);
-                                if (ns) {
-                                    std::string s;
-                                    ns->toUTF8String(pContext, s);
-                                    needs = s.empty();
-                                }
-                            }
-                            if (needs) {
-                                const proto::ProtoObject* updated =
-                                    methodVal->setAttribute(pContext, nameKey, key3->asObject(pContext));
-                                if (updated) {
-                                    methodVal = updated;
-                                    // name is {writable:false, enumerable:false, configurable:true} → 0x2
-                                    const proto::ProtoString* pdk = JSSymbols::pdName(pContext);
-                                    if (pdk) {
-                                        const proto::ProtoObject* withPd =
-                                            methodVal->setAttribute(pContext, pdk, pContext->fromInteger(0x2LL));
-                                        if (withPd) methodVal = withPd;
-                                    }
-                                }
-                            }
-                        }
-                    }
-                    // Spec js_method_set_home_object: also attach the
-                    // target object (obj3) as the method's home_object so
-                    // super.X dispatch inside the method body can walk to
-                    // the parent prototype.  See QuickJS
-                    // js_method_set_properties() — invoked unconditionally
-                    // by OP_define_method.
-                    if (methodVal && methodVal != PROTO_NONE && obj3 && obj3 != PROTO_NONE) {
-                        const proto::ProtoObject* hoKo = pContext->fromUTF8String("__home_object__");
-                        const proto::ProtoString* hoK = hoKo ? hoKo->asString(pContext) : nullptr;
-                        if (hoK) {
-                            const proto::ProtoObject* mWithHome = methodVal->setAttribute(pContext, hoK, obj3);
-                            if (mWithHome) methodVal = mWithHome;
-                        }
-                    }
-                    const proto::ProtoObject* newObj3 =
-                        obj3->setAttribute(pContext, key3, methodVal ? methodVal : PROTO_NONE);
-                    // Class-body methods / accessors are non-enumerable per
-                    // ECMA-262 §10.2.7: { writable:true, enumerable:false,
-                    // configurable:true } for methods → bits 0x3.
-                    if (newObj3 && key3) {
-                        std::string nameStr;
-                        key3->toUTF8String(pContext, nameStr);
-                        std::string pdName = "__pd_" + nameStr + "__";
-                        const proto::ProtoObject* pdo = pContext->fromUTF8String(pdName.c_str());
-                        const proto::ProtoString* pdk = pdo ? pdo->asString(pContext) : nullptr;
-                        if (pdk) newObj3 = newObj3->setAttribute(pContext, pdk, pContext->fromInteger(0x3LL));
-                    }
+                    const proto::ProtoObject* defined =
+                        defineMethodNamed(pContext, obj3, key3, methodVal, op_flags);
                     stackPop(pContext);
-                    stackPush(pContext, newObj3 ? newObj3 : obj3);
+                    stackPush(pContext, defined ? defined : obj3);
                 }
                 DISPATCH();
             }
             L_OP_define_method_computed: {
                 // DEF(define_method_computed, 2, 3, 1, u8)
                 // Format: 1 byte op_flags. Stack: [..., obj, key, method] → [..., obj].
-                // Same flag interpretation as L_OP_define_method — see above.
+                // The work is in defineMethodComputed, outside this frame.
                 if (pc + 1 > len || stackSize(pContext) < 3) { if (pc + 1 <= len) pc++; return PROTO_NONE; }
                 uint8_t op_flags = buf[pc++];
                 const proto::ProtoObject* methodVal = stackTop(pContext); stackPop(pContext);
                 const proto::ProtoObject* keyVal    = stackTop(pContext); stackPop(pContext);
                 const proto::ProtoObject* obj2      = stackTop(pContext);
                 if (!obj2 || obj2 == PROTO_NONE) DISPATCH();
-                // Convert key to ProtoString — accepting undefined and
-                // null too so `class C { get [f()](){} }` with f()
-                // returning undefined stores under the string "undefined"
-                // (ToPropertyKey semantics).  Pre-fix any PROTO_NONE key
-                // silently skipped the define.
-                const proto::ProtoString* keyStr2 = nullptr;
-                // Symbol-tagged keys use the per-instance
-                // __symbol_str_key__ identity — same key the put / get /
-                // hasOwn paths use — so a computed accessor
-                // `{ set [sym](v) { ... } }` is installed under the
-                // identity \`obj[sym] = v\` later routes through.
-                // Pre-fix \`asString\` returned nullptr for Symbol, the
-                // fallback ToString produced "Symbol(<desc>)" — a
-                // distinct ProtoString — so the setter sidecar ended
-                // up keyed differently from the put path and the
-                // setter never fired (built-ins/Object/assign/target-
-                // is-frozen-accessor-property-set-succeeds.js's
-                // Symbol-keyed setter arm).
-                keyStr2 = ensureInternedOOP(pContext, keyVal);
-                if (!keyStr2 && keyVal && keyVal != PROTO_NONE) {
-                    keyStr2 = keyVal->asString(pContext);
-                    if (!keyStr2 && keyVal->isInteger(pContext)) {
-                        long long idx = keyVal->asLong(pContext);
-                        keyStr2 = (idx >= 0 && idx <= 0xFFFFFFFELL)
-                            ? JSSymbols::indexKey(pContext, static_cast<uint32_t>(idx))
-                            : protojs::toPropertyKey(pContext, keyVal);
-                    }
+                const proto::ProtoObject* defined =
+                    defineMethodComputed(pContext, obj2, keyVal, methodVal, op_flags);
+                if (defined) {
+                    stackPop(pContext);
+                    stackPush(pContext, defined);
                 }
-                if (!keyStr2) {
-                    // ToPropertyKey: coerce via ToString (handles undefined\xe2\x86\x92"undefined",
-                    // null\xe2\x86\x92"null", numbers, objects, etc.), interned like
-                    // every other property key so get / put find the same key.
-                    const proto::ProtoObject* coerced = toString(pContext, keyVal);
-                    keyStr2 = coerced ? ensureInterned(pContext, coerced->asString(pContext)) : nullptr;
-                }
-                if (!keyStr2) DISPATCH();
-                int flag = op_flags & 0x3;
-                if (flag == 1 || flag == 2) {
-                    const proto::ProtoObject* withAccessor =
-                        defineComputedAccessor(pContext, obj2, keyStr2, methodVal, flag == 1);
-                    if (withAccessor) {
-                        stackPop(pContext);
-                        stackPush(pContext, withAccessor);
-                        DISPATCH();
-                    }
-                }
-                std::string nameStrC;
-                keyStr2->toUTF8String(pContext, nameStrC);
-                const proto::ProtoObject* newObj2 =
-                    obj2->setAttribute(pContext, keyStr2, methodVal ? methodVal : PROTO_NONE);
-                // Method descriptor: bits 0x3.
-                if (newObj2) {
-                    std::string pdName = "__pd_" + nameStrC + "__";
-                    const proto::ProtoObject* pdo = pContext->fromUTF8String(pdName.c_str());
-                    const proto::ProtoString* pdk = pdo ? pdo->asString(pContext) : nullptr;
-                    if (pdk) newObj2 = newObj2->setAttribute(pContext, pdk, pContext->fromInteger(0x3LL));
-                }
-                stackPop(pContext);
-                stackPush(pContext, newObj2 ? newObj2 : obj2);
                 DISPATCH();
             }
             L_OP_set_name_computed: {
