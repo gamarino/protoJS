@@ -148,6 +148,15 @@ public:
     DeferredPool& deferredPool();
 
     /**
+     * @brief Switch this wrapper's space to protoCore's adaptive heap
+     * controller because Deferreds have started, unless the policy says
+     * otherwise (src/HeapLimit.h, adaptiveHeapWanted; "Memory policy" in
+     * src/JSContext.cpp).  Called by the DeferredPool when it starts its
+     * threads; idempotent.  Owner thread only.
+     */
+    void adoptAdaptiveHeapForDeferreds();
+
+    /**
      * @brief Returns the protoCore space.
      */
     proto::ProtoSpace* getProtoSpace() { return &pSpace; }
@@ -320,6 +329,8 @@ private:
     /** The Deferred pool, started on the first `new Deferred`; joined first
      *  thing in the destructor. */
     std::unique_ptr<DeferredPool> deferredPool_;
+    /** adoptAdaptiveHeapForDeferreds has run (owner thread only). */
+    bool adaptiveHeapConsidered_{false};
 
     /** Phase 2: Per-context CommonJS module cache. Ties JSValue lifetime to the wrapper's runtime. */
     std::map<std::string, JSValue> cjsCache_;

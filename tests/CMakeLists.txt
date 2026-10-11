@@ -365,6 +365,16 @@ foreach(js_test
                 "${CMAKE_CURRENT_SOURCE_DIR}/integration/${js_test}.js")
 endforeach()
 
+# Deferreds under a small heap budget: the first Deferred switches the space to
+# protoCore's adaptive heap controller, whose budget is this variable; the test
+# checks that the heap ends within it (tests/unit/test_adaptive_heap.cpp checks
+# when the controller is on).
+add_test(NAME js/deferred/adaptive_heap_budget
+    COMMAND "$<TARGET_FILE:protojs>"
+            "${CMAKE_CURRENT_SOURCE_DIR}/integration/deferred/adaptive_heap_budget.js")
+set_tests_properties(js/deferred/adaptive_heap_budget PROPERTIES
+    ENVIRONMENT "PROTOCORE_HEAP_LIMIT_CELLS=1000000")
+
 # The native addon tests load the addons THIS build directory produced, so two
 # build directories never pick up each other's.  test_native_require gets the
 # addon's path; test_resolution runs from the copy placed next to the fixture

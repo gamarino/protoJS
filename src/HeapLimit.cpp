@@ -113,5 +113,44 @@ long long processDefaultHeapLimitCells() {
     return defaultHeapLimitCells(physicalMemoryBytes(), cgroupMemoryLimitBytes());
 }
 
+namespace {
+
+// One decimal part of a PROTOCORE_HEAP_LIMIT_CELLS value; -1 if invalid.
+long long parseCells(const std::string& text) {
+    if (text.empty()) return -1;
+    long long value = 0;
+    for (char c : text) {
+        if (c < '0' || c > '9') return -1;
+        value = value * 10 + (c - '0');
+        if (value > INT_MAX) return -1;
+    }
+    return value;
+}
+
+}  // namespace
+
+long long hardCellsFromEnv(const char* value) {
+    if (!value) return -1;
+    const std::string text(value);
+    const size_t comma = text.find(',');
+    if (comma == std::string::npos) return parseCells(text);
+    if (parseCells(text.substr(0, comma)) < 0) return -1;
+    return parseCells(text.substr(comma + 1));
+}
+
+AdaptiveHeapMode adaptiveHeapModeFromEnv(const char* value) {
+    if (value && std::string(value) == "1") return AdaptiveHeapMode::On;
+    if (value && std::string(value) == "0") return AdaptiveHeapMode::Off;
+    return AdaptiveHeapMode::Automatic;
+}
+
+bool adaptiveHeapWanted(AdaptiveHeapMode mode, bool deferredsStarted,
+                        const char* heapLimitEnv) {
+    if (mode == AdaptiveHeapMode::On) return true;
+    if (mode == AdaptiveHeapMode::Off) return false;
+    if (!deferredsStarted) return false;
+    return hardCellsFromEnv(heapLimitEnv) != 0;
+}
+
 }  // namespace heaplimit
 }  // namespace protojs

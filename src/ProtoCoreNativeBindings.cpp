@@ -735,9 +735,12 @@ const proto::ProtoObject* isSmallIntegerFn(
 
 // protoCore.gcStats(): the collector's counters for this script's space, in
 // cells of 64 bytes: {cycles, liveCellsLastCycle, reclaimedLastCycle,
-// heapCells, freeCells, heapLimitCells}.  liveCellsLastCycle is what the last
-// completed cycle found reachable (0 before the first cycle); heapLimitCells
-// is the hard ceiling (0 when there is none).
+// heapCells, freeCells, heapLimitCells, softLimitCells, adaptiveHeap}.
+// liveCellsLastCycle is what the last completed cycle found reachable (0
+// before the first cycle); heapLimitCells is the hard ceiling (0 when there
+// is none); softLimitCells the soft limit at which cycles start (0 when
+// there is none); adaptiveHeap whether protoCore's adaptive heap controller
+// sets the limits (src/JSContext.cpp, "Memory policy").
 const proto::ProtoObject* gcStatsFn(
     proto::ProtoContext* ctx, const proto::ProtoObject*,
     const proto::ParentLink*, const proto::ProtoList*,
@@ -751,12 +754,19 @@ const proto::ProtoObject* gcStatsFn(
         {"heapCells", static_cast<long long>(sp->heapSize)},
         {"freeCells", static_cast<long long>(sp->freeCellsCount)},
         {"heapLimitCells", static_cast<long long>(sp->maxHeapSize)},
+        {"softLimitCells", static_cast<long long>(sp->softHeapLimit)},
     };
     const proto::ProtoObject* obj = ctx->newObject(true);
     for (const auto& f : fields) {
         const proto::ProtoString* k = proto::ProtoString::createSymbol(ctx, f.first);
         if (k) obj = obj->setAttribute(ctx, k, ctx->fromInteger(f.second));
     }
+    bool adaptive = false;
+#if defined(PROTOCORE_HAS_ADAPTIVE_HEAP)
+    adaptive = sp->adaptiveHeapStats().enabled;
+#endif
+    if (const proto::ProtoString* k = proto::ProtoString::createSymbol(ctx, "adaptiveHeap"))
+        obj = obj->setAttribute(ctx, k, adaptive ? PROTO_TRUE : PROTO_FALSE);
     return obj;
 }
 

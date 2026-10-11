@@ -46,9 +46,43 @@ protojs [options] -e "<code>"
 | `PROTOJS_EXIT_TIMEOUT_SECONDS` | `src/main.cpp` | After the main script, `protojs` runs while work is pending, without a time limit (Node's behaviour). A positive value makes it stop waiting after that many seconds, printing `Warning: Event loop timeout reached`. Until 2026-10-03 a fixed 180-second limit applied. |
 | `PROTOJS_LITERAL_BUILD` | `src/runtime/BytecodeSpecialiser.cpp` | Object literals are built immutable and made mutable once, after their last field (`markObjectLiterals`). Set to `off` to build them field by field on a mutable object, as before 2026-10-02. |
 | `PROTOJS_PUTFIELD_GROUPS` | `src/runtime/BytecodeSpecialiser.cpp` | A run of `obj.name = value` statements on one receiver whose values cannot run code is published as one new version of the object (`markPutFieldGroups`, protoCore's `ProtoObject::setAttributes`). Set to `off` to publish every write separately, as before 2026-10-03. `PROTOJS_PUTFIELD_GROUPS_DUMP=1` prints each run found at load time. |
-| `PROTOCORE_HEAP_LIMIT_CELLS` | protoCore, `src/JSContext.cpp`, `src/HeapLimit.cpp` | The heap ceiling, in 64-byte cells, of each protoCore space (the main one and each worker's). protoCore's collector runs as the heap approaches the ceiling, so without one nothing is reclaimed during a run; a live set that fills it ends the process with status 3. Default: 75 % of physical memory, or of the cgroup memory limit on Linux when one is set and smaller (a container, systemd `MemoryMax`); `protoCore.gcStats().heapLimitCells` shows the effective value. Because the collector runs only near the ceiling, a program grows towards it before its garbage is collected: set a lower value to bound its footprint, especially with several workers, since each worker's space has its own ceiling. Until 2026-10-02 the default was 10,000,000 cells (640 MB), or a quarter of physical memory if smaller. `0` removes the ceiling. |
+| `PROTOCORE_HEAP_LIMIT_CELLS` | protoCore, `src/JSContext.cpp`, `src/HeapLimit.cpp` | The heap limit, in 64-byte cells, of each protoCore space (the main one and each worker's): `<hard>` or `<soft>,<hard>`. A sequential program runs with it as a fixed ceiling; once Deferreds run it is the adaptive controller's budget (see [Memory](#memory)). A live set that does not fit ends the process with status 3. Default: 75 % of physical memory, or of the cgroup memory limit on Linux when one is set and smaller (a container, systemd `MemoryMax`); `protoCore.gcStats().heapLimitCells` shows the effective value. Set a lower value to bound a program's footprint, especially with several workers, since each worker's space has its own limit. Until 2026-10-02 the default was 10,000,000 cells (640 MB), or a quarter of physical memory if smaller. `0` removes the ceiling and keeps the adaptive controller off. |
+| `PROTOCORE_ADAPTIVE_HEAP` | protoCore, `src/JSContext.cpp`, `src/HeapLimit.cpp` | `1` runs protoCore's adaptive heap controller from the start, also for sequential programs; `0` never runs it, also with Deferreds (the fixed ceiling throughout). Unset (or any other value): the controller starts with the first Deferred. See [Memory](#memory). |
+| `PROTOCORE_HEAP_TRACE` | protoCore | `1` prints one line per collection cycle on stderr (`fixed` for the fixed ceiling, the controller's state otherwise). For diagnosis. |
 
 `PROTOJS_USE_PROTO_EVAL`, which some test scripts set, is not read by `protojs`.
+
+### Memory
+
+protoJS's objects live in protoCore's heap, whose collector runs concurrently
+with the program. How large the heap may grow is decided per space (the main
+one and each worker's), in two modes:
+
+- **A sequential program** has a fixed ceiling: by default 75 % of physical
+  memory, or of the cgroup memory limit on Linux when one is set and smaller.
+  The collector runs as the heap approaches it, so a program that allocates
+  steadily grows towards the ceiling before its garbage is collected. This
+  is the fastest mode for such programs: most of them never collect.
+- **A program that runs Deferreds** switches, when its first Deferred starts,
+  to protoCore's adaptive heap controller (protoCore
+  [docs/GarbageCollector.md](https://github.com/numaes/protoCore/blob/master/docs/GarbageCollector.md),
+  "Adaptive heap controller"). Its budget is the same 75 % of the memory
+  available (or `PROTOCORE_HEAP_LIMIT_CELLS`); within it, collection starts at
+  128 MiB and the limit grows only while the threads wait for the collector.
+  Several threads allocating at once keep the heap far below the budget and,
+  in protoCore's measurements, run faster than under the fixed ceiling.
+
+`PROTOCORE_ADAPTIVE_HEAP=1` / `=0` force the controller on / off;
+`protoCore.gcStats().adaptiveHeap` says which mode a space is in.
+
+In both modes, memory the heap has taken from the operating system is not
+returned to it until the process ends: the resident size of a process is its
+peak heap. The measured trade-off (synthetic workloads, one notebook-class
+machine): the controller makes sequential structure benchmarks 13-36 % slower
+for 77-96 % less memory, which is why it is not the default for them, and
+makes the same benchmarks with 12 Deferreds about 10 % faster with 46-73 %
+less memory (protoCore `docs/reports/2026-10-04-final-remeasurement.md`;
+protoJS's own before/after figures are in the CHANGELOG entry of 2026-10-10).
 
 ---
 

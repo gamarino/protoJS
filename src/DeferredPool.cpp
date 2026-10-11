@@ -26,6 +26,11 @@ bool DeferredPool::start(proto::ProtoContext* ctx) {
     proto::ProtoSpace* space = ctx ? ctx->space : nullptr;
     proto::ProtoRootSet* rs = owner_ ? owner_->getRootSet() : nullptr;
     if (!space || !rs) return false;
+    // From here on the space allocates from several threads: the point at
+    // which protoJS hands its heap to protoCore's adaptive controller
+    // ("Memory policy" in JSContext.cpp).  Done before the first thread
+    // exists, on the owner thread.
+    owner_->adoptAdaptiveHeapForDeferreds();
     const proto::ProtoString* name = proto::ProtoString::createSymbol(ctx, "deferred-pool");
     for (std::size_t i = 0; i < wanted_; ++i) {
         // The pool reaches the thread through an external pointer argument;

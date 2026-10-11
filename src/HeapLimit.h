@@ -41,6 +41,36 @@ long long defaultHeapLimitCells(unsigned long long physicalBytes,
 /** defaultHeapLimitCells for this process. */
 long long processDefaultHeapLimitCells();
 
+/**
+ * The hard limit of a PROTOCORE_HEAP_LIMIT_CELLS value, "<hard>" or
+ * "<soft>,<hard>", parsed as protoCore parses it (decimal digits, at most
+ * INT_MAX); -1 when the value is absent or protoCore would ignore it.
+ */
+long long hardCellsFromEnv(const char* value);
+
+/**
+ * Which heap policy a space runs (see src/JSContext.cpp, "Memory policy").
+ *
+ * Automatic: the fixed hard limit above while the program is sequential;
+ * protoCore's adaptive heap controller (ProtoSpace::enableAdaptiveHeap) from
+ * the moment the space's DeferredPool starts its first task.  On / Off force
+ * the controller on from the start / off for good.
+ */
+enum class AdaptiveHeapMode { Automatic, On, Off };
+
+/** The mode a PROTOCORE_ADAPTIVE_HEAP value selects: "1" On, "0" Off, else
+ *  (absent or any other value, which protoCore ignores too) Automatic. */
+AdaptiveHeapMode adaptiveHeapModeFromEnv(const char* value);
+
+/**
+ * Whether a space runs the controller, given the mode, whether Deferreds have
+ * started, and the PROTOCORE_HEAP_LIMIT_CELLS value.  An explicit hard limit
+ * of 0 means "no limit", which is not a budget: Automatic then stays with the
+ * fixed (unlimited) policy.
+ */
+bool adaptiveHeapWanted(AdaptiveHeapMode mode, bool deferredsStarted,
+                        const char* heapLimitEnv);
+
 }  // namespace heaplimit
 }  // namespace protojs
 

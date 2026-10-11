@@ -96,18 +96,30 @@ static JSModuleDef* protojs_load_module(JSContext* ctx, const char* module_name,
 // and triggers as the heap approaches the configured ceiling. With no ceiling
 // it is never needed, so garbage is never reclaimed during a run: a loop that
 // created 1,000,000 closures exhausted the machine's memory. Every space
-// protoJS creates (the main one and each worker's) therefore gets a hard
-// ceiling by default: 75 % of physical memory, or of the cgroup memory limit
-// when one is set and smaller (src/HeapLimit.h). An explicit
-// PROTOCORE_HEAP_LIMIT_CELLS, which protoCore has already applied when the
-// space was constructed, takes precedence (0 disables the ceiling).
+// protoJS creates (the main one and each worker's) therefore starts with a
+// hard ceiling: 75 % of physical memory, or of the cgroup memory limit when one
+// is set and smaller (src/HeapLimit.h). An explicit PROTOCORE_HEAP_LIMIT_CELLS,
+// which protoCore has already applied when the space was constructed, takes
+// precedence (0 disables the ceiling).
 //
-// Until 2026-10-02 the default was 10M cells (640 MB), or a quarter of
-// physical memory if smaller: programs with a larger live set died with
-// "out of memory" on machines with plenty to spare.  Since the collector
-// runs only near the ceiling, a program now grows towards it before its
-// garbage is collected; protoCore's planned adaptive heap controller is meant
-// to bound that, and configureHeap is the one place that adopts it.
+// A sequential program keeps that fixed ceiling for its whole run.  It
+// rarely reaches it, so it rarely collects, and protoCore's measurements
+// (docs/reports/2026-10-04-final-remeasurement.md in protoCore) show its
+// adaptive heap controller costing such programs 13-36 % of their time on
+// protoJS's structure benchmarks, for 77-96 % less memory.  A program that
+// runs Deferreds is where the controller pays: with twelve allocating
+// threads it was 10 % faster with 46-73 % less memory.  So the space switches
+// to the controller (ProtoSpace::enableAdaptiveHeap) the first time its
+// DeferredPool starts, in adoptAdaptiveHeapForDeferreds.  The controller's
+// budget is the same 75 % of the memory available (or
+// PROTOCORE_HEAP_LIMIT_CELLS); it collects from a 128 MiB soft limit upwards
+// and grows that limit only while the mutators wait for the collector.  As
+// with the fixed ceiling, memory the heap has taken is not returned to the
+// operating system.
+//
+// PROTOCORE_ADAPTIVE_HEAP=1 runs the controller from the start, =0 never
+// (src/HeapLimit.h, AdaptiveHeapMode).  PROTOCORE_HEAP_LIMIT_CELLS=0 (no
+// limit) keeps the controller off, since it has no budget to work within.
 //
 // A live set that itself reaches the ceiling is reported by protoCore through
 // outOfMemoryCallback, after which it would abort; protoJS ends the process
@@ -119,17 +131,29 @@ namespace {
 constexpr long long kHeapCellBytes = protojs::heaplimit::kCellBytes;
 
 long long configuredHardCells() {
-    if (const char* env = std::getenv("PROTOCORE_HEAP_LIMIT_CELLS"))
-        return std::atoll(env);
+    const long long fromEnv =
+        protojs::heaplimit::hardCellsFromEnv(std::getenv("PROTOCORE_HEAP_LIMIT_CELLS"));
+    if (fromEnv >= 0) return fromEnv;
     return protojs::heaplimit::processDefaultHeapLimitCells();
 }
 
-proto::ProtoObject* reportOutOfMemory(proto::ProtoContext*) {
-    const long long cells = configuredHardCells();
+// The limit the space works within: the controller's budget when it runs.
+long long effectiveHardCells(proto::ProtoContext* ctx) {
+#if defined(PROTOCORE_HAS_ADAPTIVE_HEAP)
+    if (ctx && ctx->space) {
+        const proto::AdaptiveHeapStats stats = ctx->space->adaptiveHeapStats();
+        if (stats.enabled && stats.hardCells > 0) return static_cast<long long>(stats.hardCells);
+    }
+#endif
+    return configuredHardCells();
+}
+
+proto::ProtoObject* reportOutOfMemory(proto::ProtoContext* ctx) {
+    const long long cells = effectiveHardCells(ctx);
     std::fflush(stdout);
     std::fprintf(stderr,
-        "protojs: out of memory: the live objects fill the heap limit of %lld cells "
-        "(%lld MB) and the last collections reclaimed nothing. To allow more, set "
+        "protojs: out of memory: the live objects do not fit in the heap limit of %lld cells "
+        "(%lld MB) after full collections. To allow more, set "
         "PROTOCORE_HEAP_LIMIT_CELLS (each cell is 64 bytes), e.g. "
         "PROTOCORE_HEAP_LIMIT_CELLS=%lld for %lld MB.\n",
         cells, cells * kHeapCellBytes / 1000000, cells * 4,
@@ -137,8 +161,19 @@ proto::ProtoObject* reportOutOfMemory(proto::ProtoContext*) {
     platform::exitNow(3);
 }
 
+protojs::heaplimit::AdaptiveHeapMode adaptiveHeapMode() {
+    return protojs::heaplimit::adaptiveHeapModeFromEnv(std::getenv("PROTOCORE_ADAPTIVE_HEAP"));
+}
+
 void configureHeap(proto::ProtoSpace& space) {
     space.outOfMemoryCallback = reportOutOfMemory;
+#if defined(PROTOCORE_HAS_ADAPTIVE_HEAP)
+    if (protojs::heaplimit::adaptiveHeapWanted(adaptiveHeapMode(), /*deferredsStarted=*/false,
+                                               std::getenv("PROTOCORE_HEAP_LIMIT_CELLS"))) {
+        space.enableAdaptiveHeap();
+        return;
+    }
+#endif
     if (std::getenv("PROTOCORE_HEAP_LIMIT_CELLS")) return;
     space.setHeapLimits(0, static_cast<int>(configuredHardCells()));
 }
@@ -166,6 +201,17 @@ DeferredPool& JSContextWrapper::deferredPool() {
             this, CPUThreadPool::getInstance().getExecutor().getThreadCount());
     }
     return *deferredPool_;
+}
+
+void JSContextWrapper::adoptAdaptiveHeapForDeferreds() {
+    if (adaptiveHeapConsidered_) return;
+    adaptiveHeapConsidered_ = true;
+#if defined(PROTOCORE_HAS_ADAPTIVE_HEAP)
+    if (pSpace.adaptiveHeapStats().enabled) return;  // PROTOCORE_ADAPTIVE_HEAP=1
+    if (protojs::heaplimit::adaptiveHeapWanted(adaptiveHeapMode(), /*deferredsStarted=*/true,
+                                               std::getenv("PROTOCORE_HEAP_LIMIT_CELLS")))
+        pSpace.enableAdaptiveHeap();
+#endif
 }
 
 JSContextWrapper::CurrentScope::CurrentScope(JSContextWrapper* w)
