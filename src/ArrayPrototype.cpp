@@ -97,16 +97,23 @@ static std::string utf16CharAt(const std::string& s, size_t idx) {
 }
 
 // ---------------------------------------------------------------------------
-// Module-level array prototype pointer (set once during ensureArrayPrototype).
-// Safe because protoJS runs JS on a single logical context per process.
+// %Array.prototype% of each space, published by ensureArrayPrototype.
+// Every worker_threads worker has its own space and its own Array.prototype;
+// a process-wide static here once handed the main thread the prototype of the
+// last worker to start, and kept pointing into that worker's space after it
+// was destroyed (docs/MEMORY_SAFETY_PROPOSALS.md, section 1). createNewArray
+// reads it through a per-thread memo.
 // ---------------------------------------------------------------------------
-static const proto::ProtoObject* s_arrayProto = nullptr;
+static PinnedBuiltin s_arrayProto;
 
-// ---------------------------------------------------------------------------
-// Internal helper: get the array prototype pointer (may be null before init).
-// ---------------------------------------------------------------------------
-static inline const proto::ProtoObject* getArrayProto() {
-    return s_arrayProto;
+// The array prototype of ctx's space (nullptr before ensureArrayPrototype).
+static inline const proto::ProtoObject* getArrayProto(proto::ProtoContext* ctx) {
+    static thread_local PinnedBuiltin::Memo t_memo;
+    return s_arrayProto.get(ctx, t_memo);
+}
+
+const proto::ProtoObject* currentArrayPrototype(proto::ProtoContext* ctx) {
+    return getArrayProto(ctx);
 }
 
 // ---------------------------------------------------------------------------
@@ -1058,7 +1065,7 @@ static long long normalizeIdxClamp(long long idx, long long len) {
 // ---------------------------------------------------------------------------
 const proto::ProtoObject* createNewArray(proto::ProtoContext* ctx,
                                           const proto::ProtoObject* arrayProto) {
-    const proto::ProtoObject* proto = arrayProto ? arrayProto : getArrayProto();
+    const proto::ProtoObject* proto = arrayProto ? arrayProto : getArrayProto(ctx);
     // Built immutable and made mutable with one clone at the end: one
     // publication into protoCore's mutable table instead of three.
     const proto::ProtoObject* arr = proto
@@ -3756,7 +3763,7 @@ static bool isPlainFreshArray(proto::ProtoContext* ctx, const proto::ProtoObject
     if (!arr || arr == PROTO_NONE || proto::isSmallInt(arr)) return false;
     const proto::ProtoString* isArrKey = JSSymbols::isArray(ctx);
     if (!isArrKey || arr->hasOwnAttribute(ctx, isArrKey) != PROTO_TRUE) return false;
-    const proto::ProtoObject* ap = getArrayProto();
+    const proto::ProtoObject* ap = getArrayProto(ctx);
     return ap && arr->getPrototype(ctx) == ap && !getJSProtoOverride(ctx, arr);
 }
 
@@ -5978,8 +5985,8 @@ void ensureArrayPrototype(proto::ProtoContext* ctx,
         }
     }
 
-    // Store in module-level static for createNewArray.
-    s_arrayProto = proto;
+    // Publish for createNewArray (per space; see s_arrayProto).
+    proto = s_arrayProto.replace(ctx, proto);
 
     // Sync wrapper-level Array prototype so TypeBridge::fromJS and
     // JSONBuiltin::parse stamp newly imported QuickJS arrays with this
@@ -5989,7 +5996,7 @@ void ensureArrayPrototype(proto::ProtoContext* ctx,
     // so `a.join`, `a.map`, and every other Array.prototype method
     // surfaced as undefined.
     if (JSContextWrapper* w = JSContextWrapper::current()) {
-        w->setJSArrayPrototype(s_arrayProto);
+        w->setJSArrayPrototype(proto);
     }
 
     // ------------------------------------------------------------------
@@ -6143,7 +6150,7 @@ void ensureArrayPrototype(proto::ProtoContext* ctx,
             proto = proto->setAttribute(ctx, ctorKey, ctor);
             const proto::ProtoString* pdk = JSSymbols::pdConstructor(ctx);
             if (pdk) proto = proto->setAttribute(ctx, pdk, ctx->fromInteger(0x3LL));
-            s_arrayProto = proto;
+            proto = s_arrayProto.replace(ctx, proto);
         }
     }
 

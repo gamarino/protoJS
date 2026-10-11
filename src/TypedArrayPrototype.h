@@ -104,8 +104,9 @@ bool isTypedArrayInternalField(const std::string& key);
 bool typedArrayOwnIndex(proto::ProtoContext* ctx, const proto::ProtoObject* ta,
                         const std::string& key, uint32_t& index);
 
-const proto::ProtoObject* getTypedArrayBaseProto();
-const proto::ProtoObject* getTypedArrayConcreteProto(uint8_t elemType);
+/** %TypedArray.prototype% and the concrete prototypes of ctx's space. */
+const proto::ProtoObject* getTypedArrayBaseProto(proto::ProtoContext* ctx);
+const proto::ProtoObject* getTypedArrayConcreteProto(proto::ProtoContext* ctx, uint8_t elemType);
 
 } // namespace protojs
 

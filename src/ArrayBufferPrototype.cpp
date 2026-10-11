@@ -1,4 +1,5 @@
 #include "ProtoCoreTypes.h"
+#include "runtime/PinnedBuiltin.h"
 #include "ArrayBufferPrototype.h"
 #include "JSSymbols.h"
 #include "TypedArrayPrototype.h"
@@ -10,7 +11,12 @@
 namespace protojs {
 
 // Module-level ArrayBuffer prototype pointer (set once during ensureArrayBufferConstructor).
-static const proto::ProtoObject* s_abProto = nullptr;
+// %ArrayBuffer.prototype% of each space (see PinnedBuiltin.h).
+static PinnedBuiltin s_abProtoCache;
+static const proto::ProtoObject* arrayBufferProto(proto::ProtoContext* ctx) {
+    static thread_local PinnedBuiltin::Memo t_memo;
+    return s_abProtoCache.get(ctx, t_memo);
+}
 
 // ---------------------------------------------------------------------------
 // Internal helper: native method signature typedef for clarity.
@@ -133,7 +139,7 @@ static const proto::ProtoObject* createArrayBufferWithProto(proto::ProtoContext*
 
 const proto::ProtoObject* createArrayBuffer(proto::ProtoContext* ctx,
                                             proto::proto_ulong byteLength) {
-    return createArrayBufferWithProto(ctx, s_abProto, byteLength);
+    return createArrayBufferWithProto(ctx, arrayBufferProto(ctx), byteLength);
 }
 
 // The largest buffer protoJS allocates; a larger ToIndex result is the
@@ -155,7 +161,7 @@ const proto::ProtoObject* constructArrayBuffer(proto::ProtoContext* ctx,
     const bool protoIsObject = proto && proto != PROTO_NONE && proto != getUndefinedSentinel()
         && proto != getNullSentinel() && !proto->isInteger(ctx) && !proto->isDouble(ctx)
         && !proto->isString(ctx) && !proto->isBoolean(ctx);
-    return createArrayBufferWithProto(ctx, protoIsObject ? proto : s_abProto,
+    return createArrayBufferWithProto(ctx, protoIsObject ? proto : arrayBufferProto(ctx),
                                       static_cast<proto::proto_ulong>(len));
 }
 
@@ -304,8 +310,8 @@ void ensureArrayBufferConstructor(proto::ProtoContext* ctx,
         }
     }
 
-    // Cache the prototype for createArrayBuffer.
-    s_abProto = proto;
+    // Publish the prototype of this space for createArrayBuffer.
+    s_abProtoCache.replace(ctx, proto);
 
     // ------------------------------------------------------------------
     // Build the ArrayBuffer constructor object.
@@ -387,7 +393,7 @@ void ensureArrayBufferConstructor(proto::ProtoContext* ctx,
             if (updated && updated != PROTO_NONE) {
                 const proto::ProtoString* pdk = JSSymbols::pdConstructor(ctx);
                 if (pdk) updated = updated->setAttribute(ctx, pdk, ctx->fromInteger(0x3LL));
-                s_abProto = updated;
+                s_abProtoCache.replace(ctx, updated);
             }
         }
     }

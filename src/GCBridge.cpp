@@ -8,15 +8,33 @@
 #include <sstream>
 #include <iomanip>
 #include <chrono>
+#include <unordered_map>
 
 namespace protojs {
 
 // Static member definitions
-const proto::ProtoSparseList* GCBridge::contextMappings = nullptr;
-proto::ProtoRootSet* GCBridge::rootSet = nullptr;
-proto::ProtoRootSet::Handle GCBridge::mappingsHandle = 0;
-const proto::ProtoObject* GCBridge::rootAnchor = nullptr;
 std::recursive_mutex GCBridge::mapMutex;
+
+std::unordered_map<const proto::ProtoSpace*, GCBridge::SpaceMappings*>& GCBridge::spaceTables() {
+    static std::unordered_map<const proto::ProtoSpace*, SpaceMappings*> tables;
+    return tables;
+}
+
+// The table of pContext's space (created when `create`); nullptr when there
+// is none. Caller holds mapMutex.
+GCBridge::SpaceMappings* GCBridge::spaceMappings(proto::ProtoContext* pContext, bool create) {
+    if (!pContext || !pContext->space) return nullptr;
+    auto& tables = spaceTables();
+    auto it = tables.find(pContext->space);
+    if (it != tables.end()) return it->second;
+    if (!create) return nullptr;
+    auto* sm = new SpaceMappings();
+    sm->rootSet = pContext->space->createRootSet("GCBridge");
+    sm->contexts = pContext->newSparseList();
+    if (sm->rootSet) sm->handle = sm->rootSet->add(sm->contexts->asObject(pContext));
+    tables.emplace(pContext->space, sm);
+    return sm;
+}
 
 // Internal wrapper for JSValue with context
 struct JSValueWrapper {
@@ -40,21 +58,7 @@ void GCBridge::initialize(JSContext* ctx) {
     proto::ProtoContext* pContext = getProtoContext(ctx);
     if (!pContext) return;
     
-    proto::ProtoSpace* space = pContext->space;
-    if (!rootSet) {
-        rootSet = space->createRootSet("GCBridge");
-        rootAnchor = pContext->newObject(true); // Mutable anchor
-        // Removed rootSet->add(rootAnchor) to allow cleanup.
-    }
-
-    // Initialize empty mappings for this context if not already present
-    if (!contextMappings) {
-        contextMappings = pContext->newSparseList();
-        // Root the global contextMappings via the global rootSet
-        if (rootSet) {
-            mappingsHandle = rootSet->add(contextMappings->asObject(pContext));
-        }
-    }
+    (void)spaceMappings(pContext, /*create=*/true);
 }
 
 void GCBridge::registerMapping(JSValue jsVal, const proto::ProtoObject* protoObj, JSContext* ctx) {
@@ -485,11 +489,12 @@ GCBridge::MemoryStats GCBridge::getMemoryStats(JSContext* ctx) {
 void GCBridge::cleanup(JSContext* ctx) {
     std::lock_guard<std::recursive_mutex> lock(mapMutex);
     proto::ProtoContext* pContext = getProtoContext(ctx);
-    if (!pContext || !contextMappings) return;
+    SpaceMappings* sm = spaceMappings(pContext, /*create=*/false);
+    if (!sm) return;
 
     uint64_t ctxHash = reinterpret_cast<uint64_t>(ctx);
-    if (contextMappings->has(pContext, ctxHash)) {
-        const proto::ProtoObject* wrappedMappings = contextMappings->getAt(pContext, ctxHash);
+    if (sm->contexts->has(pContext, ctxHash)) {
+        const proto::ProtoObject* wrappedMappings = sm->contexts->getAt(pContext, ctxHash);
         const proto::ProtoSparseList* ctxMappings = reinterpret_cast<const proto::ProtoObject*>(wrappedMappings)->asSparseList(pContext);
         
         // Iterate all mappings to invalidate JSValueWrappers
@@ -519,15 +524,17 @@ void GCBridge::cleanup(JSContext* ctx) {
             iter = const_cast<proto::ProtoSparseListIterator*>(iter)->advance(pContext);
         }
 
-        // Remove from global mappings
-        contextMappings = contextMappings->removeAt(pContext, ctxHash);
-        
-        // Update anchor
-        if (rootAnchor) {
-            rootAnchor->setAttribute(pContext, proto::ProtoString::createSymbol(pContext, "__gc_mappings__"), 
-                                    reinterpret_cast<const proto::ProtoObject*>(contextMappings));
-        }
+        sm->contexts = sm->contexts->removeAt(pContext, ctxHash);
     }
+
+    // One JSContext per space: the space's table goes with it, before the
+    // space does.
+    if (sm->rootSet) {
+        sm->rootSet->remove(sm->handle);
+        pContext->space->destroyRootSet(sm->rootSet);
+    }
+    spaceTables().erase(pContext->space);
+    delete sm;
 }
 
 void GCBridge::scanRoots(proto::ProtoSpace* space, JSContext* ctx) {
@@ -591,15 +598,15 @@ proto::ProtoContext* GCBridge::getProtoContext(JSContext* ctx) {
 }
 
 const proto::ProtoSparseList* GCBridge::getContextMappings(JSContext* ctx, proto::ProtoContext* pContext) {
-    if (!contextMappings) {
-        contextMappings = pContext->newSparseList();
-    }
-    
+    std::lock_guard<std::recursive_mutex> lock(mapMutex);
+    SpaceMappings* sm = spaceMappings(pContext, /*create=*/true);
+    if (!sm) return pContext->newSparseList();
+
     // Get mappings for this context using JSContext* hash
     proto::proto_ulong ctxHash = reinterpret_cast<uintptr_t>(ctx);
     
-    if (contextMappings->has(pContext, ctxHash)) {
-        const proto::ProtoObject* wrappedMappings = contextMappings->getAt(pContext, ctxHash);
+    if (sm->contexts->has(pContext, ctxHash)) {
+        const proto::ProtoObject* wrappedMappings = sm->contexts->getAt(pContext, ctxHash);
         if (wrappedMappings && wrappedMappings != PROTO_NONE) {
             const proto::ProtoSparseList* mappings = wrappedMappings->asSparseList(pContext);
             if (mappings) {
@@ -614,14 +621,17 @@ const proto::ProtoSparseList* GCBridge::getContextMappings(JSContext* ctx, proto
 
 void GCBridge::setContextMappings(JSContext* ctx, const proto::ProtoSparseList* mappings, proto::ProtoContext* pContext) {
     std::lock_guard<std::recursive_mutex> lock(mapMutex);
+    SpaceMappings* sm = spaceMappings(pContext, /*create=*/true);
+    if (!sm) return;
     uint64_t ctxHash = reinterpret_cast<uint64_t>(ctx);
-    const proto::ProtoSparseList* next = contextMappings->setAt(pContext, ctxHash, reinterpret_cast<const proto::ProtoObject*>(mappings));
+    const proto::ProtoSparseList* next = sm->contexts->setAt(pContext, ctxHash, reinterpret_cast<const proto::ProtoObject*>(mappings));
     if (next) {
-        contextMappings = next;
-        // Update root handle with the new immutable list version.
-        if (rootSet && mappingsHandle) {
-            rootSet->remove(mappingsHandle);
-            mappingsHandle = rootSet->add(contextMappings->asObject(pContext));
+        sm->contexts = next;
+        // Pin the new immutable version before releasing the old one.
+        if (sm->rootSet) {
+            const proto::ProtoRootSet::Handle h = sm->rootSet->add(sm->contexts->asObject(pContext));
+            sm->rootSet->remove(sm->handle);
+            sm->handle = h;
         }
     }
 }

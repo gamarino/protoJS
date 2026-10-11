@@ -3,6 +3,7 @@
 #include <cstdint>
 #include "GcScopedCache.h"
 #include <map>
+#include <mutex>
 #include <unordered_map>
 #include <vector>
 #include "../JSSymbols.h"
@@ -131,13 +132,109 @@ namespace protojs {
 
     BehaviorRegistry::BehaviorRegistry() : defaultBehavior(std::make_unique<JSObjectBehavior>()) {}
 
-    void BehaviorRegistry::registerBehavior(const proto::ProtoObject* marker, std::unique_ptr<JSObjectBehavior> behavior) {
-        if (!marker || marker == (const proto::ProtoObject*)0) return;
-        registry[marker] = std::move(behavior);
+    namespace {
+        // The eleven typed-array behaviours, shared by every space: a
+        // behaviour holds no space's cell, only its element type.
+        const TypedArrayBehavior s_typedArrayBehaviors[11] = {
+            TypedArrayBehavior(0), TypedArrayBehavior(1), TypedArrayBehavior(2),
+            TypedArrayBehavior(3), TypedArrayBehavior(4), TypedArrayBehavior(5),
+            TypedArrayBehavior(6), TypedArrayBehavior(7), TypedArrayBehavior(8),
+            TypedArrayBehavior(9), TypedArrayBehavior(10)};
+
+        // ---- Per-space tables -------------------------------------------
+        //
+        // A table is immutable once published. A space's slot holds its
+        // current table; an insert copies it, adds the entry, publishes the
+        // copy and keeps the old one in `retired` until forgetSpace, because
+        // a thread of that space may still be reading it. Only threads of a
+        // space read its slot, and forgetSpace runs when none is left.
+        using Table = std::unordered_map<const proto::ProtoObject*, const JSObjectBehavior*>;
+
+        struct SpaceSlot {
+            std::atomic<const proto::ProtoSpace*> space{nullptr};
+            std::atomic<const Table*> table{nullptr};
+            std::vector<const Table*> retired;  // under g_registryMutex
+        };
+
+        // Enough for the main space and the workers alive at once; spaces
+        // beyond that use g_overflow, read under the mutex.
+        constexpr int kSpaceSlots = 64;
+        SpaceSlot g_slots[kSpaceSlots];
+        std::mutex g_registryMutex;
+        std::unordered_map<const proto::ProtoSpace*, Table> g_overflow;  // under the mutex
+        std::atomic<bool> g_overflowUsed{false};
+
+        // Which slot this thread last found its space in.
+        thread_local int t_slotHint = 0;
+
+        const Table* tableOf(const proto::ProtoSpace* space) {
+            if (!space) return nullptr;
+            const int hint = t_slotHint;
+            if (g_slots[hint].space.load(std::memory_order_acquire) == space)
+                return g_slots[hint].table.load(std::memory_order_acquire);
+            for (int i = 0; i < kSpaceSlots; ++i) {
+                if (g_slots[i].space.load(std::memory_order_acquire) == space) {
+                    t_slotHint = i;
+                    return g_slots[i].table.load(std::memory_order_acquire);
+                }
+            }
+            return nullptr;
+        }
+
+        const JSObjectBehavior* lookupMarker(const proto::ProtoSpace* space,
+                                             const proto::ProtoObject* marker) {
+            if (!marker) return nullptr;
+            if (const Table* t = tableOf(space)) {
+                auto it = t->find(marker);
+                return it != t->end() ? it->second : nullptr;
+            }
+            if (!g_overflowUsed.load(std::memory_order_acquire)) return nullptr;
+            std::lock_guard<std::mutex> lock(g_registryMutex);
+            auto sit = g_overflow.find(space);
+            if (sit == g_overflow.end()) return nullptr;
+            auto it = sit->second.find(marker);
+            return it != sit->second.end() ? it->second : nullptr;
+        }
     }
 
-    void BehaviorRegistry::registerTypedArrayBehavior(const proto::ProtoObject* proto, uint8_t elemType) {
-        registerBehavior(proto, std::make_unique<TypedArrayBehavior>(elemType));
+    void BehaviorRegistry::registerBehavior(proto::ProtoContext* ctx,
+                                            const proto::ProtoObject* marker,
+                                            const JSObjectBehavior* behavior) {
+        if (!ctx || !ctx->space || !marker || !behavior) return;
+        const proto::ProtoSpace* space = ctx->space;
+        std::lock_guard<std::mutex> lock(g_registryMutex);
+        SpaceSlot* slot = nullptr;
+        SpaceSlot* freeSlot = nullptr;
+        for (SpaceSlot& s : g_slots) {
+            const proto::ProtoSpace* sp = s.space.load(std::memory_order_relaxed);
+            if (sp == space) { slot = &s; break; }
+            if (!sp && !freeSlot) freeSlot = &s;
+        }
+        if (!slot && freeSlot && g_overflow.find(space) == g_overflow.end()) {
+            // Publish the table before the space: a reader that matches the
+            // space must find a table.
+            auto* t = new Table{{marker, behavior}};
+            freeSlot->table.store(t, std::memory_order_release);
+            freeSlot->space.store(space, std::memory_order_release);
+            return;
+        }
+        if (!slot) {
+            g_overflow[space][marker] = behavior;
+            g_overflowUsed.store(true, std::memory_order_release);
+            return;
+        }
+        const Table* old = slot->table.load(std::memory_order_relaxed);
+        auto* t = old ? new Table(*old) : new Table();
+        (*t)[marker] = behavior;
+        slot->table.store(t, std::memory_order_release);
+        if (old) slot->retired.push_back(old);
+    }
+
+    void BehaviorRegistry::registerTypedArrayBehavior(proto::ProtoContext* ctx,
+                                                      const proto::ProtoObject* proto,
+                                                      uint8_t elemType) {
+        if (elemType >= 11) return;
+        registerBehavior(ctx, proto, &s_typedArrayBehaviors[elemType]);
     }
 
     // Shared per-object cache definition. resolve() reads and writes it
@@ -184,6 +281,26 @@ namespace protojs {
         }
     }
 
+    void BehaviorRegistry::forgetSpace(const proto::ProtoSpace* space) {
+        if (!space) return;
+        {
+            std::lock_guard<std::mutex> lock(g_registryMutex);
+            for (SpaceSlot& s : g_slots) {
+                if (s.space.load(std::memory_order_relaxed) != space) continue;
+                // Unpublish the space first, then free its tables: no thread
+                // of `space` runs any more, so nothing reads them.
+                s.space.store(nullptr, std::memory_order_release);
+                delete s.table.exchange(nullptr, std::memory_order_acq_rel);
+                for (const Table* t : s.retired) delete t;
+                s.retired.clear();
+            }
+            g_overflow.erase(space);
+        }
+        // Every thread's per-object cache may hold entries for objects of
+        // `space`, whose addresses a later space can reuse.
+        g_integrityEpoch.fetch_add(1, std::memory_order_release);
+    }
+
     void BehaviorRegistry::invalidateObjectCache(const proto::ProtoObject* obj) const {
         if (!obj) return;
         g_integrityEpoch.fetch_add(1, std::memory_order_release);
@@ -227,19 +344,19 @@ namespace protojs {
         const JSObjectBehavior* behavior = defaultBehavior.get();
         if (parentCount == 0) {
             const proto::ProtoObject* p = obj->getFirstParent(ctx);
-            auto it = p ? registry.find(p) : registry.end();
-            if (integrity && it == registry.end()) {
+            const JSObjectBehavior* marked = lookupMarker(ctx->space, p);
+            if (integrity && !marked) {
                 behavior = integrity;
-            } else if (it != registry.end()) {
+            } else if (marked) {
                 if (integrity) {
                     static thread_local std::map<std::vector<const JSObjectBehavior*>,
                                                  std::unique_ptr<CompositeBehavior>> t_pairCache;
-                    std::vector<const JSObjectBehavior*> pair{integrity, it->second.get()};
+                    std::vector<const JSObjectBehavior*> pair{integrity, marked};
                     auto& composite = t_pairCache[pair];
                     if (!composite) composite = std::make_unique<CompositeBehavior>(pair);
                     behavior = composite.get();
                 } else {
-                    behavior = it->second.get();
+                    behavior = marked;
                 }
             }
         } else {
@@ -247,8 +364,8 @@ namespace protojs {
             if (integrity) found.push_back(integrity);
             for (size_t i = 0; i < parentCount; i++) {
                 const proto::ProtoObject* p = parents->getAt(ctx, static_cast<int>(i));
-                auto it = p ? registry.find(p) : registry.end();
-                if (it != registry.end()) found.push_back(it->second.get());
+                if (const JSObjectBehavior* marked = lookupMarker(ctx->space, p))
+                    found.push_back(marked);
             }
             if (found.size() == 1) {
                 behavior = found[0];

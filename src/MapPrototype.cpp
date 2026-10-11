@@ -20,7 +20,14 @@ namespace protojs {
 // Module-level storage for the JS Map prototype, set by BuildMapPrototype
 // and retrieved by ensureMapConstructor.
 // ---------------------------------------------------------------------------
-static const proto::ProtoObject* s_mapPrototype = nullptr;
+// %Map.prototype% of each space (see PinnedBuiltin.h): every worker_threads worker
+// builds its own, and a process-wide static once handed the main thread the
+// prototype of a worker's (later destroyed) space.
+static PinnedBuiltin s_mapProtoCache;
+static const proto::ProtoObject* mapProtoOf(proto::ProtoContext* ctx) {
+    static thread_local PinnedBuiltin::Memo t_memo;
+    return s_mapProtoCache.get(ctx, t_memo);
+}
 
 namespace {
 
@@ -672,8 +679,9 @@ static const proto::ProtoObject* mapGroupBy(
     }
 
     // Create a result Map.
-    const proto::ProtoObject* result = s_mapPrototype
-        ? s_mapPrototype->newChild(ctx, true) : ctx->newObject(true);
+    const proto::ProtoObject* mapProto = mapProtoOf(ctx);
+    const proto::ProtoObject* result = mapProto
+        ? mapProto->newChild(ctx, true) : ctx->newObject(true);
     if (!result) return PROTO_NONE;
     {
         mapInitEmpty(ctx, result);
@@ -1280,7 +1288,7 @@ void BuildMapPrototype(proto::ProtoSpace* space, proto::ProtoContext* ctx,
     }
 
     // Store for ensureMapConstructor retrieval.
-    s_mapPrototype = mapProto;
+    s_mapProtoCache.replace(ctx, mapProto);
 }
 
 // ---------------------------------------------------------------------------
@@ -1304,8 +1312,8 @@ void ensureMapConstructor(proto::ProtoContext* ctx,
     // methodPrototype (=Function.prototype) is available so
     // m.set.call / m.has.bind / etc. resolve via the standard chain.
     // Mirrors the parallel fix in ensureNumberConstructor.
-    if (ctx->space && ctx->space->methodPrototype && s_mapPrototype) {
-        const proto::ProtoObject* mp = s_mapPrototype;
+    if (ctx->space && ctx->space->methodPrototype && mapProtoOf(ctx)) {
+        const proto::ProtoObject* mp = mapProtoOf(ctx);
         mp = installNonEnumerableMethod(ctx, mp, "set",     mapSet,     2);
         mp = installNonEnumerableMethod(ctx, mp, "get",     mapGet,     1);
         mp = installNonEnumerableMethod(ctx, mp, "has",     mapHas,     1);
@@ -1373,7 +1381,7 @@ void ensureMapConstructor(proto::ProtoContext* ctx,
                 }
             }
         }
-        s_mapPrototype = mp;
+        s_mapProtoCache.replace(ctx, mp);
     }
 
     const proto::ProtoObject* ctorParent =
@@ -1414,8 +1422,8 @@ void ensureMapConstructor(proto::ProtoContext* ctx,
 
     // ctor.prototype = Map.prototype
     const proto::ProtoString* protoKey = JSSymbols::prototype(ctx);
-    if (protoKey && s_mapPrototype) {
-        ctor = ctor->setAttribute(ctx, protoKey, s_mapPrototype);
+    if (protoKey && mapProtoOf(ctx)) {
+        ctor = ctor->setAttribute(ctx, protoKey, mapProtoOf(ctx));
         // §24.1.2.1 / §17: Map.prototype is {writable:false,
         // enumerable:false, configurable:false} → bits 0x0.  Pre-fix
         // the slot defaulted to fully writable / configurable; same
@@ -1481,15 +1489,15 @@ void ensureMapConstructor(proto::ProtoContext* ctx,
     }
 
     // Map.prototype.constructor === Map per §24.1.3.2 (non-enumerable).
-    if (s_mapPrototype) {
+    if (mapProtoOf(ctx)) {
         const proto::ProtoString* ctorWordKey = JSSymbols::constructor(ctx);
         if (ctorWordKey) {
             const proto::ProtoObject* updated =
-                s_mapPrototype->setAttribute(ctx, ctorWordKey, ctor);
+                mapProtoOf(ctx)->setAttribute(ctx, ctorWordKey, ctor);
             if (updated && updated != PROTO_NONE) {
                 const proto::ProtoString* pdk = JSSymbols::pdConstructor(ctx);
                 if (pdk) updated = updated->setAttribute(ctx, pdk, ctx->fromInteger(0x3LL));
-                s_mapPrototype = updated;
+                s_mapProtoCache.replace(ctx, updated);
             }
         }
     }

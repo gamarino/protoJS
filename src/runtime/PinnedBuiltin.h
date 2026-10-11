@@ -40,11 +40,25 @@
 #include <protoCore.h>
 
 #include <atomic>
+#include <cstdint>
 
 namespace protojs {
 
 class PinnedBuiltin {
 public:
+    // A per-thread front for get() on hot paths (createNewArray and the other
+    // constructors of built-in objects). Declare one `static thread_local`
+    // Memo next to the PinnedBuiltin it fronts and call get(ctx, memo): a hit
+    // costs one relaxed load and two compares. The memo is refreshed when the
+    // calling thread's space changes, and whenever any PinnedBuiltin publishes,
+    // replaces or forgets an entry (a process-wide generation counter), so a
+    // memo never returns an object of a destroyed space or a replaced one.
+    struct Memo {
+        const proto::ProtoSpace* space = nullptr;
+        std::uint64_t generation = 0;
+        const proto::ProtoObject* obj = nullptr;
+    };
+
     PinnedBuiltin();
     ~PinnedBuiltin();
     PinnedBuiltin(const PinnedBuiltin&) = delete;
@@ -52,6 +66,13 @@ public:
 
     // The cached object for ctx's space, or nullptr.
     const proto::ProtoObject* get(proto::ProtoContext* ctx) const;
+    // get() through a per-thread memo (see Memo).
+    const proto::ProtoObject* get(proto::ProtoContext* ctx, Memo& memo) const {
+        const proto::ProtoSpace* space = ctx ? ctx->space : nullptr;
+        const std::uint64_t gen = generation_.load(std::memory_order_acquire);
+        if (memo.obj && memo.space == space && memo.generation == gen) return memo.obj;
+        return refresh(ctx, memo, gen);
+    }
     // Caches obj for ctx's space unless another thread already cached one, pins
     // it if a wrapper is current, and returns the cached object -- obj, or the
     // object that won.
@@ -64,6 +85,12 @@ public:
     static void forgetSpace(const proto::ProtoSpace* space);
 
 private:
+    const proto::ProtoObject* refresh(proto::ProtoContext* ctx, Memo& memo,
+                                      std::uint64_t gen) const;
+
+    // Bumped by every publication, replacement and forgetSpace (see Memo).
+    static std::atomic<std::uint64_t> generation_;
+
     // Enough for the main space and the worker_threads workers alive at once.
     // A space that finds no free slot gets an uncached object (correct for the
     // calling thread, but not shared), and a diagnostic once.

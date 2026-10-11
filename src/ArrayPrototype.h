@@ -33,6 +33,10 @@ bool isArrayIteratorNext(proto::ProtoMethod m);
 const proto::ProtoObject* createNewArray(proto::ProtoContext* ctx,
                                          const proto::ProtoObject* arrayProto);
 
+/** %Array.prototype% of ctx's space, or nullptr before ensureArrayPrototype
+ *  has run in that space. */
+const proto::ProtoObject* currentArrayPrototype(proto::ProtoContext* ctx);
+
 /**
  * The values of an iterable or array-like object, as Array.from(...args)
  * collects them (args: items[, mapFn[, thisArg]]): the iterator protocol when

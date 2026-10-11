@@ -1,10 +1,12 @@
 #include "JSContext.h"
+#include "ArrayPrototype.h"
 #include "HeapLimit.h"
 #include "CPUThreadPool.h"
 #include "DeferredPool.h"
 #include "modules/worker_threads/WorkerThreadsModule.h"
 #include "ObjectPrototype.h"
 #include "runtime/PinnedBuiltin.h"
+#include "runtime/BehaviorRegistry.h"
 #include "IOThreadPool.h"
 #include "EventLoop.h"
 #include "MicrotaskQueue.h"
@@ -358,6 +360,17 @@ void JSContextWrapper::rootNativeGlobal() {
     nativeGlobalPinned_ = g;
 }
 
+const proto::ProtoObject* JSContextWrapper::getJSArrayPrototype() const {
+    // The populated Array.prototype of this wrapper's space once
+    // ensureArrayPrototype has run; the placeholder BootstrapJSPrototypes made
+    // until then. ensureArrayPrototype can only update jsPrototypes_ when this
+    // wrapper is current, which it is not at start-up, so JSON.parse('[1]')
+    // used to return arrays inheriting from the empty placeholder (no join,
+    // no map, not instanceof Array).
+    if (const proto::ProtoObject* p = protojs::currentArrayPrototype(pContext)) return p;
+    return jsPrototypes_.array;
+}
+
 proto::ProtoRootSet* JSContextWrapper::getRootSet() {
     if (rootSet_) return rootSet_;
     rootSet_ = pSpace.createRootSet("protojs-async");
@@ -429,6 +442,7 @@ JSContextWrapper::~JSContextWrapper() {
     // Per-space caches shared by the threads of this space: no thread of the
     // space runs any more, and a later space may be allocated at this address.
     PinnedBuiltin::forgetSpace(&pSpace);
+    BehaviorRegistry::forgetSpace(&pSpace);
     forgetSpaceProtoOverrides(&pSpace);
 
     // Only clears the slot if it still holds THIS context.  A worker's wrapper is

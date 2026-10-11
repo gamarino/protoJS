@@ -187,7 +187,7 @@ public:
     /**
      * @brief Returns the JS Array prototype.
      */
-    const proto::ProtoObject* getJSArrayPrototype() const { return jsPrototypes_.array; }
+    const proto::ProtoObject* getJSArrayPrototype() const;
 
     /**
      * @brief Override the JS Array prototype after lazy initialization.

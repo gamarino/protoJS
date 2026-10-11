@@ -20,7 +20,14 @@ namespace protojs {
 // Module-level storage for the JS Set prototype, set by BuildSetPrototype
 // and retrieved by ensureSetConstructor.
 // ---------------------------------------------------------------------------
-static const proto::ProtoObject* s_setPrototype = nullptr;
+// %Set.prototype% of each space (see PinnedBuiltin.h): every worker_threads worker
+// builds its own, and a process-wide static once handed the main thread the
+// prototype of a worker's (later destroyed) space.
+static PinnedBuiltin s_setProtoCache;
+static const proto::ProtoObject* setProtoOf(proto::ProtoContext* ctx) {
+    static thread_local PinnedBuiltin::Memo t_memo;
+    return s_setProtoCache.get(ctx, t_memo);
+}
 
 namespace {
 
@@ -894,8 +901,9 @@ static const proto::ProtoObject* setConstruct(
 // ---------------------------------------------------------------------------
 static const proto::ProtoObject* makeEmptySet(proto::ProtoContext* ctx)
 {
-    const proto::ProtoObject* s = s_setPrototype
-        ? s_setPrototype->newChild(ctx, true)
+    const proto::ProtoObject* setProto = setProtoOf(ctx);
+    const proto::ProtoObject* s = setProto
+        ? setProto->newChild(ctx, true)
         : ctx->newObject(true);
     if (!s) return PROTO_NONE;
     setInitEmpty(ctx, s);
@@ -1541,7 +1549,7 @@ void BuildSetPrototype(proto::ProtoSpace* space, proto::ProtoContext* ctx,
         }
     }
 
-    s_setPrototype = setProto;
+    s_setProtoCache.replace(ctx, setProto);
 }
 
 // ---------------------------------------------------------------------------
@@ -1564,8 +1572,8 @@ void ensureSetConstructor(proto::ProtoContext* ctx,
     // nullptr and stamped a parentless wrapper. Reinstall now that
     // methodPrototype (=Function.prototype) is available so
     // s.add.call / s.has.bind / etc. resolve via the standard chain.
-    if (ctx->space && ctx->space->methodPrototype && s_setPrototype) {
-        const proto::ProtoObject* sp = s_setPrototype;
+    if (ctx->space && ctx->space->methodPrototype && setProtoOf(ctx)) {
+        const proto::ProtoObject* sp = setProtoOf(ctx);
         sp = installNonEnumerableMethod(ctx, sp, "add",     setAdd,      1);
         sp = installNonEnumerableMethod(ctx, sp, "has",     setHas,      1);
         sp = installNonEnumerableMethod(ctx, sp, "delete",  setDeleteFn, 1);
@@ -1651,7 +1659,7 @@ void ensureSetConstructor(proto::ProtoContext* ctx,
                 }
             }
         }
-        s_setPrototype = sp;
+        s_setProtoCache.replace(ctx, sp);
     }
 
     const proto::ProtoObject* ctorParent =
@@ -1692,8 +1700,8 @@ void ensureSetConstructor(proto::ProtoContext* ctx,
     }
 
     const proto::ProtoString* protoKey = JSSymbols::prototype(ctx);
-    if (protoKey && s_setPrototype) {
-        ctor = ctor->setAttribute(ctx, protoKey, s_setPrototype);
+    if (protoKey && setProtoOf(ctx)) {
+        ctor = ctor->setAttribute(ctx, protoKey, setProtoOf(ctx));
         // §24.2.2.1 / §17: Set.prototype descriptor bits 0x0.
         const proto::ProtoObject* pdpo = ctx->fromUTF8String("__pd_prototype__");
         const proto::ProtoString* pdpk = pdpo ? pdpo->asString(ctx) : nullptr;
@@ -1725,15 +1733,15 @@ void ensureSetConstructor(proto::ProtoContext* ctx,
     }
 
     // Set.prototype.constructor === Set per §24.2.3.2 (non-enumerable).
-    if (s_setPrototype) {
+    if (setProtoOf(ctx)) {
         const proto::ProtoString* ctorWordKey = JSSymbols::constructor(ctx);
         if (ctorWordKey) {
             const proto::ProtoObject* updated =
-                s_setPrototype->setAttribute(ctx, ctorWordKey, ctor);
+                setProtoOf(ctx)->setAttribute(ctx, ctorWordKey, ctor);
             if (updated && updated != PROTO_NONE) {
                 const proto::ProtoString* pdk = JSSymbols::pdConstructor(ctx);
                 if (pdk) updated = updated->setAttribute(ctx, pdk, ctx->fromInteger(0x3LL));
-                s_setPrototype = updated;
+                s_setProtoCache.replace(ctx, updated);
             }
         }
     }

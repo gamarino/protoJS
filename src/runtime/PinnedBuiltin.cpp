@@ -28,6 +28,8 @@ PinnedBuiltin*& registryHead() {
 
 }  // namespace
 
+std::atomic<std::uint64_t> PinnedBuiltin::generation_{1};
+
 PinnedBuiltin::PinnedBuiltin() {
     std::lock_guard<std::mutex> lock(registryMutex());
     next_ = registryHead();
@@ -67,6 +69,30 @@ const proto::ProtoObject* PinnedBuiltin::get(proto::ProtoContext* ctx) const {
     return nullptr;
 }
 
+const proto::ProtoObject* PinnedBuiltin::refresh(proto::ProtoContext* ctx, Memo& memo,
+                                                 std::uint64_t gen) const {
+    const proto::ProtoObject* obj = get(ctx);
+    // Memoise only an object that is pinned: one cached before a wrapper was
+    // current is pinned by a later get(), which the memo would skip.
+    bool pinned = false;
+    if (obj && ctx && ctx->space) {
+        for (const Slot& slot : slots_) {
+            if (slot.space.load(std::memory_order_acquire) == ctx->space) {
+                pinned = slot.pinned.load(std::memory_order_acquire);
+                break;
+            }
+        }
+    }
+    if (pinned) {
+        memo.space = ctx->space;
+        memo.generation = gen;
+        memo.obj = obj;
+    } else {
+        memo.obj = nullptr;
+    }
+    return obj;
+}
+
 const proto::ProtoObject* PinnedBuiltin::store(proto::ProtoContext* ctx,
                                                const proto::ProtoObject* obj,
                                                bool firstWins) {
@@ -88,6 +114,7 @@ const proto::ProtoObject* PinnedBuiltin::store(proto::ProtoContext* ctx,
             } else if (current != obj) {
                 target->obj.store(obj, std::memory_order_release);
                 target->pinned.store(false, std::memory_order_release);
+                generation_.fetch_add(1, std::memory_order_acq_rel);
             }
         } else if (freeSlot) {
             // Publish the object before the space: a reader that matches the
@@ -96,6 +123,7 @@ const proto::ProtoObject* PinnedBuiltin::store(proto::ProtoContext* ctx,
             freeSlot->obj.store(obj, std::memory_order_release);
             freeSlot->space.store(space, std::memory_order_release);
             target = freeSlot;
+            generation_.fetch_add(1, std::memory_order_acq_rel);
         } else {
             static std::once_flag warned;
             std::call_once(warned, [] {
@@ -133,6 +161,7 @@ void PinnedBuiltin::forgetSpace(const proto::ProtoSpace* space) {
             slot.pinned.store(false, std::memory_order_release);
         }
     }
+    generation_.fetch_add(1, std::memory_order_acq_rel);
 }
 
 }  // namespace protojs

@@ -5,6 +5,7 @@
 #include "JSSymbols.h"
 #include "protoCore.h"
 #include "runtime/BehaviorRegistry.h"
+#include "runtime/PinnedBuiltin.h"
 #include "runtime/ProtoInterpreter.h"
 #include "ArrayPrototype.h"
 #include "BigIntPrototype.h"
@@ -25,12 +26,19 @@ namespace protojs {
 // Module-level prototype state (initialized once by ensureTypedArrayConstructors)
 // ---------------------------------------------------------------------------
 
-static const proto::ProtoObject* s_taBaseProto = nullptr;
-static const proto::ProtoObject* s_taProtos[11] = {};
+// %TypedArray.prototype% and the eleven concrete prototypes, one set per space
+// (each worker_threads worker installs its own; see PinnedBuiltin.h and
+// docs/MEMORY_SAFETY_PROPOSALS.md, section 1).
+static PinnedBuiltin s_taBaseProtoCache;
+static PinnedBuiltin s_taProtoCache[11];
 
-const proto::ProtoObject* getTypedArrayBaseProto() { return s_taBaseProto; }
-const proto::ProtoObject* getTypedArrayConcreteProto(uint8_t elemType) {
-    return (elemType < 11) ? s_taProtos[elemType] : nullptr;
+const proto::ProtoObject* getTypedArrayBaseProto(proto::ProtoContext* ctx) {
+    static thread_local PinnedBuiltin::Memo t_memo;
+    return s_taBaseProtoCache.get(ctx, t_memo);
+}
+const proto::ProtoObject* getTypedArrayConcreteProto(proto::ProtoContext* ctx, uint8_t elemType) {
+    static thread_local PinnedBuiltin::Memo t_memo[11];
+    return (elemType < 11) ? s_taProtoCache[elemType].get(ctx, t_memo[elemType]) : nullptr;
 }
 
 // The low 64 bits of a BigInt's protoCore Integer (two's complement), as
@@ -691,7 +699,7 @@ static const proto::ProtoObject* ta_subarray(
 
     uint8_t elemSize = TA_ELEMENT_SIZE[et < 11 ? et : 0];
     long long newByteOffset = selfBO + begin * static_cast<long long>(elemSize);
-    const proto::ProtoObject* proto = (et < 11) ? s_taProtos[et] : nullptr;
+    const proto::ProtoObject* proto = getTypedArrayConcreteProto(ctx, et);
     return createTypedArrayFromBuffer(ctx, proto, et, abObj, newByteOffset, newLen);
 }
 
@@ -878,7 +886,7 @@ static const proto::ProtoObject* ta_map(
     const proto::ProtoObject *fn, *thisArg;
     if (!taCallbackArgs(ctx, args, "map", fn, thisArg)) return PROTO_NONE;
     uint32_t len = getTypedArrayLength(ctx, self);
-    const proto::ProtoObject* proto = (et < 11) ? s_taProtos[et] : nullptr;
+    const proto::ProtoObject* proto = getTypedArrayConcreteProto(ctx, et);
     const proto::ProtoObject* result = createTypedArrayFromLength(ctx, proto, et, len);
     if (!result || result == PROTO_NONE) return PROTO_NONE;
     for (uint32_t i = 0; i < len; i++) {
@@ -1272,7 +1280,7 @@ static const proto::ProtoObject* ta_slice(
     else end = std::min(end, sLen);
     long long newLen = std::max(end - start, 0LL);
 
-    const proto::ProtoObject* proto = (et < 11) ? s_taProtos[et] : nullptr;
+    const proto::ProtoObject* proto = getTypedArrayConcreteProto(ctx, et);
     const proto::ProtoObject* result = createTypedArrayFromLength(ctx, proto, et, static_cast<uint32_t>(newLen));
     if (!result || result == PROTO_NONE) return PROTO_NONE;
     for (long long i = start; i < end; i++) {
@@ -1350,7 +1358,7 @@ const proto::ProtoObject* constructTypedArray(proto::ProtoContext* ctx,
     if (!proto || proto == PROTO_NONE || proto == getUndefinedSentinel()
         || proto == getNullSentinel() || proto->isInteger(ctx) || proto->isDouble(ctx)
         || proto->isString(ctx) || proto->isBoolean(ctx))
-        proto = (et < 11) ? s_taProtos[et] : nullptr;
+        proto = getTypedArrayConcreteProto(ctx, et);
     // protoJS carries Symbols and BigInts as object cells; they are
     // primitives here, and reach ToIndex (which throws TypeError for both).
     const bool firstIsObject = first && first != PROTO_NONE
@@ -1490,16 +1498,16 @@ struct TAStaticMethods {
 static const proto::ProtoObject* ta_of_##idx( \
     proto::ProtoContext* ctx, const proto::ProtoObject*, \
     const proto::ParentLink*, const proto::ProtoList* args, const proto::ProtoSparseList*) { \
-    return TAStaticMethods::makeOf(ctx, idx, s_taProtos[idx], args); \
+    return TAStaticMethods::makeOf(ctx, idx, getTypedArrayConcreteProto(ctx, idx), args); \
 } \
 static const proto::ProtoObject* ta_from_##idx( \
     proto::ProtoContext* ctx, const proto::ProtoObject*, \
     const proto::ParentLink*, const proto::ProtoList* args, const proto::ProtoSparseList*) { \
-    return TAStaticMethods::makeFrom(ctx, idx, s_taProtos[idx], args); \
+    return TAStaticMethods::makeFrom(ctx, idx, getTypedArrayConcreteProto(ctx, idx), args); \
 }
 
 // Index-to-type mapping matches TA_CONFIGS: 0=Int8, 1=Uint8, 2=Uint8Clamped, 3=Int16,
-// 4=Uint16, 5=Int32, 6=Uint32, 7=Float32, 8=Float64, 9=BigInt64, 10=BigUint64.
+// The concrete prototype of the calling space is non-null at call time because these functions are only
 // s_taProtos[idx] is guaranteed non-null at call time because these functions are only
 // exposed as constructor attributes after ensureTypedArrayConstructors completes.
 DEFINE_TA_STATIC(0)  DEFINE_TA_STATIC(1)  DEFINE_TA_STATIC(2)
@@ -1808,7 +1816,7 @@ void ensureTypedArrayConstructors(proto::ProtoContext* ctx,
         baseProto = baseProto->setAttribute(ctx, JSSymbols::hasAccessorProps(ctx), PROTO_TRUE);
         baseProto = baseProto->setAttribute(ctx, JSSymbols::hasNonWritableProps(ctx), PROTO_TRUE);
     }
-    s_taBaseProto = baseProto;
+    const proto::ProtoObject* s_taBaseProto = s_taBaseProtoCache.replace(ctx, baseProto);
 
     // Register each concrete typed array constructor
     for (int i = 0; i < 11; i++) {
@@ -1827,10 +1835,11 @@ void ensureTypedArrayConstructors(proto::ProtoContext* ctx,
         concreteProto = concreteProto->setAttribute(ctx,
             ctx->fromUTF8String("__pd_BYTES_PER_ELEMENT__")->asString(ctx), ctx->fromInteger(0x0LL));
         concreteProto = concreteProto->setAttribute(ctx, JSSymbols::hasNonWritableProps(ctx), PROTO_TRUE);
-        s_taProtos[i] = concreteProto;
+        s_taProtoCache[i].replace(ctx, concreteProto);
 
-        // Register TypedArray OOP behavior for this concrete prototype!
-        protojs::BehaviorRegistry::instance().registerTypedArrayBehavior(concreteProto, cfg.elemType);
+        // Register the typed-array element behaviour for this concrete
+        // prototype, in this space's registry.
+        protojs::BehaviorRegistry::instance().registerTypedArrayBehavior(ctx, concreteProto, cfg.elemType);
 
         // Constructor object — mutable so JS-level deletion of
         // configurable own properties (e.g. delete Int8Array.name in
@@ -1939,8 +1948,12 @@ void ensureTypedArrayConstructors(proto::ProtoContext* ctx,
                     const proto::ProtoString* pdk = JSSymbols::pdConstructor(ctx);
                     if (pdk) updated = updated->setAttribute(ctx, pdk, ctx->fromInteger(0x3LL));
                 }
-                if (updated && updated != PROTO_NONE) {
-                    s_taProtos[i] = updated;
+                if (updated && updated != PROTO_NONE && updated != concreteProto) {
+                    // A mutable prototype keeps its identity; should it
+                    // not, publish and register the new one.
+                    s_taProtoCache[i].replace(ctx, updated);
+                    protojs::BehaviorRegistry::instance().registerTypedArrayBehavior(
+                        ctx, updated, cfg.elemType);
                 }
             }
         }

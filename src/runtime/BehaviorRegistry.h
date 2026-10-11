@@ -81,19 +81,39 @@ public:
 
 /**
  * BehaviorRegistry
- * 
- * Maps protoCore marker objects (Prototypes or special Parent markers)
- * to C++ JSObjectBehavior implementations.
+ *
+ * Maps protoCore marker objects (prototypes) to C++ JSObjectBehavior
+ * implementations, one table per protoCore space.
+ *
+ * Every worker_threads worker has its own space and registers its own
+ * typed-array prototypes. The registry used to be one process-wide
+ * unordered_map keyed by prototype address: workers inserted into it without a
+ * lock while other threads read it (a data race on rehash), and nothing was
+ * removed, so after a worker ended a new cell at a recycled address was taken
+ * for a typed-array prototype (docs/MEMORY_SAFETY_PROPOSALS.md, section 1).
+ *
+ * Now each space has its own table. Inserts take a mutex and publish a new
+ * immutable copy of the space's table (read-copy-update: inserts happen at
+ * start-up only); resolve() reads the current copy with one acquire load and
+ * no lock. The copies a space replaced are freed by forgetSpace(), which
+ * ~JSContextWrapper calls once no thread of that space runs any more, and
+ * which also drops every thread's per-object cache. Behaviours registered
+ * here must outlive the process (they are static objects), so a cached
+ * pointer to one is never dangling.
  */
 class BehaviorRegistry {
 public:
     static BehaviorRegistry& instance();
 
-    // Register a behavior mapping for a specific marker object.
-    void registerBehavior(const proto::ProtoObject* marker, std::unique_ptr<JSObjectBehavior> behavior);
+    // Register `behavior` (static storage duration) for `marker` in the
+    // registry of ctx's space.
+    void registerBehavior(proto::ProtoContext* ctx, const proto::ProtoObject* marker,
+                          const JSObjectBehavior* behavior);
 
-    // Register typed array behaviors based on their prototype
-    void registerTypedArrayBehavior(const proto::ProtoObject* proto, uint8_t elemType);
+    // Register the typed-array behaviour of `elemType` for `proto` in the
+    // registry of ctx's space.
+    void registerTypedArrayBehavior(proto::ProtoContext* ctx, const proto::ProtoObject* proto,
+                                    uint8_t elemType);
 
     // Resolve the appropriate behavior for an object based on its inheritance chain.
     const JSObjectBehavior* resolve(proto::ProtoContext* ctx, const proto::ProtoObject* obj) const;
@@ -104,6 +124,10 @@ public:
     // lookup keeps winning over the freshly attached marker.
     void invalidateObjectCache(const proto::ProtoObject* obj) const;
 
+    // Drop the table of `space` and every thread's per-object cache. Called
+    // by ~JSContextWrapper when no thread of that space runs any more.
+    static void forgetSpace(const proto::ProtoSpace* space);
+
     // Get the default behavior (fallback)
     const JSObjectBehavior* getDefault() const { return defaultBehavior.get(); }
 
@@ -112,7 +136,6 @@ private:
     ~BehaviorRegistry() = default;
 
     std::unique_ptr<JSObjectBehavior> defaultBehavior;
-    std::unordered_map<const proto::ProtoObject*, std::unique_ptr<JSObjectBehavior>> registry;
 };
 
 } // namespace protojs

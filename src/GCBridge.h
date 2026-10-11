@@ -5,6 +5,7 @@
 #include "quickjs.h"
 #include "protoCore.h"
 #include <mutex>
+#include <unordered_map>
 
 // Forward declaration
 namespace protojs {
@@ -153,12 +154,21 @@ private:
     //   - Key: ProtoObject hash
     //   - Value: JSValue wrapped in ProtoExternalPointer
     
-    // Global map: JSContext* -> ProtoSparseList (mappings for that context)
-    // Stored as ProtoSparseList where key is JSContext* hash (via ProtoExternalPointer)
-    static const proto::ProtoSparseList* contextMappings;
-    static proto::ProtoRootSet* rootSet;
-    static proto::ProtoRootSet::Handle mappingsHandle;
-    static const proto::ProtoObject* rootAnchor;
+    // One table per protoCore space: JSContext* hash -> ProtoSparseList (the
+    // mappings of that context), allocated in that space and pinned in a root
+    // set of that space. Every worker_threads worker has its own space and
+    // its own JSContext; one process-wide table, rebuilt by every space's
+    // thread and rooted only in the first space's root set, held cells of
+    // other spaces that their collectors did not see and that outlived those
+    // spaces (docs/MEMORY_SAFETY_PROPOSALS.md, section 1). Guarded by
+    // mapMutex; cleanup() drops the table of the context's space.
+    struct SpaceMappings {
+        proto::ProtoRootSet* rootSet = nullptr;
+        proto::ProtoRootSet::Handle handle = 0;
+        const proto::ProtoSparseList* contexts = nullptr;
+    };
+    static SpaceMappings* spaceMappings(proto::ProtoContext* pContext, bool create);
+    static std::unordered_map<const proto::ProtoSpace*, SpaceMappings*>& spaceTables();
     static std::recursive_mutex mapMutex;
 
     /**
