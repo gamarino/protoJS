@@ -1190,7 +1190,7 @@ const proto::ProtoObject* JSONBuiltin::stringify(proto::ProtoContext* ctx,
 // return value to replace each property. Returning undefined deletes
 // the property.
 //
-// protoJS arrays/objects produced by TypeBridge::fromJS are mutable
+// protoJS arrays/objects produced by TypeBridge::fromJSON are mutable
 // children of their prototypes, so setAttribute / setArrayElements
 // mutate them in place — which is what the spec needs (the holder
 // passed to the reviver must show prior replacements).

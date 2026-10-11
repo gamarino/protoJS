@@ -293,6 +293,21 @@ const sorted = (a) => a.slice().sort();
     throws('inherited read-only rejects in strict code', () => { o['readonly-key'] = 2; }, TypeError);
 }
 
+// ---- 13. Array methods on array-likes with large index keys -------------------
+{
+    const o = { length: 4294967296 };
+    o[0] = 'x'; o[4294967295] = 'y';
+    const popped = Array.prototype.pop.call(o);
+    eq('pop of an index past 2^32-2', [popped, o.length, o[0], o[4294967295]], ['y', 4294967295, 'x', undefined]);
+    const big = { length: 2000003 };
+    big[2000000] = 'a'; big[2000002] = 'c';
+    eq('array-like read and search', [Array.prototype.at.call(big, -1), Array.prototype.lastIndexOf.call(big, 'c')],
+       ['c', 2000002]);
+    const holes = [1, , 3, , ];   // eslint-disable-line no-sparse-arrays
+    holes.reverse();
+    eq('reverse moves holes', [Object.keys(holes), holes[1], 3 in holes], [['1', '3'], 3, true]);
+}
+
 if (failures) {
     console.log('basic/dictionary_keys: ' + failures + ' of ' + checks + ' checks failed');
     process.exit(1);

@@ -1,5 +1,6 @@
 #include "ProtoCoreTypes.h"
 #include "runtime/PinnedBuiltin.h"
+#include "runtime/PropertyDictionary.h"
 #include "ArrayPrototype.h"
 #include "ArrayElementsStorage.h"
 #include "TypedArrayPrototype.h"
@@ -114,6 +115,61 @@ static inline const proto::ProtoObject* getArrayProto(proto::ProtoContext* ctx) 
 
 const proto::ProtoObject* currentArrayPrototype(proto::ProtoContext* ctx) {
     return getArrayProto(ctx);
+}
+
+// ---------------------------------------------------------------------------
+// Index keys of array-likes. An ordinary object used as an array-like keeps an
+// index of seven or more digits (a heap string) in its property dictionary
+// (runtime/PropertyDictionary.h), so these helpers read, test and delete
+// without interning the key, and look in the dictionary.
+// ---------------------------------------------------------------------------
+static const proto::ProtoString* arrIndexKey(proto::ProtoContext* ctx, proto::proto_ulong idx) {
+    return dict::indexKeyNoIntern(ctx, static_cast<uint32_t>(idx));
+}
+
+// Removes the indexed attribute or dictionary key `idx` (the caller has
+// decided it may be deleted).
+static void arrDeleteIndex(proto::ProtoContext* ctx, const proto::ProtoObject* obj,
+                           proto::proto_ulong idx) {
+    const proto::ProtoString* key = arrIndexKey(ctx, idx);
+    if (!key) return;
+    if (dict::remove(ctx, obj, key)) return;
+    if (obj->hasOwnAttribute(ctx, key) == PROTO_TRUE) obj->setAttribute(ctx, key, nullptr);
+}
+
+// DeletePropertyOrThrow(O, idx) (§7.3.10) on an array or array-like: the
+// element of a real array becomes a hole, the indexed attribute or dictionary
+// key and its accessor and descriptor sidecars go. A non-configurable index
+// is a TypeError; returns false then.
+static bool arrDeleteIndexOrThrow(proto::ProtoContext* ctx, const proto::ProtoObject* obj,
+                                  proto::proto_ulong idx) {
+    const std::string is = std::to_string(idx);
+    auto sidecar = [&](const char* prefix) -> const proto::ProtoString* {
+        const std::string name = std::string(prefix) + is + "__";
+        const proto::ProtoObject* o = ctx->fromUTF8String(name.c_str());
+        return o ? o->asString(ctx) : nullptr;
+    };
+    const proto::ProtoString* pdk = sidecar("__pd_");
+    if (pdk && obj->hasOwnAttribute(ctx, pdk) == PROTO_TRUE) {
+        const proto::ProtoObject* bits = obj->getAttribute(ctx, pdk, false);
+        if (bits && bits->isInteger(ctx) && !(bits->asLong(ctx) & 0x2)) {
+            signalNativeException(makeNativeError(ctx, "TypeError",
+                ("Cannot delete property '" + is + "'").c_str()));
+            return false;
+        }
+    }
+    if (const proto::ProtoList* els = getArrayElements(ctx, obj)) {
+        if (idx < static_cast<proto::proto_ulong>(els->getSize(ctx))) {
+            const proto::ProtoList* holed = els->setAt(ctx, static_cast<int>(idx), PROTO_NONE);
+            if (holed) setArrayElements(ctx, obj, holed);
+        }
+    }
+    for (const char* prefix : {"__get_", "__set_", "__pd_"}) {
+        const proto::ProtoString* sk = sidecar(prefix);
+        if (sk && obj->hasOwnAttribute(ctx, sk) == PROTO_TRUE) obj->setAttribute(ctx, sk, nullptr);
+    }
+    arrDeleteIndex(ctx, obj, idx);
+    return true;
 }
 
 // ---------------------------------------------------------------------------
@@ -436,7 +492,7 @@ static const proto::ProtoObject* arrGet(proto::ProtoContext* ctx,
     if (!arr || arr == PROTO_NONE) return PROTO_NONE;
     // §7.3.2 Get on a Proxy dispatches the get trap.
     if (isProxy(ctx, arr)) {
-        const proto::ProtoString* key = JSSymbols::indexKey(ctx, static_cast<uint32_t>(idx));
+        const proto::ProtoString* key = arrIndexKey(ctx, idx);
         if (!key) return PROTO_NONE;
         return protojs::proxyDispatchGet(ctx, arr, key, arr);
     }
@@ -477,7 +533,7 @@ static const proto::ProtoObject* arrGet(proto::ProtoContext* ctx,
     // like every / indexOf / forEach with a length-truncating getter
     // on index 0 silently iterated all four slots
     // (built-ins/Array/prototype/indexOf/15.4.4.14-9-a-17 + family).
-    const proto::ProtoString* key = JSSymbols::indexKey(ctx, static_cast<uint32_t>(idx));
+    const proto::ProtoString* key = arrIndexKey(ctx, idx);
     if (!key) return PROTO_NONE;
     std::string gkStr = "__get_" + std::to_string(idx) + "__";
     std::string skStr = "__set_" + std::to_string(idx) + "__";
@@ -522,6 +578,7 @@ static const proto::ProtoObject* arrGet(proto::ProtoContext* ctx,
 
     // Step 3: OWN data slot — overrides any inherited accessor per
     // §10.1.5 OrdinaryGet (own descriptor wins).
+    if (const proto::ProtoObject* dv = dict::getOwn(ctx, arr, key)) return dv;
     if (arr->hasOwnAttribute(ctx, key) == PROTO_TRUE) {
         const proto::ProtoObject* val = arr->getAttribute(ctx, key, false);
         if (val && val != PROTO_NONE) return val;
@@ -543,8 +600,8 @@ static const proto::ProtoObject* arrGet(proto::ProtoContext* ctx,
         }
     }
 
-    // Step 5: inherited data slot.
-    const proto::ProtoObject* val = arr->getAttribute(ctx, key, true);
+    // Step 5: inherited data slot (a prototype's dictionary included).
+    const proto::ProtoObject* val = dict::getDataProperty(ctx, arr, key);
     if (val && val != PROTO_NONE) return val;
 
     return PROTO_NONE;
@@ -669,7 +726,10 @@ static const proto::ProtoObject* arrSet(proto::ProtoContext* ctx,
         // Falls through to the legacy string-keyed path.
     }
 
-    const proto::ProtoString* key = JSSymbols::indexKey(ctx, static_cast<uint32_t>(idx));
+    // A real array keeps an out-of-range index as a named attribute; an
+    // array-like may keep it in its property dictionary.
+    const proto::ProtoString* key = isRealArr
+        ? JSSymbols::indexKey(ctx, static_cast<uint32_t>(idx)) : arrIndexKey(ctx, idx);
     if (!key) return arr;
 
     // §9.1.9 OrdinarySet → §10.1.8 OrdinarySetWithOwnDescriptor: an
@@ -697,7 +757,8 @@ static const proto::ProtoObject* arrSet(proto::ProtoContext* ctx,
         }
     }
 
-    arr = arr->setAttribute(ctx, key, val ? val : PROTO_NONE);
+    arr = isRealArr ? arr->setAttribute(ctx, key, val ? val : PROTO_NONE)
+                    : dict::createDataProperty(ctx, arr, key, val ? val : PROTO_NONE);
     proto::proto_ulong curLen = arrLen(ctx, arr);
     if (idx + 1 > curLen) {
         if (isRealArr) {
@@ -1832,9 +1893,7 @@ static const proto::ProtoObject* arrayPop(
             // newLen > current __elements__.size, which would resurrect a
             // dense slot at the just-deleted index and cause hasOwnProperty
             // to keep reporting true.
-            const proto::ProtoString* idxKey =
-                JSSymbols::indexKey(ctx, static_cast<uint32_t>(lenSpec - 1));
-            if (idxKey) self->setAttribute(ctx, idxKey, nullptr);
+            arrDeleteIndex(ctx, self, lenSpec - 1);
             const proto::ProtoString* lenK = JSSymbols::length(ctx);
             if (lenK) self->setAttribute(ctx, lenK,
                 ctx->fromInteger(static_cast<long long>(lenSpec - 1)));
@@ -1864,9 +1923,7 @@ static const proto::ProtoObject* arrayPop(
     // setAttribute(nullptr) does the canonical implRemoveAt delete so
     // inherited values surface (Sputnik S15.4.4.6_A4_T1: x.length=2;
     // Array.prototype[1]=1; x.pop() should return 1).
-    const proto::ProtoString* idxKey =
-        JSSymbols::indexKey(ctx, static_cast<uint32_t>(lastIdx));
-    if (idxKey) self->setAttribute(ctx, idxKey, nullptr);
+    arrDeleteIndex(ctx, self, lastIdx);
     // §23.1.3.21 step 4.f: Set(O, 'length', lastIdx, true).  arrSetLen
     // honours __pd_length__ writable bit — if the user installed a
     // non-writable length descriptor (potentially inside the arrGet
@@ -2647,12 +2704,33 @@ static const proto::ProtoObject* arrayReverse(
     // false (built-ins/Array/prototype/reverse/call-with-boolean).
     const proto::ProtoObject* O = iterReceiver(ctx, self);
     proto::proto_ulong len = arrLen(ctx, self);
+    // §23.1.3.26 steps 3-6: each pair is probed with HasProperty, so a hole
+    // moves to the other end (the present value is set there and the slot
+    // it came from deleted). Pre-fix every pair was swapped with Get / Set,
+    // which turned holes into undefined values and never deleted a slot.
     for (proto::proto_ulong i = 0; i < len / 2; i++) {
         proto::proto_ulong j = len - 1 - i;
-        const proto::ProtoObject* a = arrGet(ctx, self, i);
-        const proto::ProtoObject* b = arrGet(ctx, self, j);
-        arrSet(ctx, self, i, b);
-        arrSet(ctx, self, j, a);
+        const bool lowerExists = arrHasProperty(ctx, self, i);
+        if (hasCallException()) return PROTO_NONE;
+        const proto::ProtoObject* a = lowerExists ? arrGet(ctx, self, i) : PROTO_NONE;
+        if (hasCallException()) return PROTO_NONE;
+        const bool upperExists = arrHasProperty(ctx, self, j);
+        if (hasCallException()) return PROTO_NONE;
+        const proto::ProtoObject* b = upperExists ? arrGet(ctx, self, j) : PROTO_NONE;
+        if (hasCallException()) return PROTO_NONE;
+        if (lowerExists && upperExists) {
+            arrSet(ctx, self, i, b);
+            if (hasCallException()) return PROTO_NONE;
+            arrSet(ctx, self, j, a);
+        } else if (upperExists) {
+            arrSet(ctx, self, i, b);
+            if (hasCallException()) return PROTO_NONE;
+            if (!arrDeleteIndexOrThrow(ctx, self, j)) return PROTO_NONE;
+        } else if (lowerExists) {
+            if (!arrDeleteIndexOrThrow(ctx, self, i)) return PROTO_NONE;
+            arrSet(ctx, self, j, a);
+        }
+        if (hasCallException()) return PROTO_NONE;
     }
     return O ? O : self;
 }
@@ -4215,7 +4293,7 @@ static bool arrHasProperty(proto::ProtoContext* ctx,
 
     // §7.3.13 HasProperty on a Proxy dispatches the has trap.
     if (isProxy(ctx, arr)) {
-        const proto::ProtoString* key = JSSymbols::indexKey(ctx, static_cast<uint32_t>(idx));
+        const proto::ProtoString* key = arrIndexKey(ctx, idx);
         if (!key) return false;
         const proto::ProtoObject* r = protojs::proxyDispatchHas(ctx, arr, key);
         if (hasCallException()) return false;
@@ -4257,12 +4335,13 @@ static bool arrHasProperty(proto::ProtoContext* ctx,
         }
     }
 
-    const proto::ProtoString* key = JSSymbols::indexKey(ctx, static_cast<uint32_t>(idx));
+    const proto::ProtoString* key = arrIndexKey(ctx, idx);
     if (!key) return false;
 
     // Data key (own or inherited) — includes accessor properties that cleared their
     // data slot to PROTO_NONE via Object.defineProperty.
     if (arr->hasAttribute(ctx, key) == PROTO_TRUE) return true;
+    if (dict::findInChain(ctx, arr, key)) return true;
 
     // Accessor sidecar (getter or setter), own or inherited.
     std::string gkStr = "__get_" + std::to_string(idx) + "__";
@@ -4434,8 +4513,9 @@ static bool arrHas(proto::ProtoContext* ctx,
     // A typed array has exactly its in-bounds indices (§10.4.5.2).
     if (getTypedArrayElementType(ctx, arr) != 0xFF)
         return idx < getTypedArrayLength(ctx, arr);
-    const proto::ProtoString* key = JSSymbols::indexKey(ctx, static_cast<uint32_t>(idx));
+    const proto::ProtoString* key = arrIndexKey(ctx, idx);
     if (!key) return false;
+    if (dict::hasOwn(ctx, arr, key)) return true;
     const proto::ProtoObject* result = arr->hasOwnAttribute(ctx, key);
     return result == PROTO_TRUE;
 }
@@ -4609,15 +4689,12 @@ static const proto::ProtoObject* arraySort(
                 arrayTryFastSet(ctx, self, writeIdx, PROTO_NONE);
             }
         }
-        const proto::ProtoString* delKey =
-            JSSymbols::indexKey(ctx, static_cast<uint32_t>(writeIdx));
         // True delete (nullptr → implRemoveAt) so the sidecar slot
         // becomes absent — hasOwnProperty / `in` correctly report
         // false post-sort for the trailing hole positions.  PROTO_NONE
         // leaves an own attribute in place with a sentinel value that
         // hasOwnProperty's array fallback still treats as present.
-        if (delKey && self->hasOwnAttribute(ctx, delKey) == PROTO_TRUE)
-            self->setAttribute(ctx, delKey, nullptr);
+        arrDeleteIndex(ctx, self, static_cast<proto::proto_ulong>(writeIdx));
         writeIdx++;
     }
 
@@ -4953,19 +5030,15 @@ static const proto::ProtoObject* arraySplice(
     // post-splice.
     if (newLen < len) {
         for (long long k = len - 1; k >= newLen; k--) {
-            const proto::ProtoString* delKey =
-                JSSymbols::indexKey(ctx, static_cast<uint32_t>(k));
-            if (delKey) {
-                // True delete (nullptr → implRemoveAt) so the slot
-                // becomes absent — `x[1]` falls through to inherited
-                // values per OrdinaryGet semantics.  PROTO_NONE leaves
-                // an own attribute carrying the sentinel that
-                // hasOwnAttribute still reports as present, breaking
-                // Sputnik S15.4.4.12_A4 (which probes that an inherited
-                // Array.prototype[1] surfaces after splice removes the
-                // own slot).
-                self->setAttribute(ctx, delKey, nullptr);
-            }
+            // True delete (nullptr → implRemoveAt) so the slot
+            // becomes absent — `x[1]` falls through to inherited
+            // values per OrdinaryGet semantics.  PROTO_NONE leaves
+            // an own attribute carrying the sentinel that
+            // hasOwnAttribute still reports as present, breaking
+            // Sputnik S15.4.4.12_A4 (which probes that an inherited
+            // Array.prototype[1] surfaces after splice removes the
+            // own slot).
+            arrDeleteIndex(ctx, self, static_cast<proto::proto_ulong>(k));
         }
     }
 
