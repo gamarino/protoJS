@@ -4,6 +4,43 @@ All notable changes to protoJS are documented in this file.
 
 ## [Unreleased]
 
+### Fixed — computed accessors, typed-array sort, test addon output (2026-10-10)
+
+- **Getters and setters with a computed key.** `OP_define_method_computed`
+  installed the accessor without the own-accessor hint that
+  `OP_define_method` and `Object.defineProperty` stamp, so element access
+  (`o[k]`, `o["k"]`, `o[k] = v`) took the plain-data path and missed it:
+  `({ get [null]() {...} })[null]` was undefined, and so was any computed
+  accessor read through a subscript (string, symbol, `undefined`, `null`
+  keys; static class accessors). A key coerced from undefined or null is now
+  also interned like every other key. The accessor arm moved to a
+  non-inlined helper outside `runBytecode`'s frame. Test:
+  `js/basic/computed_accessor_keys`. Fixes the two
+  `cpn-class-*-accessors-computed-property-name-from-yield-expression`
+  pass->fail of the previous pass, and the `-from-null` tests.
+- **`%TypedArray%.prototype.sort(comparefn)`** ignored the comparator and
+  accepted a non-callable one. A comparator other than undefined must now be
+  callable (TypeError first, even on an empty array); its result goes
+  through ToNumber with NaN as +0; its exception stops the sort; the sort is
+  stable (a merge sort that does not assume a consistent comparator). The
+  default order still puts -0 before +0 and NaN last. Detached-buffer checks
+  are not implemented: protoJS cannot detach or resize an ArrayBuffer (no
+  `$262.detachArrayBuffer`, no `transfer`). Test: `js/basic/typed_array_sort`.
+- **Build directories no longer share the test addons.** Every build wrote
+  `fixture.so` into `tests/integration/native_addons/` in the source tree, and
+  `test_native_require.js` loaded `simple.so` from `build_release/` or
+  `build/`, whichever existed, so one build directory's tests ran another's
+  addon. The fixture addon is now written into the build directory with
+  `test_resolution.js` and `fixture.js` copied next to it (ctest runs that
+  copy), and ctest passes `test_native_require.js` the path of its own
+  `simple_addon`.
+
+Test262, the touched directories (`built-ins/TypedArray`,
+`TypedArrayConstructors`, `Array/prototype/sort`, class and object
+expressions, class statements, `computed-property-names`; 11,882 tests),
+master's binary against this one, locally: 7,113 -> 7,167 passed, 54
+fail->pass, 0 pass->fail.
+
 ### Fixed — memory safety, typed arrays, generators, stack overflow (2026-10-04, second pass)
 
 - **RegExp heap corruption.** `lre_exec` keeps loop counters and position

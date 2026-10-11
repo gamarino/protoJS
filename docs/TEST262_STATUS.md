@@ -67,6 +67,19 @@ engine.
 
 ### What changed since the previous figures
 
+- **2026-10-10, computed accessors and typed-array sort** (CHANGELOG).
+  Locally, master's binary (`f37e855b4`) against the branch on the touched
+  directories (`built-ins/TypedArray`, `built-ins/TypedArrayConstructors`,
+  `built-ins/Array/prototype/sort`, `language/expressions/class`,
+  `language/statements/class`, `language/expressions/object`,
+  `language/computed-property-names`; 11,882 tests): 7,113 -> 7,167 passed,
+  54 fail->pass, 0 pass->fail. The two
+  `cpn-class-*-accessors-computed-property-name-from-yield-expression`
+  pass->fail of the memory-safety pass pass again, with the `-from-null`
+  pair, other computed-accessor tests and seven `TypedArray/prototype/sort`
+  comparator tests. The remaining sort failures need `$262.detachArrayBuffer`
+  or resizable buffers, which protoJS does not provide, or are the
+  `length` / `name` / receiver checks shared by every %TypedArray% method.
 - **2026-10-04, memory-safety pass: RegExp capture registers, exceptions
   across contexts, typed-array coercion and callbacks, generators, native
   stack guard** (CHANGELOG). Whole corpus in CI on the branch (run
@@ -90,7 +103,8 @@ engine.
   `cpn-class-*-accessors-computed-property-name-from-yield-expression` tests,
   which passed on master only because the generator swallowed their
   assertion failure; a getter or setter with a computed key that is
-  undefined or null is still not found under "undefined"/"null" (open).
+  undefined or null was not found under "undefined"/"null" (fixed
+  2026-10-10, below: both now pass).
   Timeouts fell from 231 to 101: unbounded recursion now ends in a
   RangeError instead of a crash or a hang.
 - **2026-10-04, global declarations, GeneratorFunction / AsyncFunction /

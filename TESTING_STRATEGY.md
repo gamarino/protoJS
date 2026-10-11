@@ -132,7 +132,7 @@ const sum = x + y;
 console.log(`${x} + ${y} = ${sum}`);
 ```
 
-The native addon tests in `tests/integration/native_addons/` load `simple_addon` and `fixture_addon`. Both are shared libraries that `CMakeLists.txt` builds from `tests/native_addons/`, against ABI v2: they use protoCore objects only and include no QuickJS header. `test_native_require.js` checks that an exported function is callable and that an exception raised by the addon is catchable; `test_resolution.js` checks that a native addon is preferred over a sibling `.js`. `tests/unit/test_dynamic_library_loader.cpp` covers the ABI check itself, including the rejection of a v1 addon.
+The native addon tests in `tests/integration/native_addons/` load `simple_addon` and `fixture_addon`. Both are shared libraries that `CMakeLists.txt` builds from `tests/native_addons/`, against ABI v2: they use protoCore objects only and include no QuickJS header. `test_native_require.js` checks that an exported function is callable and that an exception raised by the addon is catchable; `test_resolution.js` checks that a native addon is preferred over a sibling `.js`. Both addons are written into the build directory, never the source tree: ctest passes `test_native_require.js` the path of its build's `simple_addon`, and runs the copy of `test_resolution.js` that the build places next to the fixture addon and `fixture.js`. `tests/unit/test_dynamic_library_loader.cpp` covers the ABI check itself, including the rejection of a v1 addon.
 
 ---
 
