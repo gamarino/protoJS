@@ -9,9 +9,11 @@
 #include "ProtoInterpreter.h"
 
 #include <array>
+#include <atomic>
 #include <functional>
 #include <mutex>
 #include <string>
+#include <unordered_map>
 #include <unordered_set>
 
 namespace protojs {
@@ -41,14 +43,128 @@ VocabularyShard& shardFor(const std::string& s) {
 
 }  // namespace
 
+// ---- Spellings named after they were data -------------------------------------
+
+namespace {
+
+// 2^20 bits (128 KiB), two probes per spelling. It saturates after about a
+// million distinct dictionary spellings; past that every spelling named later
+// is taken for "named after data" and pays the dictionary probe on its
+// lookups, which is slower and still correct.
+constexpr std::size_t kFilterWords = (1u << 20) / 64;
+std::atomic<std::uint64_t> g_dataSpellings[kFilterWords];
+
+inline void filterProbes(const std::string& s, std::size_t& a, std::size_t& b) {
+    const std::uint64_t h = std::hash<std::string>{}(s);
+    const std::uint64_t h2 = h * 0x9E3779B97F4A7C15ull;
+    a = static_cast<std::size_t>(h & ((1u << 20) - 1));
+    b = static_cast<std::size_t>((h2 >> 40) & ((1u << 20) - 1));
+}
+
+void noteDataSpelling(const std::string& s) {
+    std::size_t a, b;
+    filterProbes(s, a, b);
+    g_dataSpellings[a / 64].fetch_or(1ull << (a % 64), std::memory_order_seq_cst);
+    g_dataSpellings[b / 64].fetch_or(1ull << (b % 64), std::memory_order_seq_cst);
+}
+
+bool mayBeDataSpelling(const std::string& s) {
+    std::size_t a, b;
+    filterProbes(s, a, b);
+    return (g_dataSpellings[a / 64].load(std::memory_order_seq_cst) & (1ull << (a % 64)))
+        && (g_dataSpellings[b / 64].load(std::memory_order_seq_cst) & (1ull << (b % 64)));
+}
+
+struct NamedAfterData {
+    std::mutex mutex;
+    std::unordered_set<std::string> spellings;
+};
+
+NamedAfterData& namedAfterData() {
+    static auto* n = new NamedAfterData();  // never destroyed, like the vocabulary
+    return *n;
+}
+
+// Bumped whenever a spelling is added: the per-thread answers below are kept
+// for one generation.
+std::atomic<std::uint64_t> g_namedAfterDataGeneration{0};
+
+// A spelling has become a name. When a dictionary may have held it, from now
+// on lookups of that name consult the dictionaries first.
+void spellingBecameName(const std::string& s) {
+    // Pairs with the fence in isDynamicFrom: either that thread sees the
+    // spelling as vocabulary and stores the key as a named attribute, or this
+    // thread sees its filter bits.
+    std::atomic_thread_fence(std::memory_order_seq_cst);
+    if (!mayBeDataSpelling(s)) return;
+    {
+        NamedAfterData& n = namedAfterData();
+        std::lock_guard<std::mutex> lock(n.mutex);
+        if (!n.spellings.insert(s).second) return;
+    }
+    g_namedAfterDataGeneration.fetch_add(1, std::memory_order_release);
+    detail::g_anyNamedAfterData.store(true, std::memory_order_release);
+}
+
+}  // namespace
+
+namespace detail {
+
+std::atomic<bool> g_anyNamedAfterData{false};
+
+bool isNamedAfterData(proto::ProtoContext* ctx, const proto::ProtoString* key) {
+    // Interned names are perennial, so their answer can be cached per thread
+    // by address until the set grows.
+    struct Memo {
+        std::uint64_t generation = ~0ull;
+        std::unordered_map<const proto::ProtoString*, bool> answers;
+    };
+    static thread_local Memo memo;
+    const bool interned = key->isSymbol();
+    if (interned) {
+        const std::uint64_t gen = g_namedAfterDataGeneration.load(std::memory_order_acquire);
+        if (memo.generation != gen) {
+            memo.answers.clear();
+            memo.generation = gen;
+        }
+        auto it = memo.answers.find(key);
+        if (it != memo.answers.end()) return it->second;
+    } else {
+        // An inline string (ASCII of up to six bytes) is never a dictionary
+        // key; heap strings were answered by mayBeDictionaryKey.
+        return false;
+    }
+    std::string s;
+    key->toUTF8String(ctx, s);
+    bool named;
+    {
+        NamedAfterData& n = namedAfterData();
+        std::lock_guard<std::mutex> lock(n.mutex);
+        named = n.spellings.count(s) != 0;
+    }
+    memo.answers[key] = named;
+    return named;
+}
+
+}  // namespace detail
+
+void noteNamedSpelling(const std::string& utf8) {
+    if (utf8.size() <= 6) return;
+    spellingBecameName(utf8);
+}
+
 void noteVocabulary(const char* utf8, std::size_t len) {
     // Spellings of up to six bytes are inline strings when ASCII and never
     // reach the dictionary; they need no entry.
     if (!utf8 || len <= 6) return;
     std::string s(utf8, len);
-    VocabularyShard& shard = shardFor(s);
-    std::lock_guard<std::mutex> lock(shard.mutex);
-    shard.words.insert(std::move(s));
+    bool added;
+    {
+        VocabularyShard& shard = shardFor(s);
+        std::lock_guard<std::mutex> lock(shard.mutex);
+        added = shard.words.insert(s).second;
+    }
+    if (added) spellingBecameName(s);
 }
 
 bool isVocabulary(const std::string& utf8) {
@@ -161,7 +277,9 @@ const proto::ProtoObject* findInChain(proto::ProtoContext* ctx, const proto::Pro
     const proto::ProtoObject* cur = obj;
     for (int depth = 0; cur && depth < 100; ++depth) {
         if (!isObjectCell(cur)) return nullptr;
-        if (cur != obj && cur->hasOwnAttribute(ctx, key) == PROTO_TRUE) return nullptr;
+        if (cur != obj
+            && (cur->hasOwnAttribute(ctx, key) == PROTO_TRUE || isProxy(ctx, cur)))
+            return nullptr;
         if (const proto::ProtoObject* v = getOwn(ctx, cur, key)) {
             if (holder) *holder = cur;
             return v;
@@ -177,6 +295,13 @@ const proto::ProtoObject* getDataProperty(proto::ProtoContext* ctx, const proto:
     // A key is in at most one place, so an own dictionary hit is the answer;
     // probing the dictionary first spares a by-content lookup of a heap-string
     // name that is not interned.
+    // A key a dictionary may hold below a prototype that names it: the
+    // nearest dictionary entry, else the named lookup decides.
+    if (mayBeDictionaryKey(ctx, key)) {
+        if (const proto::ProtoObject* dv = findInChain(ctx, obj, key)) return dv;
+        const proto::ProtoObject* val = obj->getAttribute(ctx, key, true);
+        return val ? val : PROTO_NONE;
+    }
     if (ownRecord(ctx, obj)) {
         if (const proto::ProtoObject* dv = getOwn(ctx, obj, key)) return dv;
     }
@@ -272,6 +397,11 @@ bool isDynamicFrom(proto::ProtoContext* ctx, const proto::ProtoObject* from,
     if (s.compare(0, 2, "@@") == 0 || s.compare(0, 7, "Symbol.") == 0
         || s.compare(0, 7, "Symbol(") == 0)
         return false;
+    // Record the spelling before reading the vocabulary; spellingBecameName
+    // does the converse, so a spelling named concurrently is either seen here
+    // as vocabulary or seen there as data.
+    noteDataSpelling(s);
+    std::atomic_thread_fence(std::memory_order_seq_cst);
     return !isVocabulary(s);
 }
 
@@ -376,6 +506,13 @@ const proto::ProtoObject* evict(proto::ProtoContext* ctx, const proto::ProtoObje
     if (!v) return obj;
     const proto::ProtoObject* r = remove(ctx, obj, key);
     if (r) obj = r;
+    {
+        // The spelling is now a named attribute: objects below `obj` that
+        // hold it in their dictionaries must still shadow it.
+        std::string ks;
+        key->toUTF8String(ctx, ks);
+        noteNamedSpelling(ks);
+    }
     obj = obj->setAttribute(ctx, key, v);
     // A sealed or frozen object's keys are not configurable (and, frozen,
     // not writable): a named attribute records that in its __pd_<key>__

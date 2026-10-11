@@ -344,6 +344,10 @@ static const proto::ProtoObject* defaultGet(proto::ProtoContext* ctx,
                                               const proto::ProtoObject* receiver = nullptr) {
     if (!target || target == PROTO_NONE || !key) return PROTO_NONE;
     materializeLazyPrototypeForKey(ctx, target, key);  // runtime/LazyPrototype.h
+    // A property-dictionary key of the target (or of a nearer prototype)
+    // shadows an accessor or named property a prototype gained later
+    // (runtime/PropertyDictionary.h).
+    if (const proto::ProtoObject* dv = dict::shadowingValue(ctx, target, key)) return dv;
     // Accessor sidecar probe.  §10.1.8.1 [[Get]] step 8.c: when the
     // own property is an accessor, invoke its getter with `Receiver`
     // (not target) as `this`.  Pre-fix the bind always used target,
