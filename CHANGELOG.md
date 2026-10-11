@@ -4,6 +4,15 @@ All notable changes to protoJS are documented in this file.
 
 ## [Unreleased]
 
+### Changed — CI on protoCore 2.14.5 (2026-10-11)
+
+- **CI** pins protoCore 2.14.5 (tag `v2.14.5`, commit `063c6d55`) on Linux,
+  macOS and the first Windows job instead of 2.14.2: the controller's
+  out-of-memory rule uses the live set and the collector's registries outlive
+  static destruction (2.14.4); an embedder exits LeakSanitizer-clean (2.14.5).
+  The Windows floor job stays on 2.11.0. No source change was needed: ctest
+  passes 161/161 locally against 2.14.5 in CI's sibling layout (ldd-verified).
+
 ### Fixed — a crash at exit after a worker left to finish (2026-10-11)
 
 - A `worker_threads` Worker pins itself, so its finalizer runs only when the
