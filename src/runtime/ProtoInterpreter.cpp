@@ -5346,7 +5346,7 @@ static const proto::ProtoObject* defineMethodComputed(proto::ProtoContext* ctx,
     }
     if (!key) return nullptr;
     const int kind = op_flags & 0x3;
-    const bool enumerable = false;
+    const bool enumerable = (op_flags & 0x4) != 0;
     method = makeMethod(ctx, method, keyVal, key, kind, nullptr);
     if (kind == 1 || kind == 2) {
         if (const proto::ProtoObject* withAccessor =
@@ -5398,12 +5398,12 @@ static const proto::ProtoObject* defineMethodNamed(proto::ProtoContext* ctx,
         // Accessor descriptor: configurable (0x2), plus enumerable (0x4) in
         // an object literal (ECMA-262 §13.2.5.5); a class body's are not
         // (§15.7.14).
-        pdBits = (op_flags & 0x10) ? 0x2LL : 0x6LL;
+        pdBits = enumerable ? 0x6LL : 0x2LL;
     } else {
         out = obj->setAttribute(ctx, key, method ? method : PROTO_NONE);
         // Method descriptor: writable and configurable (0x3), plus enumerable
         // (0x4) in an object literal.
-        pdBits = 0x3LL;
+        pdBits = enumerable ? 0x7LL : 0x3LL;
     }
     if (!out) return nullptr;
     const std::string pdName = "__pd_" + name + "__";

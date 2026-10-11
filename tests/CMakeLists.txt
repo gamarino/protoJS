@@ -356,7 +356,8 @@ foreach(js_test
         basic/computed_accessor_keys
         basic/typed_array_sort
         basic/symbol_keyed_calls
-        basic/computed_accessor_names)
+        basic/computed_accessor_names
+        basic/method_enumerability)
     add_test(NAME js/${js_test}
         COMMAND "$<TARGET_FILE:protojs>"
                 "${CMAKE_CURRENT_SOURCE_DIR}/integration/${js_test}.js")
