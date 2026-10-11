@@ -61,7 +61,14 @@ protoCore already applies this mechanism in two places that protoJS relies on:
   that is not already a symbol) interns the key through the same
   `SymbolTable::intern` path, so the stored key is perpetual as well.
 
-Do not work around these paths; they are correct.
+Do not work around these paths; they are correct. What protoJS does instead
+is keep keys that are data -- computed at run time, parsed from JSON, received
+in a message -- out of attribute names altogether: they live in the object's
+property dictionary as collectable strings (`src/runtime/PropertyDictionary.h`,
+docs/MEMORY_SAFETY_PROPOSALS.md section 2). Code that turns a runtime string
+into a property key must go through it (`dict::put`, `dict::getDataProperty`,
+`dict::createDataProperty`, and `dict::keys` when enumerating) rather than
+calling `setAttribute` with that string.
 
 ## Mechanism B: `ProtoRootSet` (transient pinning)
 

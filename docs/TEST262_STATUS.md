@@ -67,6 +67,19 @@ engine.
 
 ### What changed since the previous figures
 
+- **2026-10-11, per-space built-ins and dictionary mode for computed keys**
+  (CHANGELOG; docs/MEMORY_SAFETY_PROPOSALS.md). Locally, master's binary
+  (`f12e5a19`) against the branch, both on protoCore 2.14.5, sequentially, on
+  `built-ins/{Object,JSON,Reflect,Proxy,Array,TypedArray,
+  TypedArrayConstructors,ArrayBuffer,Map,Set}`, `language/statements/for-in`,
+  `language/expressions/{object,delete,in}` and
+  `language/computed-property-names` (11,556 tests): 9,536 -> 9,536 passed,
+  0 pass->fail, 0 fail->pass. An intermediate build showed three pass->fail,
+  all fixed before the final run: `Array.prototype.pop` / `splice` on an
+  array-like with index `4294967295` (the array helpers did not yet read the
+  property dictionary) and `reverse/get_if_present_with_delete.js`, which
+  had passed only because `in` corrupted the operand stack for an
+  accessor-only property; `reverse` now follows §23.1.3.26.
 - **2026-10-10, methods, accessors and `super`** (CHANGELOG, second pass:
   computed member names, method and accessor enumerability, [[HomeObject]]
   for computed methods and accessors, super property get/set through the
@@ -262,6 +275,13 @@ which keeps insertion order as the specification requires (see
 Symbol-keyed properties are not affected: since 2026-10-02 every report of
 symbol keys orders them by the symbols' creation, after the string keys and
 with array indices first, the same on every platform.
+
+Since 2026-10-11, keys that are data rather than program vocabulary (computed
+at run time, parsed from JSON) live in a per-object dictionary and are
+reported in insertion order after the named keys
+([API_REFERENCE.md](API_REFERENCE.md#property-keys-that-are-data)). Test262
+writes its keys as literals, which are vocabulary, so its key-order tests are
+not affected.
 
 On Linux and macOS the order is the same from run to run, so the per-commit
 gate's Linux baseline gates both. On Windows it is not -- most likely because

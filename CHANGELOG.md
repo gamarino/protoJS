@@ -4,6 +4,98 @@ All notable changes to protoJS are documented in this file.
 
 ## [Unreleased]
 
+### Fixed — computed property keys are no longer interned for ever (2026-10-11)
+
+docs/MEMORY_SAFETY_PROPOSALS.md, section 2, option (b) as approved: dictionary
+mode in protoJS; protoCore is not changed.
+
+- **Memory.** protoCore interns every heap-string attribute name in its
+  process-wide symbol table, whose entries are never collected, and protoJS
+  made every computed key one: `obj[k] = v` -- and even `obj[k]` reads,
+  `delete`, `in` and descriptor lookups -- `JSON.parse` keys and string
+  values, `Object.assign`, `Object.fromEntries`, worker messages, HTTP header
+  names. A program that keyed objects by data grew by about 470 bytes per
+  distinct key for its whole life. Keys that are data -- heap strings that are
+  neither program vocabulary (an identifier or literal of any loaded code, a
+  built-in name) nor already a property of the object or its prototypes -- now
+  live in a per-object **property dictionary** (`src/runtime/
+  PropertyDictionary.h`): a hidden record with a `ProtoMap` index keyed by
+  content (protoCore's hashed-map helpers, as `Map` uses) and the entries in
+  insertion order, written with a compare-and-swap so concurrent Deferreds
+  lose no key. Its keys are ordinary strings, collected with the object.
+  Identifier keys stay named attributes on protoCore's fast path. Every path
+  that reads, writes, tests, deletes, describes or enumerates properties knows
+  dictionaries (the list is in the proposals document). N = 0: the first
+  dynamic key puts an object in dictionary mode; any N > 0 would intern the
+  first N keys of every object, which is unbounded for one-key objects.
+- **Measured** (Release, protoCore 2.14.5): 500,000 distinct keys under a
+  1,000,000-cell ceiling: before, 476 bytes of resident set per key and over
+  25 minutes; after, +0.5 MB in total and 12 s. The 50,000-key loop of the
+  proposal: 10.0-12.2 s -> 1.2-1.4 s, peak RSS 243 -> 282 MB with no ceiling
+  (156 -> 174 MB under a 2,000,000-cell ceiling: a live 50,000-key dictionary
+  takes more heap than the same named attributes, and frees it with the
+  object). 200,000 one-key objects: 115 s -> 2.3 s. Reads of keys already in
+  a dictionary are about 2x slower than named reads (0.55 -> 1.1 s for
+  400,000). `benchmarks/structures` records / join / wordfreq: within noise.
+- **Order.** Dictionary keys enumerate in insertion order, after the named
+  string keys (whose order stays the documented deviation); with dictionary
+  keys present, integer indices come first. An object whose keys all came
+  from data enumerates as in Node.js.
+- **Found and fixed on the way:** `delete` and `Object.getOwnPropertyDescriptor`
+  interned the accessor and descriptor sidecar names of any key they were
+  asked about; `JSON.parse` interned every string value and kept every parsed
+  object and array, with its QuickJS original, in the GC bridge's table for
+  the life of the context (`TypeBridge::fromJSON` now builds parsed values
+  directly); the `JSON.parse` reviver kept a key it mapped to `undefined`;
+  `JSON.stringify` dropped every key starting with `_` (`{_a: 1}` gave `{}`);
+  `Reflect.deleteProperty` stored `PROTO_NONE` instead of removing the key;
+  `Reflect.set` with a Proxy receiver wrote onto the proxy cell; the `in`
+  operator left the operand stack one short when it found an accessor-only
+  property; `Array.prototype.reverse` swapped every pair with Get / Set, so
+  holes became `undefined` values and no slot was ever deleted (it now
+  follows §23.1.3.26 with HasProperty and DeletePropertyOrThrow).
+  `built-ins/Array/prototype/reverse/get_if_present_with_delete.js` passed
+  before only because of that `in` bug: the corrupted operand stack happened
+  to satisfy its assertions.
+- **Test262** (sequential, `../test262` at the CI pin): `built-ins/{Object,
+  JSON,Reflect,Proxy,Array,TypedArray,TypedArrayConstructors,ArrayBuffer,Map,
+  Set}`, `language/statements/for-in`, `language/expressions/{object,delete,
+  in}`, `language/computed-property-names`: 9,536 of 11,556 before and after,
+  0 pass->fail, 0 fail->pass. The per-commit gate's set is unchanged.
+- **Not changed:** keys given an accessor or a non-default descriptor are
+  named attributes (and interned), as are all keys of arrays, functions,
+  proxies and the global object; each `Symbol()` value still interns one
+  perennial key (`@@sym#<n>`). See [Memory](docs/API_REFERENCE.md#property-keys-that-are-data).
+- Tests: `js/basic/dictionary_keys` (92 checks against Node.js),
+  `cli/dynamic-keys-bounded-memory` (fails before), `js/deferred/
+  dictionary_keys_shared`, `js/workers/dictionary_keys_message`.
+
+### Fixed — workers no longer leave their prototypes to the main thread (2026-10-11)
+
+docs/MEMORY_SAFETY_PROPOSALS.md, section 1, as approved.
+
+- Every `worker_threads` worker has its own protoCore space and installs its
+  own built-ins, but `Array.prototype`, the typed-array prototypes,
+  `ArrayBuffer.prototype`, `Map.prototype` and `Set.prototype` were published
+  in process-wide statics: after a worker had run, arrays made by `map` and
+  typed arrays made by `Uint8Array.of` on the main thread got the worker's
+  prototypes, objects of a space that had since been destroyed. They are now
+  per-space `PinnedBuiltin` entries, read on hot paths through a thread-local
+  memo refreshed on a change of space or of any entry (12.149 G -> 12.154 G
+  instructions on an array-heavy loop).
+- `GCBridge` keeps one mapping table per space, rooted in that space.
+- `BehaviorRegistry` keeps one table per space: locked inserts that publish a
+  copy, lock-free reads, and `forgetSpace` when the wrapper goes. Before,
+  workers inserted into one map while other threads read it, and entries
+  outlived their space.
+- `JSON.parse('[1, 2]')` returned arrays without `Array.prototype` (no `join`,
+  no `map`, not `instanceof Array`) on every thread: the wrapper handed out
+  the empty placeholder prototype.
+- Tests: `js/workers/prototypes_after_worker` (249 failed checks before),
+  `js/workers/workers_churn_small_heap` under a 300,000-cell ceiling (2,643
+  before). The gating suite passes under AddressSanitizer as well (166/166,
+  `detect_leaks=0`, `tests/README.md`).
+
 ### Changed — CI on protoCore 2.14.5 (2026-10-11)
 
 - **CI** pins protoCore 2.14.5 (tag `v2.14.5`, commit `063c6d55`) on Linux,

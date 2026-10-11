@@ -85,6 +85,40 @@ programs keep the fixed ceiling. With 6 or 12 Deferreds, protoJS's own
 before/after (CHANGELOG, 2026-10-10) measured 23-65 % less peak memory and
 wall time from 11 % faster to 26 % slower depending on the workload.
 
+#### Property keys that are data
+
+protoCore interns the name of every attribute in a process-wide symbol table
+whose entries are never freed. That is right for a program's vocabulary and
+wrong for data used as keys (request ids, session ids, words, the keys of the
+JSON a server parses), so protoJS keeps such keys out of protoCore's attribute
+names (since 2026-10-11; docs/MEMORY_SAFETY_PROPOSALS.md, section 2):
+
+- A computed key -- `obj[k] = v`, `{[k]: v}`, `JSON.parse`, `Object.assign`,
+  `Object.fromEntries`, `Object.groupBy`, `Reflect.set`, spread, a
+  `worker_threads` message, incoming HTTP header names -- that is a heap string
+  (longer than six bytes, or not ASCII), not an identifier or string literal
+  of the loaded code, and not already a property of the object or of its
+  prototypes, is stored in the object's **property dictionary**: a hidden
+  per-object hash map whose keys are ordinary strings, collected with the
+  object. Reading, testing, deleting or enumerating a key never interns it.
+- Identifier keys (`o.name`, `{name: v}`), keys that the program's code names,
+  and ASCII keys of up to six bytes (held in the pointer, no table entry) stay
+  named attributes, on protoCore's fast path.
+- Arrays, typed arrays, functions, proxies, `String` wrappers and the global
+  object keep every key as a named attribute; so does a key given an accessor
+  or a non-default descriptor with `Object.defineProperty` (giving one to a
+  dictionary key moves it to the named attributes first).
+
+The resident set of a program that keeps using new keys therefore stays
+bounded by its live data: 500,000 distinct keys through `obj[k] = v` and
+`JSON.parse` under a 1,000,000-cell heap ceiling grow it by under 1 MB
+(`cli/dynamic-keys-bounded-memory`); before, every such key cost about
+460 bytes for the life of the process. `JSON.parse` also no longer interns
+string values.
+
+Dictionary keys enumerate in insertion order, after the named string keys; see
+[Property enumeration order](#property-enumeration-order).
+
 ---
 
 ## Globals
@@ -362,6 +396,22 @@ The order is unspecified: it follows the addresses of the interned key names,
 so it can differ between platforms and, on Windows, between two runs of the
 same program. Integer-like keys and symbol keys are not affected (array indices
 first in ascending order; symbols after the string keys, by creation).
+
+Keys that are data rather than program vocabulary (see
+[Property keys that are data](#property-keys-that-are-data)) live in the
+object's property dictionary and come **in insertion order**, after the named
+string keys; with such keys present, every integer index comes first in
+ascending order. An object whose keys all came from data -- a parsed JSON
+object, a `counts[word]` map -- therefore enumerates exactly as in Node.js:
+
+```js
+const p = JSON.parse('{"zeta-key":1,"alpha-key":2,"mid-key":3}');
+Object.keys(p);   // ['zeta-key', 'alpha-key', 'mid-key'] in Node and protoJS
+```
+
+A spelling that the program's own code contains (an identifier or a string
+literal anywhere in the loaded code) is vocabulary and stays a named key, so an
+object that mixes such keys with data keys lists the named ones first.
 
 This is deliberate (decided 2026-10-02): insertion order would need
 insertion-ordered attributes in protoCore's object model, which all the
