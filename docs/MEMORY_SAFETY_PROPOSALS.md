@@ -264,7 +264,7 @@ through a loop.
 | Path | Change |
 |---|---|
 | `obj[k]` read (`OP_get_array_el`, `_el2`, `_el3`) | key not interned (`propertyKey`); own dictionary key shadows the chain; inherited dictionary keys after a named miss |
-| `obj.k` read (`OP_get_field`, `_field2`) | `resolveFieldOOP`: dictionaries of the receiver and prototypes after a named miss |
+| `obj.k` read (`OP_get_field`, `_field2`) | `resolveFieldOOP`: dictionaries of the receiver and prototypes after a named miss; for a key that may be both (see "Shadowing"), the nearest dictionary entry first |
 | `obj[k] = v`, `obj.k = v` (`resolvePutFieldOOP`) | updates a dictionary key, or stores a new dynamic key; non-extensible / frozen rules |
 | index keys of 7+ digits on ordinary objects | read and written as heap strings (`dict::indexKeyNoIntern`), dictionary-backed |
 | `{[k]: v}` (`OP_define_array_el`), `{k: v}` after it (`OP_define_field`) | CreateDataProperty into the dictionary |
@@ -290,15 +290,57 @@ from data therefore enumerates as in Node.js. A data spelling that also occurs
 as an identifier or string literal anywhere in the loaded code is vocabulary
 and stays named, so it is listed among the named keys.
 
-**Known limit.** A static read `o.k` of a key held by `o`'s own dictionary
-consults the dictionary only when no named attribute answers. Since a key
-enters a dictionary only when no prototype has it as a named attribute, a
-prototype that later gains a named `k` (assigned to `Object.prototype`, or to
-a class prototype after its instances stored `k` as data) would shadow the
-instance's dictionary value for `o.k` (not for `o[k]`, `in`, `hasOwnProperty`
-or enumeration, which check the own dictionary first). Checking the own
-dictionary before the chain on every static read would put an extra lookup on
-protoJS's hottest path for this case.
+**Shadowing.** Own properties shadow inherited ones, also when the own
+property is a dictionary key and a prototype gains a named property of the
+same spelling AFTER the object stored the key: code loaded later (`new
+Function`, a module; protoJS does not execute `eval`) names the key and assigns
+it on a prototype, `Object.defineProperty` or a class gives a prototype an
+accessor of that name, or `Object.setPrototypeOf` gives the object such a
+prototype. (The first implementation documented this as a known limit: a
+static read `o.k` returned the prototype's value or called its getter.)
+
+A key can be both a dictionary key of one object and a named attribute of an
+object above it only when its spelling was data first and a name later.
+Spellings become names in three places: `noteVocabulary` (code loaded), `evict`
+(a dictionary key given an accessor or descriptor) and computed method or
+accessor names. Every spelling a dictionary takes sets two bits of a fixed
+128 KiB Bloom filter; when a spelling becomes a name and the filter may hold
+it, the spelling is recorded and a process-wide flag is raised
+(`dict::mayBeDictionaryKey`). For such keys, and for every heap-string key
+(a computed key that is not vocabulary), a lookup walks the chain and takes the
+first dictionary entry it meets before any object that has the key as a named
+attribute or that is a proxy (`dict::shadowingValue`, `findInChain`); the
+named lookup decides otherwise. This applies to `obj.k` and `obj[k]` reads,
+method calls, `Reflect.get`, a proxy's default `[[Get]]`, and writes:
+`obj.k = v` updates the own entry and calls no inherited setter; a nearer
+prototype's dictionary entry makes the write define an own property (refused
+when that prototype is frozen), as OrdinarySet says; `Reflect.set` likewise.
+Ownership tests, descriptors and enumeration already consulted the own
+dictionary. Found on the way: `Object.hasOwn` on a proxy probed the proxy cell
+and returned false for every property of the target; it now uses the
+`getOwnPropertyDescriptor` trap or the target, as `hasOwnProperty` does.
+
+Cost: for a name whose spelling was never data, one relaxed atomic load per
+static read and write (`obj.k`, `obj.k()`, `obj.k = v`). Once the flag is
+raised, a static access also looks the name up in a per-thread table of
+interned names, emptied when the set of such spellings grows. The filter
+saturates after about a million distinct dictionary spellings; spellings named
+after that are all taken for "named after data" and pay the dictionary walk on
+their lookups -- slower, still correct. Measured below ("Shadowing fix,
+measured").
+
+**Shadowing fix, measured** (Release, protoCore 2.14.5, gcc 15, this
+machine while other work ran; user CPU time, median of 7 interleaved runs;
+"before" is master `6d80b4fb0`): static reads `o.alpha`, `o.beta`, `o.sum()`
+on 1,000 class instances, 1.6 million reads: 1.657 -> 1.664 s (noise); the
+same after one data spelling was named later, which raises the flag:
+1.642 -> 1.709 s (+4 %, the per-thread table lookup); computed reads of
+dictionary keys, 400,000 hits and 200,000 misses: 2.021 -> 1.979 s.
+`benchmarks/structures` records / join / wordfreq, one task, three processes
+each: within noise, same checksums and peak RSS. Test262 over the areas
+listed above plus `language/{statements,expressions}/class`: 14,688 of 19,982
+before and after, 0 pass->fail, 0 fail->pass. Hardware counters were not
+available for `perf stat` on that day.
 
 **What still interns.** Named attributes (identifiers, vocabulary, keys of
 arrays, functions, proxies and the global object), keys given accessors or
@@ -345,7 +387,8 @@ and after, 0 pass->fail, 0 fail->pass. (Test262 writes its keys as literals,
 which are vocabulary, so it barely reaches the dictionary; its key-order tests
 are unaffected.)
 
-**Tests.** `js/basic/dictionary_keys` (95 checks of every path above, with
+**Tests.** `js/basic/dictionary_shadowing` (36 checks of the shadowing
+cases with Node.js's values; 13 failed before the fix), `js/basic/dictionary_keys` (95 checks of every path above, with
 the values Node.js gives; at `f12e5a19` five checks failed -- key order, the
 Proxy receiver of `Reflect.set`, `Reflect.deleteProperty`, `Reflect.ownKeys`
 -- before the script died on `JSON.parse('[...]').map`),

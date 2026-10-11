@@ -116,6 +116,16 @@ bounded by its live data: 500,000 distinct keys through `obj[k] = v` and
 480 bytes for the life of the process. `JSON.parse` also no longer interns
 string values.
 
+A dictionary key is an own data property like any other: it shadows a
+property of the same name that a prototype gains later -- assigned by code
+loaded afterwards (`new Function`, a module), an accessor added with
+`Object.defineProperty` or a class, a prototype set with
+`Object.setPrototypeOf`. `obj.k` and `obj[k]` read the own value, and
+`obj.k = v` updates it without calling an inherited setter (since
+2026-10-11). The check costs one atomic load per `obj.k` access for names
+whose spelling was never data; see docs/MEMORY_SAFETY_PROPOSALS.md, section 2,
+"Shadowing".
+
 Dictionary keys enumerate in insertion order, after the named string keys; see
 [Property enumeration order](#property-enumeration-order).
 

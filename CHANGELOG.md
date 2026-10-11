@@ -4,6 +4,49 @@ All notable changes to protoJS are documented in this file.
 
 ## [Unreleased]
 
+### Fixed — own dictionary keys shadow what a prototype gains later (2026-10-11)
+
+The dictionary mode below documented a "known limit": an object's dictionary
+key `k` was hidden from `o.k` (and, for a key named on a prototype by an
+accessor, from `o[k]`, `Reflect.get` and proxies) once a prototype gained a
+named property or accessor `k` -- assigned by code loaded later (`new
+Function`, a module), added by `Object.defineProperty` or a class, or reached
+through `Object.setPrototypeOf`; `o.k = v` and `Reflect.set` then called the
+inherited setter. Own properties now always shadow inherited ones:
+
+- Every spelling a dictionary takes sets two bits in a fixed 128 KiB Bloom
+  filter. When a spelling becomes a name (loaded code, `evict`, a computed
+  method or accessor name) and the filter may hold it, it is recorded and a
+  process-wide flag is raised. For those names and for every heap-string key,
+  reads take the nearest dictionary entry on the chain before any named
+  property of the spelling (`dict::shadowingValue`), and writes update it or,
+  for a prototype's entry, define an own property (OrdinarySet), without
+  calling a setter above it. For other names the cost is one relaxed atomic
+  load per `obj.k` access.
+- `Object.hasOwn` on a proxy reported false for every property of the target;
+  it now asks the `getOwnPropertyDescriptor` trap or the target, as
+  `Object.prototype.hasOwnProperty` does.
+- Measured (Release, protoCore 2.14.5, gcc 15, a loaded machine; user CPU
+  medians of 5 interleaved runs): named reads (1.6 M
+  `o.alpha`, `o.beta`, `o.sum()` on class instances) 1.657 -> 1.664 s,
+  noise; the same with the flag raised 1.642 -> 1.709 s (+4 %); computed
+  reads of dictionary keys, 400,000 hits and 200,000 misses, 2.021 ->
+  1.979 s. `benchmarks/structures` records / join / wordfreq (one task,
+  `REPS=3`, three processes each): 1,924-2,469 / 1,622-2,315 / 1,097-1,573 ms
+  before, 1,678-2,589 / 1,645-2,182 / 1,067-1,496 ms after, same checksums
+  and peak RSS -- within this machine's noise. Hardware counters were not
+  available (`perf_event_paranoid` 4 after the OS upgrade), so the figures
+  are CPU time, not instructions.
+- Test262 (sequential, CI corpus pin): `built-ins/{Object,JSON,Reflect,Proxy,
+  Array,TypedArray,TypedArrayConstructors,ArrayBuffer,Map,Set}`,
+  `language/statements/{for-in,class}`, `language/expressions/{object,delete,
+  in,class}`, `language/computed-property-names`: 14,688 of 19,982 before
+  and after, 0 pass->fail, 0 fail->pass.
+- Test: `js/basic/dictionary_shadowing` (36 checks against Node.js: class
+  instances, plain and JSON-parsed objects, getters and setters, frozen
+  objects, proxies, an intermediate dictionary, a module loaded later; 13
+  failed before).
+
 ### Fixed — computed property keys are no longer interned for ever (2026-10-11)
 
 docs/MEMORY_SAFETY_PROPOSALS.md, section 2, option (b) as approved: dictionary
