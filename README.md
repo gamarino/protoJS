@@ -276,14 +276,16 @@ The detailed history is in [docs/archive/TEST262_ROUNDS.md](docs/archive/TEST262
 
 ### Performance Benchmarks
 
-**protoCore 2.14.6 (measured 2026-10-12).**  The same commit (`a57b2c688`)
+**protoCore 2.14.6 (measured 2026-10-13).**  The same commit (`a57b2c688`)
 built against protoCore 2.14.5 and 2.14.6, `run_standard_comparison.js`
-against Node.js 22.17.0, two rounds: `control_flow` 239 -> 172.5 ms
-(about 60x -> 43x Node's time; `perf stat` cycles -26 %), because `===`
-between two different integers calls protoCore's comparison, which no
-longer allocates a temporary.  `numeric_loop` is unchanged (75 -> 78 ms,
-within its spread): protoJS's own SmallInteger paths for `<`, `%` and
-arithmetic never reached that code.  Details: [protoCore's report](https://github.com/numaes/protoCore/blob/master/docs/reports/2026-10-12-cross-runtime-int-compare.md).
+against Node.js 22.17.0, three rounds: `control_flow` 207 -> 154 ms (about
+52x -> 39x Node's time; `perf stat` cycles -27 %), because `===` between two
+different integers calls protoCore's comparison, which no longer allocates
+a temporary.  `numeric_loop` is unchanged (67 -> 69 ms): protoJS's own
+SmallInteger paths for `<`, `%` and arithmetic never reached that code.  The
+structure benchmarks (`benchmarks/structures/run.py`) gain from 2.14.6's
+bounded mark work list at 12 workers: `records` 6,886 -> 5,442 ms, `graph`
+11,982 -> 9,529 ms, `wordfreq` 3,901 -> 3,359 ms. Measured under TLP's battery power profile (powersave, EPP balance_power): compare ratios, not absolute times, with older figures.  Details: [protoCore's report](https://github.com/numaes/protoCore/blob/master/docs/reports/2026-10-12-cross-runtime-int-compare.md).
 
 protoJS executes bytecode in an interpreter; there is no JIT compiler. The newest dated reading in [docs/archive/PERFORMANCE_LOG.md](docs/archive/PERFORMANCE_LOG.md) was recorded on **2026-06-16** with the standard in-process suite ([tests/benchmarks/standard/](tests/benchmarks/standard/)). It compares `protojs` (Release build) with Node.js 22.17.0 and with QuickJS rebuilt with `-O3 -DNDEBUG`. Times are each benchmark's own in-process measurement (median of 3 outer runs, each averaging 5 inner iterations), reported in whole milliseconds.
 
