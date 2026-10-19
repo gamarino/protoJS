@@ -11599,12 +11599,11 @@ const proto::ProtoObject* runBytecode(proto::ProtoContext* pContext,
                     updateSpacePrototypeIfMatching(pContext, obj, newObj);
                 }
 
-                std::string keyStr2;
-                key->toUTF8String(pContext, keyStr2);
-
                 // Array length truncation: if we just set .length on a real array to a
                 // smaller value, delete elements at indices >= newLen (ECMAScript 9.4.2.1).
-                if (keyStr2 == "length") {
+                // `length` is an interned atom: identified by pointer, as above
+                // (pre-fix: a UTF-8 copy of the key and a string compare on every write).
+                if (key == JSSymbols::length(pContext)) {
                     const proto::ProtoString* isArrKey = JSSymbols::isArray(pContext);
                     const proto::ProtoObject* isArrVal = isArrKey
                         ? newObj->getAttribute(pContext, isArrKey, true) : nullptr;
