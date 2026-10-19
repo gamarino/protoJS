@@ -276,6 +276,23 @@ The detailed history is in [docs/archive/TEST262_ROUNDS.md](docs/archive/TEST262
 
 ### Performance Benchmarks
 
+**protoCore 2.14.7 (measured 2026-10-19).** 2.14.7 changes the write path: a
+new value for an existing key copies the root-to-key path without rebalancing,
+and allocating a cell no longer takes a spinlock. The same binaries on
+protoCore 2.14.6 and 2.14.7, each run loading a fresh copy of the library,
+three rounds: `run_standard_comparison.js` against Node.js 22.17.0 moves the
+ratio by -2.1 % (geomean of 11 workloads; `function_calls` -5.0 %,
+`string_concat` -5.9 %), and the structure benchmarks by +0.1 % (raw times,
+one run per side); an attribute write costs 2,849 cycles against 2,919 (within
+the A/A spread of 5 %). The adaptive heap controller
+(`PROTOCORE_ADAPTIVE_HEAP=1`), kept off for sequential programs since
+2026-10-04 because it measured 13-36 % slower, now runs the five structure
+workloads -10 % to +4 % in time with 4-7.5x less resident memory (2.2-2.5 GB
+-> 0.15-0.5 GB); turning it on by default is recommended and not done here.
+Measured under TLP's battery power profile (powersave, EPP balance_power):
+compare ratios, not absolute times, with older figures. Details: [protoCore's
+report](https://github.com/numaes/protoCore/blob/master/docs/reports/2026-10-18-write-path.md).
+
 **protoCore 2.14.6 (measured 2026-10-13).**  The same commit (`a57b2c688`)
 built against protoCore 2.14.5 and 2.14.6, `run_standard_comparison.js`
 against Node.js 22.17.0, three rounds: `control_flow` 207 -> 154 ms (about
