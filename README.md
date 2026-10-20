@@ -276,6 +276,43 @@ The detailed history is in [docs/archive/TEST262_ROUNDS.md](docs/archive/TEST262
 
 ### Performance Benchmarks
 
+**protoCore 2.14.8 (measured 2026-10-20).** master at `45658eaf`, Release,
+built against protoCore 2.14.8; each run behind a quiet gate (1.0-2.1 busy
+CPUs) and on a fresh copy of the library. `run_standard_comparison.js`
+against Node.js 22.17.0, three rounds, medians (in-process time, whole
+milliseconds; a ratio is given only where Node takes 5 ms or more):
+
+| Workload | protoJS ms | Node ms | Node faster by |
+|---|---:|---:|---:|
+| `object_property` | 553 | 36 | 15.4x |
+| `object_write_only` | 1572 | 13 | 121x |
+| `control_flow` | 187 | 5 | 37x |
+| `array_literal`, `function_calls`, `numeric_loop`, `string_concat`, `object_read_only`, `tree_traversal` | 57-207 | 1-2 | 57-190x (Node's JIT; 1 ms resolution) |
+| `parallel_cpu` | 3 | 42 | **protoJS 14x faster** |
+| `string_repeated_doubling` | 1 | 37 | **protoJS 37x faster** (ropes) |
+
+The structure benchmarks (`benchmarks/structures/run.py`, reps 3, scale 1),
+protoJS ms / Node ms, one and twelve copies of the work, sequential and on
+workers (Node pays structured clone; its `graph` on workers fails with
+`Maximum call stack size exceeded` in `postMessage`, as on 2026-10-18):
+
+| Workload | seq, 1 | seq, 12 | workers, 1 | workers, 12 |
+|---|---:|---:|---:|---:|
+| `records` | 1419 / 10 | 21483 / 89 | 1636 / 158 | 5736 / 884 |
+| `join` | 1613 / 39 | 20979 / 221 | 1650 / 91 | 8048 / 392 |
+| `doctree` | 1317 / 17 | 15532 / 57 | 1278 / 42 | 5397 / 170 |
+| `wordfreq` | 995 / 16 | 11683 / 212 | 1158 / 20 | 3062 / 50 |
+| `graph` | 1992 / 18 | 26878 / 163 | 2056 / fails | 10821 / fails |
+
+Against the 2026-10-18 run, protoJS's times are 6-9 % higher and Node's 11 %
+higher on the structures: the machine, not the code. A same-moment A/B of
+the 2026-10-18 binary and this one, each on protoCore 2.14.7 and 2.14.8
+(three interleaved rounds of the standard comparison), puts all four
+combinations within -2.8 % to +0.8 % of each other (geomean of the ten
+workloads of 10 ms or more): protoCore 2.14.8 and the `put_field` change
+leave protoJS unchanged. Raw results, the A/B included:
+[`benchmarks/reports/2026-10-20/`](benchmarks/reports/2026-10-20/).
+
 **protoCore 2.14.7 (measured 2026-10-19).** 2.14.7 changes the write path: a
 new value for an existing key copies the root-to-key path without rebalancing,
 and allocating a cell no longer takes a spinlock. The same binaries on
