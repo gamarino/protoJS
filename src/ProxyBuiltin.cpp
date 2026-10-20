@@ -1718,8 +1718,8 @@ const proto::ProtoObject* proxyConstructor(
     proto::ProtoContext* ctx,
     const proto::ProtoObject* self,
     const proto::ParentLink*,
-    const proto::ProtoList* args,
-    const proto::ProtoSparseList*)
+    const proto::ProtoArguments* args,
+    const proto::ProtoKeywordArguments*)
 {
     if (!ctx) return PROTO_NONE;
     if (!args || args->getSize(ctx) < 2) {
@@ -1800,8 +1800,8 @@ static const proto::ProtoObject* installCallable(
 // where revoke() poisons the proxy by clearing __proxy_target__.
 static const proto::ProtoObject* proxyRevocable(
     proto::ProtoContext* ctx, const proto::ProtoObject* /*self*/,
-    const proto::ParentLink*, const proto::ProtoList* args,
-    const proto::ProtoSparseList*)
+    const proto::ParentLink*, const proto::ProtoArguments* args,
+    const proto::ProtoKeywordArguments*)
 {
     if (!ctx) return PROTO_NONE;
     // Build the proxy via the normal constructor — same arg validation.
@@ -1834,8 +1834,8 @@ static const proto::ProtoObject* proxyRevocable(
         proto::ProtoContext* ictx,
         const proto::ProtoObject* self,
         const proto::ParentLink*,
-        const proto::ProtoList*,
-        const proto::ProtoSparseList*) -> const proto::ProtoObject* {
+        const proto::ProtoArguments*,
+        const proto::ProtoKeywordArguments*) -> const proto::ProtoObject* {
         if (!ictx || !self) return PROTO_NONE;
         const proto::ProtoObject* pko = ictx->fromUTF8String("__proxy_revoke_target__");
         const proto::ProtoString* pk = pko ? pko->asString(ictx) : nullptr;

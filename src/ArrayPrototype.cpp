@@ -1317,7 +1317,7 @@ static const proto::ProtoObject* arraySpeciesCreate(
         const proto::ProtoObject* res = nullptr;
         if (hasNativeCtor) {
             proto::ProtoMethod fn = constructFn->asMethod(ctx);
-            res = fn(ctx, newObj, nullptr, args, nullptr);
+            res = fn(ctx, newObj, nullptr, argsView(proto::ProtoListArguments(ctx, args)), nullptr);
         } else {
             res = callJSFunction(ctx, C, newObj, args);
         }
@@ -1457,8 +1457,8 @@ static const proto::ProtoObject* arrayJoin(
     proto::ProtoContext* ctx,
     const proto::ProtoObject* self,
     const proto::ParentLink*,
-    const proto::ProtoList* args,
-    const proto::ProtoSparseList*)
+    const proto::ProtoArguments* args,
+    const proto::ProtoKeywordArguments*)
 {
     if (arrayThrowIfNullUndefined(ctx, self)) return PROTO_NONE;
     proto::proto_ulong len = arrLen(ctx, self);
@@ -1499,8 +1499,8 @@ static const proto::ProtoObject* arrayToString(
     proto::ProtoContext* ctx,
     const proto::ProtoObject* self,
     const proto::ParentLink* pl,
-    const proto::ProtoList* args,
-    const proto::ProtoSparseList* kw)
+    const proto::ProtoArguments* args,
+    const proto::ProtoKeywordArguments* kw)
 {
     // §23.1.3.36 step 1: Let array be ? ToObject(this value).  When
     // 'this' is a primitive (boolean / number / string), the resulting
@@ -1540,8 +1540,8 @@ static const proto::ProtoObject* arrayToString(
                 }
             }
             if (joinIsCallable) {
-                return callJSFunction(ctx, joinFn, self,
-                    args ? args : ctx->newList());
+                const proto::ProtoArguments noArgs(nullptr, 0);
+                return callJSFunction(ctx, joinFn, self, args ? args : &noArgs);
             }
             // §23.1.3.36 step 3: If IsCallable(func) is false, set
             // func to the intrinsic %Object.prototype.toString%.
@@ -1576,8 +1576,8 @@ static const proto::ProtoObject* arrayToLocaleString(
     proto::ProtoContext* ctx,
     const proto::ProtoObject* self,
     const proto::ParentLink*,
-    const proto::ProtoList* args,
-    const proto::ProtoSparseList*)
+    const proto::ProtoArguments* args,
+    const proto::ProtoKeywordArguments*)
 {
     if (arrayThrowIfNullUndefined(ctx, self)) return PROTO_NONE;
     proto::proto_ulong len = arrLen(ctx, self);
@@ -1623,8 +1623,8 @@ static const proto::ProtoObject* arrayPush(
     proto::ProtoContext* ctx,
     const proto::ProtoObject* self,
     const proto::ParentLink*,
-    const proto::ProtoList* args,
-    const proto::ProtoSparseList*)
+    const proto::ProtoArguments* args,
+    const proto::ProtoKeywordArguments*)
 {
     if (arrayThrowIfNullUndefined(ctx, self)) return PROTO_NONE;
     // §23.1.3.20 step 6.b + Set(O, "length", ...): a primitive-string
@@ -1779,8 +1779,8 @@ static const proto::ProtoObject* arrayPop(
     proto::ProtoContext* ctx,
     const proto::ProtoObject* self,
     const proto::ParentLink*,
-    const proto::ProtoList*,
-    const proto::ProtoSparseList*)
+    const proto::ProtoArguments*,
+    const proto::ProtoKeywordArguments*)
 {
     if (arrayThrowIfNullUndefined(ctx, self)) return PROTO_NONE;
     // §23.1.3.21 step 3.a + step 4.f both run Set(O, 'length', ...,
@@ -1937,8 +1937,8 @@ static const proto::ProtoObject* arrayShift(
     proto::ProtoContext* ctx,
     const proto::ProtoObject* self,
     const proto::ParentLink*,
-    const proto::ProtoList*,
-    const proto::ProtoSparseList*)
+    const proto::ProtoArguments*,
+    const proto::ProtoKeywordArguments*)
 {
     if (arrayThrowIfNullUndefined(ctx, self)) return PROTO_NONE;
     // §23.1.3.27 step 3.a + step 8 both call Set(O, 'length', ...,
@@ -2034,8 +2034,8 @@ static const proto::ProtoObject* arrayUnshift(
     proto::ProtoContext* ctx,
     const proto::ProtoObject* self,
     const proto::ParentLink*,
-    const proto::ProtoList* args,
-    const proto::ProtoSparseList*)
+    const proto::ProtoArguments* args,
+    const proto::ProtoKeywordArguments*)
 {
     if (arrayThrowIfNullUndefined(ctx, self)) return PROTO_NONE;
     proto::proto_ulong argc = args ? static_cast<proto::proto_ulong>(args->getSize(ctx)) : 0;
@@ -2143,8 +2143,8 @@ static const proto::ProtoObject* arraySlice(
     proto::ProtoContext* ctx,
     const proto::ProtoObject* self,
     const proto::ParentLink*,
-    const proto::ProtoList* args,
-    const proto::ProtoSparseList*)
+    const proto::ProtoArguments* args,
+    const proto::ProtoKeywordArguments*)
 {
     if (arrayThrowIfNullUndefined(ctx, self)) return PROTO_NONE;
     // §23.1.3.28 step 4 invokes ArraySpeciesCreate(O, count), which
@@ -2257,8 +2257,8 @@ static const proto::ProtoObject* arrayIndexOf(
     proto::ProtoContext* ctx,
     const proto::ProtoObject* self,
     const proto::ParentLink*,
-    const proto::ProtoList* args,
-    const proto::ProtoSparseList*)
+    const proto::ProtoArguments* args,
+    const proto::ProtoKeywordArguments*)
 {
     if (arrayThrowIfNullUndefined(ctx, self)) return PROTO_NONE;
     // §23.1.3.13 indexOf does NOT allocate a new array, so
@@ -2275,7 +2275,8 @@ static const proto::ProtoObject* arrayIndexOf(
     const proto::ProtoObject* needle = (args && args->getSize(ctx) > 0)
         ? args->getAt(ctx, 0)
         : getUndefinedSentinel();
-    if (!args || args->getSize(ctx) == 0) args = ctx->newList(); // ensure non-null below
+    const proto::ProtoArguments noArgs(nullptr, 0);
+    if (!args || args->getSize(ctx) == 0) args = &noArgs; // ensure non-null below
     long long from = 0;
     if (args->getSize(ctx) > 1) {
         const proto::ProtoObject* fi = args->getAt(ctx, 1);
@@ -2379,8 +2380,8 @@ static const proto::ProtoObject* arrayLastIndexOf(
     proto::ProtoContext* ctx,
     const proto::ProtoObject* self,
     const proto::ParentLink*,
-    const proto::ProtoList* args,
-    const proto::ProtoSparseList*)
+    const proto::ProtoArguments* args,
+    const proto::ProtoKeywordArguments*)
 {
     if (arrayThrowIfNullUndefined(ctx, self)) return PROTO_NONE;
     long long len = 0;
@@ -2459,7 +2460,8 @@ static const proto::ProtoObject* arrayLastIndexOf(
     const proto::ProtoObject* needle = (args && args->getSize(ctx) > 0)
         ? args->getAt(ctx, 0)
         : getUndefinedSentinel();
-    if (!args) args = ctx->newList();
+    const proto::ProtoArguments noArgs(nullptr, 0);
+    if (!args) args = &noArgs;
     long long from = len - 1;
     if (args->getSize(ctx) > 1) {
         const proto::ProtoObject* fi = args->getAt(ctx, 1);
@@ -2562,8 +2564,8 @@ static const proto::ProtoObject* arrayIncludes(
     proto::ProtoContext* ctx,
     const proto::ProtoObject* self,
     const proto::ParentLink*,
-    const proto::ProtoList* args,
-    const proto::ProtoSparseList*)
+    const proto::ProtoArguments* args,
+    const proto::ProtoKeywordArguments*)
 {
     if (arrayThrowIfNullUndefined(ctx, self)) return PROTO_NONE;
     // includes short-circuits on first match — accept Infinity per
@@ -2692,8 +2694,8 @@ static const proto::ProtoObject* arrayReverse(
     proto::ProtoContext* ctx,
     const proto::ProtoObject* self,
     const proto::ParentLink*,
-    const proto::ProtoList*,
-    const proto::ProtoSparseList*)
+    const proto::ProtoArguments*,
+    const proto::ProtoKeywordArguments*)
 {
     if (arrayThrowIfNullUndefined(ctx, self)) return PROTO_NONE;
     // §23.1.3.27 step 1 + step 7: Let O be ? ToObject(this value);
@@ -2738,10 +2740,10 @@ static const proto::ProtoObject* arrayReverse(
 // Forward decls: arraySort / arraySplice are defined later.
 static const proto::ProtoObject* arraySort(proto::ProtoContext*, const proto::ProtoObject*,
                                            const proto::ParentLink*,
-                                           const proto::ProtoList*, const proto::ProtoSparseList*);
+                                           const proto::ProtoArguments*, const proto::ProtoKeywordArguments*);
 static const proto::ProtoObject* arraySplice(proto::ProtoContext*, const proto::ProtoObject*,
                                              const proto::ParentLink*,
-                                             const proto::ProtoList*, const proto::ProtoSparseList*);
+                                             const proto::ProtoArguments*, const proto::ProtoKeywordArguments*);
 
 // ES2023 immutable equivalents: produce a copy, then apply the
 // mutating operation on the copy.  Spec: §23.1.3.32, 33, 34, 35.
@@ -2784,7 +2786,7 @@ static const proto::ProtoObject* arrayCloneShallow(proto::ProtoContext* ctx,
 
 static const proto::ProtoObject* arrayToReversed(
     proto::ProtoContext* ctx, const proto::ProtoObject* self,
-    const proto::ParentLink*, const proto::ProtoList*, const proto::ProtoSparseList*)
+    const proto::ParentLink*, const proto::ProtoArguments*, const proto::ProtoKeywordArguments*)
 {
     if (arrayThrowIfNullUndefined(ctx, self)) return PROTO_NONE;
     // §23.1.3.36 step 5: walk k = 0..len, reading O[len-k-1] each step.
@@ -2816,7 +2818,7 @@ static const proto::ProtoObject* arrayToReversed(
 
 static const proto::ProtoObject* arrayToSorted(
     proto::ProtoContext* ctx, const proto::ProtoObject* self,
-    const proto::ParentLink*, const proto::ProtoList* args, const proto::ProtoSparseList*)
+    const proto::ParentLink*, const proto::ProtoArguments* args, const proto::ProtoKeywordArguments*)
 {
     if (arrayThrowIfNullUndefined(ctx, self)) return PROTO_NONE;
     // §23.1.3.34 toSorted explicitly uses ArrayCreate(len), NOT
@@ -2843,7 +2845,7 @@ static const proto::ProtoObject* arrayToSorted(
 
 static const proto::ProtoObject* arrayToSpliced(
     proto::ProtoContext* ctx, const proto::ProtoObject* self,
-    const proto::ParentLink*, const proto::ProtoList* args, const proto::ProtoSparseList*)
+    const proto::ParentLink*, const proto::ProtoArguments* args, const proto::ProtoKeywordArguments*)
 {
     if (arrayThrowIfNullUndefined(ctx, self)) return PROTO_NONE;
     // §23.1.3.37 toSpliced walks the source twice: once for the
@@ -2931,7 +2933,7 @@ static const proto::ProtoObject* arrayToSpliced(
 
 static const proto::ProtoObject* arrayWith(
     proto::ProtoContext* ctx, const proto::ProtoObject* self,
-    const proto::ParentLink*, const proto::ProtoList* args, const proto::ProtoSparseList*)
+    const proto::ParentLink*, const proto::ProtoArguments* args, const proto::ProtoKeywordArguments*)
 {
     if (arrayThrowIfNullUndefined(ctx, self)) return PROTO_NONE;
     if (arrayThrowIfLenOverflow(ctx, self, "Array.prototype.with")) return PROTO_NONE;
@@ -3008,8 +3010,8 @@ static const proto::ProtoObject* arrayConcat(
     proto::ProtoContext* ctx,
     const proto::ProtoObject* self,
     const proto::ParentLink*,
-    const proto::ProtoList* args,
-    const proto::ProtoSparseList*)
+    const proto::ProtoArguments* args,
+    const proto::ProtoKeywordArguments*)
 {
     if (arrayThrowIfNullUndefined(ctx, self)) return PROTO_NONE;
     // \xc2\xa723.1.3.1 step 2: ArraySpeciesCreate(O, 0) — step 1.a invokes
@@ -3325,8 +3327,8 @@ static const proto::ProtoObject* arrayFill(
     proto::ProtoContext* ctx,
     const proto::ProtoObject* self,
     const proto::ParentLink*,
-    const proto::ProtoList* args,
-    const proto::ProtoSparseList*)
+    const proto::ProtoArguments* args,
+    const proto::ProtoKeywordArguments*)
 {
     if (arrayThrowIfNullUndefined(ctx, self)) return PROTO_NONE;
     long long len = static_cast<long long>(arrLen(ctx, self));
@@ -3410,8 +3412,8 @@ static const proto::ProtoObject* arrayCopyWithin(
     proto::ProtoContext* ctx,
     const proto::ProtoObject* self,
     const proto::ParentLink*,
-    const proto::ProtoList* args,
-    const proto::ProtoSparseList*)
+    const proto::ProtoArguments* args,
+    const proto::ProtoKeywordArguments*)
 {
     if (arrayThrowIfNullUndefined(ctx, self)) return PROTO_NONE;
     // §23.1.3.4 step 1: Let O be ? ToObject(this value). step 14 returns O.
@@ -3639,20 +3641,29 @@ static const proto::ProtoObject* iterReceiver(proto::ProtoContext* ctx,
     return self;
 }
 
-// Helper: build the three-argument list [element, index, array] for iteration callbacks.
-static const proto::ProtoList* makeIterArgs(proto::ProtoContext* ctx,
-                                             const proto::ProtoObject* elem,
-                                             long long idx,
-                                             const proto::ProtoObject* arr) {
-    // One cell (newList(n, items)) instead of four.
-    const proto::ProtoObject* items[3] = {
-        elem ? elem : PROTO_NONE, ctx->fromInteger(idx), iterReceiver(ctx, arr)};
-    return ctx->newList(3, items);
+// The three arguments [element, index, array] of an iteration callback, as
+// protoCore's array call form reads them: a local array, no allocation (it
+// used to be a ProtoList per element). Use it within one full expression:
+//   callJSFunction(ctx, fn, thisArg, argsView(makeIterArgs(...).args))
+// The element is held by the array, or is young in ctx as a list was.
+struct IterArgs {
+    const proto::ProtoObject* items[3];
+    proto::ProtoArguments args;
+    IterArgs(proto::ProtoContext* ctx, const proto::ProtoObject* elem, long long idx,
+             const proto::ProtoObject* arr)
+        : items{elem ? elem : PROTO_NONE, ctx->fromInteger(idx), iterReceiver(ctx, arr)},
+          args(items, 3) {}
+    IterArgs(const IterArgs&) = delete;
+    IterArgs& operator=(const IterArgs&) = delete;
+};
+static IterArgs makeIterArgs(proto::ProtoContext* ctx, const proto::ProtoObject* elem,
+                             long long idx, const proto::ProtoObject* arr) {
+    return IterArgs(ctx, elem, idx, arr);   // guaranteed elision: never copied
 }
 
 // Helper: extract callback and optional thisArg from args.
 static const proto::ProtoObject* getCallbackArg(proto::ProtoContext* ctx,
-                                                  const proto::ProtoList* args,
+                                                  const proto::ProtoArguments* args,
                                                   int pos = 0) {
     if (!args) return PROTO_NONE;
     long long n = static_cast<long long>(args->getSize(ctx));
@@ -3666,8 +3677,8 @@ static const proto::ProtoObject* arrayForEach(
     proto::ProtoContext* ctx,
     const proto::ProtoObject* self,
     const proto::ParentLink*,
-    const proto::ProtoList* args,
-    const proto::ProtoSparseList*)
+    const proto::ProtoArguments* args,
+    const proto::ProtoKeywordArguments*)
 {
     if (arrayThrowIfNullUndefined(ctx, self)) return PROTO_NONE;
     // §23.1.3.15 step ordering: LengthOfArrayLike precedes IsCallable
@@ -3690,7 +3701,7 @@ static const proto::ProtoObject* arrayForEach(
         // §23.1.3.15 step 6.b.iii.1: ? Get(O, Pk).  Throwing getter
         // terminates iteration BEFORE callback runs.
         if (hasCallException()) return PROTO_NONE;
-        callJSFunction(ctx, fn, thisArg, makeIterArgs(ctx, elem, (long long)i, self));
+        callJSFunction(ctx, fn, thisArg, argsView(makeIterArgs(ctx, elem, (long long)i, self).args));
         if (hasCallException()) return PROTO_NONE;
     }
     return PROTO_NONE;
@@ -3849,8 +3860,8 @@ static const proto::ProtoObject* arrayMap(
     proto::ProtoContext* ctx,
     const proto::ProtoObject* self,
     const proto::ParentLink*,
-    const proto::ProtoList* args,
-    const proto::ProtoSparseList*)
+    const proto::ProtoArguments* args,
+    const proto::ProtoKeywordArguments*)
 {
     if (arrayThrowIfNullUndefined(ctx, self)) return PROTO_NONE;
     // §23.1.3.18: LengthOfArrayLike precedes IsCallable.  Also detect
@@ -3898,7 +3909,7 @@ static const proto::ProtoObject* arrayMap(
         // terminates iteration BEFORE callback runs.
         if (hasCallException()) return PROTO_NONE;
         const proto::ProtoObject* mapped =
-            callJSFunction(ctx, fn, thisArg, makeIterArgs(ctx, elem, (long long)i, self));
+            callJSFunction(ctx, fn, thisArg, argsView(makeIterArgs(ctx, elem, (long long)i, self).args));
         if (hasCallException()) return PROTO_NONE;
         if (!mapped || mapped == PROTO_NONE) mapped = undefSent;
         if (acc) {
@@ -3927,8 +3938,8 @@ static const proto::ProtoObject* arrayFilter(
     proto::ProtoContext* ctx,
     const proto::ProtoObject* self,
     const proto::ParentLink*,
-    const proto::ProtoList* args,
-    const proto::ProtoSparseList*)
+    const proto::ProtoArguments* args,
+    const proto::ProtoKeywordArguments*)
 {
     if (arrayThrowIfNullUndefined(ctx, self)) return PROTO_NONE;
     // §23.1.3.7: LengthOfArrayLike precedes IsCallable.
@@ -3964,7 +3975,7 @@ static const proto::ProtoObject* arrayFilter(
         // terminates iteration BEFORE callback runs.
         if (hasCallException()) return PROTO_NONE;
         const proto::ProtoObject* keep =
-            callJSFunction(ctx, fn, thisArg, makeIterArgs(ctx, elem, (long long)i, self));
+            callJSFunction(ctx, fn, thisArg, argsView(makeIterArgs(ctx, elem, (long long)i, self).args));
         if (hasCallException()) return PROTO_NONE;
         if (isTruthy(ctx, keep)) {
             if (!elem || elem == PROTO_NONE) elem = undefSent;
@@ -3992,8 +4003,8 @@ static const proto::ProtoObject* arrayFind(
     proto::ProtoContext* ctx,
     const proto::ProtoObject* self,
     const proto::ParentLink*,
-    const proto::ProtoList* args,
-    const proto::ProtoSparseList*)
+    const proto::ProtoArguments* args,
+    const proto::ProtoKeywordArguments*)
 {
     if (arrayThrowIfNullUndefined(ctx, self)) return PROTO_NONE;
     // §23.1.3.8: LengthOfArrayLike precedes IsCallable.
@@ -4012,7 +4023,7 @@ static const proto::ProtoObject* arrayFind(
         const proto::ProtoObject* elem = arrGet(ctx, self, i);
         if (hasCallException()) return PROTO_NONE;
         const proto::ProtoObject* res  =
-            callJSFunction(ctx, fn, thisArg, makeIterArgs(ctx, elem, (long long)i, self));
+            callJSFunction(ctx, fn, thisArg, argsView(makeIterArgs(ctx, elem, (long long)i, self).args));
         if (hasCallException()) return PROTO_NONE;
         if (isTruthy(ctx, res)) return elem;
     }
@@ -4026,8 +4037,8 @@ static const proto::ProtoObject* arrayFindIndex(
     proto::ProtoContext* ctx,
     const proto::ProtoObject* self,
     const proto::ParentLink*,
-    const proto::ProtoList* args,
-    const proto::ProtoSparseList*)
+    const proto::ProtoArguments* args,
+    const proto::ProtoKeywordArguments*)
 {
     if (arrayThrowIfNullUndefined(ctx, self)) return PROTO_NONE;
     // §23.1.3.9: LengthOfArrayLike precedes IsCallable.
@@ -4046,7 +4057,7 @@ static const proto::ProtoObject* arrayFindIndex(
         const proto::ProtoObject* elem = arrGet(ctx, self, i);
         if (hasCallException()) return PROTO_NONE;
         const proto::ProtoObject* res  =
-            callJSFunction(ctx, fn, thisArg, makeIterArgs(ctx, elem, (long long)i, self));
+            callJSFunction(ctx, fn, thisArg, argsView(makeIterArgs(ctx, elem, (long long)i, self).args));
         if (hasCallException()) return PROTO_NONE;
         if (isTruthy(ctx, res)) return ctx->fromInteger((long long)i);
     }
@@ -4060,8 +4071,8 @@ static const proto::ProtoObject* arrayFindLast(
     proto::ProtoContext* ctx,
     const proto::ProtoObject* self,
     const proto::ParentLink*,
-    const proto::ProtoList* args,
-    const proto::ProtoSparseList*)
+    const proto::ProtoArguments* args,
+    const proto::ProtoKeywordArguments*)
 {
     if (arrayThrowIfNullUndefined(ctx, self)) return PROTO_NONE;
     // §23.1.3.10: LengthOfArrayLike precedes IsCallable.
@@ -4131,7 +4142,7 @@ static const proto::ProtoObject* arrayFindLast(
         const proto::ProtoObject* elem = arrGet(ctx, self, (proto::proto_ulong)i);
         if (hasCallException()) return PROTO_NONE;
         const proto::ProtoObject* res  =
-            callJSFunction(ctx, fn, thisArg, makeIterArgs(ctx, elem, i, self));
+            callJSFunction(ctx, fn, thisArg, argsView(makeIterArgs(ctx, elem, i, self).args));
         if (hasCallException()) return PROTO_NONE;
         if (isTruthy(ctx, res)) return elem;
     }
@@ -4145,8 +4156,8 @@ static const proto::ProtoObject* arrayFindLastIndex(
     proto::ProtoContext* ctx,
     const proto::ProtoObject* self,
     const proto::ParentLink*,
-    const proto::ProtoList* args,
-    const proto::ProtoSparseList*)
+    const proto::ProtoArguments* args,
+    const proto::ProtoKeywordArguments*)
 {
     if (arrayThrowIfNullUndefined(ctx, self)) return PROTO_NONE;
     // §23.1.3.11: see Array.prototype.findLast for the ToLength
@@ -4198,7 +4209,7 @@ static const proto::ProtoObject* arrayFindLastIndex(
         const proto::ProtoObject* elem = arrGet(ctx, self, (proto::proto_ulong)i);
         if (hasCallException()) return PROTO_NONE;
         const proto::ProtoObject* res  =
-            callJSFunction(ctx, fn, thisArg, makeIterArgs(ctx, elem, i, self));
+            callJSFunction(ctx, fn, thisArg, argsView(makeIterArgs(ctx, elem, i, self).args));
         if (hasCallException()) return PROTO_NONE;
         if (isTruthy(ctx, res)) return ctx->fromInteger(i);
     }
@@ -4212,8 +4223,8 @@ static const proto::ProtoObject* arraySome(
     proto::ProtoContext* ctx,
     const proto::ProtoObject* self,
     const proto::ParentLink*,
-    const proto::ProtoList* args,
-    const proto::ProtoSparseList*)
+    const proto::ProtoArguments* args,
+    const proto::ProtoKeywordArguments*)
 {
     if (arrayThrowIfNullUndefined(ctx, self)) return PROTO_NONE;
     // §23.1.3.28: LengthOfArrayLike precedes IsCallable.
@@ -4233,7 +4244,7 @@ static const proto::ProtoObject* arraySome(
         const proto::ProtoObject* elem = arrGet(ctx, self, i);
         if (hasCallException()) return PROTO_NONE;
         const proto::ProtoObject* res =
-            callJSFunction(ctx, fn, thisArg, makeIterArgs(ctx, elem, (long long)i, self));
+            callJSFunction(ctx, fn, thisArg, argsView(makeIterArgs(ctx, elem, (long long)i, self).args));
         if (hasCallException()) return PROTO_NONE;
         if (isTruthy(ctx, res)) return PROTO_TRUE;
     }
@@ -4247,8 +4258,8 @@ static const proto::ProtoObject* arrayEvery(
     proto::ProtoContext* ctx,
     const proto::ProtoObject* self,
     const proto::ParentLink*,
-    const proto::ProtoList* args,
-    const proto::ProtoSparseList*)
+    const proto::ProtoArguments* args,
+    const proto::ProtoKeywordArguments*)
 {
     if (arrayThrowIfNullUndefined(ctx, self)) return PROTO_NONE;
     // §23.1.3.6: LengthOfArrayLike precedes IsCallable.
@@ -4268,7 +4279,7 @@ static const proto::ProtoObject* arrayEvery(
         const proto::ProtoObject* elem = arrGet(ctx, self, i);
         if (hasCallException()) return PROTO_NONE;
         const proto::ProtoObject* res =
-            callJSFunction(ctx, fn, thisArg, makeIterArgs(ctx, elem, (long long)i, self));
+            callJSFunction(ctx, fn, thisArg, argsView(makeIterArgs(ctx, elem, (long long)i, self).args));
         if (hasCallException()) return PROTO_NONE;
         if (!isTruthy(ctx, res)) return PROTO_FALSE;
     }
@@ -4364,8 +4375,8 @@ static const proto::ProtoObject* arrayReduce(
     proto::ProtoContext* ctx,
     const proto::ProtoObject* self,
     const proto::ParentLink*,
-    const proto::ProtoList* args,
-    const proto::ProtoSparseList*)
+    const proto::ProtoArguments* args,
+    const proto::ProtoKeywordArguments*)
 {
     if (arrayThrowIfNullUndefined(ctx, self)) return PROTO_NONE;
     // ECMA-262 §23.1.3.26 step ordering: LengthOfArrayLike(O)
@@ -4420,12 +4431,12 @@ static const proto::ProtoObject* arrayReduce(
         // PROTO_NONE on abrupt; the loop then invoked callback with
         // it, setting accessed=true and clobbering testResult.
         if (hasCallException()) return PROTO_NONE;
-        const proto::ProtoList* cbArgs = ctx->newList();
-        cbArgs = cbArgs->appendLast(ctx, acc   ? acc   : PROTO_NONE);
-        cbArgs = cbArgs->appendLast(ctx, elem  ? elem  : PROTO_NONE);
-        cbArgs = cbArgs->appendLast(ctx, ctx->fromInteger(i));
-        cbArgs = cbArgs->appendLast(ctx, O);
-        acc = callJSFunction(ctx, fn, PROTO_NONE, cbArgs);
+        // [accumulator, element, index, array] in a local array (protoCore's
+        // array call form): no list per element.
+        const proto::ProtoObject* cbItems[4] = {acc ? acc : PROTO_NONE, elem ? elem : PROTO_NONE,
+                                                ctx->fromInteger(i), O};
+        const proto::ProtoArguments cbArgs(cbItems, 4);
+        acc = callJSFunction(ctx, fn, PROTO_NONE, &cbArgs);
         if (hasCallException()) return PROTO_NONE;
     }
     return acc ? acc : PROTO_NONE;
@@ -4438,8 +4449,8 @@ static const proto::ProtoObject* arrayReduceRight(
     proto::ProtoContext* ctx,
     const proto::ProtoObject* self,
     const proto::ParentLink*,
-    const proto::ProtoList* args,
-    const proto::ProtoSparseList*)
+    const proto::ProtoArguments* args,
+    const proto::ProtoKeywordArguments*)
 {
     if (arrayThrowIfNullUndefined(ctx, self)) return PROTO_NONE;
     // §23.1.3.27: LengthOfArrayLike precedes IsCallable; see arrayReduce.
@@ -4484,12 +4495,12 @@ static const proto::ProtoObject* arrayReduceRight(
         // §23.1.3.27 step 9.b.iii.1: ? Get(O, Pk).  Throwing getter
         // must terminate iteration before callback runs.
         if (hasCallException()) return PROTO_NONE;
-        const proto::ProtoList* cbArgs = ctx->newList();
-        cbArgs = cbArgs->appendLast(ctx, acc   ? acc   : PROTO_NONE);
-        cbArgs = cbArgs->appendLast(ctx, elem  ? elem  : PROTO_NONE);
-        cbArgs = cbArgs->appendLast(ctx, ctx->fromInteger(i));
-        cbArgs = cbArgs->appendLast(ctx, ORr);
-        acc = callJSFunction(ctx, fn, PROTO_NONE, cbArgs);
+        // [accumulator, element, index, array] in a local array (protoCore's
+        // array call form): no list per element.
+        const proto::ProtoObject* cbItems[4] = {acc ? acc : PROTO_NONE, elem ? elem : PROTO_NONE,
+                                                ctx->fromInteger(i), ORr};
+        const proto::ProtoArguments cbArgs(cbItems, 4);
+        acc = callJSFunction(ctx, fn, PROTO_NONE, &cbArgs);
         if (hasCallException()) return PROTO_NONE;
     }
     return acc ? acc : PROTO_NONE;
@@ -4549,8 +4560,8 @@ static const proto::ProtoObject* arraySort(
     proto::ProtoContext* ctx,
     const proto::ProtoObject* self,
     const proto::ParentLink*,
-    const proto::ProtoList* args,
-    const proto::ProtoSparseList*)
+    const proto::ProtoArguments* args,
+    const proto::ProtoKeywordArguments*)
 {
     if (arrayThrowIfNullUndefined(ctx, self)) return PROTO_NONE;
     // ECMA-262 §23.1.3.30 step 1: if comparefn is neither undefined
@@ -4627,10 +4638,9 @@ static const proto::ProtoObject* arraySort(
     auto less = [&](const proto::ProtoObject* a, const proto::ProtoObject* b) -> bool {
         if (comparatorAborted) return false;
         if (hasFn) {
-            const proto::ProtoList* cbArgs = ctx->newList();
-            cbArgs = cbArgs->appendLast(ctx, a ? a : PROTO_NONE);
-            cbArgs = cbArgs->appendLast(ctx, b ? b : PROTO_NONE);
-            const proto::ProtoObject* res = callJSFunction(ctx, fn, PROTO_NONE, cbArgs);
+            const proto::ProtoObject* cbItems[2] = {a ? a : PROTO_NONE, b ? b : PROTO_NONE};
+            const proto::ProtoArguments cbArgs(cbItems, 2);   // no list per comparison
+            const proto::ProtoObject* res = callJSFunction(ctx, fn, PROTO_NONE, &cbArgs);
             if (hasCallException()) { comparatorAborted = true; return false; }
             if (!res || res == PROTO_NONE) return false;
             if (res->isInteger(ctx)) return res->asLong(ctx) < 0;
@@ -4739,8 +4749,8 @@ static const proto::ProtoObject* arrayFlat(
     proto::ProtoContext* ctx,
     const proto::ProtoObject* self,
     const proto::ParentLink*,
-    const proto::ProtoList* args,
-    const proto::ProtoSparseList*)
+    const proto::ProtoArguments* args,
+    const proto::ProtoKeywordArguments*)
 {
     if (arrayThrowIfNullUndefined(ctx, self)) return PROTO_NONE;
     // ECMA-262 §23.1.3.10 step 3-4: depth = ToIntegerOrInfinity(arg).
@@ -4816,8 +4826,8 @@ static const proto::ProtoObject* arrayFlatMap(
     proto::ProtoContext* ctx,
     const proto::ProtoObject* self,
     const proto::ParentLink* pl,
-    const proto::ProtoList* args,
-    const proto::ProtoSparseList* kw)
+    const proto::ProtoArguments* args,
+    const proto::ProtoKeywordArguments* kw)
 {
     if (arrayThrowIfNullUndefined(ctx, self)) return PROTO_NONE;
     // map first
@@ -4826,7 +4836,7 @@ static const proto::ProtoObject* arrayFlatMap(
     // flat(1)
     const proto::ProtoList* flatArgs = ctx->newList();
     flatArgs = flatArgs->appendLast(ctx, ctx->fromInteger(1LL));
-    return arrayFlat(ctx, mapped, nullptr, flatArgs, nullptr);
+    return arrayFlat(ctx, mapped, nullptr, argsView(proto::ProtoListArguments(ctx, flatArgs)), nullptr);
 }
 
 // ---------------------------------------------------------------------------
@@ -4836,8 +4846,8 @@ static const proto::ProtoObject* arraySplice(
     proto::ProtoContext* ctx,
     const proto::ProtoObject* self,
     const proto::ParentLink*,
-    const proto::ProtoList* args,
-    const proto::ProtoSparseList*)
+    const proto::ProtoArguments* args,
+    const proto::ProtoKeywordArguments*)
 {
     if (arrayThrowIfNullUndefined(ctx, self)) return PROTO_NONE;
     long long len = (long long)arrLen(ctx, self);
@@ -5054,8 +5064,8 @@ static const proto::ProtoObject* arrayAt(
     proto::ProtoContext* ctx,
     const proto::ProtoObject* self,
     const proto::ParentLink*,
-    const proto::ProtoList* args,
-    const proto::ProtoSparseList*)
+    const proto::ProtoArguments* args,
+    const proto::ProtoKeywordArguments*)
 {
     if (arrayThrowIfNullUndefined(ctx, self)) return PROTO_NONE;
     long long len = (long long)arrLen(ctx, self);
@@ -5170,8 +5180,8 @@ static const proto::ProtoObject* arrayIteratorNext(
     proto::ProtoContext* ctx,
     const proto::ProtoObject* self,
     const proto::ParentLink*,
-    const proto::ProtoList*,
-    const proto::ProtoSparseList*)
+    const proto::ProtoArguments*,
+    const proto::ProtoKeywordArguments*)
 {
     const proto::ProtoObject* value = PROTO_NONE;
     const bool done = arrayIteratorStep(ctx, self, value);
@@ -5294,7 +5304,7 @@ static const proto::ProtoObject* makeArrayIterator(
 
 static const proto::ProtoObject* arrayEntries(
     proto::ProtoContext* ctx, const proto::ProtoObject* self,
-    const proto::ParentLink*, const proto::ProtoList*, const proto::ProtoSparseList*)
+    const proto::ParentLink*, const proto::ProtoArguments*, const proto::ProtoKeywordArguments*)
 {
     // §23.1.3.4 step 1: Let O be ? ToObject(this value).
     // ReturnIfAbrupt on null/undefined — mirrors the keys/values
@@ -5308,7 +5318,7 @@ static const proto::ProtoObject* arrayEntries(
 
 static const proto::ProtoObject* arrayKeys(
     proto::ProtoContext* ctx, const proto::ProtoObject* self,
-    const proto::ParentLink*, const proto::ProtoList*, const proto::ProtoSparseList*)
+    const proto::ParentLink*, const proto::ProtoArguments*, const proto::ProtoKeywordArguments*)
 {
     // §23.1.3.16 step 1: Let O be ? ToObject(this value).
     // ReturnIfAbrupt on null/undefined.  Pre-fix Array.prototype.keys
@@ -5321,7 +5331,7 @@ static const proto::ProtoObject* arrayKeys(
 
 static const proto::ProtoObject* arrayValues(
     proto::ProtoContext* ctx, const proto::ProtoObject* self,
-    const proto::ParentLink*, const proto::ProtoList*, const proto::ProtoSparseList*)
+    const proto::ParentLink*, const proto::ProtoArguments*, const proto::ProtoKeywordArguments*)
 {
     if (arrayThrowIfNullUndefined(ctx, self)) return PROTO_NONE;
     return makeArrayIterator(ctx, self, "values");
@@ -5332,8 +5342,8 @@ static const proto::ProtoObject* arraySpeciesGetter(
     proto::ProtoContext* /*ctx*/,
     const proto::ProtoObject* self,
     const proto::ParentLink*,
-    const proto::ProtoList*,
-    const proto::ProtoSparseList*)
+    const proto::ProtoArguments*,
+    const proto::ProtoKeywordArguments*)
 {
     return self;
 }
@@ -5345,8 +5355,8 @@ static const proto::ProtoObject* arrayIsArray(
     proto::ProtoContext* ctx,
     const proto::ProtoObject* /*self*/,
     const proto::ParentLink*,
-    const proto::ProtoList* args,
-    const proto::ProtoSparseList*)
+    const proto::ProtoArguments* args,
+    const proto::ProtoKeywordArguments*)
 {
     if (!args || args->getSize(ctx) == 0) return PROTO_FALSE;
     const proto::ProtoObject* val = args->getAt(ctx, 0);
@@ -5389,8 +5399,8 @@ static const proto::ProtoObject* arrayFrom(
     proto::ProtoContext* ctx,
     const proto::ProtoObject* self,
     const proto::ParentLink*,
-    const proto::ProtoList* args,
-    const proto::ProtoSparseList*)
+    const proto::ProtoArguments* args,
+    const proto::ProtoKeywordArguments*)
 {
     // ECMA-262 §23.1.2.1 step 1: Let items be ? ToObject(items).
     // null / undefined are not coercible — throw TypeError. The
@@ -5445,7 +5455,7 @@ static const proto::ProtoObject* arrayFrom(
         const proto::ProtoObject* alt = nullptr;
         if (ctorFn && ctorFn != PROTO_NONE) {
             proto::ProtoMethod fn = ctorFn->asMethod(ctx);
-            if (fn) alt = fn(ctx, res, nullptr, ctorArgs, nullptr);
+            if (fn) alt = fn(ctx, res, nullptr, argsView(proto::ProtoListArguments(ctx, ctorArgs)), nullptr);
         } else {
             alt = callJSFunction(ctx, self, res, ctorArgs);
         }
@@ -5768,8 +5778,8 @@ static const proto::ProtoObject* arrayFromAsync(
     proto::ProtoContext* ctx,
     const proto::ProtoObject* /*self*/,
     const proto::ParentLink*,
-    const proto::ProtoList* args,
-    const proto::ProtoSparseList*)
+    const proto::ProtoArguments* args,
+    const proto::ProtoKeywordArguments*)
 {
     // Throw a TypeError if not called properly.
     if (!args || args->getSize(ctx) == 0) {
@@ -5789,8 +5799,8 @@ static const proto::ProtoObject* arrayOf(
     proto::ProtoContext* ctx,
     const proto::ProtoObject* self,
     const proto::ParentLink*,
-    const proto::ProtoList* args,
-    const proto::ProtoSparseList*)
+    const proto::ProtoArguments* args,
+    const proto::ProtoKeywordArguments*)
 {
     // §23.1.2.2 Array.of step 4: If IsConstructor(C) is true,
     //   let A = ? Construct(C, « len »).  Else
@@ -5828,7 +5838,7 @@ static const proto::ProtoObject* arrayOf(
         const proto::ProtoObject* res = nullptr;
         if (hasNativeCtor) {
             proto::ProtoMethod fn = constructFn->asMethod(ctx);
-            res = fn(ctx, result, nullptr, ctorArgs, nullptr);
+            res = fn(ctx, result, nullptr, argsView(proto::ProtoListArguments(ctx, ctorArgs)), nullptr);
         } else {
             res = callJSFunction(ctx, self, result, ctorArgs);
         }
@@ -6266,7 +6276,7 @@ const proto::ProtoList* collectArrayFromValues(proto::ProtoContext* ctx,
     // `this` is undefined, so Array.from builds a plain Array (§23.1.2.1
     // step 5/8: IsConstructor(undefined) is false).
     const proto::ProtoObject* arr =
-        arrayFrom(ctx, getUndefinedSentinel(), nullptr, args, nullptr);
+        arrayFrom(ctx, getUndefinedSentinel(), nullptr, argsView(proto::ProtoListArguments(ctx, args)), nullptr);
     if (hasCallException() || !arr || arr == PROTO_NONE) return nullptr;
     const proto::ProtoObject* lenObj =
         arr->getAttribute(ctx, JSSymbols::length(ctx), false);

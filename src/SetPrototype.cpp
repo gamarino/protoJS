@@ -307,7 +307,7 @@ static bool iterateSetLikeKeys(proto::ProtoContext* ctx,
 static const proto::ProtoObject* setAdd(
     proto::ProtoContext* ctx, const proto::ProtoObject* self,
     const proto::ParentLink*,
-    const proto::ProtoList* args, const proto::ProtoSparseList*)
+    const proto::ProtoArguments* args, const proto::ProtoKeywordArguments*)
 {
     if (!requireSetThis(ctx, self)) return PROTO_NONE;
     const proto::ProtoObject* val = (args && args->getSize(ctx) > 0) ? args->getAt(ctx, 0) : PROTO_NONE;
@@ -324,7 +324,7 @@ static const proto::ProtoObject* setAdd(
 static const proto::ProtoObject* setHas(
     proto::ProtoContext* ctx, const proto::ProtoObject* self,
     const proto::ParentLink*,
-    const proto::ProtoList* args, const proto::ProtoSparseList*)
+    const proto::ProtoArguments* args, const proto::ProtoKeywordArguments*)
 {
     if (!requireSetThis(ctx, self)) return PROTO_NONE;
     const proto::ProtoObject* val = (args && args->getSize(ctx) > 0) ? args->getAt(ctx, 0) : PROTO_NONE;
@@ -339,7 +339,7 @@ static const proto::ProtoObject* setHas(
 static const proto::ProtoObject* setDeleteFn(
     proto::ProtoContext* ctx, const proto::ProtoObject* self,
     const proto::ParentLink*,
-    const proto::ProtoList* args, const proto::ProtoSparseList*)
+    const proto::ProtoArguments* args, const proto::ProtoKeywordArguments*)
 {
     if (!requireSetThis(ctx, self)) return PROTO_NONE;
     const proto::ProtoObject* val = (args && args->getSize(ctx) > 0) ? args->getAt(ctx, 0) : PROTO_NONE;
@@ -360,7 +360,7 @@ static const proto::ProtoObject* setDeleteFn(
 static const proto::ProtoObject* setClear(
     proto::ProtoContext* ctx, const proto::ProtoObject* self,
     const proto::ParentLink*,
-    const proto::ProtoList*, const proto::ProtoSparseList*)
+    const proto::ProtoArguments*, const proto::ProtoKeywordArguments*)
 {
     if (!requireSetThis(ctx, self)) return PROTO_NONE;
     // Slots keep growing past a clear, so a live iterator visits the
@@ -382,7 +382,7 @@ static const proto::ProtoObject* setClear(
 static const proto::ProtoObject* setSpeciesGetter(
     proto::ProtoContext* /*ctx*/, const proto::ProtoObject* self,
     const proto::ParentLink*,
-    const proto::ProtoList*, const proto::ProtoSparseList*)
+    const proto::ProtoArguments*, const proto::ProtoKeywordArguments*)
 {
     return self;
 }
@@ -392,7 +392,7 @@ static const proto::ProtoObject* setSpeciesGetter(
 static const proto::ProtoObject* setSizeGetter(
     proto::ProtoContext* ctx, const proto::ProtoObject* self,
     const proto::ParentLink*,
-    const proto::ProtoList*, const proto::ProtoSparseList*)
+    const proto::ProtoArguments*, const proto::ProtoKeywordArguments*)
 {
     if (!requireSetThis(ctx, self)) return PROTO_NONE;
     return ctx->fromInteger(static_cast<long long>(getSetSize(ctx, self)));
@@ -404,7 +404,7 @@ static const proto::ProtoObject* setSizeGetter(
 static const proto::ProtoObject* setForEach(
     proto::ProtoContext* ctx, const proto::ProtoObject* self,
     const proto::ParentLink*,
-    const proto::ProtoList* args, const proto::ProtoSparseList*)
+    const proto::ProtoArguments* args, const proto::ProtoKeywordArguments*)
 {
     if (!requireSetThis(ctx, self)) return PROTO_NONE;
     const proto::ProtoObject* callback = (args && args->getSize(ctx) > 0)
@@ -468,7 +468,7 @@ static const proto::ProtoObject* setForEach(
 static const proto::ProtoObject* setIteratorNext(
     proto::ProtoContext* ctx, const proto::ProtoObject* self,
     const proto::ParentLink*,
-    const proto::ProtoList*, const proto::ProtoSparseList*)
+    const proto::ProtoArguments*, const proto::ProtoKeywordArguments*)
 {
     auto makeDone = [&]() -> const proto::ProtoObject* {
         const proto::ProtoObject* r = ctx->newObject(true);
@@ -630,7 +630,7 @@ static const proto::ProtoObject* makeSetIterator(
 
 static const proto::ProtoObject* setValues(
     proto::ProtoContext* ctx, const proto::ProtoObject* self,
-    const proto::ParentLink*, const proto::ProtoList*, const proto::ProtoSparseList*)
+    const proto::ParentLink*, const proto::ProtoArguments*, const proto::ProtoKeywordArguments*)
 {
     if (!requireSetThis(ctx, self)) return PROTO_NONE;
     return makeSetIterator(ctx, self, "values");
@@ -638,7 +638,7 @@ static const proto::ProtoObject* setValues(
 
 static const proto::ProtoObject* setKeys(
     proto::ProtoContext* ctx, const proto::ProtoObject* self,
-    const proto::ParentLink*, const proto::ProtoList*, const proto::ProtoSparseList*)
+    const proto::ParentLink*, const proto::ProtoArguments*, const proto::ProtoKeywordArguments*)
 {
     if (!requireSetThis(ctx, self)) return PROTO_NONE;
     return makeSetIterator(ctx, self, "values"); // Set.keys() === Set.values()
@@ -646,7 +646,7 @@ static const proto::ProtoObject* setKeys(
 
 static const proto::ProtoObject* setEntries(
     proto::ProtoContext* ctx, const proto::ProtoObject* self,
-    const proto::ParentLink*, const proto::ProtoList*, const proto::ProtoSparseList*)
+    const proto::ParentLink*, const proto::ProtoArguments*, const proto::ProtoKeywordArguments*)
 {
     if (!requireSetThis(ctx, self)) return PROTO_NONE;
     return makeSetIterator(ctx, self, "entries");
@@ -658,7 +658,7 @@ static const proto::ProtoObject* setEntries(
 static const proto::ProtoObject* setConstruct(
     proto::ProtoContext* ctx, const proto::ProtoObject* self,
     const proto::ParentLink*,
-    const proto::ProtoList* args, const proto::ProtoSparseList*)
+    const proto::ProtoArguments* args, const proto::ProtoKeywordArguments*)
 {
     if (!self) return PROTO_NONE;
 
@@ -1131,7 +1131,7 @@ static bool getSetRecord(proto::ProtoContext* ctx,
 static const proto::ProtoObject* setUnion(
     proto::ProtoContext* ctx, const proto::ProtoObject* self,
     const proto::ParentLink*,
-    const proto::ProtoList* args, const proto::ProtoSparseList*)
+    const proto::ProtoArguments* args, const proto::ProtoKeywordArguments*)
 {
     if (!requireSetThis(ctx, self)) return PROTO_NONE;
     const proto::ProtoObject* other = (args && args->getSize(ctx) > 0)
@@ -1155,7 +1155,7 @@ static const proto::ProtoObject* setUnion(
 static const proto::ProtoObject* setIntersection(
     proto::ProtoContext* ctx, const proto::ProtoObject* self,
     const proto::ParentLink*,
-    const proto::ProtoList* args, const proto::ProtoSparseList*)
+    const proto::ProtoArguments* args, const proto::ProtoKeywordArguments*)
 {
     if (!requireSetThis(ctx, self)) return PROTO_NONE;
     const proto::ProtoObject* other = (args && args->getSize(ctx) > 0)
@@ -1200,7 +1200,7 @@ static const proto::ProtoObject* setIntersection(
 static const proto::ProtoObject* setDifference(
     proto::ProtoContext* ctx, const proto::ProtoObject* self,
     const proto::ParentLink*,
-    const proto::ProtoList* args, const proto::ProtoSparseList*)
+    const proto::ProtoArguments* args, const proto::ProtoKeywordArguments*)
 {
     if (!requireSetThis(ctx, self)) return PROTO_NONE;
     const proto::ProtoObject* other = (args && args->getSize(ctx) > 0)
@@ -1232,7 +1232,7 @@ static const proto::ProtoObject* setDifference(
             if (setContains(ctx, result, v)) {
                 const proto::ProtoList* delArgs = ctx->newList();
                 delArgs = delArgs->appendLast(ctx, v);
-                setDeleteFn(ctx, result, nullptr, delArgs, nullptr);
+                setDeleteFn(ctx, result, nullptr, argsView(proto::ProtoListArguments(ctx, delArgs)), nullptr);
             }
             return true;
         }, keysFn);
@@ -1243,7 +1243,7 @@ static const proto::ProtoObject* setDifference(
 static const proto::ProtoObject* setSymmetricDifference(
     proto::ProtoContext* ctx, const proto::ProtoObject* self,
     const proto::ParentLink*,
-    const proto::ProtoList* args, const proto::ProtoSparseList*)
+    const proto::ProtoArguments* args, const proto::ProtoKeywordArguments*)
 {
     if (!requireSetThis(ctx, self)) return PROTO_NONE;
     const proto::ProtoObject* other = (args && args->getSize(ctx) > 0)
@@ -1275,7 +1275,7 @@ static const proto::ProtoObject* setSymmetricDifference(
             if (setContains(ctx, result, v)) {
                 const proto::ProtoList* delArgs = ctx->newList();
                 delArgs = delArgs->appendLast(ctx, v);
-                setDeleteFn(ctx, result, nullptr, delArgs, nullptr);
+                setDeleteFn(ctx, result, nullptr, argsView(proto::ProtoListArguments(ctx, delArgs)), nullptr);
             } else {
                 setAddValue(ctx, result, v);
             }
@@ -1288,7 +1288,7 @@ static const proto::ProtoObject* setSymmetricDifference(
 static const proto::ProtoObject* setIsSubsetOf(
     proto::ProtoContext* ctx, const proto::ProtoObject* self,
     const proto::ParentLink*,
-    const proto::ProtoList* args, const proto::ProtoSparseList*)
+    const proto::ProtoArguments* args, const proto::ProtoKeywordArguments*)
 {
     if (!requireSetThis(ctx, self)) return PROTO_NONE;
     const proto::ProtoObject* other = (args && args->getSize(ctx) > 0)
@@ -1331,7 +1331,7 @@ static const proto::ProtoObject* setIsSubsetOf(
 static const proto::ProtoObject* setIsSupersetOf(
     proto::ProtoContext* ctx, const proto::ProtoObject* self,
     const proto::ParentLink*,
-    const proto::ProtoList* args, const proto::ProtoSparseList*)
+    const proto::ProtoArguments* args, const proto::ProtoKeywordArguments*)
 {
     if (!requireSetThis(ctx, self)) return PROTO_NONE;
     const proto::ProtoObject* other = (args && args->getSize(ctx) > 0)
@@ -1356,7 +1356,7 @@ static const proto::ProtoObject* setIsSupersetOf(
 static const proto::ProtoObject* setIsDisjointFrom(
     proto::ProtoContext* ctx, const proto::ProtoObject* self,
     const proto::ParentLink*,
-    const proto::ProtoList* args, const proto::ProtoSparseList*)
+    const proto::ProtoArguments* args, const proto::ProtoKeywordArguments*)
 {
     if (!requireSetThis(ctx, self)) return PROTO_NONE;
     const proto::ProtoObject* other = (args && args->getSize(ctx) > 0)
@@ -1721,8 +1721,8 @@ void ensureSetConstructor(proto::ProtoContext* ctx,
     {
         static const proto::ProtoMethod setCall = [](
             proto::ProtoContext* sctx, const proto::ProtoObject*,
-            const proto::ParentLink*, const proto::ProtoList*,
-            const proto::ProtoSparseList*) -> const proto::ProtoObject* {
+            const proto::ParentLink*, const proto::ProtoArguments*,
+            const proto::ProtoKeywordArguments*) -> const proto::ProtoObject* {
             signalNativeException(makeNativeError(sctx, "TypeError",
                 "Constructor Set requires 'new'"));
             return PROTO_NONE;

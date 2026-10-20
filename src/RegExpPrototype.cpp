@@ -237,8 +237,8 @@ void regexpAdvanceAfterEmptyMatch(proto::ProtoContext* ctx,
 
 const proto::ProtoObject* regexpExec(
     proto::ProtoContext* ctx, const proto::ProtoObject* self,
-    const proto::ParentLink*, const proto::ProtoList* args,
-    const proto::ProtoSparseList*)
+    const proto::ParentLink*, const proto::ProtoArguments* args,
+    const proto::ProtoKeywordArguments*)
 {
     if (!ctx) return PROTO_NONE;
     // §22.2.6.2 step 1-2: receiver must be an Object with an
@@ -403,8 +403,8 @@ const proto::ProtoObject* regexpExec(
 
 const proto::ProtoObject* regexpTest(
     proto::ProtoContext* ctx, const proto::ProtoObject* self,
-    const proto::ParentLink* parent, const proto::ProtoList* args,
-    const proto::ProtoSparseList* sparse)
+    const proto::ParentLink* parent, const proto::ProtoArguments* args,
+    const proto::ProtoKeywordArguments* sparse)
 {
     const proto::ProtoObject* res = regexpExec(ctx, self, parent, args, sparse);
     // §22.2.6.13 RegExp.prototype.test: true iff RegExpExec returned a
@@ -417,7 +417,7 @@ const proto::ProtoObject* regexpTest(
 
 const proto::ProtoObject* regexpToString(
     proto::ProtoContext* ctx, const proto::ProtoObject* self,
-    const proto::ParentLink*, const proto::ProtoList*, const proto::ProtoSparseList*)
+    const proto::ParentLink*, const proto::ProtoArguments*, const proto::ProtoKeywordArguments*)
 {
     // §22.2.6.13 step 1-2: receiver must be Object — primitives and
     // null/undefined raise TypeError.  Pre-fix bare-call
@@ -474,8 +474,8 @@ const proto::ProtoObject* regexpToString(
 
 const proto::ProtoObject* regexpConstructor(
     proto::ProtoContext* ctx, const proto::ProtoObject* self,
-    const proto::ParentLink*, const proto::ProtoList* args,
-    const proto::ProtoSparseList*)
+    const proto::ParentLink*, const proto::ProtoArguments* args,
+    const proto::ProtoKeywordArguments*)
 {
     if (!ctx) return PROTO_NONE;
 
@@ -605,8 +605,8 @@ const proto::ProtoObject* regexpConstructor(
 
 const proto::ProtoObject* regexpSymbolMatch(
     proto::ProtoContext* ctx, const proto::ProtoObject* self,
-    const proto::ParentLink* parent, const proto::ProtoList* args,
-    const proto::ProtoSparseList* sparse)
+    const proto::ParentLink* parent, const proto::ProtoArguments* args,
+    const proto::ProtoKeywordArguments* sparse)
 {
     if (!ctx || !self || !args || args->getSize(ctx) == 0) return PROTO_NONE;
     
@@ -655,8 +655,8 @@ const proto::ProtoObject* regexpSymbolMatch(
 
 const proto::ProtoObject* regexpSymbolReplace(
     proto::ProtoContext* ctx, const proto::ProtoObject* self,
-    const proto::ParentLink*, const proto::ProtoList* args,
-    const proto::ProtoSparseList*)
+    const proto::ParentLink*, const proto::ProtoArguments* args,
+    const proto::ProtoKeywordArguments*)
 {
     if (!ctx || !self || !args || args->getSize(ctx) < 2) return PROTO_NONE;
 
@@ -711,7 +711,7 @@ const proto::ProtoObject* regexpSymbolReplace(
     execArgs = execArgs->appendLast(ctx, strArg);
 
     while (true) {
-        const proto::ProtoObject* match = regexpExec(ctx, self, nullptr, execArgs, nullptr);
+        const proto::ProtoObject* match = regexpExec(ctx, self, nullptr, argsView(proto::ProtoListArguments(ctx, execArgs)), nullptr);
         if (!match || match == PROTO_NONE || match == getNullSentinel()) break;
 
         const proto::ProtoObject* fullMatchObj = match->getAttribute(ctx, JSSymbols::indexKey(ctx, 0), false);
@@ -811,8 +811,8 @@ const proto::ProtoObject* regexpSymbolReplace(
 
 const proto::ProtoObject* regexpSymbolSearch(
     proto::ProtoContext* ctx, const proto::ProtoObject* self,
-    const proto::ParentLink* parent, const proto::ProtoList* args,
-    const proto::ProtoSparseList* sparse)
+    const proto::ParentLink* parent, const proto::ProtoArguments* args,
+    const proto::ProtoKeywordArguments* sparse)
 {
     const proto::ProtoObject* match = regexpExec(ctx, self, parent, args, sparse);
     if (!match || match == PROTO_NONE || match == getNullSentinel())
@@ -823,8 +823,8 @@ const proto::ProtoObject* regexpSymbolSearch(
 
 const proto::ProtoObject* regexpSymbolSplit(
     proto::ProtoContext* ctx, const proto::ProtoObject* self,
-    const proto::ParentLink*, const proto::ProtoList* args,
-    const proto::ProtoSparseList*)
+    const proto::ParentLink*, const proto::ProtoArguments* args,
+    const proto::ProtoKeywordArguments*)
 {
     if (!ctx || !self || !args || args->getSize(ctx) < 1) {
         const proto::ProtoObject* r = createNewArray(ctx, nullptr);
@@ -1019,7 +1019,7 @@ static bool reHasInternalSlot(proto::ProtoContext* ctx, const proto::ProtoObject
 #define DEFINE_FLAG_GETTER(getterName, jsAttr)                                          \
 static const proto::ProtoObject* getterName(                                            \
     proto::ProtoContext* ctx, const proto::ProtoObject* self,                           \
-    const proto::ParentLink*, const proto::ProtoList*, const proto::ProtoSparseList*)   \
+    const proto::ParentLink*, const proto::ProtoArguments*, const proto::ProtoKeywordArguments*)   \
 {                                                                                       \
     if (!reRequireObjectThis(ctx, self)) return PROTO_NONE;                             \
     if (!reHasInternalSlot(ctx, self)) {                                                \
@@ -1045,7 +1045,7 @@ DEFINE_FLAG_GETTER(reHasIndicesGetter, JSSymbols::hasIndices)
 // overrides on subclasses are honoured per spec.
 static const proto::ProtoObject* reFlagsGetter(
     proto::ProtoContext* ctx, const proto::ProtoObject* self,
-    const proto::ParentLink*, const proto::ProtoList*, const proto::ProtoSparseList*)
+    const proto::ParentLink*, const proto::ProtoArguments*, const proto::ProtoKeywordArguments*)
 {
     if (!reRequireObjectThis(ctx, self)) return PROTO_NONE;
     std::string result;
@@ -1070,7 +1070,7 @@ static const proto::ProtoObject* reFlagsGetter(
 // receiver yields the literal "(?:)"; non-RegExp receivers throw.
 static const proto::ProtoObject* reSourceGetter(
     proto::ProtoContext* ctx, const proto::ProtoObject* self,
-    const proto::ParentLink*, const proto::ProtoList*, const proto::ProtoSparseList*)
+    const proto::ParentLink*, const proto::ProtoArguments*, const proto::ProtoKeywordArguments*)
 {
     if (!reRequireObjectThis(ctx, self)) return PROTO_NONE;
     if (!reHasInternalSlot(ctx, self)) {
@@ -1325,7 +1325,7 @@ void ensureRegExpConstructor(proto::ProtoContext* ctx,
                 static const auto regexpSpeciesGetter = [](
                     proto::ProtoContext* /*ctx*/, const proto::ProtoObject* self,
                     const proto::ParentLink*,
-                    const proto::ProtoList*, const proto::ProtoSparseList*)
+                    const proto::ProtoArguments*, const proto::ProtoKeywordArguments*)
                     -> const proto::ProtoObject* { return self; };
                 const proto::ProtoString* nfKey = JSSymbols::nativeFn(ctx);
                 if (nfKey) {

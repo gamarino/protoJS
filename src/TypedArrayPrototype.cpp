@@ -466,7 +466,7 @@ const proto::ProtoObject* createTypedArrayFromBuffer(proto::ProtoContext* ctx,
 
 static const proto::ProtoObject* ta_fill(
     proto::ProtoContext* ctx, const proto::ProtoObject* self,
-    const proto::ParentLink*, const proto::ProtoList* args, const proto::ProtoSparseList*)
+    const proto::ParentLink*, const proto::ProtoArguments* args, const proto::ProtoKeywordArguments*)
 {
     if (!self || self == PROTO_NONE) return const_cast<proto::ProtoObject*>(self);
     uint8_t et = getTypedArrayElementType(ctx, self);
@@ -516,7 +516,7 @@ static bool numericEqual(proto::ProtoContext* ctx,
 
 static const proto::ProtoObject* ta_indexOf(
     proto::ProtoContext* ctx, const proto::ProtoObject* self,
-    const proto::ParentLink*, const proto::ProtoList* args, const proto::ProtoSparseList*)
+    const proto::ParentLink*, const proto::ProtoArguments* args, const proto::ProtoKeywordArguments*)
 {
     uint8_t et = getTypedArrayElementType(ctx, self);
     if (et == 0xFF) return ctx->fromInteger(-1LL);
@@ -540,7 +540,7 @@ static const proto::ProtoObject* ta_indexOf(
 
 static const proto::ProtoObject* ta_lastIndexOf(
     proto::ProtoContext* ctx, const proto::ProtoObject* self,
-    const proto::ParentLink*, const proto::ProtoList* args, const proto::ProtoSparseList*)
+    const proto::ParentLink*, const proto::ProtoArguments* args, const proto::ProtoKeywordArguments*)
 {
     uint8_t et = getTypedArrayElementType(ctx, self);
     if (et == 0xFF) return ctx->fromInteger(-1LL);
@@ -566,7 +566,7 @@ static const proto::ProtoObject* ta_lastIndexOf(
 
 static const proto::ProtoObject* ta_includes(
     proto::ProtoContext* ctx, const proto::ProtoObject* self,
-    const proto::ParentLink*, const proto::ProtoList* args, const proto::ProtoSparseList*)
+    const proto::ParentLink*, const proto::ProtoArguments* args, const proto::ProtoKeywordArguments*)
 {
     uint8_t et = getTypedArrayElementType(ctx, self);
     if (et == 0xFF) return PROTO_FALSE;
@@ -594,7 +594,7 @@ static const proto::ProtoObject* ta_includes(
 
 static const proto::ProtoObject* ta_join(
     proto::ProtoContext* ctx, const proto::ProtoObject* self,
-    const proto::ParentLink*, const proto::ProtoList* args, const proto::ProtoSparseList*)
+    const proto::ParentLink*, const proto::ProtoArguments* args, const proto::ProtoKeywordArguments*)
 {
     uint8_t et = getTypedArrayElementType(ctx, self);
     if (et == 0xFF) return ctx->fromUTF8String("");
@@ -629,7 +629,7 @@ static const proto::ProtoObject* ta_join(
 
 static const proto::ProtoObject* ta_reverse(
     proto::ProtoContext* ctx, const proto::ProtoObject* self,
-    const proto::ParentLink*, const proto::ProtoList*, const proto::ProtoSparseList*)
+    const proto::ParentLink*, const proto::ProtoArguments*, const proto::ProtoKeywordArguments*)
 {
     uint8_t et = getTypedArrayElementType(ctx, self);
     if (et == 0xFF) return const_cast<proto::ProtoObject*>(self);
@@ -646,7 +646,7 @@ static const proto::ProtoObject* ta_reverse(
 
 static const proto::ProtoObject* ta_at(
     proto::ProtoContext* ctx, const proto::ProtoObject* self,
-    const proto::ParentLink*, const proto::ProtoList* args, const proto::ProtoSparseList*)
+    const proto::ParentLink*, const proto::ProtoArguments* args, const proto::ProtoKeywordArguments*)
 {
     uint8_t et = getTypedArrayElementType(ctx, self);
     if (et == 0xFF) return PROTO_NONE;
@@ -665,7 +665,7 @@ static const proto::ProtoObject* ta_at(
 
 static const proto::ProtoObject* ta_subarray(
     proto::ProtoContext* ctx, const proto::ProtoObject* self,
-    const proto::ParentLink*, const proto::ProtoList* args, const proto::ProtoSparseList*)
+    const proto::ParentLink*, const proto::ProtoArguments* args, const proto::ProtoKeywordArguments*)
 {
     uint8_t et = getTypedArrayElementType(ctx, self);
     if (et == 0xFF) return PROTO_NONE;
@@ -705,7 +705,7 @@ static const proto::ProtoObject* ta_subarray(
 
 static const proto::ProtoObject* ta_copyWithin(
     proto::ProtoContext* ctx, const proto::ProtoObject* self,
-    const proto::ParentLink*, const proto::ProtoList* args, const proto::ProtoSparseList*)
+    const proto::ParentLink*, const proto::ProtoArguments* args, const proto::ProtoKeywordArguments*)
 {
     uint8_t et = getTypedArrayElementType(ctx, self);
     if (et == 0xFF) return const_cast<proto::ProtoObject*>(self);
@@ -774,7 +774,7 @@ static const proto::ProtoObject* invokeCallback(
 
 // The callback and thisArg of a callback method, or false with a TypeError
 // pending when the callback is not callable (§23.2.3 step 3 of each method).
-static bool taCallbackArgs(proto::ProtoContext* ctx, const proto::ProtoList* args,
+static bool taCallbackArgs(proto::ProtoContext* ctx, const proto::ProtoArguments* args,
                            const char* method, const proto::ProtoObject*& fn,
                            const proto::ProtoObject*& thisArg) {
     const size_t n = args ? args->getSize(ctx) : 0;
@@ -791,7 +791,7 @@ static bool taCallbackArgs(proto::ProtoContext* ctx, const proto::ProtoList* arg
 
 static const proto::ProtoObject* ta_forEach(
     proto::ProtoContext* ctx, const proto::ProtoObject* self,
-    const proto::ParentLink*, const proto::ProtoList* args, const proto::ProtoSparseList*)
+    const proto::ParentLink*, const proto::ProtoArguments* args, const proto::ProtoKeywordArguments*)
 {
     uint8_t et = getTypedArrayElementType(ctx, self);
     if (et == 0xFF) return PROTO_NONE;
@@ -807,7 +807,7 @@ static const proto::ProtoObject* ta_forEach(
 
 static const proto::ProtoObject* ta_every(
     proto::ProtoContext* ctx, const proto::ProtoObject* self,
-    const proto::ParentLink*, const proto::ProtoList* args, const proto::ProtoSparseList*)
+    const proto::ParentLink*, const proto::ProtoArguments* args, const proto::ProtoKeywordArguments*)
 {
     uint8_t et = getTypedArrayElementType(ctx, self);
     if (et == 0xFF) return PROTO_TRUE;
@@ -825,7 +825,7 @@ static const proto::ProtoObject* ta_every(
 
 static const proto::ProtoObject* ta_some(
     proto::ProtoContext* ctx, const proto::ProtoObject* self,
-    const proto::ParentLink*, const proto::ProtoList* args, const proto::ProtoSparseList*)
+    const proto::ParentLink*, const proto::ProtoArguments* args, const proto::ProtoKeywordArguments*)
 {
     uint8_t et = getTypedArrayElementType(ctx, self);
     if (et == 0xFF) return PROTO_FALSE;
@@ -843,7 +843,7 @@ static const proto::ProtoObject* ta_some(
 
 static const proto::ProtoObject* ta_find(
     proto::ProtoContext* ctx, const proto::ProtoObject* self,
-    const proto::ParentLink*, const proto::ProtoList* args, const proto::ProtoSparseList*)
+    const proto::ParentLink*, const proto::ProtoArguments* args, const proto::ProtoKeywordArguments*)
 {
     uint8_t et = getTypedArrayElementType(ctx, self);
     if (et == 0xFF) return PROTO_NONE;
@@ -861,7 +861,7 @@ static const proto::ProtoObject* ta_find(
 
 static const proto::ProtoObject* ta_findIndex(
     proto::ProtoContext* ctx, const proto::ProtoObject* self,
-    const proto::ParentLink*, const proto::ProtoList* args, const proto::ProtoSparseList*)
+    const proto::ParentLink*, const proto::ProtoArguments* args, const proto::ProtoKeywordArguments*)
 {
     uint8_t et = getTypedArrayElementType(ctx, self);
     if (et == 0xFF) return ctx->fromInteger(-1LL);
@@ -879,7 +879,7 @@ static const proto::ProtoObject* ta_findIndex(
 
 static const proto::ProtoObject* ta_map(
     proto::ProtoContext* ctx, const proto::ProtoObject* self,
-    const proto::ParentLink*, const proto::ProtoList* args, const proto::ProtoSparseList*)
+    const proto::ParentLink*, const proto::ProtoArguments* args, const proto::ProtoKeywordArguments*)
 {
     uint8_t et = getTypedArrayElementType(ctx, self);
     if (et == 0xFF) return PROTO_NONE;
@@ -901,7 +901,7 @@ static const proto::ProtoObject* ta_map(
 
 static const proto::ProtoObject* ta_reduce(
     proto::ProtoContext* ctx, const proto::ProtoObject* self,
-    const proto::ParentLink*, const proto::ProtoList* args, const proto::ProtoSparseList*)
+    const proto::ParentLink*, const proto::ProtoArguments* args, const proto::ProtoKeywordArguments*)
 {
     uint8_t et = getTypedArrayElementType(ctx, self);
     if (et == 0xFF) return PROTO_NONE;
@@ -935,7 +935,7 @@ static const proto::ProtoObject* ta_reduce(
 
 static const proto::ProtoObject* ta_reduceRight(
     proto::ProtoContext* ctx, const proto::ProtoObject* self,
-    const proto::ParentLink*, const proto::ProtoList* args, const proto::ProtoSparseList*)
+    const proto::ParentLink*, const proto::ProtoArguments* args, const proto::ProtoKeywordArguments*)
 {
     uint8_t et = getTypedArrayElementType(ctx, self);
     if (et == 0xFF) return PROTO_NONE;
@@ -1017,7 +1017,7 @@ static bool taMergeSortWith(proto::ProtoContext* ctx, const proto::ProtoObject* 
 
 static const proto::ProtoObject* ta_sort(
     proto::ProtoContext* ctx, const proto::ProtoObject* self,
-    const proto::ParentLink*, const proto::ProtoList* args, const proto::ProtoSparseList*)
+    const proto::ParentLink*, const proto::ProtoArguments* args, const proto::ProtoKeywordArguments*)
 {
     // Step 1: a comparator other than undefined must be callable, checked
     // before anything else (so even an empty array throws).
@@ -1096,7 +1096,7 @@ static const proto::ProtoObject* ta_sort(
 
 static const proto::ProtoObject* ta_set(
     proto::ProtoContext* ctx, const proto::ProtoObject* self,
-    const proto::ParentLink*, const proto::ProtoList* args, const proto::ProtoSparseList*)
+    const proto::ParentLink*, const proto::ProtoArguments* args, const proto::ProtoKeywordArguments*)
 {
     uint8_t et = getTypedArrayElementType(ctx, self);
     if (et == 0xFF || !args || args->getSize(ctx) == 0) return PROTO_NONE;
@@ -1172,7 +1172,7 @@ static bool requireTypedArray(proto::ProtoContext* ctx, const proto::ProtoObject
 // (§23.2.3.2, .3, .4, .21): the typed array's own internal fields.
 static const proto::ProtoObject* ta_get_buffer(
     proto::ProtoContext* ctx, const proto::ProtoObject* self,
-    const proto::ParentLink*, const proto::ProtoList*, const proto::ProtoSparseList*)
+    const proto::ParentLink*, const proto::ProtoArguments*, const proto::ProtoKeywordArguments*)
 {
     if (!requireTypedArray(ctx, self, "buffer")) return PROTO_NONE;
     const proto::ProtoObject* ab = self->getAttribute(ctx, JSSymbols::taBuffer(ctx), false);
@@ -1181,7 +1181,7 @@ static const proto::ProtoObject* ta_get_buffer(
 
 static const proto::ProtoObject* ta_get_byteOffset(
     proto::ProtoContext* ctx, const proto::ProtoObject* self,
-    const proto::ParentLink*, const proto::ProtoList*, const proto::ProtoSparseList*)
+    const proto::ParentLink*, const proto::ProtoArguments*, const proto::ProtoKeywordArguments*)
 {
     if (!requireTypedArray(ctx, self, "byteOffset")) return PROTO_NONE;
     const proto::ProtoObject* bo = self->getAttribute(ctx, JSSymbols::taByteOffset(ctx), false);
@@ -1191,7 +1191,7 @@ static const proto::ProtoObject* ta_get_byteOffset(
 
 static const proto::ProtoObject* ta_get_byteLength(
     proto::ProtoContext* ctx, const proto::ProtoObject* self,
-    const proto::ParentLink*, const proto::ProtoList*, const proto::ProtoSparseList*)
+    const proto::ParentLink*, const proto::ProtoArguments*, const proto::ProtoKeywordArguments*)
 {
     if (!requireTypedArray(ctx, self, "byteLength")) return PROTO_NONE;
     const proto::ProtoObject* bl = self->getAttribute(ctx, JSSymbols::byteLength(ctx), false);
@@ -1200,7 +1200,7 @@ static const proto::ProtoObject* ta_get_byteLength(
 
 static const proto::ProtoObject* ta_get_length(
     proto::ProtoContext* ctx, const proto::ProtoObject* self,
-    const proto::ParentLink*, const proto::ProtoList*, const proto::ProtoSparseList*)
+    const proto::ParentLink*, const proto::ProtoArguments*, const proto::ProtoKeywordArguments*)
 {
     if (!requireTypedArray(ctx, self, "length")) return PROTO_NONE;
     return ctx->fromInteger(static_cast<long long>(getTypedArrayLength(ctx, self)));
@@ -1216,7 +1216,7 @@ static const char* const kTypedArrayNames[11] = {
 // [[TypedArrayName]], or undefined for any other receiver (no TypeError).
 static const proto::ProtoObject* ta_get_toStringTag(
     proto::ProtoContext* ctx, const proto::ProtoObject* self,
-    const proto::ParentLink*, const proto::ProtoList*, const proto::ProtoSparseList*)
+    const proto::ParentLink*, const proto::ProtoArguments*, const proto::ProtoKeywordArguments*)
 {
     if (!self || self == PROTO_NONE || !isTypedArray(ctx, self)
         || self->hasOwnAttribute(ctx, JSSymbols::taBuffer(ctx)) != PROTO_TRUE)
@@ -1255,7 +1255,7 @@ bool isTypedArrayInstance(proto::ProtoContext* ctx, const proto::ProtoObject* ob
 
 static const proto::ProtoObject* ta_slice(
     proto::ProtoContext* ctx, const proto::ProtoObject* self,
-    const proto::ParentLink*, const proto::ProtoList* args, const proto::ProtoSparseList*)
+    const proto::ParentLink*, const proto::ProtoArguments* args, const proto::ProtoKeywordArguments*)
 {
     uint8_t et = getTypedArrayElementType(ctx, self);
     if (et == 0xFF) return PROTO_NONE;
@@ -1465,7 +1465,7 @@ const proto::ProtoObject* constructTypedArrayOrBuffer(proto::ProtoContext* ctx,
 struct TAStaticMethods {
     static const proto::ProtoObject* makeOf(
         proto::ProtoContext* ctx, uint8_t et,
-        const proto::ProtoObject* proto, const proto::ProtoList* args)
+        const proto::ProtoObject* proto, const proto::ProtoArguments* args)
     {
         uint32_t len = args ? static_cast<uint32_t>(args->getSize(ctx)) : 0;
         const proto::ProtoObject* result = createTypedArrayFromLength(ctx, proto, et, len);
@@ -1484,9 +1484,9 @@ struct TAStaticMethods {
     // array of this kind.
     static const proto::ProtoObject* makeFrom(
         proto::ProtoContext* ctx, uint8_t et,
-        const proto::ProtoObject* proto, const proto::ProtoList* args)
+        const proto::ProtoObject* proto, const proto::ProtoArguments* args)
     {
-        const proto::ProtoList* values = collectArrayFromValues(ctx, args ? args : ctx->newList());
+        const proto::ProtoList* values = collectArrayFromValues(ctx, args ? args->asList(ctx) : ctx->newList());
         if (!values) return PROTO_NONE;
         return typedArrayFromValues(ctx, proto, et, values);
     }
@@ -1497,12 +1497,12 @@ struct TAStaticMethods {
 #define DEFINE_TA_STATIC(idx) \
 static const proto::ProtoObject* ta_of_##idx( \
     proto::ProtoContext* ctx, const proto::ProtoObject*, \
-    const proto::ParentLink*, const proto::ProtoList* args, const proto::ProtoSparseList*) { \
+    const proto::ParentLink*, const proto::ProtoArguments* args, const proto::ProtoKeywordArguments*) { \
     return TAStaticMethods::makeOf(ctx, idx, getTypedArrayConcreteProto(ctx, idx), args); \
 } \
 static const proto::ProtoObject* ta_from_##idx( \
     proto::ProtoContext* ctx, const proto::ProtoObject*, \
-    const proto::ParentLink*, const proto::ProtoList* args, const proto::ProtoSparseList*) { \
+    const proto::ParentLink*, const proto::ProtoArguments* args, const proto::ProtoKeywordArguments*) { \
     return TAStaticMethods::makeFrom(ctx, idx, getTypedArrayConcreteProto(ctx, idx), args); \
 }
 
@@ -1518,7 +1518,7 @@ DEFINE_TA_STATIC(9)  DEFINE_TA_STATIC(10)
 
 using TAStaticMethod = const proto::ProtoObject*(*)(proto::ProtoContext*,
     const proto::ProtoObject*, const proto::ParentLink*,
-    const proto::ProtoList*, const proto::ProtoSparseList*);
+    const proto::ProtoArguments*, const proto::ProtoKeywordArguments*);
 
 static const TAStaticMethod TA_OF_METHODS[11] = {
     ta_of_0, ta_of_1, ta_of_2, ta_of_3, ta_of_4,
@@ -1545,7 +1545,7 @@ static const TAStaticMethod TA_FROM_METHODS[11] = {
  */
 static const proto::ProtoObject* taIterNext(
     proto::ProtoContext* ctx, const proto::ProtoObject* self,
-    const proto::ParentLink*, const proto::ProtoList*, const proto::ProtoSparseList*)
+    const proto::ParentLink*, const proto::ProtoArguments*, const proto::ProtoKeywordArguments*)
 {
     // Helper to build a {value, done} result object.
     auto makeResult = [&](const proto::ProtoObject* val,
@@ -1616,7 +1616,7 @@ static const proto::ProtoObject* taIterNext(
  */
 static const proto::ProtoObject* taIterSelf(
     proto::ProtoContext*, const proto::ProtoObject* self,
-    const proto::ParentLink*, const proto::ProtoList*, const proto::ProtoSparseList*)
+    const proto::ParentLink*, const proto::ProtoArguments*, const proto::ProtoKeywordArguments*)
 {
     return self;
 }
@@ -1650,19 +1650,19 @@ static const proto::ProtoObject* makeTAIterator(
 /** %TypedArray%.prototype.values() — iterator over element values. */
 static const proto::ProtoObject* ta_values(
     proto::ProtoContext* ctx, const proto::ProtoObject* self,
-    const proto::ParentLink*, const proto::ProtoList*, const proto::ProtoSparseList*)
+    const proto::ParentLink*, const proto::ProtoArguments*, const proto::ProtoKeywordArguments*)
 { return makeTAIterator(ctx, self, 0); }
 
 /** %TypedArray%.prototype.keys() — iterator over element indices. */
 static const proto::ProtoObject* ta_keys(
     proto::ProtoContext* ctx, const proto::ProtoObject* self,
-    const proto::ParentLink*, const proto::ProtoList*, const proto::ProtoSparseList*)
+    const proto::ParentLink*, const proto::ProtoArguments*, const proto::ProtoKeywordArguments*)
 { return makeTAIterator(ctx, self, 1); }
 
 /** %TypedArray%.prototype.entries() — iterator over [index, value] pairs. */
 static const proto::ProtoObject* ta_entries(
     proto::ProtoContext* ctx, const proto::ProtoObject* self,
-    const proto::ParentLink*, const proto::ProtoList*, const proto::ProtoSparseList*)
+    const proto::ParentLink*, const proto::ProtoArguments*, const proto::ProtoKeywordArguments*)
 { return makeTAIterator(ctx, self, 2); }
 
 // ---------------------------------------------------------------------------

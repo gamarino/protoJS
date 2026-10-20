@@ -43,8 +43,8 @@ static const proto::ProtoObject* iteratorReturnSelf(
     proto::ProtoContext* /*ctx*/,
     const proto::ProtoObject* self,
     const proto::ParentLink*,
-    const proto::ProtoList*,
-    const proto::ProtoSparseList*)
+    const proto::ProtoArguments*,
+    const proto::ProtoKeywordArguments*)
 {
     return self;
 }
@@ -57,8 +57,8 @@ static const proto::ProtoObject* regexpStringIteratorNext(
     proto::ProtoContext* ctx,
     const proto::ProtoObject* self,
     const proto::ParentLink*,
-    const proto::ProtoList*,
-    const proto::ProtoSparseList*)
+    const proto::ProtoArguments*,
+    const proto::ProtoKeywordArguments*)
 {
     const proto::ProtoObject* doneResult = ctx->newObject(true);
     doneResult = doneResult->setAttribute(ctx, JSSymbols::value(ctx), PROTO_NONE);
@@ -77,7 +77,8 @@ static const proto::ProtoObject* regexpStringIteratorNext(
     const proto::ProtoList* execArgs = ctx->newList();
     execArgs = execArgs->appendLast(ctx, ctx->fromUTF8String(str.c_str()));
 
-    const proto::ProtoObject* match = regexpExec(ctx, reObj, nullptr, execArgs, nullptr);
+    const proto::ProtoListArguments execArguments(ctx, execArgs);
+    const proto::ProtoObject* match = regexpExec(ctx, reObj, nullptr, &execArguments, nullptr);
 
     if (!match || match == PROTO_NONE || match == getNullSentinel()) {
         self->setAttribute(ctx, JSSymbols::iterDone(ctx), PROTO_TRUE);
@@ -203,8 +204,8 @@ const proto::ProtoObject* regexpSymbolMatchAll(
     proto::ProtoContext* ctx,
     const proto::ProtoObject* self,
     const proto::ParentLink*,
-    const proto::ProtoList* args,
-    const proto::ProtoSparseList*)
+    const proto::ProtoArguments* args,
+    const proto::ProtoKeywordArguments*)
 {
     if (!ctx || !self || !args || args->getSize(ctx) == 0) return PROTO_NONE;
 

@@ -50,6 +50,25 @@ const proto::ProtoObject* callJSFunction(
     proto::ProtoContext* ctx,
     const proto::ProtoObject* fn,
     const proto::ProtoObject* thisVal,
+    const proto::ProtoArguments* args);
+
+/**
+ * A descriptor for a call made inside one full expression, from a temporary:
+ *   fn(ctx, self, nullptr, argsView(proto::ProtoListArguments(ctx, list)), nullptr)
+ * The temporary lives until the end of the full expression, which outlasts the
+ * call; never keep the pointer.
+ */
+inline const proto::ProtoArguments* argsView(const proto::ProtoArguments& args) { return &args; }
+
+/**
+ * The same call with the arguments in a ProtoList (read in place when it is a
+ * small list, otherwise copied into a stack buffer; protoCore's
+ * ProtoListArguments).  `args` may be null.
+ */
+const proto::ProtoObject* callJSFunction(
+    proto::ProtoContext* ctx,
+    const proto::ProtoObject* fn,
+    const proto::ProtoObject* thisVal,
     const proto::ProtoList* args);
 
 /**

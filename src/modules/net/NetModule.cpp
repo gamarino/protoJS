@@ -46,7 +46,7 @@ std::atomic<int> g_active{0};
 
 // ---- Argument helpers --------------------------------------------------
 
-bool argString(proto::ProtoContext* ctx, const proto::ProtoList* args,
+bool argString(proto::ProtoContext* ctx, const proto::ProtoArguments* args,
                 int idx, std::string& out) {
     if (!ctx || !args) return false;
     if (idx >= static_cast<int>(args->getSize(ctx))) return false;
@@ -123,7 +123,7 @@ const proto::ProtoObject* invokeEEMethod(
         proto::ProtoContext* ctx,
         const proto::ProtoObject* self,
         const char* methodName,
-        const proto::ProtoList* args) {
+        const proto::ProtoArguments* args) {
     if (!self || !ctx) return PROTO_NONE;
     const proto::ProtoObject* ee =
         self->getAttribute(ctx, keyEvents(ctx), false);
@@ -133,7 +133,8 @@ const proto::ProtoObject* invokeEEMethod(
     if (!mk) return PROTO_NONE;
     const proto::ProtoObject* fn = ee->getAttribute(ctx, mk, true);
     if (!fn || fn == PROTO_NONE) return PROTO_NONE;
-    return callJSFunction(ctx, fn, ee, args ? args : ctx->newList());
+    const proto::ProtoArguments noArgs(nullptr, 0);
+    return callJSFunction(ctx, fn, ee, args ? args : &noArgs);
 }
 
 void invokeEEMethodFromAsync(
@@ -399,8 +400,8 @@ const proto::ProtoObject* socketOnImpl(
     proto::ProtoContext* ctx,
     const proto::ProtoObject* self,
     const proto::ParentLink*,
-    const proto::ProtoList* args,
-    const proto::ProtoSparseList*) {
+    const proto::ProtoArguments* args,
+    const proto::ProtoKeywordArguments*) {
     invokeEEMethod(ctx, self, "on", args);
     return self ? self : PROTO_NONE;
 }
@@ -409,8 +410,8 @@ const proto::ProtoObject* socketEmitImpl(
     proto::ProtoContext* ctx,
     const proto::ProtoObject* self,
     const proto::ParentLink*,
-    const proto::ProtoList* args,
-    const proto::ProtoSparseList*) {
+    const proto::ProtoArguments* args,
+    const proto::ProtoKeywordArguments*) {
     return invokeEEMethod(ctx, self, "emit", args);
 }
 
@@ -418,8 +419,8 @@ const proto::ProtoObject* socketWriteImpl(
     proto::ProtoContext* ctx,
     const proto::ProtoObject* self,
     const proto::ParentLink*,
-    const proto::ProtoList* args,
-    const proto::ProtoSparseList*) {
+    const proto::ProtoArguments* args,
+    const proto::ProtoKeywordArguments*) {
     SocketState* s = getSocketState(ctx, self);
     if (!s || !s->connected.load() || !args || args->getSize(ctx) == 0)
         return PROTO_FALSE;
@@ -440,8 +441,8 @@ const proto::ProtoObject* socketEndImpl(
     proto::ProtoContext* ctx,
     const proto::ProtoObject* self,
     const proto::ParentLink* pl,
-    const proto::ProtoList* args,
-    const proto::ProtoSparseList* kw) {
+    const proto::ProtoArguments* args,
+    const proto::ProtoKeywordArguments* kw) {
     if (args && args->getSize(ctx) > 0) {
         socketWriteImpl(ctx, self, pl, args, kw);
     }
@@ -457,8 +458,8 @@ const proto::ProtoObject* socketDestroyImpl(
     proto::ProtoContext* ctx,
     const proto::ProtoObject* self,
     const proto::ParentLink*,
-    const proto::ProtoList* /*args*/,
-    const proto::ProtoSparseList*) {
+    const proto::ProtoArguments* /*args*/,
+    const proto::ProtoKeywordArguments*) {
     SocketState* s = getSocketState(ctx, self);
     if (s) {
         // The owner relinquish point -- see serverCloseImpl.
@@ -478,8 +479,8 @@ const proto::ProtoObject* socketAddressImpl(
     proto::ProtoContext* ctx,
     const proto::ProtoObject* self,
     const proto::ParentLink*,
-    const proto::ProtoList* /*args*/,
-    const proto::ProtoSparseList*) {
+    const proto::ProtoArguments* /*args*/,
+    const proto::ProtoKeywordArguments*) {
     SocketState* s = getSocketState(ctx, self);
     if (!s || !s->connected.load()) return PROTO_NONE;
     const proto::ProtoObject* obj = ctx->newObject(/*mutable=*/true);
@@ -501,8 +502,8 @@ const proto::ProtoObject* socketConnectImpl(
     proto::ProtoContext* ctx,
     const proto::ProtoObject* self,
     const proto::ParentLink*,
-    const proto::ProtoList* args,
-    const proto::ProtoSparseList*) {
+    const proto::ProtoArguments* args,
+    const proto::ProtoKeywordArguments*) {
     SocketState* s = getSocketState(ctx, self);
     if (!s || s->connected.load()) return self ? self : PROTO_NONE;
 
@@ -672,8 +673,8 @@ const proto::ProtoObject* serverOnImpl(
     proto::ProtoContext* ctx,
     const proto::ProtoObject* self,
     const proto::ParentLink*,
-    const proto::ProtoList* args,
-    const proto::ProtoSparseList*) {
+    const proto::ProtoArguments* args,
+    const proto::ProtoKeywordArguments*) {
     invokeEEMethod(ctx, self, "on", args);
     return self ? self : PROTO_NONE;
 }
@@ -682,8 +683,8 @@ const proto::ProtoObject* serverEmitImpl(
     proto::ProtoContext* ctx,
     const proto::ProtoObject* self,
     const proto::ParentLink*,
-    const proto::ProtoList* args,
-    const proto::ProtoSparseList*) {
+    const proto::ProtoArguments* args,
+    const proto::ProtoKeywordArguments*) {
     return invokeEEMethod(ctx, self, "emit", args);
 }
 
@@ -691,8 +692,8 @@ const proto::ProtoObject* serverAddressImpl(
     proto::ProtoContext* ctx,
     const proto::ProtoObject* self,
     const proto::ParentLink*,
-    const proto::ProtoList* /*args*/,
-    const proto::ProtoSparseList*) {
+    const proto::ProtoArguments* /*args*/,
+    const proto::ProtoKeywordArguments*) {
     ServerState* s = getServerState(ctx, self);
     if (!s || !s->listening.load()) return PROTO_NONE;
     const proto::ProtoObject* obj = ctx->newObject(/*mutable=*/true);
@@ -712,8 +713,8 @@ const proto::ProtoObject* serverCloseImpl(
     proto::ProtoContext* ctx,
     const proto::ProtoObject* self,
     const proto::ParentLink*,
-    const proto::ProtoList* /*args*/,
-    const proto::ProtoSparseList*) {
+    const proto::ProtoArguments* /*args*/,
+    const proto::ProtoKeywordArguments*) {
     ServerState* s = getServerState(ctx, self);
     if (s) {
         // The owner relinquish point. protoCore's finalizer contract
@@ -737,8 +738,8 @@ const proto::ProtoObject* serverListenImpl(
     proto::ProtoContext* ctx,
     const proto::ProtoObject* self,
     const proto::ParentLink*,
-    const proto::ProtoList* args,
-    const proto::ProtoSparseList*) {
+    const proto::ProtoArguments* args,
+    const proto::ProtoKeywordArguments*) {
     ServerState* s = getServerState(ctx, self);
     if (!s || s->listening.load()) return self ? self : PROTO_NONE;
 
@@ -908,8 +909,8 @@ const proto::ProtoObject* createServerImpl(
     proto::ProtoContext* ctx,
     const proto::ProtoObject* /*self*/,
     const proto::ParentLink*,
-    const proto::ProtoList* args,
-    const proto::ProtoSparseList*) {
+    const proto::ProtoArguments* args,
+    const proto::ProtoKeywordArguments*) {
     if (!ctx) return PROTO_NONE;
     JSContextWrapper* wrapper = JSContextWrapper::current();
     if (!wrapper) return PROTO_NONE;
@@ -944,7 +945,7 @@ const proto::ProtoObject* createServerImpl(
             const proto::ProtoList* registerArgs = ctx->newList()
                 ->appendLast(ctx, ctx->fromUTF8String("connection"))
                 ->appendLast(ctx, a0);
-            invokeEEMethod(ctx, server, "on", registerArgs);
+            invokeEEMethod(ctx, server, "on", argsView(proto::ProtoListArguments(ctx, registerArgs)));
         }
     }
     return server;
@@ -954,8 +955,8 @@ const proto::ProtoObject* createConnectionImpl(
     proto::ProtoContext* ctx,
     const proto::ProtoObject* self,
     const proto::ParentLink* pl,
-    const proto::ProtoList* args,
-    const proto::ProtoSparseList* kw) {
+    const proto::ProtoArguments* args,
+    const proto::ProtoKeywordArguments* kw) {
     if (!ctx) return PROTO_NONE;
     JSContextWrapper* wrapper = JSContextWrapper::current();
     if (!wrapper) return PROTO_NONE;

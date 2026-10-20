@@ -25,8 +25,8 @@ const proto::ProtoObject* startProfilingImpl(
     proto::ProtoContext* /*ctx*/,
     const proto::ProtoObject* /*self*/,
     const proto::ParentLink*,
-    const proto::ProtoList* /*args*/,
-    const proto::ProtoSparseList*) {
+    const proto::ProtoArguments* /*args*/,
+    const proto::ProtoKeywordArguments*) {
     if (Profiler::profiling) return PROTO_FALSE;
     Profiler::profiling = true;
     Profiler::profileStart = std::chrono::high_resolution_clock::now();
@@ -38,8 +38,8 @@ const proto::ProtoObject* stopProfilingImpl(
     proto::ProtoContext* ctx,
     const proto::ProtoObject* /*self*/,
     const proto::ParentLink*,
-    const proto::ProtoList* /*args*/,
-    const proto::ProtoSparseList*) {
+    const proto::ProtoArguments* /*args*/,
+    const proto::ProtoKeywordArguments*) {
     if (!Profiler::profiling) return PROTO_FALSE;
     Profiler::profiling = false;
     auto endTime = std::chrono::high_resolution_clock::now();
@@ -53,8 +53,8 @@ const proto::ProtoObject* getProfileImpl(
     proto::ProtoContext* ctx,
     const proto::ProtoObject* /*self*/,
     const proto::ParentLink*,
-    const proto::ProtoList* /*args*/,
-    const proto::ProtoSparseList*) {
+    const proto::ProtoArguments* /*args*/,
+    const proto::ProtoKeywordArguments*) {
     if (!ctx) return PROTO_NONE;
     const proto::ProtoObject* profile = ctx->newObject(/*mutable=*/true);
     const proto::ProtoObject* arr = createNewArray(ctx, nullptr);
@@ -83,8 +83,8 @@ const proto::ProtoObject* getMemoryProfileImpl(
     proto::ProtoContext* ctx,
     const proto::ProtoObject* /*self*/,
     const proto::ParentLink*,
-    const proto::ProtoList* /*args*/,
-    const proto::ProtoSparseList*) {
+    const proto::ProtoArguments* /*args*/,
+    const proto::ProtoKeywordArguments*) {
     if (!ctx) return PROTO_NONE;
     const proto::ProtoObject* profile = ctx->newObject(/*mutable=*/true);
     const proto::ProtoString* ck = ctx->fromUTF8String("current")->asString(ctx);

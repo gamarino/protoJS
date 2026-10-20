@@ -758,8 +758,8 @@ void stringifyRecursive(proto::ProtoContext* ctx,
 const proto::ProtoObject* JSONBuiltin::stringify(proto::ProtoContext* ctx,
                                             const proto::ProtoObject* /*self*/,
                                             const proto::ParentLink* /*parentLink*/,
-                                            const proto::ProtoList* args,
-                                            const proto::ProtoSparseList* /*kwargs*/) {
+                                            const proto::ProtoArguments* args,
+                                            const proto::ProtoKeywordArguments* /*kwargs*/) {
     if (!ctx || !args || args->getSize(ctx) == 0) return PROTO_NONE;
     const proto::ProtoObject* val = args->getAt(ctx, 0);
 
@@ -1291,8 +1291,8 @@ static const proto::ProtoObject* internalizeJSONProperty(
 const proto::ProtoObject* JSONBuiltin::parse(proto::ProtoContext* ctx,
                                         const proto::ProtoObject* /*self*/,
                                         const proto::ParentLink* /*parentLink*/,
-                                        const proto::ProtoList* args,
-                                        const proto::ProtoSparseList* /*kwargs*/) {
+                                        const proto::ProtoArguments* args,
+                                        const proto::ProtoKeywordArguments* /*kwargs*/) {
     if (!ctx) return PROTO_NONE;
     // ECMA-262 §25.5.1 step 1: text = ? ToString(text). The ToString of
     // primitives produces real JSON-parseable forms for null / boolean /
@@ -1524,8 +1524,8 @@ const proto::ProtoObject* JSONBuiltin::parse(proto::ProtoContext* ctx,
 static const proto::ProtoObject* jsonRawJSON(proto::ProtoContext* ctx,
                                               const proto::ProtoObject* /*self*/,
                                               const proto::ParentLink*,
-                                              const proto::ProtoList* args,
-                                              const proto::ProtoSparseList*) {
+                                              const proto::ProtoArguments* args,
+                                              const proto::ProtoKeywordArguments*) {
     if (!ctx || !args || args->getSize(ctx) == 0) {
         signalNativeException(makeNativeError(ctx, "SyntaxError",
             "JSON.rawJSON: text is undefined"));
@@ -1638,8 +1638,8 @@ static const proto::ProtoObject* jsonRawJSON(proto::ProtoContext* ctx,
 static const proto::ProtoObject* jsonIsRawJSON(proto::ProtoContext* ctx,
                                                 const proto::ProtoObject* /*self*/,
                                                 const proto::ParentLink*,
-                                                const proto::ProtoList* args,
-                                                const proto::ProtoSparseList*) {
+                                                const proto::ProtoArguments* args,
+                                                const proto::ProtoKeywordArguments*) {
     if (!ctx || !args || args->getSize(ctx) == 0) return PROTO_FALSE;
     const proto::ProtoObject* v = args->getAt(ctx, 0);
     if (!v || v == PROTO_NONE || v->isNone(ctx)) return PROTO_FALSE;

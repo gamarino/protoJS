@@ -164,8 +164,8 @@ const proto::ProtoObject* takeHeapSnapshotImpl(
     proto::ProtoContext* ctx,
     const proto::ProtoObject* /*self*/,
     const proto::ParentLink*,
-    const proto::ProtoList* /*args*/,
-    const proto::ProtoSparseList*) {
+    const proto::ProtoArguments* /*args*/,
+    const proto::ProtoKeywordArguments*) {
     if (!ctx) return PROTO_NONE;
     auto s = captureSnapshot(spaceForCtx(ctx));
     MemoryAnalyzer::snapshots.push_back(s);
@@ -176,8 +176,8 @@ const proto::ProtoObject* detectLeaksImpl(
     proto::ProtoContext* ctx,
     const proto::ProtoObject* /*self*/,
     const proto::ParentLink*,
-    const proto::ProtoList* args,
-    const proto::ProtoSparseList*) {
+    const proto::ProtoArguments* args,
+    const proto::ProtoKeywordArguments*) {
     if (!ctx || !args || args->getSize(ctx) < 2) return PROTO_NONE;
     const proto::ProtoObject* a0 = args->getAt(ctx, 0);
     const proto::ProtoObject* a1 = args->getAt(ctx, 1);
@@ -194,8 +194,8 @@ const proto::ProtoObject* exportSnapshotImpl(
     proto::ProtoContext* ctx,
     const proto::ProtoObject* /*self*/,
     const proto::ParentLink*,
-    const proto::ProtoList* args,
-    const proto::ProtoSparseList*) {
+    const proto::ProtoArguments* args,
+    const proto::ProtoKeywordArguments*) {
     if (!ctx || !args || args->getSize(ctx) < 2) return PROTO_FALSE;
     const proto::ProtoObject* a0 = args->getAt(ctx, 0);
     const proto::ProtoObject* a1 = args->getAt(ctx, 1);
@@ -216,8 +216,8 @@ const proto::ProtoObject* getMemoryUsageImpl(
     proto::ProtoContext* ctx,
     const proto::ProtoObject* /*self*/,
     const proto::ParentLink*,
-    const proto::ProtoList* /*args*/,
-    const proto::ProtoSparseList*) {
+    const proto::ProtoArguments* /*args*/,
+    const proto::ProtoKeywordArguments*) {
     if (!ctx) return PROTO_NONE;
     auto s = captureSnapshot(spaceForCtx(ctx));
     const proto::ProtoObject* usage = ctx->newObject(/*mutable=*/true);
@@ -237,8 +237,8 @@ const proto::ProtoObject* startAllocationTrackingImpl(
     proto::ProtoContext* ctx,
     const proto::ProtoObject* /*self*/,
     const proto::ParentLink*,
-    const proto::ProtoList* /*args*/,
-    const proto::ProtoSparseList*) {
+    const proto::ProtoArguments* /*args*/,
+    const proto::ProtoKeywordArguments*) {
     if (MemoryAnalyzer::trackingAllocations) return PROTO_FALSE;
     MemoryAnalyzer::trackingAllocations = true;
     MemoryAnalyzer::trackingStartSnapshot = captureSnapshot(spaceForCtx(ctx));
@@ -249,8 +249,8 @@ const proto::ProtoObject* stopAllocationTrackingImpl(
     proto::ProtoContext* ctx,
     const proto::ProtoObject* /*self*/,
     const proto::ParentLink*,
-    const proto::ProtoList* /*args*/,
-    const proto::ProtoSparseList*) {
+    const proto::ProtoArguments* /*args*/,
+    const proto::ProtoKeywordArguments*) {
     if (!MemoryAnalyzer::trackingAllocations) return PROTO_FALSE;
     MemoryAnalyzer::trackingAllocations = false;
     auto end = captureSnapshot(spaceForCtx(ctx));

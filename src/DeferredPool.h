@@ -90,8 +90,8 @@ private:
     static const proto::ProtoObject* threadMain(proto::ProtoContext* ctx,
                                                 const proto::ProtoObject* self,
                                                 const proto::ParentLink* parentLink,
-                                                const proto::ProtoList* args,
-                                                const proto::ProtoSparseList* kwargs);
+                                                const proto::ProtoArguments* args,
+                                                const proto::ProtoKeywordArguments* kwargs);
     bool start(proto::ProtoContext* ctx);
     void run(proto::ProtoContext* root);
     void runTask(proto::ProtoContext* root, const Task& task,

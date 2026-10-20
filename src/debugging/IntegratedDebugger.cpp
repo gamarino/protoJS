@@ -23,7 +23,7 @@ JSContextWrapper* IntegratedDebugger::activeWrapper_ = nullptr;
 
 namespace {
 
-bool argString(proto::ProtoContext* ctx, const proto::ProtoList* args,
+bool argString(proto::ProtoContext* ctx, const proto::ProtoArguments* args,
                 int idx, std::string& out) {
     if (!ctx || !args) return false;
     if (idx >= static_cast<int>(args->getSize(ctx))) return false;
@@ -33,7 +33,7 @@ bool argString(proto::ProtoContext* ctx, const proto::ProtoList* args,
     return true;
 }
 
-bool argInt(proto::ProtoContext* ctx, const proto::ProtoList* args,
+bool argInt(proto::ProtoContext* ctx, const proto::ProtoArguments* args,
              int idx, long long& out) {
     if (!ctx || !args) return false;
     if (idx >= static_cast<int>(args->getSize(ctx))) return false;
@@ -47,8 +47,8 @@ const proto::ProtoObject* startCDPServerImpl(
     proto::ProtoContext* ctx,
     const proto::ProtoObject* /*self*/,
     const proto::ParentLink*,
-    const proto::ProtoList* args,
-    const proto::ProtoSparseList*) {
+    const proto::ProtoArguments* args,
+    const proto::ProtoKeywordArguments*) {
     if (IntegratedDebugger::serverRunning.load()) return PROTO_FALSE;
     long long port = 9229;
     argInt(ctx, args, 0, port);
@@ -63,8 +63,8 @@ const proto::ProtoObject* stopCDPServerImpl(
     proto::ProtoContext* /*ctx*/,
     const proto::ProtoObject* /*self*/,
     const proto::ParentLink*,
-    const proto::ProtoList* /*args*/,
-    const proto::ProtoSparseList*) {
+    const proto::ProtoArguments* /*args*/,
+    const proto::ProtoKeywordArguments*) {
     IntegratedDebugger::serverRunning.store(false);
     return PROTO_TRUE;
 }
@@ -73,8 +73,8 @@ const proto::ProtoObject* setBreakpointImpl(
     proto::ProtoContext* ctx,
     const proto::ProtoObject* /*self*/,
     const proto::ParentLink*,
-    const proto::ProtoList* args,
-    const proto::ProtoSparseList*) {
+    const proto::ProtoArguments* args,
+    const proto::ProtoKeywordArguments*) {
     std::string scriptId;
     long long line = 0;
     long long col = 0;
@@ -99,8 +99,8 @@ const proto::ProtoObject* removeBreakpointImpl(
     proto::ProtoContext* ctx,
     const proto::ProtoObject* /*self*/,
     const proto::ParentLink*,
-    const proto::ProtoList* args,
-    const proto::ProtoSparseList*) {
+    const proto::ProtoArguments* args,
+    const proto::ProtoKeywordArguments*) {
     std::string id;
     if (!argString(ctx, args, 0, id)) return PROTO_FALSE;
     std::lock_guard<std::mutex> lock(IntegratedDebugger::breakpointsMutex);
@@ -116,8 +116,8 @@ const proto::ProtoObject* getCallStackImpl(
     proto::ProtoContext* ctx,
     const proto::ProtoObject* /*self*/,
     const proto::ParentLink*,
-    const proto::ProtoList* /*args*/,
-    const proto::ProtoSparseList*) {
+    const proto::ProtoArguments* /*args*/,
+    const proto::ProtoKeywordArguments*) {
     if (!ctx) return PROTO_NONE;
     std::lock_guard<std::mutex> lock(IntegratedDebugger::callStackMutex);
     const proto::ProtoObject* arr = createNewArray(ctx, nullptr);
@@ -146,8 +146,8 @@ const proto::ProtoObject* evaluateImpl(
     proto::ProtoContext* ctx,
     const proto::ProtoObject* /*self*/,
     const proto::ParentLink*,
-    const proto::ProtoList* args,
-    const proto::ProtoSparseList*) {
+    const proto::ProtoArguments* args,
+    const proto::ProtoKeywordArguments*) {
     std::string expr;
     if (!argString(ctx, args, 0, expr)) return PROTO_NONE;
     JSContextWrapper* wrapper = IntegratedDebugger::activeWrapper_;
@@ -173,8 +173,8 @@ const proto::ProtoObject* stepOrContinueImpl(
     proto::ProtoContext* /*ctx*/,
     const proto::ProtoObject* /*self*/,
     const proto::ParentLink*,
-    const proto::ProtoList* /*args*/,
-    const proto::ProtoSparseList*) {
+    const proto::ProtoArguments* /*args*/,
+    const proto::ProtoKeywordArguments*) {
     IntegratedDebugger::resumeExecution();
     return PROTO_TRUE;
 }

@@ -24,8 +24,8 @@ static const proto::ProtoObject* cpuChunkWorker(
     proto::ProtoContext* context,
     const proto::ProtoObject* self,
     const proto::ParentLink* parentLink,
-    const proto::ProtoList* args,
-    const proto::ProtoSparseList* kwargs)
+    const proto::ProtoArguments* args,
+    const proto::ProtoKeywordArguments* kwargs)
 {
     (void)self;
     (void)parentLink;
@@ -52,8 +52,8 @@ static const proto::ProtoObject* cpuChunkThreadEntry(
     proto::ProtoContext* context,
     const proto::ProtoObject* self,
     const proto::ParentLink* parentLink,
-    const proto::ProtoList* args,
-    const proto::ProtoSparseList* kwargs)
+    const proto::ProtoArguments* args,
+    const proto::ProtoKeywordArguments* kwargs)
 {
     if (!context || !context->space) return PROTO_NONE;
     proto::ProtoContext threadCtx(context->space, nullptr, nullptr, nullptr, nullptr, nullptr);

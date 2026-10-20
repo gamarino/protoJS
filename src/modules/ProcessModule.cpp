@@ -86,8 +86,8 @@ const proto::ProtoObject* processCwd(
     proto::ProtoContext* ctx,
     const proto::ProtoObject* /*self*/,
     const proto::ParentLink*,
-    const proto::ProtoList* /*args*/,
-    const proto::ProtoSparseList*) {
+    const proto::ProtoArguments* /*args*/,
+    const proto::ProtoKeywordArguments*) {
     if (!ctx) return PROTO_NONE;
 #if defined(_WIN32)
     if (wchar_t* wd = ::_wgetcwd(nullptr, 0)) {
@@ -108,8 +108,8 @@ const proto::ProtoObject* processPlatform(
     proto::ProtoContext* ctx,
     const proto::ProtoObject* /*self*/,
     const proto::ParentLink*,
-    const proto::ProtoList* /*args*/,
-    const proto::ProtoSparseList*) {
+    const proto::ProtoArguments* /*args*/,
+    const proto::ProtoKeywordArguments*) {
     if (!ctx) return PROTO_NONE;
     return ctx->fromUTF8String(cachedPlatform().c_str());
 }
@@ -118,8 +118,8 @@ const proto::ProtoObject* processArch(
     proto::ProtoContext* ctx,
     const proto::ProtoObject* /*self*/,
     const proto::ParentLink*,
-    const proto::ProtoList* /*args*/,
-    const proto::ProtoSparseList*) {
+    const proto::ProtoArguments* /*args*/,
+    const proto::ProtoKeywordArguments*) {
     if (!ctx) return PROTO_NONE;
     return ctx->fromUTF8String(cachedArch().c_str());
 }
@@ -128,8 +128,8 @@ const proto::ProtoObject* processExit(
     proto::ProtoContext* ctx,
     const proto::ProtoObject* /*self*/,
     const proto::ParentLink*,
-    const proto::ProtoList* args,
-    const proto::ProtoSparseList*) {
+    const proto::ProtoArguments* args,
+    const proto::ProtoKeywordArguments*) {
     int exitCode = 0;
     if (ctx && args && args->getSize(ctx) > 0) {
         const proto::ProtoObject* a = args->getAt(ctx, 0);
@@ -257,8 +257,8 @@ const proto::ProtoObject* processMemoryUsage(
     proto::ProtoContext* ctx,
     const proto::ProtoObject* /*self*/,
     const proto::ParentLink*,
-    const proto::ProtoList* /*args*/,
-    const proto::ProtoSparseList*) {
+    const proto::ProtoArguments* /*args*/,
+    const proto::ProtoKeywordArguments*) {
     if (!ctx) return PROTO_NONE;
     long long heapCells = 0, freeCells = 0;
     if (ctx->space) {
@@ -280,8 +280,8 @@ const proto::ProtoObject* processResourceUsage(
     proto::ProtoContext* ctx,
     const proto::ProtoObject* /*self*/,
     const proto::ParentLink*,
-    const proto::ProtoList* /*args*/,
-    const proto::ProtoSparseList*) {
+    const proto::ProtoArguments* /*args*/,
+    const proto::ProtoKeywordArguments*) {
     if (!ctx) return PROTO_NONE;
     return newDataObject(ctx, {{"maxRSS", peakRssBytes() / 1024}});
 }

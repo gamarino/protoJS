@@ -22,8 +22,8 @@ const proto::ProtoObject* regexpSymbolMatchAll(
     proto::ProtoContext* ctx,
     const proto::ProtoObject* self,
     const proto::ParentLink* parent,
-    const proto::ProtoList* args,
-    const proto::ProtoSparseList* sparse);
+    const proto::ProtoArguments* args,
+    const proto::ProtoKeywordArguments* sparse);
 
 } // namespace protojs
 

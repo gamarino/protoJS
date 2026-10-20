@@ -32,7 +32,7 @@ namespace {
 
 // ---- Argument helpers --------------------------------------------------
 
-bool argString(proto::ProtoContext* ctx, const proto::ProtoList* args,
+bool argString(proto::ProtoContext* ctx, const proto::ProtoArguments* args,
                 int idx, std::string& out) {
     if (!ctx || !args) return false;
     if (idx >= static_cast<int>(args->getSize(ctx))) return false;
@@ -43,7 +43,7 @@ bool argString(proto::ProtoContext* ctx, const proto::ProtoList* args,
 }
 
 const proto::ProtoObject* argAt(proto::ProtoContext* ctx,
-                                 const proto::ProtoList* args, int idx) {
+                                 const proto::ProtoArguments* args, int idx) {
     if (!ctx || !args) return nullptr;
     if (idx >= static_cast<int>(args->getSize(ctx))) return nullptr;
     return args->getAt(ctx, idx);
@@ -129,8 +129,8 @@ const proto::ProtoObject* promisesReadFile(
     proto::ProtoContext* ctx,
     const proto::ProtoObject* /*self*/,
     const proto::ParentLink*,
-    const proto::ProtoList* args,
-    const proto::ProtoSparseList*) {
+    const proto::ProtoArguments* args,
+    const proto::ProtoKeywordArguments*) {
     std::string path;
     if (!argString(ctx, args, 0, path)) return PROTO_NONE;
     return runAsync(ctx, [path]() {
@@ -146,8 +146,8 @@ const proto::ProtoObject* promisesWriteFile(
     proto::ProtoContext* ctx,
     const proto::ProtoObject* /*self*/,
     const proto::ParentLink*,
-    const proto::ProtoList* args,
-    const proto::ProtoSparseList*) {
+    const proto::ProtoArguments* args,
+    const proto::ProtoKeywordArguments*) {
     std::string path, data;
     if (!argString(ctx, args, 0, path) ||
         !argString(ctx, args, 1, data)) return PROTO_NONE;
@@ -163,8 +163,8 @@ const proto::ProtoObject* promisesReaddir(
     proto::ProtoContext* ctx,
     const proto::ProtoObject* /*self*/,
     const proto::ParentLink*,
-    const proto::ProtoList* args,
-    const proto::ProtoSparseList*) {
+    const proto::ProtoArguments* args,
+    const proto::ProtoKeywordArguments*) {
     std::string path;
     if (!argString(ctx, args, 0, path)) return PROTO_NONE;
     return runAsync(ctx, [path]() {
@@ -189,8 +189,8 @@ const proto::ProtoObject* promisesMkdir(
     proto::ProtoContext* ctx,
     const proto::ProtoObject* /*self*/,
     const proto::ParentLink*,
-    const proto::ProtoList* args,
-    const proto::ProtoSparseList*) {
+    const proto::ProtoArguments* args,
+    const proto::ProtoKeywordArguments*) {
     std::string path;
     if (!argString(ctx, args, 0, path)) return PROTO_NONE;
     bool recursive = false;
@@ -215,8 +215,8 @@ const proto::ProtoObject* promisesStat(
     proto::ProtoContext* ctx,
     const proto::ProtoObject* /*self*/,
     const proto::ParentLink*,
-    const proto::ProtoList* args,
-    const proto::ProtoSparseList*) {
+    const proto::ProtoArguments* args,
+    const proto::ProtoKeywordArguments*) {
     std::string path;
     if (!argString(ctx, args, 0, path)) return PROTO_NONE;
     return runAsync(ctx, [path]() {
@@ -236,8 +236,8 @@ const proto::ProtoObject* readFileSyncImpl(
     proto::ProtoContext* ctx,
     const proto::ProtoObject* /*self*/,
     const proto::ParentLink*,
-    const proto::ProtoList* args,
-    const proto::ProtoSparseList*) {
+    const proto::ProtoArguments* args,
+    const proto::ProtoKeywordArguments*) {
     std::string path;
     if (!argString(ctx, args, 0, path)) return PROTO_NONE;
     try {
@@ -251,8 +251,8 @@ const proto::ProtoObject* writeFileSyncImpl(
     proto::ProtoContext* ctx,
     const proto::ProtoObject* /*self*/,
     const proto::ParentLink*,
-    const proto::ProtoList* args,
-    const proto::ProtoSparseList*) {
+    const proto::ProtoArguments* args,
+    const proto::ProtoKeywordArguments*) {
     std::string path, data;
     if (!argString(ctx, args, 0, path) ||
         !argString(ctx, args, 1, data)) return PROTO_FALSE;
@@ -268,8 +268,8 @@ const proto::ProtoObject* readdirSyncImpl(
     proto::ProtoContext* ctx,
     const proto::ProtoObject* /*self*/,
     const proto::ParentLink*,
-    const proto::ProtoList* args,
-    const proto::ProtoSparseList*) {
+    const proto::ProtoArguments* args,
+    const proto::ProtoKeywordArguments*) {
     std::string path;
     if (!argString(ctx, args, 0, path)) return PROTO_NONE;
     const proto::ProtoObject* arr = createNewArray(ctx, nullptr);
@@ -290,8 +290,8 @@ const proto::ProtoObject* mkdirSyncImpl(
     proto::ProtoContext* ctx,
     const proto::ProtoObject* /*self*/,
     const proto::ParentLink*,
-    const proto::ProtoList* args,
-    const proto::ProtoSparseList*) {
+    const proto::ProtoArguments* args,
+    const proto::ProtoKeywordArguments*) {
     std::string path;
     if (!argString(ctx, args, 0, path)) return PROTO_FALSE;
     bool recursive = false;
@@ -316,8 +316,8 @@ const proto::ProtoObject* statSyncImpl(
     proto::ProtoContext* ctx,
     const proto::ProtoObject* /*self*/,
     const proto::ParentLink*,
-    const proto::ProtoList* args,
-    const proto::ProtoSparseList*) {
+    const proto::ProtoArguments* args,
+    const proto::ProtoKeywordArguments*) {
     std::string path;
     if (!argString(ctx, args, 0, path)) return PROTO_NONE;
     platform::StatBuf st;
@@ -329,8 +329,8 @@ const proto::ProtoObject* unlinkSyncImpl(
     proto::ProtoContext* ctx,
     const proto::ProtoObject* /*self*/,
     const proto::ParentLink*,
-    const proto::ProtoList* args,
-    const proto::ProtoSparseList*) {
+    const proto::ProtoArguments* args,
+    const proto::ProtoKeywordArguments*) {
     std::string path;
     if (!argString(ctx, args, 0, path)) return PROTO_FALSE;
     if (platform::unlinkPath(path.c_str()) != 0) return PROTO_FALSE;
@@ -341,8 +341,8 @@ const proto::ProtoObject* rmdirSyncImpl(
     proto::ProtoContext* ctx,
     const proto::ProtoObject* /*self*/,
     const proto::ParentLink*,
-    const proto::ProtoList* args,
-    const proto::ProtoSparseList*) {
+    const proto::ProtoArguments* args,
+    const proto::ProtoKeywordArguments*) {
     std::string path;
     if (!argString(ctx, args, 0, path)) return PROTO_FALSE;
     if (platform::rmdirPath(path.c_str()) != 0) return PROTO_FALSE;
@@ -353,8 +353,8 @@ const proto::ProtoObject* renameSyncImpl(
     proto::ProtoContext* ctx,
     const proto::ProtoObject* /*self*/,
     const proto::ParentLink*,
-    const proto::ProtoList* args,
-    const proto::ProtoSparseList*) {
+    const proto::ProtoArguments* args,
+    const proto::ProtoKeywordArguments*) {
     std::string oldPath, newPath;
     if (!argString(ctx, args, 0, oldPath) ||
         !argString(ctx, args, 1, newPath)) return PROTO_FALSE;
@@ -366,8 +366,8 @@ const proto::ProtoObject* copyFileSyncImpl(
     proto::ProtoContext* ctx,
     const proto::ProtoObject* /*self*/,
     const proto::ParentLink*,
-    const proto::ProtoList* args,
-    const proto::ProtoSparseList*) {
+    const proto::ProtoArguments* args,
+    const proto::ProtoKeywordArguments*) {
     std::string src, dst;
     if (!argString(ctx, args, 0, src) ||
         !argString(ctx, args, 1, dst)) return PROTO_FALSE;
@@ -514,7 +514,7 @@ std::string utf8FromPath(const fs::path& p) {
 
 // The trailing callback of an fs call, or a thrown ERR_INVALID_ARG_TYPE.
 const proto::ProtoObject* callbackArg(proto::ProtoContext* ctx,
-                                      const proto::ProtoList* args) {
+                                      const proto::ProtoArguments* args) {
     const int n = args ? static_cast<int>(args->getSize(ctx)) : 0;
     const proto::ProtoObject* cb = n > 0 ? args->getAt(ctx, n - 1) : nullptr;
     if (!isCallableValue(ctx, cb)) {
@@ -527,7 +527,7 @@ const proto::ProtoObject* callbackArg(proto::ProtoContext* ctx,
 
 // The path argument (a string), or a thrown ERR_INVALID_ARG_TYPE.  Buffer and
 // URL paths are not supported.
-bool pathArg(proto::ProtoContext* ctx, const proto::ProtoList* args,
+bool pathArg(proto::ProtoContext* ctx, const proto::ProtoArguments* args,
              const char* name, int idx, std::string& out) {
     if (argString(ctx, args, idx, out)) return true;
     throwInvalidArg(ctx, std::string("The \"") + name +
@@ -540,7 +540,7 @@ bool pathArg(proto::ProtoContext* ctx, const proto::ProtoList* args,
 // options.<name> when the options argument (args[idx], not the callback) is
 // an object; nullptr otherwise.
 const proto::ProtoObject* optionAt(proto::ProtoContext* ctx,
-                                   const proto::ProtoList* args, int idx,
+                                   const proto::ProtoArguments* args, int idx,
                                    const char* name) {
     const int n = args ? static_cast<int>(args->getSize(ctx)) : 0;
     if (idx >= n - 1) return nullptr;  // the last argument is the callback
@@ -656,7 +656,7 @@ FsResult writeTextFile(const std::string& path, const std::string& data, bool ap
 
 // The data argument of writeFile / appendFile: a string.  Buffers and typed
 // arrays are not supported yet.
-bool dataArg(proto::ProtoContext* ctx, const proto::ProtoList* args,
+bool dataArg(proto::ProtoContext* ctx, const proto::ProtoArguments* args,
              std::string& out) {
     if (argString(ctx, args, 1, out)) return true;
     throwInvalidArg(ctx, "The \"data\" argument must be of type string "
@@ -665,7 +665,7 @@ bool dataArg(proto::ProtoContext* ctx, const proto::ProtoList* args,
     return false;
 }
 
-bool appendFlag(proto::ProtoContext* ctx, const proto::ProtoList* args) {
+bool appendFlag(proto::ProtoContext* ctx, const proto::ProtoArguments* args) {
     const proto::ProtoObject* flag = optionAt(ctx, args, 2, "flag");
     if (!flag || !flag->isString(ctx)) return false;
     std::string f;
@@ -675,7 +675,7 @@ bool appendFlag(proto::ProtoContext* ctx, const proto::ProtoList* args) {
 
 const proto::ProtoObject* readFileCallback(
     proto::ProtoContext* ctx, const proto::ProtoObject*, const proto::ParentLink*,
-    const proto::ProtoList* args, const proto::ProtoSparseList*) {
+    const proto::ProtoArguments* args, const proto::ProtoKeywordArguments*) {
     std::string path;
     if (!pathArg(ctx, args, "path", 0, path)) return PROTO_NONE;
     const proto::ProtoObject* cb = callbackArg(ctx, args);
@@ -685,7 +685,7 @@ const proto::ProtoObject* readFileCallback(
 
 const proto::ProtoObject* writeFileCallback(
     proto::ProtoContext* ctx, const proto::ProtoObject*, const proto::ParentLink*,
-    const proto::ProtoList* args, const proto::ProtoSparseList*) {
+    const proto::ProtoArguments* args, const proto::ProtoKeywordArguments*) {
     std::string path, data;
     if (!pathArg(ctx, args, "file", 0, path) || !dataArg(ctx, args, data))
         return PROTO_NONE;
@@ -699,7 +699,7 @@ const proto::ProtoObject* writeFileCallback(
 
 const proto::ProtoObject* appendFileCallback(
     proto::ProtoContext* ctx, const proto::ProtoObject*, const proto::ParentLink*,
-    const proto::ProtoList* args, const proto::ProtoSparseList*) {
+    const proto::ProtoArguments* args, const proto::ProtoKeywordArguments*) {
     std::string path, data;
     if (!pathArg(ctx, args, "path", 0, path) || !dataArg(ctx, args, data))
         return PROTO_NONE;
@@ -712,7 +712,7 @@ const proto::ProtoObject* appendFileCallback(
 
 const proto::ProtoObject* statCallback(
     proto::ProtoContext* ctx, const proto::ProtoObject*, const proto::ParentLink*,
-    const proto::ProtoList* args, const proto::ProtoSparseList*) {
+    const proto::ProtoArguments* args, const proto::ProtoKeywordArguments*) {
     std::string path;
     if (!pathArg(ctx, args, "path", 0, path)) return PROTO_NONE;
     const proto::ProtoObject* cb = callbackArg(ctx, args);
@@ -728,7 +728,7 @@ const proto::ProtoObject* statCallback(
 
 const proto::ProtoObject* readdirCallback(
     proto::ProtoContext* ctx, const proto::ProtoObject*, const proto::ParentLink*,
-    const proto::ProtoList* args, const proto::ProtoSparseList*) {
+    const proto::ProtoArguments* args, const proto::ProtoKeywordArguments*) {
     std::string path;
     if (!pathArg(ctx, args, "path", 0, path)) return PROTO_NONE;
     const proto::ProtoObject* cb = callbackArg(ctx, args);
@@ -747,7 +747,7 @@ const proto::ProtoObject* readdirCallback(
 
 const proto::ProtoObject* unlinkCallback(
     proto::ProtoContext* ctx, const proto::ProtoObject*, const proto::ParentLink*,
-    const proto::ProtoList* args, const proto::ProtoSparseList*) {
+    const proto::ProtoArguments* args, const proto::ProtoKeywordArguments*) {
     std::string path;
     if (!pathArg(ctx, args, "path", 0, path)) return PROTO_NONE;
     const proto::ProtoObject* cb = callbackArg(ctx, args);
@@ -761,7 +761,7 @@ const proto::ProtoObject* unlinkCallback(
 
 const proto::ProtoObject* rmdirCallback(
     proto::ProtoContext* ctx, const proto::ProtoObject*, const proto::ParentLink*,
-    const proto::ProtoList* args, const proto::ProtoSparseList*) {
+    const proto::ProtoArguments* args, const proto::ProtoKeywordArguments*) {
     std::string path;
     if (!pathArg(ctx, args, "path", 0, path)) return PROTO_NONE;
     const proto::ProtoObject* cb = callbackArg(ctx, args);
@@ -777,7 +777,7 @@ const proto::ProtoObject* rmdirCallback(
 // receives the first directory created, or undefined when none was, as in Node.
 const proto::ProtoObject* mkdirCallback(
     proto::ProtoContext* ctx, const proto::ProtoObject*, const proto::ParentLink*,
-    const proto::ProtoList* args, const proto::ProtoSparseList*) {
+    const proto::ProtoArguments* args, const proto::ProtoKeywordArguments*) {
     std::string path;
     if (!pathArg(ctx, args, "path", 0, path)) return PROTO_NONE;
     const proto::ProtoObject* cb = callbackArg(ctx, args);
@@ -822,8 +822,8 @@ const proto::ProtoObject* createReadStreamImpl(
     proto::ProtoContext* ctx,
     const proto::ProtoObject* /*self*/,
     const proto::ParentLink*,
-    const proto::ProtoList* args,
-    const proto::ProtoSparseList*) {
+    const proto::ProtoArguments* args,
+    const proto::ProtoKeywordArguments*) {
     std::string path;
     if (!argString(ctx, args, 0, path)) return PROTO_NONE;
     const proto::ProtoObject* obj = ctx->newObject(/*mutable=*/true);
@@ -836,8 +836,8 @@ const proto::ProtoObject* createWriteStreamImpl(
     proto::ProtoContext* ctx,
     const proto::ProtoObject* self,
     const proto::ParentLink* pl,
-    const proto::ProtoList* args,
-    const proto::ProtoSparseList* kw) {
+    const proto::ProtoArguments* args,
+    const proto::ProtoKeywordArguments* kw) {
     return createReadStreamImpl(ctx, self, pl, args, kw);  // same shape
 }
 

@@ -180,8 +180,8 @@ const proto::ProtoObject* deferredConstruct(
     proto::ProtoContext* ctx,
     const proto::ProtoObject* /*self*/,
     const proto::ParentLink*,
-    const proto::ProtoList* args,
-    const proto::ProtoSparseList*) {
+    const proto::ProtoArguments* args,
+    const proto::ProtoKeywordArguments*) {
     if (!ctx) return PROTO_NONE;
     const proto::ProtoObject* fn =
         (args && args->getSize(ctx) > 0) ? args->getAt(ctx, 0) : PROTO_NONE;

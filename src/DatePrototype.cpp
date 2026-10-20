@@ -633,8 +633,8 @@ static std::string formatTZOffset(proto::proto_long offsetSec);
 static const proto::ProtoObject* dateCtorPlainCall(proto::ProtoContext* ctx,
                                                    const proto::ProtoObject*,
                                                    const proto::ParentLink*,
-                                                   const proto::ProtoList*,
-                                                   const proto::ProtoSparseList*) {
+                                                   const proto::ProtoArguments*,
+                                                   const proto::ProtoKeywordArguments*) {
     if (!ctx) return PROTO_NONE;
     auto now = std::chrono::system_clock::now();
     auto ms = std::chrono::duration_cast<std::chrono::milliseconds>(
@@ -667,8 +667,8 @@ static const proto::ProtoObject* dateCtorPlainCall(proto::ProtoContext* ctx,
 static const proto::ProtoObject* dateCtorCall(proto::ProtoContext* ctx,
                                               const proto::ProtoObject* self,
                                               const proto::ParentLink*,
-                                              const proto::ProtoList* args,
-                                              const proto::ProtoSparseList*) {
+                                              const proto::ProtoArguments* args,
+                                              const proto::ProtoKeywordArguments*) {
     if (!ctx) return PROTO_NONE;
     const int argc = args ? static_cast<int>(args->getSize(ctx)) : 0;
     double t;
@@ -861,8 +861,8 @@ static const proto::ProtoObject* readDateComponentOrThrow(
 static const proto::ProtoObject* dateGetUTCFullYear(proto::ProtoContext* ctx,
                                                     const proto::ProtoObject* self,
                                                     const proto::ParentLink*,
-                                                    const proto::ProtoList*,
-                                                    const proto::ProtoSparseList*) {
+                                                    const proto::ProtoArguments*,
+                                                    const proto::ProtoKeywordArguments*) {
     return getComponent(ctx, self, true,
         [](const std::tm& tm, int) { return tm.tm_year + 1900; });
 }
@@ -871,8 +871,8 @@ static const proto::ProtoObject* dateGetUTCFullYear(proto::ProtoContext* ctx,
 static const proto::ProtoObject* dateGetUTCMonth(proto::ProtoContext* ctx,
                                                  const proto::ProtoObject* self,
                                                  const proto::ParentLink*,
-                                                 const proto::ProtoList*,
-                                                 const proto::ProtoSparseList*) {
+                                                 const proto::ProtoArguments*,
+                                                 const proto::ProtoKeywordArguments*) {
     return getComponent(ctx, self, true,
         [](const std::tm& tm, int) { return tm.tm_mon; });
 }
@@ -881,8 +881,8 @@ static const proto::ProtoObject* dateGetUTCMonth(proto::ProtoContext* ctx,
 static const proto::ProtoObject* dateGetUTCDate(proto::ProtoContext* ctx,
                                                 const proto::ProtoObject* self,
                                                 const proto::ParentLink*,
-                                                const proto::ProtoList*,
-                                                const proto::ProtoSparseList*) {
+                                                const proto::ProtoArguments*,
+                                                const proto::ProtoKeywordArguments*) {
     return getComponent(ctx, self, true,
         [](const std::tm& tm, int) { return tm.tm_mday; });
 }
@@ -891,8 +891,8 @@ static const proto::ProtoObject* dateGetUTCDate(proto::ProtoContext* ctx,
 static const proto::ProtoObject* dateGetUTCDay(proto::ProtoContext* ctx,
                                                const proto::ProtoObject* self,
                                                const proto::ParentLink*,
-                                               const proto::ProtoList*,
-                                               const proto::ProtoSparseList*) {
+                                               const proto::ProtoArguments*,
+                                               const proto::ProtoKeywordArguments*) {
     return getComponent(ctx, self, true,
         [](const std::tm& tm, int) { return tm.tm_wday; });
 }
@@ -901,8 +901,8 @@ static const proto::ProtoObject* dateGetUTCDay(proto::ProtoContext* ctx,
 static const proto::ProtoObject* dateGetUTCHours(proto::ProtoContext* ctx,
                                                  const proto::ProtoObject* self,
                                                  const proto::ParentLink*,
-                                                 const proto::ProtoList*,
-                                                 const proto::ProtoSparseList*) {
+                                                 const proto::ProtoArguments*,
+                                                 const proto::ProtoKeywordArguments*) {
     return getComponent(ctx, self, true,
         [](const std::tm& tm, int) { return tm.tm_hour; });
 }
@@ -911,8 +911,8 @@ static const proto::ProtoObject* dateGetUTCHours(proto::ProtoContext* ctx,
 static const proto::ProtoObject* dateGetUTCMinutes(proto::ProtoContext* ctx,
                                                    const proto::ProtoObject* self,
                                                    const proto::ParentLink*,
-                                                   const proto::ProtoList*,
-                                                   const proto::ProtoSparseList*) {
+                                                   const proto::ProtoArguments*,
+                                                   const proto::ProtoKeywordArguments*) {
     return getComponent(ctx, self, true,
         [](const std::tm& tm, int) { return tm.tm_min; });
 }
@@ -921,8 +921,8 @@ static const proto::ProtoObject* dateGetUTCMinutes(proto::ProtoContext* ctx,
 static const proto::ProtoObject* dateGetUTCSeconds(proto::ProtoContext* ctx,
                                                    const proto::ProtoObject* self,
                                                    const proto::ParentLink*,
-                                                   const proto::ProtoList*,
-                                                   const proto::ProtoSparseList*) {
+                                                   const proto::ProtoArguments*,
+                                                   const proto::ProtoKeywordArguments*) {
     return getComponent(ctx, self, true,
         [](const std::tm& tm, int) { return tm.tm_sec; });
 }
@@ -931,8 +931,8 @@ static const proto::ProtoObject* dateGetUTCSeconds(proto::ProtoContext* ctx,
 static const proto::ProtoObject* dateGetUTCMilliseconds(proto::ProtoContext* ctx,
                                                         const proto::ProtoObject* self,
                                                         const proto::ParentLink*,
-                                                        const proto::ProtoList*,
-                                                        const proto::ProtoSparseList*) {
+                                                        const proto::ProtoArguments*,
+                                                        const proto::ProtoKeywordArguments*) {
     return getComponent(ctx, self, true,
         [](const std::tm&, int ms) { return ms; });
 }
@@ -941,8 +941,8 @@ static const proto::ProtoObject* dateGetUTCMilliseconds(proto::ProtoContext* ctx
 static const proto::ProtoObject* dateGetFullYear(proto::ProtoContext* ctx,
                                                  const proto::ProtoObject* self,
                                                  const proto::ParentLink*,
-                                                 const proto::ProtoList*,
-                                                 const proto::ProtoSparseList*) {
+                                                 const proto::ProtoArguments*,
+                                                 const proto::ProtoKeywordArguments*) {
     return getComponent(ctx, self, false,
         [](const std::tm& tm, int) { return tm.tm_year + 1900; });
 }
@@ -951,8 +951,8 @@ static const proto::ProtoObject* dateGetFullYear(proto::ProtoContext* ctx,
 static const proto::ProtoObject* dateGetMonth(proto::ProtoContext* ctx,
                                               const proto::ProtoObject* self,
                                               const proto::ParentLink*,
-                                              const proto::ProtoList*,
-                                              const proto::ProtoSparseList*) {
+                                              const proto::ProtoArguments*,
+                                              const proto::ProtoKeywordArguments*) {
     return getComponent(ctx, self, false,
         [](const std::tm& tm, int) { return tm.tm_mon; });
 }
@@ -961,8 +961,8 @@ static const proto::ProtoObject* dateGetMonth(proto::ProtoContext* ctx,
 static const proto::ProtoObject* dateGetDate(proto::ProtoContext* ctx,
                                              const proto::ProtoObject* self,
                                              const proto::ParentLink*,
-                                             const proto::ProtoList*,
-                                             const proto::ProtoSparseList*) {
+                                             const proto::ProtoArguments*,
+                                             const proto::ProtoKeywordArguments*) {
     return getComponent(ctx, self, false,
         [](const std::tm& tm, int) { return tm.tm_mday; });
 }
@@ -971,8 +971,8 @@ static const proto::ProtoObject* dateGetDate(proto::ProtoContext* ctx,
 static const proto::ProtoObject* dateGetDay(proto::ProtoContext* ctx,
                                             const proto::ProtoObject* self,
                                             const proto::ParentLink*,
-                                            const proto::ProtoList*,
-                                            const proto::ProtoSparseList*) {
+                                            const proto::ProtoArguments*,
+                                            const proto::ProtoKeywordArguments*) {
     return getComponent(ctx, self, false,
         [](const std::tm& tm, int) { return tm.tm_wday; });
 }
@@ -981,8 +981,8 @@ static const proto::ProtoObject* dateGetDay(proto::ProtoContext* ctx,
 static const proto::ProtoObject* dateGetHours(proto::ProtoContext* ctx,
                                               const proto::ProtoObject* self,
                                               const proto::ParentLink*,
-                                              const proto::ProtoList*,
-                                              const proto::ProtoSparseList*) {
+                                              const proto::ProtoArguments*,
+                                              const proto::ProtoKeywordArguments*) {
     return getComponent(ctx, self, false,
         [](const std::tm& tm, int) { return tm.tm_hour; });
 }
@@ -991,8 +991,8 @@ static const proto::ProtoObject* dateGetHours(proto::ProtoContext* ctx,
 static const proto::ProtoObject* dateGetMinutes(proto::ProtoContext* ctx,
                                                 const proto::ProtoObject* self,
                                                 const proto::ParentLink*,
-                                                const proto::ProtoList*,
-                                                const proto::ProtoSparseList*) {
+                                                const proto::ProtoArguments*,
+                                                const proto::ProtoKeywordArguments*) {
     return getComponent(ctx, self, false,
         [](const std::tm& tm, int) { return tm.tm_min; });
 }
@@ -1001,8 +1001,8 @@ static const proto::ProtoObject* dateGetMinutes(proto::ProtoContext* ctx,
 static const proto::ProtoObject* dateGetSeconds(proto::ProtoContext* ctx,
                                                 const proto::ProtoObject* self,
                                                 const proto::ParentLink*,
-                                                const proto::ProtoList*,
-                                                const proto::ProtoSparseList*) {
+                                                const proto::ProtoArguments*,
+                                                const proto::ProtoKeywordArguments*) {
     return getComponent(ctx, self, false,
         [](const std::tm& tm, int) { return tm.tm_sec; });
 }
@@ -1011,8 +1011,8 @@ static const proto::ProtoObject* dateGetSeconds(proto::ProtoContext* ctx,
 static const proto::ProtoObject* dateGetMilliseconds(proto::ProtoContext* ctx,
                                                      const proto::ProtoObject* self,
                                                      const proto::ParentLink*,
-                                                     const proto::ProtoList*,
-                                                     const proto::ProtoSparseList*) {
+                                                     const proto::ProtoArguments*,
+                                                     const proto::ProtoKeywordArguments*) {
     return getComponent(ctx, self, false,
         [](const std::tm&, int ms) { return ms; });
 }
@@ -1022,8 +1022,8 @@ static const proto::ProtoObject* dateGetMilliseconds(proto::ProtoContext* ctx,
 static const proto::ProtoObject* dateGetTimezoneOffset(proto::ProtoContext* ctx,
                                                        const proto::ProtoObject* self,
                                                        const proto::ParentLink*,
-                                                       const proto::ProtoList*,
-                                                       const proto::ProtoSparseList*) {
+                                                       const proto::ProtoArguments*,
+                                                       const proto::ProtoKeywordArguments*) {
     if (!ctx) return PROTO_NONE;
     bool isDate = false;
     double t = readDateValue(ctx, self, &isDate);
@@ -1054,8 +1054,8 @@ static const proto::ProtoObject* dateGetTimezoneOffset(proto::ProtoContext* ctx,
 static const proto::ProtoObject* dateGetTime(proto::ProtoContext* ctx,
                                              const proto::ProtoObject* self,
                                              const proto::ParentLink*,
-                                             const proto::ProtoList*,
-                                             const proto::ProtoSparseList*) {
+                                             const proto::ProtoArguments*,
+                                             const proto::ProtoKeywordArguments*) {
     if (!ctx) return PROTO_NONE;
     bool isDate = false;
     double t = readDateValue(ctx, self, &isDate);
@@ -1089,7 +1089,7 @@ static double composeTime(const std::tm& tmIn, int ms, bool utc) {
 
 // Forward declaration so the template body can resolve at definition time.
 static double pullArgAsDouble(proto::ProtoContext* ctx,
-                              const proto::ProtoList* args,
+                              const proto::ProtoArguments* args,
                               int idx, bool* present);
 
 // ----------------------------------------------------------------
@@ -1129,7 +1129,7 @@ static double pullArgAsDouble(proto::ProtoContext* ctx,
 template <typename Mutator>
 static const proto::ProtoObject* setComponent2(proto::ProtoContext* ctx,
                                                const proto::ProtoObject* self,
-                                               const proto::ProtoList* args,
+                                               const proto::ProtoArguments* args,
                                                bool utc, int nArgs, bool fyMode,
                                                int principalCount,
                                                Mutator mutate) {
@@ -1208,7 +1208,7 @@ static const proto::ProtoObject* setComponent2(proto::ProtoContext* ctx,
 // producing NaN).  The latter must still update the corresponding
 // component slot per §21.4.4 step ordering.
 static double pullArgAsDouble(proto::ProtoContext* ctx,
-                              const proto::ProtoList* args,
+                              const proto::ProtoArguments* args,
                               int idx, bool* present) {
     if (!args || idx < 0 || static_cast<proto::proto_ulong>(idx) >= args->getSize(ctx)) {
         if (present) *present = false;
@@ -1236,8 +1236,8 @@ static double pullArgAsDouble(proto::ProtoContext* ctx,
 static const proto::ProtoObject* dateSetMilliseconds(proto::ProtoContext* ctx,
                                                      const proto::ProtoObject* self,
                                                      const proto::ParentLink*,
-                                                     const proto::ProtoList* args,
-                                                     const proto::ProtoSparseList*) {
+                                                     const proto::ProtoArguments* args,
+                                                     const proto::ProtoKeywordArguments*) {
     return setComponent2(ctx, self, args, /*utc=*/false, /*nArgs=*/1,
         /*fyMode=*/false, /*principalCount=*/1,
         [&](std::tm&, int& ms, const double* c, const bool* p, int) {
@@ -1249,8 +1249,8 @@ static const proto::ProtoObject* dateSetMilliseconds(proto::ProtoContext* ctx,
 static const proto::ProtoObject* dateSetSeconds(proto::ProtoContext* ctx,
                                                 const proto::ProtoObject* self,
                                                 const proto::ParentLink*,
-                                                const proto::ProtoList* args,
-                                                const proto::ProtoSparseList*) {
+                                                const proto::ProtoArguments* args,
+                                                const proto::ProtoKeywordArguments*) {
     return setComponent2(ctx, self, args, /*utc=*/false, /*nArgs=*/2,
         /*fyMode=*/false, /*principalCount=*/1,
         [&](std::tm& tm, int& ms, const double* c, const bool* p, int) {
@@ -1263,8 +1263,8 @@ static const proto::ProtoObject* dateSetSeconds(proto::ProtoContext* ctx,
 static const proto::ProtoObject* dateSetMinutes(proto::ProtoContext* ctx,
                                                 const proto::ProtoObject* self,
                                                 const proto::ParentLink*,
-                                                const proto::ProtoList* args,
-                                                const proto::ProtoSparseList*) {
+                                                const proto::ProtoArguments* args,
+                                                const proto::ProtoKeywordArguments*) {
     return setComponent2(ctx, self, args, /*utc=*/false, /*nArgs=*/3,
         /*fyMode=*/false, /*principalCount=*/1,
         [&](std::tm& tm, int& ms, const double* c, const bool* p, int) {
@@ -1278,8 +1278,8 @@ static const proto::ProtoObject* dateSetMinutes(proto::ProtoContext* ctx,
 static const proto::ProtoObject* dateSetHours(proto::ProtoContext* ctx,
                                               const proto::ProtoObject* self,
                                               const proto::ParentLink*,
-                                              const proto::ProtoList* args,
-                                              const proto::ProtoSparseList*) {
+                                              const proto::ProtoArguments* args,
+                                              const proto::ProtoKeywordArguments*) {
     return setComponent2(ctx, self, args, /*utc=*/false, /*nArgs=*/4,
         /*fyMode=*/false, /*principalCount=*/1,
         [&](std::tm& tm, int& ms, const double* c, const bool* p, int) {
@@ -1294,8 +1294,8 @@ static const proto::ProtoObject* dateSetHours(proto::ProtoContext* ctx,
 static const proto::ProtoObject* dateSetDate(proto::ProtoContext* ctx,
                                              const proto::ProtoObject* self,
                                              const proto::ParentLink*,
-                                             const proto::ProtoList* args,
-                                             const proto::ProtoSparseList*) {
+                                             const proto::ProtoArguments* args,
+                                             const proto::ProtoKeywordArguments*) {
     return setComponent2(ctx, self, args, /*utc=*/false, /*nArgs=*/1,
         /*fyMode=*/false, /*principalCount=*/1,
         [&](std::tm& tm, int&, const double* c, const bool* p, int) {
@@ -1307,8 +1307,8 @@ static const proto::ProtoObject* dateSetDate(proto::ProtoContext* ctx,
 static const proto::ProtoObject* dateSetMonth(proto::ProtoContext* ctx,
                                               const proto::ProtoObject* self,
                                               const proto::ParentLink*,
-                                              const proto::ProtoList* args,
-                                              const proto::ProtoSparseList*) {
+                                              const proto::ProtoArguments* args,
+                                              const proto::ProtoKeywordArguments*) {
     return setComponent2(ctx, self, args, /*utc=*/false, /*nArgs=*/2,
         /*fyMode=*/false, /*principalCount=*/1,
         [&](std::tm& tm, int&, const double* c, const bool* p, int) {
@@ -1324,8 +1324,8 @@ static const proto::ProtoObject* dateSetMonth(proto::ProtoContext* ctx,
 static const proto::ProtoObject* dateSetFullYear(proto::ProtoContext* ctx,
                                                  const proto::ProtoObject* self,
                                                  const proto::ParentLink*,
-                                                 const proto::ProtoList* args,
-                                                 const proto::ProtoSparseList*) {
+                                                 const proto::ProtoArguments* args,
+                                                 const proto::ProtoKeywordArguments*) {
     return setComponent2(ctx, self, args, /*utc=*/false, /*nArgs=*/3,
         /*fyMode=*/true, /*principalCount=*/1,
         [&](std::tm& tm, int&, const double* c, const bool* p, int) {
@@ -1339,8 +1339,8 @@ static const proto::ProtoObject* dateSetFullYear(proto::ProtoContext* ctx,
 static const proto::ProtoObject* dateSetUTCMilliseconds(proto::ProtoContext* ctx,
                                                         const proto::ProtoObject* self,
                                                         const proto::ParentLink*,
-                                                        const proto::ProtoList* args,
-                                                        const proto::ProtoSparseList*) {
+                                                        const proto::ProtoArguments* args,
+                                                        const proto::ProtoKeywordArguments*) {
     return setComponent2(ctx, self, args, /*utc=*/true, /*nArgs=*/1,
         /*fyMode=*/false, /*principalCount=*/1,
         [&](std::tm&, int& ms, const double* c, const bool* p, int) {
@@ -1352,8 +1352,8 @@ static const proto::ProtoObject* dateSetUTCMilliseconds(proto::ProtoContext* ctx
 static const proto::ProtoObject* dateSetUTCSeconds(proto::ProtoContext* ctx,
                                                    const proto::ProtoObject* self,
                                                    const proto::ParentLink*,
-                                                   const proto::ProtoList* args,
-                                                   const proto::ProtoSparseList*) {
+                                                   const proto::ProtoArguments* args,
+                                                   const proto::ProtoKeywordArguments*) {
     return setComponent2(ctx, self, args, /*utc=*/true, /*nArgs=*/2,
         /*fyMode=*/false, /*principalCount=*/1,
         [&](std::tm& tm, int& ms, const double* c, const bool* p, int) {
@@ -1366,8 +1366,8 @@ static const proto::ProtoObject* dateSetUTCSeconds(proto::ProtoContext* ctx,
 static const proto::ProtoObject* dateSetUTCMinutes(proto::ProtoContext* ctx,
                                                    const proto::ProtoObject* self,
                                                    const proto::ParentLink*,
-                                                   const proto::ProtoList* args,
-                                                   const proto::ProtoSparseList*) {
+                                                   const proto::ProtoArguments* args,
+                                                   const proto::ProtoKeywordArguments*) {
     return setComponent2(ctx, self, args, /*utc=*/true, /*nArgs=*/3,
         /*fyMode=*/false, /*principalCount=*/1,
         [&](std::tm& tm, int& ms, const double* c, const bool* p, int) {
@@ -1381,8 +1381,8 @@ static const proto::ProtoObject* dateSetUTCMinutes(proto::ProtoContext* ctx,
 static const proto::ProtoObject* dateSetUTCHours(proto::ProtoContext* ctx,
                                                  const proto::ProtoObject* self,
                                                  const proto::ParentLink*,
-                                                 const proto::ProtoList* args,
-                                                 const proto::ProtoSparseList*) {
+                                                 const proto::ProtoArguments* args,
+                                                 const proto::ProtoKeywordArguments*) {
     return setComponent2(ctx, self, args, /*utc=*/true, /*nArgs=*/4,
         /*fyMode=*/false, /*principalCount=*/1,
         [&](std::tm& tm, int& ms, const double* c, const bool* p, int) {
@@ -1397,8 +1397,8 @@ static const proto::ProtoObject* dateSetUTCHours(proto::ProtoContext* ctx,
 static const proto::ProtoObject* dateSetUTCDate(proto::ProtoContext* ctx,
                                                 const proto::ProtoObject* self,
                                                 const proto::ParentLink*,
-                                                const proto::ProtoList* args,
-                                                const proto::ProtoSparseList*) {
+                                                const proto::ProtoArguments* args,
+                                                const proto::ProtoKeywordArguments*) {
     return setComponent2(ctx, self, args, /*utc=*/true, /*nArgs=*/1,
         /*fyMode=*/false, /*principalCount=*/1,
         [&](std::tm& tm, int&, const double* c, const bool* p, int) {
@@ -1410,8 +1410,8 @@ static const proto::ProtoObject* dateSetUTCDate(proto::ProtoContext* ctx,
 static const proto::ProtoObject* dateSetUTCMonth(proto::ProtoContext* ctx,
                                                  const proto::ProtoObject* self,
                                                  const proto::ParentLink*,
-                                                 const proto::ProtoList* args,
-                                                 const proto::ProtoSparseList*) {
+                                                 const proto::ProtoArguments* args,
+                                                 const proto::ProtoKeywordArguments*) {
     return setComponent2(ctx, self, args, /*utc=*/true, /*nArgs=*/2,
         /*fyMode=*/false, /*principalCount=*/1,
         [&](std::tm& tm, int&, const double* c, const bool* p, int) {
@@ -1424,8 +1424,8 @@ static const proto::ProtoObject* dateSetUTCMonth(proto::ProtoContext* ctx,
 static const proto::ProtoObject* dateSetUTCFullYear(proto::ProtoContext* ctx,
                                                     const proto::ProtoObject* self,
                                                     const proto::ParentLink*,
-                                                    const proto::ProtoList* args,
-                                                    const proto::ProtoSparseList*) {
+                                                    const proto::ProtoArguments* args,
+                                                    const proto::ProtoKeywordArguments*) {
     return setComponent2(ctx, self, args, /*utc=*/true, /*nArgs=*/3,
         /*fyMode=*/true, /*principalCount=*/1,
         [&](std::tm& tm, int&, const double* c, const bool* p, int) {
@@ -1439,8 +1439,8 @@ static const proto::ProtoObject* dateSetUTCFullYear(proto::ProtoContext* ctx,
 static const proto::ProtoObject* dateSetTime(proto::ProtoContext* ctx,
                                              const proto::ProtoObject* self,
                                              const proto::ParentLink*,
-                                             const proto::ProtoList* args,
-                                             const proto::ProtoSparseList*) {
+                                             const proto::ProtoArguments* args,
+                                             const proto::ProtoKeywordArguments*) {
     if (!ctx || !self || self == PROTO_NONE) return PROTO_NONE;
     bool isDate = false;
     (void)readDateValue(ctx, self, &isDate);
@@ -1480,8 +1480,8 @@ static const proto::ProtoObject* dateSetTime(proto::ProtoContext* ctx,
 static const proto::ProtoObject* dateToISOString(proto::ProtoContext* ctx,
                                                  const proto::ProtoObject* self,
                                                  const proto::ParentLink*,
-                                                 const proto::ProtoList*,
-                                                 const proto::ProtoSparseList*) {
+                                                 const proto::ProtoArguments*,
+                                                 const proto::ProtoKeywordArguments*) {
     if (!ctx) return PROTO_NONE;
     bool isDate = false;
     double t = readDateValue(ctx, self, &isDate);
@@ -1538,8 +1538,8 @@ static const proto::ProtoObject* dateToISOString(proto::ProtoContext* ctx,
 static const proto::ProtoObject* dateToJSON(proto::ProtoContext* ctx,
                                             const proto::ProtoObject* self,
                                             const proto::ParentLink*,
-                                            const proto::ProtoList*,
-                                            const proto::ProtoSparseList*) {
+                                            const proto::ProtoArguments*,
+                                            const proto::ProtoKeywordArguments*) {
     if (!ctx) return PROTO_NONE;
     // Step 1: ToObject — throws TypeError on null/undefined.
     if (!self || self == PROTO_NONE ||
@@ -1585,8 +1585,8 @@ static const char* kMonthShort[] = {
 static const proto::ProtoObject* dateToUTCString(proto::ProtoContext* ctx,
                                                  const proto::ProtoObject* self,
                                                  const proto::ParentLink*,
-                                                 const proto::ProtoList*,
-                                                 const proto::ProtoSparseList*) {
+                                                 const proto::ProtoArguments*,
+                                                 const proto::ProtoKeywordArguments*) {
     if (!ctx) return PROTO_NONE;
     bool isDate = false;
     double t = readDateValue(ctx, self, &isDate);
@@ -1640,8 +1640,8 @@ static std::string formatTZOffset(proto::proto_long offsetSec) {
 static const proto::ProtoObject* dateToString(proto::ProtoContext* ctx,
                                               const proto::ProtoObject* self,
                                               const proto::ParentLink*,
-                                              const proto::ProtoList*,
-                                              const proto::ProtoSparseList*) {
+                                              const proto::ProtoArguments*,
+                                              const proto::ProtoKeywordArguments*) {
     if (!ctx) return PROTO_NONE;
     bool isDate = false;
     double t = readDateValue(ctx, self, &isDate);
@@ -1690,8 +1690,8 @@ static const proto::ProtoObject* dateToString(proto::ProtoContext* ctx,
 static const proto::ProtoObject* dateToDateString(proto::ProtoContext* ctx,
                                                   const proto::ProtoObject* self,
                                                   const proto::ParentLink*,
-                                                  const proto::ProtoList*,
-                                                  const proto::ProtoSparseList*) {
+                                                  const proto::ProtoArguments*,
+                                                  const proto::ProtoKeywordArguments*) {
     if (!ctx) return PROTO_NONE;
     bool isDate = false;
     double t = readDateValue(ctx, self, &isDate);
@@ -1722,8 +1722,8 @@ static const proto::ProtoObject* dateToDateString(proto::ProtoContext* ctx,
 static const proto::ProtoObject* dateToTimeString(proto::ProtoContext* ctx,
                                                   const proto::ProtoObject* self,
                                                   const proto::ParentLink*,
-                                                  const proto::ProtoList*,
-                                                  const proto::ProtoSparseList*) {
+                                                  const proto::ProtoArguments*,
+                                                  const proto::ProtoKeywordArguments*) {
     if (!ctx) return PROTO_NONE;
     bool isDate = false;
     double t = readDateValue(ctx, self, &isDate);
@@ -1756,8 +1756,8 @@ static const proto::ProtoObject* dateToTimeString(proto::ProtoContext* ctx,
 static const proto::ProtoObject* dateToLocaleString(proto::ProtoContext* ctx,
                                                     const proto::ProtoObject* self,
                                                     const proto::ParentLink* p,
-                                                    const proto::ProtoList* args,
-                                                    const proto::ProtoSparseList* k) {
+                                                    const proto::ProtoArguments* args,
+                                                    const proto::ProtoKeywordArguments* k) {
     return dateToString(ctx, self, p, args, k);
 }
 
@@ -1765,8 +1765,8 @@ static const proto::ProtoObject* dateToLocaleString(proto::ProtoContext* ctx,
 static const proto::ProtoObject* dateToLocaleDateString(proto::ProtoContext* ctx,
                                                         const proto::ProtoObject* self,
                                                         const proto::ParentLink* p,
-                                                        const proto::ProtoList* args,
-                                                        const proto::ProtoSparseList* k) {
+                                                        const proto::ProtoArguments* args,
+                                                        const proto::ProtoKeywordArguments* k) {
     return dateToDateString(ctx, self, p, args, k);
 }
 
@@ -1774,8 +1774,8 @@ static const proto::ProtoObject* dateToLocaleDateString(proto::ProtoContext* ctx
 static const proto::ProtoObject* dateToLocaleTimeString(proto::ProtoContext* ctx,
                                                         const proto::ProtoObject* self,
                                                         const proto::ParentLink* p,
-                                                        const proto::ProtoList* args,
-                                                        const proto::ProtoSparseList* k) {
+                                                        const proto::ProtoArguments* args,
+                                                        const proto::ProtoKeywordArguments* k) {
     return dateToTimeString(ctx, self, p, args, k);
 }
 
@@ -1798,8 +1798,8 @@ static const proto::ProtoObject* dateToLocaleTimeString(proto::ProtoContext* ctx
 static const proto::ProtoObject* dateToTemporalInstant(proto::ProtoContext* ctx,
                                                        const proto::ProtoObject* self,
                                                        const proto::ParentLink* p,
-                                                       const proto::ProtoList* a,
-                                                       const proto::ProtoSparseList* k) {
+                                                       const proto::ProtoArguments* a,
+                                                       const proto::ProtoKeywordArguments* k) {
     if (!ctx) return PROTO_NONE;
     // Step 2: RequireInternalSlot — throws TypeError on non-Date receivers
     // (this includes the sentinels and ALL primitives).
@@ -1832,8 +1832,8 @@ static const proto::ProtoObject* dateToTemporalInstant(proto::ProtoContext* ctx,
 static const proto::ProtoObject* dateSymbolToPrimitive(proto::ProtoContext* ctx,
                                                        const proto::ProtoObject* self,
                                                        const proto::ParentLink* p,
-                                                       const proto::ProtoList* args,
-                                                       const proto::ProtoSparseList* k) {
+                                                       const proto::ProtoArguments* args,
+                                                       const proto::ProtoKeywordArguments* k) {
     if (!ctx) return PROTO_NONE;
     // §21.4.4.45 step 2: if Type(this) is not Object, throw TypeError.
     // "not Object" includes the sentinels, ALL numeric primitives,
@@ -1896,8 +1896,8 @@ static const proto::ProtoObject* dateSymbolToPrimitive(proto::ProtoContext* ctx,
 static const proto::ProtoObject* dateGetYear(proto::ProtoContext* ctx,
                                              const proto::ProtoObject* self,
                                              const proto::ParentLink*,
-                                             const proto::ProtoList*,
-                                             const proto::ProtoSparseList*) {
+                                             const proto::ProtoArguments*,
+                                             const proto::ProtoKeywordArguments*) {
     return getComponent(ctx, self, false,
         [](const std::tm& tm, int) { return tm.tm_year; });
 }
@@ -1908,8 +1908,8 @@ static const proto::ProtoObject* dateGetYear(proto::ProtoContext* ctx,
 static const proto::ProtoObject* dateSetYear(proto::ProtoContext* ctx,
                                              const proto::ProtoObject* self,
                                              const proto::ParentLink*,
-                                             const proto::ProtoList* args,
-                                             const proto::ProtoSparseList*) {
+                                             const proto::ProtoArguments* args,
+                                             const proto::ProtoKeywordArguments*) {
     return setComponent2(ctx, self, args, /*utc=*/false, /*nArgs=*/1,
         /*fyMode=*/true, /*principalCount=*/1,
         [&](std::tm& tm, int&, const double* c, const bool* p, int) {
@@ -1989,8 +1989,8 @@ static void registerProtoMethod(proto::ProtoContext* ctx,
 static const proto::ProtoObject* dateUTCNew(proto::ProtoContext* ctx,
                                             const proto::ProtoObject*,
                                             const proto::ParentLink*,
-                                            const proto::ProtoList* args,
-                                            const proto::ProtoSparseList*) {
+                                            const proto::ProtoArguments* args,
+                                            const proto::ProtoKeywordArguments*) {
     if (!ctx) return PROTO_NONE;
     double nan = std::nan("");
     int argc = args ? static_cast<int>(args->getSize(ctx)) : 0;
@@ -2055,8 +2055,8 @@ static const proto::ProtoObject* dateUTCNew(proto::ProtoContext* ctx,
 static const proto::ProtoObject* dateParseNew(proto::ProtoContext* ctx,
                                               const proto::ProtoObject*,
                                               const proto::ParentLink*,
-                                              const proto::ProtoList* args,
-                                              const proto::ProtoSparseList*) {
+                                              const proto::ProtoArguments* args,
+                                              const proto::ProtoKeywordArguments*) {
     if (!ctx) return PROTO_NONE;
     double nan = std::nan("");
     if (!args || args->getSize(ctx) == 0) return makeNumber(ctx, nan);

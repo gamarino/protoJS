@@ -189,7 +189,7 @@ const proto::ProtoList* list2(proto::ProtoContext* ctx, const proto::ProtoObject
     return ctx->newList(2, items);
 }
 
-const proto::ProtoObject* argAt(proto::ProtoContext* ctx, const proto::ProtoList* args, int i) {
+const proto::ProtoObject* argAt(proto::ProtoContext* ctx, const proto::ProtoArguments* args, int i) {
     if (!args || static_cast<proto::proto_ulong>(i) >= args->getSize(ctx)) return undef();
     const proto::ProtoObject* v = args->getAt(ctx, i);
     return v ? v : undef();
@@ -369,8 +369,8 @@ const proto::ProtoObject* resolvingFunctionTarget(proto::ProtoContext* ctx,
 const proto::ProtoObject* resolvingResolve(proto::ProtoContext* ctx,
                                            const proto::ProtoObject* self,
                                            const proto::ParentLink*,
-                                           const proto::ProtoList* args,
-                                           const proto::ProtoSparseList*) {
+                                           const proto::ProtoArguments* args,
+                                           const proto::ProtoKeywordArguments*) {
     if (const proto::ProtoObject* p = resolvingFunctionTarget(ctx, self))
         resolvePromise(ctx, p, argAt(ctx, args, 0));
     return undef();
@@ -379,8 +379,8 @@ const proto::ProtoObject* resolvingResolve(proto::ProtoContext* ctx,
 const proto::ProtoObject* resolvingReject(proto::ProtoContext* ctx,
                                           const proto::ProtoObject* self,
                                           const proto::ParentLink*,
-                                          const proto::ProtoList* args,
-                                          const proto::ProtoSparseList*) {
+                                          const proto::ProtoArguments* args,
+                                          const proto::ProtoKeywordArguments*) {
     if (const proto::ProtoObject* p = resolvingFunctionTarget(ctx, self))
         rejectPromise(ctx, p, argAt(ctx, args, 0));
     return undef();
@@ -419,8 +419,8 @@ void materializeFunctions(proto::ProtoContext* ctx, Capability& cap) {
 const proto::ProtoObject* capabilityExecutor(proto::ProtoContext* ctx,
                                              const proto::ProtoObject* self,
                                              const proto::ParentLink*,
-                                             const proto::ProtoList* args,
-                                             const proto::ProtoSparseList*) {
+                                             const proto::ProtoArguments* args,
+                                             const proto::ProtoKeywordArguments*) {
     if (!self || self == PROTO_NONE) return undef();
     const proto::ProtoObject* curRes = self->getOwnAttributeDirect(ctx, keyCapResolve(ctx));
     const proto::ProtoObject* curRej = self->getOwnAttributeDirect(ctx, keyCapReject(ctx));
@@ -576,8 +576,8 @@ const proto::ProtoObject* promiseResolveWith(proto::ProtoContext* ctx,
 const proto::ProtoObject* promiseThen(proto::ProtoContext* ctx,
                                       const proto::ProtoObject* self,
                                       const proto::ParentLink*,
-                                      const proto::ProtoList* args,
-                                      const proto::ProtoSparseList*) {
+                                      const proto::ProtoArguments* args,
+                                      const proto::ProtoKeywordArguments*) {
     if (!isPromise(ctx, self)) {
         throwTypeError(ctx, "Promise.prototype.then called on an incompatible receiver");
         return PROTO_NONE;
@@ -606,8 +606,8 @@ const proto::ProtoObject* invokeThen(proto::ProtoContext* ctx, const proto::Prot
 const proto::ProtoObject* promiseCatch(proto::ProtoContext* ctx,
                                        const proto::ProtoObject* self,
                                        const proto::ParentLink*,
-                                       const proto::ProtoList* args,
-                                       const proto::ProtoSparseList*) {
+                                       const proto::ProtoArguments* args,
+                                       const proto::ProtoKeywordArguments*) {
     if (isUndefinedValue(self) || isNullValue(self)) {
         throwTypeError(ctx, "Promise.prototype.catch called on null or undefined");
         return PROTO_NONE;
@@ -617,20 +617,20 @@ const proto::ProtoObject* promiseCatch(proto::ProtoContext* ctx,
 
 // finally()'s closures carry [onFinally, C] or the settled value.
 const proto::ProtoObject* finallyValueThunk(proto::ProtoContext*, const proto::ProtoObject* self,
-                                            const proto::ParentLink*, const proto::ProtoList*,
-                                            const proto::ProtoSparseList*) {
+                                            const proto::ParentLink*, const proto::ProtoArguments*,
+                                            const proto::ProtoKeywordArguments*) {
     return self ? self : PROTO_NONE;
 }
 
 const proto::ProtoObject* finallyThrower(proto::ProtoContext*, const proto::ProtoObject* self,
-                                         const proto::ParentLink*, const proto::ProtoList*,
-                                         const proto::ProtoSparseList*) {
+                                         const proto::ParentLink*, const proto::ProtoArguments*,
+                                         const proto::ProtoKeywordArguments*) {
     signalNativeException(self ? self : PROTO_NONE);
     return PROTO_NONE;
 }
 
 const proto::ProtoObject* finallyReaction(proto::ProtoContext* ctx, const proto::ProtoObject* self,
-                                          const proto::ProtoList* args, bool rejected) {
+                                          const proto::ProtoArguments* args, bool rejected) {
     const proto::ProtoList* data = self ? self->asList(ctx) : nullptr;
     if (!data || data->getSize(ctx) < 2) return undef();
     const proto::ProtoObject* onFinally = data->getAt(ctx, 0);
@@ -647,22 +647,22 @@ const proto::ProtoObject* finallyReaction(proto::ProtoContext* ctx, const proto:
 }
 
 const proto::ProtoObject* finallyThen(proto::ProtoContext* ctx, const proto::ProtoObject* self,
-                                      const proto::ParentLink*, const proto::ProtoList* args,
-                                      const proto::ProtoSparseList*) {
+                                      const proto::ParentLink*, const proto::ProtoArguments* args,
+                                      const proto::ProtoKeywordArguments*) {
     return finallyReaction(ctx, self, args, false);
 }
 
 const proto::ProtoObject* finallyCatch(proto::ProtoContext* ctx, const proto::ProtoObject* self,
-                                       const proto::ParentLink*, const proto::ProtoList* args,
-                                       const proto::ProtoSparseList*) {
+                                       const proto::ParentLink*, const proto::ProtoArguments* args,
+                                       const proto::ProtoKeywordArguments*) {
     return finallyReaction(ctx, self, args, true);
 }
 
 const proto::ProtoObject* promiseFinally(proto::ProtoContext* ctx,
                                          const proto::ProtoObject* self,
                                          const proto::ParentLink*,
-                                         const proto::ProtoList* args,
-                                         const proto::ProtoSparseList*) {
+                                         const proto::ProtoArguments* args,
+                                         const proto::ProtoKeywordArguments*) {
     if (!isObjectValue(ctx, self)) {
         throwTypeError(ctx, "Promise.prototype.finally called on a non-object");
         return PROTO_NONE;
@@ -687,8 +687,8 @@ const proto::ProtoObject* promiseFinally(proto::ProtoContext* ctx,
 const proto::ProtoObject* promiseConstructor(proto::ProtoContext* ctx,
                                              const proto::ProtoObject* self,
                                              const proto::ParentLink*,
-                                             const proto::ProtoList* args,
-                                             const proto::ProtoSparseList*) {
+                                             const proto::ProtoArguments* args,
+                                             const proto::ProtoKeywordArguments*) {
     const proto::ProtoObject* executor = argAt(ctx, args, 0);
     if (!isCallable(ctx, executor)) {
         throwTypeError(ctx, "Promise resolver is not a function");
@@ -730,8 +730,8 @@ bool requireObjectReceiver(proto::ProtoContext* ctx, const proto::ProtoObject* s
 const proto::ProtoObject* promiseStaticResolve(proto::ProtoContext* ctx,
                                                const proto::ProtoObject* self,
                                                const proto::ParentLink*,
-                                               const proto::ProtoList* args,
-                                               const proto::ProtoSparseList*) {
+                                               const proto::ProtoArguments* args,
+                                               const proto::ProtoKeywordArguments*) {
     if (!requireObjectReceiver(ctx, self, "Promise.resolve")) return PROTO_NONE;
     const proto::ProtoObject* p = promiseResolveWith(ctx, self, argAt(ctx, args, 0));
     return p ? p : PROTO_NONE;
@@ -740,8 +740,8 @@ const proto::ProtoObject* promiseStaticResolve(proto::ProtoContext* ctx,
 const proto::ProtoObject* promiseStaticReject(proto::ProtoContext* ctx,
                                               const proto::ProtoObject* self,
                                               const proto::ParentLink*,
-                                              const proto::ProtoList* args,
-                                              const proto::ProtoSparseList*) {
+                                              const proto::ProtoArguments* args,
+                                              const proto::ProtoKeywordArguments*) {
     Capability cap;
     if (!newPromiseCapability(ctx, self, cap)) return PROTO_NONE;
     capabilitySettle(ctx, cap, true, argAt(ctx, args, 0));
@@ -752,8 +752,8 @@ const proto::ProtoObject* promiseStaticReject(proto::ProtoContext* ctx,
 const proto::ProtoObject* promiseStaticWithResolvers(proto::ProtoContext* ctx,
                                                      const proto::ProtoObject* self,
                                                      const proto::ParentLink*,
-                                                     const proto::ProtoList*,
-                                                     const proto::ProtoSparseList*) {
+                                                     const proto::ProtoArguments*,
+                                                     const proto::ProtoKeywordArguments*) {
     Capability cap;
     if (!newPromiseCapability(ctx, self, cap)) return PROTO_NONE;
     materializeFunctions(ctx, cap);
@@ -768,15 +768,15 @@ const proto::ProtoObject* promiseStaticWithResolvers(proto::ProtoContext* ctx,
 const proto::ProtoObject* promiseStaticTry(proto::ProtoContext* ctx,
                                            const proto::ProtoObject* self,
                                            const proto::ParentLink*,
-                                           const proto::ProtoList* args,
-                                           const proto::ProtoSparseList*) {
+                                           const proto::ProtoArguments* args,
+                                           const proto::ProtoKeywordArguments*) {
     // Promise.try (§27.2.4.8, as revised in 2026): call the callback; a
     // throw rejects a new capability of C, and a value goes through
     // PromiseResolve(C, value), so a C promise the callback returns is
     // returned as it is, not wrapped.
     if (!requireObjectReceiver(ctx, self, "Promise.try")) return PROTO_NONE;
     const int argc = args ? static_cast<int>(args->getSize(ctx)) : 0;
-    const proto::ProtoList* fwd = (argc > 1) ? args->getSlice(ctx, 1, argc) : ctx->newList();
+    const proto::ProtoList* fwd = (argc > 1) ? args->asList(ctx)->getSlice(ctx, 1, argc) : ctx->newList();
     const proto::ProtoObject* result =
         callJSFunction(ctx, argAt(ctx, args, 0), undef(), fwd ? fwd : ctx->newList());
     const proto::ProtoObject* e = PROTO_NONE;
@@ -1001,7 +1001,7 @@ const proto::ProtoObject* settledRecord(proto::ProtoContext* ctx, bool fulfilled
 
 // Promise.all resolve element / allSettled resolve element / reject element.
 const proto::ProtoObject* elementSettle(proto::ProtoContext* ctx, const proto::ProtoObject* el,
-                                        const proto::ProtoList* args, CombinatorKind kind,
+                                        const proto::ProtoArguments* args, CombinatorKind kind,
                                         bool fulfilled) {
     long long index = 0;
     const proto::ProtoObject* agg = claimElement(ctx, el, index);
@@ -1017,34 +1017,34 @@ const proto::ProtoObject* elementSettle(proto::ProtoContext* ctx, const proto::P
 }
 
 const proto::ProtoObject* allResolveElement(proto::ProtoContext* ctx, const proto::ProtoObject* self,
-                                            const proto::ParentLink*, const proto::ProtoList* args,
-                                            const proto::ProtoSparseList*) {
+                                            const proto::ParentLink*, const proto::ProtoArguments* args,
+                                            const proto::ProtoKeywordArguments*) {
     return elementSettle(ctx, self, args, kAll, true);
 }
 const proto::ProtoObject* allSettledResolveElement(proto::ProtoContext* ctx,
                                                    const proto::ProtoObject* self,
                                                    const proto::ParentLink*,
-                                                   const proto::ProtoList* args,
-                                                   const proto::ProtoSparseList*) {
+                                                   const proto::ProtoArguments* args,
+                                                   const proto::ProtoKeywordArguments*) {
     return elementSettle(ctx, self, args, kAllSettled, true);
 }
 const proto::ProtoObject* allSettledRejectElement(proto::ProtoContext* ctx,
                                                   const proto::ProtoObject* self,
                                                   const proto::ParentLink*,
-                                                  const proto::ProtoList* args,
-                                                  const proto::ProtoSparseList*) {
+                                                  const proto::ProtoArguments* args,
+                                                  const proto::ProtoKeywordArguments*) {
     return elementSettle(ctx, self, args, kAllSettled, false);
 }
 const proto::ProtoObject* anyRejectElement(proto::ProtoContext* ctx, const proto::ProtoObject* self,
-                                           const proto::ParentLink*, const proto::ProtoList* args,
-                                           const proto::ProtoSparseList*) {
+                                           const proto::ParentLink*, const proto::ProtoArguments* args,
+                                           const proto::ProtoKeywordArguments*) {
     return elementSettle(ctx, self, args, kAny, false);
 }
 
 // The body shared by Promise.all, allSettled, any and race.
 const proto::ProtoObject* promiseCombinator(proto::ProtoContext* ctx,
                                             const proto::ProtoObject* C,
-                                            const proto::ProtoList* args,
+                                            const proto::ProtoArguments* args,
                                             int kind /* CombinatorKind, or -1 for race */) {
     Capability cap;
     if (!newPromiseCapability(ctx, C, cap)) return PROTO_NONE;
@@ -1103,31 +1103,31 @@ const proto::ProtoObject* promiseCombinator(proto::ProtoContext* ctx,
 }
 
 const proto::ProtoObject* promiseAll(proto::ProtoContext* ctx, const proto::ProtoObject* self,
-                                     const proto::ParentLink*, const proto::ProtoList* args,
-                                     const proto::ProtoSparseList*) {
+                                     const proto::ParentLink*, const proto::ProtoArguments* args,
+                                     const proto::ProtoKeywordArguments*) {
     return promiseCombinator(ctx, self, args, kAll);
 }
 const proto::ProtoObject* promiseAllSettled(proto::ProtoContext* ctx, const proto::ProtoObject* self,
-                                            const proto::ParentLink*, const proto::ProtoList* args,
-                                            const proto::ProtoSparseList*) {
+                                            const proto::ParentLink*, const proto::ProtoArguments* args,
+                                            const proto::ProtoKeywordArguments*) {
     return promiseCombinator(ctx, self, args, kAllSettled);
 }
 const proto::ProtoObject* promiseAny(proto::ProtoContext* ctx, const proto::ProtoObject* self,
-                                     const proto::ParentLink*, const proto::ProtoList* args,
-                                     const proto::ProtoSparseList*) {
+                                     const proto::ParentLink*, const proto::ProtoArguments* args,
+                                     const proto::ProtoKeywordArguments*) {
     return promiseCombinator(ctx, self, args, kAny);
 }
 const proto::ProtoObject* promiseRace(proto::ProtoContext* ctx, const proto::ProtoObject* self,
-                                      const proto::ParentLink*, const proto::ProtoList* args,
-                                      const proto::ProtoSparseList*) {
+                                      const proto::ParentLink*, const proto::ProtoArguments* args,
+                                      const proto::ProtoKeywordArguments*) {
     return promiseCombinator(ctx, self, args, -1);
 }
 
 const proto::ProtoObject* queueMicrotaskNative(proto::ProtoContext* ctx,
                                                const proto::ProtoObject*,
                                                const proto::ParentLink*,
-                                               const proto::ProtoList* args,
-                                               const proto::ProtoSparseList*) {
+                                               const proto::ProtoArguments* args,
+                                               const proto::ProtoKeywordArguments*) {
     const proto::ProtoObject* cb = argAt(ctx, args, 0);
     if (!isCallable(ctx, cb)) {
         throwTypeError(ctx, "The \"callback\" argument must be of type function");
@@ -1490,8 +1490,8 @@ void ensurePromiseConstructor(proto::ProtoContext* ctx,
     {
         static const proto::ProtoMethod speciesGetter = [](
             proto::ProtoContext*, const proto::ProtoObject* self,
-            const proto::ParentLink*, const proto::ProtoList*,
-            const proto::ProtoSparseList*) -> const proto::ProtoObject* { return self; };
+            const proto::ParentLink*, const proto::ProtoArguments*,
+            const proto::ProtoKeywordArguments*) -> const proto::ProtoObject* { return self; };
         const proto::ProtoObject* getter = makeBuiltin("get [Symbol.species]", speciesGetter, 0);
         getter = getter->setAttribute(ctx, JSSymbols::hasNonWritableProps(ctx), PROTO_TRUE);
         ctor = ctor->setAttribute(ctx, keySpeciesGetter(ctx), getter);

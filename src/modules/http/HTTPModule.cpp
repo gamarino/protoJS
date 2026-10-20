@@ -66,7 +66,7 @@ const proto::ProtoString* keyHeadersSent(proto::ProtoContext* ctx) {
 
 // ---- Argument helpers --------------------------------------------------
 
-bool argString(proto::ProtoContext* ctx, const proto::ProtoList* args,
+bool argString(proto::ProtoContext* ctx, const proto::ProtoArguments* args,
                 int idx, std::string& out) {
     if (!ctx || !args) return false;
     if (idx >= static_cast<int>(args->getSize(ctx))) return false;
@@ -76,7 +76,7 @@ bool argString(proto::ProtoContext* ctx, const proto::ProtoList* args,
     return true;
 }
 
-bool argInt(proto::ProtoContext* ctx, const proto::ProtoList* args,
+bool argInt(proto::ProtoContext* ctx, const proto::ProtoArguments* args,
              int idx, long long& out) {
     if (!ctx || !args) return false;
     if (idx >= static_cast<int>(args->getSize(ctx))) return false;
@@ -218,8 +218,8 @@ const proto::ProtoObject* incomingGetHeader(
     proto::ProtoContext* ctx,
     const proto::ProtoObject* self,
     const proto::ParentLink*,
-    const proto::ProtoList* args,
-    const proto::ProtoSparseList*) {
+    const proto::ProtoArguments* args,
+    const proto::ProtoKeywordArguments*) {
     std::string name;
     if (!argString(ctx, args, 0, name) || !self) return PROTO_NONE;
     const proto::ProtoObject* hdrs =
@@ -249,8 +249,8 @@ const proto::ProtoObject* responseWriteHead(
     proto::ProtoContext* ctx,
     const proto::ProtoObject* self,
     const proto::ParentLink*,
-    const proto::ProtoList* args,
-    const proto::ProtoSparseList*) {
+    const proto::ProtoArguments* args,
+    const proto::ProtoKeywordArguments*) {
     if (!self || !ctx) return self ? self : PROTO_NONE;
     const proto::ProtoObject* sentVal =
         self->getAttribute(ctx, keyHeadersSent(ctx), false);
@@ -278,8 +278,8 @@ const proto::ProtoObject* responseWrite(
     proto::ProtoContext* ctx,
     const proto::ProtoObject* self,
     const proto::ParentLink*,
-    const proto::ProtoList* args,
-    const proto::ProtoSparseList*) {
+    const proto::ProtoArguments* args,
+    const proto::ProtoKeywordArguments*) {
     if (!self || !ctx || !args || args->getSize(ctx) == 0) return PROTO_FALSE;
     std::string chunk;
     if (!argString(ctx, args, 0, chunk)) return PROTO_FALSE;
@@ -344,8 +344,8 @@ const proto::ProtoObject* responseEnd(
     proto::ProtoContext* ctx,
     const proto::ProtoObject* self,
     const proto::ParentLink* pl,
-    const proto::ProtoList* args,
-    const proto::ProtoSparseList* kw) {
+    const proto::ProtoArguments* args,
+    const proto::ProtoKeywordArguments* kw) {
     if (!self || !ctx) return self ? self : PROTO_NONE;
     if (args && args->getSize(ctx) > 0) {
         responseWrite(ctx, self, pl, args, kw);
@@ -511,8 +511,8 @@ const proto::ProtoObject* serverListen(
     proto::ProtoContext* ctx,
     const proto::ProtoObject* self,
     const proto::ParentLink*,
-    const proto::ProtoList* args,
-    const proto::ProtoSparseList*) {
+    const proto::ProtoArguments* args,
+    const proto::ProtoKeywordArguments*) {
     if (!self || !ctx) return self ? self : PROTO_NONE;
     long long port = 0;
     if (!argInt(ctx, args, 0, port)) return PROTO_NONE;
@@ -593,8 +593,8 @@ const proto::ProtoObject* serverClose(
     proto::ProtoContext* ctx,
     const proto::ProtoObject* self,
     const proto::ParentLink*,
-    const proto::ProtoList* /*args*/,
-    const proto::ProtoSparseList*) {
+    const proto::ProtoArguments* /*args*/,
+    const proto::ProtoKeywordArguments*) {
     ServerState* state = getServerState(ctx, self);
     if (!state) return PROTO_NONE;
     // The owner relinquish point. protoCore's finalizer contract
@@ -677,8 +677,8 @@ const proto::ProtoObject* clientResponseOnImpl(
     proto::ProtoContext* ctx,
     const proto::ProtoObject* self,
     const proto::ParentLink*,
-    const proto::ProtoList* args,
-    const proto::ProtoSparseList*) {
+    const proto::ProtoArguments* args,
+    const proto::ProtoKeywordArguments*) {
     if (!ctx || !self || !args || args->getSize(ctx) < 2) return self ? self : PROTO_NONE;
     std::string eventName;
     if (!argString(ctx, args, 0, eventName)) return self;
@@ -832,8 +832,8 @@ const proto::ProtoObject* clientRequestWriteImpl(
     proto::ProtoContext* ctx,
     const proto::ProtoObject* self,
     const proto::ParentLink*,
-    const proto::ProtoList* args,
-    const proto::ProtoSparseList*) {
+    const proto::ProtoArguments* args,
+    const proto::ProtoKeywordArguments*) {
     ClientRequestState* s = getClientRequestState(ctx, self);
     if (!s || s->sent) return PROTO_FALSE;
     std::string chunk;
@@ -845,8 +845,8 @@ const proto::ProtoObject* clientRequestEndImpl(
     proto::ProtoContext* ctx,
     const proto::ProtoObject* self,
     const proto::ParentLink* pl,
-    const proto::ProtoList* args,
-    const proto::ProtoSparseList* kw) {
+    const proto::ProtoArguments* args,
+    const proto::ProtoKeywordArguments* kw) {
     // Append optional final chunk
     clientRequestWriteImpl(ctx, self, pl, args, kw);
 
@@ -966,8 +966,8 @@ const proto::ProtoObject* createServer(
     proto::ProtoContext* ctx,
     const proto::ProtoObject* /*self*/,
     const proto::ParentLink*,
-    const proto::ProtoList* args,
-    const proto::ProtoSparseList*) {
+    const proto::ProtoArguments* args,
+    const proto::ProtoKeywordArguments*) {
     if (!ctx) return PROTO_NONE;
 
     const proto::ProtoObject* serverProto = getServerProto(ctx);
@@ -1004,8 +1004,8 @@ const proto::ProtoObject* clientRequest(
     proto::ProtoContext* ctx,
     const proto::ProtoObject* /*self*/,
     const proto::ParentLink*,
-    const proto::ProtoList* args,
-    const proto::ProtoSparseList*) {
+    const proto::ProtoArguments* args,
+    const proto::ProtoKeywordArguments*) {
     if (!ctx) return PROTO_NONE;
 
     const proto::ProtoObject* opts = (args && args->getSize(ctx) > 0)

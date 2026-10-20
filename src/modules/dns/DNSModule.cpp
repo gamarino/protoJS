@@ -18,7 +18,7 @@ namespace {
 
 // ---- Argument helpers --------------------------------------------------
 
-bool argString(proto::ProtoContext* ctx, const proto::ProtoList* args,
+bool argString(proto::ProtoContext* ctx, const proto::ProtoArguments* args,
                 int idx, std::string& out) {
     if (!ctx || !args) return false;
     if (idx >= static_cast<int>(args->getSize(ctx))) return false;
@@ -29,7 +29,7 @@ bool argString(proto::ProtoContext* ctx, const proto::ProtoList* args,
 }
 
 const proto::ProtoObject* argAt(proto::ProtoContext* ctx,
-                                 const proto::ProtoList* args, int idx) {
+                                 const proto::ProtoArguments* args, int idx) {
     if (!ctx || !args) return nullptr;
     if (idx >= static_cast<int>(args->getSize(ctx))) return nullptr;
     return args->getAt(ctx, idx);
@@ -120,8 +120,8 @@ const proto::ProtoObject* dnsLookup(
     proto::ProtoContext* ctx,
     const proto::ProtoObject* /*self*/,
     const proto::ParentLink*,
-    const proto::ProtoList* args,
-    const proto::ProtoSparseList*) {
+    const proto::ProtoArguments* args,
+    const proto::ProtoKeywordArguments*) {
     if (!ctx) return PROTO_NONE;
     std::string host;
     if (!argString(ctx, args, 0, host)) return PROTO_NONE;
@@ -231,8 +231,8 @@ const proto::ProtoObject* dnsResolve(
     proto::ProtoContext* ctx,
     const proto::ProtoObject* /*self*/,
     const proto::ParentLink*,
-    const proto::ProtoList* args,
-    const proto::ProtoSparseList*) {
+    const proto::ProtoArguments* args,
+    const proto::ProtoKeywordArguments*) {
     std::string host;
     if (!argString(ctx, args, 0, host)) return PROTO_NONE;
     return makeIpArray(ctx, syncResolve4(host));
@@ -242,8 +242,8 @@ const proto::ProtoObject* dnsResolve4(
     proto::ProtoContext* ctx,
     const proto::ProtoObject* self,
     const proto::ParentLink* pl,
-    const proto::ProtoList* args,
-    const proto::ProtoSparseList* kw) {
+    const proto::ProtoArguments* args,
+    const proto::ProtoKeywordArguments* kw) {
     return dnsResolve(ctx, self, pl, args, kw);
 }
 
@@ -251,8 +251,8 @@ const proto::ProtoObject* dnsResolve6(
     proto::ProtoContext* ctx,
     const proto::ProtoObject* self,
     const proto::ParentLink* pl,
-    const proto::ProtoList* args,
-    const proto::ProtoSparseList* kw) {
+    const proto::ProtoArguments* args,
+    const proto::ProtoKeywordArguments* kw) {
     // Mirror of the original module: same path as resolve4.  A real
     // IPv6 resolver would use AAAA records; tracked separately.
     return dnsResolve(ctx, self, pl, args, kw);
@@ -262,8 +262,8 @@ const proto::ProtoObject* dnsReverse(
     proto::ProtoContext* ctx,
     const proto::ProtoObject* /*self*/,
     const proto::ParentLink*,
-    const proto::ProtoList* args,
-    const proto::ProtoSparseList*) {
+    const proto::ProtoArguments* args,
+    const proto::ProtoKeywordArguments*) {
     std::string ipStr;
     if (!argString(ctx, args, 0, ipStr)) return PROTO_NONE;
     sockaddr_in sa{};
@@ -280,8 +280,8 @@ const proto::ProtoObject* dnsLookupService(
     proto::ProtoContext* ctx,
     const proto::ProtoObject* /*self*/,
     const proto::ParentLink*,
-    const proto::ProtoList* args,
-    const proto::ProtoSparseList*) {
+    const proto::ProtoArguments* args,
+    const proto::ProtoKeywordArguments*) {
     std::string addr;
     const proto::ProtoObject* portArg = argAt(ctx, args, 1);
     if (!ctx || !argString(ctx, args, 0, addr) ||

@@ -45,13 +45,13 @@ const proto::ProtoObject* wrapNativeFunction(proto::ProtoContext* ctx,
  */
 const proto::ProtoObject* generatorFunctionConstructorCall(
     proto::ProtoContext* ctx, const proto::ProtoObject* self, const proto::ParentLink* parent,
-    const proto::ProtoList* args, const proto::ProtoSparseList* named);
+    const proto::ProtoArguments* args, const proto::ProtoKeywordArguments* named);
 const proto::ProtoObject* asyncFunctionConstructorCall(
     proto::ProtoContext* ctx, const proto::ProtoObject* self, const proto::ParentLink* parent,
-    const proto::ProtoList* args, const proto::ProtoSparseList* named);
+    const proto::ProtoArguments* args, const proto::ProtoKeywordArguments* named);
 const proto::ProtoObject* asyncGeneratorFunctionConstructorCall(
     proto::ProtoContext* ctx, const proto::ProtoObject* self, const proto::ParentLink* parent,
-    const proto::ProtoList* args, const proto::ProtoSparseList* named);
+    const proto::ProtoArguments* args, const proto::ProtoKeywordArguments* named);
 
 } // namespace protojs
 

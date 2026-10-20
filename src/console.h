@@ -16,48 +16,48 @@ public:
 private:
     static const proto::ProtoObject* log(proto::ProtoContext*, const proto::ProtoObject*,
                                          const proto::ParentLink*,
-                                         const proto::ProtoList*,
-                                         const proto::ProtoSparseList*);
+                                         const proto::ProtoArguments*,
+                                         const proto::ProtoKeywordArguments*);
     static const proto::ProtoObject* error(proto::ProtoContext*, const proto::ProtoObject*,
                                            const proto::ParentLink*,
-                                           const proto::ProtoList*,
-                                           const proto::ProtoSparseList*);
+                                           const proto::ProtoArguments*,
+                                           const proto::ProtoKeywordArguments*);
     static const proto::ProtoObject* warn(proto::ProtoContext*, const proto::ProtoObject*,
                                           const proto::ParentLink*,
-                                          const proto::ProtoList*,
-                                          const proto::ProtoSparseList*);
+                                          const proto::ProtoArguments*,
+                                          const proto::ProtoKeywordArguments*);
     static const proto::ProtoObject* time(proto::ProtoContext*, const proto::ProtoObject*,
                                           const proto::ParentLink*,
-                                          const proto::ProtoList*,
-                                          const proto::ProtoSparseList*);
+                                          const proto::ProtoArguments*,
+                                          const proto::ProtoKeywordArguments*);
     static const proto::ProtoObject* timeEnd(proto::ProtoContext*, const proto::ProtoObject*,
                                              const proto::ParentLink*,
-                                             const proto::ProtoList*,
-                                             const proto::ProtoSparseList*);
+                                             const proto::ProtoArguments*,
+                                             const proto::ProtoKeywordArguments*);
     static const proto::ProtoObject* timeLog(proto::ProtoContext*, const proto::ProtoObject*,
                                              const proto::ParentLink*,
-                                             const proto::ProtoList*,
-                                             const proto::ProtoSparseList*);
+                                             const proto::ProtoArguments*,
+                                             const proto::ProtoKeywordArguments*);
     static const proto::ProtoObject* assert_(proto::ProtoContext*, const proto::ProtoObject*,
                                              const proto::ParentLink*,
-                                             const proto::ProtoList*,
-                                             const proto::ProtoSparseList*);
+                                             const proto::ProtoArguments*,
+                                             const proto::ProtoKeywordArguments*);
     static const proto::ProtoObject* group(proto::ProtoContext*, const proto::ProtoObject*,
                                            const proto::ParentLink*,
-                                           const proto::ProtoList*,
-                                           const proto::ProtoSparseList*);
+                                           const proto::ProtoArguments*,
+                                           const proto::ProtoKeywordArguments*);
     static const proto::ProtoObject* dir(proto::ProtoContext*, const proto::ProtoObject*,
                                          const proto::ParentLink*,
-                                         const proto::ProtoList*,
-                                         const proto::ProtoSparseList*);
+                                         const proto::ProtoArguments*,
+                                         const proto::ProtoKeywordArguments*);
     static const proto::ProtoObject* trace(proto::ProtoContext*, const proto::ProtoObject*,
                                            const proto::ParentLink*,
-                                           const proto::ProtoList*,
-                                           const proto::ProtoSparseList*);
+                                           const proto::ProtoArguments*,
+                                           const proto::ProtoKeywordArguments*);
     static const proto::ProtoObject* count(proto::ProtoContext*, const proto::ProtoObject*,
                                            const proto::ParentLink*,
-                                           const proto::ProtoList*,
-                                           const proto::ProtoSparseList*);
+                                           const proto::ProtoArguments*,
+                                           const proto::ProtoKeywordArguments*);
 };
 
 /**
@@ -77,24 +77,24 @@ public:
 private:
     static const proto::ProtoObject* dateConstructor(proto::ProtoContext*, const proto::ProtoObject*,
                                                       const proto::ParentLink*,
-                                                      const proto::ProtoList*,
-                                                      const proto::ProtoSparseList*);
+                                                      const proto::ProtoArguments*,
+                                                      const proto::ProtoKeywordArguments*);
     static const proto::ProtoObject* dateNow(proto::ProtoContext*, const proto::ProtoObject*,
                                               const proto::ParentLink*,
-                                              const proto::ProtoList*,
-                                              const proto::ProtoSparseList*);
+                                              const proto::ProtoArguments*,
+                                              const proto::ProtoKeywordArguments*);
     static const proto::ProtoObject* performanceNow(proto::ProtoContext*, const proto::ProtoObject*,
                                                      const proto::ParentLink*,
-                                                     const proto::ProtoList*,
-                                                     const proto::ProtoSparseList*);
+                                                     const proto::ProtoArguments*,
+                                                     const proto::ProtoKeywordArguments*);
     static const proto::ProtoObject* dateParse(proto::ProtoContext*, const proto::ProtoObject*,
                                                 const proto::ParentLink*,
-                                                const proto::ProtoList*,
-                                                const proto::ProtoSparseList*);
+                                                const proto::ProtoArguments*,
+                                                const proto::ProtoKeywordArguments*);
     static const proto::ProtoObject* dateUTC(proto::ProtoContext*, const proto::ProtoObject*,
                                               const proto::ParentLink*,
-                                              const proto::ProtoList*,
-                                              const proto::ProtoSparseList*);
+                                              const proto::ProtoArguments*,
+                                              const proto::ProtoKeywordArguments*);
 };
 
 } // namespace protojs

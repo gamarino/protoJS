@@ -17,7 +17,7 @@ namespace protojs {
 namespace {
 
 // Helper to convert an argument to double.
-static double argToDouble(proto::ProtoContext* ctx, const proto::ProtoList* args, unsigned idx,
+static double argToDouble(proto::ProtoContext* ctx, const proto::ProtoArguments* args, unsigned idx,
                           double defaultVal = std::numeric_limits<double>::quiet_NaN()) {
     if (!args || static_cast<unsigned>(args->getSize(ctx)) <= idx) return defaultVal;
     const proto::ProtoObject* a = args->getAt(ctx, static_cast<int>(idx));
@@ -45,8 +45,8 @@ static const proto::ProtoObject* makeDouble(proto::ProtoContext* ctx, double d) 
 #define MATH_ONE_ARG(name, expr) \
 static const proto::ProtoObject* math##name( \
     proto::ProtoContext* ctx, const proto::ProtoObject*, \
-    const proto::ParentLink*, const proto::ProtoList* args, \
-    const proto::ProtoSparseList*) \
+    const proto::ParentLink*, const proto::ProtoArguments* args, \
+    const proto::ProtoKeywordArguments*) \
 { \
     double x = argToDouble(ctx, args, 0); \
     return makeNumber(ctx, expr); \
@@ -81,8 +81,8 @@ MATH_ONE_ARG(Trunc, std::trunc(x))
 
 static const proto::ProtoObject* mathSign(
     proto::ProtoContext* ctx, const proto::ProtoObject*,
-    const proto::ParentLink*, const proto::ProtoList* args,
-    const proto::ProtoSparseList*)
+    const proto::ParentLink*, const proto::ProtoArguments* args,
+    const proto::ProtoKeywordArguments*)
 {
     double x = argToDouble(ctx, args, 0);
     if (std::isnan(x)) return makeNumber(ctx, x);
@@ -97,8 +97,8 @@ static const proto::ProtoObject* mathSign(
 
 static const proto::ProtoObject* mathRound(
     proto::ProtoContext* ctx, const proto::ProtoObject*,
-    const proto::ParentLink*, const proto::ProtoList* args,
-    const proto::ProtoSparseList*)
+    const proto::ParentLink*, const proto::ProtoArguments* args,
+    const proto::ProtoKeywordArguments*)
 {
     double x = argToDouble(ctx, args, 0);
     // ECMA-262 §21.3.2.28: preserve the sign of -0 and treat the
@@ -125,8 +125,8 @@ static const proto::ProtoObject* mathRound(
 
 static const proto::ProtoObject* mathFround(
     proto::ProtoContext* ctx, const proto::ProtoObject*,
-    const proto::ParentLink*, const proto::ProtoList* args,
-    const proto::ProtoSparseList*)
+    const proto::ParentLink*, const proto::ProtoArguments* args,
+    const proto::ProtoKeywordArguments*)
 {
     double x = argToDouble(ctx, args, 0);
     return makeNumber(ctx, static_cast<double>(static_cast<float>(x)));
@@ -144,8 +144,8 @@ static const proto::ProtoObject* mathFround(
 // throws-on-non-number and takes-iterable cover that gap.
 static const proto::ProtoObject* mathSumPrecise(
     proto::ProtoContext* ctx, const proto::ProtoObject*,
-    const proto::ParentLink*, const proto::ProtoList* args,
-    const proto::ProtoSparseList*)
+    const proto::ParentLink*, const proto::ProtoArguments* args,
+    const proto::ProtoKeywordArguments*)
 {
     // Step 1: require one argument; otherwise TypeError.
     if (!args || args->getSize(ctx) < 1) {
@@ -249,8 +249,8 @@ static const proto::ProtoObject* mathSumPrecise(
 // without it, falls back to binary32 rounding (Math.fround behaviour).
 static const proto::ProtoObject* mathF16round(
     proto::ProtoContext* ctx, const proto::ProtoObject*,
-    const proto::ParentLink*, const proto::ProtoList* args,
-    const proto::ProtoSparseList*)
+    const proto::ParentLink*, const proto::ProtoArguments* args,
+    const proto::ProtoKeywordArguments*)
 {
     double x = argToDouble(ctx, args, 0);
     if (std::isnan(x))
@@ -275,8 +275,8 @@ static uint32_t toUint32(double x) {
 
 static const proto::ProtoObject* mathClz32(
     proto::ProtoContext* ctx, const proto::ProtoObject*,
-    const proto::ParentLink*, const proto::ProtoList* args,
-    const proto::ProtoSparseList*)
+    const proto::ParentLink*, const proto::ProtoArguments* args,
+    const proto::ProtoKeywordArguments*)
 {
     double x = argToDouble(ctx, args, 0, 0.0);
     uint32_t n = toUint32(x);
@@ -288,8 +288,8 @@ static const proto::ProtoObject* mathClz32(
 
 static const proto::ProtoObject* mathImul(
     proto::ProtoContext* ctx, const proto::ProtoObject*,
-    const proto::ParentLink*, const proto::ProtoList* args,
-    const proto::ProtoSparseList*)
+    const proto::ParentLink*, const proto::ProtoArguments* args,
+    const proto::ProtoKeywordArguments*)
 {
     double a = argToDouble(ctx, args, 0, 0.0);
     double b = argToDouble(ctx, args, 1, 0.0);
@@ -300,8 +300,8 @@ static const proto::ProtoObject* mathImul(
 
 static const proto::ProtoObject* mathAtan2(
     proto::ProtoContext* ctx, const proto::ProtoObject*,
-    const proto::ParentLink*, const proto::ProtoList* args,
-    const proto::ProtoSparseList*)
+    const proto::ParentLink*, const proto::ProtoArguments* args,
+    const proto::ProtoKeywordArguments*)
 {
     double y = argToDouble(ctx, args, 0);
     double x = argToDouble(ctx, args, 1);
@@ -310,8 +310,8 @@ static const proto::ProtoObject* mathAtan2(
 
 static const proto::ProtoObject* mathPow(
     proto::ProtoContext* ctx, const proto::ProtoObject*,
-    const proto::ParentLink*, const proto::ProtoList* args,
-    const proto::ProtoSparseList*)
+    const proto::ParentLink*, const proto::ProtoArguments* args,
+    const proto::ProtoKeywordArguments*)
 {
     double base = argToDouble(ctx, args, 0);
     double exp  = argToDouble(ctx, args, 1);
@@ -330,8 +330,8 @@ static const proto::ProtoObject* mathPow(
 
 static const proto::ProtoObject* mathHypot(
     proto::ProtoContext* ctx, const proto::ProtoObject*,
-    const proto::ParentLink*, const proto::ProtoList* args,
-    const proto::ProtoSparseList*)
+    const proto::ParentLink*, const proto::ProtoArguments* args,
+    const proto::ProtoKeywordArguments*)
 {
     proto::proto_ulong argc = args ? static_cast<proto::proto_ulong>(args->getSize(ctx)) : 0;
     // ECMA-262 §21.3.2.18 step 2: ToNumber every argument in order,
@@ -363,8 +363,8 @@ static const proto::ProtoObject* mathHypot(
 
 static const proto::ProtoObject* mathMax(
     proto::ProtoContext* ctx, const proto::ProtoObject*,
-    const proto::ParentLink*, const proto::ProtoList* args,
-    const proto::ProtoSparseList*)
+    const proto::ParentLink*, const proto::ProtoArguments* args,
+    const proto::ProtoKeywordArguments*)
 {
     proto::proto_ulong argc = args ? static_cast<proto::proto_ulong>(args->getSize(ctx)) : 0;
     if (argc == 0) return makeNumber(ctx, -std::numeric_limits<double>::infinity());
@@ -389,8 +389,8 @@ static const proto::ProtoObject* mathMax(
 
 static const proto::ProtoObject* mathMin(
     proto::ProtoContext* ctx, const proto::ProtoObject*,
-    const proto::ParentLink*, const proto::ProtoList* args,
-    const proto::ProtoSparseList*)
+    const proto::ParentLink*, const proto::ProtoArguments* args,
+    const proto::ProtoKeywordArguments*)
 {
     proto::proto_ulong argc = args ? static_cast<proto::proto_ulong>(args->getSize(ctx)) : 0;
     if (argc == 0) return makeNumber(ctx, std::numeric_limits<double>::infinity());
@@ -412,8 +412,8 @@ static const proto::ProtoObject* mathMin(
 
 static const proto::ProtoObject* mathRandom(
     proto::ProtoContext* ctx, const proto::ProtoObject*,
-    const proto::ParentLink*, const proto::ProtoList*,
-    const proto::ProtoSparseList*)
+    const proto::ParentLink*, const proto::ProtoArguments*,
+    const proto::ProtoKeywordArguments*)
 {
     // Simple pseudo-random [0, 1)
     return makeNumber(ctx, static_cast<double>(std::rand()) / (static_cast<double>(RAND_MAX) + 1.0));

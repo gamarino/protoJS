@@ -147,8 +147,8 @@ static const proto::ProtoObject* fnCall(
     proto::ProtoContext* ctx,
     const proto::ProtoObject* self,
     const proto::ParentLink*,
-    const proto::ProtoList* args,
-    const proto::ProtoSparseList*)
+    const proto::ProtoArguments* args,
+    const proto::ProtoKeywordArguments*)
 {
     if (!fnIsCallable(ctx, self)) {
         signalNativeException(makeNativeError(ctx, "TypeError",
@@ -183,8 +183,8 @@ static const proto::ProtoObject* fnApply(
     proto::ProtoContext* ctx,
     const proto::ProtoObject* self,
     const proto::ParentLink*,
-    const proto::ProtoList* args,
-    const proto::ProtoSparseList*)
+    const proto::ProtoArguments* args,
+    const proto::ProtoKeywordArguments*)
 {
     if (!fnIsCallable(ctx, self)) {
         signalNativeException(makeNativeError(ctx, "TypeError",
@@ -292,8 +292,8 @@ static const proto::ProtoObject* fnBind(
     proto::ProtoContext* ctx,
     const proto::ProtoObject* self,
     const proto::ParentLink*,
-    const proto::ProtoList* args,
-    const proto::ProtoSparseList*)
+    const proto::ProtoArguments* args,
+    const proto::ProtoKeywordArguments*)
 {
     // ECMA-262 §20.2.3.2 step 1: if Function.prototype.bind is invoked
     // on a non-callable receiver, throw TypeError. Pre-fix bind
@@ -437,8 +437,8 @@ static const proto::ProtoObject* fnHasInstance(
     proto::ProtoContext* ctx,
     const proto::ProtoObject* self,
     const proto::ParentLink*,
-    const proto::ProtoList* args,
-    const proto::ProtoSparseList*)
+    const proto::ProtoArguments* args,
+    const proto::ProtoKeywordArguments*)
 {
     // Spec step 1: if IsCallable(this) is false, return false.
     if (!fnIsCallable(ctx, self)) return PROTO_FALSE;
@@ -539,8 +539,8 @@ static const proto::ProtoObject* fnToString(
     proto::ProtoContext* ctx,
     const proto::ProtoObject* self,
     const proto::ParentLink*,
-    const proto::ProtoList*,
-    const proto::ProtoSparseList*)
+    const proto::ProtoArguments*,
+    const proto::ProtoKeywordArguments*)
 {
     // Per ES2019 §19.2.3.5: must be called on a callable; otherwise TypeError.
     // A callable is: a raw native method, a JS closure (has __bytecode_id__),
@@ -677,7 +677,7 @@ static const proto::ProtoObject* fnToString(
 // that opens the synthesised source differs.
 static const proto::ProtoObject* createDynamicFunction(
     proto::ProtoContext* ctx,
-    const proto::ProtoList* args,
+    const proto::ProtoArguments* args,
     const char* keyword)
 {
     if (!ctx) return PROTO_NONE;
@@ -773,7 +773,7 @@ static const proto::ProtoObject* createDynamicFunction(
 
 static const proto::ProtoObject* functionConstructorCall(
     proto::ProtoContext* ctx, const proto::ProtoObject*, const proto::ParentLink*,
-    const proto::ProtoList* args, const proto::ProtoSparseList*)
+    const proto::ProtoArguments* args, const proto::ProtoKeywordArguments*)
 {
     return createDynamicFunction(ctx, args, "function");
 }
@@ -782,21 +782,21 @@ static const proto::ProtoObject* functionConstructorCall(
 
 const proto::ProtoObject* generatorFunctionConstructorCall(
     proto::ProtoContext* ctx, const proto::ProtoObject*, const proto::ParentLink*,
-    const proto::ProtoList* args, const proto::ProtoSparseList*)
+    const proto::ProtoArguments* args, const proto::ProtoKeywordArguments*)
 {
     return createDynamicFunction(ctx, args, "function*");
 }
 
 const proto::ProtoObject* asyncFunctionConstructorCall(
     proto::ProtoContext* ctx, const proto::ProtoObject*, const proto::ParentLink*,
-    const proto::ProtoList* args, const proto::ProtoSparseList*)
+    const proto::ProtoArguments* args, const proto::ProtoKeywordArguments*)
 {
     return createDynamicFunction(ctx, args, "async function");
 }
 
 const proto::ProtoObject* asyncGeneratorFunctionConstructorCall(
     proto::ProtoContext* ctx, const proto::ProtoObject*, const proto::ParentLink*,
-    const proto::ProtoList* args, const proto::ProtoSparseList*)
+    const proto::ProtoArguments* args, const proto::ProtoKeywordArguments*)
 {
     return createDynamicFunction(ctx, args, "async function*");
 }
@@ -950,8 +950,8 @@ void ensureFunctionPrototype(proto::ProtoContext* ctx,
         if (nfk) {
             static const proto::ProtoMethod fpNoopFn = [](
                 proto::ProtoContext*, const proto::ProtoObject*,
-                const proto::ParentLink*, const proto::ProtoList*,
-                const proto::ProtoSparseList*) -> const proto::ProtoObject* {
+                const proto::ParentLink*, const proto::ProtoArguments*,
+                const proto::ProtoKeywordArguments*) -> const proto::ProtoObject* {
                 return PROTO_NONE;
             };
             const proto::ProtoObject* nm = ctx->fromMethod(nullptr, fpNoopFn);
@@ -996,8 +996,8 @@ void ensureFunctionPrototype(proto::ProtoContext* ctx,
             proto::ProtoContext* ictx,
             const proto::ProtoObject*,
             const proto::ParentLink*,
-            const proto::ProtoList*,
-            const proto::ProtoSparseList*) -> const proto::ProtoObject* {
+            const proto::ProtoArguments*,
+            const proto::ProtoKeywordArguments*) -> const proto::ProtoObject* {
             signalNativeException(makeNativeError(ictx, "TypeError",
                 "'caller' / 'arguments' may not be accessed on strict-mode functions"));
             return PROTO_NONE;

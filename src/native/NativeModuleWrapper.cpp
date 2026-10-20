@@ -69,7 +69,9 @@ JSValue NativeModuleWrapper::callNativeFunction(
         auto kwargs = pContext->newSparseList();
         
         // Call native function
-        const proto::ProtoObject* result = func(pContext, self, nullptr, args, kwargs);
+        const proto::ProtoListArguments positional(pContext, args);
+        const proto::ProtoSparseListKeywordArguments keywords(pContext, kwargs);
+        const proto::ProtoObject* result = func(pContext, self, nullptr, &positional, &keywords);
         
         // Convert result back to JS
         JSValue jsResult = TypeBridge::toJS(ctx, result, pContext);

@@ -32,7 +32,7 @@ std::string buildChromeDevToolsJson() {
     return ss.str();
 }
 
-bool argFilename(proto::ProtoContext* ctx, const proto::ProtoList* args,
+bool argFilename(proto::ProtoContext* ctx, const proto::ProtoArguments* args,
                   std::string& out) {
     if (!ctx || !args || args->getSize(ctx) == 0) return false;
     const proto::ProtoObject* a = args->getAt(ctx, 0);
@@ -45,8 +45,8 @@ const proto::ProtoObject* exportProfileImpl(
     proto::ProtoContext* ctx,
     const proto::ProtoObject* /*self*/,
     const proto::ParentLink*,
-    const proto::ProtoList* args,
-    const proto::ProtoSparseList*) {
+    const proto::ProtoArguments* args,
+    const proto::ProtoKeywordArguments*) {
     std::string filename;
     if (!argFilename(ctx, args, filename)) return PROTO_FALSE;
     std::ofstream file(filename);
@@ -60,8 +60,8 @@ const proto::ProtoObject* generateHTMLReportImpl(
     proto::ProtoContext* ctx,
     const proto::ProtoObject* /*self*/,
     const proto::ParentLink*,
-    const proto::ProtoList* args,
-    const proto::ProtoSparseList*) {
+    const proto::ProtoArguments* args,
+    const proto::ProtoKeywordArguments*) {
     std::string filename;
     if (!argFilename(ctx, args, filename)) return PROTO_FALSE;
     std::stringstream ss;

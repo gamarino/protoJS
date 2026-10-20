@@ -68,8 +68,8 @@ const proto::ProtoObject* numberValueOf(
     proto::ProtoContext* context,
     const proto::ProtoObject* self,
     const proto::ParentLink* /*parentLink*/,
-    const proto::ProtoList* /*positionalParameters*/,
-    const proto::ProtoSparseList* /*keywordParameters*/)
+    const proto::ProtoArguments* /*positionalParameters*/,
+    const proto::ProtoKeywordArguments* /*keywordParameters*/)
 {
     if (!requireNumberThis(context, self)) return PROTO_NONE;
     // Primitive number: return as-is.
@@ -90,8 +90,8 @@ const proto::ProtoObject* numberToString(
     proto::ProtoContext* context,
     const proto::ProtoObject* self,
     const proto::ParentLink* /*parentLink*/,
-    const proto::ProtoList* positionalParameters,
-    const proto::ProtoSparseList* /*keywordParameters*/)
+    const proto::ProtoArguments* positionalParameters,
+    const proto::ProtoKeywordArguments* /*keywordParameters*/)
 {
     if (!requireNumberThis(context, self)) return PROTO_NONE;
     // §21.1.3.6 step 3: ToIntegerOrInfinity on radix; undefined defaults
@@ -261,8 +261,8 @@ const proto::ProtoObject* numberToFixed(
     proto::ProtoContext* context,
     const proto::ProtoObject* self,
     const proto::ParentLink* /*parentLink*/,
-    const proto::ProtoList* positionalParameters,
-    const proto::ProtoSparseList* /*keywordParameters*/)
+    const proto::ProtoArguments* positionalParameters,
+    const proto::ProtoKeywordArguments* /*keywordParameters*/)
 {
     if (!requireNumberThis(context, self)) return PROTO_NONE;
     // ECMA-262 §22.1.3.27 step 2: f = ToIntegerOrInfinity(fractionDigits).
@@ -352,8 +352,8 @@ const proto::ProtoObject* numberToExponential(
     proto::ProtoContext* context,
     const proto::ProtoObject* self,
     const proto::ParentLink* /*parentLink*/,
-    const proto::ProtoList* positionalParameters,
-    const proto::ProtoSparseList* /*keywordParameters*/)
+    const proto::ProtoArguments* positionalParameters,
+    const proto::ProtoKeywordArguments* /*keywordParameters*/)
 {
     if (!requireNumberThis(context, self)) return PROTO_NONE;
     double value = getNumberValue(context, self);
@@ -462,8 +462,8 @@ const proto::ProtoObject* numberToPrecision(
     proto::ProtoContext* context,
     const proto::ProtoObject* self,
     const proto::ParentLink* /*parentLink*/,
-    const proto::ProtoList* positionalParameters,
-    const proto::ProtoSparseList* /*keywordParameters*/)
+    const proto::ProtoArguments* positionalParameters,
+    const proto::ProtoKeywordArguments* /*keywordParameters*/)
 {
     if (!requireNumberThis(context, self)) return PROTO_NONE;
     // Spec §21.1.3.5 step 2: if precision is undefined, behave as
@@ -601,8 +601,8 @@ const proto::ProtoObject* numberIsNaN(
     proto::ProtoContext* ctx,
     const proto::ProtoObject* /*self*/,
     const proto::ParentLink*,
-    const proto::ProtoList* args,
-    const proto::ProtoSparseList*)
+    const proto::ProtoArguments* args,
+    const proto::ProtoKeywordArguments*)
 {
     if (!args || args->getSize(ctx) == 0) return PROTO_FALSE;
     const proto::ProtoObject* v = args->getAt(ctx, 0);
@@ -615,8 +615,8 @@ const proto::ProtoObject* numberIsFinite(
     proto::ProtoContext* ctx,
     const proto::ProtoObject* /*self*/,
     const proto::ParentLink*,
-    const proto::ProtoList* args,
-    const proto::ProtoSparseList*)
+    const proto::ProtoArguments* args,
+    const proto::ProtoKeywordArguments*)
 {
     if (!args || args->getSize(ctx) == 0) return PROTO_FALSE;
     const proto::ProtoObject* v = args->getAt(ctx, 0);
@@ -631,8 +631,8 @@ const proto::ProtoObject* numberIsInteger(
     proto::ProtoContext* ctx,
     const proto::ProtoObject* /*self*/,
     const proto::ParentLink*,
-    const proto::ProtoList* args,
-    const proto::ProtoSparseList*)
+    const proto::ProtoArguments* args,
+    const proto::ProtoKeywordArguments*)
 {
     if (!args || args->getSize(ctx) == 0) return PROTO_FALSE;
     const proto::ProtoObject* v = args->getAt(ctx, 0);
@@ -650,8 +650,8 @@ const proto::ProtoObject* numberIsSafeInteger(
     proto::ProtoContext* ctx,
     const proto::ProtoObject* /*self*/,
     const proto::ParentLink*,
-    const proto::ProtoList* args,
-    const proto::ProtoSparseList*)
+    const proto::ProtoArguments* args,
+    const proto::ProtoKeywordArguments*)
 {
     if (!args || args->getSize(ctx) == 0) return PROTO_FALSE;
     const proto::ProtoObject* v = args->getAt(ctx, 0);
@@ -668,8 +668,8 @@ const proto::ProtoObject* numberParseInt(
     proto::ProtoContext* ctx,
     const proto::ProtoObject* /*self*/,
     const proto::ParentLink*,
-    const proto::ProtoList* args,
-    const proto::ProtoSparseList*)
+    const proto::ProtoArguments* args,
+    const proto::ProtoKeywordArguments*)
 {
     if (!args || args->getSize(ctx) == 0) return makeNumber(ctx, std::numeric_limits<double>::quiet_NaN());
     const proto::ProtoObject* strObj = args->getAt(ctx, 0);
@@ -739,8 +739,8 @@ const proto::ProtoObject* numberParseFloat(
     proto::ProtoContext* ctx,
     const proto::ProtoObject* /*self*/,
     const proto::ParentLink*,
-    const proto::ProtoList* args,
-    const proto::ProtoSparseList*)
+    const proto::ProtoArguments* args,
+    const proto::ProtoKeywordArguments*)
 {
     if (!args || args->getSize(ctx) == 0) return makeNumber(ctx, std::numeric_limits<double>::quiet_NaN());
     const proto::ProtoObject* strObj = args->getAt(ctx, 0);
@@ -804,8 +804,8 @@ static const proto::ProtoObject* numberConstruct(
     proto::ProtoContext* ctx,
     const proto::ProtoObject* self,
     const proto::ParentLink*,
-    const proto::ProtoList* args,
-    const proto::ProtoSparseList*)
+    const proto::ProtoArguments* args,
+    const proto::ProtoKeywordArguments*)
 {
     if (!ctx || !self || self == PROTO_NONE) return self;
     // Spec §21.1.1.1: when called as a constructor, the [[NumberData]]

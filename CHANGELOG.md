@@ -4,6 +4,30 @@ All notable changes to protoJS are documented in this file.
 
 ## [Unreleased]
 
+### Changed — protoCore 3.0.0: natives read their arguments in place (2026-10-20)
+
+- **Built against protoCore 3.0.0** (SOVERSION 4), now the declared minimum:
+  every native receives protoCore's `ProtoArguments` / `ProtoKeywordArguments`
+  descriptors (protoCore `docs/CALLING_CONVENTION.md`), and so do the
+  argument helpers that read them.  CI pins protoCore `cf52f9f5` on every
+  job, the floor job included; the Windows DLL is `protoCore-4.dll`.
+- **`callJSFunction` takes a descriptor**; an overload taking a `ProtoList`
+  wraps it without copying a small list, so callers holding lists are
+  unchanged.  A bytecode callee gets the arguments as a list only when its
+  body can see them as one (`arguments`, a rest parameter, `super(...)`), as
+  `OP_call` already decided.
+- **`OP_call` / `OP_call_method` to a native no longer build a list**: the
+  arguments are copied from the operand stack into a local array (up to 16)
+  and popped once the native returns, since a native that re-enters the
+  interpreter may move the frame's slots.
+- **`Array` callbacks** (`map`, `filter`, `forEach`, `find`, `some`, `every`,
+  `reduce`, `reduceRight`, `sort`'s comparator) pass their arguments in local
+  arrays instead of a `ProtoList` per element.
+- Interleaved A/B against master on protoCore 2.14.8, three rounds with A/A,
+  cycles: `string_concat` -43 %, `object_property` -15 %, `control_flow`
+  -10 %, `json_transform` -8 %, `array_literal` -6 %, the other standard
+  benchmarks -2 % to -3 %, a callback probe -1.5 %; none slower.
+
 ### Fixed — own dictionary keys shadow what a prototype gains later (2026-10-11)
 
 The dictionary mode below documented a "known limit": an object's dictionary

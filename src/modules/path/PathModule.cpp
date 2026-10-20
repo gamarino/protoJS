@@ -41,14 +41,14 @@ constexpr bool kHostIsWindows = false;
 
 // --- Values ----------------------------------------------------------------
 
-const proto::ProtoObject* argAt(proto::ProtoContext* ctx, const proto::ProtoList* args,
+const proto::ProtoObject* argAt(proto::ProtoContext* ctx, const proto::ProtoArguments* args,
                                 std::size_t idx) {
     if (!ctx || !args || idx >= static_cast<std::size_t>(args->getSize(ctx))) return PROTO_NONE;
     const proto::ProtoObject* a = args->getAt(ctx, static_cast<int>(idx));
     return a ? a : PROTO_NONE;
 }
 
-std::size_t argCount(proto::ProtoContext* ctx, const proto::ProtoList* args) {
+std::size_t argCount(proto::ProtoContext* ctx, const proto::ProtoArguments* args) {
     return (ctx && args) ? static_cast<std::size_t>(args->getSize(ctx)) : 0;
 }
 
@@ -197,8 +197,8 @@ enum class Flavor { Win32, Posix };
 
 template <Flavor F>
 const proto::ProtoObject* pathResolve(proto::ProtoContext* ctx, const proto::ProtoObject*,
-                                      const proto::ParentLink*, const proto::ProtoList* args,
-                                      const proto::ProtoSparseList*) {
+                                      const proto::ParentLink*, const proto::ProtoArguments* args,
+                                      const proto::ProtoKeywordArguments*) {
     std::vector<std::string> parts;
     const std::size_t n = argCount(ctx, args);
     for (std::size_t i = 0; i < n; ++i) {
@@ -214,8 +214,8 @@ const proto::ProtoObject* pathResolve(proto::ProtoContext* ctx, const proto::Pro
 
 template <Flavor F>
 const proto::ProtoObject* pathJoin(proto::ProtoContext* ctx, const proto::ProtoObject*,
-                                   const proto::ParentLink*, const proto::ProtoList* args,
-                                   const proto::ProtoSparseList*) {
+                                   const proto::ParentLink*, const proto::ProtoArguments* args,
+                                   const proto::ProtoKeywordArguments*) {
     std::vector<std::string> parts;
     const std::size_t n = argCount(ctx, args);
     for (std::size_t i = 0; i < n; ++i) {
@@ -228,8 +228,8 @@ const proto::ProtoObject* pathJoin(proto::ProtoContext* ctx, const proto::ProtoO
 
 template <Flavor F>
 const proto::ProtoObject* pathNormalize(proto::ProtoContext* ctx, const proto::ProtoObject*,
-                                        const proto::ParentLink*, const proto::ProtoList* args,
-                                        const proto::ProtoSparseList*) {
+                                        const proto::ParentLink*, const proto::ProtoArguments* args,
+                                        const proto::ProtoKeywordArguments*) {
     std::string p;
     if (!requireString(ctx, argAt(ctx, args, 0), "path", p)) return PROTO_NONE;
     return str(ctx, F == Flavor::Win32 ? pathalg::win32::normalize(p) : pathalg::posix::normalize(p));
@@ -237,8 +237,8 @@ const proto::ProtoObject* pathNormalize(proto::ProtoContext* ctx, const proto::P
 
 template <Flavor F>
 const proto::ProtoObject* pathIsAbsolute(proto::ProtoContext* ctx, const proto::ProtoObject*,
-                                         const proto::ParentLink*, const proto::ProtoList* args,
-                                         const proto::ProtoSparseList*) {
+                                         const proto::ParentLink*, const proto::ProtoArguments* args,
+                                         const proto::ProtoKeywordArguments*) {
     std::string p;
     if (!requireString(ctx, argAt(ctx, args, 0), "path", p)) return PROTO_NONE;
     const bool r = F == Flavor::Win32 ? pathalg::win32::isAbsolute(p) : pathalg::posix::isAbsolute(p);
@@ -247,8 +247,8 @@ const proto::ProtoObject* pathIsAbsolute(proto::ProtoContext* ctx, const proto::
 
 template <Flavor F>
 const proto::ProtoObject* pathRelative(proto::ProtoContext* ctx, const proto::ProtoObject*,
-                                       const proto::ParentLink*, const proto::ProtoList* args,
-                                       const proto::ProtoSparseList*) {
+                                       const proto::ParentLink*, const proto::ProtoArguments* args,
+                                       const proto::ProtoKeywordArguments*) {
     std::string from, to;
     if (!requireString(ctx, argAt(ctx, args, 0), "from", from)) return PROTO_NONE;
     if (!requireString(ctx, argAt(ctx, args, 1), "to", to)) return PROTO_NONE;
@@ -259,8 +259,8 @@ const proto::ProtoObject* pathRelative(proto::ProtoContext* ctx, const proto::Pr
 
 template <Flavor F>
 const proto::ProtoObject* pathToNamespacedPath(proto::ProtoContext* ctx, const proto::ProtoObject*,
-                                               const proto::ParentLink*, const proto::ProtoList* args,
-                                               const proto::ProtoSparseList*) {
+                                               const proto::ParentLink*, const proto::ProtoArguments* args,
+                                               const proto::ProtoKeywordArguments*) {
     const proto::ProtoObject* a = argAt(ctx, args, 0);
     // Anything but a non-empty string is returned as it is, as in Node.
     if (F == Flavor::Posix || !isJSString(a)) return a;
@@ -271,8 +271,8 @@ const proto::ProtoObject* pathToNamespacedPath(proto::ProtoContext* ctx, const p
 
 template <Flavor F>
 const proto::ProtoObject* pathDirname(proto::ProtoContext* ctx, const proto::ProtoObject*,
-                                      const proto::ParentLink*, const proto::ProtoList* args,
-                                      const proto::ProtoSparseList*) {
+                                      const proto::ParentLink*, const proto::ProtoArguments* args,
+                                      const proto::ProtoKeywordArguments*) {
     std::string p;
     if (!requireString(ctx, argAt(ctx, args, 0), "path", p)) return PROTO_NONE;
     return str(ctx, F == Flavor::Win32 ? pathalg::win32::dirname(p) : pathalg::posix::dirname(p));
@@ -280,8 +280,8 @@ const proto::ProtoObject* pathDirname(proto::ProtoContext* ctx, const proto::Pro
 
 template <Flavor F>
 const proto::ProtoObject* pathBasename(proto::ProtoContext* ctx, const proto::ProtoObject*,
-                                       const proto::ParentLink*, const proto::ProtoList* args,
-                                       const proto::ProtoSparseList*) {
+                                       const proto::ParentLink*, const proto::ProtoArguments* args,
+                                       const proto::ProtoKeywordArguments*) {
     const proto::ProtoObject* suffixArg = argAt(ctx, args, 1);
     const bool hasSuffix = !isUndefined(ctx, suffixArg);
     std::string suffix;
@@ -294,8 +294,8 @@ const proto::ProtoObject* pathBasename(proto::ProtoContext* ctx, const proto::Pr
 
 template <Flavor F>
 const proto::ProtoObject* pathExtname(proto::ProtoContext* ctx, const proto::ProtoObject*,
-                                      const proto::ParentLink*, const proto::ProtoList* args,
-                                      const proto::ProtoSparseList*) {
+                                      const proto::ParentLink*, const proto::ProtoArguments* args,
+                                      const proto::ProtoKeywordArguments*) {
     std::string p;
     if (!requireString(ctx, argAt(ctx, args, 0), "path", p)) return PROTO_NONE;
     return str(ctx, F == Flavor::Win32 ? pathalg::win32::extname(p) : pathalg::posix::extname(p));
@@ -303,8 +303,8 @@ const proto::ProtoObject* pathExtname(proto::ProtoContext* ctx, const proto::Pro
 
 template <Flavor F>
 const proto::ProtoObject* pathParse(proto::ProtoContext* ctx, const proto::ProtoObject*,
-                                    const proto::ParentLink*, const proto::ProtoList* args,
-                                    const proto::ProtoSparseList*) {
+                                    const proto::ParentLink*, const proto::ProtoArguments* args,
+                                    const proto::ProtoKeywordArguments*) {
     std::string p;
     if (!requireString(ctx, argAt(ctx, args, 0), "path", p)) return PROTO_NONE;
     const pathalg::ParsedPath r = F == Flavor::Win32 ? pathalg::win32::parse(p) : pathalg::posix::parse(p);
@@ -339,8 +339,8 @@ std::string formatField(proto::ProtoContext* ctx, const proto::ProtoObject* obj,
 
 template <Flavor F>
 const proto::ProtoObject* pathFormat(proto::ProtoContext* ctx, const proto::ProtoObject*,
-                                     const proto::ParentLink*, const proto::ProtoList* args,
-                                     const proto::ProtoSparseList*) {
+                                     const proto::ParentLink*, const proto::ProtoArguments* args,
+                                     const proto::ProtoKeywordArguments*) {
     const proto::ProtoObject* o = argAt(ctx, args, 0);
     // validateObject(pathObject, 'pathObject'): an object that is neither
     // null, an array nor a function.

@@ -19,8 +19,8 @@ static const proto::ProtoObject* iteratorReturnSelf(
     proto::ProtoContext* /*ctx*/,
     const proto::ProtoObject* self,
     const proto::ParentLink*,
-    const proto::ProtoList*,
-    const proto::ProtoSparseList*)
+    const proto::ProtoArguments*,
+    const proto::ProtoKeywordArguments*)
 {
     return self;
 }
@@ -197,8 +197,8 @@ static void iterClose(proto::ProtoContext* ctx,
 // ---------------------------------------------------------------------------
 static const proto::ProtoObject* iteratorToArray(
     proto::ProtoContext* ctx, const proto::ProtoObject* self,
-    const proto::ParentLink*, const proto::ProtoList*,
-    const proto::ProtoSparseList*)
+    const proto::ParentLink*, const proto::ProtoArguments*,
+    const proto::ProtoKeywordArguments*)
 {
     if (!iterRequireObject(ctx, self, "toArray")) return PROTO_NONE;
     const proto::ProtoObject* nextFn = iterGetNext(ctx, self, "toArray");
@@ -228,8 +228,8 @@ static const proto::ProtoObject* iteratorToArray(
 // ---------------------------------------------------------------------------
 static const proto::ProtoObject* iteratorForEach(
     proto::ProtoContext* ctx, const proto::ProtoObject* self,
-    const proto::ParentLink*, const proto::ProtoList* args,
-    const proto::ProtoSparseList*)
+    const proto::ParentLink*, const proto::ProtoArguments* args,
+    const proto::ProtoKeywordArguments*)
 {
     if (!iterRequireObject(ctx, self, "forEach")) return PROTO_NONE;
     const proto::ProtoObject* fn = (args && args->getSize(ctx) > 0) ? args->getAt(ctx, 0) : PROTO_NONE;
@@ -268,8 +268,8 @@ static const proto::ProtoObject* iteratorForEach(
 // ---------------------------------------------------------------------------
 static const proto::ProtoObject* iteratorReduce(
     proto::ProtoContext* ctx, const proto::ProtoObject* self,
-    const proto::ParentLink*, const proto::ProtoList* args,
-    const proto::ProtoSparseList*)
+    const proto::ParentLink*, const proto::ProtoArguments* args,
+    const proto::ProtoKeywordArguments*)
 {
     if (!iterRequireObject(ctx, self, "reduce")) return PROTO_NONE;
     const proto::ProtoObject* fn = (args && args->getSize(ctx) > 0) ? args->getAt(ctx, 0) : PROTO_NONE;
@@ -323,7 +323,7 @@ static const proto::ProtoObject* iteratorReduce(
 // ---------------------------------------------------------------------------
 static const proto::ProtoObject* iteratorBoolPredicate(
     proto::ProtoContext* ctx, const proto::ProtoObject* self,
-    const proto::ProtoList* args, const char* name, int mode)
+    const proto::ProtoArguments* args, const char* name, int mode)
 {
     // mode: 0=every, 1=some, 2=find
     if (!iterRequireObject(ctx, self, name)) return PROTO_NONE;
@@ -373,20 +373,20 @@ static const proto::ProtoObject* iteratorBoolPredicate(
 
 static const proto::ProtoObject* iteratorEvery(
     proto::ProtoContext* ctx, const proto::ProtoObject* self,
-    const proto::ParentLink*, const proto::ProtoList* args,
-    const proto::ProtoSparseList*)
+    const proto::ParentLink*, const proto::ProtoArguments* args,
+    const proto::ProtoKeywordArguments*)
 { return iteratorBoolPredicate(ctx, self, args, "every", 0); }
 
 static const proto::ProtoObject* iteratorSome(
     proto::ProtoContext* ctx, const proto::ProtoObject* self,
-    const proto::ParentLink*, const proto::ProtoList* args,
-    const proto::ProtoSparseList*)
+    const proto::ParentLink*, const proto::ProtoArguments* args,
+    const proto::ProtoKeywordArguments*)
 { return iteratorBoolPredicate(ctx, self, args, "some", 1); }
 
 static const proto::ProtoObject* iteratorFind(
     proto::ProtoContext* ctx, const proto::ProtoObject* self,
-    const proto::ParentLink*, const proto::ProtoList* args,
-    const proto::ProtoSparseList*)
+    const proto::ParentLink*, const proto::ProtoArguments* args,
+    const proto::ProtoKeywordArguments*)
 { return iteratorBoolPredicate(ctx, self, args, "find", 2); }
 
 // ---------------------------------------------------------------------------
@@ -397,8 +397,8 @@ static const proto::ProtoObject* iteratorFind(
 // Forward declarations — used by makeHelperIterator below.
 static const proto::ProtoObject* iteratorHelperReturn(
     proto::ProtoContext* ctx, const proto::ProtoObject* self,
-    const proto::ParentLink*, const proto::ProtoList*,
-    const proto::ProtoSparseList*);
+    const proto::ParentLink*, const proto::ProtoArguments*,
+    const proto::ProtoKeywordArguments*);
 
 static const proto::ProtoObject* makeHelperIterator(
     proto::ProtoContext* ctx,
@@ -449,8 +449,8 @@ static const proto::ProtoObject* makeIterResult(proto::ProtoContext* ctx,
 // canonical {value: undefined, done: true} record.
 static const proto::ProtoObject* iteratorHelperReturn(
     proto::ProtoContext* ctx, const proto::ProtoObject* self,
-    const proto::ParentLink*, const proto::ProtoList*,
-    const proto::ProtoSparseList*)
+    const proto::ParentLink*, const proto::ProtoArguments*,
+    const proto::ProtoKeywordArguments*)
 {
     if (!self || self == PROTO_NONE)
         return makeIterResult(ctx, getUndefinedSentinel(), true);
@@ -486,8 +486,8 @@ static const proto::ProtoObject* iteratorHelperReturn(
 // .next for the map() helper: pulls value from underlying, runs cb(v, c).
 static const proto::ProtoObject* iteratorMapNext(
     proto::ProtoContext* ctx, const proto::ProtoObject* self,
-    const proto::ParentLink*, const proto::ProtoList*,
-    const proto::ProtoSparseList*)
+    const proto::ParentLink*, const proto::ProtoArguments*,
+    const proto::ProtoKeywordArguments*)
 {
     if (!self || self == PROTO_NONE) return makeIterResult(ctx, getUndefinedSentinel(), true);
     const proto::ProtoObject* uKo = ctx->fromUTF8String("__helper_underlying__");
@@ -528,8 +528,8 @@ static const proto::ProtoObject* iteratorMapNext(
 
 static const proto::ProtoObject* iteratorMap(
     proto::ProtoContext* ctx, const proto::ProtoObject* self,
-    const proto::ParentLink*, const proto::ProtoList* args,
-    const proto::ProtoSparseList*)
+    const proto::ParentLink*, const proto::ProtoArguments* args,
+    const proto::ProtoKeywordArguments*)
 {
     if (!iterRequireObject(ctx, self, "map")) return PROTO_NONE;
     const proto::ProtoObject* fn = (args && args->getSize(ctx) > 0) ? args->getAt(ctx, 0) : PROTO_NONE;
@@ -554,8 +554,8 @@ static const proto::ProtoObject* iteratorMap(
 // .next for filter().
 static const proto::ProtoObject* iteratorFilterNext(
     proto::ProtoContext* ctx, const proto::ProtoObject* self,
-    const proto::ParentLink*, const proto::ProtoList*,
-    const proto::ProtoSparseList*)
+    const proto::ParentLink*, const proto::ProtoArguments*,
+    const proto::ProtoKeywordArguments*)
 {
     if (!self || self == PROTO_NONE) return makeIterResult(ctx, getUndefinedSentinel(), true);
     const proto::ProtoObject* uKo = ctx->fromUTF8String("__helper_underlying__");
@@ -598,8 +598,8 @@ static const proto::ProtoObject* iteratorFilterNext(
 
 static const proto::ProtoObject* iteratorFilter(
     proto::ProtoContext* ctx, const proto::ProtoObject* self,
-    const proto::ParentLink*, const proto::ProtoList* args,
-    const proto::ProtoSparseList*)
+    const proto::ParentLink*, const proto::ProtoArguments* args,
+    const proto::ProtoKeywordArguments*)
 {
     if (!iterRequireObject(ctx, self, "filter")) return PROTO_NONE;
     const proto::ProtoObject* fn = (args && args->getSize(ctx) > 0) ? args->getAt(ctx, 0) : PROTO_NONE;
@@ -623,8 +623,8 @@ static const proto::ProtoObject* iteratorFilter(
 // remaining-count.
 static const proto::ProtoObject* iteratorTakeNext(
     proto::ProtoContext* ctx, const proto::ProtoObject* self,
-    const proto::ParentLink*, const proto::ProtoList*,
-    const proto::ProtoSparseList*)
+    const proto::ParentLink*, const proto::ProtoArguments*,
+    const proto::ProtoKeywordArguments*)
 {
     if (!self || self == PROTO_NONE) return makeIterResult(ctx, getUndefinedSentinel(), true);
     const proto::ProtoObject* uKo = ctx->fromUTF8String("__helper_underlying__");
@@ -654,8 +654,8 @@ static const proto::ProtoObject* iteratorTakeNext(
 
 static const proto::ProtoObject* iteratorTake(
     proto::ProtoContext* ctx, const proto::ProtoObject* self,
-    const proto::ParentLink*, const proto::ProtoList* args,
-    const proto::ProtoSparseList*)
+    const proto::ParentLink*, const proto::ProtoArguments* args,
+    const proto::ProtoKeywordArguments*)
 {
     if (!iterRequireObject(ctx, self, "take")) return PROTO_NONE;
     const proto::ProtoObject* limitArg = (args && args->getSize(ctx) > 0)
@@ -720,8 +720,8 @@ static const proto::ProtoObject* iteratorTake(
 // .next for drop(): skips first n underlying items, then forwards.
 static const proto::ProtoObject* iteratorDropNext(
     proto::ProtoContext* ctx, const proto::ProtoObject* self,
-    const proto::ParentLink*, const proto::ProtoList*,
-    const proto::ProtoSparseList*)
+    const proto::ParentLink*, const proto::ProtoArguments*,
+    const proto::ProtoKeywordArguments*)
 {
     if (!self || self == PROTO_NONE) return makeIterResult(ctx, getUndefinedSentinel(), true);
     const proto::ProtoObject* uKo = ctx->fromUTF8String("__helper_underlying__");
@@ -760,8 +760,8 @@ static const proto::ProtoObject* iteratorDropNext(
 
 static const proto::ProtoObject* iteratorDrop(
     proto::ProtoContext* ctx, const proto::ProtoObject* self,
-    const proto::ParentLink*, const proto::ProtoList* args,
-    const proto::ProtoSparseList*)
+    const proto::ParentLink*, const proto::ProtoArguments* args,
+    const proto::ProtoKeywordArguments*)
 {
     if (!iterRequireObject(ctx, self, "drop")) return PROTO_NONE;
     const proto::ProtoObject* limitArg = (args && args->getSize(ctx) > 0)
@@ -818,8 +818,8 @@ static const proto::ProtoObject* iteratorDrop(
 // iterator.
 static const proto::ProtoObject* iteratorFlatMapNext(
     proto::ProtoContext* ctx, const proto::ProtoObject* self,
-    const proto::ParentLink*, const proto::ProtoList*,
-    const proto::ProtoSparseList*)
+    const proto::ParentLink*, const proto::ProtoArguments*,
+    const proto::ProtoKeywordArguments*)
 {
     if (!self || self == PROTO_NONE) return makeIterResult(ctx, getUndefinedSentinel(), true);
     const proto::ProtoObject* uKo = ctx->fromUTF8String("__helper_underlying__");
@@ -896,8 +896,8 @@ static const proto::ProtoObject* iteratorFlatMapNext(
 
 static const proto::ProtoObject* iteratorFlatMap(
     proto::ProtoContext* ctx, const proto::ProtoObject* self,
-    const proto::ParentLink*, const proto::ProtoList* args,
-    const proto::ProtoSparseList*)
+    const proto::ParentLink*, const proto::ProtoArguments* args,
+    const proto::ProtoKeywordArguments*)
 {
     if (!iterRequireObject(ctx, self, "flatMap")) return PROTO_NONE;
     const proto::ProtoObject* fn = (args && args->getSize(ctx) > 0) ? args->getAt(ctx, 0) : PROTO_NONE;
@@ -1016,8 +1016,8 @@ const proto::ProtoObject* getIteratorPrototype(proto::ProtoContext* ctx) {
     {
         static const auto iteratorSymbolDispose = [](
             proto::ProtoContext* dctx, const proto::ProtoObject* dself,
-            const proto::ParentLink*, const proto::ProtoList*,
-            const proto::ProtoSparseList*) -> const proto::ProtoObject* {
+            const proto::ParentLink*, const proto::ProtoArguments*,
+            const proto::ProtoKeywordArguments*) -> const proto::ProtoObject* {
             if (!iterRequireObject(dctx, dself, "[Symbol.dispose]")) return PROTO_NONE;
             const proto::ProtoObject* retKo = dctx->fromUTF8String("return");
             const proto::ProtoString* retK = retKo ? retKo->asString(dctx) : nullptr;
@@ -1122,8 +1122,8 @@ static const proto::ProtoObject* getIteratorFor(
 // ---------------------------------------------------------------------------
 static const proto::ProtoObject* iteratorFromNext(
     proto::ProtoContext* ctx, const proto::ProtoObject* self,
-    const proto::ParentLink*, const proto::ProtoList*,
-    const proto::ProtoSparseList*)
+    const proto::ParentLink*, const proto::ProtoArguments*,
+    const proto::ProtoKeywordArguments*)
 {
     if (!self || self == PROTO_NONE)
         return makeIterResult(ctx, getUndefinedSentinel(), true);
@@ -1144,8 +1144,8 @@ static const proto::ProtoObject* iteratorFromNext(
 
 static const proto::ProtoObject* iteratorFrom(
     proto::ProtoContext* ctx, const proto::ProtoObject* /*self*/,
-    const proto::ParentLink*, const proto::ProtoList* args,
-    const proto::ProtoSparseList*)
+    const proto::ParentLink*, const proto::ProtoArguments* args,
+    const proto::ProtoKeywordArguments*)
 {
     const proto::ProtoObject* O = (args && args->getSize(ctx) > 0)
         ? args->getAt(ctx, 0) : PROTO_NONE;
@@ -1180,8 +1180,8 @@ static const proto::ProtoObject* iteratorFrom(
 // ---------------------------------------------------------------------------
 static const proto::ProtoObject* iteratorConcatNext(
     proto::ProtoContext* ctx, const proto::ProtoObject* self,
-    const proto::ParentLink*, const proto::ProtoList*,
-    const proto::ProtoSparseList*)
+    const proto::ParentLink*, const proto::ProtoArguments*,
+    const proto::ProtoKeywordArguments*)
 {
     if (!self || self == PROTO_NONE)
         return makeIterResult(ctx, getUndefinedSentinel(), true);
@@ -1229,8 +1229,8 @@ static const proto::ProtoObject* iteratorConcatNext(
 
 static const proto::ProtoObject* iteratorConcat(
     proto::ProtoContext* ctx, const proto::ProtoObject* /*self*/,
-    const proto::ParentLink*, const proto::ProtoList* args,
-    const proto::ProtoSparseList*)
+    const proto::ParentLink*, const proto::ProtoArguments* args,
+    const proto::ProtoKeywordArguments*)
 {
     // §27.1.2.2 step 2: every argument must be an Object with
     // @@iterator (or itself an iterator).  Validate them eagerly before
@@ -1277,8 +1277,8 @@ static const proto::ProtoObject* iteratorConcat(
 // ---------------------------------------------------------------------------
 static const proto::ProtoObject* iteratorZipNext(
     proto::ProtoContext* ctx, const proto::ProtoObject* self,
-    const proto::ParentLink*, const proto::ProtoList*,
-    const proto::ProtoSparseList*)
+    const proto::ParentLink*, const proto::ProtoArguments*,
+    const proto::ProtoKeywordArguments*)
 {
     if (!self || self == PROTO_NONE)
         return makeIterResult(ctx, getUndefinedSentinel(), true);
@@ -1326,8 +1326,8 @@ static const proto::ProtoObject* iteratorZipNext(
 
 static const proto::ProtoObject* iteratorZip(
     proto::ProtoContext* ctx, const proto::ProtoObject* /*self*/,
-    const proto::ParentLink*, const proto::ProtoList* args,
-    const proto::ProtoSparseList*)
+    const proto::ParentLink*, const proto::ProtoArguments* args,
+    const proto::ProtoKeywordArguments*)
 {
     const proto::ProtoObject* iterables = (args && args->getSize(ctx) > 0)
         ? args->getAt(ctx, 0) : PROTO_NONE;
@@ -1378,8 +1378,8 @@ static const proto::ProtoObject* iteratorZip(
 // ---------------------------------------------------------------------------
 static const proto::ProtoObject* iteratorZipKeyedNext(
     proto::ProtoContext* ctx, const proto::ProtoObject* self,
-    const proto::ParentLink*, const proto::ProtoList*,
-    const proto::ProtoSparseList*)
+    const proto::ParentLink*, const proto::ProtoArguments*,
+    const proto::ProtoKeywordArguments*)
 {
     if (!self || self == PROTO_NONE)
         return makeIterResult(ctx, getUndefinedSentinel(), true);
@@ -1429,8 +1429,8 @@ static const proto::ProtoObject* iteratorZipKeyedNext(
 
 static const proto::ProtoObject* iteratorZipKeyed(
     proto::ProtoContext* ctx, const proto::ProtoObject* /*self*/,
-    const proto::ParentLink*, const proto::ProtoList* args,
-    const proto::ProtoSparseList*)
+    const proto::ParentLink*, const proto::ProtoArguments* args,
+    const proto::ProtoKeywordArguments*)
 {
     const proto::ProtoObject* obj = (args && args->getSize(ctx) > 0)
         ? args->getAt(ctx, 0) : PROTO_NONE;

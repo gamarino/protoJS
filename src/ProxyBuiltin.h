@@ -22,8 +22,8 @@ const proto::ProtoObject* proxyConstructor(
     proto::ProtoContext* ctx,
     const proto::ProtoObject* self,
     const proto::ParentLink* parent,
-    const proto::ProtoList* args,
-    const proto::ProtoSparseList* sparse);
+    const proto::ProtoArguments* args,
+    const proto::ProtoKeywordArguments* sparse);
 
 /** True iff obj has the __proxy_target__ marker. */
 bool isProxy(proto::ProtoContext* ctx, const proto::ProtoObject* obj);

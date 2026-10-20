@@ -98,8 +98,8 @@ const proto::ProtoObject* EventLoopBindings::setImmediateNative(
     proto::ProtoContext* ctx,
     const proto::ProtoObject* /*self*/,
     const proto::ParentLink* /*parentLink*/,
-    const proto::ProtoList* args,
-    const proto::ProtoSparseList* /*kwargs*/) {
+    const proto::ProtoArguments* args,
+    const proto::ProtoKeywordArguments* /*kwargs*/) {
     if (!ctx || !args || args->getSize(ctx) == 0) return PROTO_NONE;
     // The queue below is a read-modify-write of the global, owned by the owner
     // thread's event loop.

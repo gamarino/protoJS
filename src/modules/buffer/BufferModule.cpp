@@ -26,7 +26,7 @@ const proto::ProtoString* keyIsBufferMark(proto::ProtoContext* ctx) {
 
 // ---- Argument helpers --------------------------------------------------
 
-bool argInt(proto::ProtoContext* ctx, const proto::ProtoList* args,
+bool argInt(proto::ProtoContext* ctx, const proto::ProtoArguments* args,
              int idx, long long& out) {
     if (!ctx || !args) return false;
     if (idx >= static_cast<int>(args->getSize(ctx))) return false;
@@ -36,7 +36,7 @@ bool argInt(proto::ProtoContext* ctx, const proto::ProtoList* args,
     return true;
 }
 
-bool argString(proto::ProtoContext* ctx, const proto::ProtoList* args,
+bool argString(proto::ProtoContext* ctx, const proto::ProtoArguments* args,
                 int idx, std::string& out) {
     if (!ctx || !args) return false;
     if (idx >= static_cast<int>(args->getSize(ctx))) return false;
@@ -185,8 +185,8 @@ const proto::ProtoObject* bufferConstructor(
     proto::ProtoContext* ctx,
     const proto::ProtoObject* /*self*/,
     const proto::ParentLink*,
-    const proto::ProtoList* args,
-    const proto::ProtoSparseList*) {
+    const proto::ProtoArguments* args,
+    const proto::ProtoKeywordArguments*) {
     if (!ctx || !args || args->getSize(ctx) == 0) return PROTO_NONE;
     const proto::ProtoObject* a0 = args->getAt(ctx, 0);
     if (!a0) return PROTO_NONE;
@@ -261,8 +261,8 @@ const proto::ProtoObject* bufferFromImpl(
     proto::ProtoContext* ctx,
     const proto::ProtoObject* self,
     const proto::ParentLink* pl,
-    const proto::ProtoList* args,
-    const proto::ProtoSparseList* kw) {
+    const proto::ProtoArguments* args,
+    const proto::ProtoKeywordArguments* kw) {
     return bufferConstructor(ctx, self, pl, args, kw);
 }
 
@@ -270,8 +270,8 @@ const proto::ProtoObject* bufferAllocImpl(
     proto::ProtoContext* ctx,
     const proto::ProtoObject* /*self*/,
     const proto::ParentLink*,
-    const proto::ProtoList* args,
-    const proto::ProtoSparseList*) {
+    const proto::ProtoArguments* args,
+    const proto::ProtoKeywordArguments*) {
     long long size = 0;
     if (!argInt(ctx, args, 0, size) || size < 0) return PROTO_NONE;
     const proto::ProtoObject* bufObj = ctx->newBuffer(size);
@@ -298,8 +298,8 @@ const proto::ProtoObject* bufferConcatImpl(
     proto::ProtoContext* ctx,
     const proto::ProtoObject* /*self*/,
     const proto::ParentLink*,
-    const proto::ProtoList* args,
-    const proto::ProtoSparseList*) {
+    const proto::ProtoArguments* args,
+    const proto::ProtoKeywordArguments*) {
     if (!ctx || !args || args->getSize(ctx) == 0) return PROTO_NONE;
     const proto::ProtoObject* arr = args->getAt(ctx, 0);
     const proto::ProtoList* els = arr ? getArrayElements(ctx, arr) : nullptr;
@@ -343,8 +343,8 @@ const proto::ProtoObject* bufferIsBufferImpl(
     proto::ProtoContext* ctx,
     const proto::ProtoObject* /*self*/,
     const proto::ParentLink*,
-    const proto::ProtoList* args,
-    const proto::ProtoSparseList*) {
+    const proto::ProtoArguments* args,
+    const proto::ProtoKeywordArguments*) {
     if (!ctx || !args || args->getSize(ctx) == 0) return PROTO_FALSE;
     return isBufferInstance(ctx, args->getAt(ctx, 0))
         ? PROTO_TRUE : PROTO_FALSE;
@@ -356,8 +356,8 @@ const proto::ProtoObject* bufferToString(
     proto::ProtoContext* ctx,
     const proto::ProtoObject* self,
     const proto::ParentLink*,
-    const proto::ProtoList* args,
-    const proto::ProtoSparseList*) {
+    const proto::ProtoArguments* args,
+    const proto::ProtoKeywordArguments*) {
     const proto::ProtoByteBuffer* bb = getByteBuffer(ctx, self);
     if (!bb) return ctx ? ctx->fromUTF8String("") : PROTO_NONE;
     proto::proto_ulong size = bb->getSize(ctx);
@@ -383,8 +383,8 @@ const proto::ProtoObject* bufferSlice(
     proto::ProtoContext* ctx,
     const proto::ProtoObject* self,
     const proto::ParentLink*,
-    const proto::ProtoList* args,
-    const proto::ProtoSparseList*) {
+    const proto::ProtoArguments* args,
+    const proto::ProtoKeywordArguments*) {
     const proto::ProtoByteBuffer* bb = getByteBuffer(ctx, self);
     if (!bb) return PROTO_NONE;
     long long size = static_cast<long long>(bb->getSize(ctx));
@@ -412,8 +412,8 @@ const proto::ProtoObject* bufferCopy(
     proto::ProtoContext* ctx,
     const proto::ProtoObject* self,
     const proto::ParentLink*,
-    const proto::ProtoList* args,
-    const proto::ProtoSparseList*) {
+    const proto::ProtoArguments* args,
+    const proto::ProtoKeywordArguments*) {
     const proto::ProtoByteBuffer* src = getByteBuffer(ctx, self);
     if (!src || !args || args->getSize(ctx) == 0) return ctx->fromInteger(0);
     const proto::ProtoObject* tgtObj = args->getAt(ctx, 0);
@@ -443,8 +443,8 @@ const proto::ProtoObject* bufferFill(
     proto::ProtoContext* ctx,
     const proto::ProtoObject* self,
     const proto::ParentLink*,
-    const proto::ProtoList* args,
-    const proto::ProtoSparseList*) {
+    const proto::ProtoArguments* args,
+    const proto::ProtoKeywordArguments*) {
     const proto::ProtoByteBuffer* bb = getByteBuffer(ctx, self);
     if (!bb || !args || args->getSize(ctx) == 0) return self ? self : PROTO_NONE;
     long long size = static_cast<long long>(bb->getSize(ctx));
@@ -471,8 +471,8 @@ const proto::ProtoObject* bufferIndexOf(
     proto::ProtoContext* ctx,
     const proto::ProtoObject* self,
     const proto::ParentLink*,
-    const proto::ProtoList* args,
-    const proto::ProtoSparseList*) {
+    const proto::ProtoArguments* args,
+    const proto::ProtoKeywordArguments*) {
     const proto::ProtoByteBuffer* bb = getByteBuffer(ctx, self);
     if (!bb || !args || args->getSize(ctx) == 0) return ctx->fromInteger(-1);
     long long size = static_cast<long long>(bb->getSize(ctx));
@@ -520,8 +520,8 @@ const proto::ProtoObject* bufferIncludes(
     proto::ProtoContext* ctx,
     const proto::ProtoObject* self,
     const proto::ParentLink* pl,
-    const proto::ProtoList* args,
-    const proto::ProtoSparseList* kw) {
+    const proto::ProtoArguments* args,
+    const proto::ProtoKeywordArguments* kw) {
     const proto::ProtoObject* idx =
         bufferIndexOf(ctx, self, pl, args, kw);
     if (!idx || !idx->isInteger(ctx)) return PROTO_FALSE;

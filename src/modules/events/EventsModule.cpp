@@ -50,7 +50,7 @@ const proto::ProtoObject* listenersFor(proto::ProtoContext* ctx,
 }
 
 const proto::ProtoString* eventName(proto::ProtoContext* ctx,
-                                     const proto::ProtoList* args) {
+                                     const proto::ProtoArguments* args) {
     if (!ctx || !args || args->getSize(ctx) == 0) return nullptr;
     const proto::ProtoObject* a = args->getAt(ctx, 0);
     if (!a || !a->isString(ctx)) return nullptr;
@@ -126,7 +126,7 @@ bool removeFirst(proto::ProtoContext* ctx, const proto::ProtoObject* arr,
 
 const proto::ProtoObject* addListener(proto::ProtoContext* ctx,
                                       const proto::ProtoObject* self,
-                                      const proto::ProtoList* args,
+                                      const proto::ProtoArguments* args,
                                       bool once) {
     self = getThis(self);
     if (!self || !ctx || !args || args->getSize(ctx) < 2) return self ? self : PROTO_NONE;
@@ -155,8 +155,8 @@ const proto::ProtoObject* eeOn(
     proto::ProtoContext* ctx,
     const proto::ProtoObject* self,
     const proto::ParentLink*,
-    const proto::ProtoList* args,
-    const proto::ProtoSparseList*) {
+    const proto::ProtoArguments* args,
+    const proto::ProtoKeywordArguments*) {
     return addListener(ctx, self, args, /*once=*/false);
 }
 
@@ -166,8 +166,8 @@ const proto::ProtoObject* eeOnce(
     proto::ProtoContext* ctx,
     const proto::ProtoObject* self,
     const proto::ParentLink*,
-    const proto::ProtoList* args,
-    const proto::ProtoSparseList*) {
+    const proto::ProtoArguments* args,
+    const proto::ProtoKeywordArguments*) {
     return addListener(ctx, self, args, /*once=*/true);
 }
 
@@ -175,8 +175,8 @@ const proto::ProtoObject* eeEmit(
     proto::ProtoContext* ctx,
     const proto::ProtoObject* self,
     const proto::ParentLink*,
-    const proto::ProtoList* args,
-    const proto::ProtoSparseList*) {
+    const proto::ProtoArguments* args,
+    const proto::ProtoKeywordArguments*) {
     self = getThis(self);
     if (!self || !ctx || !args || args->getSize(ctx) < 1) return PROTO_FALSE;
     const proto::ProtoString* nameK = eventName(ctx, args);
@@ -220,8 +220,8 @@ const proto::ProtoObject* eeRemoveListener(
     proto::ProtoContext* ctx,
     const proto::ProtoObject* self,
     const proto::ParentLink*,
-    const proto::ProtoList* args,
-    const proto::ProtoSparseList*) {
+    const proto::ProtoArguments* args,
+    const proto::ProtoKeywordArguments*) {
     self = getThis(self);
     if (!self || !ctx || !args || args->getSize(ctx) < 2) return self ? self : PROTO_NONE;
     const proto::ProtoString* nameK = eventName(ctx, args);
@@ -239,8 +239,8 @@ const proto::ProtoObject* eeRemoveAllListeners(
     proto::ProtoContext* ctx,
     const proto::ProtoObject* self,
     const proto::ParentLink*,
-    const proto::ProtoList* args,
-    const proto::ProtoSparseList*) {
+    const proto::ProtoArguments* args,
+    const proto::ProtoKeywordArguments*) {
     self = getThis(self);
     if (!self || !ctx) return self ? self : PROTO_NONE;
     const proto::ProtoString* k = listenersKey(ctx);
@@ -260,8 +260,8 @@ const proto::ProtoObject* eeListenerCount(
     proto::ProtoContext* ctx,
     const proto::ProtoObject* self,
     const proto::ParentLink*,
-    const proto::ProtoList* args,
-    const proto::ProtoSparseList*) {
+    const proto::ProtoArguments* args,
+    const proto::ProtoKeywordArguments*) {
     self = getThis(self);
     if (!self || !ctx) return ctx ? ctx->fromInteger(0) : PROTO_NONE;
     const proto::ProtoString* nameK = eventName(ctx, args);
@@ -274,8 +274,8 @@ const proto::ProtoObject* eeListeners(
     proto::ProtoContext* ctx,
     const proto::ProtoObject* self,
     const proto::ParentLink*,
-    const proto::ProtoList* args,
-    const proto::ProtoSparseList*) {
+    const proto::ProtoArguments* args,
+    const proto::ProtoKeywordArguments*) {
     const proto::ProtoObject* result = createNewArray(ctx, nullptr);
     if (!result) return PROTO_NONE;
     const proto::ProtoList* out = ctx->newList();
@@ -294,8 +294,8 @@ const proto::ProtoObject* eeSetMaxListeners(
     proto::ProtoContext*,
     const proto::ProtoObject* self,
     const proto::ParentLink*,
-    const proto::ProtoList*,
-    const proto::ProtoSparseList*) {
+    const proto::ProtoArguments*,
+    const proto::ProtoKeywordArguments*) {
     // No leak warning is implemented, so the limit has nothing to govern.
     return self ? self : PROTO_NONE;
 }
@@ -304,8 +304,8 @@ const proto::ProtoObject* eeGetMaxListeners(
     proto::ProtoContext* ctx,
     const proto::ProtoObject*,
     const proto::ParentLink*,
-    const proto::ProtoList*,
-    const proto::ProtoSparseList*) {
+    const proto::ProtoArguments*,
+    const proto::ProtoKeywordArguments*) {
     return ctx ? ctx->fromInteger(10) : PROTO_NONE;  // Node's default
 }
 
@@ -313,8 +313,8 @@ const proto::ProtoObject* eeConstructor(
     proto::ProtoContext* ctx,
     const proto::ProtoObject* /*self*/,
     const proto::ParentLink*,
-    const proto::ProtoList* /*args*/,
-    const proto::ProtoSparseList*);
+    const proto::ProtoArguments* /*args*/,
+    const proto::ProtoKeywordArguments*);
 
 }  // namespace
 
@@ -396,8 +396,8 @@ const proto::ProtoObject* eeConstructor(
     proto::ProtoContext* /*ctx*/,
     const proto::ProtoObject* /*self*/,
     const proto::ParentLink*,
-    const proto::ProtoList* /*args*/,
-    const proto::ProtoSparseList*) {
+    const proto::ProtoArguments* /*args*/,
+    const proto::ProtoKeywordArguments*) {
     return PROTO_NONE;
 }
 

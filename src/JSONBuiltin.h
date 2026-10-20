@@ -13,8 +13,8 @@ public:
     static const proto::ProtoObject* stringify(proto::ProtoContext* ctx,
                                             const proto::ProtoObject* self,
                                             const proto::ParentLink* parentLink,
-                                            const proto::ProtoList* args,
-                                            const proto::ProtoSparseList* kwargs);
+                                            const proto::ProtoArguments* args,
+                                            const proto::ProtoKeywordArguments* kwargs);
 
     /**
      * JSON.parse(text [, reviver])
@@ -22,8 +22,8 @@ public:
     static const proto::ProtoObject* parse(proto::ProtoContext* ctx,
                                         const proto::ProtoObject* self,
                                         const proto::ParentLink* parentLink,
-                                        const proto::ProtoList* args,
-                                        const proto::ProtoSparseList* kwargs);
+                                        const proto::ProtoArguments* args,
+                                        const proto::ProtoKeywordArguments* kwargs);
 
     /**
      * Registers the global JSON object.

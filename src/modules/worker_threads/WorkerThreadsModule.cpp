@@ -485,7 +485,7 @@ const proto::ProtoObject* invokeEEMethod(
         proto::ProtoContext* ctx,
         const proto::ProtoObject* self,
         const char* methodName,
-        const proto::ProtoList* args) {
+        const proto::ProtoArguments* args) {
     if (!self) return PROTO_NONE;
     const proto::ProtoObject* ee =
         self->getAttribute(ctx, keyEvents(ctx), false);
@@ -495,7 +495,8 @@ const proto::ProtoObject* invokeEEMethod(
     if (!mk) return PROTO_NONE;
     const proto::ProtoObject* fn = ee->getAttribute(ctx, mk, true);
     if (!fn || fn == PROTO_NONE) return PROTO_NONE;
-    return callJSFunction(ctx, fn, ee, args ? args : ctx->newList());
+    const proto::ProtoArguments noArgs(nullptr, 0);
+    return callJSFunction(ctx, fn, ee, args ? args : &noArgs);
 }
 
 // Async variant used from EventLoop callbacks: those do not run inside
@@ -529,8 +530,8 @@ const proto::ProtoObject* workerOn(
     proto::ProtoContext* ctx,
     const proto::ProtoObject* self,
     const proto::ParentLink*,
-    const proto::ProtoList* args,
-    const proto::ProtoSparseList*) {
+    const proto::ProtoArguments* args,
+    const proto::ProtoKeywordArguments*) {
     invokeEEMethod(ctx, self, "on", args);
     return self ? self : PROTO_NONE;
 }
@@ -539,8 +540,8 @@ const proto::ProtoObject* workerEmit(
     proto::ProtoContext* ctx,
     const proto::ProtoObject* self,
     const proto::ParentLink*,
-    const proto::ProtoList* args,
-    const proto::ProtoSparseList*) {
+    const proto::ProtoArguments* args,
+    const proto::ProtoKeywordArguments*) {
     return invokeEEMethod(ctx, self, "emit", args);
 }
 
@@ -548,8 +549,8 @@ const proto::ProtoObject* workerPostMessage(
     proto::ProtoContext* ctx,
     const proto::ProtoObject* self,
     const proto::ParentLink*,
-    const proto::ProtoList* args,
-    const proto::ProtoSparseList*) {
+    const proto::ProtoArguments* args,
+    const proto::ProtoKeywordArguments*) {
     if (!ctx || !self) return PROTO_NONE;
     if (!args || args->getSize(ctx) == 0) return PROTO_NONE;
     WorkerState* state = getWorkerState(ctx, self);
@@ -586,8 +587,8 @@ const proto::ProtoObject* workerTerminate(
     proto::ProtoContext* ctx,
     const proto::ProtoObject* self,
     const proto::ParentLink*,
-    const proto::ProtoList* /*args*/,
-    const proto::ProtoSparseList*) {
+    const proto::ProtoArguments* /*args*/,
+    const proto::ProtoKeywordArguments*) {
     WorkerState* state = getWorkerState(ctx, self);
     if (state) {
         // The owner relinquish point. It used to set two flags and return, leaving
@@ -632,8 +633,8 @@ const proto::ProtoObject* parentPortPostMessage(
     proto::ProtoContext* ctx,
     const proto::ProtoObject* self,
     const proto::ParentLink*,
-    const proto::ProtoList* args,
-    const proto::ProtoSparseList*) {
+    const proto::ProtoArguments* args,
+    const proto::ProtoKeywordArguments*) {
     if (!ctx || !self || !args || args->getSize(ctx) == 0) return PROTO_NONE;
     const proto::ProtoObject* ref =
         self->getAttribute(ctx, keyWorkerRef(ctx), false);
@@ -760,8 +761,8 @@ void workerThreadEntry(WorkerState* state) {
                 proto::ProtoContext* c,
                 const proto::ProtoObject* s,
                 const proto::ParentLink*,
-                const proto::ProtoList* a,
-                const proto::ProtoSparseList*) {
+                const proto::ProtoArguments* a,
+                const proto::ProtoKeywordArguments*) {
                 invokeEEMethod(c, s, "on", a);
                 return s;
             }
@@ -769,8 +770,8 @@ void workerThreadEntry(WorkerState* state) {
                 proto::ProtoContext* c,
                 const proto::ProtoObject* s,
                 const proto::ParentLink*,
-                const proto::ProtoList* a,
-                const proto::ProtoSparseList*) {
+                const proto::ProtoArguments* a,
+                const proto::ProtoKeywordArguments*) {
                 return invokeEEMethod(c, s, "emit", a);
             }
         };
@@ -865,8 +866,8 @@ const proto::ProtoObject* workerConstructor(
     proto::ProtoContext* ctx,
     const proto::ProtoObject* /*self*/,
     const proto::ParentLink*,
-    const proto::ProtoList* args,
-    const proto::ProtoSparseList*) {
+    const proto::ProtoArguments* args,
+    const proto::ProtoKeywordArguments*) {
     if (!ctx || !args || args->getSize(ctx) == 0) return PROTO_NONE;
     if (refuseOnDeferredThread(ctx, "new Worker()")) return PROTO_NONE;
     const proto::ProtoObject* fileArg = args->getAt(ctx, 0);
@@ -946,8 +947,8 @@ const proto::ProtoObject* isMainThreadImpl(
     proto::ProtoContext* /*ctx*/,
     const proto::ProtoObject* /*self*/,
     const proto::ParentLink*,
-    const proto::ProtoList* /*args*/,
-    const proto::ProtoSparseList*) {
+    const proto::ProtoArguments* /*args*/,
+    const proto::ProtoKeywordArguments*) {
     JSContextWrapper* w = JSContextWrapper::current();
     // The main wrapper is the first one created; subsequent wrappers
     // are workers.  We don't have a flag for this distinction yet, so
@@ -966,8 +967,8 @@ const proto::ProtoObject* parentPortImpl(
     proto::ProtoContext* ctx,
     const proto::ProtoObject* /*self*/,
     const proto::ParentLink*,
-    const proto::ProtoList* /*args*/,
-    const proto::ProtoSparseList*) {
+    const proto::ProtoArguments* /*args*/,
+    const proto::ProtoKeywordArguments*) {
     JSContextWrapper* w = JSContextWrapper::current();
     if (!w || !ctx) return PROTO_NONE;
     const proto::ProtoString* k =
@@ -982,8 +983,8 @@ const proto::ProtoObject* workerDataImpl(
     proto::ProtoContext* ctx,
     const proto::ProtoObject* /*self*/,
     const proto::ParentLink*,
-    const proto::ProtoList* /*args*/,
-    const proto::ProtoSparseList*) {
+    const proto::ProtoArguments* /*args*/,
+    const proto::ProtoKeywordArguments*) {
     JSContextWrapper* w = JSContextWrapper::current();
     if (!w || !ctx) return PROTO_NONE;
     const proto::ProtoString* k =

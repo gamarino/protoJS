@@ -310,7 +310,7 @@ static std::string objToStr(proto::ProtoContext* ctx, const proto::ProtoObject* 
                 if (tsFn->isMethod(ctx)) {
                     proto::ProtoMethod nativeFn = tsFn->asMethod(ctx);
                     if (nativeFn) {
-                        result = nativeFn(ctx, obj, nullptr, ctx->newList(), nullptr);
+                        result = nativeFn(ctx, obj, nullptr, argsView(proto::ProtoArguments(nullptr, 0)), nullptr);
                     }
                 } else {
                     // Wrapped or JS function — go through the full
@@ -426,7 +426,7 @@ static std::string objToStr(proto::ProtoContext* ctx, const proto::ProtoObject* 
                 const proto::ProtoObject* result = nullptr;
                 if (voFn->isMethod(ctx)) {
                     proto::ProtoMethod nativeFn = voFn->asMethod(ctx);
-                    if (nativeFn) result = nativeFn(ctx, obj, nullptr, ctx->newList(), nullptr);
+                    if (nativeFn) result = nativeFn(ctx, obj, nullptr, argsView(proto::ProtoArguments(nullptr, 0)), nullptr);
                 } else {
                     result = callJSFunction(ctx, voFn, obj, ctx->newList());
                 }
@@ -530,7 +530,7 @@ static std::string objToStr(proto::ProtoContext* ctx, const proto::ProtoObject* 
 static bool isRegExp(proto::ProtoContext* ctx, const proto::ProtoObject* obj);
 
 /** Extract a numeric argument.  NaN → 0; ±Infinity → LLONG extremes. */
-static long long getIntArg(proto::ProtoContext* ctx, const proto::ProtoList* args,
+static long long getIntArg(proto::ProtoContext* ctx, const proto::ProtoArguments* args,
                             unsigned idx, long long defaultVal) {
     if (!args || static_cast<proto::proto_ulong>(args->getSize(ctx)) <= idx) return defaultVal;
     const proto::ProtoObject* a = args->getAt(ctx, static_cast<int>(idx));
@@ -579,7 +579,7 @@ static std::string getStrArg(proto::ProtoContext* ctx, const proto::ProtoList* a
  *  undefined argument becomes literal "undefined"; null becomes "null".
  *  Required by spec for indexOf/startsWith/endsWith/includes etc.
  */
-static std::string getStrArgWithUndef(proto::ProtoContext* ctx, const proto::ProtoList* args,
+static std::string getStrArgWithUndef(proto::ProtoContext* ctx, const proto::ProtoArguments* args,
                                        unsigned idx) {
     if (!args || static_cast<proto::proto_ulong>(args->getSize(ctx)) <= idx) return "undefined";
     const proto::ProtoObject* a = args->getAt(ctx, static_cast<int>(idx));
@@ -688,7 +688,7 @@ static bool requireStringThis(proto::ProtoContext* ctx,
 
 const proto::ProtoObject* stringValueOf(
     proto::ProtoContext* ctx, const proto::ProtoObject* self,
-    const proto::ParentLink*, const proto::ProtoList*, const proto::ProtoSparseList*)
+    const proto::ParentLink*, const proto::ProtoArguments*, const proto::ProtoKeywordArguments*)
 {
     if (!requireStringThis(ctx, self)) return PROTO_NONE;
     // Primitive string: return as-is.
@@ -708,7 +708,7 @@ const proto::ProtoObject* stringValueOf(
 
 const proto::ProtoObject* stringToString(
     proto::ProtoContext* ctx, const proto::ProtoObject* self,
-    const proto::ParentLink*, const proto::ProtoList*, const proto::ProtoSparseList*)
+    const proto::ParentLink*, const proto::ProtoArguments*, const proto::ProtoKeywordArguments*)
 {
     if (!requireStringThis(ctx, self)) return PROTO_NONE;
     if (self && self != PROTO_NONE && self->isString(ctx)) return self;
@@ -730,8 +730,8 @@ const proto::ProtoObject* stringToString(
 
 const proto::ProtoObject* stringCharAt(
     proto::ProtoContext* ctx, const proto::ProtoObject* self,
-    const proto::ParentLink*, const proto::ProtoList* args,
-    const proto::ProtoSparseList*)
+    const proto::ParentLink*, const proto::ProtoArguments* args,
+    const proto::ProtoKeywordArguments*)
 {
     if (!requireStringThis(ctx, self)) return PROTO_NONE;
     long long idx = getIntArg(ctx, args, 0, 0);
@@ -772,8 +772,8 @@ const proto::ProtoObject* stringCharAt(
 
 const proto::ProtoObject* stringCharCodeAt(
     proto::ProtoContext* ctx, const proto::ProtoObject* self,
-    const proto::ParentLink*, const proto::ProtoList* args,
-    const proto::ProtoSparseList*)
+    const proto::ParentLink*, const proto::ProtoArguments* args,
+    const proto::ProtoKeywordArguments*)
 {
     if (!requireStringThis(ctx, self)) return PROTO_NONE;
     long long idx = getIntArg(ctx, args, 0, 0);
@@ -826,8 +826,8 @@ const proto::ProtoObject* stringCharCodeAt(
 
 const proto::ProtoObject* stringCodePointAt(
     proto::ProtoContext* ctx, const proto::ProtoObject* self,
-    const proto::ParentLink*, const proto::ProtoList* args,
-    const proto::ProtoSparseList*)
+    const proto::ParentLink*, const proto::ProtoArguments* args,
+    const proto::ProtoKeywordArguments*)
 {
     if (!requireStringThis(ctx, self)) return PROTO_NONE;
     std::string s = objToStr(ctx, self);
@@ -848,8 +848,8 @@ const proto::ProtoObject* stringCodePointAt(
 
 const proto::ProtoObject* stringAt(
     proto::ProtoContext* ctx, const proto::ProtoObject* self,
-    const proto::ParentLink*, const proto::ProtoList* args,
-    const proto::ProtoSparseList*)
+    const proto::ParentLink*, const proto::ProtoArguments* args,
+    const proto::ProtoKeywordArguments*)
 {
     if (!requireStringThis(ctx, self)) return PROTO_NONE;
     long long idx = getIntArg(ctx, args, 0, 0);
@@ -877,8 +877,8 @@ const proto::ProtoObject* stringAt(
 
 const proto::ProtoObject* stringConcat(
     proto::ProtoContext* ctx, const proto::ProtoObject* self,
-    const proto::ParentLink*, const proto::ProtoList* args,
-    const proto::ProtoSparseList*)
+    const proto::ParentLink*, const proto::ProtoArguments* args,
+    const proto::ProtoKeywordArguments*)
 {
     if (!requireStringThis(ctx, self)) return PROTO_NONE;
     // §22.1.3.4 step 2 sequencing: ToString(this) runs BEFORE any arg
@@ -899,8 +899,8 @@ const proto::ProtoObject* stringConcat(
 
 const proto::ProtoObject* stringIndexOf(
     proto::ProtoContext* ctx, const proto::ProtoObject* self,
-    const proto::ParentLink*, const proto::ProtoList* args,
-    const proto::ProtoSparseList*)
+    const proto::ParentLink*, const proto::ProtoArguments* args,
+    const proto::ProtoKeywordArguments*)
 {
     if (!requireStringThis(ctx, self)) return PROTO_NONE;
     std::string s    = objToStr(ctx, self);
@@ -935,8 +935,8 @@ const proto::ProtoObject* stringIndexOf(
 
 const proto::ProtoObject* stringLastIndexOf(
     proto::ProtoContext* ctx, const proto::ProtoObject* self,
-    const proto::ParentLink*, const proto::ProtoList* args,
-    const proto::ProtoSparseList*)
+    const proto::ParentLink*, const proto::ProtoArguments* args,
+    const proto::ProtoKeywordArguments*)
 {
     if (!requireStringThis(ctx, self)) return PROTO_NONE;
     std::string s    = objToStr(ctx, self);
@@ -1007,8 +1007,8 @@ const proto::ProtoObject* stringLastIndexOf(
 
 const proto::ProtoObject* stringSlice(
     proto::ProtoContext* ctx, const proto::ProtoObject* self,
-    const proto::ParentLink*, const proto::ProtoList* args,
-    const proto::ProtoSparseList*)
+    const proto::ParentLink*, const proto::ProtoArguments* args,
+    const proto::ProtoKeywordArguments*)
 {
     if (!requireStringThis(ctx, self)) return PROTO_NONE;
 
@@ -1081,8 +1081,8 @@ const proto::ProtoObject* stringSlice(
 
 const proto::ProtoObject* stringSubstring(
     proto::ProtoContext* ctx, const proto::ProtoObject* self,
-    const proto::ParentLink*, const proto::ProtoList* args,
-    const proto::ProtoSparseList*)
+    const proto::ParentLink*, const proto::ProtoArguments* args,
+    const proto::ProtoKeywordArguments*)
 {
     if (!requireStringThis(ctx, self)) return PROTO_NONE;
 
@@ -1144,8 +1144,8 @@ const proto::ProtoObject* stringSubstring(
 /** Legacy substr(start, length) — not in the spec but widely used. */
 const proto::ProtoObject* stringSubstr(
     proto::ProtoContext* ctx, const proto::ProtoObject* self,
-    const proto::ParentLink*, const proto::ProtoList* args,
-    const proto::ProtoSparseList*)
+    const proto::ParentLink*, const proto::ProtoArguments* args,
+    const proto::ProtoKeywordArguments*)
 {
     if (!requireStringThis(ctx, self)) return PROTO_NONE;
 
@@ -1248,7 +1248,7 @@ static std::string utf8CaseMap(const std::string& s, bool upper) {
 
 const proto::ProtoObject* stringToLowerCase(
     proto::ProtoContext* ctx, const proto::ProtoObject* self,
-    const proto::ParentLink*, const proto::ProtoList*, const proto::ProtoSparseList*)
+    const proto::ParentLink*, const proto::ProtoArguments*, const proto::ProtoKeywordArguments*)
 {
     if (!requireStringThis(ctx, self)) return PROTO_NONE;
     std::string s = objToStr(ctx, self);
@@ -1258,7 +1258,7 @@ const proto::ProtoObject* stringToLowerCase(
 
 const proto::ProtoObject* stringToUpperCase(
     proto::ProtoContext* ctx, const proto::ProtoObject* self,
-    const proto::ParentLink*, const proto::ProtoList*, const proto::ProtoSparseList*)
+    const proto::ParentLink*, const proto::ProtoArguments*, const proto::ProtoKeywordArguments*)
 {
     if (!requireStringThis(ctx, self)) return PROTO_NONE;
     std::string s = objToStr(ctx, self);
@@ -1268,8 +1268,8 @@ const proto::ProtoObject* stringToUpperCase(
 
 const proto::ProtoObject* stringRepeat(
     proto::ProtoContext* ctx, const proto::ProtoObject* self,
-    const proto::ParentLink*, const proto::ProtoList* args,
-    const proto::ProtoSparseList*)
+    const proto::ParentLink*, const proto::ProtoArguments* args,
+    const proto::ProtoKeywordArguments*)
 {
     if (!requireStringThis(ctx, self)) return PROTO_NONE;
     std::string s = objToStr(ctx, self);
@@ -1324,8 +1324,8 @@ const proto::ProtoObject* stringRepeat(
 
 const proto::ProtoObject* stringLocaleCompare(
     proto::ProtoContext* ctx, const proto::ProtoObject* self,
-    const proto::ParentLink*, const proto::ProtoList* args,
-    const proto::ProtoSparseList*)
+    const proto::ParentLink*, const proto::ProtoArguments* args,
+    const proto::ProtoKeywordArguments*)
 {
     if (!requireStringThis(ctx, self)) return PROTO_NONE;
     std::string a = objToStr(ctx, self);
@@ -1346,7 +1346,7 @@ const proto::ProtoObject* stringLocaleCompare(
 // shape (length === 0, name === "toLocaleString").
 const proto::ProtoObject* stringToLocaleString(
     proto::ProtoContext* ctx, const proto::ProtoObject* self,
-    const proto::ParentLink*, const proto::ProtoList*, const proto::ProtoSparseList*)
+    const proto::ParentLink*, const proto::ProtoArguments*, const proto::ProtoKeywordArguments*)
 {
     if (!requireStringThis(ctx, self)) return PROTO_NONE;
     if (self->isString(ctx)) return self;
@@ -1419,7 +1419,7 @@ static const proto::ProtoObject* fromStdString(proto::ProtoContext* ctx,
 
 const proto::ProtoObject* stringTrim(
     proto::ProtoContext* ctx, const proto::ProtoObject* self,
-    const proto::ParentLink*, const proto::ProtoList*, const proto::ProtoSparseList*)
+    const proto::ParentLink*, const proto::ProtoArguments*, const proto::ProtoKeywordArguments*)
 {
     if (!requireStringThis(ctx, self)) return PROTO_NONE;
     std::string s = objToStr(ctx, self);
@@ -1439,7 +1439,7 @@ const proto::ProtoObject* stringTrim(
 
 const proto::ProtoObject* stringTrimStart(
     proto::ProtoContext* ctx, const proto::ProtoObject* self,
-    const proto::ParentLink*, const proto::ProtoList*, const proto::ProtoSparseList*)
+    const proto::ParentLink*, const proto::ProtoArguments*, const proto::ProtoKeywordArguments*)
 {
     if (!requireStringThis(ctx, self)) return PROTO_NONE;
     std::string s = objToStr(ctx, self);
@@ -1454,7 +1454,7 @@ const proto::ProtoObject* stringTrimStart(
 
 const proto::ProtoObject* stringTrimEnd(
     proto::ProtoContext* ctx, const proto::ProtoObject* self,
-    const proto::ParentLink*, const proto::ProtoList*, const proto::ProtoSparseList*)
+    const proto::ParentLink*, const proto::ProtoArguments*, const proto::ProtoKeywordArguments*)
 {
     if (!requireStringThis(ctx, self)) return PROTO_NONE;
     std::string s = objToStr(ctx, self);
@@ -1469,8 +1469,8 @@ const proto::ProtoObject* stringTrimEnd(
 
 const proto::ProtoObject* stringStartsWith(
     proto::ProtoContext* ctx, const proto::ProtoObject* self,
-    const proto::ParentLink*, const proto::ProtoList* args,
-    const proto::ProtoSparseList*)
+    const proto::ParentLink*, const proto::ProtoArguments* args,
+    const proto::ProtoKeywordArguments*)
 {
     if (!requireStringThis(ctx, self)) return PROTO_NONE;
     // Spec §22.1.3.22 step 3: if searchString is a RegExp, throw
@@ -1539,8 +1539,8 @@ const proto::ProtoObject* stringStartsWith(
 
 const proto::ProtoObject* stringEndsWith(
     proto::ProtoContext* ctx, const proto::ProtoObject* self,
-    const proto::ParentLink*, const proto::ProtoList* args,
-    const proto::ProtoSparseList*)
+    const proto::ParentLink*, const proto::ProtoArguments* args,
+    const proto::ProtoKeywordArguments*)
 {
     if (!requireStringThis(ctx, self)) return PROTO_NONE;
     if (args && args->getSize(ctx) > 0) {
@@ -1600,8 +1600,8 @@ const proto::ProtoObject* stringEndsWith(
 
 const proto::ProtoObject* stringIncludes(
     proto::ProtoContext* ctx, const proto::ProtoObject* self,
-    const proto::ParentLink*, const proto::ProtoList* args,
-    const proto::ProtoSparseList*)
+    const proto::ParentLink*, const proto::ProtoArguments* args,
+    const proto::ProtoKeywordArguments*)
 {
     if (!requireStringThis(ctx, self)) return PROTO_NONE;
     if (args && args->getSize(ctx) > 0) {
@@ -1631,8 +1631,8 @@ const proto::ProtoObject* stringIncludes(
 
 const proto::ProtoObject* stringIsWellFormed(
     proto::ProtoContext* ctx, const proto::ProtoObject* self,
-    const proto::ParentLink*, const proto::ProtoList*,
-    const proto::ProtoSparseList*)
+    const proto::ParentLink*, const proto::ProtoArguments*,
+    const proto::ProtoKeywordArguments*)
 {
     if (!requireStringThis(ctx, self)) return PROTO_NONE;
     std::string s = objToStr(ctx, self);
@@ -1657,8 +1657,8 @@ const proto::ProtoObject* stringIsWellFormed(
 // surrogate pairs and non-surrogates pass through unchanged.
 const proto::ProtoObject* stringToWellFormed(
     proto::ProtoContext* ctx, const proto::ProtoObject* self,
-    const proto::ParentLink*, const proto::ProtoList*,
-    const proto::ProtoSparseList*)
+    const proto::ParentLink*, const proto::ProtoArguments*,
+    const proto::ProtoKeywordArguments*)
 {
     if (!requireStringThis(ctx, self)) return PROTO_NONE;
     std::string s = objToStr(ctx, self);
@@ -1692,7 +1692,7 @@ const proto::ProtoObject* stringToWellFormed(
 // length is large enough that the allocation would fail).
 static const proto::ProtoObject* stringPadCommon(
     proto::ProtoContext* ctx, const proto::ProtoObject* self,
-    const proto::ProtoList* args, bool atStart)
+    const proto::ProtoArguments* args, bool atStart)
 {
     if (!requireStringThis(ctx, self)) return PROTO_NONE;
     std::string s = objToStr(ctx, self);
@@ -1768,16 +1768,16 @@ static const proto::ProtoObject* stringPadCommon(
 
 const proto::ProtoObject* stringPadStart(
     proto::ProtoContext* ctx, const proto::ProtoObject* self,
-    const proto::ParentLink*, const proto::ProtoList* args,
-    const proto::ProtoSparseList*)
+    const proto::ParentLink*, const proto::ProtoArguments* args,
+    const proto::ProtoKeywordArguments*)
 {
     return stringPadCommon(ctx, self, args, /*atStart=*/true);
 }
 
 const proto::ProtoObject* stringPadEnd(
     proto::ProtoContext* ctx, const proto::ProtoObject* self,
-    const proto::ParentLink*, const proto::ProtoList* args,
-    const proto::ProtoSparseList*)
+    const proto::ParentLink*, const proto::ProtoArguments* args,
+    const proto::ProtoKeywordArguments*)
 {
     return stringPadCommon(ctx, self, args, /*atStart=*/false);
 }
@@ -1859,8 +1859,8 @@ static bool isRegExp(proto::ProtoContext* ctx, const proto::ProtoObject* obj) {
 
 const proto::ProtoObject* stringMatch(
     proto::ProtoContext* ctx, const proto::ProtoObject* self,
-    const proto::ParentLink* parent, const proto::ProtoList* args,
-    const proto::ProtoSparseList* sparse)
+    const proto::ParentLink* parent, const proto::ProtoArguments* args,
+    const proto::ProtoKeywordArguments* sparse)
 {
     if (!requireStringThis(ctx, self)) return PROTO_NONE;
     if (!args || args->getSize(ctx) == 0) {
@@ -1992,8 +1992,8 @@ const proto::ProtoObject* stringMatch(
 
 const proto::ProtoObject* stringSearch(
     proto::ProtoContext* ctx, const proto::ProtoObject* self,
-    const proto::ParentLink* parent, const proto::ProtoList* args,
-    const proto::ProtoSparseList* sparse)
+    const proto::ParentLink* parent, const proto::ProtoArguments* args,
+    const proto::ProtoKeywordArguments* sparse)
 {
     if (!requireStringThis(ctx, self)) return PROTO_NONE;
     if (!args || args->getSize(ctx) == 0) return ctx->fromInteger(0);
@@ -2039,8 +2039,8 @@ const proto::ProtoObject* stringSearch(
  *  Regex patterns return PROTO_NONE to preserve vacuous-pass behaviour. */
 const proto::ProtoObject* stringReplace(
     proto::ProtoContext* ctx, const proto::ProtoObject* self,
-    const proto::ParentLink*, const proto::ProtoList* args,
-    const proto::ProtoSparseList*)
+    const proto::ParentLink*, const proto::ProtoArguments* args,
+    const proto::ProtoKeywordArguments*)
 {
     if (!requireStringThis(ctx, self)) return PROTO_NONE;
     // Spec §22.1.3.18: GetMethod(searchValue, @@replace) precedes
@@ -2178,8 +2178,8 @@ const proto::ProtoObject* stringReplace(
 /** replaceAll(pattern, replacement) — string patterns only. */
 const proto::ProtoObject* stringReplaceAll(
     proto::ProtoContext* ctx, const proto::ProtoObject* self,
-    const proto::ParentLink*, const proto::ProtoList* args,
-    const proto::ProtoSparseList*)
+    const proto::ParentLink*, const proto::ProtoArguments* args,
+    const proto::ProtoKeywordArguments*)
 {
     if (!requireStringThis(ctx, self)) return PROTO_NONE;
     if (!args || args->getSize(ctx) < 2) return self;
@@ -2399,8 +2399,8 @@ const proto::ProtoObject* stringReplaceAll(
 
 const proto::ProtoObject* stringMatchAll(
     proto::ProtoContext* ctx, const proto::ProtoObject* self,
-    const proto::ParentLink*, const proto::ProtoList* args,
-    const proto::ProtoSparseList*)
+    const proto::ParentLink*, const proto::ProtoArguments* args,
+    const proto::ProtoKeywordArguments*)
 {
     // ECMA-262 §22.1.3.13 String.prototype.matchAll(regexp).
     // Pre-fix this was a stub returning PROTO_NONE (→ undefined),
@@ -2517,7 +2517,7 @@ const proto::ProtoObject* stringMatchAll(
     }
     const proto::ProtoObject* rxSeed = (rePro && rePro != PROTO_NONE)
         ? rePro->newChild(ctx, true) : PROTO_NONE;
-    const proto::ProtoObject* rx = regexpConstructor(ctx, rxSeed, nullptr, ctorArgs, nullptr);
+    const proto::ProtoObject* rx = regexpConstructor(ctx, rxSeed, nullptr, argsView(proto::ProtoListArguments(ctx, ctorArgs)), nullptr);
     if (!rx || rx == PROTO_NONE) return PROTO_NONE;
 
     // Step 5: rx[@@matchAll](self).
@@ -2535,8 +2535,8 @@ const proto::ProtoObject* stringMatchAll(
 /** split(separator, limit) — string separator only; regex falls through to PROTO_NONE */
 const proto::ProtoObject* stringSplit(
     proto::ProtoContext* ctx, const proto::ProtoObject* self,
-    const proto::ParentLink*, const proto::ProtoList* args,
-    const proto::ProtoSparseList*)
+    const proto::ParentLink*, const proto::ProtoArguments* args,
+    const proto::ProtoKeywordArguments*)
 {
     if (!requireStringThis(ctx, self)) return PROTO_NONE;
     // §22.1.3.21 step 2: GetMethod(separator, @@split) and dispatch
@@ -2680,8 +2680,8 @@ const proto::ProtoObject* stringSplit(
 /** normalize(form) — NFC/NFD/NFKC/NFKD. Without ICU we only support NFC (identity for ASCII). */
 const proto::ProtoObject* stringNormalize(
     proto::ProtoContext* ctx, const proto::ProtoObject* self,
-    const proto::ParentLink*, const proto::ProtoList* args,
-    const proto::ProtoSparseList*)
+    const proto::ParentLink*, const proto::ProtoArguments* args,
+    const proto::ProtoKeywordArguments*)
 {
     if (!requireStringThis(ctx, self)) return PROTO_NONE;
     // ECMA-262 §22.1.3.14 step 4: form must be one of "NFC", "NFD",
@@ -2725,8 +2725,8 @@ const proto::ProtoObject* stringNormalize(
 /** String.fromCharCode(...codes) */
 const proto::ProtoObject* stringFromCharCode(
     proto::ProtoContext* ctx, const proto::ProtoObject* /*self*/,
-    const proto::ParentLink*, const proto::ProtoList* args,
-    const proto::ProtoSparseList*)
+    const proto::ParentLink*, const proto::ProtoArguments* args,
+    const proto::ProtoKeywordArguments*)
 {
     std::vector<uint16_t> units;
     proto::proto_ulong argc = args ? static_cast<proto::proto_ulong>(args->getSize(ctx)) : 0;
@@ -2775,8 +2775,8 @@ const proto::ProtoObject* stringFromCharCode(
 /** String.fromCodePoint(...codePoints) */
 const proto::ProtoObject* stringFromCodePoint(
     proto::ProtoContext* ctx, const proto::ProtoObject* /*self*/,
-    const proto::ParentLink*, const proto::ProtoList* args,
-    const proto::ProtoSparseList*)
+    const proto::ParentLink*, const proto::ProtoArguments* args,
+    const proto::ProtoKeywordArguments*)
 {
     std::string result;
     proto::proto_ulong argc = args ? static_cast<proto::proto_ulong>(args->getSize(ctx)) : 0;
@@ -2825,8 +2825,8 @@ static const char kBuiltSentinel[] = "__string_proto_built__";
 // template.raw[i] contains the raw source text of each string segment.
 const proto::ProtoObject* stringRaw(
     proto::ProtoContext* ctx, const proto::ProtoObject* /*self*/,
-    const proto::ParentLink*, const proto::ProtoList* args,
-    const proto::ProtoSparseList*)
+    const proto::ParentLink*, const proto::ProtoArguments* args,
+    const proto::ProtoKeywordArguments*)
 {
     // §21.1.2.4 step 3: ToObject(template).  null / undefined throw
     // TypeError before any property access.  Pre-fix the implementation
@@ -2975,7 +2975,7 @@ const proto::ProtoObject* stringRaw(
 static const proto::ProtoObject* stringIteratorNext(
     proto::ProtoContext* ctx, const proto::ProtoObject* self,
     const proto::ParentLink*,
-    const proto::ProtoList*, const proto::ProtoSparseList*)
+    const proto::ProtoArguments*, const proto::ProtoKeywordArguments*)
 {
     auto makeResult = [&](const proto::ProtoObject* val, bool done) -> const proto::ProtoObject* {
         const proto::ProtoObject* r = ctx->newObject(true);
@@ -3093,7 +3093,7 @@ static const proto::ProtoObject* getStringIteratorProto(proto::ProtoContext* ctx
 static const proto::ProtoObject* stringSymbolIterator(
     proto::ProtoContext* ctx, const proto::ProtoObject* self,
     const proto::ParentLink*,
-    const proto::ProtoList*, const proto::ProtoSparseList*)
+    const proto::ProtoArguments*, const proto::ProtoKeywordArguments*)
 {
     // §22.1.5.1 step 1: RequireObjectCoercible(this) — null / undefined
     // throw TypeError.  Step 2: S = ToString(O), abrupt completion

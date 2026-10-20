@@ -27,8 +27,8 @@ bool numericArg(proto::ProtoContext* ctx, const proto::ProtoObject* v, double& o
 const proto::ProtoObject* sum_impl(proto::ProtoContext* ctx,
                                     const proto::ProtoObject* /*self*/,
                                     const proto::ParentLink*,
-                                    const proto::ProtoList* args,
-                                    const proto::ProtoSparseList*) {
+                                    const proto::ProtoArguments* args,
+                                    const proto::ProtoKeywordArguments*) {
     if (!args || args->getSize(ctx) < 2) {
         protojs_throw(ctx, "TypeError", "sum expects two numbers");
         return PROTO_NONE;
@@ -49,8 +49,8 @@ const proto::ProtoObject* sum_impl(proto::ProtoContext* ctx,
 const proto::ProtoObject* boom_impl(proto::ProtoContext* ctx,
                                      const proto::ProtoObject* /*self*/,
                                      const proto::ParentLink*,
-                                     const proto::ProtoList*,
-                                     const proto::ProtoSparseList*) {
+                                     const proto::ProtoArguments*,
+                                     const proto::ProtoKeywordArguments*) {
     protojs_throw(ctx, "TypeError", "addon refused");
     return PROTO_NONE;
 }

@@ -539,8 +539,8 @@ static const proto::ProtoObject* objectKeys(
     proto::ProtoContext* ctx,
     const proto::ProtoObject* /*self*/,
     const proto::ParentLink*,
-    const proto::ProtoList* args,
-    const proto::ProtoSparseList*)
+    const proto::ProtoArguments* args,
+    const proto::ProtoKeywordArguments*)
 {
     const proto::ProtoObject* obj = (args && args->getSize(ctx) > 0)
         ? args->getAt(ctx, 0) : nullptr;
@@ -665,8 +665,8 @@ static const proto::ProtoObject* objectValues(
     proto::ProtoContext* ctx,
     const proto::ProtoObject* /*self*/,
     const proto::ParentLink*,
-    const proto::ProtoList* args,
-    const proto::ProtoSparseList*)
+    const proto::ProtoArguments* args,
+    const proto::ProtoKeywordArguments*)
 {
     const proto::ProtoObject* obj = (args && args->getSize(ctx) > 0)
         ? args->getAt(ctx, 0) : nullptr;
@@ -755,8 +755,8 @@ static const proto::ProtoObject* objectEntries(
     proto::ProtoContext* ctx,
     const proto::ProtoObject* /*self*/,
     const proto::ParentLink*,
-    const proto::ProtoList* args,
-    const proto::ProtoSparseList*)
+    const proto::ProtoArguments* args,
+    const proto::ProtoKeywordArguments*)
 {
     const proto::ProtoObject* obj = (args && args->getSize(ctx) > 0)
         ? args->getAt(ctx, 0) : nullptr;
@@ -858,8 +858,8 @@ static const proto::ProtoObject* objectAssign(
     proto::ProtoContext* ctx,
     const proto::ProtoObject* /*self*/,
     const proto::ParentLink*,
-    const proto::ProtoList* args,
-    const proto::ProtoSparseList*)
+    const proto::ProtoArguments* args,
+    const proto::ProtoKeywordArguments*)
 {
     int argc = args ? static_cast<int>(args->getSize(ctx)) : 0;
     // ECMA-262 §19.1.2.1 step 1: target = ToObject(target). Throws
@@ -1464,8 +1464,8 @@ static const proto::ProtoObject* objectDefineProperty(
     proto::ProtoContext* ctx,
     const proto::ProtoObject* self,
     const proto::ParentLink*,
-    const proto::ProtoList* args,
-    const proto::ProtoSparseList*);
+    const proto::ProtoArguments* args,
+    const proto::ProtoKeywordArguments*);
 
 
 // Reverse map: per-instance __symbol_str_key__ string ("@@sym#<n>")
@@ -1483,8 +1483,8 @@ static const proto::ProtoObject* objectCreate(
     proto::ProtoContext* ctx,
     const proto::ProtoObject* /*self*/,
     const proto::ParentLink*,
-    const proto::ProtoList* args,
-    const proto::ProtoSparseList*)
+    const proto::ProtoArguments* args,
+    const proto::ProtoKeywordArguments*)
 {
     // ECMA-262 §20.1.2.2 step 1: if O is neither Object nor null,
     // throw TypeError. Pre-fix the no-args call returned a plain
@@ -1596,7 +1596,7 @@ static const proto::ProtoObject* objectCreate(
                 dpArgs = dpArgs->appendLast(ctx, result);
                 dpArgs = dpArgs->appendLast(ctx, keyObj);
                 dpArgs = dpArgs->appendLast(ctx, descObj);
-                const proto::ProtoObject* nr = objectDefineProperty(ctx, nullptr, nullptr, dpArgs, nullptr);
+                const proto::ProtoObject* nr = objectDefineProperty(ctx, nullptr, nullptr, argsView(proto::ProtoListArguments(ctx, dpArgs)), nullptr);
                 if (nr && nr != PROTO_NONE) result = nr;
                 if (hasCallException()) return PROTO_NONE;
             }
@@ -1658,8 +1658,8 @@ static const proto::ProtoObject* objectFreeze(
     proto::ProtoContext* ctx,
     const proto::ProtoObject* /*self*/,
     const proto::ParentLink*,
-    const proto::ProtoList* args,
-    const proto::ProtoSparseList*)
+    const proto::ProtoArguments* args,
+    const proto::ProtoKeywordArguments*)
 {
     if (!args || args->getSize(ctx) == 0) return PROTO_NONE;
     const proto::ProtoObject* obj = args->getAt(ctx, 0);
@@ -1857,8 +1857,8 @@ static const proto::ProtoObject* objectIsFrozen(
     proto::ProtoContext* ctx,
     const proto::ProtoObject* /*self*/,
     const proto::ParentLink*,
-    const proto::ProtoList* args,
-    const proto::ProtoSparseList*)
+    const proto::ProtoArguments* args,
+    const proto::ProtoKeywordArguments*)
 {
     if (!args || args->getSize(ctx) == 0) return PROTO_TRUE; // no arg → undefined → frozen
     const proto::ProtoObject* obj = args->getAt(ctx, 0);
@@ -1988,8 +1988,8 @@ static const proto::ProtoObject* objectSeal(
     proto::ProtoContext* ctx,
     const proto::ProtoObject* /*self*/,
     const proto::ParentLink*,
-    const proto::ProtoList* args,
-    const proto::ProtoSparseList*)
+    const proto::ProtoArguments* args,
+    const proto::ProtoKeywordArguments*)
 {
     if (!args || args->getSize(ctx) == 0) return PROTO_NONE;
     const proto::ProtoObject* obj = args->getAt(ctx, 0);
@@ -2156,8 +2156,8 @@ static const proto::ProtoObject* objectIsSealed(
     proto::ProtoContext* ctx,
     const proto::ProtoObject* /*self*/,
     const proto::ParentLink*,
-    const proto::ProtoList* args,
-    const proto::ProtoSparseList*)
+    const proto::ProtoArguments* args,
+    const proto::ProtoKeywordArguments*)
 {
     if (!args || args->getSize(ctx) == 0) return PROTO_TRUE;
     const proto::ProtoObject* obj = args->getAt(ctx, 0);
@@ -2229,8 +2229,8 @@ static const proto::ProtoObject* objectPreventExtensions(
     proto::ProtoContext* ctx,
     const proto::ProtoObject* /*self*/,
     const proto::ParentLink*,
-    const proto::ProtoList* args,
-    const proto::ProtoSparseList*)
+    const proto::ProtoArguments* args,
+    const proto::ProtoKeywordArguments*)
 {
     if (!args || args->getSize(ctx) == 0) return PROTO_NONE;
     const proto::ProtoObject* obj = args->getAt(ctx, 0);
@@ -2309,7 +2309,7 @@ static const proto::ProtoObject* objectPreventExtensions(
         // Proxy/preventExtensions/trap-is-missing-target-is-proxy.js).
         const proto::ProtoList* recurseArgs = ctx->newList();
         recurseArgs = recurseArgs->appendLast(ctx, target ? target : obj);
-        return objectPreventExtensions(ctx, nullptr, nullptr, recurseArgs, nullptr);
+        return objectPreventExtensions(ctx, nullptr, nullptr, argsView(proto::ProtoListArguments(ctx, recurseArgs)), nullptr);
     }
 
     jsAddIntegrity(ctx, obj, kIntegrityNonExtensible);
@@ -2324,8 +2324,8 @@ static const proto::ProtoObject* objectIsExtensible(
     proto::ProtoContext* ctx,
     const proto::ProtoObject* /*self*/,
     const proto::ParentLink*,
-    const proto::ProtoList* args,
-    const proto::ProtoSparseList*)
+    const proto::ProtoArguments* args,
+    const proto::ProtoKeywordArguments*)
 {
     if (!args || args->getSize(ctx) == 0) return PROTO_FALSE;
     const proto::ProtoObject* obj = args->getAt(ctx, 0);
@@ -2410,8 +2410,8 @@ static const proto::ProtoObject* objectGetOwnPropertyNames(
     proto::ProtoContext* ctx,
     const proto::ProtoObject* /*self*/,
     const proto::ParentLink*,
-    const proto::ProtoList* args,
-    const proto::ProtoSparseList*)
+    const proto::ProtoArguments* args,
+    const proto::ProtoKeywordArguments*)
 {
     const proto::ProtoObject* obj = (args && args->getSize(ctx) > 0)
         ? args->getAt(ctx, 0) : PROTO_NONE;
@@ -2492,8 +2492,8 @@ static const proto::ProtoObject* objectGetPrototypeOf(
     proto::ProtoContext* ctx,
     const proto::ProtoObject* /*self*/,
     const proto::ParentLink*,
-    const proto::ProtoList* args,
-    const proto::ProtoSparseList*)
+    const proto::ProtoArguments* args,
+    const proto::ProtoKeywordArguments*)
 {
     // ECMA-262 §19.1.2.12 (ES5) / §20.1.2.12 (ES2015+): Object.getPrototypeOf
     // throws TypeError when called with null/undefined. (Modern spec allows
@@ -2542,8 +2542,8 @@ static const proto::ProtoObject* objectSetPrototypeOf(
     proto::ProtoContext* ctx,
     const proto::ProtoObject* /*self*/,
     const proto::ParentLink*,
-    const proto::ProtoList* args,
-    const proto::ProtoSparseList*)
+    const proto::ProtoArguments* args,
+    const proto::ProtoKeywordArguments*)
 {
     // §20.1.2.21 step 1 RequireObjectCoercible(O) + step 2 type check
     // on the proto argument.  Pre-fix the impl silently no-op'd for
@@ -2963,8 +2963,8 @@ static const proto::ProtoObject* objectDefineProperty(
     proto::ProtoContext* ctx,
     const proto::ProtoObject* /*self*/,
     const proto::ParentLink*,
-    const proto::ProtoList* args,
-    const proto::ProtoSparseList*)
+    const proto::ProtoArguments* args,
+    const proto::ProtoKeywordArguments*)
 {
     if (!ctx) return PROTO_NONE;
     // ECMA-262 §20.1.2.4 step 1: target must be an Object. Treat
@@ -4076,8 +4076,8 @@ static const proto::ProtoObject* objectGetOwnPropertyDescriptor(
     proto::ProtoContext* ctx,
     const proto::ProtoObject* /*self*/,
     const proto::ParentLink*,
-    const proto::ProtoList* args,
-    const proto::ProtoSparseList*)
+    const proto::ProtoArguments* args,
+    const proto::ProtoKeywordArguments*)
 {
     if (!ctx || !args) return PROTO_NONE;
     const proto::ProtoObject* target = args->getSize(ctx) > 0 ? args->getAt(ctx, 0) : PROTO_NONE;
@@ -4351,8 +4351,8 @@ static const proto::ProtoObject* objectGetOwnPropertySymbols(
     proto::ProtoContext* ctx,
     const proto::ProtoObject* /*self*/,
     const proto::ParentLink*,
-    const proto::ProtoList* args,
-    const proto::ProtoSparseList*)
+    const proto::ProtoArguments* args,
+    const proto::ProtoKeywordArguments*)
 {
     if (!ctx || !args) return PROTO_NONE;
     const proto::ProtoObject* target = args->getSize(ctx) > 0
@@ -4440,8 +4440,8 @@ static const proto::ProtoObject* objectGetOwnPropertyDescriptors(
     proto::ProtoContext* ctx,
     const proto::ProtoObject* /*self*/,
     const proto::ParentLink*,
-    const proto::ProtoList* args,
-    const proto::ProtoSparseList*)
+    const proto::ProtoArguments* args,
+    const proto::ProtoKeywordArguments*)
 {
     if (!ctx || !args) return PROTO_NONE;
     const proto::ProtoObject* target = args->getSize(ctx) > 0
@@ -4525,7 +4525,7 @@ static const proto::ProtoObject* objectGetOwnPropertyDescriptors(
         keyArgs = keyArgs->appendLast(ctx, target);
         keyArgs = keyArgs->appendLast(ctx, ctx->fromUTF8String(k.c_str()));
         const proto::ProtoObject* desc =
-            objectGetOwnPropertyDescriptor(ctx, nullptr, nullptr, keyArgs, nullptr);
+            objectGetOwnPropertyDescriptor(ctx, nullptr, nullptr, argsView(proto::ProtoListArguments(ctx, keyArgs)), nullptr);
         if (!desc || desc == PROTO_NONE) continue;
         // The key as the source holds it: a dynamic key stays a collectable
         // string in the result's property dictionary.
@@ -4561,7 +4561,7 @@ static const proto::ProtoObject* objectGetOwnPropertyDescriptors(
             keyArgs = keyArgs->appendLast(ctx, target);
             keyArgs = keyArgs->appendLast(ctx, ctx->fromUTF8String(ks.c_str()));
             const proto::ProtoObject* desc =
-                objectGetOwnPropertyDescriptor(ctx, nullptr, nullptr, keyArgs, nullptr);
+                objectGetOwnPropertyDescriptor(ctx, nullptr, nullptr, argsView(proto::ProtoListArguments(ctx, keyArgs)), nullptr);
             if (!desc || desc == PROTO_NONE) continue;
             result = result->setAttribute(ctx, keyStr, desc);
         }
@@ -4578,8 +4578,8 @@ static const proto::ProtoObject* objectDefineProperties(
     proto::ProtoContext* ctx,
     const proto::ProtoObject* /*self*/,
     const proto::ParentLink*,
-    const proto::ProtoList* args,
-    const proto::ProtoSparseList*)
+    const proto::ProtoArguments* args,
+    const proto::ProtoKeywordArguments*)
 {
     if (!ctx || !args || args->getSize(ctx) < 2) return PROTO_NONE;
     const proto::ProtoObject* target = args->getAt(ctx, 0);
@@ -4702,7 +4702,7 @@ static const proto::ProtoObject* objectDefineProperties(
             dpArgs = dpArgs->appendLast(ctx, target);
             dpArgs = dpArgs->appendLast(ctx, kObj);
             dpArgs = dpArgs->appendLast(ctx, descRead ? descRead : PROTO_NONE);
-            const proto::ProtoObject* newTarget = objectDefineProperty(ctx, nullptr, nullptr, dpArgs, nullptr);
+            const proto::ProtoObject* newTarget = objectDefineProperty(ctx, nullptr, nullptr, argsView(proto::ProtoListArguments(ctx, dpArgs)), nullptr);
             if (hasCallException()) return PROTO_NONE;
             if (newTarget && newTarget != PROTO_NONE) target = newTarget;
         }
@@ -4783,7 +4783,7 @@ static const proto::ProtoObject* objectDefineProperties(
             dpArgs = dpArgs->appendLast(ctx, target);
             dpArgs = dpArgs->appendLast(ctx, ctx->fromUTF8String(keyStr.c_str()));
             dpArgs = dpArgs->appendLast(ctx, descObj);
-            const proto::ProtoObject* newTarget = objectDefineProperty(ctx, nullptr, nullptr, dpArgs, nullptr);
+            const proto::ProtoObject* newTarget = objectDefineProperty(ctx, nullptr, nullptr, argsView(proto::ProtoListArguments(ctx, dpArgs)), nullptr);
             if (hasCallException()) return PROTO_NONE;
             if (newTarget && newTarget != PROTO_NONE) target = newTarget;
         }
@@ -4799,8 +4799,8 @@ static const proto::ProtoObject* objectFromEntries(
     proto::ProtoContext* ctx,
     const proto::ProtoObject* /*self*/,
     const proto::ParentLink*,
-    const proto::ProtoList* args,
-    const proto::ProtoSparseList*)
+    const proto::ProtoArguments* args,
+    const proto::ProtoKeywordArguments*)
 {
     const proto::ProtoObject* iterable = (args && args->getSize(ctx) > 0)
         ? args->getAt(ctx, 0) : PROTO_NONE;
@@ -5068,8 +5068,8 @@ static const proto::ProtoObject* objectHasOwn(
     proto::ProtoContext* ctx,
     const proto::ProtoObject* /*self*/,
     const proto::ParentLink*,
-    const proto::ProtoList* args,
-    const proto::ProtoSparseList*)
+    const proto::ProtoArguments* args,
+    const proto::ProtoKeywordArguments*)
 {
     // ECMA-262 §20.1.2.13 step 1: ToObject(target). null / undefined
     // throw TypeError. Pre-fix the implementation returned false
@@ -5130,8 +5130,8 @@ static const proto::ProtoObject* objectGroupBy(
     proto::ProtoContext* ctx,
     const proto::ProtoObject* /*self*/,
     const proto::ParentLink*,
-    const proto::ProtoList* args,
-    const proto::ProtoSparseList*)
+    const proto::ProtoArguments* args,
+    const proto::ProtoKeywordArguments*)
 {
     const proto::ProtoObject* items = (args && args->getSize(ctx) > 0)
         ? args->getAt(ctx, 0) : PROTO_NONE;
@@ -5283,8 +5283,8 @@ static const proto::ProtoObject* objectHasOwnProperty(
     proto::ProtoContext* ctx,
     const proto::ProtoObject* self,
     const proto::ParentLink*,
-    const proto::ProtoList* args,
-    const proto::ProtoSparseList*)
+    const proto::ProtoArguments* args,
+    const proto::ProtoKeywordArguments*)
 {
     // §20.1.3.2 step 1: ToPropertyKey(V) precedes ToObject(this).
     // A throwing toString / @@toPrimitive on V surfaces BEFORE the
@@ -5461,8 +5461,8 @@ static const proto::ProtoObject* objectPropertyIsEnumerable(
     proto::ProtoContext* ctx,
     const proto::ProtoObject* self,
     const proto::ParentLink*,
-    const proto::ProtoList* args,
-    const proto::ProtoSparseList*)
+    const proto::ProtoArguments* args,
+    const proto::ProtoKeywordArguments*)
 {
     // §20.1.3.4 step 1: ToPropertyKey(V) precedes ToObject(this).
     if (!args || args->getSize(ctx) == 0) {
@@ -5603,8 +5603,8 @@ static const proto::ProtoObject* objectToString(
     proto::ProtoContext* ctx,
     const proto::ProtoObject* self,
     const proto::ParentLink*,
-    const proto::ProtoList*,
-    const proto::ProtoSparseList*)
+    const proto::ProtoArguments*,
+    const proto::ProtoKeywordArguments*)
 {
     if (!self || self == PROTO_NONE || self->isNone(ctx) || self == getUndefinedSentinel())
         return ctx->fromUTF8String("[object Undefined]");
@@ -5934,8 +5934,8 @@ static const proto::ProtoObject* objectValueOf(
     proto::ProtoContext* ctx,
     const proto::ProtoObject* self,
     const proto::ParentLink*,
-    const proto::ProtoList*,
-    const proto::ProtoSparseList*)
+    const proto::ProtoArguments*,
+    const proto::ProtoKeywordArguments*)
 {
     // §20.1.3.7 step 1: O = ToObject(this); null / undefined raise
     // TypeError before the slot is read. Pre-fix the trivial passthrough
@@ -6007,8 +6007,8 @@ static const proto::ProtoObject* objectDefineProperty(
     proto::ProtoContext* ctx,
     const proto::ProtoObject* self,
     const proto::ParentLink* parents,
-    const proto::ProtoList* args,
-    const proto::ProtoSparseList* slots);
+    const proto::ProtoArguments* args,
+    const proto::ProtoKeywordArguments* slots);
 // Lightweight callable probe: a value is callable iff it has any of the
 // markers protoJS uses for callables — __native_fn__ (wrapped C++ fn),
 // __bytecode_id__ (Python-side function), __bound_fn__ (bound function),
@@ -6029,8 +6029,8 @@ static const proto::ProtoObject* objectDefineGetter(
     proto::ProtoContext* ctx,
     const proto::ProtoObject* self,
     const proto::ParentLink*,
-    const proto::ProtoList* args,
-    const proto::ProtoSparseList*)
+    const proto::ProtoArguments* args,
+    const proto::ProtoKeywordArguments*)
 {
     if (!self || self == PROTO_NONE
         || self == getNullSentinel() || self == getUndefinedSentinel()) {
@@ -6066,7 +6066,7 @@ static const proto::ProtoObject* objectDefineGetter(
     dpArgs = dpArgs->appendLast(ctx, self);
     dpArgs = dpArgs->appendLast(ctx, keyArg);
     dpArgs = dpArgs->appendLast(ctx, desc);
-    (void)objectDefineProperty(ctx, nullptr, nullptr, dpArgs, nullptr);
+    (void)objectDefineProperty(ctx, nullptr, nullptr, argsView(proto::ProtoListArguments(ctx, dpArgs)), nullptr);
     if (hasCallException()) return PROTO_NONE;
     return getUndefinedSentinel();
 }
@@ -6077,8 +6077,8 @@ static const proto::ProtoObject* objectDefineSetter(
     proto::ProtoContext* ctx,
     const proto::ProtoObject* self,
     const proto::ParentLink*,
-    const proto::ProtoList* args,
-    const proto::ProtoSparseList*)
+    const proto::ProtoArguments* args,
+    const proto::ProtoKeywordArguments*)
 {
     if (!self || self == PROTO_NONE
         || self == getNullSentinel() || self == getUndefinedSentinel()) {
@@ -6113,7 +6113,7 @@ static const proto::ProtoObject* objectDefineSetter(
     dpArgs = dpArgs->appendLast(ctx, self);
     dpArgs = dpArgs->appendLast(ctx, keyArg);
     dpArgs = dpArgs->appendLast(ctx, desc);
-    (void)objectDefineProperty(ctx, nullptr, nullptr, dpArgs, nullptr);
+    (void)objectDefineProperty(ctx, nullptr, nullptr, argsView(proto::ProtoListArguments(ctx, dpArgs)), nullptr);
     if (hasCallException()) return PROTO_NONE;
     return getUndefinedSentinel();
 }
@@ -6128,8 +6128,8 @@ static const proto::ProtoObject* objectLookupGetter(
     proto::ProtoContext* ctx,
     const proto::ProtoObject* self,
     const proto::ParentLink*,
-    const proto::ProtoList* args,
-    const proto::ProtoSparseList*)
+    const proto::ProtoArguments* args,
+    const proto::ProtoKeywordArguments*)
 {
     if (!self || self == PROTO_NONE
         || self == getNullSentinel() || self == getUndefinedSentinel()) {
@@ -6212,8 +6212,8 @@ static const proto::ProtoObject* objectLookupSetter(
     proto::ProtoContext* ctx,
     const proto::ProtoObject* self,
     const proto::ParentLink*,
-    const proto::ProtoList* args,
-    const proto::ProtoSparseList*)
+    const proto::ProtoArguments* args,
+    const proto::ProtoKeywordArguments*)
 {
     if (!self || self == PROTO_NONE
         || self == getNullSentinel() || self == getUndefinedSentinel()) {
@@ -6282,8 +6282,8 @@ static const proto::ProtoObject* objectIsPrototypeOf(
     proto::ProtoContext* ctx,
     const proto::ProtoObject* self,
     const proto::ParentLink*,
-    const proto::ProtoList* args,
-    const proto::ProtoSparseList*)
+    const proto::ProtoArguments* args,
+    const proto::ProtoKeywordArguments*)
 {
     if (!args || args->getSize(ctx) < 1) return PROTO_FALSE;
     const proto::ProtoObject* arg = args->getAt(ctx, 0);
@@ -6348,8 +6348,8 @@ static const proto::ProtoObject* objectIsPrototypeOf(
 // .call({})` test262 case failed with "is not a function".
 static const proto::ProtoObject* protoAccessorGetter(
     proto::ProtoContext* gctx, const proto::ProtoObject* gself,
-    const proto::ParentLink*, const proto::ProtoList*,
-    const proto::ProtoSparseList*)
+    const proto::ParentLink*, const proto::ProtoArguments*,
+    const proto::ProtoKeywordArguments*)
 {
     if (!gself || gself == PROTO_NONE
         || gself == getNullSentinel() || gself == getUndefinedSentinel()) {
@@ -6372,8 +6372,8 @@ static const proto::ProtoObject* protoAccessorGetter(
 
 static const proto::ProtoObject* protoAccessorSetter(
     proto::ProtoContext* sctx, const proto::ProtoObject* sself,
-    const proto::ParentLink*, const proto::ProtoList* args,
-    const proto::ProtoSparseList*)
+    const proto::ParentLink*, const proto::ProtoArguments* args,
+    const proto::ProtoKeywordArguments*)
 {
     if (!sself || sself == PROTO_NONE
         || sself == getNullSentinel() || sself == getUndefinedSentinel()) {
@@ -6657,8 +6657,8 @@ const proto::ProtoObject* installObjectInstanceMethods(
         proto::ProtoContext* ictx,
         const proto::ProtoObject* self,
         const proto::ParentLink*,
-        const proto::ProtoList*,
-        const proto::ProtoSparseList*) -> const proto::ProtoObject* {
+        const proto::ProtoArguments*,
+        const proto::ProtoKeywordArguments*) -> const proto::ProtoObject* {
         // §20.1.3.5 step 1 invokes ToObject(this) before reading the
         // toString slot; null / undefined must raise TypeError. Pre-
         // fix the entry routed null / undefined into objectToString
@@ -6848,8 +6848,8 @@ void ensureObjectConstructor(proto::ProtoContext* ctx,
     // in two ways: NaN is Object.is NaN, and +0 is NOT Object.is -0.
     static const proto::ProtoMethod objectIsFn = [](
         proto::ProtoContext* ictx, const proto::ProtoObject* /*self*/,
-        const proto::ParentLink*, const proto::ProtoList* ia,
-        const proto::ProtoSparseList*) -> const proto::ProtoObject* {
+        const proto::ParentLink*, const proto::ProtoArguments* ia,
+        const proto::ProtoKeywordArguments*) -> const proto::ProtoObject* {
         const proto::ProtoObject* a = (ia && ia->getSize(ictx) > 0) ? ia->getAt(ictx, 0) : PROTO_NONE;
         const proto::ProtoObject* b = (ia && ia->getSize(ictx) > 1) ? ia->getAt(ictx, 1) : PROTO_NONE;
         // SameValue must distinguish +0 from -0 even when both numeric
@@ -6977,8 +6977,8 @@ void ensureObjectConstructor(proto::ProtoContext* ctx,
     // The __construct__ method also handles `new Object(value)` → coerce to object.
     static const proto::ProtoMethod objectCtorFn = [](
         proto::ProtoContext* ctx, const proto::ProtoObject* self,
-        const proto::ParentLink*, const proto::ProtoList* args,
-        const proto::ProtoSparseList*) -> const proto::ProtoObject* {
+        const proto::ParentLink*, const proto::ProtoArguments* args,
+        const proto::ProtoKeywordArguments*) -> const proto::ProtoObject* {
         // ECMA-262 §19.1.1 Object([value]):
         //   - no/undefined/null value → fresh empty object (the new self).
         //   - object value → return value unchanged (boxing identity).

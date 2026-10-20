@@ -46,8 +46,8 @@ const proto::ProtoObject* cpuChunkWorker(
     proto::ProtoContext* context,
     const proto::ProtoObject* /*self*/,
     const proto::ParentLink*,
-    const proto::ProtoList* args,
-    const proto::ProtoSparseList*) {
+    const proto::ProtoArguments* args,
+    const proto::ProtoKeywordArguments*) {
     if (!args || args->getSize(context) < 2) return PROTO_NONE;
     const proto::ProtoObject* resultPtrObj = args->getAt(context, 0);
     const proto::ProtoObject* iterObj = args->getAt(context, 1);
@@ -76,8 +76,8 @@ const proto::ProtoObject* cpuChunkThreadEntry(
     proto::ProtoContext* context,
     const proto::ProtoObject* self,
     const proto::ParentLink* pl,
-    const proto::ProtoList* args,
-    const proto::ProtoSparseList* kwargs) {
+    const proto::ProtoArguments* args,
+    const proto::ProtoKeywordArguments* kwargs) {
     if (!context || !context->space) return PROTO_NONE;
     proto::ProtoContext threadCtx(context->space, nullptr, nullptr,
                                    nullptr, nullptr, nullptr);
@@ -102,8 +102,8 @@ const proto::ProtoObject* threadIdFn(
     proto::ProtoContext* ctx,
     const proto::ProtoObject* /*self*/,
     const proto::ParentLink*,
-    const proto::ProtoList*,
-    const proto::ProtoSparseList*) {
+    const proto::ProtoArguments*,
+    const proto::ProtoKeywordArguments*) {
     static std::atomic<long long> next{1};
     static thread_local long long id = 0;
     if (id == 0) id = next.fetch_add(1, std::memory_order_relaxed);
@@ -116,8 +116,8 @@ const proto::ProtoObject* runInThreadNative(
     proto::ProtoContext* ctx,
     const proto::ProtoObject* /*self*/,
     const proto::ParentLink*,
-    const proto::ProtoList* args,
-    const proto::ProtoSparseList*) {
+    const proto::ProtoArguments* args,
+    const proto::ProtoKeywordArguments*) {
     if (!ctx || !args || args->getSize(ctx) < 1) return PROTO_NONE;
 
     // Arg 0 — worker name (ProtoString).
@@ -316,7 +316,7 @@ constexpr int kCasAttempts = 1000;
 // Read one element of an Array argument list, or nullptr when the argument
 // is not an Array.
 const proto::ProtoList* arrayArgElements(proto::ProtoContext* ctx,
-                                          const proto::ProtoList* args) {
+                                          const proto::ProtoArguments* args) {
     if (!args || args->getSize(ctx) == 0) return nullptr;
     const proto::ProtoObject* a = args->getAt(ctx, 0);
     if (!a || a == PROTO_NONE || a == getUndefinedSentinel()) return nullptr;
@@ -345,8 +345,8 @@ bool readIndex(proto::ProtoContext* ctx, const proto::ProtoObject* v,
 
 const proto::ProtoObject* setConstruct(
     proto::ProtoContext* ctx, const proto::ProtoObject* self,
-    const proto::ParentLink*, const proto::ProtoList* args,
-    const proto::ProtoSparseList*) {
+    const proto::ParentLink*, const proto::ProtoArguments* args,
+    const proto::ProtoKeywordArguments*) {
     if (!ctx) return PROTO_NONE;
     if (!calledWithNew(ctx, self, setProtoSlot()))
         return throwTypeError(ctx, "Constructor Set requires 'new'");
@@ -378,8 +378,8 @@ const proto::ProtoSet* readSet(proto::ProtoContext* ctx,
 
 const proto::ProtoObject* setAdd(
     proto::ProtoContext* ctx, const proto::ProtoObject* self,
-    const proto::ParentLink*, const proto::ProtoList* args,
-    const proto::ProtoSparseList*) {
+    const proto::ParentLink*, const proto::ProtoArguments* args,
+    const proto::ProtoKeywordArguments*) {
     if (!args || args->getSize(ctx) < 1)
         return throwTypeError(ctx, "Set.add expects a value");
     const proto::ProtoString* key = collKeys(ctx).set;
@@ -400,8 +400,8 @@ const proto::ProtoObject* setAdd(
 
 const proto::ProtoObject* setHas(
     proto::ProtoContext* ctx, const proto::ProtoObject* self,
-    const proto::ParentLink*, const proto::ProtoList* args,
-    const proto::ProtoSparseList*) {
+    const proto::ParentLink*, const proto::ProtoArguments* args,
+    const proto::ProtoKeywordArguments*) {
     if (!args || args->getSize(ctx) < 1)
         return throwTypeError(ctx, "Set.has expects a value");
     const proto::ProtoSet* s = readSet(ctx, self);
@@ -412,8 +412,8 @@ const proto::ProtoObject* setHas(
 
 const proto::ProtoObject* setRemove(
     proto::ProtoContext* ctx, const proto::ProtoObject* self,
-    const proto::ParentLink*, const proto::ProtoList* args,
-    const proto::ProtoSparseList*) {
+    const proto::ParentLink*, const proto::ProtoArguments* args,
+    const proto::ProtoKeywordArguments*) {
     if (!args || args->getSize(ctx) < 1)
         return throwTypeError(ctx, "Set.remove expects a value");
     const proto::ProtoString* key = collKeys(ctx).set;
@@ -433,8 +433,8 @@ const proto::ProtoObject* setRemove(
 
 const proto::ProtoObject* setSize(
     proto::ProtoContext* ctx, const proto::ProtoObject* self,
-    const proto::ParentLink*, const proto::ProtoList*,
-    const proto::ProtoSparseList*) {
+    const proto::ParentLink*, const proto::ProtoArguments*,
+    const proto::ProtoKeywordArguments*) {
     const proto::ProtoSet* s = readSet(ctx, self);
     if (!s) return throwTypeError(ctx, "Invalid Set object");
     return ctx->fromInteger(static_cast<long long>(s->getSize(ctx)));
@@ -444,8 +444,8 @@ const proto::ProtoObject* setSize(
 
 const proto::ProtoObject* multisetConstruct(
     proto::ProtoContext* ctx, const proto::ProtoObject* self,
-    const proto::ParentLink*, const proto::ProtoList* args,
-    const proto::ProtoSparseList*) {
+    const proto::ParentLink*, const proto::ProtoArguments* args,
+    const proto::ProtoKeywordArguments*) {
     if (!ctx) return PROTO_NONE;
     if (!calledWithNew(ctx, self, multisetProtoSlot()))
         return throwTypeError(ctx, "Constructor Multiset requires 'new'");
@@ -476,8 +476,8 @@ const proto::ProtoMultiset* readMultiset(proto::ProtoContext* ctx,
 
 const proto::ProtoObject* multisetAdd(
     proto::ProtoContext* ctx, const proto::ProtoObject* self,
-    const proto::ParentLink*, const proto::ProtoList* args,
-    const proto::ProtoSparseList*) {
+    const proto::ParentLink*, const proto::ProtoArguments* args,
+    const proto::ProtoKeywordArguments*) {
     if (!args || args->getSize(ctx) < 1)
         return throwTypeError(ctx, "Multiset.add expects a value");
     const proto::ProtoString* key = collKeys(ctx).multiset;
@@ -498,8 +498,8 @@ const proto::ProtoObject* multisetAdd(
 
 const proto::ProtoObject* multisetCount(
     proto::ProtoContext* ctx, const proto::ProtoObject* self,
-    const proto::ParentLink*, const proto::ProtoList* args,
-    const proto::ProtoSparseList*) {
+    const proto::ParentLink*, const proto::ProtoArguments* args,
+    const proto::ProtoKeywordArguments*) {
     if (!args || args->getSize(ctx) < 1)
         return throwTypeError(ctx, "Multiset.count expects a value");
     const proto::ProtoMultiset* m = readMultiset(ctx, self);
@@ -510,8 +510,8 @@ const proto::ProtoObject* multisetCount(
 
 const proto::ProtoObject* multisetRemove(
     proto::ProtoContext* ctx, const proto::ProtoObject* self,
-    const proto::ParentLink*, const proto::ProtoList* args,
-    const proto::ProtoSparseList*) {
+    const proto::ParentLink*, const proto::ProtoArguments* args,
+    const proto::ProtoKeywordArguments*) {
     if (!args || args->getSize(ctx) < 1)
         return throwTypeError(ctx, "Multiset.remove expects a value");
     const proto::ProtoString* key = collKeys(ctx).multiset;
@@ -532,8 +532,8 @@ const proto::ProtoObject* multisetRemove(
 
 const proto::ProtoObject* multisetSize(
     proto::ProtoContext* ctx, const proto::ProtoObject* self,
-    const proto::ParentLink*, const proto::ProtoList*,
-    const proto::ProtoSparseList*) {
+    const proto::ParentLink*, const proto::ProtoArguments*,
+    const proto::ProtoKeywordArguments*) {
     const proto::ProtoMultiset* m = readMultiset(ctx, self);
     if (!m) return throwTypeError(ctx, "Invalid Multiset object");
     return ctx->fromInteger(static_cast<long long>(m->getSize(ctx)));
@@ -543,8 +543,8 @@ const proto::ProtoObject* multisetSize(
 
 const proto::ProtoObject* sparseListConstruct(
     proto::ProtoContext* ctx, const proto::ProtoObject* self,
-    const proto::ParentLink*, const proto::ProtoList*,
-    const proto::ProtoSparseList*) {
+    const proto::ParentLink*, const proto::ProtoArguments*,
+    const proto::ProtoKeywordArguments*) {
     if (!ctx) return PROTO_NONE;
     if (!calledWithNew(ctx, self, sparseListProtoSlot()))
         return throwTypeError(ctx, "Constructor SparseList requires 'new'");
@@ -565,8 +565,8 @@ const proto::ProtoSparseList* readSparseList(proto::ProtoContext* ctx,
 
 const proto::ProtoObject* sparseListSet(
     proto::ProtoContext* ctx, const proto::ProtoObject* self,
-    const proto::ParentLink*, const proto::ProtoList* args,
-    const proto::ProtoSparseList*) {
+    const proto::ParentLink*, const proto::ProtoArguments* args,
+    const proto::ProtoKeywordArguments*) {
     if (!args || args->getSize(ctx) < 2)
         return throwTypeError(ctx, "SparseList.set expects index and value");
     proto::proto_ulong index = 0;
@@ -590,8 +590,8 @@ const proto::ProtoObject* sparseListSet(
 
 const proto::ProtoObject* sparseListGet(
     proto::ProtoContext* ctx, const proto::ProtoObject* self,
-    const proto::ParentLink*, const proto::ProtoList* args,
-    const proto::ProtoSparseList*) {
+    const proto::ParentLink*, const proto::ProtoArguments* args,
+    const proto::ProtoKeywordArguments*) {
     if (!args || args->getSize(ctx) < 1)
         return throwTypeError(ctx, "SparseList.get expects an index");
     const proto::ProtoSparseList* sl = readSparseList(ctx, self);
@@ -613,8 +613,8 @@ const proto::ProtoObject* sparseListGet(
 
 const proto::ProtoObject* sparseListHas(
     proto::ProtoContext* ctx, const proto::ProtoObject* self,
-    const proto::ParentLink*, const proto::ProtoList* args,
-    const proto::ProtoSparseList*) {
+    const proto::ParentLink*, const proto::ProtoArguments* args,
+    const proto::ProtoKeywordArguments*) {
     if (!args || args->getSize(ctx) < 1)
         return throwTypeError(ctx, "SparseList.has expects an index");
     const proto::ProtoSparseList* sl = readSparseList(ctx, self);
@@ -626,8 +626,8 @@ const proto::ProtoObject* sparseListHas(
 
 const proto::ProtoObject* sparseListSize(
     proto::ProtoContext* ctx, const proto::ProtoObject* self,
-    const proto::ParentLink*, const proto::ProtoList*,
-    const proto::ProtoSparseList*) {
+    const proto::ParentLink*, const proto::ProtoArguments*,
+    const proto::ProtoKeywordArguments*) {
     const proto::ProtoSparseList* sl = readSparseList(ctx, self);
     if (!sl) return throwTypeError(ctx, "Invalid SparseList object");
     return ctx->fromInteger(static_cast<long long>(sl->getSize(ctx)));
@@ -641,8 +641,8 @@ const proto::ProtoObject* sparseListSize(
 // has no handling for a bare ProtoTuple value.
 const proto::ProtoObject* tupleFn(
     proto::ProtoContext* ctx, const proto::ProtoObject*,
-    const proto::ParentLink*, const proto::ProtoList* args,
-    const proto::ProtoSparseList*) {
+    const proto::ParentLink*, const proto::ProtoArguments* args,
+    const proto::ProtoKeywordArguments*) {
     const proto::ProtoList* els = arrayArgElements(ctx, args);
     if (!els) return throwTypeError(ctx, "Tuple expects an array");
 
@@ -673,7 +673,7 @@ bool isPrimitiveValue(proto::ProtoContext* ctx, const proto::ProtoObject* v) {
 }
 
 const proto::ProtoObject* cloneArg(proto::ProtoContext* ctx,
-                                    const proto::ProtoList* args,
+                                    const proto::ProtoArguments* args,
                                     bool mutableCopy,
                                     const char* message) {
     if (!args || args->getSize(ctx) < 1)
@@ -686,36 +686,36 @@ const proto::ProtoObject* cloneArg(proto::ProtoContext* ctx,
 
 const proto::ProtoObject* immutableObjectFn(
     proto::ProtoContext* ctx, const proto::ProtoObject*,
-    const proto::ParentLink*, const proto::ProtoList* args,
-    const proto::ProtoSparseList*) {
+    const proto::ParentLink*, const proto::ProtoArguments* args,
+    const proto::ProtoKeywordArguments*) {
     return cloneArg(ctx, args, false, "ImmutableObject expects an object");
 }
 
 const proto::ProtoObject* mutableObjectFn(
     proto::ProtoContext* ctx, const proto::ProtoObject*,
-    const proto::ParentLink*, const proto::ProtoList* args,
-    const proto::ProtoSparseList*) {
+    const proto::ParentLink*, const proto::ProtoArguments* args,
+    const proto::ProtoKeywordArguments*) {
     return cloneArg(ctx, args, true, "MutableObject expects an object");
 }
 
 const proto::ProtoObject* makeImmutableFn(
     proto::ProtoContext* ctx, const proto::ProtoObject*,
-    const proto::ParentLink*, const proto::ProtoList* args,
-    const proto::ProtoSparseList*) {
+    const proto::ParentLink*, const proto::ProtoArguments* args,
+    const proto::ProtoKeywordArguments*) {
     return cloneArg(ctx, args, false, "makeImmutable expects an object");
 }
 
 const proto::ProtoObject* makeMutableFn(
     proto::ProtoContext* ctx, const proto::ProtoObject*,
-    const proto::ParentLink*, const proto::ProtoList* args,
-    const proto::ProtoSparseList*) {
+    const proto::ParentLink*, const proto::ProtoArguments* args,
+    const proto::ProtoKeywordArguments*) {
     return cloneArg(ctx, args, true, "makeMutable expects an object");
 }
 
 const proto::ProtoObject* isImmutableFn(
     proto::ProtoContext* ctx, const proto::ProtoObject*,
-    const proto::ParentLink*, const proto::ProtoList* args,
-    const proto::ProtoSparseList*) {
+    const proto::ParentLink*, const proto::ProtoArguments* args,
+    const proto::ProtoKeywordArguments*) {
     if (!args || args->getSize(ctx) < 1)
         return throwTypeError(ctx, "isImmutable expects a value");
     return isPrimitiveValue(ctx, args->getAt(ctx, 0)) ? PROTO_TRUE : PROTO_FALSE;
@@ -727,8 +727,8 @@ const proto::ProtoObject* isImmutableFn(
 // on it (typeof, ===, Object.is and arithmetic treat 3 and 3.0 alike).
 const proto::ProtoObject* isSmallIntegerFn(
     proto::ProtoContext* ctx, const proto::ProtoObject*,
-    const proto::ParentLink*, const proto::ProtoList* args,
-    const proto::ProtoSparseList*) {
+    const proto::ParentLink*, const proto::ProtoArguments* args,
+    const proto::ProtoKeywordArguments*) {
     if (!args || args->getSize(ctx) < 1) return PROTO_FALSE;
     return proto::isSmallInt(args->getAt(ctx, 0)) ? PROTO_TRUE : PROTO_FALSE;
 }
@@ -743,8 +743,8 @@ const proto::ProtoObject* isSmallIntegerFn(
 // sets the limits (src/JSContext.cpp, "Memory policy").
 const proto::ProtoObject* gcStatsFn(
     proto::ProtoContext* ctx, const proto::ProtoObject*,
-    const proto::ParentLink*, const proto::ProtoList*,
-    const proto::ProtoSparseList*) {
+    const proto::ParentLink*, const proto::ProtoArguments*,
+    const proto::ProtoKeywordArguments*) {
     if (!ctx || !ctx->space) return PROTO_NONE;
     proto::ProtoSpace* sp = ctx->space;
     const std::pair<const char*, long long> fields[] = {

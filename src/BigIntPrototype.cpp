@@ -239,8 +239,8 @@ static const proto::ProtoObject* coerceToInteger(proto::ProtoContext* ctx,
 static const proto::ProtoObject* bigIntCtor(proto::ProtoContext* ctx,
                                             const proto::ProtoObject*,
                                             const proto::ParentLink*,
-                                            const proto::ProtoList* args,
-                                            const proto::ProtoSparseList*) {
+                                            const proto::ProtoArguments* args,
+                                            const proto::ProtoKeywordArguments*) {
     if (!ctx) return PROTO_NONE;
     if (!args || args->getSize(ctx) == 0) {
         signalNativeException(makeNativeError(ctx, "TypeError",
@@ -257,8 +257,8 @@ static const proto::ProtoObject* bigIntCtor(proto::ProtoContext* ctx,
 static const proto::ProtoObject* bigIntConstruct(proto::ProtoContext* ctx,
                                                  const proto::ProtoObject*,
                                                  const proto::ParentLink*,
-                                                 const proto::ProtoList*,
-                                                 const proto::ProtoSparseList*) {
+                                                 const proto::ProtoArguments*,
+                                                 const proto::ProtoKeywordArguments*) {
     if (!ctx) return PROTO_NONE;
     signalNativeException(makeNativeError(ctx, "TypeError",
         "BigInt is not a constructor"));
@@ -285,8 +285,8 @@ static const proto::ProtoObject* thisBigIntValue(proto::ProtoContext* ctx,
 static const proto::ProtoObject* bigIntToString(proto::ProtoContext* ctx,
                                                 const proto::ProtoObject* self,
                                                 const proto::ParentLink*,
-                                                const proto::ProtoList* args,
-                                                const proto::ProtoSparseList*) {
+                                                const proto::ProtoArguments* args,
+                                                const proto::ProtoKeywordArguments*) {
     if (!ctx) return PROTO_NONE;
     // Step 1 of §21.2.3.3: thisBigIntValue(this).  TypeError on
     // non-BigInt receivers (BigInt.prototype itself doesn't have
@@ -337,8 +337,8 @@ static const proto::ProtoObject* bigIntToString(proto::ProtoContext* ctx,
 static const proto::ProtoObject* bigIntValueOf(proto::ProtoContext* ctx,
                                                const proto::ProtoObject* self,
                                                const proto::ParentLink*,
-                                               const proto::ProtoList*,
-                                               const proto::ProtoSparseList*) {
+                                               const proto::ProtoArguments*,
+                                               const proto::ProtoKeywordArguments*) {
     if (!ctx) return PROTO_NONE;
     const proto::ProtoObject* v = thisBigIntValue(ctx, self);
     if (!v) {
@@ -354,8 +354,8 @@ static const proto::ProtoObject* bigIntValueOf(proto::ProtoContext* ctx,
 static const proto::ProtoObject* bigIntToLocaleString(proto::ProtoContext* ctx,
                                                       const proto::ProtoObject* self,
                                                       const proto::ParentLink* parent,
-                                                      const proto::ProtoList*,
-                                                      const proto::ProtoSparseList* named) {
+                                                      const proto::ProtoArguments*,
+                                                      const proto::ProtoKeywordArguments* named) {
     return bigIntToString(ctx, self, parent, nullptr, named);
 }
 
@@ -545,8 +545,8 @@ static const proto::ProtoObject* toBigInt(proto::ProtoContext* ctx,
 static const proto::ProtoObject* bigIntAsIntN(proto::ProtoContext* ctx,
                                               const proto::ProtoObject*,
                                               const proto::ParentLink*,
-                                              const proto::ProtoList* args,
-                                              const proto::ProtoSparseList*) {
+                                              const proto::ProtoArguments* args,
+                                              const proto::ProtoKeywordArguments*) {
     if (!ctx) return PROTO_NONE;
     int argc = args ? static_cast<int>(args->getSize(ctx)) : 0;
     const proto::ProtoObject* bArg = argc > 0 ? args->getAt(ctx, 0)
@@ -574,8 +574,8 @@ static const proto::ProtoObject* bigIntAsIntN(proto::ProtoContext* ctx,
 static const proto::ProtoObject* bigIntAsUintN(proto::ProtoContext* ctx,
                                                const proto::ProtoObject*,
                                                const proto::ParentLink*,
-                                               const proto::ProtoList* args,
-                                               const proto::ProtoSparseList*) {
+                                               const proto::ProtoArguments* args,
+                                               const proto::ProtoKeywordArguments*) {
     if (!ctx) return PROTO_NONE;
     int argc = args ? static_cast<int>(args->getSize(ctx)) : 0;
     const proto::ProtoObject* bArg = argc > 0 ? args->getAt(ctx, 0)

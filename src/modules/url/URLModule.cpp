@@ -13,8 +13,8 @@ const proto::ProtoObject* urlToString(
     proto::ProtoContext* ctx,
     const proto::ProtoObject* self,
     const proto::ParentLink*,
-    const proto::ProtoList* /*args*/,
-    const proto::ProtoSparseList*) {
+    const proto::ProtoArguments* /*args*/,
+    const proto::ProtoKeywordArguments*) {
     if (!ctx || !self || self == PROTO_NONE) {
         return ctx ? ctx->fromUTF8String("") : PROTO_NONE;
     }
@@ -34,8 +34,8 @@ const proto::ProtoObject* urlConstructor(
     proto::ProtoContext* ctx,
     const proto::ProtoObject* self,
     const proto::ParentLink*,
-    const proto::ProtoList* args,
-    const proto::ProtoSparseList*) {
+    const proto::ProtoArguments* args,
+    const proto::ProtoKeywordArguments*) {
     if (!ctx || !self || self == PROTO_NONE) return PROTO_NONE;
     if (!args || args->getSize(ctx) < 1) return PROTO_NONE;
     const proto::ProtoObject* arg0 = args->getAt(ctx, 0);

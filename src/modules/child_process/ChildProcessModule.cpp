@@ -21,7 +21,7 @@ namespace protojs {
 
 namespace {
 
-bool argString(proto::ProtoContext* ctx, const proto::ProtoList* args,
+bool argString(proto::ProtoContext* ctx, const proto::ProtoArguments* args,
                 int idx, std::string& out) {
     if (!ctx || !args) return false;
     if (idx >= static_cast<int>(args->getSize(ctx))) return false;
@@ -47,8 +47,8 @@ const proto::ProtoObject* childKill(
     proto::ProtoContext* ctx,
     const proto::ProtoObject* self,
     const proto::ParentLink*,
-    const proto::ProtoList* args,
-    const proto::ProtoSparseList*) {
+    const proto::ProtoArguments* args,
+    const proto::ProtoKeywordArguments*) {
     int sig = SIGTERM;
     if (ctx && args && args->getSize(ctx) > 0) {
         const proto::ProtoObject* a = args->getAt(ctx, 0);
@@ -70,8 +70,8 @@ const proto::ProtoObject* childSend(
     proto::ProtoContext* /*ctx*/,
     const proto::ProtoObject* /*self*/,
     const proto::ParentLink*,
-    const proto::ProtoList* /*args*/,
-    const proto::ProtoSparseList*) {
+    const proto::ProtoArguments* /*args*/,
+    const proto::ProtoKeywordArguments*) {
     // Stub matches the original QuickJS-side behaviour.
     return PROTO_FALSE;
 }
@@ -106,8 +106,8 @@ const proto::ProtoObject* spawnImpl(
     proto::ProtoContext* ctx,
     const proto::ProtoObject* /*self*/,
     const proto::ParentLink*,
-    const proto::ProtoList* args,
-    const proto::ProtoSparseList*) {
+    const proto::ProtoArguments* args,
+    const proto::ProtoKeywordArguments*) {
     std::string command;
     if (!argString(ctx, args, 0, command)) return PROTO_NONE;
     std::vector<std::string> argv;
@@ -148,8 +148,8 @@ const proto::ProtoObject* execImpl(
     proto::ProtoContext* ctx,
     const proto::ProtoObject* /*self*/,
     const proto::ParentLink*,
-    const proto::ProtoList* args,
-    const proto::ProtoSparseList*) {
+    const proto::ProtoArguments* args,
+    const proto::ProtoKeywordArguments*) {
     std::string line;
     if (!argString(ctx, args, 0, line)) return PROTO_NONE;
 #if defined(_WIN32)
@@ -170,8 +170,8 @@ const proto::ProtoObject* execFileImpl(
     proto::ProtoContext* ctx,
     const proto::ProtoObject* self,
     const proto::ParentLink* pl,
-    const proto::ProtoList* args,
-    const proto::ProtoSparseList* kw) {
+    const proto::ProtoArguments* args,
+    const proto::ProtoKeywordArguments* kw) {
     return spawnImpl(ctx, self, pl, args, kw);
 }
 
@@ -179,8 +179,8 @@ const proto::ProtoObject* forkImpl(
     proto::ProtoContext* ctx,
     const proto::ProtoObject* self,
     const proto::ParentLink* pl,
-    const proto::ProtoList* args,
-    const proto::ProtoSparseList* kw) {
+    const proto::ProtoArguments* args,
+    const proto::ProtoKeywordArguments* kw) {
     return spawnImpl(ctx, self, pl, args, kw);
 }
 

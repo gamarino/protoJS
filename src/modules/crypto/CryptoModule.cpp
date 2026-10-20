@@ -74,7 +74,7 @@ std::string hexOf(const unsigned char* data, size_t len) {
     return ss.str();
 }
 
-bool argString(proto::ProtoContext* ctx, const proto::ProtoList* args,
+bool argString(proto::ProtoContext* ctx, const proto::ProtoArguments* args,
                 int idx, std::string& out) {
     if (!ctx || !args) return false;
     if (idx >= static_cast<int>(args->getSize(ctx))) return false;
@@ -105,8 +105,8 @@ const proto::ProtoObject* hashUpdateImpl(
     proto::ProtoContext* ctx,
     const proto::ProtoObject* self,
     const proto::ParentLink*,
-    const proto::ProtoList* args,
-    const proto::ProtoSparseList*) {
+    const proto::ProtoArguments* args,
+    const proto::ProtoKeywordArguments*) {
     HashState* h = getHashState(ctx, self);
     if (!h || h->finalized || !h->ctx) return self ? self : PROTO_NONE;
     if (!args || args->getSize(ctx) == 0) return self;
@@ -121,8 +121,8 @@ const proto::ProtoObject* hashDigestImpl(
     proto::ProtoContext* ctx,
     const proto::ProtoObject* self,
     const proto::ParentLink*,
-    const proto::ProtoList* args,
-    const proto::ProtoSparseList*) {
+    const proto::ProtoArguments* args,
+    const proto::ProtoKeywordArguments*) {
     HashState* h = getHashState(ctx, self);
     if (!h || h->finalized || !h->ctx) {
         return ctx ? ctx->fromUTF8String("") : PROTO_NONE;
@@ -147,15 +147,15 @@ const proto::ProtoObject* createHash(
     proto::ProtoContext* ctx,
     const proto::ProtoObject* /*self*/,
     const proto::ParentLink*,
-    const proto::ProtoList* args,
-    const proto::ProtoSparseList*);
+    const proto::ProtoArguments* args,
+    const proto::ProtoKeywordArguments*);
 
 const proto::ProtoObject* hashConstructor(
     proto::ProtoContext* /*ctx*/,
     const proto::ProtoObject* /*self*/,
     const proto::ParentLink*,
-    const proto::ProtoList* /*args*/,
-    const proto::ProtoSparseList*) {
+    const proto::ProtoArguments* /*args*/,
+    const proto::ProtoKeywordArguments*) {
     // Instances are produced by `crypto.createHash`; bare
     // `new crypto.Hash()` is not part of the documented API but we
     // keep the constructor wired to the `__construct__` hook so
@@ -167,8 +167,8 @@ const proto::ProtoObject* createHash(
     proto::ProtoContext* ctx,
     const proto::ProtoObject* /*self*/,
     const proto::ParentLink*,
-    const proto::ProtoList* args,
-    const proto::ProtoSparseList*) {
+    const proto::ProtoArguments* args,
+    const proto::ProtoKeywordArguments*) {
     std::string algo;
     if (!argString(ctx, args, 0, algo)) return PROTO_NONE;
     const EVP_MD* md = mdFor(algo);
@@ -214,8 +214,8 @@ const proto::ProtoObject* randomBytesImpl(
     proto::ProtoContext* ctx,
     const proto::ProtoObject* /*self*/,
     const proto::ParentLink*,
-    const proto::ProtoList* args,
-    const proto::ProtoSparseList*) {
+    const proto::ProtoArguments* args,
+    const proto::ProtoKeywordArguments*) {
     if (!ctx || !args || args->getSize(ctx) == 0) return PROTO_NONE;
     const proto::ProtoObject* a = args->getAt(ctx, 0);
     if (!a || !a->isInteger(ctx)) return PROTO_NONE;
@@ -283,8 +283,8 @@ const proto::ProtoObject* cipherUpdateImpl(
     proto::ProtoContext* ctx,
     const proto::ProtoObject* self,
     const proto::ParentLink*,
-    const proto::ProtoList* args,
-    const proto::ProtoSparseList*) {
+    const proto::ProtoArguments* args,
+    const proto::ProtoKeywordArguments*) {
     CipherState* c = getCipherState(ctx, self);
     if (!c || c->done || !c->ctx) return ctx ? ctx->fromUTF8String("") : PROTO_NONE;
     const proto::ProtoObject* arg = args ? args->getAt(ctx, 0) : nullptr;
@@ -318,8 +318,8 @@ const proto::ProtoObject* cipherFinalImpl(
     proto::ProtoContext* ctx,
     const proto::ProtoObject* self,
     const proto::ParentLink*,
-    const proto::ProtoList*,
-    const proto::ProtoSparseList*) {
+    const proto::ProtoArguments*,
+    const proto::ProtoKeywordArguments*) {
     CipherState* c = getCipherState(ctx, self);
     if (!c || c->done || !c->ctx) return ctx ? ctx->fromUTF8String("") : PROTO_NONE;
     unsigned char out[EVP_MAX_BLOCK_LENGTH * 2] = {};
@@ -373,7 +373,7 @@ const proto::ProtoObject* buildCipherInstance(
 
 // createCipheriv(algorithm, key, iv) / createDecipheriv — explicit key+IV
 static const proto::ProtoObject* makeCipherIv(
-    proto::ProtoContext* ctx, const proto::ProtoList* args, bool enc) {
+    proto::ProtoContext* ctx, const proto::ProtoArguments* args, bool enc) {
     std::string algo, keyStr, ivStr;
     if (!argString(ctx, args, 0, algo)) return PROTO_NONE;
     if (!argString(ctx, args, 1, keyStr)) return PROTO_NONE;
@@ -399,20 +399,20 @@ static const proto::ProtoObject* makeCipherIv(
 
 const proto::ProtoObject* createCipherivEncImpl(
     proto::ProtoContext* ctx, const proto::ProtoObject*,
-    const proto::ParentLink*, const proto::ProtoList* args,
-    const proto::ProtoSparseList*) {
+    const proto::ParentLink*, const proto::ProtoArguments* args,
+    const proto::ProtoKeywordArguments*) {
     return makeCipherIv(ctx, args, true);
 }
 const proto::ProtoObject* createDecipherivImpl(
     proto::ProtoContext* ctx, const proto::ProtoObject*,
-    const proto::ParentLink*, const proto::ProtoList* args,
-    const proto::ProtoSparseList*) {
+    const proto::ParentLink*, const proto::ProtoArguments* args,
+    const proto::ProtoKeywordArguments*) {
     return makeCipherIv(ctx, args, false);
 }
 
 // createCipher(algorithm, password) / createDecipher — key+IV derived via EVP_BytesToKey
 static const proto::ProtoObject* makeCipherDerived(
-    proto::ProtoContext* ctx, const proto::ProtoList* args, bool enc) {
+    proto::ProtoContext* ctx, const proto::ProtoArguments* args, bool enc) {
     std::string algo, pass;
     if (!argString(ctx, args, 0, algo)) return PROTO_NONE;
     if (!argString(ctx, args, 1, pass)) return PROTO_NONE;
@@ -440,14 +440,14 @@ static const proto::ProtoObject* makeCipherDerived(
 
 const proto::ProtoObject* createCipherImpl(
     proto::ProtoContext* ctx, const proto::ProtoObject*,
-    const proto::ParentLink*, const proto::ProtoList* args,
-    const proto::ProtoSparseList*) {
+    const proto::ParentLink*, const proto::ProtoArguments* args,
+    const proto::ProtoKeywordArguments*) {
     return makeCipherDerived(ctx, args, true);
 }
 const proto::ProtoObject* createDecipherImpl(
     proto::ProtoContext* ctx, const proto::ProtoObject*,
-    const proto::ParentLink*, const proto::ProtoList* args,
-    const proto::ProtoSparseList*) {
+    const proto::ParentLink*, const proto::ProtoArguments* args,
+    const proto::ProtoKeywordArguments*) {
     return makeCipherDerived(ctx, args, false);
 }
 
@@ -490,8 +490,8 @@ const proto::ProtoObject* signUpdateImpl(
     proto::ProtoContext* ctx,
     const proto::ProtoObject* self,
     const proto::ParentLink*,
-    const proto::ProtoList* args,
-    const proto::ProtoSparseList*) {
+    const proto::ProtoArguments* args,
+    const proto::ProtoKeywordArguments*) {
     SignState* s = getSignState(ctx, self);
     if (!s || s->done) return self ? self : PROTO_NONE;
     const proto::ProtoObject* arg = args ? args->getAt(ctx, 0) : nullptr;
@@ -507,8 +507,8 @@ const proto::ProtoObject* signFinalImpl(
     proto::ProtoContext* ctx,
     const proto::ProtoObject* self,
     const proto::ParentLink*,
-    const proto::ProtoList* args,
-    const proto::ProtoSparseList*) {
+    const proto::ProtoArguments* args,
+    const proto::ProtoKeywordArguments*) {
     SignState* s = getSignState(ctx, self);
     if (!s || s->done || !s->mdCtx) return ctx ? ctx->fromUTF8String("") : PROTO_NONE;
 
@@ -589,8 +589,8 @@ const proto::ProtoObject* verifyUpdateImpl(
     proto::ProtoContext* ctx,
     const proto::ProtoObject* self,
     const proto::ParentLink*,
-    const proto::ProtoList* args,
-    const proto::ProtoSparseList*) {
+    const proto::ProtoArguments* args,
+    const proto::ProtoKeywordArguments*) {
     // Same as signUpdateImpl — buffers data
     SignState* s = getSignState(ctx, self);
     if (!s || s->done) return self ? self : PROTO_NONE;
@@ -607,8 +607,8 @@ const proto::ProtoObject* verifyFinalImpl(
     proto::ProtoContext* ctx,
     const proto::ProtoObject* self,
     const proto::ParentLink*,
-    const proto::ProtoList* args,
-    const proto::ProtoSparseList*) {
+    const proto::ProtoArguments* args,
+    const proto::ProtoKeywordArguments*) {
     SignState* s = getSignState(ctx, self);
     if (!s || s->done || !s->mdCtx) return PROTO_FALSE;
 
@@ -728,8 +728,8 @@ const proto::ProtoObject* createSignImpl(
     proto::ProtoContext* ctx,
     const proto::ProtoObject* /*self*/,
     const proto::ParentLink*,
-    const proto::ProtoList* args,
-    const proto::ProtoSparseList*) {
+    const proto::ProtoArguments* args,
+    const proto::ProtoKeywordArguments*) {
     std::string algo;
     argString(ctx, args, 0, algo);
     if (algo.empty()) algo = "RSA-SHA256";
@@ -740,8 +740,8 @@ const proto::ProtoObject* createVerifyImpl(
     proto::ProtoContext* ctx,
     const proto::ProtoObject* /*self*/,
     const proto::ParentLink*,
-    const proto::ProtoList* args,
-    const proto::ProtoSparseList*) {
+    const proto::ProtoArguments* args,
+    const proto::ProtoKeywordArguments*) {
     std::string algo;
     argString(ctx, args, 0, algo);
     if (algo.empty()) algo = "RSA-SHA256";
@@ -752,8 +752,8 @@ const proto::ProtoObject* generateKeyPairImpl(
     proto::ProtoContext* ctx,
     const proto::ProtoObject* /*self*/,
     const proto::ParentLink*,
-    const proto::ProtoList* args,
-    const proto::ProtoSparseList*) {
+    const proto::ProtoArguments* args,
+    const proto::ProtoKeywordArguments*) {
     if (!ctx) return PROTO_NONE;
 
     std::string keyType;

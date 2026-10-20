@@ -27,8 +27,8 @@ static const proto::ProtoObject* deferredProtoThreadEntry(
     proto::ProtoContext* context,
     const proto::ProtoObject* /*self*/,
     const proto::ParentLink* /*parentLink*/,
-    const proto::ProtoList* args,
-    const proto::ProtoSparseList* /*kwargs*/)
+    const proto::ProtoArguments* args,
+    const proto::ProtoKeywordArguments* /*kwargs*/)
 {
     if (!context || !args) return PROTO_NONE;
     proto::ProtoSpace* space = context->space;

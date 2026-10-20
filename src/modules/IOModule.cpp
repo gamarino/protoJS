@@ -11,7 +11,7 @@ namespace protojs {
 
 namespace {
 
-bool argString(proto::ProtoContext* ctx, const proto::ProtoList* args,
+bool argString(proto::ProtoContext* ctx, const proto::ProtoArguments* args,
                 int idx, std::string& out) {
     if (!ctx || !args) return false;
     if (idx >= static_cast<int>(args->getSize(ctx))) return false;
@@ -25,8 +25,8 @@ const proto::ProtoObject* ioReadFile(
     proto::ProtoContext* ctx,
     const proto::ProtoObject* /*self*/,
     const proto::ParentLink*,
-    const proto::ProtoList* args,
-    const proto::ProtoSparseList*) {
+    const proto::ProtoArguments* args,
+    const proto::ProtoKeywordArguments*) {
     std::string path;
     if (!argString(ctx, args, 0, path)) return PROTO_NONE;
     auto& pool = IOThreadPool::getInstance();
@@ -48,8 +48,8 @@ const proto::ProtoObject* ioWriteFile(
     proto::ProtoContext* ctx,
     const proto::ProtoObject* /*self*/,
     const proto::ParentLink*,
-    const proto::ProtoList* args,
-    const proto::ProtoSparseList*) {
+    const proto::ProtoArguments* args,
+    const proto::ProtoKeywordArguments*) {
     std::string path, content;
     if (!argString(ctx, args, 0, path) ||
         !argString(ctx, args, 1, content)) return PROTO_FALSE;
@@ -76,8 +76,8 @@ const proto::ProtoObject* ioReadFileAsync(
     proto::ProtoContext* ctx,
     const proto::ProtoObject* /*self*/,
     const proto::ParentLink*,
-    const proto::ProtoList* args,
-    const proto::ProtoSparseList*) {
+    const proto::ProtoArguments* args,
+    const proto::ProtoKeywordArguments*) {
     std::string path;
     if (!argString(ctx, args, 0, path)) return PROTO_NONE;
     JSContextWrapper* wrapper = JSContextWrapper::current();
@@ -121,8 +121,8 @@ const proto::ProtoObject* ioWriteFileAsync(
     proto::ProtoContext* ctx,
     const proto::ProtoObject* /*self*/,
     const proto::ParentLink*,
-    const proto::ProtoList* args,
-    const proto::ProtoSparseList*) {
+    const proto::ProtoArguments* args,
+    const proto::ProtoKeywordArguments*) {
     std::string path, content;
     if (!argString(ctx, args, 0, path) ||
         !argString(ctx, args, 1, content)) return PROTO_NONE;

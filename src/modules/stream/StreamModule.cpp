@@ -73,8 +73,8 @@ const proto::ProtoObject* commonConstructor(
     proto::ProtoContext* ctx,
     const proto::ProtoObject* self,
     const proto::ParentLink*,
-    const proto::ProtoList* /*args*/,
-    const proto::ProtoSparseList*) {
+    const proto::ProtoArguments* /*args*/,
+    const proto::ProtoKeywordArguments*) {
     if (!ctx || !self || self == PROTO_NONE) return PROTO_NONE;
     self->setAttribute(ctx, hwmKey(ctx), ctx->fromInteger(16384));
     self->setAttribute(ctx, endedKey(ctx), PROTO_FALSE);
@@ -87,8 +87,8 @@ const proto::ProtoObject* readableRead(
     proto::ProtoContext* ctx,
     const proto::ProtoObject* self,
     const proto::ParentLink*,
-    const proto::ProtoList* /*args*/,
-    const proto::ProtoSparseList*) {
+    const proto::ProtoArguments* /*args*/,
+    const proto::ProtoKeywordArguments*) {
     if (!ctx || !self) return PROTO_NONE;
     const proto::ProtoObject* arr = getBuffer(ctx, self, /*create=*/false);
     if (!arr) {
@@ -108,8 +108,8 @@ const proto::ProtoObject* readablePipe(
     proto::ProtoContext* ctx,
     const proto::ProtoObject* /*self*/,
     const proto::ParentLink*,
-    const proto::ProtoList* args,
-    const proto::ProtoSparseList*) {
+    const proto::ProtoArguments* args,
+    const proto::ProtoKeywordArguments*) {
     // Minimal pipe: just return the destination so callers can chain.
     if (!ctx || !args || args->getSize(ctx) == 0) return PROTO_NONE;
     return args->getAt(ctx, 0);
@@ -119,8 +119,8 @@ const proto::ProtoObject* writableWrite(
     proto::ProtoContext* ctx,
     const proto::ProtoObject* self,
     const proto::ParentLink*,
-    const proto::ProtoList* args,
-    const proto::ProtoSparseList*) {
+    const proto::ProtoArguments* args,
+    const proto::ProtoKeywordArguments*) {
     if (!ctx || !self || isEnded(ctx, self)) return PROTO_FALSE;
     if (!args || args->getSize(ctx) == 0) return PROTO_FALSE;
     const proto::ProtoObject* chunk = args->getAt(ctx, 0);
@@ -138,8 +138,8 @@ const proto::ProtoObject* writableEnd(
     proto::ProtoContext* ctx,
     const proto::ProtoObject* self,
     const proto::ParentLink* pl,
-    const proto::ProtoList* args,
-    const proto::ProtoSparseList* kw) {
+    const proto::ProtoArguments* args,
+    const proto::ProtoKeywordArguments* kw) {
     if (ctx && args && args->getSize(ctx) > 0) {
         // Final chunk: same path as write().
         writableWrite(ctx, self, pl, args, kw);

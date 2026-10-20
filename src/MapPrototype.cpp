@@ -129,7 +129,7 @@ static void mapInsertEntry(proto::ProtoContext* ctx,
 static const proto::ProtoObject* mapSet(
     proto::ProtoContext* ctx, const proto::ProtoObject* self,
     const proto::ParentLink*,
-    const proto::ProtoList* args, const proto::ProtoSparseList*)
+    const proto::ProtoArguments* args, const proto::ProtoKeywordArguments*)
 {
     if (!requireMapThis(ctx, self)) return PROTO_NONE;
     int argc = args ? static_cast<int>(args->getSize(ctx)) : 0;
@@ -159,7 +159,7 @@ static const proto::ProtoObject* mapSet(
 static const proto::ProtoObject* mapGet(
     proto::ProtoContext* ctx, const proto::ProtoObject* self,
     const proto::ParentLink*,
-    const proto::ProtoList* args, const proto::ProtoSparseList*)
+    const proto::ProtoArguments* args, const proto::ProtoKeywordArguments*)
 {
     if (!requireMapThis(ctx, self)) return PROTO_NONE;
     const proto::ProtoObject* key = (args && args->getSize(ctx) > 0) ? args->getAt(ctx, 0) : PROTO_NONE;
@@ -177,7 +177,7 @@ static const proto::ProtoObject* mapGet(
 static const proto::ProtoObject* mapHas(
     proto::ProtoContext* ctx, const proto::ProtoObject* self,
     const proto::ParentLink*,
-    const proto::ProtoList* args, const proto::ProtoSparseList*)
+    const proto::ProtoArguments* args, const proto::ProtoKeywordArguments*)
 {
     if (!requireMapThis(ctx, self)) return PROTO_NONE;
     const proto::ProtoObject* key = (args && args->getSize(ctx) > 0) ? args->getAt(ctx, 0) : PROTO_NONE;
@@ -192,7 +192,7 @@ static const proto::ProtoObject* mapHas(
 static const proto::ProtoObject* mapDelete(
     proto::ProtoContext* ctx, const proto::ProtoObject* self,
     const proto::ParentLink*,
-    const proto::ProtoList* args, const proto::ProtoSparseList*)
+    const proto::ProtoArguments* args, const proto::ProtoKeywordArguments*)
 {
     if (!requireMapThis(ctx, self)) return PROTO_NONE;
     const proto::ProtoObject* key = (args && args->getSize(ctx) > 0) ? args->getAt(ctx, 0) : PROTO_NONE;
@@ -213,7 +213,7 @@ static const proto::ProtoObject* mapDelete(
 static const proto::ProtoObject* mapClear(
     proto::ProtoContext* ctx, const proto::ProtoObject* self,
     const proto::ParentLink*,
-    const proto::ProtoList*, const proto::ProtoSparseList*)
+    const proto::ProtoArguments*, const proto::ProtoKeywordArguments*)
 {
     if (!requireMapThis(ctx, self)) return PROTO_NONE;
     // Slots keep growing past a clear, so a live iterator visits the
@@ -234,7 +234,7 @@ static const proto::ProtoObject* mapClear(
 static const proto::ProtoObject* mapSpeciesGetter(
     proto::ProtoContext* /*ctx*/, const proto::ProtoObject* self,
     const proto::ParentLink*,
-    const proto::ProtoList*, const proto::ProtoSparseList*)
+    const proto::ProtoArguments*, const proto::ProtoKeywordArguments*)
 {
     return self;
 }
@@ -242,7 +242,7 @@ static const proto::ProtoObject* mapSpeciesGetter(
 static const proto::ProtoObject* mapSizeGetter(
     proto::ProtoContext* ctx, const proto::ProtoObject* self,
     const proto::ParentLink*,
-    const proto::ProtoList*, const proto::ProtoSparseList*)
+    const proto::ProtoArguments*, const proto::ProtoKeywordArguments*)
 {
     if (!requireMapThis(ctx, self)) return PROTO_NONE;
     return ctx->fromInteger(static_cast<long long>(getMapSize(ctx, self)));
@@ -254,7 +254,7 @@ static const proto::ProtoObject* mapSizeGetter(
 static const proto::ProtoObject* mapForEach(
     proto::ProtoContext* ctx, const proto::ProtoObject* self,
     const proto::ParentLink*,
-    const proto::ProtoList* args, const proto::ProtoSparseList*)
+    const proto::ProtoArguments* args, const proto::ProtoKeywordArguments*)
 {
     if (!requireMapThis(ctx, self)) return PROTO_NONE;
     const proto::ProtoObject* callback = (args && args->getSize(ctx) > 0)
@@ -313,7 +313,7 @@ static const proto::ProtoObject* mapForEach(
 static const proto::ProtoObject* mapIteratorNext(
     proto::ProtoContext* ctx, const proto::ProtoObject* self,
     const proto::ParentLink*,
-    const proto::ProtoList*, const proto::ProtoSparseList*)
+    const proto::ProtoArguments*, const proto::ProtoKeywordArguments*)
 {
     // Build {value: undefined, done: true} result.
     auto makeDone = [&]() -> const proto::ProtoObject* {
@@ -469,7 +469,7 @@ static const proto::ProtoObject* makeMapIterator(
 
 static const proto::ProtoObject* mapKeys(
     proto::ProtoContext* ctx, const proto::ProtoObject* self,
-    const proto::ParentLink*, const proto::ProtoList*, const proto::ProtoSparseList*)
+    const proto::ParentLink*, const proto::ProtoArguments*, const proto::ProtoKeywordArguments*)
 {
     if (!requireMapThis(ctx, self)) return PROTO_NONE;
     return makeMapIterator(ctx, self, "keys");
@@ -477,7 +477,7 @@ static const proto::ProtoObject* mapKeys(
 
 static const proto::ProtoObject* mapValues(
     proto::ProtoContext* ctx, const proto::ProtoObject* self,
-    const proto::ParentLink*, const proto::ProtoList*, const proto::ProtoSparseList*)
+    const proto::ParentLink*, const proto::ProtoArguments*, const proto::ProtoKeywordArguments*)
 {
     if (!requireMapThis(ctx, self)) return PROTO_NONE;
     return makeMapIterator(ctx, self, "values");
@@ -485,7 +485,7 @@ static const proto::ProtoObject* mapValues(
 
 static const proto::ProtoObject* mapEntries(
     proto::ProtoContext* ctx, const proto::ProtoObject* self,
-    const proto::ParentLink*, const proto::ProtoList*, const proto::ProtoSparseList*)
+    const proto::ParentLink*, const proto::ProtoArguments*, const proto::ProtoKeywordArguments*)
 {
     if (!requireMapThis(ctx, self)) return PROTO_NONE;
     return makeMapIterator(ctx, self, "entries");
@@ -512,7 +512,7 @@ static void mapInsertEntry(proto::ProtoContext* ctx,
 static const proto::ProtoObject* mapGetOrInsert(
     proto::ProtoContext* ctx, const proto::ProtoObject* self,
     const proto::ParentLink*,
-    const proto::ProtoList* args, const proto::ProtoSparseList*)
+    const proto::ProtoArguments* args, const proto::ProtoKeywordArguments*)
 {
     if (!requireMapThis(ctx, self)) return PROTO_NONE;
     int argc = args ? static_cast<int>(args->getSize(ctx)) : 0;
@@ -537,7 +537,7 @@ static const proto::ProtoObject* mapGetOrInsert(
 static const proto::ProtoObject* mapGetOrInsertComputed(
     proto::ProtoContext* ctx, const proto::ProtoObject* self,
     const proto::ParentLink*,
-    const proto::ProtoList* args, const proto::ProtoSparseList*)
+    const proto::ProtoArguments* args, const proto::ProtoKeywordArguments*)
 {
     if (!requireMapThis(ctx, self)) return PROTO_NONE;
     int argc = args ? static_cast<int>(args->getSize(ctx)) : 0;
@@ -603,7 +603,7 @@ static const proto::ProtoObject* mapGetOrInsertComputed(
 static const proto::ProtoObject* mapGroupBy(
     proto::ProtoContext* ctx, const proto::ProtoObject* /*self*/,
     const proto::ParentLink*,
-    const proto::ProtoList* args, const proto::ProtoSparseList*)
+    const proto::ProtoArguments* args, const proto::ProtoKeywordArguments*)
 {
     int argc = args ? static_cast<int>(args->getSize(ctx)) : 0;
     const proto::ProtoObject* iterable = (argc > 0) ? args->getAt(ctx, 0) : PROTO_NONE;
@@ -867,7 +867,7 @@ static const proto::ProtoObject* mapGroupBy(
 static const proto::ProtoObject* mapConstruct(
     proto::ProtoContext* ctx, const proto::ProtoObject* self,
     const proto::ParentLink*,
-    const proto::ProtoList* args, const proto::ProtoSparseList*)
+    const proto::ProtoArguments* args, const proto::ProtoKeywordArguments*)
 {
     if (!self) return PROTO_NONE;
 
@@ -1446,8 +1446,8 @@ void ensureMapConstructor(proto::ProtoContext* ctx,
     {
         static const proto::ProtoMethod mapCall = [](
             proto::ProtoContext* sctx, const proto::ProtoObject*,
-            const proto::ParentLink*, const proto::ProtoList*,
-            const proto::ProtoSparseList*) -> const proto::ProtoObject* {
+            const proto::ParentLink*, const proto::ProtoArguments*,
+            const proto::ProtoKeywordArguments*) -> const proto::ProtoObject* {
             signalNativeException(makeNativeError(sctx, "TypeError",
                 "Constructor Map requires 'new'"));
             return PROTO_NONE;
@@ -1593,8 +1593,8 @@ static bool requireWeakMapThis(proto::ProtoContext* ctx,
 
 static const proto::ProtoObject* weakMapSet(
     proto::ProtoContext* ctx, const proto::ProtoObject* self,
-    const proto::ParentLink*, const proto::ProtoList* args,
-    const proto::ProtoSparseList*)
+    const proto::ParentLink*, const proto::ProtoArguments* args,
+    const proto::ProtoKeywordArguments*)
 {
     if (!ctx || !self || self == PROTO_NONE) return PROTO_NONE;
     if (!requireWeakMapThis(ctx, self, "set")) return PROTO_NONE;
@@ -1687,8 +1687,8 @@ static const proto::ProtoObject* weakMapSet(
 
 static const proto::ProtoObject* weakMapGet(
     proto::ProtoContext* ctx, const proto::ProtoObject* self,
-    const proto::ParentLink*, const proto::ProtoList* args,
-    const proto::ProtoSparseList*)
+    const proto::ParentLink*, const proto::ProtoArguments* args,
+    const proto::ProtoKeywordArguments*)
 {
     if (!ctx || !self || self == PROTO_NONE) return PROTO_NONE;
     if (!requireWeakMapThis(ctx, self, "get")) return PROTO_NONE;
@@ -1713,8 +1713,8 @@ static const proto::ProtoObject* weakMapGet(
 
 static const proto::ProtoObject* weakMapHas(
     proto::ProtoContext* ctx, const proto::ProtoObject* self,
-    const proto::ParentLink*, const proto::ProtoList* args,
-    const proto::ProtoSparseList*)
+    const proto::ParentLink*, const proto::ProtoArguments* args,
+    const proto::ProtoKeywordArguments*)
 {
     if (!ctx || !self || self == PROTO_NONE) return PROTO_FALSE;
     if (!requireWeakMapThis(ctx, self, "has")) return PROTO_FALSE;
@@ -1734,8 +1734,8 @@ static const proto::ProtoObject* weakMapHas(
 
 static const proto::ProtoObject* weakMapDelete(
     proto::ProtoContext* ctx, const proto::ProtoObject* self,
-    const proto::ParentLink*, const proto::ProtoList* args,
-    const proto::ProtoSparseList*)
+    const proto::ParentLink*, const proto::ProtoArguments* args,
+    const proto::ProtoKeywordArguments*)
 {
     if (!ctx || !self || self == PROTO_NONE) return PROTO_FALSE;
     if (!requireWeakMapThis(ctx, self, "delete")) return PROTO_FALSE;
@@ -1786,8 +1786,8 @@ static const proto::ProtoObject* weakMapDelete(
 // ES2025+ §24.4.3.3a WeakMap.prototype.getOrInsert(key, value).
 static const proto::ProtoObject* weakMapGetOrInsert(
     proto::ProtoContext* ctx, const proto::ProtoObject* self,
-    const proto::ParentLink*, const proto::ProtoList* args,
-    const proto::ProtoSparseList*)
+    const proto::ParentLink*, const proto::ProtoArguments* args,
+    const proto::ProtoKeywordArguments*)
 {
     if (!ctx || !self || self == PROTO_NONE) return PROTO_NONE;
     if (!requireWeakMapThis(ctx, self, "getOrInsert")) return PROTO_NONE;
@@ -1874,8 +1874,8 @@ static const proto::ProtoObject* weakMapGetOrInsert(
 // ES2025+ §24.4.3.3b WeakMap.prototype.getOrInsertComputed(key, callbackfn).
 static const proto::ProtoObject* weakMapGetOrInsertComputed(
     proto::ProtoContext* ctx, const proto::ProtoObject* self,
-    const proto::ParentLink*, const proto::ProtoList* args,
-    const proto::ProtoSparseList*)
+    const proto::ParentLink*, const proto::ProtoArguments* args,
+    const proto::ProtoKeywordArguments*)
 {
     if (!ctx || !self || self == PROTO_NONE) return PROTO_NONE;
     if (!requireWeakMapThis(ctx, self, "getOrInsertComputed")) return PROTO_NONE;
@@ -1993,8 +1993,8 @@ static const proto::ProtoObject* weakMapGetOrInsertComputed(
 
 static const proto::ProtoObject* weakMapConstruct(
     proto::ProtoContext* ctx, const proto::ProtoObject* self,
-    const proto::ParentLink*, const proto::ProtoList* args,
-    const proto::ProtoSparseList*)
+    const proto::ParentLink*, const proto::ProtoArguments* args,
+    const proto::ProtoKeywordArguments*)
 {
     if (!self) return PROTO_NONE;
     // Initialize the entry count to 0; entries are stored lazily.
@@ -2361,8 +2361,8 @@ void ensureWeakMapConstructor(proto::ProtoContext* ctx,
     {
         static const proto::ProtoMethod weakMapCall = [](
             proto::ProtoContext* sctx, const proto::ProtoObject*,
-            const proto::ParentLink*, const proto::ProtoList*,
-            const proto::ProtoSparseList*) -> const proto::ProtoObject* {
+            const proto::ParentLink*, const proto::ProtoArguments*,
+            const proto::ProtoKeywordArguments*) -> const proto::ProtoObject* {
             signalNativeException(makeNativeError(sctx, "TypeError",
                 "Constructor WeakMap requires 'new'"));
             return PROTO_NONE;

@@ -14,7 +14,7 @@ namespace {
 // ---- Argument helpers --------------------------------------------------
 
 const proto::ProtoObject* arg0(proto::ProtoContext* ctx,
-                                const proto::ProtoList* args) {
+                                const proto::ProtoArguments* args) {
     if (!ctx || !args || args->getSize(ctx) == 0) return PROTO_NONE;
     const proto::ProtoObject* a = args->getAt(ctx, 0);
     return a ? a : PROTO_NONE;
@@ -34,8 +34,8 @@ const proto::ProtoObject* typesIsArray(
     proto::ProtoContext* ctx,
     const proto::ProtoObject* /*self*/,
     const proto::ParentLink*,
-    const proto::ProtoList* args,
-    const proto::ProtoSparseList*) {
+    const proto::ProtoArguments* args,
+    const proto::ProtoKeywordArguments*) {
     return isArrayObj(ctx, arg0(ctx, args)) ? PROTO_TRUE : PROTO_FALSE;
 }
 
@@ -43,8 +43,8 @@ const proto::ProtoObject* typesIsString(
     proto::ProtoContext* ctx,
     const proto::ProtoObject* /*self*/,
     const proto::ParentLink*,
-    const proto::ProtoList* args,
-    const proto::ProtoSparseList*) {
+    const proto::ProtoArguments* args,
+    const proto::ProtoKeywordArguments*) {
     const proto::ProtoObject* a = arg0(ctx, args);
     return (ctx && a && a->isString(ctx)) ? PROTO_TRUE : PROTO_FALSE;
 }
@@ -53,8 +53,8 @@ const proto::ProtoObject* typesIsNumber(
     proto::ProtoContext* ctx,
     const proto::ProtoObject* /*self*/,
     const proto::ParentLink*,
-    const proto::ProtoList* args,
-    const proto::ProtoSparseList*) {
+    const proto::ProtoArguments* args,
+    const proto::ProtoKeywordArguments*) {
     const proto::ProtoObject* a = arg0(ctx, args);
     if (!ctx || !a) return PROTO_FALSE;
     return (a->isInteger(ctx) || a->isDouble(ctx) || a->isFloat(ctx))
@@ -65,8 +65,8 @@ const proto::ProtoObject* typesIsFunction(
     proto::ProtoContext* ctx,
     const proto::ProtoObject* /*self*/,
     const proto::ParentLink*,
-    const proto::ProtoList* args,
-    const proto::ProtoSparseList*) {
+    const proto::ProtoArguments* args,
+    const proto::ProtoKeywordArguments*) {
     const proto::ProtoObject* a = arg0(ctx, args);
     if (!ctx || !a || a == PROTO_NONE) return PROTO_FALSE;
     if (a->isMethod(ctx)) return PROTO_TRUE;
@@ -85,8 +85,8 @@ const proto::ProtoObject* typesIsObject(
     proto::ProtoContext* ctx,
     const proto::ProtoObject* /*self*/,
     const proto::ParentLink*,
-    const proto::ProtoList* args,
-    const proto::ProtoSparseList*) {
+    const proto::ProtoArguments* args,
+    const proto::ProtoKeywordArguments*) {
     const proto::ProtoObject* a = arg0(ctx, args);
     if (!ctx || !a || a == PROTO_NONE) return PROTO_FALSE;
     if (a->isString(ctx) || a->isInteger(ctx) || a->isDouble(ctx) ||
@@ -101,8 +101,8 @@ const proto::ProtoObject* typesIsDate(
     proto::ProtoContext* ctx,
     const proto::ProtoObject* /*self*/,
     const proto::ParentLink*,
-    const proto::ProtoList* args,
-    const proto::ProtoSparseList*) {
+    const proto::ProtoArguments* args,
+    const proto::ProtoKeywordArguments*) {
     // Mirror the original heuristic: any object that responds to
     // `getTime` is treated as a Date.  protoJS does not yet have a
     // first-class Date class; this stays compatible with downstream
@@ -156,7 +156,7 @@ const proto::ProtoObject* inspectImplementation(proto::ProtoContext* ctx) {
 
 const proto::ProtoObject* callInspectFunction(proto::ProtoContext* ctx,
                                                const char* name,
-                                               const proto::ProtoList* args) {
+                                               const proto::ProtoArguments* args) {
     if (!ctx) return PROTO_NONE;
     const proto::ProtoObject* impl = inspectImplementation(ctx);
     if (!impl) {
@@ -170,15 +170,16 @@ const proto::ProtoObject* callInspectFunction(proto::ProtoContext* ctx,
     const proto::ProtoString* key = nameObj ? nameObj->asString(ctx) : nullptr;
     const proto::ProtoObject* fn = key ? impl->getAttribute(ctx, key, false) : nullptr;
     if (!fn || fn == PROTO_NONE) return PROTO_NONE;
-    return callJSFunction(ctx, fn, impl, args ? args : ctx->newList());
+    const proto::ProtoArguments noArgs(nullptr, 0);
+    return callJSFunction(ctx, fn, impl, args ? args : &noArgs);
 }
 
 const proto::ProtoObject* utilInspect(
     proto::ProtoContext* ctx,
     const proto::ProtoObject* /*self*/,
     const proto::ParentLink*,
-    const proto::ProtoList* args,
-    const proto::ProtoSparseList*) {
+    const proto::ProtoArguments* args,
+    const proto::ProtoKeywordArguments*) {
     return callInspectFunction(ctx, "inspect", args);
 }
 
@@ -186,8 +187,8 @@ const proto::ProtoObject* utilFormat(
     proto::ProtoContext* ctx,
     const proto::ProtoObject* /*self*/,
     const proto::ParentLink*,
-    const proto::ProtoList* args,
-    const proto::ProtoSparseList*) {
+    const proto::ProtoArguments* args,
+    const proto::ProtoKeywordArguments*) {
     return callInspectFunction(ctx, "format", args);
 }
 
@@ -195,8 +196,8 @@ const proto::ProtoObject* utilFormatWithOptions(
     proto::ProtoContext* ctx,
     const proto::ProtoObject* /*self*/,
     const proto::ParentLink*,
-    const proto::ProtoList* args,
-    const proto::ProtoSparseList*) {
+    const proto::ProtoArguments* args,
+    const proto::ProtoKeywordArguments*) {
     return callInspectFunction(ctx, "formatWithOptions", args);
 }
 
@@ -204,8 +205,8 @@ const proto::ProtoObject* utilPromisify(
     proto::ProtoContext* ctx,
     const proto::ProtoObject* /*self*/,
     const proto::ParentLink*,
-    const proto::ProtoList* /*args*/,
-    const proto::ProtoSparseList*) {
+    const proto::ProtoArguments* /*args*/,
+    const proto::ProtoKeywordArguments*) {
     // Stub — the QuickJS-side implementation was already a no-op
     // returning undefined.  Real implementation would build a Deferred
     // wrapper; tracked separately.

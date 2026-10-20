@@ -56,7 +56,7 @@ static bool requireBooleanThis(proto::ProtoContext* ctx, const proto::ProtoObjec
 // --- Boolean.prototype.valueOf ---
 static const proto::ProtoObject* booleanValueOf(
     proto::ProtoContext* ctx, const proto::ProtoObject* self,
-    const proto::ParentLink*, const proto::ProtoList*, const proto::ProtoSparseList*)
+    const proto::ParentLink*, const proto::ProtoArguments*, const proto::ProtoKeywordArguments*)
 {
     if (!ctx || !self || self == PROTO_NONE) return PROTO_NONE;
     if (!requireBooleanThis(ctx, self)) return PROTO_NONE;
@@ -66,7 +66,7 @@ static const proto::ProtoObject* booleanValueOf(
 // --- Boolean.prototype.toString ---
 static const proto::ProtoObject* booleanToString(
     proto::ProtoContext* ctx, const proto::ProtoObject* self,
-    const proto::ParentLink*, const proto::ProtoList*, const proto::ProtoSparseList*)
+    const proto::ParentLink*, const proto::ProtoArguments*, const proto::ProtoKeywordArguments*)
 {
     if (!ctx || !self || self == PROTO_NONE) return PROTO_NONE;
     if (!requireBooleanThis(ctx, self)) return PROTO_NONE;
@@ -76,7 +76,7 @@ static const proto::ProtoObject* booleanToString(
 // --- Boolean constructor body: new Boolean(x) ---
 static const proto::ProtoObject* booleanConstruct(
     proto::ProtoContext* ctx, const proto::ProtoObject* self,
-    const proto::ParentLink*, const proto::ProtoList* args, const proto::ProtoSparseList*)
+    const proto::ParentLink*, const proto::ProtoArguments* args, const proto::ProtoKeywordArguments*)
 {
     if (!ctx || !self || self == PROTO_NONE) return self;
     bool val = false;

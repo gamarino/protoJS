@@ -38,6 +38,7 @@ extern "C" {
 #include "../GCBridge.h"
 #include "../TypeBridge.h"
 #include "protoCore.h"
+#include <optional>
 #include <cerrno>
 
 // Dispatch: every DISPATCH() is a plain `goto` to one switch over the opcode
@@ -950,7 +951,7 @@ thread_local const proto::ProtoObject*              t_tdzSentinel       = nullpt
 // throw before allocating an instance (invoked-with-new.js).
 static const proto::ProtoObject* symbolThrowingConstructStub(
     proto::ProtoContext* ctx, const proto::ProtoObject*,
-    const proto::ParentLink*, const proto::ProtoList*, const proto::ProtoSparseList*)
+    const proto::ParentLink*, const proto::ProtoArguments*, const proto::ProtoKeywordArguments*)
 {
     signalNativeException(makeNativeError(ctx, "TypeError",
         "Symbol is not a constructor"));
@@ -966,7 +967,7 @@ static const proto::ProtoObject* symbolThrowingConstructStub(
 // 'function' because the wrapper carries a real method cell.
 static const proto::ProtoObject* unimplementedCtorStub(
     proto::ProtoContext* ctx, const proto::ProtoObject*,
-    const proto::ParentLink*, const proto::ProtoList*, const proto::ProtoSparseList*)
+    const proto::ParentLink*, const proto::ProtoArguments*, const proto::ProtoKeywordArguments*)
 {
     (void)ctx;
     // Spec-correct path would be to throw TypeError here; the
@@ -981,7 +982,7 @@ static const proto::ProtoObject* unimplementedCtorStub(
 // target.apply(thisArg, argsArray) but doesn't depend on the chain.
 static const proto::ProtoObject* reflectApply(
     proto::ProtoContext* ctx, const proto::ProtoObject*,
-    const proto::ParentLink*, const proto::ProtoList* args, const proto::ProtoSparseList*)
+    const proto::ParentLink*, const proto::ProtoArguments* args, const proto::ProtoKeywordArguments*)
 {
     if (!ctx || !args || args->getSize(ctx) < 1) return PROTO_NONE;
     const proto::ProtoObject* target = args->getAt(ctx, 0);
@@ -1102,7 +1103,7 @@ static bool reflectThrowIfNotObject(proto::ProtoContext* ctx,
 // false for every builtin (Set, Map, Array, Promise, etc.).
 static const proto::ProtoObject* reflectConstruct(
     proto::ProtoContext* ctx, const proto::ProtoObject*,
-    const proto::ParentLink*, const proto::ProtoList* args, const proto::ProtoSparseList*)
+    const proto::ParentLink*, const proto::ProtoArguments* args, const proto::ProtoKeywordArguments*)
 {
     if (!ctx || !args || args->getSize(ctx) < 1) return PROTO_NONE;
     const proto::ProtoObject* target = args->getAt(ctx, 0);
@@ -1374,7 +1375,7 @@ static bool reflectThrowIfNotObject(proto::ProtoContext* ctx,
 
 static const proto::ProtoObject* reflectHas(
     proto::ProtoContext* ctx, const proto::ProtoObject*,
-    const proto::ParentLink*, const proto::ProtoList* args, const proto::ProtoSparseList*)
+    const proto::ParentLink*, const proto::ProtoArguments* args, const proto::ProtoKeywordArguments*)
 {
     const proto::ProtoObject* target = (args && args->getSize(ctx) > 0)
         ? args->getAt(ctx, 0) : PROTO_NONE;
@@ -1397,7 +1398,7 @@ static const proto::ProtoObject* reflectHas(
 
 static const proto::ProtoObject* reflectGet(
     proto::ProtoContext* ctx, const proto::ProtoObject*,
-    const proto::ParentLink*, const proto::ProtoList* args, const proto::ProtoSparseList*)
+    const proto::ParentLink*, const proto::ProtoArguments* args, const proto::ProtoKeywordArguments*)
 {
     const proto::ProtoObject* target = (args && args->getSize(ctx) > 0)
         ? args->getAt(ctx, 0) : PROTO_NONE;
@@ -1449,7 +1450,7 @@ static const proto::ProtoObject* reflectGet(
 
 static const proto::ProtoObject* reflectSet(
     proto::ProtoContext* ctx, const proto::ProtoObject*,
-    const proto::ParentLink*, const proto::ProtoList* args, const proto::ProtoSparseList*)
+    const proto::ParentLink*, const proto::ProtoArguments* args, const proto::ProtoKeywordArguments*)
 {
     const proto::ProtoObject* target = (args && args->getSize(ctx) > 0)
         ? args->getAt(ctx, 0) : PROTO_NONE;
@@ -1616,7 +1617,7 @@ static const proto::ProtoObject* superPropertyGet(proto::ProtoContext* ctx,
         ->appendLast(ctx, superBase)
         ->appendLast(ctx, prop ? prop : PROTO_NONE)
         ->appendLast(ctx, thisObj ? thisObj : PROTO_NONE);
-    return reflectGet(ctx, nullptr, nullptr, args, nullptr);
+    return reflectGet(ctx, nullptr, nullptr, argsView(proto::ProtoListArguments(ctx, args)), nullptr);
 }
 
 // Returns false when the [[Set]] was refused (a non-writable data property or
@@ -1633,12 +1634,12 @@ static bool superPropertySet(proto::ProtoContext* ctx,
         ->appendLast(ctx, prop ? prop : PROTO_NONE)
         ->appendLast(ctx, value ? value : PROTO_NONE)
         ->appendLast(ctx, thisObj ? thisObj : PROTO_NONE);
-    return reflectSet(ctx, nullptr, nullptr, args, nullptr) != PROTO_FALSE;
+    return reflectSet(ctx, nullptr, nullptr, argsView(proto::ProtoListArguments(ctx, args)), nullptr) != PROTO_FALSE;
 }
 
 static const proto::ProtoObject* reflectOwnKeys(
     proto::ProtoContext* ctx, const proto::ProtoObject*,
-    const proto::ParentLink*, const proto::ProtoList* args, const proto::ProtoSparseList*)
+    const proto::ParentLink*, const proto::ProtoArguments* args, const proto::ProtoKeywordArguments*)
 {
     const proto::ProtoObject* target = (args && args->getSize(ctx) > 0)
         ? args->getAt(ctx, 0) : PROTO_NONE;
@@ -1830,7 +1831,7 @@ static const proto::ProtoObject* reflectOwnKeys(
 // the JS-level `delete target[key]` semantics; returns true on success.
 static const proto::ProtoObject* reflectDeleteProperty(
     proto::ProtoContext* ctx, const proto::ProtoObject*,
-    const proto::ParentLink*, const proto::ProtoList* args, const proto::ProtoSparseList*)
+    const proto::ParentLink*, const proto::ProtoArguments* args, const proto::ProtoKeywordArguments*)
 {
     const proto::ProtoObject* target = (args && args->getSize(ctx) > 0)
         ? args->getAt(ctx, 0) : PROTO_NONE;
@@ -1897,7 +1898,7 @@ static const proto::ProtoObject* reflectDeleteProperty(
 // ECMA-262 §28.1.5: Reflect.getPrototypeOf(target).
 static const proto::ProtoObject* reflectGetPrototypeOf(
     proto::ProtoContext* ctx, const proto::ProtoObject*,
-    const proto::ParentLink*, const proto::ProtoList* args, const proto::ProtoSparseList*)
+    const proto::ParentLink*, const proto::ProtoArguments* args, const proto::ProtoKeywordArguments*)
 {
     const proto::ProtoObject* target = (args && args->getSize(ctx) > 0)
         ? args->getAt(ctx, 0) : PROTO_NONE;
@@ -1942,7 +1943,7 @@ static const proto::ProtoObject* reflectGetPrototypeOf(
 // ECMA-262 §28.1.8: Reflect.isExtensible(target).
 static const proto::ProtoObject* reflectIsExtensible(
     proto::ProtoContext* ctx, const proto::ProtoObject*,
-    const proto::ParentLink*, const proto::ProtoList* args, const proto::ProtoSparseList*)
+    const proto::ParentLink*, const proto::ProtoArguments* args, const proto::ProtoKeywordArguments*)
 {
     const proto::ProtoObject* target = (args && args->getSize(ctx) > 0)
         ? args->getAt(ctx, 0) : PROTO_NONE;
@@ -1986,7 +1987,7 @@ static const proto::ProtoObject* reflectIsExtensible(
 // ECMA-262 §28.1.10: Reflect.preventExtensions(target).
 static const proto::ProtoObject* reflectPreventExtensions(
     proto::ProtoContext* ctx, const proto::ProtoObject*,
-    const proto::ParentLink*, const proto::ProtoList* args, const proto::ProtoSparseList*)
+    const proto::ParentLink*, const proto::ProtoArguments* args, const proto::ProtoKeywordArguments*)
 {
     const proto::ProtoObject* target = (args && args->getSize(ctx) > 0)
         ? args->getAt(ctx, 0) : PROTO_NONE;
@@ -2053,9 +2054,11 @@ static const proto::ProtoObject* reflectPreventExtensions(
 // and downstream feature tests both failed.
 static const proto::ProtoObject* reflectDefineProperty(
     proto::ProtoContext* ctx, const proto::ProtoObject*,
-    const proto::ParentLink*, const proto::ProtoList* args, const proto::ProtoSparseList*)
+    const proto::ParentLink*, const proto::ProtoArguments* args, const proto::ProtoKeywordArguments*)
 {
     if (!ctx) return PROTO_FALSE;
+    // The arguments re-staged with an unwrapped Proxy target, below.
+    std::optional<proto::ProtoListArguments> restaged;
     const proto::ProtoObject* target = (args && args->getSize(ctx) > 0)
         ? args->getAt(ctx, 0) : PROTO_NONE;
     if (reflectThrowIfNotObject(ctx, target, "Reflect.defineProperty")) return PROTO_FALSE;
@@ -2161,7 +2164,8 @@ static const proto::ProtoObject* reflectDefineProperty(
         newArgs = newArgs->appendLast(ctx, target);
         for (size_t i = 1; i < args->getSize(ctx); ++i)
             newArgs = newArgs->appendLast(ctx, args->getAt(ctx, static_cast<int>(i)));
-        args = newArgs;
+        restaged.emplace(ctx, newArgs);   // newArgs is young in ctx for the call
+        args = &*restaged;
     }
 
     // Forward to globalThis.Object.defineProperty. The native
@@ -2205,7 +2209,7 @@ static const proto::ProtoObject* reflectDefineProperty(
 // pattern as defineProperty above.
 static const proto::ProtoObject* reflectGetOwnPropertyDescriptor(
     proto::ProtoContext* ctx, const proto::ProtoObject*,
-    const proto::ParentLink*, const proto::ProtoList* args, const proto::ProtoSparseList*)
+    const proto::ParentLink*, const proto::ProtoArguments* args, const proto::ProtoKeywordArguments*)
 {
     if (!ctx) return PROTO_NONE;
     const proto::ProtoObject* target = (args && args->getSize(ctx) > 0)
@@ -2245,7 +2249,7 @@ static const proto::ProtoObject* reflectGetOwnPropertyDescriptor(
 // ECMA-262 §28.1.11: Reflect.setPrototypeOf(target, proto).
 static const proto::ProtoObject* reflectSetPrototypeOf(
     proto::ProtoContext* ctx, const proto::ProtoObject*,
-    const proto::ParentLink*, const proto::ProtoList* args, const proto::ProtoSparseList*)
+    const proto::ParentLink*, const proto::ProtoArguments* args, const proto::ProtoKeywordArguments*)
 {
     const proto::ProtoObject* target = (args && args->getSize(ctx) > 0)
         ? args->getAt(ctx, 0) : PROTO_NONE;
@@ -2341,7 +2345,7 @@ static const proto::ProtoObject* reflectSetPrototypeOf(
 // Symbol.for(key) — minimal registry.  Symbol.keyFor(sym) — reverse.
 static const proto::ProtoObject* symbolFor(
     proto::ProtoContext* ctx, const proto::ProtoObject*,
-    const proto::ParentLink*, const proto::ProtoList* args, const proto::ProtoSparseList*)
+    const proto::ParentLink*, const proto::ProtoArguments* args, const proto::ProtoKeywordArguments*)
 {
     if (!ctx || !args || args->getSize(ctx) == 0) return PROTO_NONE;
     const proto::ProtoObject* keyObj = args->getAt(ctx, 0);
@@ -2431,7 +2435,7 @@ static const proto::ProtoObject* symbolFor(
 
 static const proto::ProtoObject* symbolKeyFor(
     proto::ProtoContext* ctx, const proto::ProtoObject*,
-    const proto::ParentLink*, const proto::ProtoList* args, const proto::ProtoSparseList*)
+    const proto::ParentLink*, const proto::ProtoArguments* args, const proto::ProtoKeywordArguments*)
 {
     if (!ctx) return PROTO_NONE;
     const proto::ProtoObject* sym = (args && args->getSize(ctx) > 0)
@@ -2481,7 +2485,7 @@ static const proto::ProtoObject* symbolKeyFor(
 
 static const proto::ProtoObject* symbolConstructor(
     proto::ProtoContext* ctx, const proto::ProtoObject*,
-    const proto::ParentLink*, const proto::ProtoList* args, const proto::ProtoSparseList*)
+    const proto::ParentLink*, const proto::ProtoArguments* args, const proto::ProtoKeywordArguments*)
 {
     // Parent at Symbol.prototype so the description getter and other
     // accessor methods reach every instance.
@@ -2664,7 +2668,7 @@ static const proto::ProtoObject* symbolConstructor(
 
 static const proto::ProtoObject* globalParseInt(
     proto::ProtoContext* ctx, const proto::ProtoObject*,
-    const proto::ParentLink*, const proto::ProtoList* args, const proto::ProtoSparseList*)
+    const proto::ParentLink*, const proto::ProtoArguments* args, const proto::ProtoKeywordArguments*)
 {
     const double nan = std::numeric_limits<double>::quiet_NaN();
     if (!args || args->getSize(ctx) == 0) return makeNumber(ctx, nan);
@@ -2877,7 +2881,7 @@ static const proto::ProtoObject* globalParseInt(
 
 static const proto::ProtoObject* globalParseFloat(
     proto::ProtoContext* ctx, const proto::ProtoObject*,
-    const proto::ParentLink*, const proto::ProtoList* args, const proto::ProtoSparseList*)
+    const proto::ParentLink*, const proto::ProtoArguments* args, const proto::ProtoKeywordArguments*)
 {
     const double nan = std::numeric_limits<double>::quiet_NaN();
     if (!args || args->getSize(ctx) == 0) return makeNumber(ctx, nan);
@@ -3033,7 +3037,7 @@ static const proto::ProtoObject* globalParseFloat(
 // false (spec: true via ToNumber(null) === 0).
 static const proto::ProtoObject* globalIsNaN(
     proto::ProtoContext* ctx, const proto::ProtoObject*,
-    const proto::ParentLink*, const proto::ProtoList* args, const proto::ProtoSparseList*)
+    const proto::ParentLink*, const proto::ProtoArguments* args, const proto::ProtoKeywordArguments*)
 {
     const proto::ProtoObject* arg = (args && args->getSize(ctx) > 0)
         ? args->getAt(ctx, 0) : PROTO_NONE;
@@ -3047,7 +3051,7 @@ static const proto::ProtoObject* globalIsNaN(
 
 static const proto::ProtoObject* globalIsFinite(
     proto::ProtoContext* ctx, const proto::ProtoObject*,
-    const proto::ParentLink*, const proto::ProtoList* args, const proto::ProtoSparseList*)
+    const proto::ParentLink*, const proto::ProtoArguments* args, const proto::ProtoKeywordArguments*)
 {
     const proto::ProtoObject* arg = (args && args->getSize(ctx) > 0)
         ? args->getAt(ctx, 0) : PROTO_NONE;
@@ -3066,7 +3070,7 @@ static std::string pctEncode(unsigned char c) {
 
 static const proto::ProtoObject* globalEncodeURIComponent(
     proto::ProtoContext* ctx, const proto::ProtoObject*,
-    const proto::ParentLink*, const proto::ProtoList* args, const proto::ProtoSparseList*)
+    const proto::ParentLink*, const proto::ProtoArguments* args, const proto::ProtoKeywordArguments*)
 {
     if (!args || args->getSize(ctx) == 0) return ctx->fromUTF8String("undefined");
     const proto::ProtoObject* v = args->getAt(ctx, 0);
@@ -3090,7 +3094,7 @@ static const proto::ProtoObject* globalEncodeURIComponent(
 
 static const proto::ProtoObject* globalEncodeURI(
     proto::ProtoContext* ctx, const proto::ProtoObject*,
-    const proto::ParentLink*, const proto::ProtoList* args, const proto::ProtoSparseList*)
+    const proto::ParentLink*, const proto::ProtoArguments* args, const proto::ProtoKeywordArguments*)
 {
     if (!args || args->getSize(ctx) == 0) return ctx->fromUTF8String("undefined");
     const proto::ProtoObject* v = args->getAt(ctx, 0);
@@ -3114,7 +3118,7 @@ static const proto::ProtoObject* globalEncodeURI(
 
 static const proto::ProtoObject* globalDecodeURIComponent(
     proto::ProtoContext* ctx, const proto::ProtoObject*,
-    const proto::ParentLink*, const proto::ProtoList* args, const proto::ProtoSparseList*)
+    const proto::ParentLink*, const proto::ProtoArguments* args, const proto::ProtoKeywordArguments*)
 {
     if (!args || args->getSize(ctx) == 0) return ctx->fromUTF8String("undefined");
     const proto::ProtoObject* v = args->getAt(ctx, 0);
@@ -3153,7 +3157,7 @@ static const proto::ProtoObject* globalDecodeURIComponent(
 
 static const proto::ProtoObject* globalDecodeURI(
     proto::ProtoContext* ctx, const proto::ProtoObject*,
-    const proto::ParentLink*, const proto::ProtoList* args, const proto::ProtoSparseList*)
+    const proto::ParentLink*, const proto::ProtoArguments* args, const proto::ProtoKeywordArguments*)
 {
     // Reserved chars in URI should not be decoded; for simplicity decode everything.
     return globalDecodeURIComponent(ctx, nullptr, nullptr, args, nullptr);
@@ -3352,6 +3356,10 @@ static PROTOJS_ALWAYS_INLINE void stackPush(proto::ProtoContext* ctx, const prot
 // slots above the stack top at the dispatch safepoint instead was tried and
 // broke programs under a heap ceiling (a value above the stack top is still
 // needed across a dispatch somewhere; not tracked down), so it is not done.
+// The most arguments a call to a native passes in a local array (OP_call,
+// OP_call_method); a call with more goes through a ProtoList.
+static constexpr uint32_t kLocalCallArgs = 16;
+
 static PROTOJS_ALWAYS_INLINE void stackPop(proto::ProtoContext* ctx) {
     InterpFrame* f = currentFrame(ctx);
     if (!f || f->stackTop == 0) return;
@@ -4317,8 +4325,8 @@ static const proto::ProtoObject* errorIsError(
         proto::ProtoContext* context,
         const proto::ProtoObject* /*self*/,
         const proto::ParentLink* /*parentLink*/,
-        const proto::ProtoList* params,
-        const proto::ProtoSparseList* /*kw*/) {
+        const proto::ProtoArguments* params,
+        const proto::ProtoKeywordArguments* /*kw*/) {
     if (!context || !params || params->getSize(context) == 0) return PROTO_FALSE;
     const proto::ProtoObject* v = params->getAt(context, 0);
     if (!v || v == PROTO_NONE) return PROTO_FALSE;
@@ -4344,8 +4352,8 @@ static const proto::ProtoObject* errorPrototypeToString(
         proto::ProtoContext* context,
         const proto::ProtoObject* self,
         const proto::ParentLink* /*parentLink*/,
-        const proto::ProtoList* /*params*/,
-        const proto::ProtoSparseList* /*kw*/) {
+        const proto::ProtoArguments* /*params*/,
+        const proto::ProtoKeywordArguments* /*kw*/) {
     if (!context) return PROTO_NONE;
     // §20.5.3.4 step 2: If Type(O) is not Object, throw a TypeError.
     // Pre-fix Error.prototype.toString.call(undefined / 1 / "string" /
@@ -5778,11 +5786,11 @@ static const proto::ProtoObject* resumeGenerator(proto::ProtoContext* ctx,
 
 // Forward declarations for the ProtoMethod callbacks.
 static const proto::ProtoObject* generatorNext(proto::ProtoContext*, const proto::ProtoObject*,
-    const proto::ParentLink*, const proto::ProtoList*, const proto::ProtoSparseList*);
+    const proto::ParentLink*, const proto::ProtoArguments*, const proto::ProtoKeywordArguments*);
 static const proto::ProtoObject* generatorReturn(proto::ProtoContext*, const proto::ProtoObject*,
-    const proto::ParentLink*, const proto::ProtoList*, const proto::ProtoSparseList*);
+    const proto::ParentLink*, const proto::ProtoArguments*, const proto::ProtoKeywordArguments*);
 static const proto::ProtoObject* generatorThrow(proto::ProtoContext*, const proto::ProtoObject*,
-    const proto::ParentLink*, const proto::ProtoList*, const proto::ProtoSparseList*);
+    const proto::ParentLink*, const proto::ProtoArguments*, const proto::ProtoKeywordArguments*);
 
 // ---------------------------------------------------------------------------
 // Async functions and async generators.
@@ -6987,8 +6995,8 @@ const proto::ProtoObject* runBytecode(proto::ProtoContext* pContext,
                         proto::ProtoContext* sctx,
                         const proto::ProtoObject* sself,
                         const proto::ParentLink*,
-                        const proto::ProtoList*,
-                        const proto::ProtoSparseList*) -> const proto::ProtoObject* {
+                        const proto::ProtoArguments*,
+                        const proto::ProtoKeywordArguments*) -> const proto::ProtoObject* {
                         if (sctx && sself && sself != PROTO_NONE) {
                             const proto::ProtoObject* edk = sctx->fromUTF8String("__error_data__");
                             const proto::ProtoString* edK = edk ? edk->asString(sctx) : nullptr;
@@ -7081,8 +7089,8 @@ const proto::ProtoObject* runBytecode(proto::ProtoContext* pContext,
             if (evalFn) {
                 static const proto::ProtoMethod evalStub = [](
                     proto::ProtoContext* ictx, const proto::ProtoObject*,
-                    const proto::ParentLink*, const proto::ProtoList*,
-                    const proto::ProtoSparseList*) -> const proto::ProtoObject* {
+                    const proto::ParentLink*, const proto::ProtoArguments*,
+                    const proto::ProtoKeywordArguments*) -> const proto::ProtoObject* {
                     signalNativeException(makeNativeError(ictx, "SyntaxError",
                         "eval is not implemented in protoJS"));
                     return PROTO_NONE;
@@ -7366,8 +7374,8 @@ const proto::ProtoObject* runBytecode(proto::ProtoContext* pContext,
                                 auto descGetter = [](proto::ProtoContext* gctx,
                                                      const proto::ProtoObject* gself,
                                                      const proto::ParentLink*,
-                                                     const proto::ProtoList*,
-                                                     const proto::ProtoSparseList*) -> const proto::ProtoObject* {
+                                                     const proto::ProtoArguments*,
+                                                     const proto::ProtoKeywordArguments*) -> const proto::ProtoObject* {
                                     if (!gctx) return PROTO_NONE;
                                     // §20.4.3.2: this MUST be a Symbol.  Pre-fix
                                     // the getter returned undefined for any non-
@@ -7482,8 +7490,8 @@ const proto::ProtoObject* runBytecode(proto::ProtoContext* pContext,
                                 auto symToString = [](proto::ProtoContext* gctx,
                                                      const proto::ProtoObject* gself,
                                                      const proto::ParentLink*,
-                                                     const proto::ProtoList*,
-                                                     const proto::ProtoSparseList*) -> const proto::ProtoObject* {
+                                                     const proto::ProtoArguments*,
+                                                     const proto::ProtoKeywordArguments*) -> const proto::ProtoObject* {
                                     if (!gctx || !gself) return PROTO_NONE;
                                     const proto::ProtoString* symMk = JSSymbols::isSymbol(gctx);
                                     bool isPrim = symMk && gself->getAttribute(gctx, symMk, true) == PROTO_TRUE;
@@ -7553,8 +7561,8 @@ const proto::ProtoObject* runBytecode(proto::ProtoContext* pContext,
                                 auto symValueOf = [](proto::ProtoContext* gctx,
                                                     const proto::ProtoObject* gself,
                                                     const proto::ParentLink*,
-                                                    const proto::ProtoList*,
-                                                    const proto::ProtoSparseList*) -> const proto::ProtoObject* {
+                                                    const proto::ProtoArguments*,
+                                                    const proto::ProtoKeywordArguments*) -> const proto::ProtoObject* {
                                     if (!gctx || !gself) return PROTO_NONE;
                                     const proto::ProtoString* symMk = JSSymbols::isSymbol(gctx);
                                     bool isPrim = symMk && gself->getAttribute(gctx, symMk, true) == PROTO_TRUE;
@@ -8020,7 +8028,7 @@ const proto::ProtoObject* runBytecode(proto::ProtoContext* pContext,
         }
         if (fn->isMethod(pContext)) {
             proto::ProtoMethod m = fn->asMethod(pContext);
-            if (m) return m(pContext, thisVal, nullptr, pContext->newList(), nullptr);
+            if (m) return m(pContext, thisVal, nullptr, argsView(proto::ProtoArguments(nullptr, 0)), nullptr);
         }
         return PROTO_NONE;
     };
@@ -9257,7 +9265,7 @@ const proto::ProtoObject* runBytecode(proto::ProtoContext* pContext,
                 if (!flagsStr.empty())
                     args = args->appendLast(pContext, pContext->fromUTF8String(flagsStr.c_str()));
                 const proto::ProtoObject* rx =
-                    protojs::regexpConstructor(pContext, receiver, nullptr, args, nullptr);
+                    protojs::regexpConstructor(pContext, receiver, nullptr, argsView(proto::ProtoListArguments(pContext, args)), nullptr);
                 if (!rx || rx == PROTO_NONE) {
                     // Fall back to the legacy stub on compile failure
                     // so dependent code at least sees an object.
@@ -9363,7 +9371,7 @@ const proto::ProtoObject* runBytecode(proto::ProtoContext* pContext,
                         ? parent->getAttribute(pContext, ctorKeyL, false) : nullptr;
                     if (ctorMethodL && ctorMethodL != PROTO_NONE && ctorMethodL->isMethod(pContext)) {
                         proto::ProtoMethod nm = ctorMethodL->asMethod(pContext);
-                        ret = nm ? nm(pContext, newObj, nullptr, forwardArgs, nullptr) : nullptr;
+                        ret = nm ? nm(pContext, newObj, nullptr, argsView(proto::ProtoListArguments(pContext, forwardArgs)), nullptr) : nullptr;
                     } else {
                         // Specialised: arrayCtor, errCtor, regexpCtor, taCtor, strCtor.
                         const proto::ProtoString* arrayK = JSSymbols::arrayCtor(pContext);
@@ -9435,7 +9443,7 @@ const proto::ProtoObject* runBytecode(proto::ProtoContext* pContext,
                             ret = constructBuiltinWithCtorProto(pContext, parent, newObj, forwardArgs);
                             if (!ret) ret = callJSFunction(pContext, parent, newObj, forwardArgs);
                         } else if (reAttr == PROTO_TRUE) {
-                            ret = regexpConstructor(pContext, newObj, nullptr, forwardArgs, nullptr);
+                            ret = regexpConstructor(pContext, newObj, nullptr, argsView(proto::ProtoListArguments(pContext, forwardArgs)), nullptr);
                         } else if (strAttr == PROTO_TRUE) {
                             const proto::ProtoObject* pv = (forwardArgs && forwardArgs->getSize(pContext) > 0)
                                 ? toString(pContext, forwardArgs->getAt(pContext, 0))
@@ -16041,26 +16049,33 @@ const proto::ProtoObject* runBytecode(proto::ProtoContext* pContext,
                 } else if (funcIsNative) {
                     // CS: argsList held in C++ scratch — see resolvedMod2 branch above.
                     proto::ProtoContext::CriticalSection callCs1(pContext);
-                    // argc==0 fast path: skip newList entirely. All protoJS native
-                    // methods tolerate args==nullptr via the standard
-                    // `if (!args || args->getSize(ctx) <= i)` guard at every arg
-                    // access site; passing nullptr saves one cell allocation per
-                    // call for arg-less methods (toString, valueOf, trim, ...).
-                    const proto::ProtoList* argsList = nullptr;
-                    if (argc > 0) {
-                        InterpFrame* frameNowN = currentFrame(pContext);
-                        const proto::ProtoObject* const* argSliceN =
-                            pContext->getAutomaticLocals()
-                            + frameNowN->stackBase + frameNowN->stackTop - argc;
-                        argsList = pContext->newList(argc, argSliceN);
+                    // The arguments, copied from the operand stack into a local
+                    // array the native reads (protoCore's array call form; no
+                    // allocation). They stay on the operand stack, rooted,
+                    // until the native returns: a native that re-enters the
+                    // interpreter may move the frame's slots
+                    // (REFRESH_INTERP_STATE), so it is not handed a pointer
+                    // into them. More than kLocalCallArgs go through a list.
+                    InterpFrame* frameNowN = currentFrame(pContext);
+                    const proto::ProtoObject* const* argSliceN =
+                        pContext->getAutomaticLocals()
+                        + frameNowN->stackBase + frameNowN->stackTop - argc;
+                    const proto::ProtoObject* localArgsN[kLocalCallArgs];
+                    std::optional<proto::ProtoListArguments> listArgsN;
+                    if (argc <= kLocalCallArgs) {
+                        for (uint32_t i = 0; i < argc; i++) localArgsN[i] = argSliceN[i];
+                    } else {
+                        listArgsN.emplace(pContext, pContext->newList(argc, argSliceN));
                     }
-                    for (uint32_t i = 0; i < argc + 2; i++) stackPop(pContext);
+                    const proto::ProtoArguments inlineArgsN(localArgsN, argc <= kLocalCallArgs ? argc : 0);
                     // Invoke the native function directly via asMethod() to bypass the
                     // ProtoObject::call() attribute-lookup indirection.
                     const proto::ProtoMethod nativeFn = func->asMethod(pContext);
                     const proto::ProtoObject* result = nativeFn
-                        ? nativeFn(pContext, thisVal, nullptr, argsList, nullptr)
+                        ? nativeFn(pContext, thisVal, nullptr,
+                                   listArgsN ? &*listArgsN : &inlineArgsN, nullptr)
                         : PROTO_NONE;
+                    for (uint32_t i = 0; i < argc + 2; i++) stackPop(pContext);
                     if (t_hasCallException) {
                         pending_exception  = t_callException;
                         has_pending_exception = true;
@@ -16685,7 +16700,7 @@ const proto::ProtoObject* runBytecode(proto::ProtoContext* pContext,
                         const proto::ProtoString* pk = JSSymbols::prototype(pContext);
                         const proto::ProtoObject* pr = func->getAttribute(pContext, pk, false);
                         const proto::ProtoObject* re = (pr && pr != PROTO_NONE) ? pr->newChild(pContext, true) : pContext->newObject(true);
-                        result = regexpConstructor(pContext, re, nullptr, argsList, nullptr);
+                        result = regexpConstructor(pContext, re, nullptr, argsView(proto::ProtoListArguments(pContext, argsList)), nullptr);
                     } else if (taAttr && taAttr != PROTO_NONE) {
                         // Every source §23.2.5.1 accepts: a length, an
                         // ArrayBuffer, a typed array, an iterable or an
@@ -16751,7 +16766,7 @@ const proto::ProtoObject* runBytecode(proto::ProtoContext* pContext,
                         if (ctorMethod && ctorMethod != PROTO_NONE && ctorMethod->isMethod(pContext)) {
                             proto::ProtoMethod ctorFn = ctorMethod->asMethod(pContext);
                             if (ctorFn)
-                                result = ctorFn(pContext, newObj, nullptr, argsList, nullptr);
+                                result = ctorFn(pContext, newObj, nullptr, argsView(proto::ProtoListArguments(pContext, argsList)), nullptr);
                             if (t_hasCallException) {
                                 pending_exception = t_callException;
                                 has_pending_exception = true;
@@ -16779,7 +16794,7 @@ const proto::ProtoObject* runBytecode(proto::ProtoContext* pContext,
                                 proto::ProtoMethod nfFn = nfM->asMethod(pContext);
                                 if (nfFn) {
                                     const proto::ProtoObject* nfRes =
-                                        nfFn(pContext, newObj, nullptr, argsList, nullptr);
+                                        nfFn(pContext, newObj, nullptr, argsView(proto::ProtoListArguments(pContext, argsList)), nullptr);
                                     if (t_hasCallException) {
                                         pending_exception = t_callException;
                                         has_pending_exception = true;
@@ -17094,25 +17109,27 @@ const proto::ProtoObject* runBytecode(proto::ProtoContext* pContext,
                     const proto::ProtoObject* thisVal = PROTO_NONE;
                     // CS: argsList held in C++ scratch — see resolvedMod2 branch above.
                     proto::ProtoContext::CriticalSection callCs4(pContext);
-                    // argc==0 fast path: pass nullptr (see L_OP_call_method
-                    // native branch for the rationale).  argc>0: use the
-                    // single-allocation newList(argc, slice) form rather than
-                    // newList()+appendLast loop — saves argc-1 cell allocations
-                    // and keeps the construction in a single critical section.
-                    const proto::ProtoList* argsList = nullptr;
-                    if (argc > 0) {
-                        const proto::ProtoObject* const* argSliceC =
-                            pContext->getAutomaticLocals()
-                            + currentFrame(pContext)->stackBase
-                            + currentFrame(pContext)->stackTop - argc;
-                        argsList = pContext->newList(argc, argSliceC);
+                    // As in the call_method native branch: a local copy of
+                    // the arguments, popped only once the native returns.
+                    const proto::ProtoObject* const* argSliceC =
+                        pContext->getAutomaticLocals()
+                        + currentFrame(pContext)->stackBase
+                        + currentFrame(pContext)->stackTop - argc;
+                    const proto::ProtoObject* localArgsC[kLocalCallArgs];
+                    std::optional<proto::ProtoListArguments> listArgsC;
+                    if (argc <= kLocalCallArgs) {
+                        for (uint32_t i = 0; i < argc; i++) localArgsC[i] = argSliceC[i];
+                    } else {
+                        listArgsC.emplace(pContext, pContext->newList(argc, argSliceC));
                     }
-                    for (uint32_t i = 0; i <= argc; i++) stackPop(pContext);
+                    const proto::ProtoArguments inlineArgsC(localArgsC, argc <= kLocalCallArgs ? argc : 0);
 
                     const proto::ProtoMethod nativeFn = func->asMethod(pContext);
                     const proto::ProtoObject* result = nativeFn
-                        ? nativeFn(pContext, thisVal, nullptr, argsList, nullptr)
+                        ? nativeFn(pContext, thisVal, nullptr,
+                                   listArgsC ? &*listArgsC : &inlineArgsC, nullptr)
                         : PROTO_NONE;
+                    for (uint32_t i = 0; i <= argc; i++) stackPop(pContext);
                     REFRESH_INTERP_STATE();
                     if (t_hasCallException) {
                         pending_exception  = t_callException;
@@ -17216,7 +17233,7 @@ const proto::ProtoObject* runBytecode(proto::ProtoContext* pContext,
                                 ? prot->newChild(pContext, true)
                                 : pContext->newObject(true);
                             const proto::ProtoObject* r =
-                                regexpConstructor(pContext, newObj, nullptr, argsList, nullptr);
+                                regexpConstructor(pContext, newObj, nullptr, argsView(proto::ProtoListArguments(pContext, argsList)), nullptr);
                             if (t_hasCallException) {
                                 pending_exception = t_callException;
                                 has_pending_exception = true;
@@ -17425,7 +17442,7 @@ const proto::ProtoObject* runBytecode(proto::ProtoContext* pContext,
                                     ? protoForCtor->newChild(pContext, true)
                                     : pContext->newObject(true);
                                 const proto::ProtoObject* constructed = conMethod->asMethod(pContext)(
-                                    pContext, wrapper, nullptr, argsList, nullptr);
+                                    pContext, wrapper, nullptr, argsView(proto::ProtoListArguments(pContext, argsList)), nullptr);
                                 // ECMA-262 §7.3.13 Call propagates abrupt
                                 // completions.  Number(Symbol()) / Boolean()
                                 // with a throwing valueOf must surface the
@@ -19543,8 +19560,8 @@ static bool isGeneratorObject(proto::ProtoContext* ctx, const proto::ProtoObject
 static const proto::ProtoObject* generatorNext(proto::ProtoContext* ctx,
     const proto::ProtoObject* thisVal,
     const proto::ParentLink* /*parent*/,
-    const proto::ProtoList* args,
-    const proto::ProtoSparseList* /*named*/) {
+    const proto::ProtoArguments* args,
+    const proto::ProtoKeywordArguments* /*named*/) {
     const proto::ProtoObject* sentVal = (args && args->getSize(ctx) > 0)
         ? args->getAt(ctx, 0) : PROTO_NONE;
     if (!isGeneratorObject(ctx, thisVal)) {
@@ -19558,8 +19575,8 @@ static const proto::ProtoObject* generatorNext(proto::ProtoContext* ctx,
 static const proto::ProtoObject* generatorReturn(proto::ProtoContext* ctx,
     const proto::ProtoObject* thisVal,
     const proto::ParentLink* /*parent*/,
-    const proto::ProtoList* args,
-    const proto::ProtoSparseList* /*named*/) {
+    const proto::ProtoArguments* args,
+    const proto::ProtoKeywordArguments* /*named*/) {
     const proto::ProtoObject* sentVal = (args && args->getSize(ctx) > 0)
         ? args->getAt(ctx, 0) : PROTO_NONE;
     if (!isGeneratorObject(ctx, thisVal)) {
@@ -19573,8 +19590,8 @@ static const proto::ProtoObject* generatorReturn(proto::ProtoContext* ctx,
 static const proto::ProtoObject* generatorThrow(proto::ProtoContext* ctx,
     const proto::ProtoObject* thisVal,
     const proto::ParentLink* /*parent*/,
-    const proto::ProtoList* args,
-    const proto::ProtoSparseList* /*named*/) {
+    const proto::ProtoArguments* args,
+    const proto::ProtoKeywordArguments* /*named*/) {
     const proto::ProtoObject* sentVal = (args && args->getSize(ctx) > 0)
         ? args->getAt(ctx, 0) : PROTO_NONE;
     if (!isGeneratorObject(ctx, thisVal)) {
@@ -19826,7 +19843,7 @@ static void asyncGenResume(proto::ProtoContext* ctx, const proto::ProtoObject* g
 // AsyncGenerator.prototype.next / return / throw (§27.6.1.2-4).
 static const proto::ProtoObject* asyncGenRequest(proto::ProtoContext* ctx,
                                                  const proto::ProtoObject* gen,
-                                                 const proto::ProtoList* args, int completion) {
+                                                 const proto::ProtoArguments* args, int completion) {
     const proto::ProtoObject* value = (args && args->getSize(ctx) > 0) ? args->getAt(ctx, 0) : PROTO_NONE;
     if (!value) value = PROTO_NONE;
     const proto::ProtoObject* promise = newPromise(ctx);
@@ -19866,23 +19883,23 @@ static const proto::ProtoObject* asyncGenRequest(proto::ProtoContext* ctx,
 }
 
 static const proto::ProtoObject* asyncGenNext(proto::ProtoContext* ctx, const proto::ProtoObject* self,
-                                              const proto::ParentLink*, const proto::ProtoList* args,
-                                              const proto::ProtoSparseList*) {
+                                              const proto::ParentLink*, const proto::ProtoArguments* args,
+                                              const proto::ProtoKeywordArguments*) {
     return asyncGenRequest(ctx, self, args, kCompletionNormal);
 }
 static const proto::ProtoObject* asyncGenReturn(proto::ProtoContext* ctx, const proto::ProtoObject* self,
-                                                const proto::ParentLink*, const proto::ProtoList* args,
-                                                const proto::ProtoSparseList*) {
+                                                const proto::ParentLink*, const proto::ProtoArguments* args,
+                                                const proto::ProtoKeywordArguments*) {
     return asyncGenRequest(ctx, self, args, kCompletionReturn);
 }
 static const proto::ProtoObject* asyncGenThrow(proto::ProtoContext* ctx, const proto::ProtoObject* self,
-                                               const proto::ParentLink*, const proto::ProtoList* args,
-                                               const proto::ProtoSparseList*) {
+                                               const proto::ParentLink*, const proto::ProtoArguments* args,
+                                               const proto::ProtoKeywordArguments*) {
     return asyncGenRequest(ctx, self, args, kCompletionThrow);
 }
 static const proto::ProtoObject* returnThis(proto::ProtoContext*, const proto::ProtoObject* self,
-                                            const proto::ParentLink*, const proto::ProtoList*,
-                                            const proto::ProtoSparseList*) {
+                                            const proto::ParentLink*, const proto::ProtoArguments*,
+                                            const proto::ProtoKeywordArguments*) {
     return self ? self : PROTO_NONE;
 }
 
@@ -20164,7 +20181,7 @@ static void afsContinuation(proto::ProtoContext* ctx, const proto::ProtoObject* 
 }
 
 static const proto::ProtoObject* afsMethod(proto::ProtoContext* ctx, const proto::ProtoObject* self,
-                                           const proto::ProtoList* args, int completion) {
+                                           const proto::ProtoArguments* args, int completion) {
     const proto::ProtoObject* promise = newPromise(ctx);
     const proto::ProtoObject* syncIter = self ? self->getOwnAttributeDirect(ctx, afsKey(ctx, false)) : nullptr;
     if (!syncIter || syncIter == PROTO_NONE) {
@@ -20211,18 +20228,18 @@ static const proto::ProtoObject* afsMethod(proto::ProtoContext* ctx, const proto
 }
 
 static const proto::ProtoObject* afsNext(proto::ProtoContext* ctx, const proto::ProtoObject* self,
-                                         const proto::ParentLink*, const proto::ProtoList* args,
-                                         const proto::ProtoSparseList*) {
+                                         const proto::ParentLink*, const proto::ProtoArguments* args,
+                                         const proto::ProtoKeywordArguments*) {
     return afsMethod(ctx, self, args, kCompletionNormal);
 }
 static const proto::ProtoObject* afsReturn(proto::ProtoContext* ctx, const proto::ProtoObject* self,
-                                           const proto::ParentLink*, const proto::ProtoList* args,
-                                           const proto::ProtoSparseList*) {
+                                           const proto::ParentLink*, const proto::ProtoArguments* args,
+                                           const proto::ProtoKeywordArguments*) {
     return afsMethod(ctx, self, args, kCompletionReturn);
 }
 static const proto::ProtoObject* afsThrow(proto::ProtoContext* ctx, const proto::ProtoObject* self,
-                                          const proto::ParentLink*, const proto::ProtoList* args,
-                                          const proto::ProtoSparseList*) {
+                                          const proto::ParentLink*, const proto::ProtoArguments* args,
+                                          const proto::ProtoKeywordArguments*) {
     return afsMethod(ctx, self, args, kCompletionThrow);
 }
 
@@ -20297,7 +20314,7 @@ const proto::ProtoObject* jsConstruct(proto::ProtoContext* ctx, const proto::Pro
             : nullptr);
     if (argsArr) protojs::setArrayElements(ctx, argsArr, args ? args : ctx->newList());
     const proto::ProtoObject* items[2] = {target ? target : PROTO_NONE, argsArr ? argsArr : PROTO_NONE};
-    return reflectConstruct(ctx, PROTO_NONE, nullptr, ctx->newList(2, items), nullptr);
+    return reflectConstruct(ctx, PROTO_NONE, nullptr, argsView(proto::ProtoListArguments(ctx, ctx->newList(2, items))), nullptr);
 }
 
 
@@ -20367,7 +20384,7 @@ const proto::ProtoObject* callJSFunction(
     proto::ProtoContext* ctx,
     const proto::ProtoObject* fn,
     const proto::ProtoObject* thisVal,
-    const proto::ProtoList* args)
+    const proto::ProtoArguments* args)
 {
     if (!fn || fn == PROTO_NONE || !ctx) return PROTO_NONE;
 
@@ -20515,6 +20532,12 @@ const proto::ProtoObject* callJSFunction(
         childCtx.currentLineNumber = ctx->currentLineNumber;
         populateClosureCellsFromInstance(&childCtx, fn, nf);
         unsigned argc = args ? static_cast<unsigned>(args->getSize(ctx)) : 0u;
+        // The arguments as a ProtoList only when the body can see them as one
+        // (`arguments`, a rest parameter, super(...) through t_activeArgs), as
+        // OP_call decides: the call's own list when it came with one, else one
+        // built from the descriptor, young in ctx for the call.
+        const proto::ProtoList* argsList =
+            (args && nf.usesArguments) ? args->asList(ctx) : nullptr;
         const proto::ProtoObject* childEx = PROTO_NONE;
         if (debugBindEnabled()) {
             printf("[DEBUG] callJSFunction (dispatching to %d): this=%p argc=%u\n", bcId, effectiveThis, argc);
@@ -20528,9 +20551,9 @@ const proto::ProtoObject* callJSFunction(
         const proto::ProtoObject* prevActiveK = t_activeFunc;
         const proto::ProtoList*   prevArgsK   = t_activeArgs;
         t_activeFunc = fn;
-        t_activeArgs = args;
+        t_activeArgs = argsList;
         const proto::ProtoObject* result =
-            runBytecode(&childCtx, &nf, effectiveThis, args, globalRoot, &childEx);
+            runBytecode(&childCtx, &nf, effectiveThis, argsList, globalRoot, &childEx);
         t_activeFunc = prevActiveK;
         t_activeArgs = prevArgsK;
         anchorCallOutcome(childCtx, result, childEx);
@@ -20720,6 +20743,16 @@ const proto::ProtoObject* callJSFunction(
     }
 
     return PROTO_NONE;
+}
+
+const proto::ProtoObject* callJSFunction(
+    proto::ProtoContext* ctx,
+    const proto::ProtoObject* fn,
+    const proto::ProtoObject* thisVal,
+    const proto::ProtoList* args)
+{
+    const proto::ProtoListArguments positional(ctx, args);
+    return callJSFunction(ctx, fn, thisVal, &positional);
 }
 
 } // namespace protojs

@@ -26,7 +26,7 @@ std::atomic<int> worker_id_counter{0};
 
 // ---- Worker class methods ----------------------------------------------
 
-bool argString(proto::ProtoContext* ctx, const proto::ProtoList* args,
+bool argString(proto::ProtoContext* ctx, const proto::ProtoArguments* args,
                 int idx, std::string& out) {
     if (!ctx || !args) return false;
     if (idx >= static_cast<int>(args->getSize(ctx))) return false;
@@ -58,8 +58,8 @@ const proto::ProtoObject* workerSend(
     proto::ProtoContext* ctx,
     const proto::ProtoObject* self,
     const proto::ParentLink*,
-    const proto::ProtoList* args,
-    const proto::ProtoSparseList*) {
+    const proto::ProtoArguments* args,
+    const proto::ProtoKeywordArguments*) {
     std::string msg;
     if (!argString(ctx, args, 0, msg)) return PROTO_FALSE;
     int fd = getIntAttr(ctx, self, ipcWriteKey(ctx));
@@ -83,8 +83,8 @@ const proto::ProtoObject* workerDisconnect(
     proto::ProtoContext* ctx,
     const proto::ProtoObject* self,
     const proto::ParentLink*,
-    const proto::ProtoList* /*args*/,
-    const proto::ProtoSparseList*) {
+    const proto::ProtoArguments* /*args*/,
+    const proto::ProtoKeywordArguments*) {
     int rfd = getIntAttr(ctx, self, ipcReadKey(ctx));
     int wfd = getIntAttr(ctx, self, ipcWriteKey(ctx));
     if (rfd >= 0) ::close(rfd);
@@ -100,8 +100,8 @@ const proto::ProtoObject* workerKill(
     proto::ProtoContext* ctx,
     const proto::ProtoObject* self,
     const proto::ParentLink*,
-    const proto::ProtoList* args,
-    const proto::ProtoSparseList*) {
+    const proto::ProtoArguments* args,
+    const proto::ProtoKeywordArguments*) {
     int sig = SIGTERM;
     if (ctx && args && args->getSize(ctx) > 0) {
         const proto::ProtoObject* a = args->getAt(ctx, 0);
@@ -122,8 +122,8 @@ const proto::ProtoObject* setupMasterImpl(
     proto::ProtoContext* /*ctx*/,
     const proto::ProtoObject* /*self*/,
     const proto::ParentLink*,
-    const proto::ProtoList* /*args*/,
-    const proto::ProtoSparseList*) {
+    const proto::ProtoArguments* /*args*/,
+    const proto::ProtoKeywordArguments*) {
     return PROTO_NONE;
 }
 
@@ -131,15 +131,15 @@ const proto::ProtoObject* clusterFork(
     proto::ProtoContext* ctx,
     const proto::ProtoObject* /*self*/,
     const proto::ParentLink*,
-    const proto::ProtoList* /*args*/,
-    const proto::ProtoSparseList*);
+    const proto::ProtoArguments* /*args*/,
+    const proto::ProtoKeywordArguments*);
 
 const proto::ProtoObject* isMasterImpl(
     proto::ProtoContext* /*ctx*/,
     const proto::ProtoObject* /*self*/,
     const proto::ParentLink*,
-    const proto::ProtoList* /*args*/,
-    const proto::ProtoSparseList*) {
+    const proto::ProtoArguments* /*args*/,
+    const proto::ProtoKeywordArguments*) {
     return is_master_process.load() ? PROTO_TRUE : PROTO_FALSE;
 }
 
@@ -147,8 +147,8 @@ const proto::ProtoObject* isWorkerImpl(
     proto::ProtoContext* /*ctx*/,
     const proto::ProtoObject* /*self*/,
     const proto::ParentLink*,
-    const proto::ProtoList* /*args*/,
-    const proto::ProtoSparseList*) {
+    const proto::ProtoArguments* /*args*/,
+    const proto::ProtoKeywordArguments*) {
     return is_master_process.load() ? PROTO_FALSE : PROTO_TRUE;
 }
 
@@ -170,8 +170,8 @@ const proto::ProtoObject* clusterFork(
     proto::ProtoContext* ctx,
     const proto::ProtoObject* /*self*/,
     const proto::ParentLink*,
-    const proto::ProtoList* /*args*/,
-    const proto::ProtoSparseList*) {
+    const proto::ProtoArguments* /*args*/,
+    const proto::ProtoKeywordArguments*) {
     if (!ctx || !is_master_process.load()) return PROTO_NONE;
 #if defined(_WIN32)
     // Windows has no fork(): cluster workers are not available there.

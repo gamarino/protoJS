@@ -256,8 +256,8 @@ static const proto::ProtoObject* requireResolveProtoMethod(
         proto::ProtoContext* pCtx,
         const proto::ProtoObject* /*self*/,
         const proto::ParentLink*,
-        const proto::ProtoList* args,
-        const proto::ProtoSparseList*) {
+        const proto::ProtoArguments* args,
+        const proto::ProtoKeywordArguments*) {
     if (!pCtx) return PROTO_NONE;
     if (refuseOnDeferredThread(pCtx, "require.resolve()")) return PROTO_NONE;
     if (!args || args->getSize(pCtx) == 0) {
@@ -735,8 +735,8 @@ const proto::ProtoObject* CommonJSLoader::requireProtoMethod(
     proto::ProtoContext* pCtx,
     const proto::ProtoObject* self,
     const proto::ParentLink* parent,
-    const proto::ProtoList* args,
-    const proto::ProtoSparseList* locals
+    const proto::ProtoArguments* args,
+    const proto::ProtoKeywordArguments* locals
 ) {
     if (!pCtx) return PROTO_NONE;
     // The loader runs QuickJS and the owner thread's module state.

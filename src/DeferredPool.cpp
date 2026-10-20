@@ -116,8 +116,8 @@ void DeferredPool::shutdown() {
 const proto::ProtoObject* DeferredPool::threadMain(proto::ProtoContext* ctx,
                                                    const proto::ProtoObject* /*self*/,
                                                    const proto::ParentLink*,
-                                                   const proto::ProtoList* args,
-                                                   const proto::ProtoSparseList*) {
+                                                   const proto::ProtoArguments* args,
+                                                   const proto::ProtoKeywordArguments*) {
     if (!ctx || !args || args->getSize(ctx) < 1) return PROTO_NONE;
     const proto::ProtoObject* p = args->getAt(ctx, 0);
     const proto::ProtoExternalPointer* ep = p ? p->asExternalPointer(ctx) : nullptr;

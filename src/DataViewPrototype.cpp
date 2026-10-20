@@ -40,7 +40,7 @@ static uint8_t* dvGetRaw(proto::ProtoContext* ctx, const proto::ProtoObject* sel
     return raw ? static_cast<uint8_t*>(raw) + absOffset : nullptr;
 }
 
-static bool isLittleEndian(proto::ProtoContext* ctx, const proto::ProtoList* args, int argIdx) {
+static bool isLittleEndian(proto::ProtoContext* ctx, const proto::ProtoArguments* args, int argIdx) {
     if (!args || args->getSize(ctx) <= argIdx) return false;
     const proto::ProtoObject* le = args->getAt(ctx, argIdx);
     if (!le || le == PROTO_NONE || le == PROTO_FALSE) return false;
@@ -49,7 +49,7 @@ static bool isLittleEndian(proto::ProtoContext* ctx, const proto::ProtoList* arg
     return true; // any non-null, non-false object is truthy
 }
 
-static long long dvGetByteOffset(proto::ProtoContext* ctx, const proto::ProtoList* args) {
+static long long dvGetByteOffset(proto::ProtoContext* ctx, const proto::ProtoArguments* args) {
     if (!args || args->getSize(ctx) == 0) return 0;
     const proto::ProtoObject* a0 = args->getAt(ctx, 0);
     if (!a0 || a0 == PROTO_NONE) return 0;
@@ -72,7 +72,7 @@ static uint64_t bswap64(uint64_t v) { return __builtin_bswap64(v); }
 // ---- get methods --------------------------------------------------------
 static const proto::ProtoObject* dv_getInt8(
     proto::ProtoContext* ctx, const proto::ProtoObject* self,
-    const proto::ParentLink*, const proto::ProtoList* args, const proto::ProtoSparseList*)
+    const proto::ParentLink*, const proto::ProtoArguments* args, const proto::ProtoKeywordArguments*)
 {
     uint8_t* raw = dvGetRaw(ctx, self, dvGetByteOffset(ctx, args), 1);
     if (!raw) return PROTO_NONE;
@@ -81,7 +81,7 @@ static const proto::ProtoObject* dv_getInt8(
 
 static const proto::ProtoObject* dv_getUint8(
     proto::ProtoContext* ctx, const proto::ProtoObject* self,
-    const proto::ParentLink*, const proto::ProtoList* args, const proto::ProtoSparseList*)
+    const proto::ParentLink*, const proto::ProtoArguments* args, const proto::ProtoKeywordArguments*)
 {
     uint8_t* raw = dvGetRaw(ctx, self, dvGetByteOffset(ctx, args), 1);
     if (!raw) return PROTO_NONE;
@@ -90,7 +90,7 @@ static const proto::ProtoObject* dv_getUint8(
 
 static const proto::ProtoObject* dv_getInt16(
     proto::ProtoContext* ctx, const proto::ProtoObject* self,
-    const proto::ParentLink*, const proto::ProtoList* args, const proto::ProtoSparseList*)
+    const proto::ParentLink*, const proto::ProtoArguments* args, const proto::ProtoKeywordArguments*)
 {
     long long bo = dvGetByteOffset(ctx, args);
     bool le = isLittleEndian(ctx, args, 1);
@@ -107,7 +107,7 @@ static const proto::ProtoObject* dv_getInt16(
 
 static const proto::ProtoObject* dv_getUint16(
     proto::ProtoContext* ctx, const proto::ProtoObject* self,
-    const proto::ParentLink*, const proto::ProtoList* args, const proto::ProtoSparseList*)
+    const proto::ParentLink*, const proto::ProtoArguments* args, const proto::ProtoKeywordArguments*)
 {
     long long bo = dvGetByteOffset(ctx, args);
     bool le = isLittleEndian(ctx, args, 1);
@@ -124,7 +124,7 @@ static const proto::ProtoObject* dv_getUint16(
 
 static const proto::ProtoObject* dv_getInt32(
     proto::ProtoContext* ctx, const proto::ProtoObject* self,
-    const proto::ParentLink*, const proto::ProtoList* args, const proto::ProtoSparseList*)
+    const proto::ParentLink*, const proto::ProtoArguments* args, const proto::ProtoKeywordArguments*)
 {
     long long bo = dvGetByteOffset(ctx, args);
     bool le = isLittleEndian(ctx, args, 1);
@@ -141,7 +141,7 @@ static const proto::ProtoObject* dv_getInt32(
 
 static const proto::ProtoObject* dv_getUint32(
     proto::ProtoContext* ctx, const proto::ProtoObject* self,
-    const proto::ParentLink*, const proto::ProtoList* args, const proto::ProtoSparseList*)
+    const proto::ParentLink*, const proto::ProtoArguments* args, const proto::ProtoKeywordArguments*)
 {
     long long bo = dvGetByteOffset(ctx, args);
     bool le = isLittleEndian(ctx, args, 1);
@@ -158,7 +158,7 @@ static const proto::ProtoObject* dv_getUint32(
 
 static const proto::ProtoObject* dv_getFloat32(
     proto::ProtoContext* ctx, const proto::ProtoObject* self,
-    const proto::ParentLink*, const proto::ProtoList* args, const proto::ProtoSparseList*)
+    const proto::ParentLink*, const proto::ProtoArguments* args, const proto::ProtoKeywordArguments*)
 {
     long long bo = dvGetByteOffset(ctx, args);
     bool le = isLittleEndian(ctx, args, 1);
@@ -176,7 +176,7 @@ static const proto::ProtoObject* dv_getFloat32(
 
 static const proto::ProtoObject* dv_getFloat64(
     proto::ProtoContext* ctx, const proto::ProtoObject* self,
-    const proto::ParentLink*, const proto::ProtoList* args, const proto::ProtoSparseList*)
+    const proto::ParentLink*, const proto::ProtoArguments* args, const proto::ProtoKeywordArguments*)
 {
     long long bo = dvGetByteOffset(ctx, args);
     bool le = isLittleEndian(ctx, args, 1);
@@ -194,7 +194,7 @@ static const proto::ProtoObject* dv_getFloat64(
 
 static const proto::ProtoObject* dv_getBigInt64(
     proto::ProtoContext* ctx, const proto::ProtoObject* self,
-    const proto::ParentLink*, const proto::ProtoList* args, const proto::ProtoSparseList*)
+    const proto::ParentLink*, const proto::ProtoArguments* args, const proto::ProtoKeywordArguments*)
 {
     long long bo = dvGetByteOffset(ctx, args);
     bool le = isLittleEndian(ctx, args, 1);
@@ -211,7 +211,7 @@ static const proto::ProtoObject* dv_getBigInt64(
 
 static const proto::ProtoObject* dv_getBigUint64(
     proto::ProtoContext* ctx, const proto::ProtoObject* self,
-    const proto::ParentLink*, const proto::ProtoList* args, const proto::ProtoSparseList*)
+    const proto::ParentLink*, const proto::ProtoArguments* args, const proto::ProtoKeywordArguments*)
 {
     long long bo = dvGetByteOffset(ctx, args);
     bool le = isLittleEndian(ctx, args, 1);
@@ -230,7 +230,7 @@ static const proto::ProtoObject* dv_getBigUint64(
 }
 
 // ---- set methods --------------------------------------------------------
-static long long dvSetGetValue(proto::ProtoContext* ctx, const proto::ProtoList* args, int idx) {
+static long long dvSetGetValue(proto::ProtoContext* ctx, const proto::ProtoArguments* args, int idx) {
     if (!args || args->getSize(ctx) <= idx) return 0;
     const proto::ProtoObject* v = args->getAt(ctx, idx);
     if (!v || v == PROTO_NONE) return 0;
@@ -239,7 +239,7 @@ static long long dvSetGetValue(proto::ProtoContext* ctx, const proto::ProtoList*
     return 0;
 }
 
-static double dvSetGetValueDouble(proto::ProtoContext* ctx, const proto::ProtoList* args, int idx) {
+static double dvSetGetValueDouble(proto::ProtoContext* ctx, const proto::ProtoArguments* args, int idx) {
     if (!args || args->getSize(ctx) <= idx) return 0.0;
     const proto::ProtoObject* v = args->getAt(ctx, idx);
     if (!v || v == PROTO_NONE) return 0.0;
@@ -250,7 +250,7 @@ static double dvSetGetValueDouble(proto::ProtoContext* ctx, const proto::ProtoLi
 
 static const proto::ProtoObject* dv_setInt8(
     proto::ProtoContext* ctx, const proto::ProtoObject* self,
-    const proto::ParentLink*, const proto::ProtoList* args, const proto::ProtoSparseList*)
+    const proto::ParentLink*, const proto::ProtoArguments* args, const proto::ProtoKeywordArguments*)
 {
     uint8_t* raw = dvGetRaw(ctx, self, dvGetByteOffset(ctx, args), 1);
     if (!raw) return PROTO_NONE;
@@ -260,7 +260,7 @@ static const proto::ProtoObject* dv_setInt8(
 
 static const proto::ProtoObject* dv_setUint8(
     proto::ProtoContext* ctx, const proto::ProtoObject* self,
-    const proto::ParentLink*, const proto::ProtoList* args, const proto::ProtoSparseList*)
+    const proto::ParentLink*, const proto::ProtoArguments* args, const proto::ProtoKeywordArguments*)
 {
     uint8_t* raw = dvGetRaw(ctx, self, dvGetByteOffset(ctx, args), 1);
     if (!raw) return PROTO_NONE;
@@ -270,7 +270,7 @@ static const proto::ProtoObject* dv_setUint8(
 
 static const proto::ProtoObject* dv_setInt16(
     proto::ProtoContext* ctx, const proto::ProtoObject* self,
-    const proto::ParentLink*, const proto::ProtoList* args, const proto::ProtoSparseList*)
+    const proto::ParentLink*, const proto::ProtoArguments* args, const proto::ProtoKeywordArguments*)
 {
     long long bo = dvGetByteOffset(ctx, args);
     bool le = isLittleEndian(ctx, args, 2);
@@ -288,7 +288,7 @@ static const proto::ProtoObject* dv_setInt16(
 
 static const proto::ProtoObject* dv_setUint16(
     proto::ProtoContext* ctx, const proto::ProtoObject* self,
-    const proto::ParentLink*, const proto::ProtoList* args, const proto::ProtoSparseList*)
+    const proto::ParentLink*, const proto::ProtoArguments* args, const proto::ProtoKeywordArguments*)
 {
     long long bo = dvGetByteOffset(ctx, args);
     bool le = isLittleEndian(ctx, args, 2);
@@ -306,7 +306,7 @@ static const proto::ProtoObject* dv_setUint16(
 
 static const proto::ProtoObject* dv_setInt32(
     proto::ProtoContext* ctx, const proto::ProtoObject* self,
-    const proto::ParentLink*, const proto::ProtoList* args, const proto::ProtoSparseList*)
+    const proto::ParentLink*, const proto::ProtoArguments* args, const proto::ProtoKeywordArguments*)
 {
     long long bo = dvGetByteOffset(ctx, args);
     bool le = isLittleEndian(ctx, args, 2);
@@ -324,7 +324,7 @@ static const proto::ProtoObject* dv_setInt32(
 
 static const proto::ProtoObject* dv_setUint32(
     proto::ProtoContext* ctx, const proto::ProtoObject* self,
-    const proto::ParentLink*, const proto::ProtoList* args, const proto::ProtoSparseList*)
+    const proto::ParentLink*, const proto::ProtoArguments* args, const proto::ProtoKeywordArguments*)
 {
     long long bo = dvGetByteOffset(ctx, args);
     bool le = isLittleEndian(ctx, args, 2);
@@ -342,7 +342,7 @@ static const proto::ProtoObject* dv_setUint32(
 
 static const proto::ProtoObject* dv_setFloat32(
     proto::ProtoContext* ctx, const proto::ProtoObject* self,
-    const proto::ParentLink*, const proto::ProtoList* args, const proto::ProtoSparseList*)
+    const proto::ParentLink*, const proto::ProtoArguments* args, const proto::ProtoKeywordArguments*)
 {
     long long bo = dvGetByteOffset(ctx, args);
     bool le = isLittleEndian(ctx, args, 2);
@@ -361,7 +361,7 @@ static const proto::ProtoObject* dv_setFloat32(
 
 static const proto::ProtoObject* dv_setFloat64(
     proto::ProtoContext* ctx, const proto::ProtoObject* self,
-    const proto::ParentLink*, const proto::ProtoList* args, const proto::ProtoSparseList*)
+    const proto::ParentLink*, const proto::ProtoArguments* args, const proto::ProtoKeywordArguments*)
 {
     long long bo = dvGetByteOffset(ctx, args);
     bool le = isLittleEndian(ctx, args, 2);
@@ -380,7 +380,7 @@ static const proto::ProtoObject* dv_setFloat64(
 
 static const proto::ProtoObject* dv_setBigInt64(
     proto::ProtoContext* ctx, const proto::ProtoObject* self,
-    const proto::ParentLink*, const proto::ProtoList* args, const proto::ProtoSparseList*)
+    const proto::ParentLink*, const proto::ProtoArguments* args, const proto::ProtoKeywordArguments*)
 {
     long long bo = dvGetByteOffset(ctx, args);
     bool le = isLittleEndian(ctx, args, 2);
@@ -398,7 +398,7 @@ static const proto::ProtoObject* dv_setBigInt64(
 
 static const proto::ProtoObject* dv_setBigUint64(
     proto::ProtoContext* ctx, const proto::ProtoObject* self,
-    const proto::ParentLink*, const proto::ProtoList* args, const proto::ProtoSparseList*)
+    const proto::ParentLink*, const proto::ProtoArguments* args, const proto::ProtoKeywordArguments*)
 {
     long long bo = dvGetByteOffset(ctx, args);
     bool le = isLittleEndian(ctx, args, 2);
@@ -417,7 +417,7 @@ static const proto::ProtoObject* dv_setBigUint64(
 // ---- DataView.prototype property accessors (buffer, byteOffset, byteLength) ----
 static const proto::ProtoObject* dv_get_buffer(
     proto::ProtoContext* ctx, const proto::ProtoObject* self,
-    const proto::ParentLink*, const proto::ProtoList*, const proto::ProtoSparseList*)
+    const proto::ParentLink*, const proto::ProtoArguments*, const proto::ProtoKeywordArguments*)
 {
     if (!self || self == PROTO_NONE) return PROTO_NONE;
     const proto::ProtoObject* ab = self->getAttribute(ctx, JSSymbols::dvBuffer(ctx), false);
@@ -426,7 +426,7 @@ static const proto::ProtoObject* dv_get_buffer(
 
 static const proto::ProtoObject* dv_get_byteOffset(
     proto::ProtoContext* ctx, const proto::ProtoObject* self,
-    const proto::ParentLink*, const proto::ProtoList*, const proto::ProtoSparseList*)
+    const proto::ParentLink*, const proto::ProtoArguments*, const proto::ProtoKeywordArguments*)
 {
     if (!self || self == PROTO_NONE) return ctx->fromInteger(0LL);
     const proto::ProtoObject* bo = self->getAttribute(ctx, JSSymbols::dvByteOffset(ctx), false);
@@ -435,7 +435,7 @@ static const proto::ProtoObject* dv_get_byteOffset(
 
 static const proto::ProtoObject* dv_get_byteLength(
     proto::ProtoContext* ctx, const proto::ProtoObject* self,
-    const proto::ParentLink*, const proto::ProtoList*, const proto::ProtoSparseList*)
+    const proto::ParentLink*, const proto::ProtoArguments*, const proto::ProtoKeywordArguments*)
 {
     if (!self || self == PROTO_NONE) return ctx->fromInteger(0LL);
     const proto::ProtoObject* bl = self->getAttribute(ctx, JSSymbols::dvByteLength(ctx), false);

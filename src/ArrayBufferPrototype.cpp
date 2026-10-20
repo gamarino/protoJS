@@ -28,7 +28,7 @@ static const proto::ProtoObject* arrayBufferProto(proto::ProtoContext* ctx) {
 // ---------------------------------------------------------------------------
 static const proto::ProtoObject* ab_get_byteLength(
     proto::ProtoContext* ctx, const proto::ProtoObject* self,
-    const proto::ParentLink*, const proto::ProtoList*, const proto::ProtoSparseList*)
+    const proto::ParentLink*, const proto::ProtoArguments*, const proto::ProtoKeywordArguments*)
 {
     // §25.1.6.1 RequireInternalSlot(O, [[ArrayBufferData]]).
     if (!self || self == PROTO_NONE
@@ -46,7 +46,7 @@ static const proto::ProtoObject* ab_get_byteLength(
 // ---------------------------------------------------------------------------
 static const proto::ProtoObject* ab_slice(
     proto::ProtoContext* ctx, const proto::ProtoObject* self,
-    const proto::ParentLink*, const proto::ProtoList* args, const proto::ProtoSparseList*)
+    const proto::ParentLink*, const proto::ProtoArguments* args, const proto::ProtoKeywordArguments*)
 {
     // Check if self is a valid ArrayBuffer by verifying it has the backing store object.
     if (!ctx || !self || self == PROTO_NONE) return PROTO_NONE;
@@ -106,7 +106,7 @@ static const proto::ProtoObject* ab_slice(
 // ---------------------------------------------------------------------------
 static const proto::ProtoObject* ab_isView(
     proto::ProtoContext* ctx, const proto::ProtoObject*,
-    const proto::ParentLink*, const proto::ProtoList* args, const proto::ProtoSparseList*)
+    const proto::ParentLink*, const proto::ProtoArguments* args, const proto::ProtoKeywordArguments*)
 {
     if (!args || args->getSize(ctx) == 0) return PROTO_FALSE;
     const proto::ProtoObject* arg = args->getAt(ctx, 0);
@@ -417,7 +417,7 @@ void ensureArrayBufferConstructor(proto::ProtoContext* ctx,
                 static const auto abSpeciesGetter = [](
                     proto::ProtoContext* /*ctx*/, const proto::ProtoObject* self,
                     const proto::ParentLink*,
-                    const proto::ProtoList*, const proto::ProtoSparseList*)
+                    const proto::ProtoArguments*, const proto::ProtoKeywordArguments*)
                     -> const proto::ProtoObject* { return self; };
                 const proto::ProtoString* nfKey = JSSymbols::nativeFn(ctx);
                 if (nfKey) {

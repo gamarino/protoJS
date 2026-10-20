@@ -24,7 +24,7 @@ const proto::ProtoString* typeKey(proto::ProtoContext* ctx) {
     return proto::ProtoString::createSymbol(ctx, "__type__");
 }
 
-bool argString(proto::ProtoContext* ctx, const proto::ProtoList* args,
+bool argString(proto::ProtoContext* ctx, const proto::ProtoArguments* args,
                 int idx, std::string& out) {
     if (!ctx || !args) return false;
     if (idx >= static_cast<int>(args->getSize(ctx))) return false;
@@ -34,7 +34,7 @@ bool argString(proto::ProtoContext* ctx, const proto::ProtoList* args,
     return true;
 }
 
-bool argInt(proto::ProtoContext* ctx, const proto::ProtoList* args,
+bool argInt(proto::ProtoContext* ctx, const proto::ProtoArguments* args,
              int idx, long long& out) {
     if (!ctx || !args) return false;
     if (idx >= static_cast<int>(args->getSize(ctx))) return false;
@@ -63,8 +63,8 @@ const proto::ProtoObject* socketBindImpl(
     proto::ProtoContext* ctx,
     const proto::ProtoObject* self,
     const proto::ParentLink*,
-    const proto::ProtoList* args,
-    const proto::ProtoSparseList*) {
+    const proto::ProtoArguments* args,
+    const proto::ProtoKeywordArguments*) {
     int fd = getFd(ctx, self);
     if (fd < 0) return PROTO_FALSE;
     long long port = 0;
@@ -97,8 +97,8 @@ const proto::ProtoObject* socketSendImpl(
     proto::ProtoContext* ctx,
     const proto::ProtoObject* self,
     const proto::ParentLink*,
-    const proto::ProtoList* args,
-    const proto::ProtoSparseList*) {
+    const proto::ProtoArguments* args,
+    const proto::ProtoKeywordArguments*) {
     int fd = getFd(ctx, self);
     if (fd < 0) return PROTO_FALSE;
     std::string data;
@@ -120,8 +120,8 @@ const proto::ProtoObject* socketCloseImpl(
     proto::ProtoContext* ctx,
     const proto::ProtoObject* self,
     const proto::ParentLink*,
-    const proto::ProtoList* /*args*/,
-    const proto::ProtoSparseList*) {
+    const proto::ProtoArguments* /*args*/,
+    const proto::ProtoKeywordArguments*) {
     int fd = getFd(ctx, self);
     if (fd >= 0) {
         platform::closeSocket(fd);
@@ -137,8 +137,8 @@ const proto::ProtoObject* socketAddMembershipImpl(
     proto::ProtoContext* ctx,
     const proto::ProtoObject* self,
     const proto::ParentLink*,
-    const proto::ProtoList* args,
-    const proto::ProtoSparseList*) {
+    const proto::ProtoArguments* args,
+    const proto::ProtoKeywordArguments*) {
     int fd = getFd(ctx, self);
     if (fd < 0) return PROTO_FALSE;
 
@@ -201,8 +201,8 @@ const proto::ProtoObject* socketSetBroadcastImpl(
     proto::ProtoContext* ctx,
     const proto::ProtoObject* self,
     const proto::ParentLink*,
-    const proto::ProtoList* args,
-    const proto::ProtoSparseList*) {
+    const proto::ProtoArguments* args,
+    const proto::ProtoKeywordArguments*) {
     int fd = getFd(ctx, self);
     if (fd < 0 || !args || args->getSize(ctx) == 0) return PROTO_FALSE;
     int on = (args->getAt(ctx, 0) == PROTO_TRUE) ? 1 : 0;
@@ -214,8 +214,8 @@ const proto::ProtoObject* socketAddressImpl(
     proto::ProtoContext* ctx,
     const proto::ProtoObject* self,
     const proto::ParentLink*,
-    const proto::ProtoList* /*args*/,
-    const proto::ProtoSparseList*) {
+    const proto::ProtoArguments* /*args*/,
+    const proto::ProtoKeywordArguments*) {
     int fd = getFd(ctx, self);
     if (fd < 0) return PROTO_NONE;
     sockaddr_in sa{};
@@ -259,8 +259,8 @@ const proto::ProtoObject* createSocketImpl(
     proto::ProtoContext* ctx,
     const proto::ProtoObject* /*self*/,
     const proto::ParentLink*,
-    const proto::ProtoList* args,
-    const proto::ProtoSparseList*) {
+    const proto::ProtoArguments* args,
+    const proto::ProtoKeywordArguments*) {
     std::string type = "udp4";
     argString(ctx, args, 0, type);
     int family = (type == "udp6") ? AF_INET6 : AF_INET;

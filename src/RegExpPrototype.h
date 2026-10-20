@@ -25,16 +25,16 @@ void ensureRegExpConstructor(proto::ProtoContext* ctx,
  */
 const proto::ProtoObject* regexpConstructor(
     proto::ProtoContext* ctx, const proto::ProtoObject* self,
-    const proto::ParentLink* parent, const proto::ProtoList* args,
-    const proto::ProtoSparseList* kwargs);
+    const proto::ParentLink* parent, const proto::ProtoArguments* args,
+    const proto::ProtoKeywordArguments* kwargs);
 
 /**
  * Core exec logic — shared with RegExpStringIterator.
  */
 const proto::ProtoObject* regexpExec(
     proto::ProtoContext* ctx, const proto::ProtoObject* self,
-    const proto::ParentLink* parent, const proto::ProtoList* args,
-    const proto::ProtoSparseList* kwargs);
+    const proto::ParentLink* parent, const proto::ProtoArguments* args,
+    const proto::ProtoKeywordArguments* kwargs);
 
 /**
  * After an empty match of a global walk over `input` (UTF-8): set re.lastIndex

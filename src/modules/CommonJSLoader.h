@@ -67,8 +67,8 @@ private:
         proto::ProtoContext* pCtx,
         const proto::ProtoObject* self,
         const proto::ParentLink* parent,
-        const proto::ProtoList* args,
-        const proto::ProtoSparseList* locals
+        const proto::ProtoArguments* args,
+        const proto::ProtoKeywordArguments* locals
     );
 };
 

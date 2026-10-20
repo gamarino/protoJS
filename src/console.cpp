@@ -165,8 +165,8 @@ static void printProtoValue(proto::ProtoContext* ctx, const proto::ProtoObject* 
 const proto::ProtoObject* Console::log(proto::ProtoContext* ctx,
                                         const proto::ProtoObject* /*self*/,
                                         const proto::ParentLink* /*parentLink*/,
-                                        const proto::ProtoList* args,
-                                        const proto::ProtoSparseList* /*kwargs*/) {
+                                        const proto::ProtoArguments* args,
+                                        const proto::ProtoKeywordArguments* /*kwargs*/) {
     if (!ctx) return PROTO_NONE;
     // One write per call: Deferred pool threads log concurrently with the
     // main thread, and piecewise writes interleaved their lines.
@@ -185,8 +185,8 @@ const proto::ProtoObject* Console::log(proto::ProtoContext* ctx,
 const proto::ProtoObject* Console::error(proto::ProtoContext* ctx,
                                           const proto::ProtoObject* /*self*/,
                                           const proto::ParentLink* /*parentLink*/,
-                                          const proto::ProtoList* args,
-                                          const proto::ProtoSparseList* /*kwargs*/) {
+                                          const proto::ProtoArguments* args,
+                                          const proto::ProtoKeywordArguments* /*kwargs*/) {
     if (!ctx) return PROTO_NONE;
     std::ostringstream line;  // one write per call (see Console::log)
     int argc = args ? static_cast<int>(args->getSize(ctx)) : 0;
@@ -202,8 +202,8 @@ const proto::ProtoObject* Console::error(proto::ProtoContext* ctx,
 const proto::ProtoObject* Console::warn(proto::ProtoContext* ctx,
                                          const proto::ProtoObject* /*self*/,
                                          const proto::ParentLink* /*parentLink*/,
-                                         const proto::ProtoList* args,
-                                         const proto::ProtoSparseList* /*kwargs*/) {
+                                         const proto::ProtoArguments* args,
+                                         const proto::ProtoKeywordArguments* /*kwargs*/) {
     if (!ctx) return PROTO_NONE;
     std::cerr << "Warning: ";
     int argc = args ? static_cast<int>(args->getSize(ctx)) : 0;
@@ -231,7 +231,7 @@ namespace {
         static TimerStore s;
         return s;
     }
-    std::string firstStringArg(proto::ProtoContext* ctx, const proto::ProtoList* args,
+    std::string firstStringArg(proto::ProtoContext* ctx, const proto::ProtoArguments* args,
                                 const std::string& fallback) {
         if (!args || args->getSize(ctx) == 0) return fallback;
         const proto::ProtoObject* a0 = args->getAt(ctx, 0);
@@ -247,8 +247,8 @@ namespace {
 const proto::ProtoObject* Console::time(proto::ProtoContext* ctx,
                                          const proto::ProtoObject* /*self*/,
                                          const proto::ParentLink* /*parentLink*/,
-                                         const proto::ProtoList* args,
-                                         const proto::ProtoSparseList* /*kwargs*/) {
+                                         const proto::ProtoArguments* args,
+                                         const proto::ProtoKeywordArguments* /*kwargs*/) {
     if (!ctx) return PROTO_NONE;
     std::string label = firstStringArg(ctx, args, "default");
     auto& store = timerStore();
@@ -260,8 +260,8 @@ const proto::ProtoObject* Console::time(proto::ProtoContext* ctx,
 const proto::ProtoObject* Console::timeEnd(proto::ProtoContext* ctx,
                                             const proto::ProtoObject* /*self*/,
                                             const proto::ParentLink* /*parentLink*/,
-                                            const proto::ProtoList* args,
-                                            const proto::ProtoSparseList* /*kwargs*/) {
+                                            const proto::ProtoArguments* args,
+                                            const proto::ProtoKeywordArguments* /*kwargs*/) {
     if (!ctx) return PROTO_NONE;
     std::string label = firstStringArg(ctx, args, "default");
     auto& store = timerStore();
@@ -290,8 +290,8 @@ const proto::ProtoObject* Console::timeEnd(proto::ProtoContext* ctx,
 const proto::ProtoObject* Console::timeLog(proto::ProtoContext* ctx,
                                             const proto::ProtoObject* /*self*/,
                                             const proto::ParentLink* /*parentLink*/,
-                                            const proto::ProtoList* args,
-                                            const proto::ProtoSparseList* /*kwargs*/) {
+                                            const proto::ProtoArguments* args,
+                                            const proto::ProtoKeywordArguments* /*kwargs*/) {
     if (!ctx) return PROTO_NONE;
     std::string label = firstStringArg(ctx, args, "default");
     auto& store = timerStore();
@@ -326,8 +326,8 @@ const proto::ProtoObject* Console::timeLog(proto::ProtoContext* ctx,
 const proto::ProtoObject* Console::assert_(proto::ProtoContext* ctx,
                                             const proto::ProtoObject* /*self*/,
                                             const proto::ParentLink* /*parentLink*/,
-                                            const proto::ProtoList* args,
-                                            const proto::ProtoSparseList* /*kwargs*/) {
+                                            const proto::ProtoArguments* args,
+                                            const proto::ProtoKeywordArguments* /*kwargs*/) {
     if (!ctx) return PROTO_NONE;
     int argc = args ? static_cast<int>(args->getSize(ctx)) : 0;
     if (argc == 0) return PROTO_NONE;
@@ -352,8 +352,8 @@ const proto::ProtoObject* Console::assert_(proto::ProtoContext* ctx,
 const proto::ProtoObject* Console::group(proto::ProtoContext* ctx,
                                           const proto::ProtoObject*,
                                           const proto::ParentLink*,
-                                          const proto::ProtoList* args,
-                                          const proto::ProtoSparseList*) {
+                                          const proto::ProtoArguments* args,
+                                          const proto::ProtoKeywordArguments*) {
     return Console::log(ctx, nullptr, nullptr, args, nullptr);
 }
 
@@ -361,8 +361,8 @@ const proto::ProtoObject* Console::group(proto::ProtoContext* ctx,
 const proto::ProtoObject* Console::dir(proto::ProtoContext* ctx,
                                         const proto::ProtoObject*,
                                         const proto::ParentLink*,
-                                        const proto::ProtoList* args,
-                                        const proto::ProtoSparseList*) {
+                                        const proto::ProtoArguments* args,
+                                        const proto::ProtoKeywordArguments*) {
     return Console::log(ctx, nullptr, nullptr, args, nullptr);
 }
 
@@ -370,8 +370,8 @@ const proto::ProtoObject* Console::dir(proto::ProtoContext* ctx,
 const proto::ProtoObject* Console::trace(proto::ProtoContext* ctx,
                                           const proto::ProtoObject*,
                                           const proto::ParentLink*,
-                                          const proto::ProtoList* args,
-                                          const proto::ProtoSparseList*) {
+                                          const proto::ProtoArguments* args,
+                                          const proto::ProtoKeywordArguments*) {
     std::cerr << "Trace";
     int argc = args ? static_cast<int>(args->getSize(ctx)) : 0;
     for (int i = 0; i < argc; ++i) {
@@ -386,8 +386,8 @@ const proto::ProtoObject* Console::trace(proto::ProtoContext* ctx,
 const proto::ProtoObject* Console::count(proto::ProtoContext* ctx,
                                           const proto::ProtoObject*,
                                           const proto::ParentLink*,
-                                          const proto::ProtoList* args,
-                                          const proto::ProtoSparseList*) {
+                                          const proto::ProtoArguments* args,
+                                          const proto::ProtoKeywordArguments*) {
     std::string label = firstStringArg(ctx, args, "default");
     std::cout << label << ": 1\n";
     return PROTO_NONE;
@@ -453,8 +453,8 @@ namespace {
 const proto::ProtoObject* TimingAPIs::dateConstructor(proto::ProtoContext* ctx,
                                                        const proto::ProtoObject* self,
                                                        const proto::ParentLink* /*parentLink*/,
-                                                       const proto::ProtoList* /*args*/,
-                                                       const proto::ProtoSparseList* /*kwargs*/) {
+                                                       const proto::ProtoArguments* /*args*/,
+                                                       const proto::ProtoKeywordArguments* /*kwargs*/) {
     if (!ctx) return PROTO_NONE;
     
     // If called with 'new', self is the new instance.
@@ -474,8 +474,8 @@ const proto::ProtoObject* TimingAPIs::dateConstructor(proto::ProtoContext* ctx,
 const proto::ProtoObject* TimingAPIs::dateNow(proto::ProtoContext* ctx,
                                                const proto::ProtoObject* /*self*/,
                                                const proto::ParentLink* /*parentLink*/,
-                                               const proto::ProtoList* /*args*/,
-                                               const proto::ProtoSparseList* /*kwargs*/) {
+                                               const proto::ProtoArguments* /*args*/,
+                                               const proto::ProtoKeywordArguments* /*kwargs*/) {
     if (!ctx) return PROTO_NONE;
     auto now = std::chrono::system_clock::now();
     auto ms = std::chrono::duration_cast<std::chrono::milliseconds>(
@@ -487,8 +487,8 @@ const proto::ProtoObject* TimingAPIs::dateNow(proto::ProtoContext* ctx,
 const proto::ProtoObject* TimingAPIs::performanceNow(proto::ProtoContext* ctx,
                                                       const proto::ProtoObject* /*self*/,
                                                       const proto::ParentLink* /*parentLink*/,
-                                                      const proto::ProtoList* /*args*/,
-                                                      const proto::ProtoSparseList* /*kwargs*/) {
+                                                      const proto::ProtoArguments* /*args*/,
+                                                      const proto::ProtoKeywordArguments* /*kwargs*/) {
     if (!ctx) return PROTO_NONE;
     auto now = std::chrono::steady_clock::now();
     double ms = std::chrono::duration<double, std::milli>(now - kPerfEpoch).count();
@@ -502,8 +502,8 @@ const proto::ProtoObject* TimingAPIs::performanceNow(proto::ProtoContext* ctx,
 const proto::ProtoObject* TimingAPIs::dateParse(proto::ProtoContext* ctx,
                                                  const proto::ProtoObject* /*self*/,
                                                  const proto::ParentLink* /*parentLink*/,
-                                                 const proto::ProtoList* args,
-                                                 const proto::ProtoSparseList* /*kwargs*/) {
+                                                 const proto::ProtoArguments* args,
+                                                 const proto::ProtoKeywordArguments* /*kwargs*/) {
     if (!ctx) return PROTO_NONE;
     double nan = std::numeric_limits<double>::quiet_NaN();
     if (!args || args->getSize(ctx) == 0) return makeNumber(ctx, nan);
@@ -542,8 +542,8 @@ const proto::ProtoObject* TimingAPIs::dateParse(proto::ProtoContext* ctx,
 const proto::ProtoObject* TimingAPIs::dateUTC(proto::ProtoContext* ctx,
                                                const proto::ProtoObject* /*self*/,
                                                const proto::ParentLink* /*parentLink*/,
-                                               const proto::ProtoList* args,
-                                               const proto::ProtoSparseList* /*kwargs*/) {
+                                               const proto::ProtoArguments* args,
+                                               const proto::ProtoKeywordArguments* /*kwargs*/) {
     if (!ctx) return PROTO_NONE;
     double nan = std::numeric_limits<double>::quiet_NaN();
     int argc = args ? static_cast<int>(args->getSize(ctx)) : 0;
