@@ -211,7 +211,7 @@ const proto::ProtoObject* eeEmit(
         const proto::ProtoObject* cb = handlerOf(ctx, entry);
         if (cb != entry) removeFirst(ctx, arr, entry, /*matchEntryIdentity=*/true);
         callJSFunction(ctx, cb, self, cbArgs);
-        if (hasCallException()) return PROTO_NONE;  // a listener threw: propagate
+        // a listener threw: propagate
     }
     return PROTO_TRUE;
 }

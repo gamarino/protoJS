@@ -127,7 +127,16 @@ void ESModuleLoader::evaluateModule(ESModuleRecord* record, JSContext* ctx) {
     const proto::ProtoObject* globalObj = TypeBridge::fromJS(ctx, globalVal, &frameCtx);
     JS_FreeValue(ctx, globalVal);
 
-    const proto::ProtoObject* result = protojs::runBytecode(&frameCtx, &module, globalObj, nullptr, &globalObj);
+    // Reached from QuickJS (a C runtime): a JavaScript exception the module
+    // body raises is raised on the QuickJS context, never unwound through it.
+    const proto::ProtoObject* result = nullptr;
+    try {
+        result = protojs::runBytecode(&frameCtx, &module, globalObj, nullptr, &globalObj);
+    } catch (const protojs::JSException& thrown) {
+        record->isEvaluating = false;
+        JS_Throw(ctx, TypeBridge::toJS(ctx, thrown.value(), &frameCtx));
+        return;
+    }
     frameCtx.returnValue = result;
 
     if (!result || result == PROTO_NONE) {

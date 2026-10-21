@@ -301,7 +301,6 @@ static const proto::ProtoObject* mapForEach(
         cbArgs = cbArgs->appendLast(ctx, k);
         cbArgs = cbArgs->appendLast(ctx, self);
         callJSFunction(ctx, callback, thisArg, cbArgs);
-        if (hasCallException()) return PROTO_NONE;
     }
     return PROTO_NONE;
 }
@@ -576,7 +575,6 @@ static const proto::ProtoObject* mapGetOrInsertComputed(
     const proto::ProtoList* cbArgs = ctx->newList();
     cbArgs = cbArgs->appendLast(ctx, key);
     const proto::ProtoObject* defVal = callJSFunction(ctx, callbackFn, PROTO_NONE, cbArgs);
-    if (hasCallException()) return PROTO_NONE;
     if (!defVal) defVal = PROTO_NONE;
     // §Map.prototype.getOrInsertComputed step 6 → step 7: after callback
     // returns, walk MapData looking for the key.  If the callback
@@ -734,7 +732,6 @@ static const proto::ProtoObject* mapGroupBy(
         if (isCallable(itFn)) {
             const proto::ProtoObject* iterObj =
                 callJSFunction(ctx, itFn, iterable, ctx->newList());
-            if (hasCallException()) return PROTO_NONE;
             if (iterObj && iterObj != PROTO_NONE) {
                 const proto::ProtoString* nextK =
                     ctx->fromUTF8String("next")
@@ -757,7 +754,6 @@ static const proto::ProtoObject* mapGroupBy(
                     }
                     const proto::ProtoObject* step =
                         callJSFunction(ctx, nextFn, iterObj, ctx->newList());
-                    if (hasCallException()) return PROTO_NONE;
                     if (!step || step == PROTO_NONE) break;
                     const proto::ProtoObject* doneVal = doneK
                         ? step->getAttribute(ctx, doneK, true) : nullptr;
@@ -820,7 +816,6 @@ static const proto::ProtoObject* mapGroupBy(
         cbArgs = cbArgs->appendLast(ctx, elem);
         cbArgs = cbArgs->appendLast(ctx, ctx->fromInteger(static_cast<long long>(i)));
         const proto::ProtoObject* groupKey = callJSFunction(ctx, keyFn, PROTO_NONE, cbArgs);
-        if (hasCallException()) return PROTO_NONE;
         if (!groupKey) groupKey = PROTO_NONE;
         groupKey = normalizeMapKey(ctx, groupKey);
 
@@ -905,7 +900,6 @@ static const proto::ProtoObject* mapConstruct(
                     const proto::ProtoObject* getter = self->getAttribute(ctx, gks, true);
                     if (getter && getter != PROTO_NONE) {
                         setterFn = callJSFunction(ctx, getter, self, ctx->newList());
-                        if (hasCallException()) return PROTO_NONE;
                     }
                 }
             }
@@ -913,7 +907,6 @@ static const proto::ProtoObject* mapConstruct(
                 setterFn = sKs
                     ? self->getAttribute(ctx, sKs, true) : PROTO_NONE;
             }
-            if (hasCallException()) return PROTO_NONE;
             bool callable = false;
             if (setterFn && setterFn != PROTO_NONE && setterFn != getUndefinedSentinel()) {
                 if (setterFn->isMethod(ctx)) callable = true;
@@ -999,7 +992,6 @@ static const proto::ProtoObject* mapConstruct(
                 const proto::ProtoList* iterArgs = ctx->newList();
                 const proto::ProtoObject* iterator =
                     callJSFunction(ctx, iterFn, iterable, iterArgs);
-                if (hasCallException()) return PROTO_NONE;
                 if (!iterator || iterator == PROTO_NONE
                     || iterator == getUndefinedSentinel()
                     || iterator == getNullSentinel()
@@ -1049,7 +1041,6 @@ static const proto::ProtoObject* mapConstruct(
                     const proto::ProtoList* nextArgs = ctx->newList();
                     const proto::ProtoObject* stepRes =
                         callJSFunction(ctx, nextFn, iterator, nextArgs);
-                    if (hasCallException()) return PROTO_NONE;
                     if (!stepRes || stepRes == PROTO_NONE
                         || stepRes->isInteger(ctx) || stepRes->isDouble(ctx)
                         || stepRes->isFloat(ctx)   || stepRes->isString(ctx)
@@ -1157,7 +1148,6 @@ static const proto::ProtoObject* mapConstruct(
                     setArgs = setArgs->appendLast(ctx, pkey);
                     setArgs = setArgs->appendLast(ctx, pval);
                     callJSFunction(ctx, setterFn, self, setArgs);
-                    if (hasCallException()) return PROTO_NONE;
                 }
             }
         }
@@ -1960,7 +1950,6 @@ static const proto::ProtoObject* weakMapGetOrInsertComputed(
     const proto::ProtoList* cbArgs = ctx->newList();
     cbArgs = cbArgs->appendLast(ctx, key);
     const proto::ProtoObject* value = callJSFunction(ctx, cb, PROTO_NONE, cbArgs);
-    if (hasCallException()) return PROTO_NONE;
     // Re-check (callbackfn may have mutated the map mid-call).
     n = wmGetCount(ctx, self);
     for (long long i = 0; i < n; i++) {
@@ -2053,7 +2042,6 @@ static const proto::ProtoObject* weakMapConstruct(
                     const proto::ProtoObject* getter = self->getAttribute(ctx, gks, true);
                     if (getter && getter != PROTO_NONE) {
                         setterFn = callJSFunction(ctx, getter, self, ctx->newList());
-                        if (hasCallException()) return PROTO_NONE;
                     }
                 }
             }
@@ -2112,7 +2100,6 @@ static const proto::ProtoObject* weakMapConstruct(
                 const proto::ProtoList* iterArgs = ctx->newList();
                 const proto::ProtoObject* iterator =
                     callJSFunction(ctx, iterFn, iterable, iterArgs);
-                if (hasCallException()) return PROTO_NONE;
                 if (!iterator || iterator == PROTO_NONE
                     || iterator == getUndefinedSentinel()
                     || iterator == getNullSentinel()
@@ -2155,7 +2142,6 @@ static const proto::ProtoObject* weakMapConstruct(
                     const proto::ProtoList* nextArgs = ctx->newList();
                     const proto::ProtoObject* stepRes =
                         callJSFunction(ctx, nextFn, iterator, nextArgs);
-                    if (hasCallException()) return PROTO_NONE;
                     if (!stepRes || stepRes == PROTO_NONE
                         || stepRes->isInteger(ctx) || stepRes->isDouble(ctx)
                         || stepRes->isFloat(ctx)   || stepRes->isString(ctx)
@@ -2252,7 +2238,6 @@ static const proto::ProtoObject* weakMapConstruct(
                     setArgs = setArgs->appendLast(ctx, pkey);
                     setArgs = setArgs->appendLast(ctx, pval);
                     callJSFunction(ctx, setterFn, self, setArgs);
-                    if (hasCallException()) return PROTO_NONE;
                 }
             }
         }

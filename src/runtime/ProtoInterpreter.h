@@ -42,10 +42,9 @@ private:
  * - `thisObj`: JS `this` binding for this frame.
  * - `args`: positional arguments for the frame (may be null for top-level).
  * - `pGlobalRoot`: pointer to current global object; used for reads and updated on put_field.
- * - `outException`: if non-null, receives the thrown value on OP_throw / TDZ errors
- *   instead of crashing. The caller must check `*outException != PROTO_NONE`.
  *
- * Returns the result ProtoObject, or PROTO_NONE on error/void return.
+ * Returns the result ProtoObject, or PROTO_NONE on a void return.  A JavaScript
+ * exception the code does not catch propagates as a JSException.
  * QuickJS (JSContext*) is not used during execution; atoms must be pre-resolved
  * via preResolveAllAtoms() before calling this function.
  */
@@ -53,8 +52,7 @@ const proto::ProtoObject* runBytecode(proto::ProtoContext* pContext,
                                       const ProtoBytecodeModule* module,
                                       const proto::ProtoObject* thisObj,
                                       const proto::ProtoList* args,
-                                      const proto::ProtoObject** pGlobalRoot,
-                                      const proto::ProtoObject** outException = nullptr);
+                                      const proto::ProtoObject** pGlobalRoot);
 
 /**
  * Call a JS function (bytecode closure or native ProtoMethod) from native C++ code.
@@ -152,14 +150,8 @@ void initializeUndefinedSentinel(proto::ProtoContext* ctx);
 const proto::ProtoObject** getCurrentGlobalRoot();
 
 /**
- * Signal a pending exception from within a native ProtoMethod function.
- *
- * Call this before returning PROTO_NONE from a native method to indicate that
- * the return represents a thrown exception rather than undefined.  The interpreter
- * will promote it to a real exception after the native call returns.
- *
- * Only one pending exception is stored at a time; calling this twice before the
- * interpreter checks it will overwrite the first exception.
+ * Raise `errorObj` from a native function: throws it as a JSException (the
+ * context of the innermost interpreter frame pins it).  Does not return.
  */
 [[noreturn]] void signalNativeException(const proto::ProtoObject* errorObj);
 
@@ -187,23 +179,6 @@ const proto::ProtoObject* makeNativeError(proto::ProtoContext* ctx,
                                           const char* errorType,
                                           const char* message,
                                           const proto::ProtoObject* const* globalRoot = nullptr);
-
-/**
- * Returns true if a JS callback called via callJSFunction() set a pending
- * exception that has not yet been consumed.  Native methods that invoke user
- * callbacks (forEach, map, filter, every, some, …) must call this after each
- * callJSFunction() and return PROTO_NONE immediately when true, so the
- * exception is propagated rather than silently discarded.
- */
-bool hasCallException();
-
-/**
- * Returns the pending exception (or null if none) and clears the thread-local
- * exception flag.  Used by native methods that want to handle the abrupt
- * completion themselves (e.g. Promise.try wraps it as a rejected Promise
- * rather than re-throwing).  Returning nullptr is a no-op.
- */
-const proto::ProtoObject* consumeCallException();
 
 /**
  * Spec ToNumber(value): coerces a JS value to a number (Integer/Double).

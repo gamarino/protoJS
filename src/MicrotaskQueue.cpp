@@ -226,8 +226,6 @@ void MicrotaskQueue::runJob(proto::ProtoContext* ctx, const proto::ProtoObject* 
             break;
         case kCallbackJob:
             callJSFunction(ctx, at(1), getUndefinedSentinel(), ctx->newList());
-            // An exception escaping a microtask is uncaught, as in Node.
-            drainCallbackException(ctx, "microtask");
             break;
         case kNativeJob: {
             const proto::ProtoObject* idObj = at(1);
@@ -237,7 +235,6 @@ void MicrotaskQueue::runJob(proto::ProtoContext* ctx, const proto::ProtoObject* 
                 NativeJob fn = std::move(it->second);
                 nativeJobs_.erase(it);
                 if (fn) fn(ctx);
-                drainCallbackException(ctx, "microtask");
             }
             break;
         }

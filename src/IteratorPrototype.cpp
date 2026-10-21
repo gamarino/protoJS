@@ -65,7 +65,6 @@ static const proto::ProtoObject* iterGetNext(proto::ProtoContext* ctx,
             const proto::ProtoObject* getter = iter->getAttribute(ctx, gk, true);
             if (getter && getter != PROTO_NONE && getter != getUndefinedSentinel()) {
                 fn = callJSFunction(ctx, getter, iter, ctx->newList());
-                if (hasCallException()) return nullptr;
             }
         }
     }
@@ -103,7 +102,6 @@ static const proto::ProtoObject* iterStep(proto::ProtoContext* ctx,
     *outDone = true;
     if (outValue) *outValue = PROTO_NONE;
     const proto::ProtoObject* step = callJSFunction(ctx, nextFn, iter, ctx->newList());
-    if (hasCallException()) return nullptr;
     if (!step || step == PROTO_NONE) return nullptr;
     // Result must be an Object.
     if (step == getNullSentinel() || step == getUndefinedSentinel()
@@ -116,7 +114,6 @@ static const proto::ProtoObject* iterStep(proto::ProtoContext* ctx,
     }
     const proto::ProtoString* doneK = JSSymbols::done(ctx);
     const proto::ProtoObject* dv = doneK ? step->getAttribute(ctx, doneK, true) : nullptr;
-    if (hasCallException()) return nullptr;
     // Accessor descriptor probe — if `done` is defined as a getter the
     // data slot reads PROTO_NONE/undefined; __get_done__ holds the getter
     // and we must call it so an abrupt completion in the getter
@@ -129,7 +126,6 @@ static const proto::ProtoObject* iterStep(proto::ProtoContext* ctx,
             if (getter && getter != PROTO_NONE && getter != getUndefinedSentinel()
                 && getter != getNullSentinel()) {
                 dv = callJSFunction(ctx, getter, step, ctx->newList());
-                if (hasCallException()) return nullptr;
             }
         }
     }
@@ -146,7 +142,6 @@ static const proto::ProtoObject* iterStep(proto::ProtoContext* ctx,
     if (!isDone) {
         const proto::ProtoString* valueK = JSSymbols::value(ctx);
         const proto::ProtoObject* v = valueK ? step->getAttribute(ctx, valueK, true) : PROTO_NONE;
-        if (hasCallException()) return nullptr;
         // Accessor descriptor probe for `value` — same rationale as for
         // `done` above (test262 next-method-returns-throwing-value.js).
         if (!v || v == PROTO_NONE || v == getUndefinedSentinel()) {
@@ -157,7 +152,6 @@ static const proto::ProtoObject* iterStep(proto::ProtoContext* ctx,
                 if (getter && getter != PROTO_NONE && getter != getUndefinedSentinel()
                     && getter != getNullSentinel()) {
                     v = callJSFunction(ctx, getter, step, ctx->newList());
-                    if (hasCallException()) return nullptr;
                 }
             }
         }
@@ -211,7 +205,6 @@ static const proto::ProtoObject* iteratorToArray(
         bool done = false;
         const proto::ProtoObject* val = nullptr;
         (void)iterStep(ctx, self, nextFn, &done, &val);
-        if (hasCallException()) return PROTO_NONE;
         if (done) break;
         els = els->appendLast(ctx, val ? val : PROTO_NONE);
         count++;
@@ -251,7 +244,6 @@ static const proto::ProtoObject* iteratorForEach(
         bool done = false;
         const proto::ProtoObject* val = nullptr;
         (void)iterStep(ctx, self, nextFn, &done, &val);
-        if (hasCallException()) return PROTO_NONE;
         if (done) break;
         const proto::ProtoList* cbArgs = ctx->newList();
         cbArgs = cbArgs->appendLast(ctx, val ? val : PROTO_NONE);
@@ -298,7 +290,6 @@ static const proto::ProtoObject* iteratorReduce(
         bool done = false;
         const proto::ProtoObject* val = nullptr;
         (void)iterStep(ctx, self, nextFn, &done, &val);
-        if (hasCallException()) return PROTO_NONE;
         if (done) break;
         if (!hasAcc) {
             acc = val;
@@ -356,7 +347,6 @@ static const proto::ProtoObject* iteratorBoolPredicate(
         bool done = false;
         const proto::ProtoObject* val = nullptr;
         (void)iterStep(ctx, self, nextFn, &done, &val);
-        if (hasCallException()) return PROTO_NONE;
         if (done) {
             if (mode == 0) return PROTO_TRUE;      // every → true on empty
             if (mode == 1) return PROTO_FALSE;     // some → false on empty
@@ -480,7 +470,6 @@ static const proto::ProtoObject* iteratorHelperReturn(
         const proto::ProtoObject* underlying = uK ? self->getAttribute(ctx, uK, false) : nullptr;
         if (underlying && underlying != PROTO_NONE) {
             iterClose(ctx, underlying);
-            if (hasCallException()) return PROTO_NONE;
         }
         const proto::ProtoObject* innerKo = ctx->fromUTF8String("__helper_inner__");
         const proto::ProtoString* innerK = innerKo ? innerKo->asString(ctx) : nullptr;
@@ -488,7 +477,6 @@ static const proto::ProtoObject* iteratorHelperReturn(
             const proto::ProtoObject* inner = self->getAttribute(ctx, innerK, false);
             if (inner && inner != PROTO_NONE && inner != getUndefinedSentinel()) {
                 iterClose(ctx, inner);
-                if (hasCallException()) return PROTO_NONE;
             }
         }
     }
@@ -522,7 +510,6 @@ static const proto::ProtoObject* iteratorMapNext(
     bool done = false;
     const proto::ProtoObject* val = nullptr;
     (void)iterStep(ctx, underlying, nextFn, &done, &val);
-    if (hasCallException()) return PROTO_NONE;
     if (done) return makeIterResult(ctx, getUndefinedSentinel(), true);
     const proto::ProtoList* cbArgs = ctx->newList();
     cbArgs = cbArgs->appendLast(ctx, val ? val : PROTO_NONE);
@@ -596,7 +583,6 @@ static const proto::ProtoObject* iteratorFilterNext(
         bool done = false;
         const proto::ProtoObject* val = nullptr;
         (void)iterStep(ctx, underlying, nextFn, &done, &val);
-        if (hasCallException()) return PROTO_NONE;
         if (done) return makeIterResult(ctx, getUndefinedSentinel(), true);
         const proto::ProtoList* cbArgs = ctx->newList();
         cbArgs = cbArgs->appendLast(ctx, val ? val : PROTO_NONE);
@@ -668,7 +654,6 @@ static const proto::ProtoObject* iteratorTakeNext(
     bool done = false;
     const proto::ProtoObject* val = nullptr;
     (void)iterStep(ctx, underlying, nextFn, &done, &val);
-    if (hasCallException()) return PROTO_NONE;
     if (done) return makeIterResult(ctx, getUndefinedSentinel(), true);
     if (nK) self->setAttribute(ctx, nK, ctx->fromInteger(remaining - 1));
     return makeIterResult(ctx, val, false);
@@ -764,7 +749,6 @@ static const proto::ProtoObject* iteratorDropNext(
         bool done = false;
         const proto::ProtoObject* val = nullptr;
         (void)iterStep(ctx, underlying, nextFn, &done, &val);
-        if (hasCallException()) return PROTO_NONE;
         if (done) {
             if (nK) self->setAttribute(ctx, nK, ctx->fromInteger(0));
             return makeIterResult(ctx, getUndefinedSentinel(), true);
@@ -775,7 +759,6 @@ static const proto::ProtoObject* iteratorDropNext(
     bool done = false;
     const proto::ProtoObject* val = nullptr;
     (void)iterStep(ctx, underlying, nextFn, &done, &val);
-    if (hasCallException()) return PROTO_NONE;
     if (done) return makeIterResult(ctx, getUndefinedSentinel(), true);
     return makeIterResult(ctx, val, false);
 }
@@ -870,7 +853,6 @@ static const proto::ProtoObject* iteratorFlatMapNext(
             bool innerDone = false;
             const proto::ProtoObject* innerVal = nullptr;
             (void)iterStep(ctx, inner, innerNext, &innerDone, &innerVal);
-            if (hasCallException()) return PROTO_NONE;
             if (!innerDone) return makeIterResult(ctx, innerVal, false);
             // Inner exhausted — clear and continue to next outer.
             if (innerK) self->setAttribute(ctx, innerK, getUndefinedSentinel());
@@ -881,7 +863,6 @@ static const proto::ProtoObject* iteratorFlatMapNext(
         bool outerDone = false;
         const proto::ProtoObject* outerVal = nullptr;
         (void)iterStep(ctx, outer, outerNext, &outerDone, &outerVal);
-        if (hasCallException()) return PROTO_NONE;
         if (outerDone) return makeIterResult(ctx, getUndefinedSentinel(), true);
         // Invoke mapper.
         const proto::ProtoList* cbArgs = ctx->newList();
@@ -1065,7 +1046,6 @@ const proto::ProtoObject* getIteratorPrototype(proto::ProtoContext* ctx) {
                     if (!callable && nfK && fn->hasAttribute(dctx, nfK) == PROTO_TRUE) callable = true;
                     if (callable) {
                         (void)callJSFunction(dctx, fn, dself, dctx->newList());
-                        if (hasCallException()) return PROTO_NONE;
                     }
                 }
             }
@@ -1132,7 +1112,6 @@ static const proto::ProtoObject* getIteratorFor(
     if (itoFn && itoFn != PROTO_NONE && itoFn != getUndefinedSentinel()
         && itoFn != getNullSentinel()) {
         const proto::ProtoObject* it = callJSFunction(ctx, itoFn, O, ctx->newList());
-        if (hasCallException()) return nullptr;
         if (!it || it == PROTO_NONE
             || it == getNullSentinel() || it == getUndefinedSentinel()
             || it->isInteger(ctx) || it->isDouble(ctx)
@@ -1170,7 +1149,6 @@ static const proto::ProtoObject* iteratorFromNext(
     bool done = false;
     const proto::ProtoObject* val = nullptr;
     (void)iterStep(ctx, underlying, nextFn, &done, &val);
-    if (hasCallException()) return PROTO_NONE;
     if (done) return makeIterResult(ctx, getUndefinedSentinel(), true);
     return makeIterResult(ctx, val, false);
 }
@@ -1192,7 +1170,6 @@ static const proto::ProtoObject* iteratorFrom(
             const proto::ProtoObject* itoFn = O->getAttribute(ctx, itoK, true);
             if (itoFn && itoFn != PROTO_NONE) {
                 const proto::ProtoObject* inner = callJSFunction(ctx, itoFn, O, ctx->newList());
-                if (hasCallException()) return PROTO_NONE;
                 if (inner && inner != PROTO_NONE) {
                     return makeHelperIterator(ctx, iteratorFromNext, inner, PROTO_NONE, 0);
                 }
@@ -1244,7 +1221,6 @@ static const proto::ProtoObject* iteratorConcatNext(
             bool done = false;
             const proto::ProtoObject* val = nullptr;
             (void)iterStep(ctx, inner, innerNext, &done, &val);
-            if (hasCallException()) return PROTO_NONE;
             if (!done) return makeIterResult(ctx, val, false);
             // Inner exhausted — move to next source.
             if (innerK) self->setAttribute(ctx, innerK, getUndefinedSentinel());
@@ -1338,7 +1314,6 @@ static const proto::ProtoObject* iteratorZipNext(
         bool done = false;
         const proto::ProtoObject* val = nullptr;
         (void)iterStep(ctx, inner, nextFn, &done, &val);
-        if (hasCallException()) return PROTO_NONE;
         if (done) {
             // Close remaining inner iterators.
             for (proto::proto_ulong j = 0; j < n; j++) {
@@ -1450,7 +1425,6 @@ static const proto::ProtoObject* iteratorZipKeyedNext(
         bool done = false;
         const proto::ProtoObject* val = nullptr;
         (void)iterStep(ctx, inner, nextFn, &done, &val);
-        if (hasCallException()) return PROTO_NONE;
         if (done) {
             for (proto::proto_ulong j = 0; j < n; j++) {
                 if (j != i) {

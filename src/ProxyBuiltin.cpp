@@ -95,7 +95,6 @@ static const proto::ProtoObject* lookupTrap(
     const proto::ProtoObject* trap = nullptr;
     if (isProxy(ctx, handler)) {
         trap = proxyDispatchGet(ctx, handler, name, handler);
-        if (hasCallException()) return nullptr;
     } else {
         // \xc2\xa77.3.10 GetMethod calls Get(handler, trapName) — which fires
         // accessor getters.  Probe the \`__get_<trapName>__\` accessor
@@ -109,7 +108,6 @@ static const proto::ProtoObject* lookupTrap(
             const proto::ProtoObject* getter = handler->getAttribute(ctx, gk, true);
             if (getter && getter != PROTO_NONE) {
                 trap = callJSFunction(ctx, getter, handler, ctx->newList());
-                if (hasCallException()) return nullptr;
             }
         }
         if (!trap || trap == PROTO_NONE)
@@ -448,7 +446,6 @@ const proto::ProtoObject* proxyDispatchGet(proto::ProtoContext* ctx,
         a = a->appendLast(ctx, propKeyToTrapArg(ctx, propKey));
         a = a->appendLast(ctx, receiver ? receiver : proxy);
         const proto::ProtoObject* res = callJSFunction(ctx, trap, handler, a);
-        if (hasCallException()) return PROTO_NONE;
         // §10.5.8 step 9: validate the trap result against the target's
         // own descriptor when it is non-configurable.
         OwnDescriptor od = probeOwnDescriptor(ctx, target, propKey);
@@ -501,7 +498,6 @@ const proto::ProtoObject* proxyCreateDataProperty(proto::ProtoContext* ctx,
         set("configurable", PROTO_TRUE);
         const proto::ProtoObject* r =
             proxyDispatchDefineProperty(ctx, receiver, propKey, desc);
-        if (hasCallException()) return PROTO_NONE;
         if (r == PROTO_FALSE) return PROTO_FALSE;
         if (r == PROTO_TRUE)  return PROTO_TRUE;
     }
@@ -536,7 +532,6 @@ const proto::ProtoObject* proxyDispatchSet(proto::ProtoContext* ctx,
         a = a->appendLast(ctx, value ? value : PROTO_NONE);
         a = a->appendLast(ctx, receiver ? receiver : proxy);
         const proto::ProtoObject* r = callJSFunction(ctx, trap, handler, a);
-        if (hasCallException()) return PROTO_NONE;
         // §10.5.9 step 9 ToBoolean(trapResult): null, undefined, +0/-0,
         // NaN and "" are all falsy.  Pre-fix the check accepted any
         // non-PROTO_FALSE / non-nullptr return as truthy, so a `null`
@@ -597,7 +592,6 @@ const proto::ProtoObject* proxyDispatchSet(proto::ProtoContext* ctx,
         if (ks == "__proto__" && receiver) {
             const proto::ProtoObject* r2 =
                 proxyDispatchSetPrototypeOf(ctx, receiver, value);
-            if (hasCallException()) return PROTO_NONE;
             if (r2 == PROTO_FALSE) {
                 signalNativeException(makeNativeError(ctx, "TypeError",
                     "Proxy setPrototypeOf returned false"));
@@ -655,7 +649,6 @@ const proto::ProtoObject* proxyDispatchSet(proto::ProtoContext* ctx,
                     const proto::ProtoList* setArgs = ctx->newList();
                     setArgs = setArgs->appendLast(ctx, value ? value : PROTO_NONE);
                     (void)callJSFunction(ctx, setter, receiver, setArgs);
-                    if (hasCallException()) return PROTO_NONE;
                     return PROTO_TRUE;
                 }
             }
@@ -709,7 +702,6 @@ const proto::ProtoObject* proxyDispatchHas(proto::ProtoContext* ctx,
         a = a->appendLast(ctx, target);
         a = a->appendLast(ctx, propKeyToTrapArg(ctx, propKey));
         const proto::ProtoObject* r = callJSFunction(ctx, trap, handler, a);
-        if (hasCallException()) return PROTO_NONE;
         bool truthy;
         {
             if (r == nullptr || r == PROTO_NONE
@@ -805,7 +797,6 @@ const proto::ProtoObject* proxyDispatchDelete(proto::ProtoContext* ctx,
         a = a->appendLast(ctx, target);
         a = a->appendLast(ctx, propKeyToTrapArg(ctx, propKey));
         const proto::ProtoObject* r = callJSFunction(ctx, trap, handler, a);
-        if (hasCallException()) return PROTO_NONE;
         bool truthy;
         {
             if (r == nullptr || r == PROTO_NONE
@@ -952,7 +943,6 @@ const proto::ProtoObject* proxyDispatchOwnKeys(
     const proto::ProtoList* a = ctx->newList();
     a = a->appendLast(ctx, target);
     const proto::ProtoObject* trapResult = callJSFunction(ctx, trap, handler, a);
-    if (hasCallException()) return PROTO_NONE;
     // §7.3.18 CreateListFromArrayLike step 2: trapResult must be
     // Object — primitives (null / undefined / number / string /
     // boolean / Symbol) raise TypeError before length is read.
@@ -1150,7 +1140,6 @@ const proto::ProtoObject* proxyDispatchGetPrototypeOf(
         const proto::ProtoList* a = ctx->newList();
         a = a->appendLast(ctx, target);
         const proto::ProtoObject* r = callJSFunction(ctx, trap, handler, a);
-        if (hasCallException()) return PROTO_NONE;
         // §10.5.1 step 7: trap result must be Object or Null —
         // Symbol primitives (Object-tagged with `__is_symbol__`)
         // also reject here.  Pre-fix the rejector missed Symbol
@@ -1182,7 +1171,6 @@ const proto::ProtoObject* proxyDispatchGetPrototypeOf(
             const proto::ProtoObject* tp = nullptr;
             if (isProxy(ctx, target)) {
                 tp = proxyDispatchGetPrototypeOf(ctx, target);
-                if (hasCallException()) return PROTO_NONE;
             } else {
                 const proto::ProtoObject* over = getJSProtoOverride(ctx, target);
                 tp = over ? over : target->getPrototype(ctx);
@@ -1235,7 +1223,6 @@ const proto::ProtoObject* proxyDispatchSetPrototypeOf(
     a = a->appendLast(ctx, target);
     a = a->appendLast(ctx, newProto ? newProto : getNullSentinel());
     const proto::ProtoObject* r = callJSFunction(ctx, trap, handler, a);
-    if (hasCallException()) return PROTO_NONE;
     bool truthy;
     {
         if (r == nullptr || r == PROTO_NONE
@@ -1271,7 +1258,6 @@ const proto::ProtoObject* proxyDispatchSetPrototypeOf(
                 const proto::ProtoList* iea = ctx->newList();
                 iea = iea->appendLast(ctx, proxyTarget(ctx, probe));
                 (void)callJSFunction(ctx, iext, proxyHandler(ctx, probe), iea);
-                if (hasCallException()) return PROTO_NONE;
             }
             const proto::ProtoObject* inner = proxyTarget(ctx, probe);
             if (!inner) return PROTO_FALSE;
@@ -1285,7 +1271,6 @@ const proto::ProtoObject* proxyDispatchSetPrototypeOf(
     const proto::ProtoObject* targetProto = nullptr;
     if (isProxy(ctx, target)) {
         targetProto = proxyDispatchGetPrototypeOf(ctx, target);
-        if (hasCallException()) return PROTO_NONE;
     } else {
         const proto::ProtoObject* over = getJSProtoOverride(ctx, target);
         if (over) targetProto = over;
@@ -1336,7 +1321,6 @@ const proto::ProtoObject* proxyDispatchDefineProperty(
     a = a->appendLast(ctx, propKeyToTrapArg(ctx, propKey));
     a = a->appendLast(ctx, descriptor ? descriptor : PROTO_NONE);
     const proto::ProtoObject* r = callJSFunction(ctx, trap, handler, a);
-    if (hasCallException()) return PROTO_NONE;
     bool truthy;
     {
         if (r == nullptr || r == PROTO_NONE
@@ -1483,7 +1467,6 @@ const proto::ProtoObject* proxyDispatchGetOwnPropertyDescriptor(
         a = a->appendLast(ctx, target);
         a = a->appendLast(ctx, propKeyToTrapArg(ctx, propKey));
         const proto::ProtoObject* res = callJSFunction(ctx, trap, handler, a);
-        if (hasCallException()) return PROTO_NONE;
         // §10.5.5 step 7: trapResultObj must be Object or undefined.
         if (res == nullptr || res == PROTO_NONE
             || res == getUndefinedSentinel() || res == getNullSentinel()) {

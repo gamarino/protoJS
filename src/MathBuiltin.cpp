@@ -344,7 +344,6 @@ static const proto::ProtoObject* mathHypot(
     coerced.reserve(argc);
     for (proto::proto_ulong i = 0; i < argc; i++) {
         double v = argToDouble(ctx, args, static_cast<unsigned>(i), 0.0);
-        if (hasCallException()) return PROTO_NONE;
         coerced.push_back(v);
     }
     // Step 3: scan for ±Infinity / NaN. Inf wins over NaN per spec —

@@ -78,28 +78,17 @@ public:
 };
 
 /**
- * Consume an exception a user callback left pending (callJSFunction reports a
- * throw through a thread-local flag). Nothing catches an exception that escapes
- * an event-loop callback, so, as in Node, it is fatal: it is reported on stderr
- * as "Uncaught exception in <where>: <name>: <message>" and the process ends
- * with status 1 at once (queued work does not run). Returns only when no
- * exception was pending. Every site that invokes a user callback from the event
- * loop calls it, and EventLoop::processCallbacks calls it after each callback
- * for the sites that do not.
- */
-void drainCallbackException(proto::ProtoContext* ctx, const char* where);
-
-/**
  * Report `exc`, a JavaScript exception that escaped a callback nothing else
- * catches (the JSException caught at that boundary), exactly as
- * drainCallbackException does, and end the process with status 1.
+ * catches (the JSException caught at that boundary): "Uncaught exception in
+ * <where>: <name>: <message>" on stderr, and the process ends with status 1 at
+ * once (queued work does not run), as in Node.
  */
 [[noreturn]] void reportUncaughtException(proto::ProtoContext* ctx, const char* where,
                                           const proto::ProtoObject* exc);
 
 /**
  * The end of an event-loop turn (after the main script, after each callback):
- * an exception still pending is fatal (drainCallbackException), and so is a
+ * an uncaught exception has already ended the process (reportUncaughtException); a
  * rejected promise that no handler has claimed -- reported as "Uncaught
  * (in promise) <name>: <message>" with status 1, Node's default
  * (--unhandled-rejections=throw) since v15.

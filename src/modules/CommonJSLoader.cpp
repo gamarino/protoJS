@@ -212,7 +212,7 @@ const proto::ProtoObject* loadNativeAddon(proto::ProtoContext* pCtx,
     if (!exports) {
         // The library stays loaded on purpose: its ProtoMethod pointers may
         // already be reachable.  Only report the failure.
-        if (!hasCallException()) {
+        {
             throwModuleError(pCtx, "Error",
                               "Native module '" + filePath + "' failed to initialise");
         }
@@ -711,7 +711,7 @@ static const proto::ProtoObject* executeFileModuleNative(
         // A compile failure has already signalled a precise SyntaxError; report
         // a generic error only when nothing is pending, so that the precise
         // message is never overwritten.
-        if (!hasCallException()) {
+        {
             throwModuleError(pCtx, "Error",
                               "Failed to load module '" + filePath + "'");
         }

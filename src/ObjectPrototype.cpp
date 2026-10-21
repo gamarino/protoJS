@@ -499,10 +499,6 @@ static void collectOwnKeys(
                 if (getter && getter != PROTO_NONE && getter != getUndefinedSentinel()) {
                     const proto::ProtoList* noArgs = ctx->newList();
                     const proto::ProtoObject* gres = callJSFunction(ctx, getter, obj, noArgs);
-                    if (hasCallException()) {
-                        vals->push_back(PROTO_NONE);
-                        return;
-                    }
                     vals->push_back(gres ? gres : PROTO_NONE);
                 } else {
                     const proto::ProtoObject* v = nullptr;
@@ -562,7 +558,6 @@ static const proto::ProtoObject* objectKeys(
     // to enumerable string-only keys per §7.3.21 EnumerableOwnProperties.
     if (protojs::isProxy(ctx, obj)) {
         const proto::ProtoObject* keysArr = protojs::proxyDispatchOwnKeys(ctx, obj);
-        if (hasCallException()) return PROTO_NONE;
         if (keysArr) {
             const proto::ProtoObject* result = createNewArray(ctx, nullptr);
             const proto::ProtoString* lenKey = JSSymbols::length(ctx);
@@ -583,7 +578,6 @@ static const proto::ProtoObject* objectKeys(
                 // Filter by enumerable via the proxy's gOPD trap.
                 const proto::ProtoObject* desc =
                     protojs::proxyDispatchGetOwnPropertyDescriptor(ctx, obj, kStr);
-                if (hasCallException()) return PROTO_NONE;
                 if (!desc || desc == PROTO_NONE) continue;
                 const proto::ProtoObject* eko = ctx->fromUTF8String("enumerable");
                 const proto::ProtoString* eks = eko ? eko->asString(ctx) : nullptr;
@@ -633,7 +627,6 @@ static const proto::ProtoObject* objectKeys(
             if (!kStr) continue;
             const proto::ProtoObject* desc =
                 protojs::proxyDispatchGetOwnPropertyDescriptor(ctx, outerProxy, kStr);
-            if (hasCallException()) return PROTO_NONE;
             if (!desc || desc == PROTO_NONE) continue;
             const proto::ProtoObject* eko = ctx->fromUTF8String("enumerable");
             const proto::ProtoString* eks = eko ? eko->asString(ctx) : nullptr;
@@ -688,7 +681,6 @@ static const proto::ProtoObject* objectValues(
     // __proxy_handler__ sidecars only), so the result was always [].
     if (isProxy(ctx, obj)) {
         const proto::ProtoObject* keysArr = proxyDispatchOwnKeys(ctx, obj);
-        if (hasCallException()) return PROTO_NONE;
         if (keysArr) {
             const proto::ProtoList* outEls = ctx->newList();
             long long count = 0;
@@ -700,14 +692,12 @@ static const proto::ProtoObject* objectValues(
                 const proto::ProtoString* kStr = kObj->asString(ctx);
                 const proto::ProtoObject* desc =
                     proxyDispatchGetOwnPropertyDescriptor(ctx, obj, kStr);
-                if (hasCallException()) return PROTO_NONE;
                 if (!desc || desc == PROTO_NONE) continue;
                 const proto::ProtoString* enumK = JSSymbols::enumerable(ctx);
                 const proto::ProtoObject* ev = enumK ? desc->getAttribute(ctx, enumK, true) : nullptr;
                 if (ev != PROTO_TRUE) continue;
                 const proto::ProtoObject* val =
                     protojs::proxyDispatchGet(ctx, obj, kStr, obj);
-                if (hasCallException()) return PROTO_NONE;
                 outEls = outEls->appendLast(ctx, val ? val : PROTO_NONE);
                 count++;
             }
@@ -742,7 +732,6 @@ static const proto::ProtoObject* objectValues(
     // sets s->aborted on hasCallException, but its caller did not
     // propagate — so a getter-throw fell through and Object.values
     // happily returned the partial result instead of re-raising.
-    if (hasCallException()) return PROTO_NONE;
 
     const proto::ProtoObject* result = createNewArray(ctx, nullptr);
     const proto::ProtoString* lenKey = JSSymbols::length(ctx);
@@ -775,7 +764,6 @@ static const proto::ProtoObject* objectEntries(
     // per §7.3.23, except the per-key result is a [key, value] pair.
     if (isProxy(ctx, obj)) {
         const proto::ProtoObject* keysArr = proxyDispatchOwnKeys(ctx, obj);
-        if (hasCallException()) return PROTO_NONE;
         if (keysArr) {
             const proto::ProtoList* outerList = ctx->newList();
             long long count = 0;
@@ -789,14 +777,12 @@ static const proto::ProtoObject* objectEntries(
                 const proto::ProtoString* kStr = kObj->asString(ctx);
                 const proto::ProtoObject* desc =
                     proxyDispatchGetOwnPropertyDescriptor(ctx, obj, kStr);
-                if (hasCallException()) return PROTO_NONE;
                 if (!desc || desc == PROTO_NONE) continue;
                 const proto::ProtoString* enumK = JSSymbols::enumerable(ctx);
                 const proto::ProtoObject* ev = enumK ? desc->getAttribute(ctx, enumK, true) : nullptr;
                 if (ev != PROTO_TRUE) continue;
                 const proto::ProtoObject* val =
                     protojs::proxyDispatchGet(ctx, obj, kStr, obj);
-                if (hasCallException()) return PROTO_NONE;
                 const proto::ProtoObject* pair = createNewArray(ctx, nullptr);
                 const proto::ProtoList* pairEls = ctx->newList();
                 pairEls = pairEls->appendLast(ctx, kObj);
@@ -829,7 +815,6 @@ static const proto::ProtoObject* objectEntries(
     std::vector<std::string> keys;
     std::vector<const proto::ProtoObject*> vals;
     collectOwnKeys(ctx, obj, keys, &vals);
-    if (hasCallException()) return PROTO_NONE;
 
     const proto::ProtoObject* result = createNewArray(ctx, nullptr);
     const proto::ProtoString* lenKey = JSSymbols::length(ctx);
@@ -965,7 +950,6 @@ static const proto::ProtoObject* objectAssign(
             // OwnPropertyKeys: dispatch the trap if present, else fall
             // through to the target's own keys (the spec forwarding case).
             const proto::ProtoObject* keysArr = proxyDispatchOwnKeys(ctx, src);
-            if (hasCallException()) return PROTO_NONE;
             const proto::ProtoList* els = nullptr;
             if (keysArr) {
                 els = getArrayElements(ctx, keysArr);
@@ -1021,7 +1005,6 @@ static const proto::ProtoObject* objectAssign(
                 if (!propKey) continue;
                 const proto::ProtoObject* desc =
                     proxyDispatchGetOwnPropertyDescriptor(ctx, src, propKey);
-                if (hasCallException()) return PROTO_NONE;
                 if (!desc || desc == PROTO_NONE) continue;
                 {
                     const proto::ProtoObject* eko = ctx->fromUTF8String("enumerable");
@@ -1033,7 +1016,6 @@ static const proto::ProtoObject* objectAssign(
                 }
                 const proto::ProtoObject* val =
                     proxyDispatchGet(ctx, src, propKey, src);
-                if (hasCallException()) return PROTO_NONE;
                 // \xc2\xa710.4.2 Array exotic: numeric index / length writes
                 // must update __elements__ so subsequent reads see the
                 // fresh data and length truncation actually shrinks
@@ -1251,7 +1233,6 @@ static const proto::ProtoObject* objectAssign(
                     && getter != getUndefinedSentinel()) {
                     const proto::ProtoList* emptyArgs = ctx->newList();
                     effective = callJSFunction(ctx, getter, src, emptyArgs);
-                    if (hasCallException()) return PROTO_NONE;
                 }
             }
             // §19.1.2.1 step 5.c.iv: Set(to, nextKey, propValue, true).
@@ -1344,7 +1325,6 @@ static const proto::ProtoObject* objectAssign(
                         const proto::ProtoList* setArgs = ctx->newList();
                         setArgs = setArgs->appendLast(ctx, effective ? effective : PROTO_NONE);
                         (void)callJSFunction(ctx, setter, target, setArgs);
-                        if (hasCallException()) return PROTO_NONE;
                         continue; // setter handled the write; do not fall to setAttribute
                     } else {
                         // accessor with undefined setter — write into a
@@ -1594,7 +1574,6 @@ static const proto::ProtoObject* objectCreate(
                     if (getter && getter != PROTO_NONE && getter != getUndefinedSentinel()) {
                         const proto::ProtoList* emptyArgs = ctx->newList();
                         descObj = callJSFunction(ctx, getter, propsObj, emptyArgs);
-                        if (hasCallException()) return PROTO_NONE;
                     }
                 }
                 if (!descObj) {
@@ -1607,7 +1586,6 @@ static const proto::ProtoObject* objectCreate(
                 dpArgs = dpArgs->appendLast(ctx, descObj);
                 const proto::ProtoObject* nr = objectDefineProperty(ctx, nullptr, nullptr, argsView(proto::ProtoListArguments(ctx, dpArgs)), nullptr);
                 if (nr && nr != PROTO_NONE) result = nr;
-                if (hasCallException()) return PROTO_NONE;
             }
         }
     }
@@ -1693,7 +1671,6 @@ static const proto::ProtoObject* objectFreeze(
             const proto::ProtoList* a = ctx->newList();
             a = a->appendLast(ctx, target ? target : PROTO_NONE);
             const proto::ProtoObject* r = callJSFunction(ctx, trap, handler, a);
-            if (hasCallException()) return PROTO_NONE;
             bool truthy = !(r == nullptr || r == PROTO_NONE || r == PROTO_FALSE
                 || r == getUndefinedSentinel() || r == getNullSentinel());
             if (!truthy) {
@@ -1709,7 +1686,6 @@ static const proto::ProtoObject* objectFreeze(
         // Object.freeze(proxy) didn't dispatch the trap at all
         // (built-ins/Object/freeze/proxy-with-defineProperty-handler.js).
         const proto::ProtoObject* keysArr = proxyDispatchOwnKeys(ctx, obj);
-        if (hasCallException()) return PROTO_NONE;
         std::vector<std::string> defaultKeys;
         if (!keysArr || keysArr == PROTO_NONE) {
             const proto::ProtoObject* tgt = target;
@@ -1760,7 +1736,6 @@ static const proto::ProtoObject* objectFreeze(
             // undefined / a primitive, default to the data shape.
             const proto::ProtoObject* curDesc =
                 proxyDispatchGetOwnPropertyDescriptor(ctx, obj, kStr);
-            if (hasCallException()) return PROTO_NONE;
             bool isAccessor = false;
             if (curDesc && curDesc != PROTO_NONE
                 && curDesc != getUndefinedSentinel()
@@ -1776,7 +1751,6 @@ static const proto::ProtoObject* objectFreeze(
             if (!isAccessor && writK)
                 freezeDesc = freezeDesc->setAttribute(ctx, writK, PROTO_FALSE);
             proxyDispatchDefineProperty(ctx, obj, kStr, freezeDesc);
-            if (hasCallException()) return PROTO_NONE;
         }
         return obj;
     }
@@ -1883,7 +1857,6 @@ static const proto::ProtoObject* objectIsFrozen(
     // proxy-no-ownkeys-returned-keys-order.js) saw an empty list.
     if (isProxy(ctx, obj)) {
         const proto::ProtoObject* keysArr = proxyDispatchOwnKeys(ctx, obj);
-        if (hasCallException()) return PROTO_NONE;
         std::vector<std::string> defaultKeys;
         if (!keysArr || keysArr == PROTO_NONE) {
             const proto::ProtoObject* tgt = obj;
@@ -1926,7 +1899,6 @@ static const proto::ProtoObject* objectIsFrozen(
             if (!kStr) continue;
             const proto::ProtoObject* desc =
                 proxyDispatchGetOwnPropertyDescriptor(ctx, obj, kStr);
-            if (hasCallException()) return PROTO_NONE;
             // Per spec TestIntegrityLevel: if any descriptor is
             // configurable OR writable (data), it's not frozen.  We
             // don't fully implement the spec semantics here; trap
@@ -2022,7 +1994,6 @@ static const proto::ProtoObject* objectSeal(
             const proto::ProtoList* a = ctx->newList();
             a = a->appendLast(ctx, target ? target : PROTO_NONE);
             const proto::ProtoObject* r = callJSFunction(ctx, trap, handler, a);
-            if (hasCallException()) return PROTO_NONE;
             bool truthy = !(r == nullptr || r == PROTO_NONE || r == PROTO_FALSE
                 || r == getUndefinedSentinel() || r == getNullSentinel());
             if (!truthy) {
@@ -2038,7 +2009,6 @@ static const proto::ProtoObject* objectSeal(
         // defineProperty trap (built-ins/Object/seal/proxy-with-
         // defineProperty-handler.js pins the case).
         const proto::ProtoObject* keysArr = proxyDispatchOwnKeys(ctx, obj);
-        if (hasCallException()) return PROTO_NONE;
         // No ownKeys trap: fall back to the unwrapped target's own
         // attributes (string keys + symbol-keys).  Same pattern as
         // Object.defineProperties Proxy dispatch from R49.
@@ -2088,7 +2058,6 @@ static const proto::ProtoObject* objectSeal(
             const proto::ProtoString* kStr = kObj->asString(ctx);
             if (!kStr) continue;
             proxyDispatchDefineProperty(ctx, obj, kStr, sealDesc);
-            if (hasCallException()) return PROTO_NONE;
         }
         return obj;
     }
@@ -2178,7 +2147,6 @@ static const proto::ProtoObject* objectIsSealed(
     // matching note there for the rationale.
     if (isProxy(ctx, obj)) {
         const proto::ProtoObject* keysArr = proxyDispatchOwnKeys(ctx, obj);
-        if (hasCallException()) return PROTO_NONE;
         std::vector<std::string> defaultKeys;
         if (!keysArr || keysArr == PROTO_NONE) {
             const proto::ProtoObject* tgt = obj;
@@ -2220,7 +2188,6 @@ static const proto::ProtoObject* objectIsSealed(
             const proto::ProtoString* kStr = kObj->asString(ctx);
             if (!kStr) continue;
             (void)proxyDispatchGetOwnPropertyDescriptor(ctx, obj, kStr);
-            if (hasCallException()) return PROTO_NONE;
         }
     }
 
@@ -2276,7 +2243,6 @@ static const proto::ProtoObject* objectPreventExtensions(
             const proto::ProtoList* a = ctx->newList();
             a = a->appendLast(ctx, target ? target : PROTO_NONE);
             const proto::ProtoObject* r = callJSFunction(ctx, trap, handler, a);
-            if (hasCallException()) return PROTO_NONE;
             bool truthy;
             {
                 if (r == nullptr || r == PROTO_NONE
@@ -2362,7 +2328,6 @@ static const proto::ProtoObject* objectIsExtensible(
             const proto::ProtoList* a = ctx->newList();
             a = a->appendLast(ctx, target);
             const proto::ProtoObject* r = callJSFunction(ctx, trap, handler, a);
-            if (hasCallException()) return PROTO_FALSE;
             // §10.5.3 step 5 ToBoolean(trapResult) — null/undefined/0/
             // NaN/"" must reduce to false.  Pre-fix only PROTO_FALSE +
             // sentinels were treated as false, so isExtensible trap
@@ -2434,7 +2399,6 @@ static const proto::ProtoObject* objectGetOwnPropertyNames(
     // handler.ownKeys then filter to string keys only.
     if (isProxy(ctx, obj)) {
         const proto::ProtoObject* full = proxyDispatchOwnKeys(ctx, obj);
-        if (hasCallException()) return PROTO_NONE;
         if (full) {
             const proto::ProtoList* els = getArrayElements(ctx, full);
             const proto::ProtoString* isSymK = JSSymbols::isSymbol(ctx);
@@ -2603,7 +2567,6 @@ static const proto::ProtoObject* objectSetPrototypeOf(
     // Proxy override per §10.5.2 [[SetPrototypeOf]].
     if (isProxy(ctx, obj)) {
         const proto::ProtoObject* r = proxyDispatchSetPrototypeOf(ctx, obj, proto);
-        if (hasCallException()) return PROTO_NONE;
         if (r == PROTO_TRUE) return obj;
         if (r == PROTO_FALSE) {
             signalNativeException(makeNativeError(ctx, "TypeError",
@@ -2770,7 +2733,6 @@ static const proto::ProtoString* coercePropNameToKey(
                     const proto::ProtoList* hintArgs = ctx->newList();
                     hintArgs = hintArgs->appendLast(ctx, ctx->fromUTF8String("string"));
                     const proto::ProtoObject* res = callJSFunction(ctx, tpFn, current, hintArgs);
-                    if (hasCallException()) return nullptr;
                     bool isSym = false;
                     if (res && res != PROTO_NONE) {
                         const proto::ProtoString* isSK = JSSymbols::isSymbol(ctx);
@@ -2828,10 +2790,9 @@ static const proto::ProtoString* coercePropNameToKey(
             return current->getAttribute(ctx, nameK, true);
         };
         const proto::ProtoObject* tsFn = !prim ? resolveCoercer(tsKey, "__get_toString__") : nullptr;
-        if (hasCallException()) return nullptr;
         if (!prim && isCallable(tsFn)) {
             const proto::ProtoObject* res = callJSFunction(ctx, tsFn, current, ctx->newList());
-            if (!hasCallException() && res) {
+            if (res) {
                 // ECMA-262 §7.1.1.1 OrdinaryToPrimitive returns the first
                 // result that is not an Object — Symbols qualify per
                 // §6.1.5 (primitive type).  Pre-fix the Symbol arm was
@@ -2867,13 +2828,12 @@ static const proto::ProtoString* coercePropNameToKey(
         }
 
         // 2. Try valueOf()
-        if (!prim && !hasCallException()) {
+        if (!prim) {
             const proto::ProtoString* voKey = JSSymbols::valueOf(ctx);
             const proto::ProtoObject* voFn = resolveCoercer(voKey, "__get_valueOf__");
-            if (hasCallException()) return nullptr;
             if (isCallable(voFn)) {
                 const proto::ProtoObject* res = callJSFunction(ctx, voFn, current, ctx->newList());
-                if (!hasCallException() && res) {
+                if (res) {
                     // Same Symbol short-circuit as the toString arm —
                     // a Symbol returned from valueOf is a primitive
                     // and IS the property key.  Route through
@@ -2900,7 +2860,7 @@ static const proto::ProtoString* coercePropNameToKey(
         if (prim) {
             current = prim;
         } else {
-            if (!hasCallException()) {
+            {
                 signalNativeException(makeNativeError(ctx, "TypeError", "Cannot convert object to primitive value"));
             }
             return nullptr;
@@ -3049,7 +3009,6 @@ static const proto::ProtoObject* objectDefineProperty(
     if (isProxy(ctx, target)) {
         const proto::ProtoObject* r =
             proxyDispatchDefineProperty(ctx, target, k, desc);
-        if (hasCallException()) return PROTO_NONE;
         if (r == nullptr) {
             // No trap → unwrap through nested Proxies until we reach
             // the concrete target so default-path mutations (Array
@@ -3136,7 +3095,6 @@ static const proto::ProtoObject* objectDefineProperty(
         if (has("value")) {
             typedArraySetElement(ctx, target, idx, get("value"),
                                  getTypedArrayElementType(ctx, target));
-            if (hasCallException()) return PROTO_NONE;
         }
         return args->getAt(ctx, 0);
     }
@@ -3263,7 +3221,6 @@ static const proto::ProtoObject* objectDefineProperty(
                 if (!newVal->isInteger(ctx) && !newVal->isDouble(ctx)
                     && !newVal->isFloat(ctx)) {
                     numVal = jsToNumber(ctx, newVal);
-                    if (hasCallException()) return PROTO_NONE;
                 }
                 double d = 0.0;
                 bool gotNum = false;
@@ -3668,7 +3625,6 @@ static const proto::ProtoObject* objectDefineProperty(
                     if (getter && getter != PROTO_NONE && getter != getUndefinedSentinel()) {
                         const proto::ProtoList* emptyArgs = ctx->newList();
                         const proto::ProtoObject* res = callJSFunction(ctx, getter, obj, emptyArgs);
-                        if (hasCallException()) return PROTO_NONE;
                         return res ? res : getUndefinedSentinel();
                     }
                 }
@@ -3684,7 +3640,6 @@ static const proto::ProtoObject* objectDefineProperty(
         const proto::ProtoObject* ko2 = ctx->fromUTF8String(name);
         const proto::ProtoString* k2  = ko2 ? ko2->asString(ctx) : nullptr;
         const proto::ProtoObject* d = jsGetAttribute(desc, k2);
-        if (hasCallException()) return defaultVal;
         if (!d || d == PROTO_NONE || d == getUndefinedSentinel() || d == getNullSentinel()) return false;
         if (d->isBoolean(ctx)) return (d == PROTO_TRUE);
         if (d->isInteger(ctx)) return (d->asLong(ctx) != 0);
@@ -3714,7 +3669,6 @@ static const proto::ProtoObject* objectDefineProperty(
         const proto::ProtoObject* ko2 = ctx->fromUTF8String(name);
         const proto::ProtoString* k2  = ko2 ? ko2->asString(ctx) : nullptr;
         const proto::ProtoObject* v = jsGetAttribute(desc, k2);
-        if (hasCallException()) return PROTO_NONE;
         if (!v || v == PROTO_NONE || v == getUndefinedSentinel()) return getUndefinedSentinel();
         
         if (!isCallable(v)) {
@@ -3725,9 +3679,7 @@ static const proto::ProtoObject* objectDefineProperty(
     };
 
     const proto::ProtoObject* getter = getFnProp("get");
-    if (hasCallException()) return PROTO_NONE;
     const proto::ProtoObject* setter = getFnProp("set");
-    if (hasCallException()) return PROTO_NONE;
 
     bool hasGet = descHasKey("get");
     bool hasSet = descHasKey("set");
@@ -3836,7 +3788,6 @@ static const proto::ProtoObject* objectDefineProperty(
             if (descHasKey("value")) {
                 const proto::ProtoObject* koV = ctx->fromUTF8String("value");
                 val = jsGetAttribute(desc, koV ? koV->asString(ctx) : nullptr);
-                if (hasCallException()) return PROTO_NONE;
             }
 
             const proto::ProtoObject* storedVal = nullptr;
@@ -4372,7 +4323,6 @@ static const proto::ProtoObject* objectGetOwnPropertySymbols(
     // keep only Symbol-tagged entries.
     if (isProxy(ctx, target)) {
         const proto::ProtoObject* full = proxyDispatchOwnKeys(ctx, target);
-        if (hasCallException()) return PROTO_NONE;
         if (full) {
             const proto::ProtoList* els = getArrayElements(ctx, full);
             const proto::ProtoString* isSymK = JSSymbols::isSymbol(ctx);
@@ -4467,7 +4417,6 @@ static const proto::ProtoObject* objectGetOwnPropertyDescriptors(
     // getOwnPropertyDescriptors/observable-operations.js).
     if (isProxy(ctx, target)) {
         const proto::ProtoObject* keysArr = proxyDispatchOwnKeys(ctx, target);
-        if (hasCallException()) return PROTO_NONE;
         std::vector<std::string> defaultKeys;
         if (!keysArr || keysArr == PROTO_NONE) {
             const proto::ProtoObject* tgt = target;
@@ -4513,7 +4462,6 @@ static const proto::ProtoObject* objectGetOwnPropertyDescriptors(
             if (!kStr) continue;
             const proto::ProtoObject* desc =
                 proxyDispatchGetOwnPropertyDescriptor(ctx, target, kStr);
-            if (hasCallException()) return PROTO_NONE;
             if (!desc || desc == PROTO_NONE
                 || desc == getUndefinedSentinel() || desc == getNullSentinel())
                 continue;
@@ -4641,7 +4589,6 @@ static const proto::ProtoObject* objectDefineProperties(
     // is called with each key, in chronological order).
     if (isProxy(ctx, propsObj)) {
         const proto::ProtoObject* keysArr = proxyDispatchOwnKeys(ctx, propsObj);
-        if (hasCallException()) return PROTO_NONE;
         // No ownKeys trap: forward to the target's own keys via
         // collectOwnKeys (the default [[OwnPropertyKeys]] behaviour).
         std::vector<std::string> defaultKeys;
@@ -4692,7 +4639,6 @@ static const proto::ProtoObject* objectDefineProperties(
             if (!kStr) continue;
             const proto::ProtoObject* desc =
                 proxyDispatchGetOwnPropertyDescriptor(ctx, propsObj, kStr);
-            if (hasCallException()) return PROTO_NONE;
             if (!desc || desc == PROTO_NONE
                 || desc == getUndefinedSentinel() || desc == getNullSentinel())
                 continue;
@@ -4706,13 +4652,11 @@ static const proto::ProtoObject* objectDefineProperties(
             // Reflect.get(proxy, key) for the descriptor value.
             const proto::ProtoObject* descRead =
                 proxyDispatchGet(ctx, propsObj, kStr, propsObj);
-            if (hasCallException()) return PROTO_NONE;
             const proto::ProtoList* dpArgs = ctx->newList();
             dpArgs = dpArgs->appendLast(ctx, target);
             dpArgs = dpArgs->appendLast(ctx, kObj);
             dpArgs = dpArgs->appendLast(ctx, descRead ? descRead : PROTO_NONE);
             const proto::ProtoObject* newTarget = objectDefineProperty(ctx, nullptr, nullptr, argsView(proto::ProtoListArguments(ctx, dpArgs)), nullptr);
-            if (hasCallException()) return PROTO_NONE;
             if (newTarget && newTarget != PROTO_NONE) target = newTarget;
         }
         return target;
@@ -4784,7 +4728,6 @@ static const proto::ProtoObject* objectDefineProperties(
                         && getter != getUndefinedSentinel()) {
                         const proto::ProtoList* noArgs = ctx->newList();
                         descObj = callJSFunction(ctx, getter, propsObj, noArgs);
-                        if (hasCallException()) return PROTO_NONE;
                     }
                 }
             }
@@ -4793,7 +4736,6 @@ static const proto::ProtoObject* objectDefineProperties(
             dpArgs = dpArgs->appendLast(ctx, ctx->fromUTF8String(keyStr.c_str()));
             dpArgs = dpArgs->appendLast(ctx, descObj);
             const proto::ProtoObject* newTarget = objectDefineProperty(ctx, nullptr, nullptr, argsView(proto::ProtoListArguments(ctx, dpArgs)), nullptr);
-            if (hasCallException()) return PROTO_NONE;
             if (newTarget && newTarget != PROTO_NONE) target = newTarget;
         }
     }
@@ -4915,7 +4857,6 @@ static const proto::ProtoObject* objectFromEntries(
         // fell through the `keyStr.empty()` short-circuit, silently
         // dropping the entry (built-ins/Object/fromEntries/to-property-key).
         const proto::ProtoString* entryKey = coercePropNameToKey(ctx, keyObj);
-        if (hasCallException()) return;
         if (!entryKey) return;
         result = dict::createDataProperty(ctx, result, entryKey, valObj);
     };
@@ -5015,14 +4956,13 @@ static const proto::ProtoObject* objectFromEntries(
         while (nextFn && nextFn != PROTO_NONE) {
             const proto::ProtoList* nArgs = ctx->newList();
             const proto::ProtoObject* res = callJSFunction(ctx, nextFn, iter, nArgs);
-            if (hasCallException()) return PROTO_NONE;  // next() threw
+            // next() threw
             if (!res || res == PROTO_NONE) break;
             // §7.4.3 IteratorComplete: Get(step, "done") fires the
             // accessor; abrupt completion propagates WITHOUT calling
             // iterator.return (test262 fromEntries/iterator-not-
             // closed-for-throwing-done-accessor).
             const proto::ProtoObject* dv = readDoneOrValue(res, doneKey, "__get_done__");
-            if (hasCallException()) return PROTO_NONE;
             bool isDone = dv == PROTO_TRUE
                 || (dv && dv->isBoolean(ctx) && dv->asBoolean(ctx));
             if (isDone) break;
@@ -5030,7 +4970,6 @@ static const proto::ProtoObject* objectFromEntries(
             // §7.4.4 IteratorValue: a throwing `get value()` DOES
             // propagate without iterator.return either (the spec only
             // closes for abrupt completions after a successful step).
-            if (hasCallException()) return PROTO_NONE;
             try {
                 processPair(pair);
             } catch (const JSException&) {
@@ -5107,7 +5046,6 @@ static const proto::ProtoObject* objectHasOwn(
     // whose @@toPrimitive coerced to a Symbol fell to the empty-key
     // short-circuit (built-ins/Object/hasOwn/symbol_property_*).
     const proto::ProtoString* strKey = coercePropNameToKey(ctx, key);
-    if (hasCallException()) return PROTO_NONE;
     if (!strKey) return PROTO_FALSE;
     materializeLazyPrototypeForKey(ctx, obj, strKey);  // runtime/LazyPrototype.h
     // §20.1.2.13 step 3 HasOwnProperty -> [[GetOwnProperty]]: on a Proxy that
@@ -5116,7 +5054,6 @@ static const proto::ProtoObject* objectHasOwn(
     // proxy cell and reported false for every property of the target.
     if (isProxy(ctx, obj)) {
         const proto::ProtoObject* desc = proxyDispatchGetOwnPropertyDescriptor(ctx, obj, strKey);
-        if (hasCallException()) return PROTO_NONE;
         return (desc && desc != PROTO_NONE && desc != getUndefinedSentinel()
                 && desc != getNullSentinel()) ? PROTO_TRUE : PROTO_FALSE;
     }
@@ -5216,7 +5153,6 @@ static const proto::ProtoObject* objectGroupBy(
             && isCb(itFn)) {
             const proto::ProtoObject* iterObj =
                 callJSFunction(ctx, itFn, items, ctx->newList());
-            if (hasCallException()) return PROTO_NONE;
             if (iterObj && iterObj != PROTO_NONE) {
                 const proto::ProtoString* nextK = JSSymbols::next(ctx);
                 const proto::ProtoString* doneK = JSSymbols::done(ctx);
@@ -5233,7 +5169,6 @@ static const proto::ProtoObject* objectGroupBy(
                     }
                     const proto::ProtoObject* step =
                         callJSFunction(ctx, nextFn, iterObj, ctx->newList());
-                    if (hasCallException()) return PROTO_NONE;
                     if (!step || step == PROTO_NONE) break;
                     const proto::ProtoObject* doneVal = doneK
                         ? step->getAttribute(ctx, doneK, true) : nullptr;
@@ -5270,7 +5205,6 @@ static const proto::ProtoObject* objectGroupBy(
         cbArgs = cbArgs->appendLast(ctx, ctx->fromInteger(static_cast<long long>(i)));
         const proto::ProtoObject* keyVal = callJSFunction(ctx, cb,
             getUndefinedSentinel(), cbArgs);
-        if (hasCallException()) return PROTO_NONE;
         const proto::ProtoString* keyStr = coercePropNameToKey(ctx, keyVal);
         if (!keyStr) continue;
         // Append v to result[key]'s element list; create a new array if absent.
@@ -5323,7 +5257,6 @@ static const proto::ProtoObject* objectHasOwnProperty(
     const proto::ProtoObject* key = args->getAt(ctx, 0);
     if (!key) key = getUndefinedSentinel();
     const proto::ProtoString* k = coercePropNameToKey(ctx, key);
-    if (hasCallException()) return PROTO_NONE;
     materializeLazyPrototypeForKey(ctx, self, k);  // runtime/LazyPrototype.h
     // Step 2: ToObject(this) — null / undefined now throw post key coercion.
     if (!self || self == PROTO_NONE
@@ -5346,7 +5279,6 @@ static const proto::ProtoObject* objectHasOwnProperty(
     if (protojs::isProxy(ctx, self)) {
         const proto::ProtoObject* desc =
             protojs::proxyDispatchGetOwnPropertyDescriptor(ctx, self, k);
-        if (hasCallException()) return PROTO_NONE;
         if (desc && desc != PROTO_NONE
             && desc != getUndefinedSentinel() && desc != getNullSentinel()) {
             return PROTO_TRUE;
@@ -5496,7 +5428,6 @@ static const proto::ProtoObject* objectPropertyIsEnumerable(
     const proto::ProtoObject* key = args->getAt(ctx, 0);
     if (!key) key = getUndefinedSentinel();
     const proto::ProtoString* k = coercePropNameToKey(ctx, key);
-    if (hasCallException()) return PROTO_NONE;
     if (!self || self == PROTO_NONE
         || self == getNullSentinel() || self == getUndefinedSentinel()) {
         signalNativeException(makeNativeError(ctx, "TypeError",
@@ -5513,7 +5444,6 @@ static const proto::ProtoObject* objectPropertyIsEnumerable(
     if (protojs::isProxy(ctx, self)) {
         const proto::ProtoObject* desc =
             protojs::proxyDispatchGetOwnPropertyDescriptor(ctx, self, k);
-        if (hasCallException()) return PROTO_NONE;
         if (!desc || desc == PROTO_NONE
             || desc == getUndefinedSentinel() || desc == getNullSentinel()) {
             return PROTO_FALSE;
@@ -5879,7 +5809,6 @@ static const proto::ProtoObject* objectToString(
                 const proto::ProtoObject* getter = self->getAttribute(ctx, gk, true);
                 if (getter && getter != PROTO_NONE) {
                     val = callJSFunction(ctx, getter, self, ctx->newList());
-                    if (hasCallException()) return {};
                 }
             }
             if (!val || val == PROTO_NONE) {
@@ -5916,7 +5845,6 @@ static const proto::ProtoObject* objectToString(
         const proto::ProtoObject* wksKeyObj = ctx->fromUTF8String("Symbol.toStringTag");
         const proto::ProtoString* wksKey = wksKeyObj ? wksKeyObj->asString(ctx) : nullptr;
         std::string tag = tryTagKey(wksKey);
-        if (hasCallException()) return PROTO_NONE;
 
         if (!tag.empty()) {
             std::string tagResult = "[object " + tag + "]";
@@ -6086,7 +6014,6 @@ static const proto::ProtoObject* objectDefineGetter(
     dpArgs = dpArgs->appendLast(ctx, keyArg);
     dpArgs = dpArgs->appendLast(ctx, desc);
     (void)objectDefineProperty(ctx, nullptr, nullptr, argsView(proto::ProtoListArguments(ctx, dpArgs)), nullptr);
-    if (hasCallException()) return PROTO_NONE;
     return getUndefinedSentinel();
 }
 
@@ -6133,7 +6060,6 @@ static const proto::ProtoObject* objectDefineSetter(
     dpArgs = dpArgs->appendLast(ctx, keyArg);
     dpArgs = dpArgs->appendLast(ctx, desc);
     (void)objectDefineProperty(ctx, nullptr, nullptr, argsView(proto::ProtoListArguments(ctx, dpArgs)), nullptr);
-    if (hasCallException()) return PROTO_NONE;
     return getUndefinedSentinel();
 }
 
@@ -6165,7 +6091,6 @@ static const proto::ProtoObject* objectLookupGetter(
     // "undefined".  Pre-fix non-primitive keys fell through to the
     // return-undefined branch (test262 __lookupGetter__/key-invalid).
     const proto::ProtoString* dataKey = coercePropNameToKey(ctx, keyArg);
-    if (hasCallException()) return PROTO_NONE;
     if (!dataKey) return getUndefinedSentinel();
     std::string keyStr;
     dataKey->toUTF8String(ctx, keyStr);
@@ -6187,7 +6112,6 @@ static const proto::ProtoObject* objectLookupGetter(
         if (isProxy(ctx, curr)) {
             const proto::ProtoObject* desc =
                 proxyDispatchGetOwnPropertyDescriptor(ctx, curr, dataKey);
-            if (hasCallException()) return PROTO_NONE;
             if (desc && desc != PROTO_NONE) {
                 if (getK) {
                     const proto::ProtoObject* g = desc->getAttribute(ctx, getK, false);
@@ -6197,7 +6121,6 @@ static const proto::ProtoObject* objectLookupGetter(
             }
             const proto::ProtoObject* nx =
                 proxyDispatchGetPrototypeOf(ctx, curr);
-            if (hasCallException()) return PROTO_NONE;
             curr = nx;
             continue;
         }
@@ -6246,7 +6169,6 @@ static const proto::ProtoObject* objectLookupSetter(
     // §B.2.2.5 step 2: ToPropertyKey(P) — propagate abrupts from a
     // throwing toString / @@toPrimitive.
     const proto::ProtoString* dataKey = coercePropNameToKey(ctx, keyArg);
-    if (hasCallException()) return PROTO_NONE;
     if (!dataKey) return getUndefinedSentinel();
     std::string keyStr;
     dataKey->toUTF8String(ctx, keyStr);
@@ -6262,7 +6184,6 @@ static const proto::ProtoObject* objectLookupSetter(
         if (isProxy(ctx, curr)) {
             const proto::ProtoObject* desc =
                 proxyDispatchGetOwnPropertyDescriptor(ctx, curr, dataKey);
-            if (hasCallException()) return PROTO_NONE;
             if (desc && desc != PROTO_NONE) {
                 if (setK) {
                     const proto::ProtoObject* s = desc->getAttribute(ctx, setK, false);
@@ -6272,7 +6193,6 @@ static const proto::ProtoObject* objectLookupSetter(
             }
             const proto::ProtoObject* nx =
                 proxyDispatchGetPrototypeOf(ctx, curr);
-            if (hasCallException()) return PROTO_NONE;
             curr = nx;
             continue;
         }
@@ -6341,7 +6261,6 @@ static const proto::ProtoObject* objectIsPrototypeOf(
     auto advance = [&](const proto::ProtoObject* o) -> const proto::ProtoObject* {
         if (isProxy(ctx, o)) {
             const proto::ProtoObject* nx = proxyDispatchGetPrototypeOf(ctx, o);
-            if (hasCallException()) return nullptr;
             return nx;
         }
         if (const proto::ProtoObject* ov = getJSProtoOverride(ctx, o)) return ov;
@@ -6351,7 +6270,6 @@ static const proto::ProtoObject* objectIsPrototypeOf(
     while (curr && curr != PROTO_NONE && curr != getNullSentinel()) {
         if (curr == self) return PROTO_TRUE;
         curr = advance(curr);
-        if (hasCallException()) return PROTO_NONE;
     }
     return PROTO_FALSE;
 }
@@ -6431,7 +6349,6 @@ static const proto::ProtoObject* protoAccessorSetter(
     if (isProxy(sctx, sself)) {
         const proto::ProtoObject* r =
             proxyDispatchSetPrototypeOf(sctx, sself, proto);
-        if (hasCallException()) return PROTO_NONE;
         if (r == PROTO_FALSE) {
             signalNativeException(makeNativeError(sctx, "TypeError",
                 "Proxy setPrototypeOf returned false"));
@@ -6718,7 +6635,6 @@ const proto::ProtoObject* installObjectInstanceMethods(
                 const proto::ProtoObject* getter = self->getAttribute(ictx, gk, true);
                 if (getter && getter != PROTO_NONE) {
                     tsFn = callJSFunction(ictx, getter, self, ictx->newList());
-                    if (hasCallException()) return PROTO_NONE;
                 }
             }
         }

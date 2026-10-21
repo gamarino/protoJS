@@ -395,7 +395,6 @@ void stringifyRecursive(proto::ProtoContext* ctx,
                     if (fn && fn != PROTO_NONE) {
                         const proto::ProtoObject* r =
                             callJSFunction(ctx, fn, obj, ctx->newList());
-                        if (hasCallException()) return;
                         if (r && r != PROTO_NONE && r->isString(ctx)) prim = r;
                     }
                 } else {
@@ -405,7 +404,6 @@ void stringifyRecursive(proto::ProtoContext* ctx,
                     if (fn && fn != PROTO_NONE) {
                         const proto::ProtoObject* r =
                             callJSFunction(ctx, fn, obj, ctx->newList());
-                        if (hasCallException()) return;
                         if (r && r != PROTO_NONE
                             && (r->isInteger(ctx) || r->isDouble(ctx)
                                 || r->isFloat(ctx) || r->isBoolean(ctx)
@@ -472,7 +470,6 @@ void stringifyRecursive(proto::ProtoContext* ctx,
             replArgs = replArgs->appendLast(ctx, ctx->fromUTF8String(ks.c_str()));
             replArgs = replArgs->appendLast(ctx, v ? v : PROTO_NONE);
             const proto::ProtoObject* r = callJSFunction(ctx, tlReplacerFn, obj, replArgs);
-            if (hasCallException()) return PROTO_NONE;
             return r ? r : PROTO_NONE;
         };
         const proto::ProtoList* els = getArrayElements(ctx, obj);
@@ -697,7 +694,6 @@ void stringifyRecursive(proto::ProtoContext* ctx,
                         const proto::ProtoList* tjArgs = ctx->newList();
                         tjArgs = tjArgs->appendLast(ctx, ctx->fromUTF8String(key.c_str()));
                         const proto::ProtoObject* r = callJSFunction(ctx, fn, val, tjArgs);
-                        if (hasCallException()) return;
                         if (r) val = r;
                     }
                 }
@@ -709,7 +705,6 @@ void stringifyRecursive(proto::ProtoContext* ctx,
                 replArgs = replArgs->appendLast(ctx, ctx->fromUTF8String(key.c_str()));
                 replArgs = replArgs->appendLast(ctx, outVal);
                 outVal = callJSFunction(ctx, tlReplacerFn, obj, replArgs);
-                if (hasCallException()) return;
                 if (!outVal || outVal == PROTO_NONE
                     || outVal == getUndefinedSentinel()) {
                     continue;
@@ -821,7 +816,6 @@ const proto::ProtoObject* JSONBuiltin::stringify(proto::ProtoContext* ctx,
                             const proto::ProtoObject* getter = replacer->getAttribute(ctx, gks, true);
                             if (getter && getter != PROTO_NONE) {
                                 v = callJSFunction(ctx, getter, replacer, ctx->newList());
-                                if (hasCallException()) return PROTO_NONE;
                             }
                         }
                     }
@@ -1033,7 +1027,6 @@ const proto::ProtoObject* JSONBuiltin::stringify(proto::ProtoContext* ctx,
                         if (fn && fn != PROTO_NONE) {
                             const proto::ProtoObject* r =
                                 callJSFunction(ctx, fn, space, ctx->newList());
-                            if (hasCallException()) return PROTO_NONE;
                             if (r && r != PROTO_NONE) space = r;
                         }
                     } else {
@@ -1043,7 +1036,6 @@ const proto::ProtoObject* JSONBuiltin::stringify(proto::ProtoContext* ctx,
                         if (fn && fn != PROTO_NONE) {
                             const proto::ProtoObject* r =
                                 callJSFunction(ctx, fn, space, ctx->newList());
-                            if (hasCallException()) return PROTO_NONE;
                             if (r && r != PROTO_NONE) space = r;
                         }
                     }
@@ -1138,7 +1130,6 @@ const proto::ProtoObject* JSONBuiltin::stringify(proto::ProtoContext* ctx,
                     const proto::ProtoList* tjArgs = ctx->newList();
                     tjArgs = tjArgs->appendLast(ctx, ctx->fromUTF8String(""));
                     const proto::ProtoObject* r = callJSFunction(ctx, fn, val, tjArgs);
-                    if (hasCallException()) return PROTO_NONE;
                     if (r) val = r;
                 }
             }
@@ -1173,7 +1164,6 @@ const proto::ProtoObject* JSONBuiltin::stringify(proto::ProtoContext* ctx,
         }
         const proto::ProtoObject* newVal =
             callJSFunction(ctx, replacerFnLocal, holder ? holder : val, topArgs);
-        if (hasCallException()) return PROTO_NONE;
         if (!newVal || newVal == PROTO_NONE
             || newVal == getUndefinedSentinel()) {
             return getUndefinedSentinel();
@@ -1399,25 +1389,20 @@ const proto::ProtoObject* JSONBuiltin::parse(proto::ProtoContext* ctx,
                         const proto::ProtoObject* getter = textObj->getAttribute(ctx, gks, true);
                         if (getter && getter != PROTO_NONE) {
                             fn = callJSFunction(ctx, getter, textObj, ctx->newList());
-                            if (hasCallException()) return nullptr;
                         }
                     }
                 }
                 return fn;
             };
             const proto::ProtoObject* tsFn = resolveMethod("toString");
-            if (hasCallException()) return PROTO_NONE;
             if (isCallable(tsFn)) {
                 const proto::ProtoObject* r = callJSFunction(ctx, tsFn, textObj, ctx->newList());
-                if (hasCallException()) return PROTO_NONE;
                 if (isPrim(r)) prim = r;
             }
             if (!prim) {
                 const proto::ProtoObject* voFn = resolveMethod("valueOf");
-                if (hasCallException()) return PROTO_NONE;
                 if (isCallable(voFn)) {
                     const proto::ProtoObject* r = callJSFunction(ctx, voFn, textObj, ctx->newList());
-                    if (hasCallException()) return PROTO_NONE;
                     if (isPrim(r)) prim = r;
                 }
             }

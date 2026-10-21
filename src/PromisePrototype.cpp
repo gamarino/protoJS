@@ -441,7 +441,6 @@ bool newPromiseCapability(proto::ProtoContext* ctx, const proto::ProtoObject* C,
     const proto::ProtoObject* record = ctx->newObject(true);
     const proto::ProtoObject* executor = makeNativeClosure(ctx, capabilityExecutor, record, 2, "");
     const proto::ProtoObject* promise = jsConstruct(ctx, C, list1(ctx, executor));
-    if (hasCallException()) return false;
     const proto::ProtoObject* res = record->getOwnAttributeDirect(ctx, keyCapResolve(ctx));
     const proto::ProtoObject* rej = record->getOwnAttributeDirect(ctx, keyCapReject(ctx));
     if (!isCallable(ctx, res) || !isCallable(ctx, rej)) {
@@ -530,7 +529,6 @@ const proto::ProtoObject* speciesConstructor(proto::ProtoContext* ctx,
                                              const proto::ProtoObject* defaultCtor) {
     const proto::ProtoObject* C = jsGet(ctx, O, JSSymbols::constructor(ctx),
                                         keyConstructorGetter(ctx));
-    if (hasCallException()) return nullptr;
     if (isUndefinedValue(C)) return defaultCtor;
     if (!isObjectValue(ctx, C)) {
         throwTypeError(ctx, "SpeciesConstructor: constructor is not an Object");
@@ -538,7 +536,6 @@ const proto::ProtoObject* speciesConstructor(proto::ProtoContext* ctx,
     }
     const proto::ProtoObject* S = jsGet(ctx, C, JSSymbols::symbolSpecies(ctx),
                                         keySpeciesGetter(ctx));
-    if (hasCallException()) return nullptr;
     if (isUndefinedValue(S) || isNullValue(S)) return defaultCtor;
     if (isConstructorValue(ctx, S)) return S;
     throwTypeError(ctx, "SpeciesConstructor: [Symbol.species] is not a constructor");
@@ -551,13 +548,11 @@ const proto::ProtoObject* promiseResolveWith(proto::ProtoContext* ctx,
     if (isPromise(ctx, x)) {
         const proto::ProtoObject* xC = jsGet(ctx, x, JSSymbols::constructor(ctx),
                                              keyConstructorGetter(ctx));
-        if (hasCallException()) return nullptr;
         if (xC == C) return x;
     }
     Capability cap;
     if (!newPromiseCapability(ctx, C, cap)) return nullptr;
     capabilitySettle(ctx, cap, false, x);
-    if (hasCallException()) return nullptr;
     return cap.promise;
 }
 
@@ -587,7 +582,6 @@ const proto::ProtoObject* promiseThen(proto::ProtoContext* ctx,
 const proto::ProtoObject* invokeThen(proto::ProtoContext* ctx, const proto::ProtoObject* target,
                                      const proto::ProtoList* thenArgs) {
     const proto::ProtoObject* thenFn = jsGet(ctx, target, keyThen(ctx), keyThenGetter(ctx));
-    if (hasCallException()) return PROTO_NONE;
     if (!isCallable(ctx, thenFn)) {
         throwTypeError(ctx, "then is not a function");
         return PROTO_NONE;
@@ -629,7 +623,6 @@ const proto::ProtoObject* finallyReaction(proto::ProtoContext* ctx, const proto:
     const proto::ProtoObject* C = data->getAt(ctx, 1);
     const proto::ProtoObject* outcome = argAt(ctx, args, 0);
     const proto::ProtoObject* result = callJSFunction(ctx, onFinally, undef(), ctx->newList());
-    if (hasCallException()) return PROTO_NONE;
     const proto::ProtoObject* p = promiseResolveWith(ctx, C, result ? result : undef());
     if (!p) return PROTO_NONE;
     const proto::ProtoObject* thunk = rejected
@@ -738,7 +731,6 @@ const proto::ProtoObject* promiseStaticReject(proto::ProtoContext* ctx,
     Capability cap;
     if (!newPromiseCapability(ctx, self, cap)) return PROTO_NONE;
     capabilitySettle(ctx, cap, true, argAt(ctx, args, 0));
-    if (hasCallException()) return PROTO_NONE;
     return cap.promise;
 }
 
@@ -819,20 +811,17 @@ bool getIterator(proto::ProtoContext* ctx, const proto::ProtoObject* obj, Iterat
     }
     const proto::ProtoObject* method = jsGet(ctx, obj, JSSymbols::symbolIterator(ctx),
                                              keyIterGetter(ctx));
-    if (hasCallException()) return false;
     if (!isCallable(ctx, method)) {
         throwTypeError(ctx, "object is not iterable (cannot read property Symbol(Symbol.iterator))");
         return false;
     }
     const proto::ProtoObject* it = callJSFunction(ctx, method, obj, ctx->newList());
-    if (hasCallException()) return false;
     if (!isObjectValue(ctx, it)) {
         throwTypeError(ctx, "Result of the Symbol.iterator method is not an object");
         return false;
     }
     rec.iterator = it;
     rec.next = jsGet(ctx, it, JSSymbols::next(ctx), nullptr);
-    if (hasCallException()) return false;
     return true;
 }
 
@@ -846,17 +835,14 @@ int iteratorStepValue(proto::ProtoContext* ctx, IteratorRecord& rec,
         return 1;
     }
     const proto::ProtoObject* result = callJSFunction(ctx, rec.next, rec.iterator, ctx->newList());
-    if (hasCallException()) { rec.done = true; return -1; }
     if (!isObjectValue(ctx, result)) {
         rec.done = true;
         throwTypeError(ctx, "Iterator result is not an object");
         return -1;
     }
     const proto::ProtoObject* done = jsGet(ctx, result, JSSymbols::done(ctx), sym(ctx, "__get_done__"));
-    if (hasCallException()) { rec.done = true; return -1; }
     if (toBooleanValue(ctx, done)) { rec.done = true; return 0; }
     value = jsGet(ctx, result, JSSymbols::value(ctx), sym(ctx, "__get_value__"));
-    if (hasCallException()) { rec.done = true; return -1; }
     return 1;
 }
 
@@ -878,7 +864,6 @@ void iteratorCloseOnThrow(proto::ProtoContext* ctx, IteratorRecord& rec) {
 // GetPromiseResolve(C): Get(C, "resolve"), which must be callable.
 const proto::ProtoObject* getPromiseResolve(proto::ProtoContext* ctx, const proto::ProtoObject* C) {
     const proto::ProtoObject* r = jsGet(ctx, C, keyResolve(ctx), keyResolveGetter(ctx));
-    if (hasCallException()) return nullptr;
     if (!isCallable(ctx, r)) {
         throwTypeError(ctx, "Promise resolve is not a function");
         return nullptr;
@@ -1267,7 +1252,6 @@ bool performAwait(proto::ProtoContext* ctx, const proto::ProtoObject* value,
     if (isPromise(ctx, value)) {
         const proto::ProtoObject* xC = jsGet(ctx, value, JSSymbols::constructor(ctx),
                                              keyConstructorGetter(ctx));
-        if (hasCallException()) return false;
         const proto::ProtoObject* C = intrinsicPromiseCtor(ctx);
         if (C && xC == C) {
             // PromiseResolve returns the promise itself.

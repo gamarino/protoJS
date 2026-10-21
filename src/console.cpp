@@ -573,7 +573,6 @@ const proto::ProtoObject* TimingAPIs::dateUTC(proto::ProtoContext* ctx,
         // so Date.UTC(throwingObj) succeeded and the test262
         // coercion-errors fixtures all failed.
         const proto::ProtoObject* n = jsToNumber(ctx, v);
-        if (hasCallException()) { aborted = true; return defaultV; }
         if (!n || n == PROTO_NONE) { nonFinite = true; return defaultV; }
         if (n->isInteger(ctx)) return n->asLong(ctx);
         if (n->isDouble(ctx) || n->isFloat(ctx)) {

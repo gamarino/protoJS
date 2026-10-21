@@ -193,7 +193,6 @@ static proto::proto_ulong arrLen(proto::ProtoContext* ctx,
         if (!lk) return 0;
         const proto::ProtoObject* lv =
             protojs::proxyDispatchGet(ctx, arr, lk, arr);
-        if (hasCallException()) return 0;
         if (!lv || lv == PROTO_NONE || lv == getUndefinedSentinel()) return 0;
         if (lv->isInteger(ctx)) {
             long long n = lv->asLong(ctx);
@@ -207,7 +206,6 @@ static proto::proto_ulong arrLen(proto::ProtoContext* ctx,
         }
         // Best-effort numeric coercion via jsToNumber.
         const proto::ProtoObject* nv = jsToNumber(ctx, lv);
-        if (hasCallException()) return 0;
         if (!nv) return 0;
         if (nv->isInteger(ctx)) {
             long long n = nv->asLong(ctx);
@@ -288,7 +286,7 @@ static proto::proto_ulong arrLen(proto::ProtoContext* ctx,
             const proto::ProtoObject* ownGetter = arr->getAttribute(ctx, gk, true);
             if (ownGetter && ownGetter != PROTO_NONE) {
                 const proto::ProtoObject* fromGetter = callJSFunction(ctx, ownGetter, arr, ctx->newList());
-                if (hasCallException() || !fromGetter || fromGetter == PROTO_NONE) return 0;
+                if (!fromGetter || fromGetter == PROTO_NONE) return 0;
                 // Parse the getter result as a length (fall through to numeric parsing below).
                 if (fromGetter->isInteger(ctx)) {
                     long long v = fromGetter->asLong(ctx);
@@ -322,7 +320,7 @@ static proto::proto_ulong arrLen(proto::ProtoContext* ctx,
                 // indexOf/15.4.4.14-5-27).
                 {
                     const proto::ProtoObject* num = jsToNumber(ctx, fromGetter);
-                    if (hasCallException() || !num || num == PROTO_NONE) return 0;
+                    if (!num || num == PROTO_NONE) return 0;
                     if (num->isInteger(ctx)) {
                         long long v = num->asLong(ctx);
                         return (v > 0) ? static_cast<proto::proto_ulong>(v) : 0;
@@ -380,7 +378,7 @@ static proto::proto_ulong arrLen(proto::ProtoContext* ctx,
             const proto::ProtoObject* getter = arr->getAttribute(ctx, gk, true);
             if (getter && getter != PROTO_NONE) {
                 lenObj = callJSFunction(ctx, getter, arr, ctx->newList());
-                if (hasCallException() || !lenObj || lenObj == PROTO_NONE) return 0;
+                if (!lenObj || lenObj == PROTO_NONE) return 0;
             }
         }
         if (!lenObj || lenObj == PROTO_NONE) return 0;
@@ -470,7 +468,6 @@ static proto::proto_ulong arrLen(proto::ProtoContext* ctx,
     // apply elsewhere in this file.
     {
         const proto::ProtoObject* num = jsToNumber(ctx, lenObj);
-        if (hasCallException()) return 0;
         if (num && num != PROTO_NONE) {
             if (num->isInteger(ctx)) {
                 long long v = num->asLong(ctx);
@@ -552,7 +549,7 @@ static const proto::ProtoObject* arrGet(proto::ProtoContext* ctx,
     if (hasOwnGetter) {
         const proto::ProtoObject* ownGetter = arr->getAttribute(ctx, gk, true);
         const proto::ProtoObject* result = callJSFunction(ctx, ownGetter, arr, ctx->newList());
-        return (hasCallException() || !result || result == PROTO_NONE) ? PROTO_NONE : result;
+        return (!result || result == PROTO_NONE) ? PROTO_NONE : result;
     }
     if (hasOwnSetter) {
         // Setter-only own accessor — read returns undefined.
@@ -595,7 +592,6 @@ static const proto::ProtoObject* arrGet(proto::ProtoContext* ctx,
         const proto::ProtoObject* inheritedGetter = arr->getAttribute(ctx, gk, true);
         if (inheritedGetter && inheritedGetter != PROTO_NONE) {
             const proto::ProtoObject* result = callJSFunction(ctx, inheritedGetter, arr, ctx->newList());
-            if (hasCallException()) return PROTO_NONE;
             if (result && result != PROTO_NONE) return result;
         }
     }
@@ -658,7 +654,6 @@ static const proto::ProtoObject* arrSet(proto::ProtoContext* ctx,
                         const proto::ProtoList* sargs = ctx->newList();
                         sargs = sargs->appendLast(ctx, val ? val : PROTO_NONE);
                         callJSFunction(ctx, setter, arr, sargs);
-                        if (hasCallException()) return arr;
                         return arr;
                     }
                 }
@@ -701,7 +696,6 @@ static const proto::ProtoObject* arrSet(proto::ProtoContext* ctx,
                     const proto::ProtoList* sargs = ctx->newList();
                     sargs = sargs->appendLast(ctx, val ? val : PROTO_NONE);
                     callJSFunction(ctx, setter, arr, sargs);
-                    if (hasCallException()) return arr;
                     return arr;
                 }
             }
@@ -750,7 +744,6 @@ static const proto::ProtoObject* arrSet(proto::ProtoContext* ctx,
             const proto::ProtoList* sargs = ctx->newList();
             sargs = sargs->appendLast(ctx, val ? val : PROTO_NONE);
             callJSFunction(ctx, setter, arr, sargs);
-            if (hasCallException()) return arr;
             // Setter handled the assignment — do NOT also write a data
             // slot or bump length.
             return arr;
@@ -1005,7 +998,6 @@ static std::string elemToString(proto::ProtoContext* ctx,
                 };
                 if (isCallable(tsFn)) {
                     const proto::ProtoObject* r = callJSFunction(ctx, tsFn, val, ctx->newList());
-                    if (hasCallException()) return "";
                     if (r && r != PROTO_NONE) {
                         if (r->isString(ctx)) {
                             std::string s;
@@ -1027,7 +1019,6 @@ static std::string elemToString(proto::ProtoContext* ctx,
                     if (voFn && voFn != PROTO_NONE && isCallable(voFn)) {
                         voCallableSeen = true;
                         const proto::ProtoObject* r = callJSFunction(ctx, voFn, val, ctx->newList());
-                        if (hasCallException()) return "";
                         if (r && r != PROTO_NONE) {
                             if (r->isString(ctx)) {
                                 std::string s;
@@ -1182,7 +1173,6 @@ static const proto::ProtoObject* arraySpeciesCreate(
             const proto::ProtoObject* getter = originalArray->getAttribute(ctx, gck, true);
             if (getter && getter != PROTO_NONE) {
                 C = callJSFunction(ctx, getter, originalArray, ctx->newList());
-                if (hasCallException()) return PROTO_NONE;
             }
         }
         if (!C || C == PROTO_NONE)
@@ -1233,7 +1223,6 @@ static const proto::ProtoObject* arraySpeciesCreate(
                 const proto::ProtoObject* getter = C->getAttribute(ctx, gk, true);
                 if (getter && getter != PROTO_NONE) {
                     species = callJSFunction(ctx, getter, C, ctx->newList());
-                    if (hasCallException()) return PROTO_NONE;
                 }
             }
             if (!species || species == PROTO_NONE)
@@ -1321,7 +1310,6 @@ static const proto::ProtoObject* arraySpeciesCreate(
         } else {
             res = callJSFunction(ctx, C, newObj, args);
         }
-        if (hasCallException()) return PROTO_NONE;
 
         // If res is an Object, return it, else newObj.
         if (res && res != PROTO_NONE
@@ -1388,7 +1376,6 @@ static bool arrayThrowIfLenOverflow(proto::ProtoContext* ctx,
         // Coerce via jsToNumber so "Infinity" / "10e10000" become the
         // correct double value.
         const proto::ProtoObject* n = jsToNumber(ctx, lenObj);
-        if (hasCallException()) return true;
         if (n && (n->isInteger(ctx) || n->isDouble(ctx) || n->isFloat(ctx))) {
             dlen = n->isInteger(ctx) ? static_cast<double>(n->asLong(ctx))
                                      : n->asDouble(ctx);
@@ -1673,7 +1660,6 @@ static const proto::ProtoObject* arrayPush(
         // ops.  This native-op path collapses to 1 getAttribute +
         // argc * appendLast + 1 setAttribute.
         proto::proto_ulong len = arrLen(ctx, self);
-        if (hasCallException()) return PROTO_NONE;
 
         const proto::ProtoString* hisKey = JSSymbols::hasIndexedSetters(ctx);
         const bool maybeHasIndexedSetters = hisKey
@@ -1706,11 +1692,9 @@ static const proto::ProtoObject* arrayPush(
         for (proto::proto_ulong i = 0; i < argc; i++) {
             const proto::ProtoObject* item = args->getAt(ctx, static_cast<int>(i));
             arrSet(ctx, self, len + i, item ? item : PROTO_NONE);
-            if (hasCallException()) return PROTO_NONE;
         }
         proto::proto_ulong newLen = len + argc;
         arrSetLen(ctx, self, newLen);
-        if (hasCallException()) return PROTO_NONE;
         return ctx->fromInteger(static_cast<long long>(newLen));
     }
 
@@ -1752,13 +1736,11 @@ static const proto::ProtoObject* arrayPush(
     for (proto::proto_ulong i = 0; i < argc; i++) {
         const proto::ProtoObject* item = args->getAt(ctx, static_cast<int>(i));
         arrSet(ctx, self, len + i, item);
-        if (hasCallException()) return PROTO_NONE;
     }
     proto::proto_ulong newLen = len + argc;
     // Route length write through arrSetLen so __pd_length__ writable
     // bit + user __set_length__ accessors both surface correctly.
     arrSetLen(ctx, self, newLen);
-    if (hasCallException()) return PROTO_NONE;
     return ctx->fromInteger(static_cast<long long>(newLen));
 }
 
@@ -1829,7 +1811,6 @@ static const proto::ProtoObject* arrayPop(
         // when pop reads index 0 of a `new Array(1)` whose
         // __elements__ size is 0).
         proto::proto_ulong lenSpec = arrLen(ctx, self);
-        if (hasCallException()) return PROTO_NONE;
         if (lenSpec == 0) {
             if (throwIfLengthFrozen()) return PROTO_NONE;
             return PROTO_NONE;
@@ -1838,12 +1819,10 @@ static const proto::ProtoObject* arrayPop(
             // Sparse array with length > 0 but empty __elements__.
             // §23.1.3.21 step 4: read O[lenSpec-1], then Set length.
             const proto::ProtoObject* removed = arrGet(ctx, self, lenSpec - 1);
-            if (hasCallException()) return PROTO_NONE;
             // Attempt Set(O, 'length', lenSpec-1, true) via arrSetLen
             // — picks up the __pd_length__ writable check (which the
             // getter above may have just cleared).
             arrSetLen(ctx, self, lenSpec - 1);
-            if (hasCallException()) return PROTO_NONE;
             return (removed && removed != PROTO_NONE) ? removed : getUndefinedSentinel();
         }
         // §23.1.3.21 step 4.c: Let element be ? Get(O, ToString(F(newLen))).
@@ -1859,7 +1838,6 @@ static const proto::ProtoObject* arrayPop(
         // pop on a sparse literal could drop length from 8 to 1.
         const proto::ProtoObject* removed =
             arrGet(ctx, self, lenSpec - 1);
-        if (hasCallException()) return PROTO_NONE;
         // §23.1.3.21 step 4.f: Set(O, 'length', newLen, true).  The
         // getter at step 4.c (arrGet above) may have made length non-
         // writable mid-call (built-ins/Array/prototype/pop/set-length-
@@ -1918,7 +1896,6 @@ static const proto::ProtoObject* arrayPop(
     }
     proto::proto_ulong lastIdx = len - 1;
     const proto::ProtoObject* removed = arrGet(ctx, self, lastIdx);
-    if (hasCallException()) return PROTO_NONE;
     // §23.1.3.21 step 4.e: DeletePropertyOrThrow(O, lastIdx).
     // setAttribute(nullptr) does the canonical implRemoveAt delete so
     // inherited values surface (Sputnik S15.4.4.6_A4_T1: x.length=2;
@@ -1929,7 +1906,6 @@ static const proto::ProtoObject* arrayPop(
     // non-writable length descriptor (potentially inside the arrGet
     // above), TypeError fires.
     arrSetLen(ctx, self, lastIdx);
-    if (hasCallException()) return PROTO_NONE;
     return removed ? removed : PROTO_NONE;
 }
 
@@ -1977,10 +1953,8 @@ static const proto::ProtoObject* arrayShift(
     // / arrSet / arrSetLen so inherited accessors fire and __pd_length__
     // / __set_length__ are honoured.
     proto::proto_ulong len = arrLen(ctx, self);
-    if (hasCallException()) return PROTO_NONE;
     if (len == 0) {
         arrSetLen(ctx, self, 0);
-        if (hasCallException()) return PROTO_NONE;
         return PROTO_NONE;
     }
 
@@ -2012,12 +1986,9 @@ static const proto::ProtoObject* arrayShift(
     }
 
     const proto::ProtoObject* first = arrGet(ctx, self, 0);
-    if (hasCallException()) return PROTO_NONE;
     for (proto::proto_ulong i = 1; i < len; i++) {
         const proto::ProtoObject* v = arrGet(ctx, self, i);
-        if (hasCallException()) return PROTO_NONE;
         arrSet(ctx, self, i - 1, v);
-        if (hasCallException()) return PROTO_NONE;
     }
     // Delete final index.  For real arrays this is implicit in
     // arrSetLen's truncation; for array-likes the legacy length-
@@ -2026,7 +1997,6 @@ static const proto::ProtoObject* arrayShift(
         JSSymbols::indexKey(ctx, static_cast<uint32_t>(len - 1));
     if (lastKey) self->setAttribute(ctx, lastKey, PROTO_NONE);
     arrSetLen(ctx, self, len - 1);
-    if (hasCallException()) return PROTO_NONE;
     return (first && first != PROTO_NONE) ? first : getUndefinedSentinel();
 }
 
@@ -2065,12 +2035,10 @@ static const proto::ProtoObject* arrayUnshift(
     // Route through arrGet / arrSet / arrSetLen so inherited
     // accessors fire and __pd_length__ / __set_length__ are honoured.
     proto::proto_ulong len = arrLen(ctx, self);
-    if (hasCallException()) return PROTO_NONE;
     if (argc == 0) {
         // Spec still runs Set(O, 'length', len, true) — surface
         // __pd_length__ writable bit.
         arrSetLen(ctx, self, len);
-        if (hasCallException()) return PROTO_NONE;
         return ctx->fromInteger(static_cast<long long>(len));
     }
     // Native fast path: when no inherited indexed setter / accessor
@@ -2125,17 +2093,13 @@ static const proto::ProtoObject* arrayUnshift(
     }
     for (long long i = static_cast<long long>(len) - 1; i >= 0; i--) {
         const proto::ProtoObject* v = arrGet(ctx, self, static_cast<proto::proto_ulong>(i));
-        if (hasCallException()) return PROTO_NONE;
         arrSet(ctx, self, static_cast<proto::proto_ulong>(i) + argc, v);
-        if (hasCallException()) return PROTO_NONE;
     }
     for (proto::proto_ulong i = 0; i < argc; i++) {
         arrSet(ctx, self, i, args->getAt(ctx, static_cast<int>(i)));
-        if (hasCallException()) return PROTO_NONE;
     }
     proto::proto_ulong newLen = len + argc;
     arrSetLen(ctx, self, newLen);
-    if (hasCallException()) return PROTO_NONE;
     return ctx->fromInteger(static_cast<long long>(newLen));
 }
 
@@ -2170,7 +2134,7 @@ static const proto::ProtoObject* arraySlice(
         const proto::ProtoObject* num = o;
         if (!o->isInteger(ctx) && !o->isDouble(ctx) && !o->isFloat(ctx)) {
             num = jsToNumber(ctx, o);
-            if (hasCallException() || !num) return defaultV;
+            if (!num) return defaultV;
         }
         if (num->isInteger(ctx)) return num->asLong(ctx);
         if (num->isDouble(ctx) || num->isFloat(ctx)) {
@@ -2183,16 +2147,13 @@ static const proto::ProtoObject* arraySlice(
     };
     if (args && args->getSize(ctx) > 0) {
         start = toII(args->getAt(ctx, 0), 0);
-        if (hasCallException()) return PROTO_NONE;
         if (args->getSize(ctx) > 1) end = toII(args->getAt(ctx, 1), len);
-        if (hasCallException()) return PROTO_NONE;
     }
 
     start = normalizeIdxClamp(start, len);
     end   = normalizeIdxClamp(end,   len);
 
     const proto::ProtoObject* result = arraySpeciesCreate(ctx, self, static_cast<proto::proto_ulong>(end - start));
-    if (hasCallException()) return PROTO_NONE;
 
     // Native fast path: real array, no accessors / no inherited setters
     // on EITHER source or destination, source has no holes in the
@@ -2242,10 +2203,8 @@ static const proto::ProtoObject* arraySlice(
     for (long long i = start; i < end; i++) {
         if (arrHasProperty(ctx, self, static_cast<proto::proto_ulong>(i))) {
             const proto::ProtoObject* v = arrGet(ctx, self, static_cast<proto::proto_ulong>(i));
-            if (hasCallException()) return PROTO_NONE;
             result = arrayCreateDataPropertyOrThrow(ctx, result,
                         static_cast<proto::proto_ulong>(outIdx), v);
-            if (hasCallException()) return PROTO_NONE;
         }
         outIdx++;
     }
@@ -2290,7 +2249,6 @@ static const proto::ProtoObject* arrayIndexOf(
             const proto::ProtoObject* num = fi;
             if (!fi->isInteger(ctx) && !fi->isDouble(ctx) && !fi->isFloat(ctx)) {
                 num = jsToNumber(ctx, fi);
-                if (hasCallException()) return PROTO_NONE;
             }
             if (num && num != PROTO_NONE) {
                 if (num->isInteger(ctx)) from = num->asLong(ctx);
@@ -2369,7 +2327,6 @@ static const proto::ProtoObject* arrayIndexOf(
         // a throwing accessor must terminate iteration before later
         // indices are probed — parallel to lastIndexOf's fix in this
         // round.
-        if (hasCallException()) return PROTO_NONE;
         if (strictEquals(ctx, elem, needle))
             return ctx->fromInteger(i);
     }
@@ -2424,7 +2381,6 @@ static const proto::ProtoObject* arrayLastIndexOf(
                     self->getAttribute(ctx, gks, true);
                 if (getter && getter != PROTO_NONE) {
                     lenV = callJSFunction(ctx, getter, self, ctx->newList());
-                    if (hasCallException()) return PROTO_NONE;
                 }
             }
         }
@@ -2437,7 +2393,6 @@ static const proto::ProtoObject* arrayLastIndexOf(
             else if (lenV->isDouble(ctx) || lenV->isFloat(ctx)) { d = lenV->asDouble(ctx); gotNum = true; }
             else {
                 const proto::ProtoObject* nv = jsToNumber(ctx, lenV);
-                if (hasCallException()) return PROTO_NONE;
                 if (nv && (nv->isInteger(ctx) || nv->isDouble(ctx) || nv->isFloat(ctx))) {
                     d = nv->isInteger(ctx) ? (double)nv->asLong(ctx) : nv->asDouble(ctx);
                     gotNum = true;
@@ -2470,7 +2425,6 @@ static const proto::ProtoObject* arrayLastIndexOf(
             const proto::ProtoObject* num = fi;
             if (!fi->isInteger(ctx) && !fi->isDouble(ctx) && !fi->isFloat(ctx)) {
                 num = jsToNumber(ctx, fi);
-                if (hasCallException()) return PROTO_NONE;
             }
             if (num && num != PROTO_NONE) {
                 if (num->isInteger(ctx)) from = num->asLong(ctx);
@@ -2553,7 +2507,6 @@ static const proto::ProtoObject* arrayLastIndexOf(
             !arrHasProperty(ctx, self, static_cast<proto::proto_ulong>(i))) continue;
         const proto::ProtoObject* elem = arrGet(ctx, self, static_cast<proto::proto_ulong>(i));
         // §23.1.3.18 step 7.a Get(O, Pk) is the abrupt-completion site.
-        if (hasCallException()) return PROTO_NONE;
         if (strictEquals(ctx, elem, needle))
             return ctx->fromInteger(i);
     }
@@ -2602,7 +2555,6 @@ static const proto::ProtoObject* arrayIncludes(
             const proto::ProtoObject* num = fi;
             if (!fi->isInteger(ctx) && !fi->isDouble(ctx) && !fi->isFloat(ctx)) {
                 num = jsToNumber(ctx, fi);
-                if (hasCallException()) return PROTO_NONE;
             }
             if (num && num->isInteger(ctx)) from = num->asLong(ctx);
             else if (num && (num->isDouble(ctx) || num->isFloat(ctx))) {
@@ -2671,7 +2623,6 @@ static const proto::ProtoObject* arrayIncludes(
         // but the loop kept advancing, so the test's stopped++ getter
         // at index 2 fired even after index 1's throw.
         const proto::ProtoObject* el = arrGet(ctx, self, static_cast<proto::proto_ulong>(i));
-        if (hasCallException()) return PROTO_NONE;
         // §23.1.3.13 step 7.a: Get(O, ToString(k)). For a hole, Get
         // returns undefined (after walking the prototype chain). Our
         // arrGet maps both "real hole + no proto fallback" AND
@@ -2713,26 +2664,19 @@ static const proto::ProtoObject* arrayReverse(
     for (proto::proto_ulong i = 0; i < len / 2; i++) {
         proto::proto_ulong j = len - 1 - i;
         const bool lowerExists = arrHasProperty(ctx, self, i);
-        if (hasCallException()) return PROTO_NONE;
         const proto::ProtoObject* a = lowerExists ? arrGet(ctx, self, i) : PROTO_NONE;
-        if (hasCallException()) return PROTO_NONE;
         const bool upperExists = arrHasProperty(ctx, self, j);
-        if (hasCallException()) return PROTO_NONE;
         const proto::ProtoObject* b = upperExists ? arrGet(ctx, self, j) : PROTO_NONE;
-        if (hasCallException()) return PROTO_NONE;
         if (lowerExists && upperExists) {
             arrSet(ctx, self, i, b);
-            if (hasCallException()) return PROTO_NONE;
             arrSet(ctx, self, j, a);
         } else if (upperExists) {
             arrSet(ctx, self, i, b);
-            if (hasCallException()) return PROTO_NONE;
             if (!arrDeleteIndexOrThrow(ctx, self, j)) return PROTO_NONE;
         } else if (lowerExists) {
             if (!arrDeleteIndexOrThrow(ctx, self, i)) return PROTO_NONE;
             arrSet(ctx, self, j, a);
         }
-        if (hasCallException()) return PROTO_NONE;
     }
     return O ? O : self;
 }
@@ -2758,7 +2702,6 @@ static const proto::ProtoObject* arrayCloneShallow(proto::ProtoContext* ctx,
     // ignored the abrupt completion and the toReversed / toSorted /
     // toSpliced / with shim built on top of it proceeded silently.
     const proto::ProtoObject* dst = arraySpeciesCreate(ctx, self, len);
-    if (hasCallException()) return PROTO_NONE;
     if (!dst) return PROTO_NONE;
     const proto::ProtoList* els = ctx->newList();
     // ECMA-262 §23.1.3.{toReversed,toSorted,toSpliced,with} all step
@@ -2798,14 +2741,12 @@ static const proto::ProtoObject* arrayToReversed(
     // §22.1.3.36 step 3 (ArrayCreate) rejects len > 2^32-1.
     if (arrayThrowIfLenOverflow(ctx, self, "Array.prototype.toReversed")) return PROTO_NONE;
     long long len = static_cast<long long>(arrLen(ctx, self));
-    if (hasCallException()) return PROTO_NONE;
     const proto::ProtoObject* result = createNewArray(ctx, nullptr);
     if (!result) return PROTO_NONE;
     const proto::ProtoObject* undefSent = getUndefinedSentinel();
     for (long long k = 0; k < len; k++) {
         const proto::ProtoObject* v =
             arrGet(ctx, self, static_cast<proto::proto_ulong>(len - k - 1));
-        if (hasCallException()) return PROTO_NONE;
         // CreateDataPropertyOrThrow even on holes — toReversed
         // collapses holes into own undefined data properties
         // (built-ins/Array/prototype/toReversed/holes-not-preserved).
@@ -2829,13 +2770,11 @@ static const proto::ProtoObject* arrayToSorted(
     // (built-ins/Array/prototype/toSorted/ignores-species).
     if (arrayThrowIfLenOverflow(ctx, self, "Array.prototype.toSorted")) return PROTO_NONE;
     long long len = static_cast<long long>(arrLen(ctx, self));
-    if (hasCallException()) return PROTO_NONE;
     const proto::ProtoObject* copy = createNewArray(ctx, nullptr);
     if (!copy) return PROTO_NONE;
     const proto::ProtoObject* undefSent = getUndefinedSentinel();
     for (long long k = 0; k < len; k++) {
         const proto::ProtoObject* v = arrGet(ctx, self, static_cast<proto::proto_ulong>(k));
-        if (hasCallException()) return PROTO_NONE;
         if (!v || v == PROTO_NONE) v = undefSent;
         arrSet(ctx, copy, static_cast<proto::proto_ulong>(k), v);
     }
@@ -2858,7 +2797,6 @@ static const proto::ProtoObject* arrayToSpliced(
     // element-not-read).
     if (arrayThrowIfLenOverflow(ctx, self, "Array.prototype.toSpliced")) return PROTO_NONE;
     long long len = static_cast<long long>(arrLen(ctx, self));
-    if (hasCallException()) return PROTO_NONE;
     long long n = args ? static_cast<long long>(args->getSize(ctx)) : 0LL;
 
     // ToIntegerOrInfinity helper (mirrors splice/slice).
@@ -2867,7 +2805,7 @@ static const proto::ProtoObject* arrayToSpliced(
         const proto::ProtoObject* num = o;
         if (!o->isInteger(ctx) && !o->isDouble(ctx) && !o->isFloat(ctx)) {
             num = jsToNumber(ctx, o);
-            if (hasCallException() || !num) return defaultV;
+            if (!num) return defaultV;
         }
         if (num->isInteger(ctx)) return num->asLong(ctx);
         if (num->isDouble(ctx) || num->isFloat(ctx)) {
@@ -2880,7 +2818,6 @@ static const proto::ProtoObject* arrayToSpliced(
     };
 
     long long start = n >= 1 ? toII(args->getAt(ctx, 0), 0) : 0;
-    if (hasCallException()) return PROTO_NONE;
     if (start < 0) { start += len; if (start < 0) start = 0; }
     if (start > len) start = len;
 
@@ -2889,7 +2826,6 @@ static const proto::ProtoObject* arrayToSpliced(
     else if (n == 1) delCount = len - start;
     else {
         delCount = toII(args->getAt(ctx, 1), 0);
-        if (hasCallException()) return PROTO_NONE;
         if (delCount < 0) delCount = 0;
         if (delCount > len - start) delCount = len - start;
     }
@@ -2913,7 +2849,6 @@ static const proto::ProtoObject* arrayToSpliced(
     // Prefix: copy O[0..start).
     for (long long k = 0; k < start; k++, i++) {
         const proto::ProtoObject* v = arrGet(ctx, self, static_cast<proto::proto_ulong>(k));
-        if (hasCallException()) return PROTO_NONE;
         write(i, v);
     }
     // Inserts: args[2..n).
@@ -2924,7 +2859,6 @@ static const proto::ProtoObject* arrayToSpliced(
     // NEVER touched.
     for (long long k = start + delCount; k < len; k++, i++) {
         const proto::ProtoObject* v = arrGet(ctx, self, static_cast<proto::proto_ulong>(k));
-        if (hasCallException()) return PROTO_NONE;
         write(i, v);
     }
     arrSetLen(ctx, result, static_cast<proto::proto_ulong>(newLen > 0 ? newLen : 0));
@@ -2960,7 +2894,6 @@ static const proto::ProtoObject* arrayWith(
     }
     else if (iv && iv != PROTO_NONE && iv != getUndefinedSentinel()) {
         const proto::ProtoObject* num = jsToNumber(ctx, iv);
-        if (hasCallException()) return PROTO_NONE;
         if (num && num->isInteger(ctx)) idx = num->asLong(ctx);
         else if (num && (num->isDouble(ctx) || num->isFloat(ctx))) {
             double d = num->asDouble(ctx);
@@ -2994,7 +2927,6 @@ static const proto::ProtoObject* arrayWith(
             fromValue = val ? val : undefSent;
         } else {
             fromValue = arrGet(ctx, self, static_cast<proto::proto_ulong>(k));
-            if (hasCallException()) return PROTO_NONE;
         }
         // CreateDataPropertyOrThrow even on holes — `with` collapses
         // holes into own undefined data properties
@@ -3073,7 +3005,6 @@ static const proto::ProtoObject* arrayConcat(
     }
 
     const proto::ProtoObject* result = arraySpeciesCreate(ctx, self, totalLen);
-    if (hasCallException()) return PROTO_NONE;
     proto::proto_ulong outIdx = 0;
 
     // ECMA-262 §22.1.3.1.1 IsConcatSpreadable:
@@ -3119,7 +3050,6 @@ static const proto::ProtoObject* arrayConcat(
             const proto::ProtoObject* sv = nullptr;
             if (isProxy(ctx, obj)) {
                 sv = proxyDispatchGet(ctx, obj, spreadKey, obj);
-                if (hasCallException()) return false;
             } else {
                 sv = obj->getAttribute(ctx, spreadKey, true);
             }
@@ -3136,7 +3066,6 @@ static const proto::ProtoObject* arrayConcat(
                     const proto::ProtoObject* getter = obj->getAttribute(ctx, gks, true);
                     if (getter && getter != PROTO_NONE) {
                         sv = callJSFunction(ctx, getter, obj, ctx->newList());
-                        if (hasCallException()) return false;
                     }
                 }
             }
@@ -3190,7 +3119,6 @@ static const proto::ProtoObject* arrayConcat(
     // configurable-property).
     auto writeOrThrow = [&](const proto::ProtoObject* v) -> bool {
         result = arrayCreateDataPropertyOrThrow(ctx, result, outIdx, v);
-        if (hasCallException()) return true;
         outIdx++;
         return false;
     };
@@ -3262,7 +3190,6 @@ static const proto::ProtoObject* arrayConcat(
                     bool spread = isSpreadable(item);
                     // isSpreadable may have surfaced a revoked-Proxy
                     // abrupt via signalNativeException; propagate.
-                    if (hasCallException()) return PROTO_NONE;
                     const proto::ProtoList* els = nullptr;
                     if (spread) {
                         if (!cleanArray(item, &els)) { ok = false; break; }
@@ -3350,7 +3277,7 @@ static const proto::ProtoObject* arrayFill(
         const proto::ProtoObject* num = o;
         if (!o->isInteger(ctx) && !o->isDouble(ctx) && !o->isFloat(ctx)) {
             num = jsToNumber(ctx, o);
-            if (hasCallException() || !num) return defaultV;
+            if (!num) return defaultV;
         }
         if (num->isInteger(ctx)) return num->asLong(ctx);
         if (num->isDouble(ctx) || num->isFloat(ctx)) {
@@ -3363,11 +3290,9 @@ static const proto::ProtoObject* arrayFill(
     };
     if (args && args->getSize(ctx) > 1) {
         start = toII(args->getAt(ctx, 1), 0);
-        if (hasCallException()) return PROTO_NONE;
     }
     if (args && args->getSize(ctx) > 2) {
         end   = toII(args->getAt(ctx, 2), len);
-        if (hasCallException()) return PROTO_NONE;
     }
 
     start = normalizeIdxClamp(start, len);
@@ -3384,7 +3309,6 @@ static const proto::ProtoObject* arrayFill(
 
     for (long long i = start; i < end; i++) {
         arrSet(ctx, self, static_cast<proto::proto_ulong>(i), value);
-        if (hasCallException()) return PROTO_NONE;
         wrote = true;
     }
 
@@ -3395,7 +3319,6 @@ static const proto::ProtoObject* arrayFill(
     // property-value pins \`Object.freeze([]); [].fill(1)\`).
     if (wrote) {
         arrSetLen(ctx, self, savedLen);
-        if (hasCallException()) return PROTO_NONE;
     }
 
     // §23.1.3.6 step 1: Let O be ? ToObject(this).  step 9 returns O.
@@ -3428,7 +3351,6 @@ static const proto::ProtoObject* arrayCopyWithin(
     // user's getter never fired (built-ins/Array/prototype/copyWithin/
     // return-abrupt-from-this-length).
     long long len = static_cast<long long>(arrLen(ctx, self));
-    if (hasCallException()) return PROTO_NONE;
     if (!args || args->getSize(ctx) == 0)
         return O ? O : PROTO_NONE;
     // ECMA-262 §23.1.3.4 steps 4-9: ToIntegerOrInfinity on target,
@@ -3442,7 +3364,7 @@ static const proto::ProtoObject* arrayCopyWithin(
         const proto::ProtoObject* num = o;
         if (!o->isInteger(ctx) && !o->isDouble(ctx) && !o->isFloat(ctx)) {
             num = jsToNumber(ctx, o);
-            if (hasCallException() || !num) return defaultV;
+            if (!num) return defaultV;
         }
         if (num->isInteger(ctx)) return num->asLong(ctx);
         if (num->isDouble(ctx) || num->isFloat(ctx)) {
@@ -3454,11 +3376,8 @@ static const proto::ProtoObject* arrayCopyWithin(
         return defaultV;
     };
     long long target = toII(args->getAt(ctx, 0), 0);
-    if (hasCallException()) return PROTO_NONE;
     long long start  = (args->getSize(ctx) > 1) ? toII(args->getAt(ctx, 1), 0)   : 0;
-    if (hasCallException()) return PROTO_NONE;
     long long end    = (args->getSize(ctx) > 2) ? toII(args->getAt(ctx, 2), len) : len;
-    if (hasCallException()) return PROTO_NONE;
 
     target = normalizeIdxClamp(target, len);
     start  = normalizeIdxClamp(start,  len);
@@ -3483,11 +3402,9 @@ static const proto::ProtoObject* arrayCopyWithin(
     fromPresent.reserve(static_cast<size_t>(count));
     for (long long i = 0; i < count; i++) {
         bool present = arrHasProperty(ctx, self, static_cast<proto::proto_ulong>(start + i));
-        if (hasCallException()) return PROTO_NONE;
         fromPresent.push_back(present);
         if (present) {
             tmp.push_back(arrGet(ctx, self, static_cast<proto::proto_ulong>(start + i)));
-            if (hasCallException()) return PROTO_NONE;
         } else {
             tmp.push_back(PROTO_NONE);
         }
@@ -3496,7 +3413,6 @@ static const proto::ProtoObject* arrayCopyWithin(
         proto::proto_ulong toIdx = static_cast<proto::proto_ulong>(target + i);
         if (fromPresent[static_cast<size_t>(i)]) {
             arrSet(ctx, self, toIdx, tmp[static_cast<size_t>(i)]);
-            if (hasCallException()) return PROTO_NONE;
         } else {
             // §23.1.3.4 step 17.f: DeletePropertyOrThrow(O, toKey).
             // A non-configurable own data slot can't be deleted —
@@ -3531,7 +3447,6 @@ static const proto::ProtoObject* arrayCopyWithin(
                 // from-delete-proxy-target.js).
                 if (isProxy(ctx, self)) {
                     proxyDispatchDelete(ctx, self, tk);
-                    if (hasCallException()) return PROTO_NONE;
                 } else {
                     const proto::ProtoString* isArrKey = JSSymbols::isArray(ctx);
                     bool isRealArr = isArrKey
@@ -3550,7 +3465,6 @@ static const proto::ProtoObject* arrayCopyWithin(
     // Restore the saved length attribute — copyWithin must NEVER shrink
     // the array (it only mutates / deletes inner slots).
     arrSetLen(ctx, self, savedLen);
-    if (hasCallException()) return PROTO_NONE;
 
     return O;
 }
@@ -3691,7 +3605,6 @@ static const proto::ProtoObject* arrayForEach(
     // only to methods that ArraySpeciesCreate a new Array of size len
     // (map / filter / slice / splice / concat / flatMap / etc.).
     proto::proto_ulong len = arrLen(ctx, self);
-    if (hasCallException()) return PROTO_NONE;
     const proto::ProtoObject* fn      = getCallbackArg(ctx, args, 0);
     const proto::ProtoObject* thisArg = getCallbackArg(ctx, args, 1);
     if (arrayThrowIfCallbackNotCallable(ctx, fn, "Array.prototype.forEach")) return PROTO_NONE;
@@ -3700,9 +3613,7 @@ static const proto::ProtoObject* arrayForEach(
         const proto::ProtoObject* elem = arrGet(ctx, self, i);
         // §23.1.3.15 step 6.b.iii.1: ? Get(O, Pk).  Throwing getter
         // terminates iteration BEFORE callback runs.
-        if (hasCallException()) return PROTO_NONE;
         callJSFunction(ctx, fn, thisArg, argsView(makeIterArgs(ctx, elem, (long long)i, self).args));
-        if (hasCallException()) return PROTO_NONE;
     }
     return PROTO_NONE;
 }
@@ -3826,7 +3737,6 @@ static const proto::ProtoObject* arrayCreateDataPropertyOrThrow(
     } else {
         updated = arrSet(ctx, obj, idx, val);
     }
-    if (hasCallException()) return updated;
     // Reset __pd_<idx>__ to defaults so a ctor-installed
     // (writable:false, enumerable:false) descriptor is replaced
     // wholesale.  CreateDataProperty installs a FRESH data
@@ -3872,7 +3782,6 @@ static const proto::ProtoObject* arrayMap(
     // for-loop spins through 4 billion indices.
     if (arrayThrowIfLenOverflow(ctx, self, "Array.prototype.map")) return PROTO_NONE;
     proto::proto_ulong len = arrLen(ctx, self);
-    if (hasCallException()) return PROTO_NONE;
     const proto::ProtoObject* fn      = getCallbackArg(ctx, args, 0);
     const proto::ProtoObject* thisArg = getCallbackArg(ctx, args, 1);
     if (arrayThrowIfCallbackNotCallable(ctx, fn, "Array.prototype.map")) return PROTO_NONE;
@@ -3884,7 +3793,6 @@ static const proto::ProtoObject* arrayMap(
     // was lost (built-ins/Array/prototype/flatMap/this-value-ctor-
     // non-object).
     const proto::ProtoObject* result = arraySpeciesCreate(ctx, self, len);
-    if (hasCallException()) return PROTO_NONE;
     // §23.1.3.18 step 6.f.iii: CreateDataPropertyOrThrow(A, k, mappedValue)
     // — every accepted slot must become an OWN data property on the
     // result.  Writing PROTO_NONE clears the attribute rather than
@@ -3907,17 +3815,14 @@ static const proto::ProtoObject* arrayMap(
         const proto::ProtoObject* elem = arrGet(ctx, self, i);
         // §23.1.3.18 step 6.f.ii: ? Get(O, Pk).  Throwing getter
         // terminates iteration BEFORE callback runs.
-        if (hasCallException()) return PROTO_NONE;
         const proto::ProtoObject* mapped =
             callJSFunction(ctx, fn, thisArg, argsView(makeIterArgs(ctx, elem, (long long)i, self).args));
-        if (hasCallException()) return PROTO_NONE;
         if (!mapped || mapped == PROTO_NONE) mapped = undefSent;
         if (acc) {
             acc = acc->appendLast(ctx, mapped);
             continue;
         }
         result = arrayCreateDataPropertyOrThrow(ctx, result, i, mapped);
-        if (hasCallException()) return PROTO_NONE;
     }
     if (acc) setArrayElements(ctx, result, acc);
     // §23.1.3.18: A was created via ArraySpeciesCreate(O, len).  The
@@ -3927,7 +3832,6 @@ static const proto::ProtoObject* arrayMap(
     // (built-ins/Array/prototype/map/15.4.4.19-8-5).  Explicitly set
     // length back to the original probe.
     arrSetLen(ctx, result, len);
-    if (hasCallException()) return PROTO_NONE;
     return result;
 }
 
@@ -3945,7 +3849,6 @@ static const proto::ProtoObject* arrayFilter(
     // §23.1.3.7: LengthOfArrayLike precedes IsCallable.
     if (arrayThrowIfLenOverflow(ctx, self, "Array.prototype.filter")) return PROTO_NONE;
     proto::proto_ulong len = arrLen(ctx, self);
-    if (hasCallException()) return PROTO_NONE;
     const proto::ProtoObject* fn      = getCallbackArg(ctx, args, 0);
     const proto::ProtoObject* thisArg = getCallbackArg(ctx, args, 1);
     if (arrayThrowIfCallbackNotCallable(ctx, fn, "Array.prototype.filter")) return PROTO_NONE;
@@ -3954,7 +3857,6 @@ static const proto::ProtoObject* arrayFilter(
     // before the iteration starts (parallel to the map fix in this
     // round).
     const proto::ProtoObject* result = arraySpeciesCreate(ctx, self, 0);
-    if (hasCallException()) return PROTO_NONE;
     // §23.1.3.7 step 7.c.iii.2: CreateDataPropertyOrThrow(A, toIdx,
     // kValue) — every accepted slot must become an OWN data
     // property on the result.  Writing PROTO_NONE clears the
@@ -3973,17 +3875,14 @@ static const proto::ProtoObject* arrayFilter(
         const proto::ProtoObject* elem = arrGet(ctx, self, i);
         // §23.1.3.7 step 7.c.i: ? Get(O, Pk).  Throwing getter
         // terminates iteration BEFORE callback runs.
-        if (hasCallException()) return PROTO_NONE;
         const proto::ProtoObject* keep =
             callJSFunction(ctx, fn, thisArg, argsView(makeIterArgs(ctx, elem, (long long)i, self).args));
-        if (hasCallException()) return PROTO_NONE;
         if (isTruthy(ctx, keep)) {
             if (!elem || elem == PROTO_NONE) elem = undefSent;
             if (acc) {
                 acc = acc->appendLast(ctx, elem);
             } else {
                 result = arrayCreateDataPropertyOrThrow(ctx, result, outIdx, elem);
-                if (hasCallException()) return PROTO_NONE;
             }
             outIdx++;
         }
@@ -4015,16 +3914,13 @@ static const proto::ProtoObject* arrayFind(
     // only to methods that ArraySpeciesCreate a new Array of size len
     // (map / filter / slice / splice / concat / flatMap / etc.).
     proto::proto_ulong len = arrLen(ctx, self);
-    if (hasCallException()) return PROTO_NONE;
     const proto::ProtoObject* fn      = getCallbackArg(ctx, args, 0);
     const proto::ProtoObject* thisArg = getCallbackArg(ctx, args, 1);
     if (arrayThrowIfCallbackNotCallable(ctx, fn, "Array.prototype.find")) return PROTO_NONE;
     for (proto::proto_ulong i = 0; i < len; i++) {
         const proto::ProtoObject* elem = arrGet(ctx, self, i);
-        if (hasCallException()) return PROTO_NONE;
         const proto::ProtoObject* res  =
             callJSFunction(ctx, fn, thisArg, argsView(makeIterArgs(ctx, elem, (long long)i, self).args));
-        if (hasCallException()) return PROTO_NONE;
         if (isTruthy(ctx, res)) return elem;
     }
     return PROTO_NONE;
@@ -4049,16 +3945,13 @@ static const proto::ProtoObject* arrayFindIndex(
     // only to methods that ArraySpeciesCreate a new Array of size len
     // (map / filter / slice / splice / concat / flatMap / etc.).
     proto::proto_ulong len = arrLen(ctx, self);
-    if (hasCallException()) return PROTO_NONE;
     const proto::ProtoObject* fn      = getCallbackArg(ctx, args, 0);
     const proto::ProtoObject* thisArg = getCallbackArg(ctx, args, 1);
     if (arrayThrowIfCallbackNotCallable(ctx, fn, "Array.prototype.findIndex")) return PROTO_NONE;
     for (proto::proto_ulong i = 0; i < len; i++) {
         const proto::ProtoObject* elem = arrGet(ctx, self, i);
-        if (hasCallException()) return PROTO_NONE;
         const proto::ProtoObject* res  =
             callJSFunction(ctx, fn, thisArg, argsView(makeIterArgs(ctx, elem, (long long)i, self).args));
-        if (hasCallException()) return PROTO_NONE;
         if (isTruthy(ctx, res)) return ctx->fromInteger((long long)i);
     }
     return ctx->fromInteger(-1LL);
@@ -4107,7 +4000,6 @@ static const proto::ProtoObject* arrayFindLast(
                 if (getter && getter != PROTO_NONE
                     && getter != getUndefinedSentinel()) {
                     lenV = callJSFunction(ctx, getter, self, ctx->newList());
-                    if (hasCallException()) return PROTO_NONE;
                 }
             }
         }
@@ -4121,7 +4013,6 @@ static const proto::ProtoObject* arrayFindLast(
                 d = lenV->asDouble(ctx); gotNum = true;
             } else {
                 const proto::ProtoObject* nv = jsToNumber(ctx, lenV);
-                if (hasCallException()) return PROTO_NONE;
                 if (nv && (nv->isInteger(ctx) || nv->isDouble(ctx) || nv->isFloat(ctx))) {
                     d = nv->isInteger(ctx) ? (double)nv->asLong(ctx) : nv->asDouble(ctx);
                     gotNum = true;
@@ -4134,16 +4025,13 @@ static const proto::ProtoObject* arrayFindLast(
             }
         }
     }
-    if (hasCallException()) return PROTO_NONE;
     const proto::ProtoObject* fn      = getCallbackArg(ctx, args, 0);
     const proto::ProtoObject* thisArg = getCallbackArg(ctx, args, 1);
     if (arrayThrowIfCallbackNotCallable(ctx, fn, "Array.prototype.findLast")) return PROTO_NONE;
     for (long long i = len - 1; i >= 0; i--) {
         const proto::ProtoObject* elem = arrGet(ctx, self, (proto::proto_ulong)i);
-        if (hasCallException()) return PROTO_NONE;
         const proto::ProtoObject* res  =
             callJSFunction(ctx, fn, thisArg, argsView(makeIterArgs(ctx, elem, i, self).args));
-        if (hasCallException()) return PROTO_NONE;
         if (isTruthy(ctx, res)) return elem;
     }
     return PROTO_NONE;
@@ -4176,7 +4064,6 @@ static const proto::ProtoObject* arrayFindLastIndex(
                 if (getter && getter != PROTO_NONE
                     && getter != getUndefinedSentinel()) {
                     lenV = callJSFunction(ctx, getter, self, ctx->newList());
-                    if (hasCallException()) return PROTO_NONE;
                 }
             }
         }
@@ -4188,7 +4075,6 @@ static const proto::ProtoObject* arrayFindLastIndex(
             else if (lenV->isDouble(ctx) || lenV->isFloat(ctx)) { d = lenV->asDouble(ctx); gotNum = true; }
             else {
                 const proto::ProtoObject* nv = jsToNumber(ctx, lenV);
-                if (hasCallException()) return PROTO_NONE;
                 if (nv && (nv->isInteger(ctx) || nv->isDouble(ctx) || nv->isFloat(ctx))) {
                     d = nv->isInteger(ctx) ? (double)nv->asLong(ctx) : nv->asDouble(ctx);
                     gotNum = true;
@@ -4201,16 +4087,13 @@ static const proto::ProtoObject* arrayFindLastIndex(
             }
         }
     }
-    if (hasCallException()) return PROTO_NONE;
     const proto::ProtoObject* fn      = getCallbackArg(ctx, args, 0);
     const proto::ProtoObject* thisArg = getCallbackArg(ctx, args, 1);
     if (arrayThrowIfCallbackNotCallable(ctx, fn, "Array.prototype.findLastIndex")) return PROTO_NONE;
     for (long long i = len - 1; i >= 0; i--) {
         const proto::ProtoObject* elem = arrGet(ctx, self, (proto::proto_ulong)i);
-        if (hasCallException()) return PROTO_NONE;
         const proto::ProtoObject* res  =
             callJSFunction(ctx, fn, thisArg, argsView(makeIterArgs(ctx, elem, i, self).args));
-        if (hasCallException()) return PROTO_NONE;
         if (isTruthy(ctx, res)) return ctx->fromInteger(i);
     }
     return ctx->fromInteger(-1LL);
@@ -4235,17 +4118,14 @@ static const proto::ProtoObject* arraySome(
     // only to methods that ArraySpeciesCreate a new Array of size len
     // (map / filter / slice / splice / concat / flatMap / etc.).
     proto::proto_ulong len = arrLen(ctx, self);
-    if (hasCallException()) return PROTO_NONE;
     const proto::ProtoObject* fn      = getCallbackArg(ctx, args, 0);
     const proto::ProtoObject* thisArg = getCallbackArg(ctx, args, 1);
     if (arrayThrowIfCallbackNotCallable(ctx, fn, "Array.prototype.some")) return PROTO_NONE;
     for (proto::proto_ulong i = 0; i < len; i++) {
         if (!arrHasProperty(ctx, self, i)) continue;
         const proto::ProtoObject* elem = arrGet(ctx, self, i);
-        if (hasCallException()) return PROTO_NONE;
         const proto::ProtoObject* res =
             callJSFunction(ctx, fn, thisArg, argsView(makeIterArgs(ctx, elem, (long long)i, self).args));
-        if (hasCallException()) return PROTO_NONE;
         if (isTruthy(ctx, res)) return PROTO_TRUE;
     }
     return PROTO_FALSE;
@@ -4270,17 +4150,14 @@ static const proto::ProtoObject* arrayEvery(
     // only to methods that ArraySpeciesCreate a new Array of size len
     // (map / filter / slice / splice / concat / flatMap / etc.).
     proto::proto_ulong len = arrLen(ctx, self);
-    if (hasCallException()) return PROTO_NONE;
     const proto::ProtoObject* fn      = getCallbackArg(ctx, args, 0);
     const proto::ProtoObject* thisArg = getCallbackArg(ctx, args, 1);
     if (arrayThrowIfCallbackNotCallable(ctx, fn, "Array.prototype.every")) return PROTO_NONE;
     for (proto::proto_ulong i = 0; i < len; i++) {
         if (!arrHasProperty(ctx, self, i)) continue;
         const proto::ProtoObject* elem = arrGet(ctx, self, i);
-        if (hasCallException()) return PROTO_NONE;
         const proto::ProtoObject* res =
             callJSFunction(ctx, fn, thisArg, argsView(makeIterArgs(ctx, elem, (long long)i, self).args));
-        if (hasCallException()) return PROTO_NONE;
         if (!isTruthy(ctx, res)) return PROTO_FALSE;
     }
     return PROTO_TRUE;
@@ -4307,7 +4184,6 @@ static bool arrHasProperty(proto::ProtoContext* ctx,
         const proto::ProtoString* key = arrIndexKey(ctx, idx);
         if (!key) return false;
         const proto::ProtoObject* r = protojs::proxyDispatchHas(ctx, arr, key);
-        if (hasCallException()) return false;
         return r == PROTO_TRUE;
     }
     // String primitive — every valid UTF-16 index has a character.
@@ -4388,7 +4264,6 @@ static const proto::ProtoObject* arrayReduce(
     // See OP_arrayForEach for the rationale: non-allocating iteration
     // methods must not throw RangeError on a >2^32 length.
     long long len = (long long)arrLen(ctx, self);
-    if (hasCallException()) return PROTO_NONE;
     const proto::ProtoObject* fn = getCallbackArg(ctx, args, 0);
     if (arrayThrowIfCallbackNotCallable(ctx, fn, "Array.prototype.reduce")) return PROTO_NONE;
     long long n   = args ? (long long)args->getSize(ctx) : 0LL;
@@ -4430,14 +4305,12 @@ static const proto::ProtoObject* arrayReduce(
         // that index MUST NOT be invoked.  Pre-fix arrGet returned
         // PROTO_NONE on abrupt; the loop then invoked callback with
         // it, setting accessed=true and clobbering testResult.
-        if (hasCallException()) return PROTO_NONE;
         // [accumulator, element, index, array] in a local array (protoCore's
         // array call form): no list per element.
         const proto::ProtoObject* cbItems[4] = {acc ? acc : PROTO_NONE, elem ? elem : PROTO_NONE,
                                                 ctx->fromInteger(i), O};
         const proto::ProtoArguments cbArgs(cbItems, 4);
         acc = callJSFunction(ctx, fn, PROTO_NONE, &cbArgs);
-        if (hasCallException()) return PROTO_NONE;
     }
     return acc ? acc : PROTO_NONE;
 }
@@ -4457,7 +4330,6 @@ static const proto::ProtoObject* arrayReduceRight(
     // See OP_arrayForEach for the rationale: non-allocating iteration
     // methods must not throw RangeError on a >2^32 length.
     long long len = (long long)arrLen(ctx, self);
-    if (hasCallException()) return PROTO_NONE;
     const proto::ProtoObject* fn = getCallbackArg(ctx, args, 0);
     if (arrayThrowIfCallbackNotCallable(ctx, fn, "Array.prototype.reduceRight")) return PROTO_NONE;
     long long n   = args ? (long long)args->getSize(ctx) : 0LL;
@@ -4494,14 +4366,12 @@ static const proto::ProtoObject* arrayReduceRight(
         const proto::ProtoObject* elem = arrGet(ctx, self, (proto::proto_ulong)i);
         // §23.1.3.27 step 9.b.iii.1: ? Get(O, Pk).  Throwing getter
         // must terminate iteration before callback runs.
-        if (hasCallException()) return PROTO_NONE;
         // [accumulator, element, index, array] in a local array (protoCore's
         // array call form): no list per element.
         const proto::ProtoObject* cbItems[4] = {acc ? acc : PROTO_NONE, elem ? elem : PROTO_NONE,
                                                 ctx->fromInteger(i), ORr};
         const proto::ProtoArguments cbArgs(cbItems, 4);
         acc = callJSFunction(ctx, fn, PROTO_NONE, &cbArgs);
-        if (hasCallException()) return PROTO_NONE;
     }
     return acc ? acc : PROTO_NONE;
 }
@@ -4606,7 +4476,6 @@ static const proto::ProtoObject* arraySort(
             continue;
         }
         const proto::ProtoObject* elem = arrGet(ctx, self, i);
-        if (hasCallException()) return PROTO_NONE;
         // ECMA-262 §23.1.3.30 SortCompare: a value of Type undefined
         // sorts AFTER all defined values, regardless of whether it
         // was an explicit user `undefined`, the undefined sentinel,
@@ -4735,7 +4604,6 @@ static void flatInto(proto::ProtoContext* ctx,
             flatInto(ctx, elem, dest, outIdx, depth - 1);
         else {
             dest = arrayCreateDataPropertyOrThrow(ctx, dest, outIdx, elem);
-            if (hasCallException()) return;
             outIdx++;
         }
     }
@@ -4794,7 +4662,6 @@ static const proto::ProtoObject* arrayFlat(
             if (std::isnan(dv) && d && !d->isString(ctx)
                 && d != PROTO_TRUE && d != PROTO_FALSE) {
                 const proto::ProtoObject* num = jsToNumber(ctx, d);
-                if (hasCallException()) return PROTO_NONE;
                 if (num && num->isInteger(ctx)) dv = static_cast<double>(num->asLong(ctx));
                 else if (num && (num->isDouble(ctx) || num->isFloat(ctx))) dv = num->asDouble(ctx);
             }
@@ -4811,7 +4678,6 @@ static const proto::ProtoObject* arrayFlat(
     if (!result || result == PROTO_NONE) return PROTO_NONE;
     proto::proto_ulong outIdx = 0;
     flatInto(ctx, self, result, outIdx, depth);
-    if (hasCallException()) return PROTO_NONE;
     return result;
 }
 
@@ -4862,13 +4728,11 @@ static const proto::ProtoObject* arraySplice(
         // the throw was lost (built-ins/Array/prototype/splice/
         // create-ctor-non-object).
         const proto::ProtoObject* result = arraySpeciesCreate(ctx, self, 0);
-        if (hasCallException()) return PROTO_NONE;
         // §23.1.3.29 step 24: Set(O, 'length', len – 0 + 0, true) still
         // runs — a user setter on 'length' observes every splice call
         // even when no mutation occurs (built-ins/Array/prototype/
         // splice/set_length_no_args).
         arrSetLen(ctx, self, (proto::proto_ulong)(len > 0 ? len : 0));
-        if (hasCallException()) return PROTO_NONE;
         return result ? result : PROTO_NONE;
     }
 
@@ -4904,7 +4768,7 @@ static const proto::ProtoObject* arraySplice(
         const proto::ProtoObject* num = o;
         if (!o->isInteger(ctx) && !o->isDouble(ctx) && !o->isFloat(ctx)) {
             num = jsToNumber(ctx, o);
-            if (hasCallException() || !num) return defaultV;
+            if (!num) return defaultV;
         }
         if (num->isInteger(ctx)) return num->asLong(ctx);
         if (num->isDouble(ctx) || num->isFloat(ctx)) {
@@ -4942,7 +4806,6 @@ static const proto::ProtoObject* arraySplice(
     // non-extensible / target-array-with-non-configurable-property).
     const proto::ProtoObject* removed =
         arraySpeciesCreate(ctx, self, static_cast<proto::proto_ulong>(delCount));
-    if (hasCallException()) return PROTO_NONE;
 
     long long insertCount = n >= 2 ? n - 2 : 0;
     long long newLen = len - delCount + insertCount;
@@ -5004,10 +4867,8 @@ static const proto::ProtoObject* arraySplice(
     for (long long i = 0; i < delCount; i++) {
         const proto::ProtoObject* v =
             arrGet(ctx, self, (proto::proto_ulong)(start + i));
-        if (hasCallException()) return PROTO_NONE;
         removed = arrayCreateDataPropertyOrThrow(ctx, removed,
                        (proto::proto_ulong)i, v);
-        if (hasCallException()) return PROTO_NONE;
     }
 
     // Collect elements after the removed section.
@@ -5083,7 +4944,6 @@ static const proto::ProtoObject* arrayAt(
             const proto::ProtoObject* num = a;
             if (!a->isInteger(ctx) && !a->isDouble(ctx) && !a->isFloat(ctx)) {
                 num = jsToNumber(ctx, a);
-                if (hasCallException()) return PROTO_NONE;
             }
             if (num) {
                 if (num->isInteger(ctx)) idx = num->asLong(ctx);
@@ -5455,7 +5315,6 @@ static const proto::ProtoObject* arrayFrom(
         } else {
             alt = callJSFunction(ctx, self, res, ctorArgs);
         }
-        if (hasCallException()) return res;
         if (alt && alt != PROTO_NONE
             && alt != getUndefinedSentinel() && alt != getNullSentinel()
             && !alt->isInteger(ctx) && !alt->isDouble(ctx) && !alt->isFloat(ctx)
@@ -5509,7 +5368,6 @@ static const proto::ProtoObject* arrayFrom(
             const proto::ProtoObject* getter = src->getAttribute(ctx, gk, true);
             if (getter && getter != PROTO_NONE) {
                 iterFn = callJSFunction(ctx, getter, src, ctx->newList());
-                if (hasCallException()) return PROTO_NONE;
             }
         }
         if (!iterFn || iterFn == PROTO_NONE)
@@ -5532,7 +5390,6 @@ static const proto::ProtoObject* arrayFrom(
         // written into A as the iterator yields.
         if (hasCtor) {
             result = constructC(0, /*withLen=*/false);
-            if (hasCallException()) return PROTO_NONE;
         } else {
             result = createNewArray(ctx, nullptr);
         }
@@ -5591,10 +5448,8 @@ static const proto::ProtoObject* arrayFrom(
             while (nextFn && nextFn != PROTO_NONE) {
                 const proto::ProtoList* nArgs = ctx->newList();
                 const proto::ProtoObject* res = callJSFunction(ctx, nextFn, iter, nArgs);
-                if (hasCallException()) return PROTO_NONE;
                 if (!res || res == PROTO_NONE) break;
                 const proto::ProtoObject* dv = invokeAccessor(res, doneKey);
-                if (hasCallException()) return PROTO_NONE;
                 if (!dv || dv == PROTO_NONE)
                     dv = res->getAttribute(ctx, doneKey, false);
                 if (dv == PROTO_TRUE) break;
@@ -5679,7 +5534,6 @@ static const proto::ProtoObject* arrayFrom(
             // accessor on C.prototype fires (built-ins/Array/from/
             // iter-set-length-err pins a poisoned-length setter).
             arrSetLen(ctx, result, static_cast<proto::proto_ulong>(idx));
-            if (hasCallException()) return PROTO_NONE;
             return result;
         }
     }
@@ -5720,7 +5574,6 @@ static const proto::ProtoObject* arrayFrom(
             // array-likes).
             if (hasCtor) {
                 result = constructC(static_cast<long long>(n), /*withLen=*/true);
-                if (hasCallException()) return PROTO_NONE;
             } else {
                 result = createNewArray(ctx, nullptr);
             }
@@ -5736,9 +5589,7 @@ static const proto::ProtoObject* arrayFrom(
             constexpr long long kDefaultPdBits = 0x7;
             for (proto::proto_ulong i = 0; i < n; i++) {
                 const proto::ProtoObject* v = arrGet(ctx, src, i);
-                if (hasCallException()) return PROTO_NONE;
                 const proto::ProtoObject* mapped = applyMap(v, static_cast<long long>(i));
-                if (hasCallException()) return PROTO_NONE;
                 if (arrayThrowIfCreateDataPropertyFails(ctx, result, i))
                     return PROTO_NONE;
                 const proto::ProtoString* k =
@@ -5768,7 +5619,6 @@ static const proto::ProtoObject* arrayFrom(
                 if (hasCtor) {
                     result = constructC(static_cast<long long>(str.size()),
                                         /*withLen=*/true);
-                    if (hasCallException()) return PROTO_NONE;
                 } else {
                     result = createNewArray(ctx, nullptr);
                 }
@@ -5857,7 +5707,6 @@ static const proto::ProtoObject* arrayOf(
         } else {
             res = callJSFunction(ctx, self, result, ctorArgs);
         }
-        if (hasCallException()) return PROTO_NONE;
         // §10.1.13 OrdinaryCallEvaluateBody: Object result wins, else
         // the freshly allocated receiver.
         if (res && res != PROTO_NONE
@@ -5935,7 +5784,6 @@ static const proto::ProtoObject* arrayOf(
     // a user-supplied length setter on the constructor-installed
     // receiver fires correctly.
     arrSetLen(ctx, result, argc);
-    if (hasCallException()) return PROTO_NONE;
     return result;
 }
 
@@ -6292,7 +6140,7 @@ const proto::ProtoList* collectArrayFromValues(proto::ProtoContext* ctx,
     // step 5/8: IsConstructor(undefined) is false).
     const proto::ProtoObject* arr =
         arrayFrom(ctx, getUndefinedSentinel(), nullptr, argsView(proto::ProtoListArguments(ctx, args)), nullptr);
-    if (hasCallException() || !arr || arr == PROTO_NONE) return nullptr;
+    if (!arr || arr == PROTO_NONE) return nullptr;
     const proto::ProtoObject* lenObj =
         arr->getAttribute(ctx, JSSymbols::length(ctx), false);
     const long long len = (lenObj && lenObj != PROTO_NONE && lenObj->isInteger(ctx))

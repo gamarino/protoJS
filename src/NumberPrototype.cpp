@@ -286,7 +286,6 @@ const proto::ProtoObject* numberToFixed(
                 && !fdObj->isFloat(context) && fdObj != PROTO_TRUE
                 && fdObj != PROTO_FALSE) {
                 num = jsToNumber(context, fdObj);
-                if (hasCallException()) return PROTO_NONE;
             }
             if (!num) num = fdObj;
             if (num->isInteger(context)) {
@@ -385,7 +384,6 @@ const proto::ProtoObject* numberToExponential(
             if (!fdObj->isInteger(context) && !fdObj->isDouble(context)
                 && !fdObj->isFloat(context)) {
                 numObj = jsToNumber(context, fdObj);
-                if (hasCallException()) return PROTO_NONE;
             }
             if (numObj && numObj != PROTO_NONE) {
                 if (numObj->isInteger(context)) {
@@ -494,7 +492,6 @@ const proto::ProtoObject* numberToPrecision(
         if (precObj && !precObj->isInteger(context) && !precObj->isDouble(context)
             && !precObj->isFloat(context)) {
             numObj = jsToNumber(context, precObj);
-            if (hasCallException()) return PROTO_NONE;
         }
         if (numObj && numObj != PROTO_NONE) {
             if (numObj->isInteger(context)) precision = static_cast<int>(numObj->asLong(context));
@@ -704,7 +701,6 @@ const proto::ProtoObject* numberParseInt(
             if (!radixObj->isInteger(ctx) && !radixObj->isDouble(ctx)
                 && !radixObj->isFloat(ctx)) {
                 num = jsToNumber(ctx, radixObj);
-                if (hasCallException()) return PROTO_NONE;
             }
             if (num && num != PROTO_NONE) {
                 if (num->isInteger(ctx)) radix = static_cast<int>(num->asLong(ctx));
@@ -840,7 +836,6 @@ static const proto::ProtoObject* numberConstruct(
         // \`{valueOf: null, toString: null}\` after the jsToNumber
         // ES2024 narrowing), propagate it instead of silently writing
         // a zero into [[NumberData]].
-        if (hasCallException()) return PROTO_NONE;
         if (coerced) {
             if (coerced->isInteger(ctx)) val = static_cast<double>(coerced->asLong(ctx));
             else if (coerced->isDouble(ctx) || coerced->isFloat(ctx)) val = coerced->asDouble(ctx);

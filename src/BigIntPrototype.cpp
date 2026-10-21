@@ -103,7 +103,6 @@ static const proto::ProtoObject* coerceToInteger(proto::ProtoContext* ctx,
             const proto::ProtoList* hintArgs = ctx->newList();
             hintArgs = hintArgs->appendLast(ctx, ctx->fromUTF8String("number"));
             const proto::ProtoObject* prim = callJSFunction(ctx, tpFn, v, hintArgs);
-            if (hasCallException()) return PROTO_NONE;
             return coerceToInteger(ctx, prim);
         }
         // OrdinaryToPrimitive("number"): valueOf then toString.
@@ -112,7 +111,6 @@ static const proto::ProtoObject* coerceToInteger(proto::ProtoContext* ctx,
             const proto::ProtoObject* voFn = v->getAttribute(ctx, voK, true);
             if (voFn && voFn != PROTO_NONE && voFn != getUndefinedSentinel()) {
                 const proto::ProtoObject* r = callJSFunction(ctx, voFn, v, ctx->newList());
-                if (hasCallException()) return PROTO_NONE;
                 // §6.1.6.1 Type(r) check.  undefined and null are
                 // primitives per spec and MUST recurse so the
                 // coerceToInteger branch raises TypeError instead of
@@ -132,7 +130,6 @@ static const proto::ProtoObject* coerceToInteger(proto::ProtoContext* ctx,
             const proto::ProtoObject* tsFn = v->getAttribute(ctx, tsK, true);
             if (tsFn && tsFn != PROTO_NONE && tsFn != getUndefinedSentinel()) {
                 const proto::ProtoObject* r = callJSFunction(ctx, tsFn, v, ctx->newList());
-                if (hasCallException()) return PROTO_NONE;
                 // §6.1.6.1 Type(r) check.  undefined and null are
                 // primitives per spec and MUST recurse so the
                 // coerceToInteger branch raises TypeError instead of
@@ -249,7 +246,7 @@ static const proto::ProtoObject* bigIntCtor(proto::ProtoContext* ctx,
     }
     const proto::ProtoObject* v = args->getAt(ctx, 0);
     const proto::ProtoObject* integer = coerceToInteger(ctx, v);
-    if (hasCallException() || !integer || integer == PROTO_NONE) return PROTO_NONE;
+    if (!integer || integer == PROTO_NONE) return PROTO_NONE;
     return wrapBigInt(ctx, integer);
 }
 
@@ -311,7 +308,6 @@ static const proto::ProtoObject* bigIntToString(proto::ProtoContext* ctx,
         const proto::ProtoObject* r = args->getAt(ctx, 0);
         if (r && r != getUndefinedSentinel()) {
             const proto::ProtoObject* n = jsToNumber(ctx, r);
-            if (hasCallException()) return PROTO_NONE;
             double d = 0.0;
             if (n && n->isInteger(ctx)) d = static_cast<double>(n->asLong(ctx));
             else if (n && (n->isDouble(ctx) || n->isFloat(ctx))) d = n->asDouble(ctx);
@@ -381,7 +377,6 @@ static long long toIndexLL(proto::ProtoContext* ctx,
         return -1;
     }
     const proto::ProtoObject* n = jsToNumber(ctx, v);
-    if (hasCallException()) return -1;
     if (!n || n == PROTO_NONE) return 0;
     // Post-coercion BigInt check: ToPrimitive(obj) inside jsToNumber
     // may have returned a BigInt; that should re-throw TypeError per
@@ -491,7 +486,6 @@ static const proto::ProtoObject* toBigInt(proto::ProtoContext* ctx,
             const proto::ProtoList* hintArgs = ctx->newList();
             hintArgs = hintArgs->appendLast(ctx, ctx->fromUTF8String("number"));
             const proto::ProtoObject* prim = callJSFunction(ctx, tpFn, v, hintArgs);
-            if (hasCallException()) return PROTO_NONE;
             // §7.1.1 step 5.b: non-primitive return → TypeError.
             if (!isPrimitiveResult(prim)) {
                 signalNativeException(makeNativeError(ctx, "TypeError",
@@ -508,7 +502,6 @@ static const proto::ProtoObject* toBigInt(proto::ProtoContext* ctx,
         const proto::ProtoObject* voFn = v->getAttribute(ctx, voK, true);
         if (isCallable(voFn)) {
             const proto::ProtoObject* r = callJSFunction(ctx, voFn, v, ctx->newList());
-            if (hasCallException()) return PROTO_NONE;
             bool isPrim = !r || r == PROTO_NONE || r == getUndefinedSentinel()
                 || r == getNullSentinel()
                 || (r && (r->isInteger(ctx) || r->isDouble(ctx) || r->isFloat(ctx)
@@ -523,7 +516,6 @@ static const proto::ProtoObject* toBigInt(proto::ProtoContext* ctx,
         const proto::ProtoObject* tsFn = v->getAttribute(ctx, tsK, true);
         if (isCallable(tsFn)) {
             const proto::ProtoObject* r = callJSFunction(ctx, tsFn, v, ctx->newList());
-            if (hasCallException()) return PROTO_NONE;
             bool isPrim = !r || r == PROTO_NONE || r == getUndefinedSentinel()
                 || r == getNullSentinel()
                 || (r && (r->isInteger(ctx) || r->isDouble(ctx) || r->isFloat(ctx)
@@ -552,11 +544,11 @@ static const proto::ProtoObject* bigIntAsIntN(proto::ProtoContext* ctx,
     const proto::ProtoObject* bArg = argc > 0 ? args->getAt(ctx, 0)
                                               : getUndefinedSentinel();
     long long bits = toIndexLL(ctx, bArg);
-    if (hasCallException() || bits < 0) return PROTO_NONE;
+    if (bits < 0) return PROTO_NONE;
     const proto::ProtoObject* vArg = argc > 1 ? args->getAt(ctx, 1)
                                               : getUndefinedSentinel();
     const proto::ProtoObject* inner = toBigInt(ctx, vArg);
-    if (hasCallException() || !inner || inner == PROTO_NONE) return PROTO_NONE;
+    if (!inner || inner == PROTO_NONE) return PROTO_NONE;
     if (bits == 0) return wrapBigInt(ctx, ctx->fromInteger(0LL));
     const proto::ProtoObject* one = ctx->fromInteger(1LL);
     const proto::ProtoObject* mask = one->shiftLeft(ctx, static_cast<int>(bits))
@@ -581,11 +573,11 @@ static const proto::ProtoObject* bigIntAsUintN(proto::ProtoContext* ctx,
     const proto::ProtoObject* bArg = argc > 0 ? args->getAt(ctx, 0)
                                               : getUndefinedSentinel();
     long long bits = toIndexLL(ctx, bArg);
-    if (hasCallException() || bits < 0) return PROTO_NONE;
+    if (bits < 0) return PROTO_NONE;
     const proto::ProtoObject* vArg = argc > 1 ? args->getAt(ctx, 1)
                                               : getUndefinedSentinel();
     const proto::ProtoObject* inner = toBigInt(ctx, vArg);
-    if (hasCallException() || !inner || inner == PROTO_NONE) return PROTO_NONE;
+    if (!inner || inner == PROTO_NONE) return PROTO_NONE;
     if (bits == 0) return wrapBigInt(ctx, ctx->fromInteger(0LL));
     const proto::ProtoObject* one = ctx->fromInteger(1LL);
     const proto::ProtoObject* mask = one->shiftLeft(ctx, static_cast<int>(bits))

@@ -90,11 +90,6 @@ std::string describeThrownValue(proto::ProtoContext* ctx, const proto::ProtoObje
 // The exception reached the top of a callback, so nothing will catch it: as in
 // Node, the process ends with status 1.  Pre-fix the message was printed and
 // the program carried on to exit with status 0.
-void drainCallbackException(proto::ProtoContext* ctx, const char* where) {
-    if (!hasCallException()) return;
-    reportUncaughtException(ctx, where, consumeCallException());
-}
-
 void reportUncaughtException(proto::ProtoContext* ctx, const char* where,
                              const proto::ProtoObject* exc) {
     std::cerr << "Uncaught exception in " << where << ": "
@@ -103,7 +98,6 @@ void reportUncaughtException(proto::ProtoContext* ctx, const char* where,
 }
 
 void endOfTurnChecks(proto::ProtoContext* ctx) {
-    drainCallbackException(ctx, "event-loop callback");
     // Unhandled rejections are reported by the microtask checkpoint that ends
     // every turn (MicrotaskQueue.h); run it here too for a turn that queued
     // jobs without passing through the event loop.

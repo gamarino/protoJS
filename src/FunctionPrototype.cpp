@@ -240,7 +240,6 @@ static const proto::ProtoObject* fnApply(
                 const proto::ProtoObject* getter = argsArray->getAttribute(ctx, gk, true);
                 if (getter && getter != PROTO_NONE) {
                     lo = callJSFunction(ctx, getter, argsArray, ctx->newList());
-                    if (hasCallException()) return PROTO_NONE;
                 }
             }
             if (!lo || lo == PROTO_NONE) {
@@ -266,7 +265,6 @@ static const proto::ProtoObject* fnApply(
                     const proto::ProtoObject* getter = argsArray->getAttribute(ctx, gk, true);
                     if (getter && getter != PROTO_NONE) {
                         av = callJSFunction(ctx, getter, argsArray, ctx->newList());
-                        if (hasCallException()) return PROTO_NONE;
                     }
                 }
                 if (!av || av == PROTO_NONE) {
@@ -406,7 +404,6 @@ static const proto::ProtoObject* fnBind(
             const proto::ProtoObject* getter = self->getAttribute(ctx, gk, true);
             if (getter && getter != PROTO_NONE) {
                 no = callJSFunction(ctx, getter, self, ctx->newList());
-                if (hasCallException()) return PROTO_NONE;
             }
         }
         if (!no || no == PROTO_NONE)
@@ -484,7 +481,6 @@ static const proto::ProtoObject* fnHasInstance(
             const proto::ProtoObject* getter = self->getAttribute(ctx, gk, true);
             if (getter && getter != PROTO_NONE) {
                 P = callJSFunction(ctx, getter, self, ctx->newList());
-                if (hasCallException()) return PROTO_NONE;
             }
         }
     }
@@ -522,7 +518,6 @@ static const proto::ProtoObject* fnHasInstance(
         const proto::ProtoObject* next = nullptr;
         if (protojs::isProxy(ctx, cur)) {
             next = protojs::proxyDispatchGetPrototypeOf(ctx, cur);
-            if (hasCallException()) return PROTO_NONE;
         } else {
             next = protojs::getJSProtoOverride(ctx, cur);
             if (!next) next = cur->getPrototype(ctx);
@@ -714,7 +709,6 @@ static const proto::ProtoObject* createDynamicFunction(
             if (tsFn && tsFn != PROTO_NONE && tsFn != getUndefinedSentinel()) {
                 const proto::ProtoList* empty = ctx->newList();
                 const proto::ProtoObject* res = callJSFunction(ctx, tsFn, o, empty);
-                if (hasCallException()) return r;
                 if (res && res->isString(ctx)) {
                     res->asString(ctx)->toUTF8String(ctx, r);
                     return r;
@@ -727,7 +721,6 @@ static const proto::ProtoObject* createDynamicFunction(
             if (voFn && voFn != PROTO_NONE && voFn != getUndefinedSentinel()) {
                 const proto::ProtoList* empty = ctx->newList();
                 const proto::ProtoObject* res = callJSFunction(ctx, voFn, o, empty);
-                if (hasCallException()) return r;
                 if (res && res->isString(ctx)) {
                     res->asString(ctx)->toUTF8String(ctx, r);
                     return r;
@@ -746,16 +739,13 @@ static const proto::ProtoObject* createDynamicFunction(
     } else if (argCount == 1) {
         // Function(body)
         body = toStr(args->getAt(ctx, 0));
-        if (hasCallException()) return PROTO_NONE;
     } else {
         // Function(p1, p2, ..., pn, body)
         for (size_t i = 0; i < argCount - 1; i++) {
             if (i > 0) params += ",";
             params += toStr(args->getAt(ctx, static_cast<int>(i)));
-            if (hasCallException()) return PROTO_NONE;
         }
         body = toStr(args->getAt(ctx, static_cast<int>(argCount - 1)));
-        if (hasCallException()) return PROTO_NONE;
     }
 
     // §20.2.1.1.1 CreateDynamicFunction step 30 (function kind):

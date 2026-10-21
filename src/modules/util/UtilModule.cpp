@@ -143,10 +143,10 @@ const proto::ProtoObject* inspectImplementation(proto::ProtoContext* ctx) {
                              kUtilInspectSourceSize);
     const proto::ProtoObject* factory =
         wrapper->evalIsolatedToProto(source, "protojs:internal/util/inspect.js");
-    if (!factory || factory == PROTO_NONE || hasCallException()) return nullptr;
+    if (!factory || factory == PROTO_NONE) return nullptr;
     const proto::ProtoObject* impl =
         callJSFunction(ctx, factory, PROTO_NONE, ctx->newList());
-    if (!impl || impl == PROTO_NONE || hasCallException()) return nullptr;
+    if (!impl || impl == PROTO_NONE) return nullptr;
     // The global is mutable, so this publishes in place; re-read it, since the
     // evaluation may have re-bound the pointer.
     g = wrapper->getNativeGlobal();
@@ -160,7 +160,7 @@ const proto::ProtoObject* callInspectFunction(proto::ProtoContext* ctx,
     if (!ctx) return PROTO_NONE;
     const proto::ProtoObject* impl = inspectImplementation(ctx);
     if (!impl) {
-        if (!hasCallException()) {
+        {
             signalNativeException(makeNativeError(ctx, "Error",
                 "util: the inspect implementation failed to load"));
         }

@@ -618,17 +618,22 @@ JSValue JSContextWrapper::eval(const std::string& code, const std::string& filen
 
                 rootModule_ = modPtr;
                 rootModuleStorage_ = std::move(modulePtr);
-                const proto::ProtoObject* exception = PROTO_NONE;
-                const proto::ProtoObject* result =
-                    protojs::runBytecode(&frameCtx, modPtr,
-                                         globalObj, nullptr,
-                                         &nativeGlobalRoot_, &exception);
-                frameCtx.returnValue = result;
+                // An uncaught exception is reported below (nullptr: none;
+                // PROTO_NONE is a thrown undefined).
+                const proto::ProtoObject* exception = nullptr;
+                const proto::ProtoObject* result = nullptr;
+                try {
+                    result = protojs::runBytecode(&frameCtx, modPtr, globalObj, nullptr,
+                                                  &nativeGlobalRoot_);
+                } catch (const protojs::JSException& thrown) {
+                    exception = thrown.value();
+                }
+                frameCtx.returnValue = exception ? exception : result;
                 // The run may have re-bound nativeGlobalRoot_; it must stay a
                 // root once this frame is gone (see rootNativeGlobal).
                 rootNativeGlobal();
 
-                if (exception && exception != PROTO_NONE) {
+                if (exception) {
                     // Format exception from ProtoObject for error reporting.
                     // Always prefer "Name: message" so Test262 can match negative.type.
                     std::string errStr;
@@ -805,11 +810,13 @@ const proto::ProtoObject* JSContextWrapper::evalIsolatedToProto(
     if (rs) {
         pinHandle = rs->add(modPtr->metadata);
     }
-    const proto::ProtoObject* exception = PROTO_NONE;
-    const proto::ProtoObject* result =
-        protojs::runBytecode(&frameCtx, modPtr,
-                             globalObj, nullptr,
-                             &nativeGlobalRoot_, &exception);
+    const proto::ProtoObject* exception = nullptr;
+    const proto::ProtoObject* result = nullptr;
+    try {
+        result = protojs::runBytecode(&frameCtx, modPtr, globalObj, nullptr, &nativeGlobalRoot_);
+    } catch (const protojs::JSException& thrown) {
+        exception = thrown.value();
+    }
     rootNativeGlobal();
 
     // Keep the module alive for the wrapper's lifetime so any closure
@@ -819,7 +826,7 @@ const proto::ProtoObject* JSContextWrapper::evalIsolatedToProto(
     subEvalModules_.push_back(std::move(modulePtr));
     if (pinHandle) subEvalHandles_.push_back(pinHandle);
 
-    if (exception && exception != PROTO_NONE) {
+    if (exception) {
         // Exception during run: don't propagate further here; the
         // caller can fall back to PROTO_NONE the way the legacy path
         // did. A richer propagation (signalling a protoJS-side throw)

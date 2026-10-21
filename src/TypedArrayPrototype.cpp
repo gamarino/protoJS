@@ -165,7 +165,7 @@ static const proto::ProtoObject* typedArrayCoerceValue(proto::ProtoContext* ctx,
     if (!value) value = PROTO_NONE;
     if (elementType == 9 || elementType == 10) {
         const proto::ProtoObject* integer = toBigIntInteger(ctx, value);
-        if (!integer || integer == PROTO_NONE || hasCallException()) return nullptr;
+        if (!integer || integer == PROTO_NONE) return nullptr;
         return integer;
     }
     if (proto::isSmallInt(value)) return value;   // the common case, no lookup
@@ -179,7 +179,7 @@ static const proto::ProtoObject* typedArrayCoerceValue(proto::ProtoContext* ctx,
         return nullptr;
     }
     const proto::ProtoObject* n = jsToNumber(ctx, value);
-    if (!n || n == PROTO_NONE || hasCallException()) return nullptr;
+    if (!n || n == PROTO_NONE) return nullptr;
     return n;
 }
 
@@ -800,7 +800,6 @@ static const proto::ProtoObject* ta_forEach(
     uint32_t len = getTypedArrayLength(ctx, self);
     for (uint32_t i = 0; i < len; i++) {
         invokeCallback(ctx, fn, thisArg, typedArrayGetElement(ctx, self, i, et), i, self);
-        if (hasCallException()) return PROTO_NONE;
     }
     return PROTO_NONE;
 }
@@ -817,7 +816,6 @@ static const proto::ProtoObject* ta_every(
     for (uint32_t i = 0; i < len; i++) {
         const proto::ProtoObject* r =
             invokeCallback(ctx, fn, thisArg, typedArrayGetElement(ctx, self, i, et), i, self);
-        if (hasCallException()) return PROTO_NONE;
         if (!jsToBoolean(ctx, r)) return PROTO_FALSE;
     }
     return PROTO_TRUE;
@@ -835,7 +833,6 @@ static const proto::ProtoObject* ta_some(
     for (uint32_t i = 0; i < len; i++) {
         const proto::ProtoObject* r =
             invokeCallback(ctx, fn, thisArg, typedArrayGetElement(ctx, self, i, et), i, self);
-        if (hasCallException()) return PROTO_NONE;
         if (jsToBoolean(ctx, r)) return PROTO_TRUE;
     }
     return PROTO_FALSE;
@@ -853,7 +850,6 @@ static const proto::ProtoObject* ta_find(
     for (uint32_t i = 0; i < len; i++) {
         const proto::ProtoObject* elem = typedArrayGetElement(ctx, self, i, et);
         const proto::ProtoObject* r = invokeCallback(ctx, fn, thisArg, elem, i, self);
-        if (hasCallException()) return PROTO_NONE;
         if (jsToBoolean(ctx, r)) return elem;
     }
     return PROTO_NONE;
@@ -871,7 +867,6 @@ static const proto::ProtoObject* ta_findIndex(
     for (uint32_t i = 0; i < len; i++) {
         const proto::ProtoObject* elem = typedArrayGetElement(ctx, self, i, et);
         const proto::ProtoObject* r = invokeCallback(ctx, fn, thisArg, elem, i, self);
-        if (hasCallException()) return PROTO_NONE;
         if (jsToBoolean(ctx, r)) return ctx->fromInteger(static_cast<long long>(i));
     }
     return ctx->fromInteger(-1LL);
@@ -892,9 +887,7 @@ static const proto::ProtoObject* ta_map(
     for (uint32_t i = 0; i < len; i++) {
         const proto::ProtoObject* elem = typedArrayGetElement(ctx, self, i, et);
         const proto::ProtoObject* mapped = invokeCallback(ctx, fn, thisArg, elem, i, self);
-        if (hasCallException()) return PROTO_NONE;
         typedArraySetElement(ctx, result, i, mapped ? mapped : PROTO_NONE, et);
-        if (hasCallException()) return PROTO_NONE;
     }
     return result;
 }
@@ -927,7 +920,6 @@ static const proto::ProtoObject* ta_reduce(
         const proto::ProtoObject* items[4] = {
             acc, elem, ctx->fromInteger(static_cast<long long>(i)), self };
         const proto::ProtoObject* r = callJSFunction(ctx, fn, PROTO_NONE, ctx->newList(4, items));
-        if (hasCallException()) return PROTO_NONE;
         acc = r ? r : PROTO_NONE;
     }
     return acc;
@@ -961,7 +953,6 @@ static const proto::ProtoObject* ta_reduceRight(
         const proto::ProtoObject* elem = typedArrayGetElement(ctx, self, static_cast<uint32_t>(i), et);
         const proto::ProtoObject* items[4] = { acc, elem, ctx->fromInteger(i), self };
         const proto::ProtoObject* r = callJSFunction(ctx, fn, PROTO_NONE, ctx->newList(4, items));
-        if (hasCallException()) return PROTO_NONE;
         acc = r ? r : PROTO_NONE;
     }
     return acc;
@@ -976,9 +967,7 @@ static bool taCompareWith(proto::ProtoContext* ctx, const proto::ProtoObject* fn
                           int& sign) {
     const proto::ProtoObject* items[2] = { x, y };
     const proto::ProtoObject* r = callJSFunction(ctx, fn, PROTO_NONE, ctx->newList(2, items));
-    if (hasCallException()) return false;
     const proto::ProtoObject* n = jsToNumber(ctx, r ? r : PROTO_NONE);
-    if (hasCallException()) return false;
     double v = 0.0;
     if (n && n != PROTO_NONE) {
         if (n->isInteger(ctx)) v = static_cast<double>(n->asLong(ctx));
@@ -1142,7 +1131,6 @@ static const proto::ProtoObject* ta_set(
             }
             if (elem && elem != PROTO_NONE) {
                 typedArraySetElement(ctx, self, static_cast<uint32_t>(dstIdx), elem, et);
-                if (hasCallException()) return PROTO_NONE;
             }
         }
     }
@@ -1303,7 +1291,6 @@ static const proto::ProtoObject* typedArrayFromValues(proto::ProtoContext* ctx,
     if (!result || result == PROTO_NONE) return PROTO_NONE;
     for (uint32_t i = 0; i < len; i++) {
         typedArraySetElement(ctx, result, i, values->getAt(ctx, static_cast<int>(i)), et);
-        if (hasCallException()) return PROTO_NONE;
     }
     return result;
 }
@@ -1323,7 +1310,6 @@ bool toIndex(proto::ProtoContext* ctx, const proto::ProtoObject* v, long long& o
     const proto::ProtoObject* n = v;
     if (!v->isInteger(ctx) && !v->isDouble(ctx) && !v->isFloat(ctx)) {
         n = jsToNumber(ctx, v);
-        if (hasCallException()) return false;
     }
     double d = 0.0;
     if (n && n != PROTO_NONE) {
@@ -1425,7 +1411,6 @@ const proto::ProtoObject* constructTypedArray(proto::ProtoContext* ctx,
     const proto::ProtoList* values =
         collectArrayFromValues(ctx, ctx->newList()->appendLast(ctx, first));
     if (!values) {
-        if (hasCallException()) return PROTO_NONE;
         values = ctx->newList();  // an empty array-like ({ length: 0 })
     }
     return typedArrayFromValues(ctx, proto, et, values);
@@ -1473,7 +1458,6 @@ struct TAStaticMethods {
         for (uint32_t i = 0; i < len; i++) {
             const proto::ProtoObject* v = args->getAt(ctx, static_cast<int>(i));
             typedArraySetElement(ctx, result, i, v, et);
-            if (hasCallException()) return PROTO_NONE;
         }
         return result;
     }

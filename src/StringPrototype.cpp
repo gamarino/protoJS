@@ -183,7 +183,6 @@ static std::string objToStr(proto::ProtoContext* ctx, const proto::ProtoObject* 
                 const proto::ProtoObject* getter = obj->getAttribute(ctx, gk, true);
                 if (getter && getter != PROTO_NONE) {
                     tpFn = callJSFunction(ctx, getter, obj, ctx->newList());
-                    if (hasCallException()) return "";
                 }
             }
             auto isCallable = [&](const proto::ProtoObject* fn) -> bool {
@@ -212,7 +211,6 @@ static std::string objToStr(proto::ProtoContext* ctx, const proto::ProtoObject* 
                 const proto::ProtoList* hintArgs = ctx->newList();
                 hintArgs = hintArgs->appendLast(ctx, ctx->fromUTF8String("string"));
                 const proto::ProtoObject* prim = callJSFunction(ctx, tpFn, obj, hintArgs);
-                if (hasCallException()) return "";
                 // \xc2\xa76.1: seven primitive types — Undefined, Null, Boolean,
                 // String, Number, BigInt, Symbol.  Pre-fix the isPrim
                 // check excluded the latter two (Symbol-tagged objects
@@ -281,7 +279,6 @@ static std::string objToStr(proto::ProtoContext* ctx, const proto::ProtoObject* 
                     const proto::ProtoObject* getter = obj->getAttribute(ctx, gk, true);
                     if (getter && getter != PROTO_NONE) {
                         tsFn = callJSFunction(ctx, getter, obj, ctx->newList());
-                        if (hasCallException()) return "";
                     }
                 }
             }
@@ -326,7 +323,6 @@ static std::string objToStr(proto::ProtoContext* ctx, const proto::ProtoObject* 
                 // proceeded to read position and surfaced "intoint"
                 // instead (Sputnik S15.5.4.8_A4_T4 / equivalents on
                 // every coercing String.prototype method).
-                if (hasCallException()) return "";
                 if (result && result != PROTO_NONE) {
                     // §7.1.1 OrdinaryToPrimitive step 4.b.iii: any
                     // non-Object return value from toString is
@@ -404,7 +400,6 @@ static std::string objToStr(proto::ProtoContext* ctx, const proto::ProtoObject* 
                     const proto::ProtoObject* getter = obj->getAttribute(ctx, gk, true);
                     if (getter && getter != PROTO_NONE) {
                         voFn = callJSFunction(ctx, getter, obj, ctx->newList());
-                        if (hasCallException()) return "";
                     }
                 }
             }
@@ -430,7 +425,6 @@ static std::string objToStr(proto::ProtoContext* ctx, const proto::ProtoObject* 
                 } else {
                     result = callJSFunction(ctx, voFn, obj, ctx->newList());
                 }
-                if (hasCallException()) return "";
                 // §7.1.1 OrdinaryToPrimitive step 5.a.iii — accept any
                 // primitive return (string, number, boolean, null,
                 // undefined). Pre-fix the valueOf branch only honoured
@@ -552,7 +546,7 @@ static long long getIntArg(proto::ProtoContext* ctx, const proto::ProtoArguments
     const proto::ProtoObject* num = a;
     if (!a->isInteger(ctx) && !a->isDouble(ctx) && !a->isFloat(ctx)) {
         num = jsToNumber(ctx, a);
-        if (hasCallException() || !num) return defaultVal;
+        if (!num) return defaultVal;
     }
     if (num->isInteger(ctx)) return num->asLong(ctx);
     if (num->isDouble(ctx) || num->isFloat(ctx)) {
@@ -888,11 +882,9 @@ const proto::ProtoObject* stringConcat(
     // saw 'infirstarg' from arg[0] because the abrupt from self was
     // silently dropped).
     std::string result = objToStr(ctx, self);
-    if (hasCallException()) return PROTO_NONE;
     proto::proto_ulong argc = args ? static_cast<proto::proto_ulong>(args->getSize(ctx)) : 0;
     for (proto::proto_ulong i = 0; i < argc; i++) {
         result += objToStr(ctx, args->getAt(ctx, static_cast<int>(i)));
-        if (hasCallException()) return PROTO_NONE;
     }
     return ctx->fromUTF8String(result.c_str());
 }
@@ -904,7 +896,6 @@ const proto::ProtoObject* stringIndexOf(
 {
     if (!requireStringThis(ctx, self)) return PROTO_NONE;
     std::string s    = objToStr(ctx, self);
-    if (hasCallException()) return PROTO_NONE;
     // Spec §22.1.3.7: ToString on searchString; undefined coerces to
     // the literal "undefined". Pre-fix `"abc".indexOf()` returned 0
     // because the missing arg defaulted to "".  §22.1.3.7 step 4
@@ -914,11 +905,9 @@ const proto::ProtoObject* stringIndexOf(
     // from position instead of the spec-required 'intostr' from
     // searchString).
     std::string srch = getStrArgWithUndef(ctx, args, 0);
-    if (hasCallException()) return PROTO_NONE;
     auto su16 = utf8ToUTF16(s);
     auto se16 = utf8ToUTF16(srch);
     long long fromIdx = getIntArg(ctx, args, 1, 0);
-    if (hasCallException()) return PROTO_NONE;
     if (fromIdx < 0) fromIdx = 0;
     size_t pos = static_cast<size_t>(fromIdx);
     if (se16.empty()) {
@@ -940,7 +929,6 @@ const proto::ProtoObject* stringLastIndexOf(
 {
     if (!requireStringThis(ctx, self)) return PROTO_NONE;
     std::string s    = objToStr(ctx, self);
-    if (hasCallException()) return PROTO_NONE;
     // §21.1.3.10 step 4 ToString(searchString) — applies the full
     // ToString algorithm, so a missing/undefined arg becomes literal
     // "undefined" (S15.5.4.8_A1_T8: "undefined".lastIndexOf(void 0) === 0).
@@ -952,7 +940,6 @@ const proto::ProtoObject* stringLastIndexOf(
     // a throwing toString and proceeded to position, surfacing "intoint"
     // before the spec-required "intostr" (Sputnik S15.5.4.8_A4_T4
     // verified the ordering).
-    if (hasCallException()) return PROTO_NONE;
     auto su16 = utf8ToUTF16(s);
     auto se16 = utf8ToUTF16(srch);
     // §21.1.3.10 lastIndexOf step 5: numPos = ToNumber(position); NaN →
@@ -968,7 +955,6 @@ const proto::ProtoObject* stringLastIndexOf(
             const proto::ProtoObject* num = fa;
             if (!fa->isInteger(ctx) && !fa->isDouble(ctx) && !fa->isFloat(ctx)) {
                 num = jsToNumber(ctx, fa);
-                if (hasCallException()) return PROTO_NONE;
             }
             if (num) {
                 double d = num->isInteger(ctx)
@@ -1033,7 +1019,6 @@ const proto::ProtoObject* stringSlice(
                 // so an abrupt valueOf on `start` lost to a later abrupt
                 // on `end` (test262
                 // String/prototype/slice/S15.5.4.13_A1_T11.js).
-                if (hasCallException()) return PROTO_NONE;
                 if (start < 0) start = std::max(len + start, 0LL);
                 else           start = std::min(start, len);
             }
@@ -1042,7 +1027,6 @@ const proto::ProtoObject* stringSlice(
                 // §22.1.3.18 slice: when end is undefined, default to len.
                 if (ea && ea != PROTO_NONE && ea != getUndefinedSentinel()) {
                     end = getIntArg(ctx, args, 1, len);
-                    if (hasCallException()) return PROTO_NONE;
                     if (end < 0) end = std::max(len + end, 0LL);
                     else         end = std::min(end, len);
                 }
@@ -1061,7 +1045,6 @@ const proto::ProtoObject* stringSlice(
 
     if (args && args->getSize(ctx) >= 1) {
         start = getIntArg(ctx, args, 0, 0);
-        if (hasCallException()) return PROTO_NONE;
         if (start < 0) start = std::max(len + start, 0LL);
         else           start = std::min(start, len);
     }
@@ -1069,7 +1052,6 @@ const proto::ProtoObject* stringSlice(
         const proto::ProtoObject* ea = args->getAt(ctx, 1);
         if (ea && ea != PROTO_NONE) {
             end = getIntArg(ctx, args, 1, len);
-            if (hasCallException()) return PROTO_NONE;
             if (end < 0) end = std::max(len + end, 0LL);
             else         end = std::min(end, len);
         }
@@ -1094,7 +1076,6 @@ const proto::ProtoObject* stringSubstring(
             long long start = 0, end = len;
             if (args && args->getSize(ctx) >= 1) {
                 start = getIntArg(ctx, args, 0, 0);
-                if (hasCallException()) return PROTO_NONE;
                 start = std::max(0LL, std::min(start, len));
             }
             if (args && args->getSize(ctx) >= 2) {
@@ -1105,7 +1086,6 @@ const proto::ProtoObject* stringSubstring(
                 // empty substring (S15.5.4.15_A1_T7 et al).
                 if (ea && ea != PROTO_NONE && ea != getUndefinedSentinel()) {
                     end = getIntArg(ctx, args, 1, len);
-                    if (hasCallException()) return PROTO_NONE;
                     end = std::max(0LL, std::min(end, len));
                 }
             }
@@ -1124,14 +1104,12 @@ const proto::ProtoObject* stringSubstring(
 
     if (args && args->getSize(ctx) >= 1) {
         start = getIntArg(ctx, args, 0, 0);   // NaN → 0
-        if (hasCallException()) return PROTO_NONE;
         start = std::max(0LL, std::min(start, len));
     }
     if (args && args->getSize(ctx) >= 2) {
         const proto::ProtoObject* ea = args->getAt(ctx, 1);
         if (ea && ea != PROTO_NONE) {
             end = getIntArg(ctx, args, 1, len);
-            if (hasCallException()) return PROTO_NONE;
             end = std::max(0LL, std::min(end, len));
         }
     }
@@ -1481,7 +1459,6 @@ const proto::ProtoObject* stringStartsWith(
         bool isRE = isRegExp(ctx, args->getAt(ctx, 0));
         // §7.2.8 IsRegExp can throw via the @@match accessor —
         // propagate before checking the boolean result.
-        if (hasCallException()) return PROTO_NONE;
         if (isRE) {
             signalNativeException(makeNativeError(ctx, "TypeError",
                 "First argument to String.prototype.startsWith must not be a regular expression"));
@@ -1545,7 +1522,6 @@ const proto::ProtoObject* stringEndsWith(
     if (!requireStringThis(ctx, self)) return PROTO_NONE;
     if (args && args->getSize(ctx) > 0) {
         bool isRE = isRegExp(ctx, args->getAt(ctx, 0));
-        if (hasCallException()) return PROTO_NONE;
         if (isRE) {
             signalNativeException(makeNativeError(ctx, "TypeError",
                 "First argument to String.prototype.endsWith must not be a regular expression"));
@@ -1606,7 +1582,6 @@ const proto::ProtoObject* stringIncludes(
     if (!requireStringThis(ctx, self)) return PROTO_NONE;
     if (args && args->getSize(ctx) > 0) {
         bool isRE = isRegExp(ctx, args->getAt(ctx, 0));
-        if (hasCallException()) return PROTO_NONE;
         if (isRE) {
             signalNativeException(makeNativeError(ctx, "TypeError",
                 "First argument to String.prototype.includes must not be a regular expression"));
@@ -1662,7 +1637,6 @@ const proto::ProtoObject* stringToWellFormed(
 {
     if (!requireStringThis(ctx, self)) return PROTO_NONE;
     std::string s = objToStr(ctx, self);
-    if (hasCallException()) return PROTO_NONE;
     auto u16 = utf8ToUTF16(s);
     std::vector<uint16_t> out;
     out.reserve(u16.size());
@@ -1737,7 +1711,6 @@ static const proto::ProtoObject* stringPadCommon(
                 return PROTO_NONE;
             }
             padStr = objToStr(ctx, pa);
-            if (hasCallException()) return PROTO_NONE;
         }
     }
     auto padU16 = utf8ToUTF16(padStr);
@@ -1832,7 +1805,6 @@ static bool isRegExp(proto::ProtoContext* ctx, const proto::ProtoObject* obj) {
             const proto::ProtoObject* getter = obj->getAttribute(ctx, gks, true);
             if (getter && getter != PROTO_NONE) {
                 m = callJSFunction(ctx, getter, obj, ctx->newList());
-                if (hasCallException()) return false;
             }
         }
     }
@@ -1915,7 +1887,6 @@ const proto::ProtoObject* stringMatch(
                 if (getter && getter != PROTO_NONE
                     && getter != getUndefinedSentinel()) {
                     matchFn = callJSFunction(ctx, getter, pattern, ctx->newList());
-                    if (hasCallException()) return PROTO_NONE;
                 }
             }
         }
@@ -2081,7 +2052,6 @@ const proto::ProtoObject* stringReplace(
                 const proto::ProtoObject* getter = pattern->getAttribute(ctx, replGetK, true);
                 if (getter && getter != PROTO_NONE) {
                     replacer = callJSFunction(ctx, getter, pattern, ctx->newList());
-                    if (hasCallException()) return PROTO_NONE;
                 }
             }
             if (!replacer || replacer == PROTO_NONE) {
@@ -2111,7 +2081,6 @@ const proto::ProtoObject* stringReplace(
     // is found).
     if (!args || args->getSize(ctx) < 2) {
         std::string coerced = objToStr(ctx, self);
-        if (hasCallException()) return PROTO_NONE;
         return ctx->fromUTF8String(coerced.c_str());
     }
 
@@ -2121,12 +2090,10 @@ const proto::ProtoObject* stringReplace(
     // Pre-fix any non-string returned PROTO_NONE, which surfaced as
     // 'undefined' in user code (the whole result, not a no-match).
     std::string s   = objToStr(ctx, self);
-    if (hasCallException()) return PROTO_NONE;
     // §22.1.3.18 step 5 must precede step 6: a throwing
     // searchValue.toString needs to surface before replacement is
     // coerced (Sputnik S15.5.4.11_A1_T12).
     std::string pat = objToStr(ctx, pattern);
-    if (hasCallException()) return PROTO_NONE;
 
     const proto::ProtoObject* repObj = args->getAt(ctx, 1);
     // Spec §22.1.3.18 step 7: if replacement is callable, call it with
@@ -2187,7 +2154,6 @@ const proto::ProtoObject* stringReplaceAll(
     const proto::ProtoObject* repObj = args->getAt(ctx, 1);
     if (!pattern || pattern == PROTO_NONE) {
         std::string sOnly = objToStr(ctx, self);
-        if (hasCallException()) return PROTO_NONE;
         return ctx->fromUTF8String(sOnly.c_str());
     }
     // §22.1.3.20 step 2.a-b: IsRegExp + flags-must-contain-"g" check
@@ -2213,7 +2179,6 @@ const proto::ProtoObject* stringReplaceAll(
             const proto::ProtoObject* getter = obj->getAttribute(ctx, gk, true);
             if (getter && getter != PROTO_NONE) {
                 m = callJSFunction(ctx, getter, obj, ctx->newList());
-                if (hasCallException()) return false;
             }
         }
         if (!m || m == PROTO_NONE) m = obj->getAttribute(ctx, matchK, true);
@@ -2236,7 +2201,6 @@ const proto::ProtoObject* stringReplaceAll(
         && !(JSSymbols::isBigInt(ctx)
             && pattern->getAttribute(ctx, JSSymbols::isBigInt(ctx), true) == PROTO_TRUE)) {
         patternIsRegExp = isRegExpAccessor(pattern);
-        if (hasCallException()) return PROTO_NONE;
     }
     if (patternIsRegExp) {
         const proto::ProtoString* flagsK = ctx->fromUTF8String("flags")->asString(ctx);
@@ -2249,13 +2213,11 @@ const proto::ProtoObject* stringReplaceAll(
             const proto::ProtoObject* getter = pattern->getAttribute(ctx, flagsGetK, true);
             if (getter && getter != PROTO_NONE) {
                 flagsVal = callJSFunction(ctx, getter, pattern, ctx->newList());
-                if (hasCallException()) return PROTO_NONE;
             }
         }
         if (!flagsVal || flagsVal == PROTO_NONE) {
             flagsVal = pattern->getAttribute(ctx, flagsK, true);
         }
-        if (hasCallException()) return PROTO_NONE;
         if (!flagsVal || flagsVal == PROTO_NONE
             || flagsVal == getNullSentinel() || flagsVal == getUndefinedSentinel()) {
             signalNativeException(makeNativeError(ctx, "TypeError",
@@ -2263,7 +2225,6 @@ const proto::ProtoObject* stringReplaceAll(
             return PROTO_NONE;
         }
         std::string flagsStr = objToStr(ctx, flagsVal);
-        if (hasCallException()) return PROTO_NONE;
         if (flagsStr.find('g') == std::string::npos) {
             signalNativeException(makeNativeError(ctx, "TypeError",
                 "String.prototype.replaceAll called with non-global RegExp"));
@@ -2294,7 +2255,6 @@ const proto::ProtoObject* stringReplaceAll(
                 const proto::ProtoObject* getter = pattern->getAttribute(ctx, replGetK, true);
                 if (getter && getter != PROTO_NONE) {
                     replacer = callJSFunction(ctx, getter, pattern, ctx->newList());
-                    if (hasCallException()) return PROTO_NONE;
                 }
             }
             if (!replacer || replacer == PROTO_NONE) {
@@ -2329,9 +2289,7 @@ const proto::ProtoObject* stringReplaceAll(
     // replaceAll/this-tostring-abrupt.js — Test262Error was swallowed
     // by a "Should not call toString on replaceValue" primitive).
     std::string s   = objToStr(ctx, self);
-    if (hasCallException()) return PROTO_NONE;
     std::string pat = objToStr(ctx, pattern);
-    if (hasCallException()) return PROTO_NONE;
     // Spec §22.1.3.20 step 8: callable replacement gets (match, offset, string).
     auto isCallable = [&](const proto::ProtoObject* fn) -> bool {
         if (!fn || fn == PROTO_NONE) return false;
@@ -2350,7 +2308,6 @@ const proto::ProtoObject* stringReplaceAll(
     std::string repCached;
     if (!repCallable) {
         repCached = objToStr(ctx, repObj);
-        if (hasCallException()) return PROTO_NONE;
     }
     auto callReplacement = [&](const std::string& matched, size_t offset) -> std::string {
         const proto::ProtoList* callArgs = ctx->newList();
@@ -2386,7 +2343,6 @@ const proto::ProtoObject* stringReplaceAll(
         result += s.substr(lastPos, pos - lastPos);
         if (repCallable) {
             result += callReplacement(pat, pos);
-            if (hasCallException()) return PROTO_NONE;
         } else {
             result += applyStringReplacement(s, pat, repCached, pos);
         }
@@ -2433,7 +2389,6 @@ const proto::ProtoObject* stringMatchAll(
                 return PROTO_NONE;
             }
             std::string flagsStr = objToStr(ctx, flagsVal);
-            if (hasCallException()) return PROTO_NONE;
             if (flagsStr.find('g') == std::string::npos) {
                 signalNativeException(makeNativeError(ctx, "TypeError",
                     "String.prototype.matchAll called with a non-global RegExp"));
@@ -2468,7 +2423,6 @@ const proto::ProtoObject* stringMatchAll(
                 if (getter && getter != PROTO_NONE
                     && getter != undefSentinel && getter != nullSentinel) {
                     matcher = callJSFunction(ctx, getter, regexp, ctx->newList());
-                    if (hasCallException()) return PROTO_NONE;
                 }
             }
         }
@@ -2584,7 +2538,6 @@ const proto::ProtoObject* stringSplit(
         const proto::ProtoObject* lim = args->getAt(ctx, 1);
         if (lim && lim != PROTO_NONE && lim != getUndefinedSentinel()) {
             const proto::ProtoObject* n = jsToNumber(ctx, lim);
-            if (hasCallException()) return PROTO_NONE;
             double d = 0.0;
             if (n && n != PROTO_NONE) {
                 if (n->isInteger(ctx)) d = static_cast<double>(n->asLong(ctx));
@@ -2705,7 +2658,6 @@ const proto::ProtoObject* stringNormalize(
                 }
             }
             std::string form = objToStr(ctx, formArg);
-            if (hasCallException()) return PROTO_NONE;
             if (form != "NFC" && form != "NFD" && form != "NFKC" && form != "NFKD") {
                 signalNativeException(makeNativeError(ctx, "RangeError",
                     "Invalid normalization form"));
@@ -2744,7 +2696,6 @@ const proto::ProtoObject* stringFromCharCode(
                 // double cells.  String.fromCharCode(new Boolean(true))
                 // returned U+0000 instead of U+0001 (Sputnik S9.7_A3.1_T1).
                 const proto::ProtoObject* num = jsToNumber(ctx, a);
-                if (hasCallException()) return PROTO_NONE;
                 if (num && num != PROTO_NONE) {
                     if (num->isInteger(ctx)) code = num->asLong(ctx);
                     else if (num->isDouble(ctx)) {
@@ -2860,14 +2811,12 @@ const proto::ProtoObject* stringRaw(
             const proto::ProtoObject* getter = tpl->getAttribute(ctx, gk, true);
             if (getter && getter != PROTO_NONE) {
                 rawArr = callJSFunction(ctx, getter, tpl, ctx->newList());
-                if (hasCallException()) return PROTO_NONE;
             }
         }
         if (!rawArr || rawArr == PROTO_NONE) {
             rawArr = rawKey ? tpl->getAttribute(ctx, rawKey, true) : PROTO_NONE;
         }
     }
-    if (hasCallException()) return PROTO_NONE;
     if (!rawArr || rawArr == PROTO_NONE
         || rawArr == getNullSentinel() || rawArr == getUndefinedSentinel()) {
         signalNativeException(makeNativeError(ctx, "TypeError",
@@ -2890,12 +2839,10 @@ const proto::ProtoObject* stringRaw(
             const proto::ProtoObject* getter = rawArr->getAttribute(ctx, gk, true);
             if (getter && getter != PROTO_NONE) {
                 lv = callJSFunction(ctx, getter, rawArr, ctx->newList());
-                if (hasCallException()) return PROTO_NONE;
             }
         }
         if (!lv || lv == PROTO_NONE)
             lv = rawArr->getAttribute(ctx, lenKey, true);
-        if (hasCallException()) return PROTO_NONE;
         if (lv && lv != PROTO_NONE && lv->isInteger(ctx))
             rawLen = lv->asLong(ctx);
         else if (lv && lv != PROTO_NONE && lv->isDouble(ctx))
@@ -2904,7 +2851,6 @@ const proto::ProtoObject* stringRaw(
             // §21.1.2.4 step 7: ToLength(value) → ToIntegerOrInfinity → ToNumber.
             // Symbol value throws TypeError (template-length-is-symbol-throws.js).
             const proto::ProtoObject* n = jsToNumber(ctx, lv);
-            if (hasCallException()) return PROTO_NONE;
             if (n) {
                 if (n->isInteger(ctx)) rawLen = n->asLong(ctx);
                 else if (n->isDouble(ctx) || n->isFloat(ctx)) {
@@ -2949,7 +2895,6 @@ const proto::ProtoObject* stringRaw(
                     seg->asString(ctx)->toUTF8String(ctx, sv);
                 else
                     sv = objToStr(ctx, seg);
-                if (hasCallException()) return PROTO_NONE;
                 result += sv;
             }
         }
@@ -2962,7 +2907,6 @@ const proto::ProtoObject* stringRaw(
         if (i + 1 < rawLen && i + 1 < (long long)args->getSize(ctx)) {
             const proto::ProtoObject* sub = args->getAt(ctx, static_cast<int>(i + 1));
             result += objToStr(ctx, sub);
-            if (hasCallException()) return PROTO_NONE;
         }
     }
     return ctx->fromUTF8String(result.c_str());
@@ -3117,7 +3061,6 @@ static const proto::ProtoObject* stringSymbolIterator(
             return PROTO_NONE;
         }
         std::string converted = objToStr(ctx, self);
-        if (hasCallException()) return PROTO_NONE;
         strVal = ctx->fromUTF8String(converted.c_str());
         if (!strVal) strVal = ctx->fromUTF8String("");
     }

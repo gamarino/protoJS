@@ -78,7 +78,6 @@ static std::string objToStr(proto::ProtoContext* ctx, const proto::ProtoObject* 
         const proto::ProtoObject* fn = obj->getAttribute(ctx, k, true);
         if (!isCallable(fn)) continue;
         const proto::ProtoObject* prim = callJSFunction(ctx, fn, obj, ctx->newList());
-        if (hasCallException()) return "";
         if (!prim || prim == PROTO_NONE) continue;
         if (prim->isString(ctx)) { prim->asString(ctx)->toUTF8String(ctx, r); return r; }
         if (prim->isInteger(ctx)) return std::to_string(prim->asLong(ctx));
@@ -453,16 +452,13 @@ const proto::ProtoObject* regexpToString(
         const proto::ProtoObject* val = nullptr;
         if (getter && getter != PROTO_NONE) {
             val = callJSFunction(ctx, getter, self, ctx->newList());
-            if (hasCallException()) return "";
         }
         if (!val || val == PROTO_NONE) val = self->getAttribute(ctx, k, true);
         return objToStr(ctx, val);
     };
 
     std::string src = invoke(srcKey);
-    if (hasCallException()) return PROTO_NONE;
     std::string flg = invoke(flgKey);
-    if (hasCallException()) return PROTO_NONE;
 
     if (src.empty()) src = "(?:)";
     return ctx->fromUTF8String(("/" + src + "/" + flg).c_str());
@@ -701,7 +697,6 @@ const proto::ProtoObject* regexpSymbolReplace(
     // fallback string (Sputnik S15.5.4.11_A1_T16 hits the both-non-
     // primitive case via {toString: ()=>fn}).
     std::string replStr = isFnReplace ? "" : objToStr(ctx, replaceValue);
-    if (!isFnReplace && hasCallException()) return PROTO_NONE;
 
     std::string result;
     size_t lastMatchEnd = 0;
@@ -789,7 +784,6 @@ const proto::ProtoObject* regexpSymbolReplace(
             callArgs = callArgs->appendLast(ctx, ctx->fromInteger(matchStart));
             callArgs = callArgs->appendLast(ctx, strArg);
             const proto::ProtoObject* fnRes = callJSFunction(ctx, replaceValue, PROTO_NONE, callArgs);
-            if (hasCallException()) return PROTO_NONE;
             replacement = objToStr(ctx, fnRes);
         }
 

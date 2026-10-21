@@ -107,13 +107,11 @@ static const proto::ProtoObject* ordinaryToPrimitive(proto::ProtoContext* ctx,
                 const proto::ProtoObject* getter = v->getAttribute(ctx, gk, true);
                 if (getter && getter != PROTO_NONE) {
                     fn = callJSFunction(ctx, getter, v, ctx->newList());
-                    if (hasCallException()) return PROTO_NONE;
                 }
             }
         }
         if (!isCallableValue(ctx, fn)) continue;
         const proto::ProtoObject* r = callJSFunction(ctx, fn, v, ctx->newList());
-        if (hasCallException()) return PROTO_NONE;
         if (isPrimValue(ctx, r)) return r;
     }
     // §7.1.1.1 step 3 (and equivalent for hint "string"): if neither
@@ -155,7 +153,6 @@ static const proto::ProtoObject* invokeByName(proto::ProtoContext* ctx,
             const proto::ProtoObject* getter = obj->getAttribute(ctx, gk, true);
             if (getter && getter != PROTO_NONE) {
                 fn = callJSFunction(ctx, getter, obj, ctx->newList());
-                if (hasCallException()) return PROTO_NONE;
             }
         }
     }
@@ -198,7 +195,6 @@ static const proto::ProtoObject* jsToPrimitive(proto::ProtoContext* ctx,
             const proto::ProtoObject* getter = v->getAttribute(ctx, gks, true);
             if (getter && getter != PROTO_NONE) {
                 tpFn = callJSFunction(ctx, getter, v, ctx->newList());
-                if (hasCallException()) return PROTO_NONE;
             }
         }
     }
@@ -217,7 +213,6 @@ static const proto::ProtoObject* jsToPrimitive(proto::ProtoContext* ctx,
         const proto::ProtoList* hintArgs = ctx->newList();
         hintArgs = hintArgs->appendLast(ctx, ctx->fromUTF8String(hint));
         const proto::ProtoObject* r = callJSFunction(ctx, tpFn, v, hintArgs);
-        if (hasCallException()) return PROTO_NONE;
         if (isPrimValue(ctx, r)) return r;
         signalNativeException(makeNativeError(ctx, "TypeError",
             "Symbol.toPrimitive returned a non-primitive"));
@@ -696,7 +691,6 @@ static const proto::ProtoObject* dateCtorCall(proto::ProtoContext* ctx,
             // for objects, otherwise OrdinaryToPrimitive (valueOf-first
             // since hint defaults to "number" for non-Date receivers).
             const proto::ProtoObject* prim = jsToPrimitive(ctx, v, "default");
-            if (hasCallException()) return PROTO_NONE;
             // §7.1.4 step 3: a Symbol primitive cannot be converted to
             // a Number or parsed as a date string — ToNumber raises
             // TypeError, ToString raises TypeError.  Pre-fix the
@@ -737,7 +731,6 @@ static const proto::ProtoObject* dateCtorCall(proto::ProtoContext* ctx,
                 // ToNumber(Symbol)/ToNumber(BigInt) raise; bool→0/1,
                 // null→0, undefined→NaN are handled there too.
                 const proto::ProtoObject* n = jsToNumber(ctx, prim);
-                if (hasCallException()) return PROTO_NONE;
                 if (n && n->isInteger(ctx))
                     t = static_cast<double>(n->asLong(ctx));
                 else if (n && (n->isDouble(ctx) || n->isFloat(ctx)))
@@ -766,7 +759,7 @@ static const proto::ProtoObject* dateCtorCall(proto::ProtoContext* ctx,
             }
             // Spec §21.4.2.1: ToNumber for objects + strings.
             const proto::ProtoObject* n = jsToNumber(ctx, v);
-            if (hasCallException() || !n || n == PROTO_NONE) { nan = true; return dflt; }
+            if (!n || n == PROTO_NONE) { nan = true; return dflt; }
             if (n->isInteger(ctx)) return static_cast<double>(n->asLong(ctx));
             if (n->isDouble(ctx) || n->isFloat(ctx)) {
                 double d = n->asDouble(ctx);
@@ -1155,7 +1148,6 @@ static const proto::ProtoObject* setComponent2(proto::ProtoContext* ctx,
     // argument coerces ToNumber(undefined) = NaN per spec.
     for (int i = 0; i < probe; ++i) {
         coerced[i] = pullArgAsDouble(ctx, args, i, &present[i]);
-        if (hasCallException()) return PROTO_NONE;
         if (!present[i] && i < principalCount) {
             present[i] = true;
             coerced[i] = std::nan("");
@@ -1224,7 +1216,6 @@ static double pullArgAsDouble(proto::ProtoContext* ctx,
     if (v->isBoolean(ctx)) return v->asBoolean(ctx) ? 1.0 : 0.0;
     // §7.1.4 ToNumber for objects + strings.  ToPrimitive fires here.
     const proto::ProtoObject* n = jsToNumber(ctx, v);
-    if (hasCallException()) return std::nan("");
     if (!n || n == PROTO_NONE) return std::nan("");
     if (n->isInteger(ctx)) return static_cast<double>(n->asLong(ctx));
     if (n->isDouble(ctx) || n->isFloat(ctx)) return n->asDouble(ctx);
@@ -1456,7 +1447,6 @@ static const proto::ProtoObject* dateSetTime(proto::ProtoContext* ctx,
         else if (v && (v->isDouble(ctx) || v->isFloat(ctx))) t = v->asDouble(ctx);
         else if (v) {
             const proto::ProtoObject* n = jsToNumber(ctx, v);
-            if (hasCallException()) return PROTO_NONE;
             if (n && n->isInteger(ctx)) t = static_cast<double>(n->asLong(ctx));
             else if (n && (n->isDouble(ctx) || n->isFloat(ctx))) t = n->asDouble(ctx);
         }
@@ -1554,7 +1544,6 @@ static const proto::ProtoObject* dateToJSON(proto::ProtoContext* ctx,
     // ToPrimitive again, which is a no-op on primitives.
     // Step 2: ToPrimitive(O, NUMBER).
     const proto::ProtoObject* tv = jsToPrimitive(ctx, self, "number");
-    if (hasCallException()) return PROTO_NONE;
     // Step 3: non-finite Number → null.
     if (tv && (tv->isInteger(ctx) || tv->isDouble(ctx) || tv->isFloat(ctx))) {
         double dv = tv->isInteger(ctx)
@@ -2007,7 +1996,6 @@ static const proto::ProtoObject* dateUTCNew(proto::ProtoContext* ctx,
             return d;
         }
         const proto::ProtoObject* n = jsToNumber(ctx, v);
-        if (hasCallException()) { sawNaN = true; return dflt; }
         if (!n || n == PROTO_NONE) { sawNaN = true; return dflt; }
         if (n->isInteger(ctx)) return static_cast<double>(n->asLong(ctx));
         if (n->isDouble(ctx) || n->isFloat(ctx)) {

@@ -150,7 +150,6 @@ static bool setLikeHas(proto::ProtoContext* ctx,
     const proto::ProtoList* a = ctx->newList();
     a = a->appendLast(ctx, val ? val : PROTO_NONE);
     const proto::ProtoObject* r = callJSFunction(ctx, hasFn, other, a);
-    if (hasCallException()) return false;
     if (r == PROTO_TRUE) return true;
     if (r == PROTO_FALSE) return false;
     if (!r || r == PROTO_NONE || r == getUndefinedSentinel()) return false;
@@ -204,7 +203,6 @@ static bool iterateSetLikeKeys(proto::ProtoContext* ctx,
     }
     if (!keysFn || keysFn == PROTO_NONE) return true;
     const proto::ProtoObject* iter = callJSFunction(ctx, keysFn, other, ctx->newList());
-    if (hasCallException()) return false;
     if (!iter || iter == PROTO_NONE) return true;
     const proto::ProtoObject* nextKo = ctx->fromUTF8String("next");
     const proto::ProtoString* nextKs = nextKo ? nextKo->asString(ctx) : nullptr;
@@ -248,7 +246,6 @@ static bool iterateSetLikeKeys(proto::ProtoContext* ctx,
             const proto::ProtoObject* getter = iter->getAttribute(ctx, gks, true);
             if (getter && getter != PROTO_NONE) {
                 nextFn = callJSFunction(ctx, getter, iter, ctx->newList());
-                if (hasCallException()) return false;
             }
         }
     }
@@ -258,7 +255,6 @@ static bool iterateSetLikeKeys(proto::ProtoContext* ctx,
     for (int safety = 0; safety < 1000000; ++safety) {
         if (!nextFn || nextFn == PROTO_NONE) break;
         const proto::ProtoObject* step = callJSFunction(ctx, nextFn, iter, ctx->newList());
-        if (hasCallException()) return false;
         if (!step || step == PROTO_NONE) break;
         // §7.4.3 IteratorComplete probes Get(step, "done") via the
         // chain.  Fire the `__get_done__` accessor sidecar first.
@@ -270,7 +266,6 @@ static bool iterateSetLikeKeys(proto::ProtoContext* ctx,
                 const proto::ProtoObject* getter = step->getAttribute(ctx, gks, true);
                 if (getter && getter != PROTO_NONE) {
                     d = callJSFunction(ctx, getter, step, ctx->newList());
-                    if (hasCallException()) return false;
                 }
             }
         }
@@ -287,7 +282,6 @@ static bool iterateSetLikeKeys(proto::ProtoContext* ctx,
                 const proto::ProtoObject* getter = step->getAttribute(ctx, gks, true);
                 if (getter && getter != PROTO_NONE) {
                     val = callJSFunction(ctx, getter, step, ctx->newList());
-                    if (hasCallException()) return false;
                 }
             }
         }
@@ -466,7 +460,6 @@ static const proto::ProtoObject* setForEach(
         cbArgs = cbArgs->appendLast(ctx, v);
         cbArgs = cbArgs->appendLast(ctx, self);
         callJSFunction(ctx, callback, thisArg, cbArgs);
-        if (hasCallException()) return PROTO_NONE;
     }
     return PROTO_NONE;
 }
@@ -708,7 +701,6 @@ static const proto::ProtoObject* setConstruct(
                     const proto::ProtoObject* getter = self->getAttribute(ctx, gks, true);
                     if (getter && getter != PROTO_NONE) {
                         adder = callJSFunction(ctx, getter, self, ctx->newList());
-                        if (hasCallException()) return PROTO_NONE;
                     }
                 }
             }
@@ -796,7 +788,6 @@ static const proto::ProtoObject* setConstruct(
                 const proto::ProtoList* iterArgs = ctx->newList();
                 const proto::ProtoObject* iterator =
                     callJSFunction(ctx, iterFn, iterable, iterArgs);
-                if (hasCallException()) return PROTO_NONE;
                 if (!iterator || iterator == PROTO_NONE
                     || iterator == getUndefinedSentinel()
                     || iterator == getNullSentinel()
@@ -839,7 +830,6 @@ static const proto::ProtoObject* setConstruct(
                     const proto::ProtoList* nextArgs = ctx->newList();
                     const proto::ProtoObject* stepRes =
                         callJSFunction(ctx, nextFn, iterator, nextArgs);
-                    if (hasCallException()) return PROTO_NONE;
                     if (!stepRes || stepRes == PROTO_NONE
                         || stepRes->isInteger(ctx) || stepRes->isDouble(ctx)
                         || stepRes->isFloat(ctx)   || stepRes->isString(ctx)
@@ -903,7 +893,6 @@ static const proto::ProtoObject* setConstruct(
                     const proto::ProtoList* addArgs = ctx->newList();
                     addArgs = addArgs->appendLast(ctx, val);
                     callJSFunction(ctx, adder, self, addArgs);
-                    if (hasCallException()) return PROTO_NONE;
                 }
             }
         }
@@ -1033,7 +1022,6 @@ static bool getSetRecord(proto::ProtoContext* ctx,
             const proto::ProtoObject* getter = obj->getAttribute(ctx, gks, true);
             if (getter && getter != PROTO_NONE) {
                 sizeV = callJSFunction(ctx, getter, obj, ctx->newList());
-                if (hasCallException()) return false;
             }
         }
     }
@@ -1067,7 +1055,6 @@ static bool getSetRecord(proto::ProtoContext* ctx,
         if (!std::isnan(sizeNum)) sizeOk = true;
     } else {
         const proto::ProtoObject* numV = jsToNumber(ctx, sizeV);
-        if (hasCallException()) return false;
         if (numV && numV != PROTO_NONE) {
             if (numV->isInteger(ctx)) {
                 sizeOk = true;
@@ -1108,7 +1095,6 @@ static bool getSetRecord(proto::ProtoContext* ctx,
                 const proto::ProtoObject* getter = obj->getAttribute(ctx, gks, true);
                 if (getter && getter != PROTO_NONE) {
                     v = callJSFunction(ctx, getter, obj, ctx->newList());
-                    if (hasCallException()) return nullptr;
                 }
             }
         }
@@ -1338,7 +1324,6 @@ static const proto::ProtoObject* setIsSubsetOf(
         if (!v) v = PROTO_NONE;
         if (!setContains(ctx, self, v)) continue; // skip deleted entries
         if (!setLikeHas(ctx, other, v, hasFn)) return PROTO_FALSE;
-        if (hasCallException()) return PROTO_NONE;
     }
     return PROTO_TRUE;
 }
@@ -1412,7 +1397,6 @@ static const proto::ProtoObject* setIsDisjointFrom(
             // even though the snapshot still carries it.
             if (!setContains(ctx, self, v)) continue;
             if (setLikeHas(ctx, other, v, hasFn)) return PROTO_FALSE;
-            if (hasCallException()) return PROTO_NONE;
         }
         return PROTO_TRUE;
     }
@@ -1424,7 +1408,6 @@ static const proto::ProtoObject* setIsDisjointFrom(
         }, keysFn);
     if (!ok && !disjoint == false) {
         // ok=false from abrupt completion; propagate.
-        if (hasCallException()) return PROTO_NONE;
     }
     return disjoint ? PROTO_TRUE : PROTO_FALSE;
 }
