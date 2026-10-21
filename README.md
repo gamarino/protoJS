@@ -276,6 +276,27 @@ The detailed history is in [docs/archive/TEST262_ROUNDS.md](docs/archive/TEST262
 
 ### Performance Benchmarks
 
+**JavaScript exceptions as C++ exceptions (measured 2026-10-21, branch
+`perf/cpp-exceptions`, not merged).** `throw` is a C++ `throw` and each `try`
+a nested interpreter level inside a C++ `try`; the pending-exception check
+after every call is gone. Against its base (`8182924ea`), both Release on
+protoCore 3.0.0, interleaved, three rounds:
+
+| | branch / base |
+|---|---:|
+| standard comparison, geomean of 11 workloads of 10 ms or more | 1.058 (`tree_traversal` 1.19, `function_calls` 1.09) |
+| structure benchmarks, geomean of 50 cells | 1.012 (noise) |
+| `throw i` caught in the same function | 11.5x slower (Node: 2.3x faster than the branch) |
+| `throw new Error` caught | 1.72x slower |
+| `undefined.x` caught | 3.9x slower |
+| a throw five frames deep | 4.7x slower |
+| entering a `try` that does not throw | 1.52x slower |
+
+The cost is C++ unwinding (FDE lookup, personality routine, two scans of the
+interpreter's 457-entry call-site table per frame) against one local check
+per dispatch before. test262 gains 26 tests (33,849 passes against 33,824).
+Raw results: [`benchmarks/reports/2026-10-21-cpp-exceptions/`](benchmarks/reports/2026-10-21-cpp-exceptions/).
+
 **protoCore 2.14.8 (measured 2026-10-20).** master at `45658eaf`, Release,
 built against protoCore 2.14.8; each run behind a quiet gate (1.0-2.1 busy
 CPUs) and on a fresh copy of the library. `run_standard_comparison.js`

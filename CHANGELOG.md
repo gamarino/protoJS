@@ -4,6 +4,19 @@ All notable changes to protoJS are documented in this file.
 
 ## [Unreleased]
 
+### Measured — JavaScript exceptions as C++ exceptions (2026-10-21)
+
+- Final measurement of `perf/cpp-exceptions` (`fb95f3c5d`) against
+  `8182924ea`, Release, protoCore 3.0.0, interleaved:
+  - standard comparison: +5.8 % (geomean of 11 workloads; `tree_traversal`
+    +19 %, `function_calls` +9 %);
+  - structure benchmarks: +1.2 % (noise);
+  - throws: 1.7-11.5x slower (`throw i` 11.5x, `undefined.x` 3.9x, five
+    frames deep 4.7x);
+  - entering a `try`: +52 %.
+- test262: +26 passes, no real regression; ctest 169/169.
+- Report: `benchmarks/reports/2026-10-21-cpp-exceptions/`.
+
 ### Changed — named property reads by one protoCore lookup (2026-10-20)
 
 - **`OP_get_field` / `OP_get_field2` answer the common read with
