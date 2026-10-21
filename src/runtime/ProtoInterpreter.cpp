@@ -67,10 +67,12 @@ extern "C" {
 #endif
 #if defined(_MSC_VER) && !defined(__clang__)
 #define PROTOJS_NOINLINE __declspec(noinline)
+#define PROTOJS_NOINLINE_LAMBDA [[msvc::noinline]]
 #define PROTOJS_ALWAYS_INLINE __forceinline
 #define __builtin_expect(x, expected) (x)
 #else
 #define PROTOJS_NOINLINE __attribute__((noinline))
+#define PROTOJS_NOINLINE_LAMBDA __attribute__((noinline))
 #define PROTOJS_ALWAYS_INLINE inline __attribute__((always_inline))
 #endif
 #include <cmath>
@@ -6468,12 +6470,94 @@ static PROTOJS_NOINLINE const proto::ProtoObject* raiseStackOverflow(
     return PROTO_NONE;
 }
 
+// The active function, new.target and arguments of a call (t_activeFunc,
+// t_activeNewTgt, t_activeArgs) are put back however the call is left: an
+// exception propagating out of it (a JSException) included.
+struct ActiveCallScope {
+    const proto::ProtoObject* func   = t_activeFunc;
+    const proto::ProtoObject* newTgt = t_activeNewTgt;
+    const proto::ProtoList*   args   = t_activeArgs;
+    ~ActiveCallScope() { t_activeFunc = func; t_activeNewTgt = newTgt; t_activeArgs = args; }
+};
+
+// A JavaScript try is a C++ try (tasks/cpp_exceptions_plan.md).  An
+// activation runs in levels: OP_catch runs its protected range as a nested
+// level, a call of runBytecodeImpl on the same activation (operand stack,
+// slots, interpreter frame) that starts at the range's first opcode, inside a
+// C++ try.  The level ends where its catch frame is removed (OP_drop of the
+// frame's sentinel, OP_nip_catch), and the enclosing level carries on after
+// it.  An exception thrown in the range (a JSException: OP_throw, an opcode, a
+// native, a callee) cuts the operand stack to the sentinel's slot, pushes the
+// thrown value there and continues at the handler, in the enclosing level.  A
+// return inside a range returns from every level.  catch_stack holds the open
+// ranges (handler, sentinel slot), innermost last: what a suspended generator
+// or async function saves, and its resume rebuilds.
+//
+// A nested level shares the enclosing levels' catch_stack and async owner,
+// and reports how it ended here.  The outermost level has none.
+struct NestedLevel {
+    enum Exit { kReturn, kEndRange };
+    std::vector<CatchFrame>* catchStack;
+    int pc;                                  // where the level starts
+    const proto::ProtoObject* asyncOwner;
+    int asyncKind;
+    std::size_t depth = 0;                   // its depth (rebuilding a resume)
+    std::size_t resumedRanges = 0;           // the ranges a resume rebuilds
+    const proto::ProtoObject* const* throwOnResume = nullptr;
+    Exit exit = kReturn;
+    int exitPc = 0;                          // where the enclosing level continues
+    const proto::ProtoObject* result = nullptr;
+};
+
+static const proto::ProtoObject* runBytecodeImpl(proto::ProtoContext* pContext,
+                                                 const ProtoBytecodeModule* module,
+                                                 const proto::ProtoObject* thisObj,
+                                                 const proto::ProtoList* args,
+                                                 const proto::ProtoObject** pGlobalRoot,
+                                                 const proto::ProtoObject** outException,
+                                                 NestedLevel* nested);
+
+// Runs the range whose catch frame is (*range.catchStack)[frame] as a nested
+// level.  True when the activation returned inside it (range.result holds
+// the value); otherwise the enclosing level continues at range.exitPc: after
+// the range, or at its handler with the thrown value pushed.  Out of line: its
+// frame is paid only when a try is entered.
+static PROTOJS_NOINLINE bool runProtectedRange(proto::ProtoContext* pContext,
+                                               const ProtoBytecodeModule* module,
+                                               const proto::ProtoObject* thisObj,
+                                               const proto::ProtoList* args,
+                                               const proto::ProtoObject** pGlobalRoot,
+                                               NestedLevel& range, std::size_t frame) {
+    try {
+        range.result = runBytecodeImpl(pContext, module, thisObj, args, pGlobalRoot, nullptr, &range);
+        return range.exit == NestedLevel::kReturn;
+    } catch (const JSException& thrown) {
+        std::vector<CatchFrame>& catchStack = *range.catchStack;
+        const CatchFrame f = catchStack[frame];
+        catchStack.resize(frame);
+        while (stackSize(pContext) > f.placeholder_stack_pos) stackPop(pContext);
+        stackPush(pContext, thrown.value());
+        range.exitPc = f.handler_pc;
+        return false;
+    }
+}
+
 const proto::ProtoObject* runBytecode(proto::ProtoContext* pContext,
                                       const ProtoBytecodeModule* module,
                                       const proto::ProtoObject* thisObj,
                                       const proto::ProtoList* args,
                                       const proto::ProtoObject** pGlobalRoot,
                                       const proto::ProtoObject** outException) {
+    return runBytecodeImpl(pContext, module, thisObj, args, pGlobalRoot, outException, nullptr);
+}
+
+static const proto::ProtoObject* runBytecodeImpl(proto::ProtoContext* pContext,
+                                                 const ProtoBytecodeModule* module,
+                                                 const proto::ProtoObject* thisObj,
+                                                 const proto::ProtoList* args,
+                                                 const proto::ProtoObject** pGlobalRoot,
+                                                 const proto::ProtoObject** outException,
+                                                 NestedLevel* nested) {
     if (!pContext || !module || !module->pBytecode) return PROTO_NONE;
     if (__builtin_expect(nativeStackExhausted(), 0))
         return raiseStackOverflow(pContext, pGlobalRoot, outException);
@@ -6481,7 +6565,7 @@ const proto::ProtoObject* runBytecode(proto::ProtoContext* pContext,
     // sets up its completion and re-enters here with the entry handshake set
     // (a resume arrives with t_asyncResumeCont set).  One predictable branch
     // for every other call.
-    if (__builtin_expect(module->isAsync, 0)
+    if (__builtin_expect(module->isAsync, 0) && !nested
             && t_asyncEntryKind == kAsyncNone && !t_asyncResumeCont)
         return startAsyncActivation(pContext, module, thisObj, args, pGlobalRoot, outException);
     const uint8_t* buf = reinterpret_cast<const uint8_t*>(module->pBytecode->getBuffer(pContext));
@@ -6508,10 +6592,13 @@ const proto::ProtoObject* runBytecode(proto::ProtoContext* pContext,
     unsigned varCount = module->varCount();
 
 
-    // Pending exception (set inside switch, dispatched after switch body).
-    // Use a separate flag so that `throw undefined` (PROTO_NONE) is also catchable.
+    // The exception an opcode raises, thrown (as a JSException) right after
+    // it is made; see "A JavaScript try is a C++ try" below.
     const proto::ProtoObject* pending_exception = nullptr;
-    bool has_pending_exception = false;
+    // A resume with a throw completion (gen.throw, a rejected await): thrown
+    // at the resume point once the try nesting is rebuilt.
+    const proto::ProtoObject* throwOnResume = PROTO_NONE;
+    bool hasThrowOnResume = false;
 
     // Catch-handler stack.
     // In QuickJS, OP_catch pushes a tagged catch-offset integer onto the VALUE stack; the
@@ -6522,7 +6609,8 @@ const proto::ProtoObject* runBytecode(proto::ProtoContext* pContext,
     //   - The sentinel IS the catch frame from the stack's perspective.  OP_drop that lands
     //     on placeholder_stack_pos must also pop the catch frame (just as QuickJS's OP_drop
     //     removes the tagged integer from the value stack, removing the catch frame).
-    std::vector<CatchFrame> catch_stack;
+    std::vector<CatchFrame> ownCatchStack;
+    std::vector<CatchFrame>& catch_stack = nested ? *nested->catchStack : ownCatchStack;
 
     // -----------------------------------------------------------------------
     // Generator resume: if t_genResumePc >= 0, skip normal stack init and
@@ -6538,8 +6626,13 @@ const proto::ProtoObject* runBytecode(proto::ProtoContext* pContext,
     // function its own stack slot, in every JavaScript call's frame).
     const proto::ProtoObject* asyncOwner = nullptr;
     int asyncKind = kAsyncNone;
-    if (t_asyncResumeCont || t_asyncEntryKind != kAsyncNone)
+    if (nested) {
+        pc = nested->pc;
+        asyncOwner = nested->asyncOwner;
+        asyncKind = nested->asyncKind;
+    } else if (t_asyncResumeCont || t_asyncEntryKind != kAsyncNone) {
         asyncActivationEntry(pContext, asyncOwner, asyncKind);
+    }
 
     // On a generator resume, OP_yield's spec n_push=2 requires sent-value
     // and kind to land on the value stack before the body sees its first
@@ -6550,7 +6643,9 @@ const proto::ProtoObject* runBytecode(proto::ProtoContext* pContext,
     const proto::ProtoObject* gen_resume_sent_val = PROTO_NONE;
     long long                 gen_resume_kind     = 0;
     bool                      gen_resume_active   = false;
-    if (t_asyncResumeCont) {
+    if (nested) {
+        // A nested level runs on its activation's state.
+    } else if (t_asyncResumeCont) {
         // Resume a suspended async activation from its continuation.
         restoreAsyncActivation(pContext, t_asyncResumeCont, catch_stack, pc);
     } else if (t_genResumePc >= 0) {
@@ -6644,7 +6739,7 @@ const proto::ProtoObject* runBytecode(proto::ProtoContext* pContext,
     // RAII guard at this scope ensures we always pop on exit, regardless
     // of which return statement fires inside the dispatch loop.
     // ------------------------------------------------------------------
-    {
+    if (!nested) {
         const unsigned int closureCount = static_cast<unsigned int>(module->closureVarNames.size());
         const unsigned int slotsForLocals = argCount + varCount + closureCount;
         unsigned int reservedStack  = module->stackSize() + 16;
@@ -6692,10 +6787,11 @@ const proto::ProtoObject* runBytecode(proto::ProtoContext* pContext,
             setSlot(pContext, totalSlots - 3, t_activeFunc);
     }
     struct InterpFramePopOnExit {
+        bool pushed;
         ~InterpFramePopOnExit() {
-            if (!t_interpFrames.empty()) t_interpFrames.pop_back();
+            if (pushed && !t_interpFrames.empty()) t_interpFrames.pop_back();
         }
-    } _interpFramePopOnExit;
+    } _interpFramePopOnExit{nested == nullptr};
 
     // OP_yield resume: the InterpFrame now exists so stackPush will hit the
     // correct slots.  Push sent-value first (bottom) then resume kind (top)
@@ -6712,7 +6808,7 @@ const proto::ProtoObject* runBytecode(proto::ProtoContext* pContext,
     // guarded on (t_genResumePc < 0), but the resume path resets
     // t_genResumePc to -1 at the very top — so the guard was always
     // true and initStack ran on every resume, blanking the live stack.
-    if (!gen_resume_active && !t_asyncResumeCont) {
+    if (!nested && !gen_resume_active && !t_asyncResumeCont) {
         initStack(pContext);
         const proto::ProtoObject* globalObjInit = (pGlobalRoot && *pGlobalRoot) ? *pGlobalRoot : thisObj;
         /* Pre-load closure vars from the global object into their dedicated slots.
@@ -6770,8 +6866,8 @@ const proto::ProtoObject* runBytecode(proto::ProtoContext* pContext,
         // handles only next (0) and return (1). At a yield* the kind is
         // pushed, and the bytecode forwards the throw to the inner iterator.
         if (gen_resume_kind == 2 && pc > 0 && buf[pc - 1] == OP_yield) {
-            pending_exception = gen_resume_sent_val;
-            has_pending_exception = true;
+            throwOnResume = gen_resume_sent_val;
+            hasThrowOnResume = true;
         } else {
             stackPush(pContext, gen_resume_sent_val);
             stackPush(pContext, pContext->fromInteger(gen_resume_kind));
@@ -6779,12 +6875,12 @@ const proto::ProtoObject* runBytecode(proto::ProtoContext* pContext,
     }
 
     // Async resume: deliver the completion at the suspension point.
-    if (t_asyncResumeCont && asyncDeliverResume(pContext, pending_exception))
-        has_pending_exception = true;
+    if (t_asyncResumeCont && asyncDeliverResume(pContext, throwOnResume))
+        hasThrowOnResume = true;
 
     // Bootstrap the null sentinel. Stored as __js_null_sentinel__ on the global root
     // so the GC can trace it. Cached in t_nullSentinel for O(1) access during execution.
-    if (!t_nullSentinel && pGlobalRoot && *pGlobalRoot) {
+    if (!nested && !t_nullSentinel && pGlobalRoot && *pGlobalRoot) {
         const proto::ProtoString* sentinelKey = JSSymbols::jsNullSentinel(pContext);
         if (sentinelKey) {
             const proto::ProtoObject* existing =
@@ -6801,7 +6897,7 @@ const proto::ProtoObject* runBytecode(proto::ProtoContext* pContext,
 
     // Bootstrap the TDZ sentinel. Same approach as t_nullSentinel: a unique ProtoObject
     // that cannot equal any legitimate JS value (including empty string "").
-    if (!t_tdzSentinel && pGlobalRoot && *pGlobalRoot) {
+    if (!nested && !t_tdzSentinel && pGlobalRoot && *pGlobalRoot) {
         const proto::ProtoString* tdzKey = JSSymbols::jsTdzSentinel(pContext);
         if (tdzKey) {
             const proto::ProtoObject* existing =
@@ -6842,7 +6938,9 @@ const proto::ProtoObject* runBytecode(proto::ProtoContext* pContext,
         s_initFlagKey = proto::ProtoString::createSymbol(pContext, "__protojs_globals_init__");
     }
     const proto::ProtoString* initFlagKey = s_initFlagKey;
-    if (pGlobalRoot && *pGlobalRoot && initFlagKey) {
+    // A nested level's activation has initialised the globals.
+    if (nested) needsGlobalInit = false;
+    else if (pGlobalRoot && *pGlobalRoot && initFlagKey) {
         const proto::ProtoObject* flag =
             (*pGlobalRoot)->getAttribute(pContext, initFlagKey, false);
         if (flag == PROTO_TRUE) needsGlobalInit = false;
@@ -6878,6 +6976,9 @@ const proto::ProtoObject* runBytecode(proto::ProtoContext* pContext,
 
     // Register well-known global numeric constants (Infinity, NaN, undefined).
     // These are standard globals that must be visible as top-level variable lookups.
+    // Out of line, so its temporaries take no room in the frame of every
+    // JavaScript call (the native stack bounds the recursion depth).
+    [&]() PROTOJS_NOINLINE_LAMBDA {
     if (pGlobalRoot && *pGlobalRoot) {
         auto ensureGlobalConst = [&](const char* name, const proto::ProtoObject* val) {
             const proto::ProtoString* k = (pContext->fromUTF8String(name) ? pContext->fromUTF8String(name)->asString(pContext) : nullptr);
@@ -7944,6 +8045,7 @@ const proto::ProtoObject* runBytecode(proto::ProtoContext* pContext,
             }
         }
     }
+    }();
 
     // Mark the global root as initialised so subsequent runBytecode calls
     // skip the entire block above.
@@ -7965,7 +8067,7 @@ const proto::ProtoObject* runBytecode(proto::ProtoContext* pContext,
     // CreateGlobalFunctionBinding).  A `let` / `const` / `class` is not hoisted:
     // its absence is the TDZ that OP_get_var reports as a ReferenceError until
     // the declaration initialises it.
-    if (pGlobalRoot && *pGlobalRoot && module && !module->closureVarNames.empty())
+    if (!nested && pGlobalRoot && *pGlobalRoot && module && !module->closureVarNames.empty())
         hoistGlobalDeclarations(pContext, module, pGlobalRoot);
 
     // Module-scope split: top-level module bindings live in a small child
@@ -7991,7 +8093,7 @@ const proto::ProtoObject* runBytecode(proto::ProtoContext* pContext,
     // on the object the caller owns, as it did before the split existed.
     // tests/cli/toplevel-bindings-survive-gc.sh is the regression test.
     JSContextWrapper* const splitOwner = JSContextWrapper::current();
-    if (module == t_rootModule && pGlobalRoot && *pGlobalRoot && splitOwner
+    if (!nested && module == t_rootModule && pGlobalRoot && *pGlobalRoot && splitOwner
         && pGlobalRoot == splitOwner->getNativeGlobalRootPtr()) {
         const proto::ProtoString* s_scopedKey = moduleScopedKey(pContext);
         if (s_scopedKey && (*pGlobalRoot)->hasOwnAttribute(pContext, s_scopedKey) != PROTO_TRUE) {
@@ -8013,7 +8115,8 @@ const proto::ProtoObject* runBytecode(proto::ProtoContext* pContext,
     // (getOrCreateFrameObj) installs parents = [activeFunc, moduleScope]
     // when invoked.  RAII restore at exit.
     const proto::ProtoObject* prevFrameObj = t_currentFrameObj;
-    t_currentFrameObj = nullptr;
+    // A nested level keeps its activation's frame object.
+    if (!nested) t_currentFrameObj = nullptr;
     struct FrameObjPopOnExit {
         const proto::ProtoObject* prev;
         ~FrameObjPopOnExit() { t_currentFrameObj = prev; }
@@ -8044,11 +8147,11 @@ const proto::ProtoObject* runBytecode(proto::ProtoContext* pContext,
             childCtx.currentFileName = pContext->currentFileName;
             const proto::ProtoObject* childEx = PROTO_NONE;
             const proto::ProtoObject* result = runBytecode(&childCtx, resolvedFn, effectiveThisLambda,
-                                                            pContext->newList(), pGlobalRoot, &childEx);
+                                                            pContext->newList(), pGlobalRoot);
             anchorCallOutcome(childCtx, result, childEx);
             if (childEx && childEx != PROTO_NONE) {
                 pending_exception = childEx;
-                has_pending_exception = true;
+                throwJS(pContext, pending_exception);
                 return PROTO_NONE;
             }
             return result;
@@ -8136,7 +8239,7 @@ const proto::ProtoObject* runBytecode(proto::ProtoContext* pContext,
                 const proto::ProtoObject* prim = callJSFunction(pContext, tpFn, obj, hintArgs);
                 if (t_hasCallException) {
                     pending_exception     = t_callException;
-                    has_pending_exception = true;
+                    throwJS(pContext, pending_exception);
                     t_hasCallException    = false;
                     t_callException       = nullptr;
                     return PROTO_NONE;
@@ -8164,7 +8267,7 @@ const proto::ProtoObject* runBytecode(proto::ProtoContext* pContext,
                 const proto::ProtoObject* prim = callJSFunction(pContext, vfn, obj, emptyArgs);
                 if (t_hasCallException) {
                     pending_exception     = t_callException;
-                    has_pending_exception = true;
+                    throwJS(pContext, pending_exception);
                     t_hasCallException    = false;
                     t_callException       = nullptr;
                     return PROTO_NONE;
@@ -8182,7 +8285,7 @@ const proto::ProtoObject* runBytecode(proto::ProtoContext* pContext,
                 const proto::ProtoObject* prim = callJSFunction(pContext, tfn, obj, emptyArgs);
                 if (t_hasCallException) {
                     pending_exception     = t_callException;
-                    has_pending_exception = true;
+                    throwJS(pContext, pending_exception);
                     t_hasCallException    = false;
                     t_callException       = nullptr;
                     return PROTO_NONE;
@@ -8195,7 +8298,7 @@ const proto::ProtoObject* runBytecode(proto::ProtoContext* pContext,
         if (valueOfPresent || toStringPresent) {
             pending_exception = makeError(pContext, "TypeError",
                 "Cannot convert object to primitive value", pGlobalRoot);
-            has_pending_exception = true;
+            throwJS(pContext, pending_exception);
         }
         return PROTO_NONE;
     };
@@ -8321,7 +8424,7 @@ const proto::ProtoObject* runBytecode(proto::ProtoContext* pContext,
         const proto::ProtoObject* result = callJSFunction(pContext, getter, obj, emptyArgs);
         if (t_hasCallException) {
             pending_exception  = t_callException;
-            has_pending_exception = true;
+            throwJS(pContext, pending_exception);
             t_hasCallException = false;
             t_callException    = nullptr;
             return PROTO_NONE;
@@ -8390,7 +8493,7 @@ const proto::ProtoObject* runBytecode(proto::ProtoContext* pContext,
                     const proto::ProtoObject* result = callJSFunction(pContext, getter, obj, emptyArgs);
                     if (t_hasCallException) {
                         pending_exception  = t_callException;
-                        has_pending_exception = true;
+                        throwJS(pContext, pending_exception);
                         t_hasCallException = false;
                         t_callException    = nullptr;
                         return PROTO_NONE;
@@ -8435,7 +8538,7 @@ const proto::ProtoObject* runBytecode(proto::ProtoContext* pContext,
                         callJSFunction(pContext, setter, obj, setArgs ? setArgs : emptySetArgs);
                         if (t_hasCallException) {
                             pending_exception  = t_callException;
-                            has_pending_exception = true;
+                            throwJS(pContext, pending_exception);
                             t_hasCallException = false;
                             t_callException    = nullptr;
                         }
@@ -8448,7 +8551,7 @@ const proto::ProtoObject* runBytecode(proto::ProtoContext* pContext,
                     if (isStrict) {
                         pending_exception = makeError(pContext, "TypeError",
                             "Cannot set property with no setter", pGlobalRoot);
-                        has_pending_exception = true;
+                        throwJS(pContext, pending_exception);
                     }
                     return true;
                 }
@@ -8710,7 +8813,7 @@ const proto::ProtoObject* runBytecode(proto::ProtoContext* pContext,
     // *pGlobalRoot.  Keep this read in DISPATCH so every case sees the
     // current value without a per-case re-read.
     const proto::ProtoObject* globalObj = (pGlobalRoot && *pGlobalRoot) ? *pGlobalRoot : PROTO_NONE;
-    int opcode = 0;
+    // The opcode being executed is a local of each dispatch level.
     // Write groups (see above runBytecode): the atom OP_put_field's body
     // stores, and the state of the run in progress (0 none, 1 published at
     // its last write, 2 every write takes the per-write path).
@@ -8762,7 +8865,6 @@ const proto::ProtoObject* runBytecode(proto::ProtoContext* pContext,
     #define PROTOJS_DISPATCH_JUMP() goto protojs_dispatch_switch
     #define DISPATCH() do { \
         if (__builtin_expect((++t_dispatchCount & 1023) == 0, 0)) pContext->safepoint(); \
-        if (__builtin_expect(has_pending_exception, 0)) goto handle_exception_label; \
         if (__builtin_expect(pc < 0 || pc >= len, 0)) goto exit_dispatch; \
         opcode = (int)(unsigned char)buf[pc++]; \
         PROTOJS_DISPATCH_JUMP(); \
@@ -8810,7 +8912,7 @@ const proto::ProtoObject* runBytecode(proto::ProtoContext* pContext,
         } \
         if (_st == kBigOpThrow) { \
             pending_exception = _bigOut; \
-            has_pending_exception = true; \
+            throwJS(pContext, pending_exception); \
             DISPATCH(); \
         } \
     } while(0)
@@ -8823,24 +8925,47 @@ const proto::ProtoObject* runBytecode(proto::ProtoContext* pContext,
     #define BIGINT_AFTER_TOPRIM(op) do { \
         a = toPrimIfObject(a); \
         REFRESH_INTERP_STATE(); \
-        if (has_pending_exception) DISPATCH(); \
+        (void)0; \
         b = toPrimIfObject(b); \
         REFRESH_INTERP_STATE(); \
-        if (has_pending_exception) DISPATCH(); \
+        (void)0; \
         BIGINT_BIN_DISPATCH(op); \
     } while(0)
 
-    // Transitional (tasks/cpp_exceptions_plan.md, S1): a native or a call
-    // that raises throws a JSException; this activation catches it and
-    // dispatches it to its catch handlers as an exception the opcodes left
-    // pending.
-    bool resumeAtHandler = false;
-    for (;;) {
-    try {
-    if (resumeAtHandler) {
-        resumeAtHandler = false;
-        goto handle_exception_label;
+    // A JavaScript try is a C++ try (tasks/cpp_exceptions_plan.md).  The
+    // opcodes run in levels of one dispatch: OP_catch runs its protected
+    // range as a nested level inside a C++ try, and the level ends where its
+    // catch frame is removed (OP_drop of the frame's sentinel, OP_nip_catch);
+    // the enclosing level carries on after it.  An exception thrown in the
+    // range (a JSException: OP_throw, an opcode, a native, a callee) cuts the
+    // operand stack to the sentinel's slot, pushes the thrown value there
+    // and continues at the handler, in the enclosing level.  A return inside
+    // a range returns from every level.  catch_stack holds the open ranges
+    // (handler, sentinel slot), innermost last: what a suspended generator
+    // or async function saves, and its resume rebuilds.
+    // The ranges a resume rebuilds: those open at the suspension, entered
+    // again outermost first (each level enters the next one); the throw
+    // completion of a resume is thrown at the resume point, inside them.
+    const std::size_t resumedRanges = nested ? nested->resumedRanges : catch_stack.size();
+    const std::size_t depth = nested ? nested->depth : 0;
+    if (nested && nested->throwOnResume) {
+        hasThrowOnResume = true;
+        throwOnResume = *nested->throwOnResume;
     }
+    try {
+        if (depth < resumedRanges) {
+            NestedLevel range{&catch_stack, pc, asyncOwner, asyncKind, depth + 1, resumedRanges,
+                              hasThrowOnResume ? &throwOnResume : nullptr};
+            if (runProtectedRange(pContext, module, thisObj, args, pGlobalRoot, range, depth))
+                return range.result;
+            pc = range.exitPc;
+            REFRESH_INTERP_STATE();
+            REFRESH_GLOBAL_OBJ();
+        } else if (hasThrowOnResume) {
+            hasThrowOnResume = false;
+            throwJS(pContext, throwOnResume);
+        }
+        int opcode = 0;
     DISPATCH();
     {
             // --- Constant and immediate pushes ---
@@ -9171,7 +9296,7 @@ const proto::ProtoObject* runBytecode(proto::ProtoContext* pContext,
                         callJSFunction(pContext, fn, newObj, argList);
                     if (t_hasCallException) {
                         pending_exception = t_callException;
-                        has_pending_exception = true;
+                        throwJS(pContext, pending_exception);
                         t_hasCallException = false;
                         t_callException = nullptr;
                         DISPATCH();
@@ -9187,7 +9312,7 @@ const proto::ProtoObject* runBytecode(proto::ProtoContext* pContext,
                     result = callJSFunction(pContext, fn, thisArg, argList);
                     if (t_hasCallException) {
                         pending_exception = t_callException;
-                        has_pending_exception = true;
+                        throwJS(pContext, pending_exception);
                         t_hasCallException = false;
                         t_callException = nullptr;
                         DISPATCH();
@@ -9228,7 +9353,7 @@ const proto::ProtoObject* runBytecode(proto::ProtoContext* pContext,
                     pending_exception = makeError(pContext, "TypeError",
                         "derived class constructor must return an object or undefined",
                         pGlobalRoot);
-                    has_pending_exception = true;
+                    throwJS(pContext, pending_exception);
                     DISPATCH();
                 }
                 stackPush(pContext, isUndef ? PROTO_TRUE : PROTO_FALSE);
@@ -9399,9 +9524,7 @@ const proto::ProtoObject* runBytecode(proto::ProtoContext* pContext,
                 // a built-in parent.
                 const proto::ProtoObject* ret = nullptr;
                 {
-                    const proto::ProtoObject* prevActiveI  = t_activeFunc;
-                    const proto::ProtoObject* prevNewTgtI  = t_activeNewTgt;
-                    const proto::ProtoList*   prevArgsI    = t_activeArgs;
+                    ActiveCallScope activeCallScope;
                     t_activeNewTgt = t_activeNewTgt ? t_activeNewTgt : parent;
                     // Check for __construct__ native method first (Number etc).
                     const proto::ProtoString* ctorKeyL = JSSymbols::construct(pContext);
@@ -9504,12 +9627,9 @@ const proto::ProtoObject* runBytecode(proto::ProtoContext* pContext,
                             ret = callJSFunction(pContext, parent, newObj, forwardArgs);
                         }
                     }
-                    t_activeFunc = prevActiveI;
-                    t_activeNewTgt = prevNewTgtI;
-                    t_activeArgs = prevArgsI;
                     if (t_hasCallException) {
                         pending_exception = t_callException;
-                        has_pending_exception = true;
+                        throwJS(pContext, pending_exception);
                         t_hasCallException = false;
                         t_callException = nullptr;
                         DISPATCH();
@@ -9617,7 +9737,7 @@ const proto::ProtoObject* runBytecode(proto::ProtoContext* pContext,
                 REFRESH_INTERP_STATE();
                 if (t_hasCallException) {
                     pending_exception     = t_callException;
-                    has_pending_exception = true;
+                    throwJS(pContext, pending_exception);
                     t_hasCallException    = false;
                     t_callException       = nullptr;
                     DISPATCH();
@@ -9641,7 +9761,7 @@ const proto::ProtoObject* runBytecode(proto::ProtoContext* pContext,
                 REFRESH_INTERP_STATE();
                 if (t_hasCallException) {
                     pending_exception     = t_callException;
-                    has_pending_exception = true;
+                    throwJS(pContext, pending_exception);
                     t_hasCallException    = false;
                     t_callException       = nullptr;
                     DISPATCH();
@@ -9649,7 +9769,7 @@ const proto::ProtoObject* runBytecode(proto::ProtoContext* pContext,
                 if (!stored && module->isStrict) {
                     pending_exception = makeError(pContext, "TypeError",
                         "Cannot assign to a read-only property through super", pGlobalRoot);
-                    has_pending_exception = true;
+                    throwJS(pContext, pending_exception);
                 }
                 DISPATCH();
             }
@@ -9851,7 +9971,7 @@ const proto::ProtoObject* runBytecode(proto::ProtoContext* pContext,
                             // Object.defineProperty(Base, 'prototype', {get:..})
                             // before falling back to the raw value.
                             parentProto = invokeGetterIfPresentFast(parentClass, protoKey);
-                            if (has_pending_exception) DISPATCH();
+                            (void)0;
                             if (!parentProto || parentProto == PROTO_NONE)
                                 parentProto = parentClass->getAttribute(pContext, protoKey, false);
                         }
@@ -9875,7 +9995,7 @@ const proto::ProtoObject* runBytecode(proto::ProtoContext* pContext,
                             pending_exception = makeError(pContext, "TypeError",
                                 "Class extends value does not have valid prototype property",
                                 pGlobalRoot);
-                            has_pending_exception = true;
+                            throwJS(pContext, pending_exception);
                             DISPATCH();
                         }
                         // Treat the JS null sentinel as null heritage (spec's
@@ -10051,7 +10171,7 @@ const proto::ProtoObject* runBytecode(proto::ProtoContext* pContext,
                 const proto::ProtoObject* exObj = stackTop(pContext);
                 stackPop(pContext);
                 pending_exception = exObj ? exObj : PROTO_NONE;
-                has_pending_exception = true;
+                throwJS(pContext, pending_exception);
                 DISPATCH();
             }
             L_OP_drop: {
@@ -10061,7 +10181,12 @@ const proto::ProtoObject* runBytecode(proto::ProtoContext* pContext,
                     // catch frame it represents is gone — pop it from catch_stack as well.
                     proto::proto_ulong drop_pos = stackSize(pContext) - 1;
                     if (!catch_stack.empty() && catch_stack.back().placeholder_stack_pos == drop_pos) {
+                        // The end of this level's range.
                         catch_stack.pop_back();
+                        stackPop(pContext);
+                        nested->exit = NestedLevel::kEndRange;
+                        nested->exitPc = pc;
+                        return nullptr;
                     }
                     stackPop(pContext);
                 }
@@ -10425,7 +10550,7 @@ const proto::ProtoObject* runBytecode(proto::ProtoContext* pContext,
                                 msg += vname.empty() ? "?" : vname;
                                 msg += "' before initialization";
                                 pending_exception = makeError(pContext, "ReferenceError", msg.c_str(), pGlobalRoot);
-                                has_pending_exception = true;
+                                throwJS(pContext, pending_exception);
                                 DISPATCH();
                             }
                         val = rawVal;
@@ -10486,7 +10611,7 @@ const proto::ProtoObject* runBytecode(proto::ProtoContext* pContext,
                             msg = "is not defined";
                         }
                         pending_exception = makeError(pContext, "ReferenceError", msg.c_str(), pGlobalRoot);
-                        has_pending_exception = true;
+                        throwJS(pContext, pending_exception);
                         DISPATCH();
                     }
                 }
@@ -10511,7 +10636,7 @@ const proto::ProtoObject* runBytecode(proto::ProtoContext* pContext,
                     if (isLexical && (name == "eval" || name == "arguments")) {
                         pending_exception = makeError(pContext, "SyntaxError",
                                                       "Invalid global lexical declaration", pGlobalRoot);
-                        has_pending_exception = true;
+                        throwJS(pContext, pending_exception);
                         DISPATCH();
                     }
 
@@ -10521,7 +10646,7 @@ const proto::ProtoObject* runBytecode(proto::ProtoContext* pContext,
                         && static_cast<size_t>(idx) < module->closureVarIsConst.size()
                         && module->closureVarIsConst[idx]) {
                         pending_exception = constAssignmentError(pContext, name, pGlobalRoot);
-                        has_pending_exception = true;
+                        throwJS(pContext, pending_exception);
                         DISPATCH();
                     }
 
@@ -10529,7 +10654,7 @@ const proto::ProtoObject* runBytecode(proto::ProtoContext* pContext,
                     if (name == "undefined") {
                         pending_exception = makeError(pContext, "ReferenceError",
                                                       "Cannot assign to read only binding 'undefined'", pGlobalRoot);
-                        has_pending_exception = true;
+                        throwJS(pContext, pending_exception);
                         DISPATCH();
                     }
 
@@ -10563,7 +10688,7 @@ const proto::ProtoObject* runBytecode(proto::ProtoContext* pContext,
                                          module->closureVarIsLexical[refIndex];
                         if (isLexical || slotVal == tdzSentinel || val == tdzSentinel) {
                             pending_exception = makeError(pContext, "ReferenceError", "Cannot access before initialization", pGlobalRoot);
-                            has_pending_exception = true;
+                            throwJS(pContext, pending_exception);
                             DISPATCH();
                         }
                     }
@@ -10588,7 +10713,7 @@ const proto::ProtoObject* runBytecode(proto::ProtoContext* pContext,
                     const proto::ProtoObject* curVal = readCell(pContext, slotVal);
                     if (slotVal == tdzSentinel || curVal == tdzSentinel) {
                         pending_exception = makeError(pContext, "ReferenceError", "Cannot access before initialization", pGlobalRoot);
-                        has_pending_exception = true;
+                        throwJS(pContext, pending_exception);
                         DISPATCH();
                     }
                 }
@@ -10639,7 +10764,7 @@ const proto::ProtoObject* runBytecode(proto::ProtoContext* pContext,
                     const proto::ProtoObject* curVal = readCell(pContext, slotVal);
                     if (slotVal == tdzSentinel || curVal == tdzSentinel) {
                         pending_exception = makeError(pContext, "ReferenceError", "Cannot access before initialization", pGlobalRoot);
-                        has_pending_exception = true;
+                        throwJS(pContext, pending_exception);
                         DISPATCH();
                     }
                 }
@@ -10682,7 +10807,7 @@ const proto::ProtoObject* runBytecode(proto::ProtoContext* pContext,
                                      module->closureVarIsLexical[refIndex];
                     if (isLexical || slotVal == tdzSentinel || val == tdzSentinel) {
                         pending_exception = makeError(pContext, "ReferenceError", "Cannot access before initialization", pGlobalRoot);
-                        has_pending_exception = true;
+                        throwJS(pContext, pending_exception);
                         DISPATCH();
                     }
                 }
@@ -10709,7 +10834,7 @@ const proto::ProtoObject* runBytecode(proto::ProtoContext* pContext,
                     const proto::ProtoObject* curVal = readCell(pContext, slotVal);
                     if (slotVal == tdzSentinel || curVal == tdzSentinel) {
                         pending_exception = makeError(pContext, "ReferenceError", "Cannot access before initialization", pGlobalRoot);
-                        has_pending_exception = true;
+                        throwJS(pContext, pending_exception);
                         DISPATCH();
                     }
                 }
@@ -10753,7 +10878,7 @@ const proto::ProtoObject* runBytecode(proto::ProtoContext* pContext,
                     const proto::ProtoObject* curVal = readCell(pContext, slotVal);
                     if (slotVal == tdzSentinel || curVal == tdzSentinel) {
                         pending_exception = makeError(pContext, "ReferenceError", "Cannot access before initialization", pGlobalRoot);
-                        has_pending_exception = true;
+                        throwJS(pContext, pending_exception);
                         DISPATCH();
                     }
                 }
@@ -10795,7 +10920,7 @@ const proto::ProtoObject* runBytecode(proto::ProtoContext* pContext,
                                          module->closureVarIsLexical[refIndex];
                         if (isLexical || slotVal == tdzSentinel || val == tdzSentinel) {
                             pending_exception = makeError(pContext, "ReferenceError", "Cannot access before initialization", pGlobalRoot);
-                            has_pending_exception = true;
+                            throwJS(pContext, pending_exception);
                             DISPATCH();
                         }
                     }
@@ -11006,12 +11131,12 @@ const proto::ProtoObject* runBytecode(proto::ProtoContext* pContext,
                     // was the missing TDZ-tracked variant.
                     const proto::ProtoObject* slotVal = getSlot(pContext, argCount + locIndex);
                     if (slotVal == tdzSentinel) {
-                        pending_exception = makeError(pContext, "ReferenceError", "Cannot access before initialization", pGlobalRoot); has_pending_exception = true;
+                        pending_exception = makeError(pContext, "ReferenceError", "Cannot access before initialization", pGlobalRoot); throwJS(pContext, pending_exception);
                         DISPATCH();
                     }
                     const proto::ProtoObject* val = readCell(pContext, slotVal);
                     if (val == tdzSentinel) {
-                        pending_exception = makeError(pContext, "ReferenceError", "Cannot access before initialization", pGlobalRoot); has_pending_exception = true;
+                        pending_exception = makeError(pContext, "ReferenceError", "Cannot access before initialization", pGlobalRoot); throwJS(pContext, pending_exception);
                         DISPATCH();
                     }
                     stackPush(pContext, val ? val : PROTO_NONE);
@@ -11068,7 +11193,7 @@ const proto::ProtoObject* runBytecode(proto::ProtoContext* pContext,
                         pending_exception = makeError(pContext, "ReferenceError",
                             "'this' can be initialized only once",
                             pGlobalRoot);
-                        has_pending_exception = true;
+                        throwJS(pContext, pending_exception);
                         DISPATCH();
                     }
                     setSlot(pContext, argCount + locIndex, val);
@@ -11091,7 +11216,7 @@ const proto::ProtoObject* runBytecode(proto::ProtoContext* pContext,
                         pending_exception = makeError(pContext, "ReferenceError",
                             "this is not initialized - super() must be called first",
                             pGlobalRoot);
-                        has_pending_exception = true;
+                        throwJS(pContext, pending_exception);
                         DISPATCH();
                     }
                     stackPush(pContext, val ? val : PROTO_NONE);
@@ -11122,7 +11247,7 @@ const proto::ProtoObject* runBytecode(proto::ProtoContext* pContext,
                     msg += (obj == t_nullSentinel) ? "null" : "undefined";
                     msg += " (reading '"; msg += keyStr; msg += "')";
                     pending_exception = makeError(pContext, "TypeError", msg.c_str(), pGlobalRoot);
-                    has_pending_exception = true;
+                    throwJS(pContext, pending_exception);
                     DISPATCH();
                 }
                 protojs::materializeLazyPrototypeForKey(pContext, obj, name);  // LazyPrototype.h
@@ -11143,12 +11268,12 @@ const proto::ProtoObject* runBytecode(proto::ProtoContext* pContext,
                     REFRESH_INTERP_STATE();
                     if (t_hasCallException) {
                         pending_exception     = t_callException;
-                        has_pending_exception = true;
+                        throwJS(pContext, pending_exception);
                         t_hasCallException    = false;
                         t_callException       = nullptr;
                         DISPATCH();
                     }
-                    if (has_pending_exception) DISPATCH();
+                    (void)0;
                     pAutomaticLocals[currentStackBase + _PF().stackTop++] = (val) ? (val) : PROTO_NONE;
                     DISPATCH();
                 }
@@ -11161,12 +11286,12 @@ const proto::ProtoObject* runBytecode(proto::ProtoContext* pContext,
                     DISPATCH();
                 }
                 val = name ? invokeGetterIfPresentFast(obj, name) : PROTO_NONE;
-                if (has_pending_exception) DISPATCH();
+                (void)0;
                 if (!val || val == PROTO_NONE) {
                     val = resolveFieldOOP(pContext, obj, name, /*dictDone=*/true);
                 }
                 REFRESH_INTERP_STATE();
-                if (has_pending_exception) DISPATCH();
+                (void)0;
                 // §10.1.8.1 OrdinaryGet step 6 — recurse into [[Proto]]
                 // chain via [[Get]] with the original Receiver.  A
                 // Proxy ancestor must dispatch its get trap with
@@ -11192,7 +11317,7 @@ const proto::ProtoObject* runBytecode(proto::ProtoContext* pContext,
                             REFRESH_INTERP_STATE();
                             if (t_hasCallException) {
                                 pending_exception     = t_callException;
-                                has_pending_exception = true;
+                                throwJS(pContext, pending_exception);
                                 t_hasCallException    = false;
                                 t_callException       = nullptr;
                                 DISPATCH();
@@ -11203,7 +11328,7 @@ const proto::ProtoObject* runBytecode(proto::ProtoContext* pContext,
                     }
                 }
 
-                if (has_pending_exception) DISPATCH();
+                (void)0;
                 // §10.4 ToObject(symbol) lookup fallback: a Symbol primitive
                 // receiver (well-known Symbol stored as a "Symbol.X"
                 // ProtoString, OR a user Symbol marked __is_symbol__) must
@@ -11246,7 +11371,7 @@ const proto::ProtoObject* runBytecode(proto::ProtoContext* pContext,
                         }
                     }
                 }
-                if (has_pending_exception) DISPATCH();
+                (void)0;
                 pAutomaticLocals[currentStackBase + _PF().stackTop++] = (val) ? (val) : PROTO_NONE;
                 DISPATCH();
             }
@@ -11265,7 +11390,7 @@ const proto::ProtoObject* runBytecode(proto::ProtoContext* pContext,
                     msg += (obj == t_nullSentinel) ? "null" : "undefined";
                     msg += " (reading '"; msg += keyStr; msg += "')";
                     pending_exception = makeError(pContext, "TypeError", msg.c_str(), pGlobalRoot);
-                    has_pending_exception = true;
+                    throwJS(pContext, pending_exception);
                     DISPATCH();
                 }
 
@@ -11284,12 +11409,12 @@ const proto::ProtoObject* runBytecode(proto::ProtoContext* pContext,
                     const proto::ProtoObject* val = protojs::proxyDispatchGet(pContext, obj, key, obj);
                     if (t_hasCallException) {
                         pending_exception     = t_callException;
-                        has_pending_exception = true;
+                        throwJS(pContext, pending_exception);
                         t_hasCallException    = false;
                         t_callException       = nullptr;
                         DISPATCH();
                     }
-                    if (has_pending_exception) DISPATCH();
+                    (void)0;
                     stackPush(pContext, val ? val : PROTO_NONE);
                     DISPATCH();
                 }
@@ -11308,7 +11433,7 @@ const proto::ProtoObject* runBytecode(proto::ProtoContext* pContext,
                     DISPATCH();
                 }
                 const proto::ProtoObject* val = key ? invokeGetterIfPresentFast(obj, key) : PROTO_NONE;
-                if (has_pending_exception) DISPATCH();
+                (void)0;
                 if (!val || val == PROTO_NONE) {
                     val = resolveFieldOOP(pContext, obj, key, /*dictDone=*/true);
                 }
@@ -11343,7 +11468,7 @@ const proto::ProtoObject* runBytecode(proto::ProtoContext* pContext,
                             REFRESH_INTERP_STATE();
                             if (t_hasCallException) {
                                 pending_exception     = t_callException;
-                                has_pending_exception = true;
+                                throwJS(pContext, pending_exception);
                                 t_hasCallException    = false;
                                 t_callException       = nullptr;
                                 DISPATCH();
@@ -11428,7 +11553,7 @@ const proto::ProtoObject* runBytecode(proto::ProtoContext* pContext,
                     REFRESH_INTERP_STATE();
                     if (hasCallException()) {
                         pending_exception     = t_callException;
-                        has_pending_exception = true;
+                        throwJS(pContext, pending_exception);
                         t_hasCallException    = false;
                         t_callException       = nullptr;
                     }
@@ -11479,7 +11604,7 @@ const proto::ProtoObject* runBytecode(proto::ProtoContext* pContext,
                                     "TypeError",
                                     "Cannot add property to non-extensible object",
                                     pGlobalRoot);
-                                has_pending_exception = true;
+                                throwJS(pContext, pending_exception);
                             }
                             DISPATCH();
                         }
@@ -11492,7 +11617,7 @@ const proto::ProtoObject* runBytecode(proto::ProtoContext* pContext,
                     protojs::proxyDispatchSet(pContext, obj, key, val, obj);
                     if (t_hasCallException) {
                         pending_exception     = t_callException;
-                        has_pending_exception = true;
+                        throwJS(pContext, pending_exception);
                         t_hasCallException    = false;
                         t_callException       = nullptr;
                     }
@@ -11541,7 +11666,7 @@ const proto::ProtoObject* runBytecode(proto::ProtoContext* pContext,
                                 protojs::proxyDispatchSet(pContext, cur, key, val, obj);
                                 if (t_hasCallException) {
                                     pending_exception     = t_callException;
-                                    has_pending_exception = true;
+                                    throwJS(pContext, pending_exception);
                                     t_hasCallException    = false;
                                     t_callException       = nullptr;
                                 }
@@ -11587,7 +11712,7 @@ const proto::ProtoObject* runBytecode(proto::ProtoContext* pContext,
                                         ? "Cannot assign to non-writable Array.length"
                                         : "Cannot assign to read-only property 'length'",
                                     pGlobalRoot);
-                                has_pending_exception = true;
+                                throwJS(pContext, pending_exception);
                             }
                             DISPATCH();
                         }
@@ -11608,7 +11733,7 @@ const proto::ProtoObject* runBytecode(proto::ProtoContext* pContext,
                                 // Array/length/S15.4.5.1_A1.3_T2.js).
                                 if (t_hasCallException) {
                                     pending_exception     = t_callException;
-                                    has_pending_exception = true;
+                                    throwJS(pContext, pending_exception);
                                     t_hasCallException    = false;
                                     t_callException       = nullptr;
                                     DISPATCH();
@@ -11625,7 +11750,7 @@ const proto::ProtoObject* runBytecode(proto::ProtoContext* pContext,
                                 || d != std::trunc(d)) {
                                 pending_exception = makeError(pContext, "RangeError",
                                     "Invalid array length", pGlobalRoot);
-                                has_pending_exception = true;
+                                throwJS(pContext, pending_exception);
                                 DISPATCH();
                             }
                             // Substitute the coerced integer so the
@@ -11642,7 +11767,7 @@ const proto::ProtoObject* runBytecode(proto::ProtoContext* pContext,
 
                 if (hasCallException()) {
                     pending_exception = t_callException;
-                    has_pending_exception = true;
+                    throwJS(pContext, pending_exception);
                     t_callException = nullptr;
                     t_hasCallException = false;  // consumed: a stale flag re-threw at the next native call
                     DISPATCH();
@@ -12073,7 +12198,7 @@ const proto::ProtoObject* runBytecode(proto::ProtoContext* pContext,
                             ? "undefined is not iterable"
                             : "value is not iterable",
                         pGlobalRoot);
-                    has_pending_exception = true;
+                    throwJS(pContext, pending_exception);
                     // Push dummies so the stack stays balanced.
                     stackPush(pContext, apArray);
                     stackPush(pContext, pContext->fromInteger(apIdx));
@@ -12167,7 +12292,7 @@ const proto::ProtoObject* runBytecode(proto::ProtoContext* pContext,
                         apIter = callJSFunction(pContext, apIterFn, apIterable, emptyA);
                         if (t_hasCallException) {
                             pending_exception  = t_callException;
-                            has_pending_exception = true;
+                            throwJS(pContext, pending_exception);
                             t_hasCallException = false;
                             t_callException    = nullptr;
                             apError = true;
@@ -12194,7 +12319,7 @@ const proto::ProtoObject* runBytecode(proto::ProtoContext* pContext,
                                     pContext, apNextFn, apIter, noArgs);
                                 if (t_hasCallException) {
                                     pending_exception  = t_callException;
-                                    has_pending_exception = true;
+                                    throwJS(pContext, pending_exception);
                                     t_hasCallException = false;
                                     t_callException    = nullptr;
                                     apError = true;
@@ -12355,7 +12480,7 @@ const proto::ProtoObject* runBytecode(proto::ProtoContext* pContext,
                                 callJSFunction(pContext, attrVal, cdpSource, emptyArgs);
                             if (t_hasCallException) {
                                 pending_exception  = t_callException;
-                                has_pending_exception = true;
+                                throwJS(pContext, pending_exception);
                                 t_hasCallException = false;
                                 t_callException    = nullptr;
                                 DISPATCH();
@@ -12412,7 +12537,7 @@ const proto::ProtoObject* runBytecode(proto::ProtoContext* pContext,
                                 effective = callJSFunction(pContext, getter, cdpSource, emptyArgs);
                                 if (t_hasCallException) {
                                     pending_exception  = t_callException;
-                                    has_pending_exception = true;
+                                    throwJS(pContext, pending_exception);
                                     t_hasCallException = false;
                                     t_callException    = nullptr;
                                     DISPATCH();
@@ -12629,7 +12754,7 @@ const proto::ProtoObject* runBytecode(proto::ProtoContext* pContext,
                     std::string msg = "Cannot read properties of ";
                     msg += (obj == t_nullSentinel) ? "null" : "undefined";
                     pending_exception = makeError(pContext, "TypeError", msg.c_str(), pGlobalRoot);
-                    has_pending_exception = true;
+                    throwJS(pContext, pending_exception);
                     DISPATCH();
                 }
                 // Proxy receiver via bracket access — dispatch to
@@ -12652,12 +12777,12 @@ const proto::ProtoObject* runBytecode(proto::ProtoContext* pContext,
                         REFRESH_INTERP_STATE();
                         if (t_hasCallException) {
                             pending_exception     = t_callException;
-                            has_pending_exception = true;
+                            throwJS(pContext, pending_exception);
                             t_hasCallException    = false;
                             t_callException       = nullptr;
                             DISPATCH();
                         }
-                        if (has_pending_exception) DISPATCH();
+                        (void)0;
                         pAutomaticLocals[currentStackBase + _PF().stackTop++] = r ? r : PROTO_NONE;
                         DISPATCH();
                     }
@@ -12796,7 +12921,7 @@ const proto::ProtoObject* runBytecode(proto::ProtoContext* pContext,
                                 const proto::ProtoObject* r =
                                     callJSFunction(pContext, getter, obj, pContext->newList());
                                 REFRESH_INTERP_STATE();
-                                if (has_pending_exception) DISPATCH();
+                                (void)0;
                                 pAutomaticLocals[currentStackBase + _PF().stackTop++] = r ? r : PROTO_NONE;
                                 DISPATCH();
                             }
@@ -12836,7 +12961,7 @@ const proto::ProtoObject* runBytecode(proto::ProtoContext* pContext,
                                     const proto::ProtoObject* r =
                                         callJSFunction(pContext, getter, obj, pContext->newList());
                                     REFRESH_INTERP_STATE();
-                                    if (has_pending_exception) DISPATCH();
+                                    (void)0;
                                     pAutomaticLocals[currentStackBase + _PF().stackTop++] = r ? r : PROTO_NONE;
                                     DISPATCH();
                                 }
@@ -12894,7 +13019,7 @@ const proto::ProtoObject* runBytecode(proto::ProtoContext* pContext,
                             // the throw aligns with the read site.
                             if (t_hasCallException) {
                                 pending_exception     = t_callException;
-                                has_pending_exception = true;
+                                throwJS(pContext, pending_exception);
                                 t_hasCallException    = false;
                                 t_callException       = nullptr;
                                 DISPATCH();
@@ -13000,7 +13125,7 @@ const proto::ProtoObject* runBytecode(proto::ProtoContext* pContext,
                             // Invoke the own getter directly.
                             const proto::ProtoObject* gval =
                                 invokeGetterIfPresent(obj, keyStrGAE);
-                            if (has_pending_exception) DISPATCH();
+                            (void)0;
                             if (gval && gval != PROTO_NONE) val = gval;
                         } else if (obj->hasOwnAttribute(pContext, key) == PROTO_TRUE) {
                             // Own data property — return without walking
@@ -13035,7 +13160,7 @@ const proto::ProtoObject* runBytecode(proto::ProtoContext* pContext,
                                 }
                                 const proto::ProtoObject* gval =
                                     invokeGetterIfPresent(obj, keyStrGAE);
-                                if (has_pending_exception) DISPATCH();
+                                (void)0;
                                 if (gval && gval != PROTO_NONE) val = gval;
                             }
                         }
@@ -13071,7 +13196,7 @@ const proto::ProtoObject* runBytecode(proto::ProtoContext* pContext,
                                     REFRESH_INTERP_STATE();
                                     if (t_hasCallException) {
                                         pending_exception     = t_callException;
-                                        has_pending_exception = true;
+                                        throwJS(pContext, pending_exception);
                                         t_hasCallException    = false;
                                         t_callException       = nullptr;
                                     } else if (v && v != PROTO_NONE) {
@@ -13148,7 +13273,7 @@ const proto::ProtoObject* runBytecode(proto::ProtoContext* pContext,
                     std::string msg = "Cannot read properties of ";
                     msg += (!obj || obj == PROTO_NONE) ? "undefined" : "null";
                     pending_exception = makeError(pContext, "TypeError", msg.c_str(), pGlobalRoot);
-                    has_pending_exception = true;
+                    throwJS(pContext, pending_exception);
                     DISPATCH();
                 }
                 const proto::ProtoObject* val = nullptr;
@@ -13181,7 +13306,7 @@ const proto::ProtoObject* runBytecode(proto::ProtoContext* pContext,
                         std::string keyStrGAE2;
                         key->toUTF8String(pContext, keyStrGAE2);
                         const proto::ProtoObject* gval = invokeGetterIfPresent(obj, keyStrGAE2);
-                        if (has_pending_exception) DISPATCH();
+                        (void)0;
                         if (gval && gval != PROTO_NONE) val = gval;
                     }
                     // ToObject(symbol) chain fallback — see OP_get_array_el.
@@ -13239,7 +13364,7 @@ const proto::ProtoObject* runBytecode(proto::ProtoContext* pContext,
                     std::string msg = "Cannot read properties of ";
                     msg += (!obj || obj == PROTO_NONE) ? "undefined" : "null";
                     pending_exception = makeError(pContext, "TypeError", msg.c_str(), pGlobalRoot);
-                    has_pending_exception = true;
+                    throwJS(pContext, pending_exception);
                     DISPATCH();
                 }
                 const proto::ProtoObject* val = nullptr;
@@ -13268,7 +13393,7 @@ const proto::ProtoObject* runBytecode(proto::ProtoContext* pContext,
                         std::string keyStrGAE3;
                         key->toUTF8String(pContext, keyStrGAE3);
                         const proto::ProtoObject* gval = invokeGetterIfPresent(obj, keyStrGAE3);
-                        if (has_pending_exception) DISPATCH();
+                        (void)0;
                         if (gval && gval != PROTO_NONE) val = gval;
                     }
                 }
@@ -13304,7 +13429,7 @@ const proto::ProtoObject* runBytecode(proto::ProtoContext* pContext,
 
                 if (!obj) {
                     pending_exception = makeError(pContext, "TypeError", "Cannot set property on null/undefined", pGlobalRoot);
-                    has_pending_exception = true;
+                    throwJS(pContext, pending_exception);
                     DISPATCH();
                 }
 
@@ -13328,7 +13453,7 @@ const proto::ProtoObject* runBytecode(proto::ProtoContext* pContext,
                 REFRESH_INTERP_STATE();
                 if (hasCallException()) {
                     pending_exception     = t_callException;
-                    has_pending_exception = true;
+                    throwJS(pContext, pending_exception);
                     t_hasCallException    = false;
                     t_callException       = nullptr;
                 }
@@ -13353,12 +13478,12 @@ const proto::ProtoObject* runBytecode(proto::ProtoContext* pContext,
                         REFRESH_INTERP_STATE();
                         if (t_hasCallException) {
                             pending_exception     = t_callException;
-                            has_pending_exception = true;
+                            throwJS(pContext, pending_exception);
                             t_hasCallException    = false;
                             t_callException       = nullptr;
                             DISPATCH();
                         }
-                        if (has_pending_exception) DISPATCH();
+                        (void)0;
                         // Spec: no push — the operand stack ends 3 slots smaller.
                         DISPATCH();
                     }
@@ -13392,7 +13517,7 @@ const proto::ProtoObject* runBytecode(proto::ProtoContext* pContext,
                             if (module && module->isStrict) {
                                 pending_exception = makeError(pContext, "TypeError",
                                     "Cannot add property to non-extensible object", pGlobalRoot);
-                                has_pending_exception = true;
+                                throwJS(pContext, pending_exception);
                             }
                             DISPATCH();
                         }
@@ -13426,7 +13551,7 @@ const proto::ProtoObject* runBytecode(proto::ProtoContext* pContext,
                             (void)callJSFunction(pContext, setter, obj, sargs);
                             if (t_hasCallException) {
                                 pending_exception     = t_callException;
-                                has_pending_exception = true;
+                                throwJS(pContext, pending_exception);
                                 t_hasCallException    = false;
                                 t_callException       = nullptr;
                             }
@@ -13449,7 +13574,7 @@ const proto::ProtoObject* runBytecode(proto::ProtoContext* pContext,
                                     "TypeError",
                                     "Cannot assign to non-writable array index",
                                     pGlobalRoot);
-                                has_pending_exception = true;
+                                throwJS(pContext, pending_exception);
                             }
                             DISPATCH();
                         }
@@ -13466,7 +13591,7 @@ const proto::ProtoObject* runBytecode(proto::ProtoContext* pContext,
                     newObj = resolvePutElementOOP(pContext, obj, static_cast<uint32_t>(idxFast), value);
                     if (hasCallException()) {
                         pending_exception = t_callException;
-                        has_pending_exception = true;
+                        throwJS(pContext, pending_exception);
                         t_callException = nullptr;
                         t_hasCallException = false;  // consumed: a stale flag re-threw at the next native call
                         DISPATCH();
@@ -13531,7 +13656,7 @@ const proto::ProtoObject* runBytecode(proto::ProtoContext* pContext,
                                             "TypeError",
                                             "Cannot add property to non-extensible object",
                                             pGlobalRoot);
-                                        has_pending_exception = true;
+                                        throwJS(pContext, pending_exception);
                                     }
                                     DISPATCH();
                                 }
@@ -13574,7 +13699,7 @@ const proto::ProtoObject* runBytecode(proto::ProtoContext* pContext,
                                                 ? "Cannot assign to non-writable Array.length"
                                                 : "Cannot assign to read-only property 'length'",
                                             pGlobalRoot);
-                                        has_pending_exception = true;
+                                        throwJS(pContext, pending_exception);
                                     }
                                     DISPATCH();
                                 }
@@ -13584,7 +13709,7 @@ const proto::ProtoObject* runBytecode(proto::ProtoContext* pContext,
                             module && module->isStrict);
                         if (hasCallException()) {
                             pending_exception = t_callException;
-                            has_pending_exception = true;
+                            throwJS(pContext, pending_exception);
                             t_callException = nullptr;
                             t_hasCallException = false;  // consumed: a stale flag re-threw at the next native call
                             DISPATCH();
@@ -13771,7 +13896,7 @@ const proto::ProtoObject* runBytecode(proto::ProtoContext* pContext,
                 const proto::ProtoObject* pa = toPrimIfObject(a);
                 const proto::ProtoObject* pb = toPrimIfObject(b);
                 REFRESH_INTERP_STATE();
-                if (has_pending_exception) DISPATCH();
+                (void)0;
 
                 bool aIsStr = pa && pa != PROTO_NONE && pa->isString(pContext);
                 bool bIsStr = pb && pb != PROTO_NONE && pb->isString(pContext);
@@ -13841,7 +13966,7 @@ const proto::ProtoObject* runBytecode(proto::ProtoContext* pContext,
                 const proto::ProtoObject* na = toNumber(pContext, toPrimIfObject(a));
                 const proto::ProtoObject* nb = toNumber(pContext, toPrimIfObject(b));
                 REFRESH_INTERP_STATE();
-                if (has_pending_exception) DISPATCH();
+                (void)0;
                 const proto::ProtoObject* res;
                 {
                     double da, db;
@@ -13867,7 +13992,7 @@ const proto::ProtoObject* runBytecode(proto::ProtoContext* pContext,
                         --_PF().stackTop;  // pop the a slot we peeked
                         if (_st == kBigOpThrow) {
                             pending_exception = _bigOut;
-                            has_pending_exception = true;
+                            throwJS(pContext, pending_exception);
                             DISPATCH();
                         }
                         pAutomaticLocals[currentStackBase + _PF().stackTop++] = _bigOut;
@@ -13880,10 +14005,10 @@ const proto::ProtoObject* runBytecode(proto::ProtoContext* pContext,
                 // which the Number path below cannot take.
                 const proto::ProtoObject* a_prim = toPrimIfObject(a_raw);
                 REFRESH_INTERP_STATE();
-                if (has_pending_exception) DISPATCH();
+                (void)0;
                 const proto::ProtoObject* b_prim = toPrimIfObject(b_raw);
                 REFRESH_INTERP_STATE();
-                if (has_pending_exception) DISPATCH();
+                (void)0;
                 {
                     const proto::ProtoObject* a = a_prim;
                     const proto::ProtoObject* b = b_prim;
@@ -13891,11 +14016,11 @@ const proto::ProtoObject* runBytecode(proto::ProtoContext* pContext,
                 }
                 const proto::ProtoObject* b = toNumber(pContext, b_prim);
                 REFRESH_INTERP_STATE();
-                if (has_pending_exception) DISPATCH();
+                (void)0;
                 // No zeroing for 'a' as result will overwrite it.
                 const proto::ProtoObject* a = toNumber(pContext, a_prim);
                 REFRESH_INTERP_STATE();
-                if (has_pending_exception) DISPATCH();
+                (void)0;
                 // JS division always yields double (handles /0 → ±Infinity, 0/0 → NaN, -0 correctly).
                 auto toDoubleVal = [&](const proto::ProtoObject* v) -> double {
                     if (!v || v == PROTO_NONE) return 0.0;
@@ -13942,7 +14067,7 @@ const proto::ProtoObject* runBytecode(proto::ProtoContext* pContext,
                 const proto::ProtoObject* na = toNumber(pContext, toPrimIfObject(a));
                 const proto::ProtoObject* nb = toNumber(pContext, toPrimIfObject(b));
                 REFRESH_INTERP_STATE();
-                if (has_pending_exception) DISPATCH();
+                (void)0;
                 const proto::ProtoObject* res;
                 {
                     double da, db;
@@ -13987,7 +14112,7 @@ const proto::ProtoObject* runBytecode(proto::ProtoContext* pContext,
                 const proto::ProtoObject* na = toNumber(pContext, toPrimIfObject(a));
                 const proto::ProtoObject* nb = toNumber(pContext, toPrimIfObject(b));
                 REFRESH_INTERP_STATE();
-                if (has_pending_exception) DISPATCH();
+                (void)0;
                 
                 {
                     auto toDoubleVal2 = [&](const proto::ProtoObject* v) -> double {
@@ -14009,10 +14134,10 @@ const proto::ProtoObject* runBytecode(proto::ProtoContext* pContext,
                 const proto::ProtoObject* a = pAutomaticLocals[currentStackBase + --_PF().stackTop];
                 const proto::ProtoObject* pa = toPrimIfObject(a);
                 REFRESH_INTERP_STATE();
-                if (has_pending_exception) DISPATCH();
+                (void)0;
                 const proto::ProtoObject* pb = toPrimIfObject(b);
                 REFRESH_INTERP_STATE();
-                if (has_pending_exception) DISPATCH();
+                (void)0;
                 bool eq = jsAbstractEquals(pContext, pa, pb);
                 REFRESH_INTERP_STATE();
                 pAutomaticLocals[currentStackBase + _PF().stackTop++] = ((opcode == OP_eq ? eq : !eq) ? PROTO_TRUE : PROTO_FALSE);
@@ -14151,10 +14276,10 @@ const proto::ProtoObject* runBytecode(proto::ProtoContext* pContext,
                 }
                 const proto::ProtoObject* pa = toPrimIfObject(a);
                 REFRESH_INTERP_STATE();
-                if (has_pending_exception) DISPATCH();
+                (void)0;
                 const proto::ProtoObject* pb = toPrimIfObject(b);
                 REFRESH_INTERP_STATE();
-                if (has_pending_exception) DISPATCH();
+                (void)0;
                 {   // A wrapper's ToPrimitive may answer a BigInt.
                     const proto::ProtoObject* a = pa;
                     const proto::ProtoObject* b = pb;
@@ -14191,10 +14316,10 @@ const proto::ProtoObject* runBytecode(proto::ProtoContext* pContext,
                 }
                 const proto::ProtoObject* pa = toPrimIfObject(a);
                 REFRESH_INTERP_STATE();
-                if (has_pending_exception) DISPATCH();
+                (void)0;
                 const proto::ProtoObject* pb = toPrimIfObject(b);
                 REFRESH_INTERP_STATE();
-                if (has_pending_exception) DISPATCH();
+                (void)0;
                 {   // A wrapper's ToPrimitive may answer a BigInt.
                     const proto::ProtoObject* a = pa;
                     const proto::ProtoObject* b = pb;
@@ -14230,10 +14355,10 @@ const proto::ProtoObject* runBytecode(proto::ProtoContext* pContext,
                 }
                 const proto::ProtoObject* pa = toPrimIfObject(a);
                 REFRESH_INTERP_STATE();
-                if (has_pending_exception) DISPATCH();
+                (void)0;
                 const proto::ProtoObject* pb = toPrimIfObject(b);
                 REFRESH_INTERP_STATE();
-                if (has_pending_exception) DISPATCH();
+                (void)0;
                 {   // A wrapper's ToPrimitive may answer a BigInt.
                     const proto::ProtoObject* a = pa;
                     const proto::ProtoObject* b = pb;
@@ -14269,10 +14394,10 @@ const proto::ProtoObject* runBytecode(proto::ProtoContext* pContext,
                 }
                 const proto::ProtoObject* pa = toPrimIfObject(a);
                 REFRESH_INTERP_STATE();
-                if (has_pending_exception) DISPATCH();
+                (void)0;
                 const proto::ProtoObject* pb = toPrimIfObject(b);
                 REFRESH_INTERP_STATE();
-                if (has_pending_exception) DISPATCH();
+                (void)0;
                 {   // A wrapper's ToPrimitive may answer a BigInt.
                     const proto::ProtoObject* a = pa;
                     const proto::ProtoObject* b = pb;
@@ -14295,9 +14420,9 @@ const proto::ProtoObject* runBytecode(proto::ProtoContext* pContext,
                 b = unwrapBigIntWrapper(pContext, b);
                 BIGINT_BIN_DISPATCH(kBigAnd);
                 a = toPrimIfObject(a);
-                if (has_pending_exception) DISPATCH();
+                (void)0;
                 b = toPrimIfObject(b);
-                if (has_pending_exception) DISPATCH();
+                (void)0;
                 int32_t res = toInt32Val(pContext, a) & toInt32Val(pContext, b);
                 pAutomaticLocals[currentStackBase + _PF().stackTop++] = pContext->fromInteger(static_cast<long long>(res));
                 DISPATCH();
@@ -14310,9 +14435,9 @@ const proto::ProtoObject* runBytecode(proto::ProtoContext* pContext,
                 b = unwrapBigIntWrapper(pContext, b);
                 BIGINT_BIN_DISPATCH(kBigOr);
                 a = toPrimIfObject(a);
-                if (has_pending_exception) DISPATCH();
+                (void)0;
                 b = toPrimIfObject(b);
-                if (has_pending_exception) DISPATCH();
+                (void)0;
                 int32_t res = toInt32Val(pContext, a) | toInt32Val(pContext, b);
                 pAutomaticLocals[currentStackBase + _PF().stackTop++] = pContext->fromInteger(static_cast<long long>(res));
                 DISPATCH();
@@ -14325,9 +14450,9 @@ const proto::ProtoObject* runBytecode(proto::ProtoContext* pContext,
                 b = unwrapBigIntWrapper(pContext, b);
                 BIGINT_BIN_DISPATCH(kBigXor);
                 a = toPrimIfObject(a);
-                if (has_pending_exception) DISPATCH();
+                (void)0;
                 b = toPrimIfObject(b);
-                if (has_pending_exception) DISPATCH();
+                (void)0;
                 int32_t res = toInt32Val(pContext, a) ^ toInt32Val(pContext, b);
                 pAutomaticLocals[currentStackBase + _PF().stackTop++] = pContext->fromInteger(static_cast<long long>(res));
                 DISPATCH();
@@ -14354,7 +14479,7 @@ const proto::ProtoObject* runBytecode(proto::ProtoContext* pContext,
                         if (aBig != bBig) {
                             pending_exception = makeNativeError(pContext, "TypeError",
                                 "Cannot mix BigInt and other types, use explicit conversions");
-                            has_pending_exception = true;
+                            throwJS(pContext, pending_exception);
                             DISPATCH();
                         }
                         const proto::ProtoString* vk = JSSymbols::bigIntValue(pContext);
@@ -14370,9 +14495,9 @@ const proto::ProtoObject* runBytecode(proto::ProtoContext* pContext,
                     }
                 }
                 a = toPrimIfObject(a);
-                if (has_pending_exception) DISPATCH();
+                (void)0;
                 b = toPrimIfObject(b);
-                if (has_pending_exception) DISPATCH();
+                (void)0;
                 int32_t res = toInt32Val(pContext, a) << (toUint32Val(pContext, b) & 0x1Fu);
                 pAutomaticLocals[currentStackBase + _PF().stackTop++] = pContext->fromInteger(static_cast<long long>(res));
                 DISPATCH();
@@ -14395,7 +14520,7 @@ const proto::ProtoObject* runBytecode(proto::ProtoContext* pContext,
                         if (aBig != bBig) {
                             pending_exception = makeNativeError(pContext, "TypeError",
                                 "Cannot mix BigInt and other types, use explicit conversions");
-                            has_pending_exception = true;
+                            throwJS(pContext, pending_exception);
                             DISPATCH();
                         }
                         const proto::ProtoString* vk = JSSymbols::bigIntValue(pContext);
@@ -14411,9 +14536,9 @@ const proto::ProtoObject* runBytecode(proto::ProtoContext* pContext,
                     }
                 }
                 a = toPrimIfObject(a);
-                if (has_pending_exception) DISPATCH();
+                (void)0;
                 b = toPrimIfObject(b);
-                if (has_pending_exception) DISPATCH();
+                (void)0;
                 int32_t res = toInt32Val(pContext, a) >> (toUint32Val(pContext, b) & 0x1Fu);
                 pAutomaticLocals[currentStackBase + _PF().stackTop++] = pContext->fromInteger(static_cast<long long>(res));
                 DISPATCH();
@@ -14434,14 +14559,14 @@ const proto::ProtoObject* runBytecode(proto::ProtoContext* pContext,
                     if (aBig || bBig) {
                         pending_exception = makeNativeError(pContext, "TypeError",
                             "BigInt does not support unsigned right shift");
-                        has_pending_exception = true;
+                        throwJS(pContext, pending_exception);
                         DISPATCH();
                     }
                 }
                 a = toPrimIfObject(a);
-                if (has_pending_exception) DISPATCH();
+                (void)0;
                 b = toPrimIfObject(b);
-                if (has_pending_exception) DISPATCH();
+                (void)0;
                 uint32_t ua = toUint32Val(pContext, a);
                 uint32_t shift = toUint32Val(pContext, b) & 0x1Fu;
                 uint32_t ures = ua >> shift;
@@ -14473,7 +14598,7 @@ const proto::ProtoObject* runBytecode(proto::ProtoContext* pContext,
                     }
                 }
                 a = toPrimIfObject(a);
-                if (has_pending_exception) DISPATCH();
+                (void)0;
                 int32_t res = ~toInt32Val(pContext, a);
                 pAutomaticLocals[currentStackBase + _PF().stackTop++] = pContext->fromInteger(static_cast<long long>(res));
                 DISPATCH();
@@ -14499,7 +14624,7 @@ const proto::ProtoObject* runBytecode(proto::ProtoContext* pContext,
                 // ToNumeric: a BigInt wrapper's ToPrimitive answers its BigInt.
                 a = toPrimIfObject(a);
                 REFRESH_INTERP_STATE();
-                if (has_pending_exception) DISPATCH();
+                (void)0;
                 {
                     const proto::ProtoString* bigK = JSSymbols::isBigInt(pContext);
                     bool aBig = bigK && a && !proto::isSmallInt(a)
@@ -14514,7 +14639,7 @@ const proto::ProtoObject* runBytecode(proto::ProtoContext* pContext,
                     }
                 }
                 const proto::ProtoObject* num = toNumber(pContext, toPrimIfObject(a));
-                if (has_pending_exception) DISPATCH();
+                (void)0;
                 if (!num || num == PROTO_NONE) { pAutomaticLocals[currentStackBase + _PF().stackTop++] = makeNumber(pContext, std::numeric_limits<double>::quiet_NaN()); DISPATCH(); }
                 if (num->isInteger(pContext)) {
                     long long v = num->asLong(pContext);
@@ -14823,7 +14948,7 @@ const proto::ProtoObject* runBytecode(proto::ProtoContext* pContext,
                 if (dst == tdzSentinel || src == tdzSentinel) {
                     pending_exception = makeError(pContext, "ReferenceError",
                         "Cannot access before initialization", pGlobalRoot);
-                    has_pending_exception = true;
+                    throwJS(pContext, pending_exception);
                     DISPATCH();
                 }
                 if (proto::isSmallInt(dst) && proto::isSmallInt(src)) {
@@ -14887,7 +15012,7 @@ const proto::ProtoObject* runBytecode(proto::ProtoContext* pContext,
                 if (a == tdzSentinel || b == tdzSentinel) {
                     pending_exception = makeError(pContext, "ReferenceError",
                         "Cannot access before initialization", pGlobalRoot);
-                    has_pending_exception = true;
+                    throwJS(pContext, pending_exception);
                     DISPATCH();
                 }
 
@@ -14924,10 +15049,10 @@ const proto::ProtoObject* runBytecode(proto::ProtoContext* pContext,
                     } else {
                         const proto::ProtoObject* pa = toPrimIfObject(na);
                         REFRESH_INTERP_STATE();
-                        if (has_pending_exception) DISPATCH();
+                        (void)0;
                         const proto::ProtoObject* pb = toPrimIfObject(nb);
                         REFRESH_INTERP_STATE();
-                        if (has_pending_exception) DISPATCH();
+                        (void)0;
                         int cmp = relCmpAfterPrim(pa, pb);
                         ltResult = (cmp == -1);
                     }
@@ -14978,7 +15103,7 @@ const proto::ProtoObject* runBytecode(proto::ProtoContext* pContext,
                 if (a == tdzSentinel) {
                     pending_exception = makeError(pContext, "ReferenceError",
                         "Cannot access before initialization", pGlobalRoot);
-                    has_pending_exception = true;
+                    throwJS(pContext, pending_exception);
                     DISPATCH();
                 }
 
@@ -15007,7 +15132,7 @@ const proto::ProtoObject* runBytecode(proto::ProtoContext* pContext,
                 if (b == tdzSentinel) {
                     pending_exception = makeError(pContext, "ReferenceError",
                         "Cannot access before initialization", pGlobalRoot);
-                    has_pending_exception = true;
+                    throwJS(pContext, pending_exception);
                     DISPATCH();
                 }
 
@@ -15039,10 +15164,10 @@ const proto::ProtoObject* runBytecode(proto::ProtoContext* pContext,
                     } else {
                         const proto::ProtoObject* pa = toPrimIfObject(na);
                         REFRESH_INTERP_STATE();
-                        if (has_pending_exception) DISPATCH();
+                        (void)0;
                         const proto::ProtoObject* pb = toPrimIfObject(nb);
                         REFRESH_INTERP_STATE();
-                        if (has_pending_exception) DISPATCH();
+                        (void)0;
                         int cmp = relCmpAfterPrim(pa, pb);
                         ltResult = (cmp == -1);
                     }
@@ -15078,7 +15203,7 @@ const proto::ProtoObject* runBytecode(proto::ProtoContext* pContext,
                         if (aBig != bBig) {
                             pending_exception = makeNativeError(pContext, "TypeError",
                                 "Cannot mix BigInt and other types, use explicit conversions");
-                            has_pending_exception = true;
+                            throwJS(pContext, pending_exception);
                             DISPATCH();
                         }
                         const proto::ProtoString* vk = JSSymbols::bigIntValue(pContext);
@@ -15087,7 +15212,7 @@ const proto::ProtoObject* runBytecode(proto::ProtoContext* pContext,
                         if (bi && bi->integerSign(pContext) < 0) {
                             pending_exception = makeNativeError(pContext, "RangeError",
                                 "BigInt exponent must be positive");
-                            has_pending_exception = true;
+                            throwJS(pContext, pending_exception);
                             DISPATCH();
                         }
                         long long exp = bi ? bi->asLong(pContext) : 0;
@@ -15108,9 +15233,9 @@ const proto::ProtoObject* runBytecode(proto::ProtoContext* pContext,
                     }
                 }
                 const proto::ProtoObject* b = toNumber(pContext, toPrimIfObject(pAutomaticLocals[currentStackBase + --_PF().stackTop]));
-                if (has_pending_exception) DISPATCH();
+                (void)0;
                 const proto::ProtoObject* a = toNumber(pContext, toPrimIfObject(pAutomaticLocals[currentStackBase + --_PF().stackTop]));
-                if (has_pending_exception) DISPATCH();
+                (void)0;
                 double da = (!a || a == PROTO_NONE) ? std::numeric_limits<double>::quiet_NaN() : a->asDouble(pContext);
                 double db = (!b || b == PROTO_NONE) ? std::numeric_limits<double>::quiet_NaN() : b->asDouble(pContext);
                 double result = std::pow(da, db);
@@ -15179,7 +15304,7 @@ const proto::ProtoObject* runBytecode(proto::ProtoContext* pContext,
                     REFRESH_INTERP_STATE();
                     if (t_hasCallException) {
                         pending_exception     = t_callException;
-                        has_pending_exception = true;
+                        throwJS(pContext, pending_exception);
                         t_hasCallException    = false;
                         t_callException       = nullptr;
                         DISPATCH();
@@ -15228,7 +15353,7 @@ const proto::ProtoObject* runBytecode(proto::ProtoContext* pContext,
                 // such objects saw len = 0.
                 const proto::ProtoObject* len_val = (obj && lk)
                     ? invokeGetterIfPresentFast(obj, lk) : PROTO_NONE;
-                if (has_pending_exception) DISPATCH();
+                (void)0;
                 if (!len_val || len_val == PROTO_NONE) {
                     len_val = (obj && lk) ? obj->getAttribute(pContext, lk, true) : PROTO_NONE;
                 }
@@ -15253,7 +15378,7 @@ const proto::ProtoObject* runBytecode(proto::ProtoContext* pContext,
                             REFRESH_INTERP_STATE();
                             if (t_hasCallException) {
                                 pending_exception     = t_callException;
-                                has_pending_exception = true;
+                                throwJS(pContext, pending_exception);
                                 t_hasCallException    = false;
                                 t_callException       = nullptr;
                             } else if (v && v != PROTO_NONE) {
@@ -15282,7 +15407,7 @@ const proto::ProtoObject* runBytecode(proto::ProtoContext* pContext,
                         isNull ? "Cannot convert null to object"
                                : "Cannot convert undefined to object",
                         pGlobalRoot);
-                    has_pending_exception = true;
+                    throwJS(pContext, pending_exception);
                     DISPATCH();
                 }
                 stackPush(pContext, val);
@@ -15296,7 +15421,7 @@ const proto::ProtoObject* runBytecode(proto::ProtoContext* pContext,
                 uint8_t errorType = buf[pc + 4];
                 pc += 5;
                 pending_exception = throwErrorOpValue(pContext, mod, atomIndex, errorType, pGlobalRoot);
-                has_pending_exception = true;
+                throwJS(pContext, pending_exception);
                 DISPATCH();
             }
             L_OP_catch: {
@@ -15311,6 +15436,13 @@ const proto::ProtoObject* runBytecode(proto::ProtoContext* pContext,
                 proto::proto_ulong placeholder_pos = stackSize(pContext);
                 catch_stack.push_back({handler_pc, placeholder_pos});
                 stackPush(pContext, PROTO_NONE); // sentinel placeholder (undefined-equivalent)
+                NestedLevel range{&catch_stack, pc, asyncOwner, asyncKind};
+                if (runProtectedRange(pContext, module, thisObj, args, pGlobalRoot, range,
+                                      catch_stack.size() - 1))
+                    return range.result;
+                pc = range.exitPc;
+                REFRESH_INTERP_STATE();
+                REFRESH_GLOBAL_OBJ();
                 DISPATCH();
             }
             L_OP_nip_catch: {
@@ -15330,6 +15462,10 @@ const proto::ProtoObject* runBytecode(proto::ProtoContext* pContext,
                         while (stackSize(pContext) > placeholder_pos) stackPop(pContext);
                         stackPush(pContext, ret_val);
                     }
+                    // The end of this level's range.
+                    nested->exit = NestedLevel::kEndRange;
+                    nested->exitPc = pc;
+                    return nullptr;
                 }
                 DISPATCH();
             }
@@ -15367,7 +15503,7 @@ const proto::ProtoObject* runBytecode(proto::ProtoContext* pContext,
                 if (a == PROTO_TRUE) { stackPush(pContext, proto::makeSmallInt(1)); DISPATCH(); }
                 if (a == PROTO_FALSE || a == t_nullSentinel) { stackPush(pContext, proto::makeSmallInt(0)); DISPATCH(); }
                 { const proto::ProtoObject* pv = toPrimIfObject(a);
-                  if (has_pending_exception) DISPATCH();
+                  (void)0;
                   const proto::ProtoObject* num = toNumber(pContext, pv);
                   // §7.1.4 ToNumber on a Symbol throws TypeError; the
                   // throw is recorded as t_callException by toNumber.
@@ -15378,7 +15514,7 @@ const proto::ProtoObject* runBytecode(proto::ProtoContext* pContext,
                   // operation).
                   if (t_hasCallException) {
                       pending_exception     = t_callException;
-                      has_pending_exception = true;
+                      throwJS(pContext, pending_exception);
                       t_hasCallException    = false;
                       t_callException       = nullptr;
                       DISPATCH();
@@ -15496,7 +15632,7 @@ const proto::ProtoObject* runBytecode(proto::ProtoContext* pContext,
                 if (funcIsPrimitive) {
                     pending_exception = makeError(pContext, "TypeError",
                         "Right-hand side of 'instanceof' is not callable", pGlobalRoot);
-                    has_pending_exception = true;
+                    throwJS(pContext, pending_exception);
                     DISPATCH();
                 }
                 const proto::ProtoString* protoKey = JSSymbols::prototype(pContext);
@@ -15513,7 +15649,7 @@ const proto::ProtoObject* runBytecode(proto::ProtoContext* pContext,
                     if (protoIsPrimitive) {
                         pending_exception = makeError(pContext, "TypeError",
                             "Function has non-object prototype in instanceof check", pGlobalRoot);
-                        has_pending_exception = true;
+                        throwJS(pContext, pending_exception);
                         DISPATCH();
                     }
                 }
@@ -15556,7 +15692,7 @@ const proto::ProtoObject* runBytecode(proto::ProtoContext* pContext,
                             REFRESH_INTERP_STATE();
                             if (t_hasCallException) {
                                 pending_exception     = t_callException;
-                                has_pending_exception = true;
+                                throwJS(pContext, pending_exception);
                                 t_hasCallException    = false;
                                 t_callException       = nullptr;
                                 stackPush(pContext, PROTO_FALSE);
@@ -15596,7 +15732,7 @@ const proto::ProtoObject* runBytecode(proto::ProtoContext* pContext,
                 if (objIsPrimitive) {
                     pending_exception = makeError(pContext, "TypeError",
                         "Cannot use 'in' operator to search for property in non-object", pGlobalRoot);
-                    has_pending_exception = true;
+                    throwJS(pContext, pending_exception);
                     DISPATCH();
                 }
                 // \xc2\xa713.10.1: ToPropertyKey(keyVal).  Symbol primitives
@@ -15618,12 +15754,12 @@ const proto::ProtoObject* runBytecode(proto::ProtoContext* pContext,
                     const proto::ProtoObject* r = protojs::proxyDispatchHas(pContext, obj, key);
                     if (t_hasCallException) {
                         pending_exception     = t_callException;
-                        has_pending_exception = true;
+                        throwJS(pContext, pending_exception);
                         t_hasCallException    = false;
                         t_callException       = nullptr;
                         DISPATCH();
                     }
-                    if (has_pending_exception) DISPATCH();
+                    (void)0;
                     stackPush(pContext, r);
                     DISPATCH();
                 }
@@ -15715,7 +15851,7 @@ const proto::ProtoObject* runBytecode(proto::ProtoContext* pContext,
                             REFRESH_INTERP_STATE();
                             if (t_hasCallException) {
                                 pending_exception     = t_callException;
-                                has_pending_exception = true;
+                                throwJS(pContext, pending_exception);
                                 t_hasCallException    = false;
                                 t_callException       = nullptr;
                                 DISPATCH();
@@ -15757,18 +15893,18 @@ const proto::ProtoObject* runBytecode(proto::ProtoContext* pContext,
                     REFRESH_INTERP_STATE();
                     if (t_hasCallException) {
                         pending_exception     = t_callException;
-                        has_pending_exception = true;
+                        throwJS(pContext, pending_exception);
                         t_hasCallException    = false;
                         t_callException       = nullptr;
                         DISPATCH();
                     }
-                    if (has_pending_exception) DISPATCH();
+                    (void)0;
                     // §13.5.1.2 step 5.a: strict mode + falsy result
                     // → throw TypeError.
                     if (r != PROTO_TRUE && module && module->isStrict) {
                         pending_exception = makeError(pContext, "TypeError",
                             "Proxy deleteProperty returned false", pGlobalRoot);
-                        has_pending_exception = true;
+                        throwJS(pContext, pending_exception);
                         DISPATCH();
                     }
                     stackPush(pContext, r == PROTO_TRUE ? PROTO_TRUE : PROTO_FALSE);
@@ -15783,7 +15919,7 @@ const proto::ProtoObject* runBytecode(proto::ProtoContext* pContext,
                         if (module && module->isStrict) {
                             pending_exception = makeError(pContext, "TypeError",
                                 "Cannot delete non-configurable property", pGlobalRoot);
-                            has_pending_exception = true;
+                            throwJS(pContext, pending_exception);
                             DISPATCH();
                         }
                         stackPush(pContext, PROTO_FALSE);
@@ -15825,7 +15961,7 @@ const proto::ProtoObject* runBytecode(proto::ProtoContext* pContext,
                                     if (module && module->isStrict) {
                                         pending_exception = makeError(pContext, "TypeError",
                                             "Cannot delete non-configurable property", pGlobalRoot);
-                                        has_pending_exception = true;
+                                        throwJS(pContext, pending_exception);
                                         DISPATCH();
                                     }
                                     // Non-configurable, sloppy mode:
@@ -15917,7 +16053,7 @@ const proto::ProtoObject* runBytecode(proto::ProtoContext* pContext,
                     if (!pTarget) {
                         pending_exception = makeError(pContext, "TypeError",
                             "Cannot perform 'apply' on a proxy that has been revoked", pGlobalRoot);
-                        has_pending_exception = true;
+                        throwJS(pContext, pending_exception);
                         for (uint32_t i = 0; i < argc + 2; i++) stackPop(pContext);
                         stackPush(pContext, PROTO_NONE);
                         DISPATCH();
@@ -15954,7 +16090,7 @@ const proto::ProtoObject* runBytecode(proto::ProtoContext* pContext,
                             REFRESH_INTERP_STATE();
                             if (t_hasCallException) {
                                 pending_exception     = t_callException;
-                                has_pending_exception = true;
+                                throwJS(pContext, pending_exception);
                                 t_hasCallException    = false;
                                 t_callException       = nullptr;
                                 stackPush(pContext, PROTO_NONE);
@@ -16070,21 +16206,16 @@ const proto::ProtoObject* runBytecode(proto::ProtoContext* pContext,
                     }
                     populateClosureCellsFromInstance(&childCtx, func, nf);
                     // Active func / args for OP_special_object inside method body.
-                    const proto::ProtoObject* prevActiveM = t_activeFunc;
-                    const proto::ProtoObject* prevTgtM    = t_activeNewTgt;
-                    const proto::ProtoList*   prevArgsM   = t_activeArgs;
+                    ActiveCallScope activeCallScope;
                     t_activeFunc = func;
                     t_activeNewTgt = nullptr;
                     t_activeArgs = argsList;
                     const proto::ProtoObject* childEx = PROTO_NONE;
                     const proto::ProtoObject* result =
-                        runBytecode(&childCtx, &nf, effectiveThis, argsList, pGlobalRoot, &childEx);
-                    t_activeFunc = prevActiveM;
-                    t_activeNewTgt = prevTgtM;
-                    t_activeArgs = prevArgsM;
+                        runBytecode(&childCtx, &nf, effectiveThis, argsList, pGlobalRoot);
                     anchorCallOutcome(childCtx, result, childEx);
                     if (childEx && childEx != PROTO_NONE) {
-                        pending_exception = childEx; has_pending_exception = true;
+                        pending_exception = childEx; throwJS(pContext, pending_exception);
                         DISPATCH();
                     }
                     // Tail-call: caller's return value IS the callee's result.
@@ -16124,7 +16255,7 @@ const proto::ProtoObject* runBytecode(proto::ProtoContext* pContext,
                     for (uint32_t i = 0; i < argc + 2; i++) stackPop(pContext);
                     if (t_hasCallException) {
                         pending_exception  = t_callException;
-                        has_pending_exception = true;
+                        throwJS(pContext, pending_exception);
                         t_hasCallException = false;
                         t_callException    = nullptr;
                         DISPATCH();
@@ -16196,7 +16327,7 @@ const proto::ProtoObject* runBytecode(proto::ProtoContext* pContext,
                         // (member-access call) or OP_call.
                         pending_exception = makeError(pContext, "TypeError",
                             "is not a function", pGlobalRoot);
-                        has_pending_exception = true;
+                        throwJS(pContext, pending_exception);
                     }
                 }
                 DISPATCH();
@@ -16220,7 +16351,7 @@ const proto::ProtoObject* runBytecode(proto::ProtoContext* pContext,
                     if (!pTarget) {
                         pending_exception = makeError(pContext, "TypeError",
                             "Cannot perform 'construct' on a proxy that has been revoked", pGlobalRoot);
-                        has_pending_exception = true;
+                        throwJS(pContext, pending_exception);
                         for (uint32_t i = 0; i < argc + 2; i++) stackPop(pContext);
                         stackPush(pContext, PROTO_NONE);
                         DISPATCH();
@@ -16244,7 +16375,7 @@ const proto::ProtoObject* runBytecode(proto::ProtoContext* pContext,
                         if (trapPresent && !trapCallable) {
                             pending_exception = makeError(pContext, "TypeError",
                                 "Proxy handler's 'construct' trap is not callable", pGlobalRoot);
-                            has_pending_exception = true;
+                            throwJS(pContext, pending_exception);
                             for (uint32_t i = 0; i < argc + 2; i++) stackPop(pContext);
                             stackPush(pContext, PROTO_NONE);
                             DISPATCH();
@@ -16287,7 +16418,7 @@ const proto::ProtoObject* runBytecode(proto::ProtoContext* pContext,
                             // try block apparently completed normally).
                             if (t_hasCallException) {
                                 pending_exception     = t_callException;
-                                has_pending_exception = true;
+                                throwJS(pContext, pending_exception);
                                 t_hasCallException    = false;
                                 t_callException       = nullptr;
                                 stackPush(pContext, PROTO_NONE);
@@ -16315,7 +16446,7 @@ const proto::ProtoObject* runBytecode(proto::ProtoContext* pContext,
                                 || resIsSymbol) {
                                 pending_exception = makeError(pContext, "TypeError",
                                     "'construct' trap returned non-object", pGlobalRoot);
-                                has_pending_exception = true;
+                                throwJS(pContext, pending_exception);
                                 stackPush(pContext, PROTO_NONE);
                                 DISPATCH();
                             }
@@ -16430,7 +16561,7 @@ const proto::ProtoObject* runBytecode(proto::ProtoContext* pContext,
                 if (resolved && !resolved->isConstructor) {
                     pending_exception = makeError(pContext, "TypeError",
                         "function is not a constructor", pGlobalRoot);
-                    has_pending_exception = true;
+                    throwJS(pContext, pending_exception);
                     DISPATCH();
                 }
 
@@ -16529,10 +16660,10 @@ const proto::ProtoObject* runBytecode(proto::ProtoContext* pContext,
                     populateClosureCellsFromInstance(&childCtx, func, nf);
 
                     const proto::ProtoObject* childEx = PROTO_NONE;
-                    result = runBytecode(&childCtx, &nf, newObj, argsList, pGlobalRoot, &childEx);
+                    result = runBytecode(&childCtx, &nf, newObj, argsList, pGlobalRoot);
                     anchorCallOutcome(childCtx, result, childEx);
                     if (childEx && childEx != PROTO_NONE) {
-                        pending_exception = childEx; has_pending_exception = true;
+                        pending_exception = childEx; throwJS(pContext, pending_exception);
                         DISPATCH();
                     }
                 } else if (func && func->isMethod(pContext)) {
@@ -16542,7 +16673,7 @@ const proto::ProtoObject* runBytecode(proto::ProtoContext* pContext,
                     // TypeError instead of running them as constructors.
                     pending_exception = makeError(pContext, "TypeError",
                         "function is not a constructor", pGlobalRoot);
-                    has_pending_exception = true;
+                    throwJS(pContext, pending_exception);
                     DISPATCH();
                 } else {
                     // Specialized: Array, Error, RegExp, etc.
@@ -16592,7 +16723,7 @@ const proto::ProtoObject* runBytecode(proto::ProtoContext* pContext,
                                 ilen < 0 || ilen > 4294967295LL) {
                                 pending_exception = makeError(pContext, "RangeError",
                                     "Invalid array length", pGlobalRoot);
-                                has_pending_exception = true;
+                                throwJS(pContext, pending_exception);
                                 DISPATCH();
                             }
                             // Sparse Array(n): length = n, no __elements__.
@@ -16638,7 +16769,7 @@ const proto::ProtoObject* runBytecode(proto::ProtoContext* pContext,
                                 if (isSymK && messageArg->getAttribute(pContext, isSymK, true) == PROTO_TRUE) {
                                     pending_exception = makeError(pContext, "TypeError",
                                         "Cannot convert a Symbol value to a string", pGlobalRoot);
-                                    has_pending_exception = true;
+                                    throwJS(pContext, pending_exception);
                                     DISPATCH();
                                 }
                             }
@@ -16646,7 +16777,7 @@ const proto::ProtoObject* runBytecode(proto::ProtoContext* pContext,
                                 ? toString(pContext, messageArg) : nullptr;
                             if (t_hasCallException) {
                                 pending_exception = t_callException;
-                                has_pending_exception = true;
+                                throwJS(pContext, pending_exception);
                                 t_hasCallException = false;
                                 t_callException = nullptr;
                                 DISPATCH();
@@ -16691,7 +16822,7 @@ const proto::ProtoObject* runBytecode(proto::ProtoContext* pContext,
                                         }
                                         if (t_hasCallException) {
                                             pending_exception = t_callException;
-                                            has_pending_exception = true;
+                                            throwJS(pContext, pending_exception);
                                             t_hasCallException = false;
                                             t_callException = nullptr;
                                             DISPATCH();
@@ -16756,7 +16887,7 @@ const proto::ProtoObject* runBytecode(proto::ProtoContext* pContext,
                         REFRESH_INTERP_STATE();
                         if (t_hasCallException) {
                             pending_exception = t_callException;
-                            has_pending_exception = true;
+                            throwJS(pContext, pending_exception);
                             t_hasCallException = false;
                             t_callException = nullptr;
                             DISPATCH();
@@ -16775,7 +16906,7 @@ const proto::ProtoObject* runBytecode(proto::ProtoContext* pContext,
                                 && v0->getAttribute(pContext, symK, true) == PROTO_TRUE) {
                                 pending_exception = makeError(pContext, "TypeError",
                                     "Cannot convert a Symbol value to a string", pGlobalRoot);
-                                has_pending_exception = true;
+                                throwJS(pContext, pending_exception);
                                 DISPATCH();
                             }
                         }
@@ -16815,7 +16946,7 @@ const proto::ProtoObject* runBytecode(proto::ProtoContext* pContext,
                                 result = ctorFn(pContext, newObj, nullptr, argsView(proto::ProtoListArguments(pContext, argsList)), nullptr);
                             if (t_hasCallException) {
                                 pending_exception = t_callException;
-                                has_pending_exception = true;
+                                throwJS(pContext, pending_exception);
                                 t_hasCallException = false;
                                 t_callException = nullptr;
                                 DISPATCH();
@@ -16843,7 +16974,7 @@ const proto::ProtoObject* runBytecode(proto::ProtoContext* pContext,
                                         nfFn(pContext, newObj, nullptr, argsView(proto::ProtoListArguments(pContext, argsList)), nullptr);
                                     if (t_hasCallException) {
                                         pending_exception = t_callException;
-                                        has_pending_exception = true;
+                                        throwJS(pContext, pending_exception);
                                         t_hasCallException = false;
                                         t_callException = nullptr;
                                         DISPATCH();
@@ -16859,7 +16990,7 @@ const proto::ProtoObject* runBytecode(proto::ProtoContext* pContext,
                         } else {
                             // Not a constructor! Throw TypeError.
                             pending_exception = makeError(pContext, "TypeError", "function is not a constructor", pGlobalRoot);
-                            has_pending_exception = true;
+                            throwJS(pContext, pending_exception);
                             DISPATCH();
                         }
                     }
@@ -16928,7 +17059,7 @@ const proto::ProtoObject* runBytecode(proto::ProtoContext* pContext,
                     if (!pTarget) {
                         pending_exception = makeError(pContext, "TypeError",
                             "Cannot perform 'apply' on a proxy that has been revoked", pGlobalRoot);
-                        has_pending_exception = true;
+                        throwJS(pContext, pending_exception);
                         for (uint32_t i = 0; i < argc + 1; i++) stackPop(pContext);
                         stackPush(pContext, PROTO_NONE);
                         DISPATCH();
@@ -16950,7 +17081,7 @@ const proto::ProtoObject* runBytecode(proto::ProtoContext* pContext,
                         if (trapPresent && !trapCallable) {
                             pending_exception = makeError(pContext, "TypeError",
                                 "Proxy handler's 'apply' trap is not callable", pGlobalRoot);
-                            has_pending_exception = true;
+                            throwJS(pContext, pending_exception);
                             for (uint32_t i = 0; i < argc + 1; i++) stackPop(pContext);
                             stackPush(pContext, PROTO_NONE);
                             DISPATCH();
@@ -16978,7 +17109,7 @@ const proto::ProtoObject* runBytecode(proto::ProtoContext* pContext,
                             const proto::ProtoObject* res = callJSFunction(pContext, trap, pHandler, trapArgs);
                             if (t_hasCallException) {
                                 pending_exception     = t_callException;
-                                has_pending_exception = true;
+                                throwJS(pContext, pending_exception);
                                 t_hasCallException    = false;
                                 t_callException       = nullptr;
                                 stackPush(pContext, PROTO_NONE);
@@ -17047,7 +17178,7 @@ const proto::ProtoObject* runBytecode(proto::ProtoContext* pContext,
                         pending_exception = makeError(pContext, "TypeError",
                             "Class constructor cannot be invoked without 'new'",
                             pGlobalRoot);
-                        has_pending_exception = true;
+                        throwJS(pContext, pending_exception);
                         DISPATCH();
                     }
                 }
@@ -17131,22 +17262,17 @@ const proto::ProtoObject* runBytecode(proto::ProtoContext* pContext,
                     populateClosureCellsFromInstance(&childCtx, func, nf);
 
                     // Publish active func / args for OP_special_object inside body.
-                    const proto::ProtoObject* prevActiveC = t_activeFunc;
-                    const proto::ProtoObject* prevTgtC    = t_activeNewTgt;
-                    const proto::ProtoList*   prevArgsC   = t_activeArgs;
+                    ActiveCallScope activeCallScope;
                     t_activeFunc = func;
                     t_activeNewTgt = nullptr;
                     t_activeArgs = argsList;
                     const proto::ProtoObject* childEx = PROTO_NONE;
                     const proto::ProtoObject* result =
-                        runBytecode(&childCtx, &nf, callThisVal, argsList, pGlobalRoot, &childEx);
-                    t_activeFunc = prevActiveC;
-                    t_activeNewTgt = prevTgtC;
-                    t_activeArgs = prevArgsC;
+                        runBytecode(&childCtx, &nf, callThisVal, argsList, pGlobalRoot);
                     REFRESH_INTERP_STATE();
                     anchorCallOutcome(childCtx, result, childEx);
                     if (childEx && childEx != PROTO_NONE) {
-                        pending_exception = childEx; has_pending_exception = true;
+                        pending_exception = childEx; throwJS(pContext, pending_exception);
                         DISPATCH();
                     }
                     if (is_tail_call) return result ? result : PROTO_NONE;
@@ -17179,7 +17305,7 @@ const proto::ProtoObject* runBytecode(proto::ProtoContext* pContext,
                     REFRESH_INTERP_STATE();
                     if (t_hasCallException) {
                         pending_exception  = t_callException;
-                        has_pending_exception = true;
+                        throwJS(pContext, pending_exception);
                         t_hasCallException = false;
                         t_callException    = nullptr;
                         DISPATCH();
@@ -17244,7 +17370,7 @@ const proto::ProtoObject* runBytecode(proto::ProtoContext* pContext,
                                 return PROTO_NONE;
                             }
                             pending_exception     = t_callException;
-                            has_pending_exception = true;
+                            throwJS(pContext, pending_exception);
                             t_hasCallException    = false;
                             t_callException       = nullptr;
                             stackPush(pContext, PROTO_NONE);
@@ -17282,7 +17408,7 @@ const proto::ProtoObject* runBytecode(proto::ProtoContext* pContext,
                                 regexpConstructor(pContext, newObj, nullptr, argsView(proto::ProtoListArguments(pContext, argsList)), nullptr);
                             if (t_hasCallException) {
                                 pending_exception = t_callException;
-                                has_pending_exception = true;
+                                throwJS(pContext, pending_exception);
                                 t_hasCallException = false;
                                 t_callException = nullptr;
                                 if (is_tail_call) return PROTO_NONE;
@@ -17312,7 +17438,7 @@ const proto::ProtoObject* runBytecode(proto::ProtoContext* pContext,
                                         for (uint32_t i = 0; i <= argc; i++) stackPop(pContext);
                                         pending_exception = makeError(pContext, "TypeError",
                                             "Cannot convert a Symbol value to a string", pGlobalRoot);
-                                        has_pending_exception = true;
+                                        throwJS(pContext, pending_exception);
                                         if (is_tail_call) return PROTO_NONE;
                                         stackPush(pContext, PROTO_NONE);
                                         DISPATCH();
@@ -17324,7 +17450,7 @@ const proto::ProtoObject* runBytecode(proto::ProtoContext* pContext,
                                 if (t_hasCallException) {
                                     for (uint32_t i = 0; i <= argc; i++) stackPop(pContext);
                                     pending_exception = t_callException;
-                                    has_pending_exception = true;
+                                    throwJS(pContext, pending_exception);
                                     t_hasCallException = false;
                                     t_callException = nullptr;
                                     if (is_tail_call) return PROTO_NONE;
@@ -17378,7 +17504,7 @@ const proto::ProtoObject* runBytecode(proto::ProtoContext* pContext,
                                         for (uint32_t i = 0; i <= 0; i++) {} // already popped above
                                         pending_exception = makeError(pContext, "RangeError",
                                             "Invalid array length", pGlobalRoot);
-                                        has_pending_exception = true;
+                                        throwJS(pContext, pending_exception);
                                         DISPATCH();
                                     }
                                     arrLength = ilen;
@@ -17452,7 +17578,7 @@ const proto::ProtoObject* runBytecode(proto::ProtoContext* pContext,
                             // family).
                             if (t_hasCallException) {
                                 pending_exception     = t_callException;
-                                has_pending_exception = true;
+                                throwJS(pContext, pending_exception);
                                 t_hasCallException    = false;
                                 t_callException       = nullptr;
                                 if (is_tail_call) return PROTO_NONE;
@@ -17496,7 +17622,7 @@ const proto::ProtoObject* runBytecode(proto::ProtoContext* pContext,
                                 // not silently fall back to the wrapper.
                                 if (t_hasCallException) {
                                     pending_exception  = t_callException;
-                                    has_pending_exception = true;
+                                    throwJS(pContext, pending_exception);
                                     t_hasCallException = false;
                                     t_callException    = nullptr;
                                     DISPATCH();
@@ -17537,7 +17663,7 @@ const proto::ProtoObject* runBytecode(proto::ProtoContext* pContext,
                             for (uint32_t i = 0; i <= argc; i++) stackPop(pContext);
                             pending_exception = makeError(pContext, "TypeError",
                                 "is not a function", pGlobalRoot);
-                            has_pending_exception = true;
+                            throwJS(pContext, pending_exception);
                             DISPATCH();
                         }
                     }
@@ -18110,7 +18236,7 @@ const proto::ProtoObject* runBytecode(proto::ProtoContext* pContext,
                 if (stackEmpty(pContext)) return PROTO_NONE;
                 if (isYieldStarStart(buf, len, pc)) {
                     if (yieldStarStartOp(pContext, pGlobalRoot, pending_exception) == kAsyncOpThrow)
-                        has_pending_exception = true;
+                        throwJS(pContext, pending_exception);
                     REFRESH_INTERP_STATE();
                     DISPATCH();
                 }
@@ -18121,7 +18247,7 @@ const proto::ProtoObject* runBytecode(proto::ProtoContext* pContext,
                 if (iterable == t_nullSentinel) {
                     pending_exception = makeError(pContext, "TypeError",
                         "null is not iterable", pGlobalRoot);
-                    has_pending_exception = true;
+                    throwJS(pContext, pending_exception);
                     DISPATCH();
                 }
                 if (!iterable || iterable == PROTO_NONE ||
@@ -18129,7 +18255,7 @@ const proto::ProtoObject* runBytecode(proto::ProtoContext* pContext,
                     iterable->isNone(pContext)) {
                     pending_exception = makeError(pContext, "TypeError",
                         "undefined is not iterable", pGlobalRoot);
-                    has_pending_exception = true;
+                    throwJS(pContext, pending_exception);
                     DISPATCH();
                 }
 
@@ -18177,7 +18303,7 @@ const proto::ProtoObject* runBytecode(proto::ProtoContext* pContext,
                     const proto::ProtoObject* iterator = callJSFunction(pContext, iterFn, iterable, emptyArgs2);
                     if (t_hasCallException) {
                         pending_exception  = t_callException;
-                        has_pending_exception = true;
+                        throwJS(pContext, pending_exception);
                         t_hasCallException = false;
                         t_callException    = nullptr;
                         DISPATCH();
@@ -18231,7 +18357,7 @@ const proto::ProtoObject* runBytecode(proto::ProtoContext* pContext,
                 pending_exception = makeError(pContext, "TypeError",
                     "object is not iterable (cannot read property Symbol.iterator)",
                     pGlobalRoot);
-                has_pending_exception = true;
+                throwJS(pContext, pending_exception);
                 DISPATCH();
             }
 
@@ -18314,7 +18440,7 @@ const proto::ProtoObject* runBytecode(proto::ProtoContext* pContext,
                             resultFO = callJSFunction(pContext, nextFnFO, arrObj, emptyArgsFO);
                             if (t_hasCallException) {
                                 pending_exception  = t_callException;
-                                has_pending_exception = true;
+                                throwJS(pContext, pending_exception);
                                 t_hasCallException = false;
                                 t_callException    = nullptr;
                                 DISPATCH();
@@ -18352,7 +18478,7 @@ const proto::ProtoObject* runBytecode(proto::ProtoContext* pContext,
                             pending_exception = makeNativeError(
                                 pContext, "TypeError",
                                 "Iterator result is not an object");
-                            has_pending_exception = true;
+                            throwJS(pContext, pending_exception);
                             DISPATCH();
                         }
                     }
@@ -18362,14 +18488,14 @@ const proto::ProtoObject* runBytecode(proto::ProtoContext* pContext,
                         ? resultFO->getAttribute(pContext, doneKeyFO, false) : PROTO_TRUE;
                     if ((!doneFO || doneFO == PROTO_NONE) && resultFO && resultFO != PROTO_NONE) {
                         const proto::ProtoObject* gd = invokeGetterIfPresent(resultFO, "done");
-                        if (has_pending_exception) DISPATCH();
+                        (void)0;
                         if (gd && gd != PROTO_NONE) doneFO = gd;
                     }
                     const proto::ProtoObject* valueFO = (resultFO && resultFO != PROTO_NONE && valueKeyFO)
                         ? resultFO->getAttribute(pContext, valueKeyFO, false) : PROTO_NONE;
                     if ((!valueFO || valueFO == PROTO_NONE) && resultFO && resultFO != PROTO_NONE) {
                         const proto::ProtoObject* gv = invokeGetterIfPresent(resultFO, "value");
-                        if (has_pending_exception) DISPATCH();
+                        (void)0;
                         if (gv && gv != PROTO_NONE) valueFO = gv;
                     }
                     const bool isDone = (doneFO && doneFO != PROTO_NONE) ? toBool(pContext, doneFO) : false;
@@ -18443,7 +18569,7 @@ const proto::ProtoObject* runBytecode(proto::ProtoContext* pContext,
             // no-op.
             L_OP_iterator_check_object: {
                 if (iteratorResultNotObject(pContext, pGlobalRoot, pending_exception))
-                    has_pending_exception = true;
+                    throwJS(pContext, pending_exception);
                 DISPATCH();
             }
 
@@ -18456,7 +18582,7 @@ const proto::ProtoObject* runBytecode(proto::ProtoContext* pContext,
                     const int r = iteratorClosePlainOp(pContext, pending_exception);
                     if (r >= 0) {
                         REFRESH_INTERP_STATE();
-                        if (r == kAsyncOpThrow) has_pending_exception = true;
+                        if (r == kAsyncOpThrow) throwJS(pContext, pending_exception);
                         DISPATCH();
                     }
                 }
@@ -18534,7 +18660,7 @@ const proto::ProtoObject* runBytecode(proto::ProtoContext* pContext,
                     const int r = iteratorNextPlainOp(pContext, pending_exception);
                     if (r >= 0) {
                         REFRESH_INTERP_STATE();
-                        if (r == kAsyncOpThrow) has_pending_exception = true;
+                        if (r == kAsyncOpThrow) throwJS(pContext, pending_exception);
                         DISPATCH();
                     }
                 }
@@ -18574,7 +18700,7 @@ const proto::ProtoObject* runBytecode(proto::ProtoContext* pContext,
                                 resultObjIN = callJSFunction(pContext, nextFnIN, actualIter, emptyArgsIN);
                                 if (t_hasCallException) {
                                     pending_exception  = t_callException;
-                                    has_pending_exception = true;
+                                    throwJS(pContext, pending_exception);
                                     t_hasCallException = false;
                                     t_callException    = nullptr;
                                     // Re-push [iter, nextMethod, catch_offset] before breaking so
@@ -18615,7 +18741,7 @@ const proto::ProtoObject* runBytecode(proto::ProtoContext* pContext,
                                 pending_exception = makeNativeError(
                                     pContext, "TypeError",
                                     "Iterator result is not an object");
-                                has_pending_exception = true;
+                                throwJS(pContext, pending_exception);
                                 stackPush(pContext, iterObjIN);
                                 stackPush(pContext, nextMethodIN);
                                 stackPush(pContext, catchOffIN ? catchOffIN
@@ -18696,7 +18822,7 @@ const proto::ProtoObject* runBytecode(proto::ProtoContext* pContext,
                     const int r = iteratorCallPlainOp(pContext, icFlags, pending_exception);
                     if (r >= 0) {
                         REFRESH_INTERP_STATE();
-                        if (r == kAsyncOpThrow) has_pending_exception = true;
+                        if (r == kAsyncOpThrow) throwJS(pContext, pending_exception);
                         DISPATCH();
                     }
                 }
@@ -18746,7 +18872,7 @@ const proto::ProtoObject* runBytecode(proto::ProtoContext* pContext,
                                     resIC = callJSFunction(pContext, nextFnIC, actualIterIC, argsIC);
                                     if (t_hasCallException) {
                                         pending_exception  = t_callException;
-                                        has_pending_exception = true;
+                                        throwJS(pContext, pending_exception);
                                         t_hasCallException = false;
                                         t_callException    = nullptr;
                                         icCallException    = true;
@@ -19314,7 +19440,7 @@ const proto::ProtoObject* runBytecode(proto::ProtoContext* pContext,
                                                catch_stack, false, pending_exception);
                     REFRESH_INTERP_STATE();
                     if (r == kAsyncOpSuspend) return asyncOwner;
-                    if (r == kAsyncOpThrow) has_pending_exception = true;
+                    if (r == kAsyncOpThrow) throwJS(pContext, pending_exception);
                     DISPATCH();
                 }
                 const proto::ProtoObject* yieldVal = stackTop(pContext);
@@ -19381,7 +19507,7 @@ const proto::ProtoObject* runBytecode(proto::ProtoContext* pContext,
                                            args, catch_stack, pending_exception);
                 REFRESH_INTERP_STATE();
                 if (r == kAsyncOpSuspend) return asyncOwner ? asyncOwner : PROTO_NONE;
-                if (r == kAsyncOpThrow) has_pending_exception = true;
+                if (r == kAsyncOpThrow) throwJS(pContext, pending_exception);
                 DISPATCH();
             }
 
@@ -19399,7 +19525,7 @@ const proto::ProtoObject* runBytecode(proto::ProtoContext* pContext,
                                            catch_stack, true, pending_exception);
                 REFRESH_INTERP_STATE();
                 if (r == kAsyncOpSuspend) return asyncOwner;
-                if (r == kAsyncOpThrow) has_pending_exception = true;
+                if (r == kAsyncOpThrow) throwJS(pContext, pending_exception);
                 DISPATCH();
             }
 
@@ -19408,7 +19534,7 @@ const proto::ProtoObject* runBytecode(proto::ProtoContext* pContext,
             // sync iterator wrapped by CreateAsyncFromSyncIterator.
             L_OP_for_await_of_start: {
                 if (forAwaitOfStartOp(pContext, pGlobalRoot, pending_exception) == kAsyncOpThrow)
-                    has_pending_exception = true;
+                    throwJS(pContext, pending_exception);
                 REFRESH_INTERP_STATE();
                 DISPATCH();
             }
@@ -19416,7 +19542,7 @@ const proto::ProtoObject* runBytecode(proto::ProtoContext* pContext,
             // OP_for_await_of_next: DEF(for_await_of_next, 1, 3, 4, none)
             L_OP_for_await_of_next: {
                 if (forAwaitOfNextOp(pContext, pending_exception) == kAsyncOpThrow)
-                    has_pending_exception = true;
+                    throwJS(pContext, pending_exception);
                 REFRESH_INTERP_STATE();
                 DISPATCH();
             }
@@ -19426,38 +19552,6 @@ const proto::ProtoObject* runBytecode(proto::ProtoContext* pContext,
                 std::fprintf(stderr, "[ProtoInterpreter] unsupported opcode 0x%02x at byte offset %d\n",
                     static_cast<unsigned>(opcode), static_cast<int>(pc - 1));
                 return PROTO_NONE;
-            }
-
-            // --- Exception dispatch ---
-            // If a case raised an exception (has_pending_exception flag),
-            // DISPATCH() above noticed and jumped here in lieu of fetching
-            // the next opcode.  Either jump to the nearest catch handler
-            // or propagate to the caller.  pending_exception may itself be
-            // PROTO_NONE (JS `throw undefined`) — use the flag.
-            handle_exception_label: {
-                has_pending_exception = false;
-                if (!catch_stack.empty()) {
-                    CatchFrame frame = catch_stack.back();
-                    catch_stack.pop_back();
-                    // Restore value stack: truncate to placeholder_stack_pos (the sentinel slot),
-                    // then push the exception.  This replaces the catch sentinel with the caught
-                    // value, matching QuickJS's behaviour where the tagged catch-offset integer is
-                    // replaced with the exception object at that same stack position.
-                    while (stackSize(pContext) > frame.placeholder_stack_pos) stackPop(pContext);
-                    stackPush(pContext, pending_exception);
-                    pc = frame.handler_pc;
-                    pending_exception = nullptr;
-                    // Continue executing from the catch handler — re-enter
-                    // the dispatch loop directly (DISPATCH() but bypassing
-                    // the has_pending_exception check we just satisfied).
-                    if (__builtin_expect(pc < 0 || pc >= len, 0)) goto exit_dispatch;
-                    globalObj = (pGlobalRoot && *pGlobalRoot) ? *pGlobalRoot : PROTO_NONE;
-                    opcode = (int)(unsigned char)buf[pc++];
-                    goto protojs_dispatch_switch;
-                } else {
-                    if (outException) *outException = pending_exception;
-                    return PROTO_NONE;
-                }
             }
 
             // The dispatch table as a switch. Every DISPATCH() comes here
@@ -19473,12 +19567,13 @@ const proto::ProtoObject* runBytecode(proto::ProtoContext* pContext,
 
             exit_dispatch: ;
     }
-    break;
+        return PROTO_NONE;
     } catch (const JSException& thrown) {
-        pending_exception = thrown.value();
-        has_pending_exception = true;
-        resumeAtHandler = true;
-    }
+        // Transitional (S4): an outermost caller that asks for the exception
+        // receives it instead of the C++ exception.
+        if (nested || !outException) throw;
+        *outException = thrown.value();
+        return PROTO_NONE;
     }
     #undef DISPATCH
     #undef PROTOJS_DISPATCH_JUMP
@@ -19736,9 +19831,7 @@ static void resumeContinuation(proto::ProtoContext* ctx, const proto::ProtoObjec
     childCtx.currentFileName = ctx->currentFileName;
     childCtx.currentLineNumber = ctx->currentLineNumber;
 
-    const proto::ProtoObject* prevFunc = t_activeFunc;
-    const proto::ProtoObject* prevNewTgt = t_activeNewTgt;
-    const proto::ProtoList* prevArgs = t_activeArgs;
+    ActiveCallScope activeCallScope;
     t_activeFunc = (func && func != PROTO_NONE) ? func : nullptr;
     t_activeNewTgt = nullptr;
     t_activeArgs = args;
@@ -19749,9 +19842,6 @@ static void resumeContinuation(proto::ProtoContext* ctx, const proto::ProtoObjec
     const proto::ProtoObject* exception = nullptr;
     const proto::ProtoObject* r = runBytecode(&childCtx, mod, thisObj, args,
                                                   t_currentGlobalRoot, &exception);
-    t_activeFunc = prevFunc;
-    t_activeNewTgt = prevNewTgt;
-    t_activeArgs = prevArgs;
     childCtx.returnValue = r;
     if (t_asyncSuspended) {
         t_asyncSuspended = false;
@@ -20412,9 +20502,12 @@ proto::ProtoContext* raisingContext() {
 }  // namespace
 
 struct JSException::Pin {
+    Pin(proto::ProtoRootSet* s, const proto::ProtoObject* v) : set(s), handle(s->add(v)) {}
+    Pin(const Pin&) = delete;
+    Pin& operator=(const Pin&) = delete;
+    ~Pin() { set->remove(handle); }
     proto::ProtoRootSet* set;
     proto::ProtoRootSet::Handle handle;
-    ~Pin() { set->remove(handle); }
 };
 
 JSException::JSException(proto::ProtoContext* ctx, const proto::ProtoObject* value)
@@ -20423,7 +20516,7 @@ JSException::JSException(proto::ProtoContext* ctx, const proto::ProtoObject* val
     // sentinels' immediates) are not collected.
     if (ctx && ctx->space && value_ != PROTO_NONE && value_->isCell(ctx)) {
         proto::ProtoRootSet* rs = exceptionRootSet(ctx->space);
-        pin_ = std::make_shared<Pin>(Pin{rs, rs->add(value_)});
+        pin_ = std::make_shared<Pin>(rs, value_);
     }
 }
 
@@ -20659,14 +20752,11 @@ const proto::ProtoObject* callJSFunction(
         // callJSFunction(parent_ctor, ...), the parent ctor's body needs to
         // see the same new_target so its own OP_init_ctor (in a deeper
         // derivation) targets the right prototype.
-        const proto::ProtoObject* prevActiveK = t_activeFunc;
-        const proto::ProtoList*   prevArgsK   = t_activeArgs;
+        ActiveCallScope activeCallScope;
         t_activeFunc = fn;
         t_activeArgs = argsList;
         const proto::ProtoObject* result =
-            runBytecode(&childCtx, &nf, effectiveThis, argsList, globalRoot, &childEx);
-        t_activeFunc = prevActiveK;
-        t_activeArgs = prevArgsK;
+            runBytecode(&childCtx, &nf, effectiveThis, argsList, globalRoot);
         anchorCallOutcome(childCtx, result, childEx);
         // The callee's exception propagates to the native caller as a C++
         // exception.
