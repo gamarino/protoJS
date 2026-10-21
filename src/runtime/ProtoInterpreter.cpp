@@ -8833,7 +8833,7 @@ static const proto::ProtoObject* runBytecodeImpl(proto::ProtoContext* pContext,
         hasThrowOnResume = true;
         throwOnResume = *nested->throwOnResume;
     }
-    try {
+    {
         if (depth < resumedRanges) {
             NestedLevel range{&catch_stack, pc, asyncOwner, asyncKind, depth + 1, resumedRanges,
                               hasThrowOnResume ? &throwOnResume : nullptr};
@@ -18965,8 +18965,6 @@ static const proto::ProtoObject* runBytecodeImpl(proto::ProtoContext* pContext,
             exit_dispatch: ;
     }
         return PROTO_NONE;
-    } catch (const JSException&) {
-        throw;
     }
     #undef DISPATCH
     #undef PROTOJS_DISPATCH_JUMP

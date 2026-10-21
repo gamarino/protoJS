@@ -227,15 +227,14 @@ Anything else the callee hands back -- through an out-parameter, a C++ local or 
 thread-local -- is unreachable once the child context ends, and the next
 allocation may collect it.
 
-The interpreter therefore sets the child's return value to the call's
-**outcome**: the exception when the callee threw, otherwise the result
-(`anchorCallOutcome` in `src/runtime/ProtoInterpreter.cpp`), at every site that
-runs `runBytecode` in a child context. Before that, an exception travelled back
-only through `childEx`, `pending_exception` and the `t_callException`
-thread-local; a native that ran more JavaScript before rethrowing it
-(IteratorClose calling `return()`) handed the catch block freed cells
-(`cli/gc-exceptions`, `tests/integration/gc/exception_across_contexts.js`).
-New code that runs a callee in a child context must do the same.
+A JavaScript exception is a C++ exception, `protojs::JSException`
+(`src/runtime/ProtoInterpreter.h`), and unwinding ends the child contexts that
+allocated the thrown value. The JSException therefore pins the value in a root set
+of its ProtoSpace for as long as any copy of it exists, from the throw to the
+catch that consumes it; a native that catches it, runs more JavaScript
+(IteratorClose calling `return()`) and rethrows keeps it pinned
+(`cli/gc-exceptions`, `tests/integration/gc/exception_across_contexts.js`). A call
+that returns normally still anchors its result as the child's return value.
 
 ### Interpreter thread-locals (audit, 2026-10-04)
 
@@ -246,7 +245,6 @@ allocates.
 
 | Thread-local | Holds | Status |
 |---|---|---|
-| `t_callException` | an exception between a callee and the native or handler that consumes it | Was unrooted; now anchored in the caller's context (above). |
 | `t_activeFunc` | the function whose body runs | The call sites pop the callee before the call, so a function the program drops while it runs was referenced only here. Now also stored in the frame's slot `totalSlots - 3` for the activation. A failing test could not be built: no reader observed the freed cell. |
 | `t_activeArgs`, `t_activeNewTgt` | the arguments list and `new.target` | Allocated in, or reachable from, the caller's live context for the whole call. |
 | `t_currentFrameObj` | the lazily made frame object | Allocated in the running activation's context, which is alive while it is current; the outer value is restored on exit. |
