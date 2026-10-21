@@ -40,6 +40,33 @@ The rule that governs this is documented for contributors in
 [GC_BRIDGING.md](GC_BRIDGING.md), which now covers both which protoJS threads are
 registered and what a finalizer may and may not do.
 
+## Regression gate — 2026-10-20, protoCore 3.0.0 and the one-lookup reads
+
+Two changes checked against the whole corpus, test by test: the migration to
+protoCore 3.0.0's descriptor calling convention (`6eb210146`, protoCore
+`cf52f9f5`) and the one-lookup named property reads with the one-comparison
+`isCell` (`738868d4b`). Three binaries, each run over the whole corpus at
+corpus commit `aae8cf6e` with `TEST262_CONCURRENCY=4` (the safe ceiling on
+this machine), and their sets of passing tests compared:
+
+| Binary | Passed of 53,571 | Timeouts | vs. the previous row |
+|---|---:|---:|---|
+| master on protoCore 2.14.8 (`45658eafa`) | 33,823 | 551 | — |
+| protoCore 3.0.0 migration (`6eb210146`) | 33,824 | 551 | 0 newly failing, 1 newly passing |
+| one-lookup reads (`738868d4b`) | 33,824 | 551 | 0 newly failing, 0 newly passing |
+
+The newly passing test, `staging/sm/object/getOwnPropertyDescriptor.js`,
+passes three runs out of three on the migration and fails three out of three
+on 2.14.8: a real change of the migration, not timing. The 551 timeouts come
+from running four tests at once and are the same set in all three runs; this
+is why these counts sit below the sequential headline figure in
+[TEST262_STATUS.md](TEST262_STATUS.md) and must not be quoted as a
+conformance figure.
+
+The per-commit gate (`tests/test262/runner/regression_gate.py`,
+`built-ins/{Object,Reflect,Proxy}`) on the one-lookup binary: 3,755 of 3,875,
+the failure set exactly the baseline.
+
 ## Regression gate — 2026-09-26, against protoCore 2.5.0 (`df8406a3`)
 
 `build_release` rebuilt **from clean** with **no `-j`** and re-run

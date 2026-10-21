@@ -43,6 +43,12 @@ whole corpus keeps the runner's log and snapshot as the artifact
 | Wall clock | 1,993 s (33 min), sequential, `TEST262_CONCURRENCY=1` |
 | protoCore | 2.14.5 (`063c6d55`), the CI pin |
 
+Whole-corpus runs of 2026-10-20 (protoCore 3.0.0 migration and the
+one-lookup property reads) were compared test by test against master and are
+recorded in [CONFORMANCE.md](CONFORMANCE.md): no test newly fails, one newly
+passes. They ran four tests at once, so their totals are not a new headline
+figure.
+
 `TEST262_CONCURRENCY=1` is not a preference: parallel Test262 runs hang the
 development machine, so the run is sequential. Builds may use `-j4`, which was
 verified safe on that machine on 2026-10-02.
