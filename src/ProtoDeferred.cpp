@@ -92,7 +92,11 @@ std::string describeThrownValue(proto::ProtoContext* ctx, const proto::ProtoObje
 // the program carried on to exit with status 0.
 void drainCallbackException(proto::ProtoContext* ctx, const char* where) {
     if (!hasCallException()) return;
-    const proto::ProtoObject* exc = consumeCallException();
+    reportUncaughtException(ctx, where, consumeCallException());
+}
+
+void reportUncaughtException(proto::ProtoContext* ctx, const char* where,
+                             const proto::ProtoObject* exc) {
     std::cerr << "Uncaught exception in " << where << ": "
               << describeThrownValue(ctx, exc) << std::endl;
     platform::exitNow(1);
@@ -165,13 +169,14 @@ const proto::ProtoObject* newDeferredObject(proto::ProtoContext* ctx) {
 void runInline(proto::ProtoContext* ctx, const proto::ProtoObject* fn,
                const proto::ProtoObject* d) {
     const proto::ProtoObject* u = getUndefinedSentinel();
-    const proto::ProtoObject* result = callJSFunction(ctx, fn, u ? u : PROTO_NONE, ctx->newList());
-    if (hasCallException()) {
-        const proto::ProtoObject* reason = consumeCallException();
-        rejectPromise(ctx, d, reason ? reason : PROTO_NONE);
-    } else {
-        resolvePromise(ctx, d, result ? result : PROTO_NONE);
+    const proto::ProtoObject* result = nullptr;
+    try {
+        result = callJSFunction(ctx, fn, u ? u : PROTO_NONE, ctx->newList());
+    } catch (const JSException& thrown) {
+        rejectPromise(ctx, d, thrown.value());
+        return;
     }
+    resolvePromise(ctx, d, result ? result : PROTO_NONE);
 }
 
 // new Deferred(fn) / Deferred(fn): run fn on the Deferred pool (DeferredPool.h)

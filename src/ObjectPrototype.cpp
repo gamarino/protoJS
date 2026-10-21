@@ -1,4 +1,5 @@
 #include "ProtoCoreTypes.h"
+#include <exception>
 #include "ObjectPrototype.h"
 #include "runtime/LazyPrototype.h"
 #include "ArrayPrototype.h"
@@ -289,10 +290,14 @@ static void collectOwnKeys(
         bool mightHaveAccessors;
         bool aborted;
         bool isTA;
+        // A getter's exception, held while processElements (protoCore)
+        // is on the stack and rethrown once it returns: a C++ exception
+        // must not unwind through the walk.
+        std::exception_ptr thrown;
     } state{ctx, obj, &keys, vals, isArr ? &arrayIndexSet : nullptr,
             lenSymbol, isArr,
             includeNonEnumerable, mightHaveNonWritable,
-            mightHaveAccessors, false, isTA};
+            mightHaveAccessors, false, isTA, nullptr};
     auto cb = [](proto::ProtoContext* cbCtx, void* selfV,
                  proto::proto_ulong rawKey, const proto::ProtoObject* val) {
         CollectState* s = static_cast<CollectState*>(selfV);
@@ -385,10 +390,13 @@ static void collectOwnKeys(
             }
             if (getter && getter != PROTO_NONE && getter != getUndefinedSentinel()) {
                 const proto::ProtoList* noArgs = cbCtx->newList();
-                const proto::ProtoObject* gres = callJSFunction(cbCtx, getter, s->obj, noArgs);
-                if (hasCallException()) {
+                const proto::ProtoObject* gres = nullptr;
+                try {
+                    gres = callJSFunction(cbCtx, getter, s->obj, noArgs);
+                } catch (const JSException&) {
                     s->vals->push_back(PROTO_NONE);
                     s->aborted = true;
+                    s->thrown = std::current_exception();
                     return;
                 }
                 s->vals->push_back(gres ? gres : PROTO_NONE);
@@ -399,6 +407,7 @@ static void collectOwnKeys(
     };
     own->processElements(ctx, &state,
         static_cast<void(*)(proto::ProtoContext*, void*, proto::proto_ulong, const proto::ProtoObject*)>(cb));
+    if (state.thrown) std::rethrow_exception(state.thrown);
 
     // The property dictionary (runtime/PropertyDictionary.h): enumerable
     // plain data keys in insertion order, after the named string keys. Arrays
@@ -4968,12 +4977,18 @@ static const proto::ProtoObject* objectFromEntries(
         // intentionally allowed to replace the original abrupt — the
         // test262 close-on-* fixtures only assert that .return was
         // called, not which exception finally surfaces.
+        // IteratorClose on a throw completion, from the handler of the
+        // original exception (which the caller rethrows): an exception
+        // from return() is discarded (§7.4.10).
         auto closeAndPropagate = [&]() -> const proto::ProtoObject* {
             if (returnKey && iter) {
                 const proto::ProtoObject* retFn = iter->getAttribute(ctx, returnKey, true);
                 if (retFn && retFn != PROTO_NONE) {
                     const proto::ProtoList* noA = ctx->newList();
-                    (void)callJSFunction(ctx, retFn, iter, noA);
+                    try {
+                        (void)callJSFunction(ctx, retFn, iter, noA);
+                    } catch (const JSException&) {
+                    }
                 }
             }
             return PROTO_NONE;
@@ -5016,8 +5031,12 @@ static const proto::ProtoObject* objectFromEntries(
             // propagate without iterator.return either (the spec only
             // closes for abrupt completions after a successful step).
             if (hasCallException()) return PROTO_NONE;
-            processPair(pair);
-            if (hasCallException()) return closeAndPropagate();
+            try {
+                processPair(pair);
+            } catch (const JSException&) {
+                closeAndPropagate();
+                throw;
+            }
             if (++safety > 100000) break;
         }
         return result;

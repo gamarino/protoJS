@@ -993,6 +993,15 @@ const proto::ProtoObject* JSONBuiltin::stringify(proto::ProtoContext* ctx,
         ~ReplacerGuard() { tlReplacerFn = prev; }
     };
     ReplacerGuard replGuard(replacerFnLocal);
+    // The walk publishes the current key in tlCurrentKey and restores it as
+    // it returns; an exception (a JSException from toJSON, a replacer or a
+    // getter) unwinds past those restores, so the key is restored here.
+    struct CurrentKeyGuard {
+        std::string prev;
+        CurrentKeyGuard() : prev(tlCurrentKey) {}
+        ~CurrentKeyGuard() { tlCurrentKey = prev; }
+    };
+    CurrentKeyGuard keyGuard;
 
     // ECMA-262 §25.5.2 step 6: derive the indent unit from arg[2].
     // - Number: ToInteger, min(10, n) spaces.

@@ -211,35 +211,41 @@ void MicrotaskQueue::runJob(proto::ProtoContext* ctx, const proto::ProtoObject* 
         const proto::ProtoObject* v = job->getAt(ctx, i);
         return v ? v : PROTO_NONE;
     };
-    switch (kind) {
-    case kReactionJob: {
-        const proto::ProtoObject* st = at(3);
-        promiseReactionJob(ctx, at(1), at(2),
-                           (st && st->isInteger(ctx)) ? static_cast<int>(st->asLong(ctx)) : 1);
-        break;
-    }
-    case kResolveThenableJob:
-        promiseResolveThenableJob(ctx, at(1), at(2), at(3));
-        break;
-    case kCallbackJob:
-        callJSFunction(ctx, at(1), getUndefinedSentinel(), ctx->newList());
-        // An exception escaping a microtask is uncaught, as in Node.
-        drainCallbackException(ctx, "microtask");
-        break;
-    case kNativeJob: {
-        const proto::ProtoObject* idObj = at(1);
-        const long long id = (idObj && idObj->isInteger(ctx)) ? idObj->asLong(ctx) : 0;
-        auto it = nativeJobs_.find(id);
-        if (it != nativeJobs_.end()) {
-            NativeJob fn = std::move(it->second);
-            nativeJobs_.erase(it);
-            if (fn) fn(ctx);
-            drainCallbackException(ctx, "microtask");
+    // A job is a boundary: an exception escaping it (a microtask callback,
+    // a native job) is uncaught, as in Node.
+    try {
+        switch (kind) {
+        case kReactionJob: {
+            const proto::ProtoObject* st = at(3);
+            promiseReactionJob(ctx, at(1), at(2),
+                               (st && st->isInteger(ctx)) ? static_cast<int>(st->asLong(ctx)) : 1);
+            break;
         }
-        break;
-    }
-    default:
-        break;
+        case kResolveThenableJob:
+            promiseResolveThenableJob(ctx, at(1), at(2), at(3));
+            break;
+        case kCallbackJob:
+            callJSFunction(ctx, at(1), getUndefinedSentinel(), ctx->newList());
+            // An exception escaping a microtask is uncaught, as in Node.
+            drainCallbackException(ctx, "microtask");
+            break;
+        case kNativeJob: {
+            const proto::ProtoObject* idObj = at(1);
+            const long long id = (idObj && idObj->isInteger(ctx)) ? idObj->asLong(ctx) : 0;
+            auto it = nativeJobs_.find(id);
+            if (it != nativeJobs_.end()) {
+                NativeJob fn = std::move(it->second);
+                nativeJobs_.erase(it);
+                if (fn) fn(ctx);
+                drainCallbackException(ctx, "microtask");
+            }
+            break;
+        }
+        default:
+            break;
+        }
+    } catch (const JSException& thrown) {
+        reportUncaughtException(ctx, "microtask", thrown.value());
     }
 }
 

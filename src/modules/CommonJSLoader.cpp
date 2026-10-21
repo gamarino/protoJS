@@ -564,7 +564,19 @@ JSValue CommonJSLoader::requireImpl(JSContext* ctx, JSValueConst this_val, int a
     }
     JS_FreeValue(ctx, global_obj);
     
-    JSValue result = require(specifier, fromPath, ctx);
+    // A QuickJS C callback: a C++ exception must not unwind through QuickJS,
+    // so a JavaScript exception raised while loading is raised on the QuickJS
+    // context instead.
+    JSValue result = JS_UNDEFINED;
+    try {
+        result = require(specifier, fromPath, ctx);
+    } catch (const JSException& thrown) {
+        JS_FreeCString(ctx, specifier);
+        JSContextWrapper* wrapper = static_cast<JSContextWrapper*>(JS_GetContextOpaque(ctx));
+        proto::ProtoContext* pContext = wrapper ? wrapper->getProtoContext() : nullptr;
+        if (!pContext) return JS_ThrowInternalError(ctx, "require: uncaught exception");
+        return JS_Throw(ctx, TypeBridge::toJS(ctx, thrown.value(), pContext));
+    }
     JS_FreeCString(ctx, specifier);
     
     return result;
@@ -684,8 +696,16 @@ static const proto::ProtoObject* executeFileModuleNative(
     // module alive for the wrapper's lifetime, pins its metadata, runs on the
     // native global, and returns the wrapper closure stamped with
     // __closure_module__.
-    const proto::ProtoObject* wrapperFn =
-        wrapper->evalIsolatedToProto(wrapped, filePath);
+    // A module that failed to compile or threw is not kept -- as in Node, the
+    // next require runs it again rather than serving a half-built exports
+    // object.  The exception propagates to the caller of require().
+    const proto::ProtoObject* wrapperFn = nullptr;
+    try {
+        wrapperFn = wrapper->evalIsolatedToProto(wrapped, filePath);
+    } catch (const JSException&) {
+        if (cache && cacheKey) cache->setAttribute(pCtx, cacheKey, PROTO_NONE);
+        throw;
+    }
     if (!wrapperFn || wrapperFn == PROTO_NONE) {
         if (cache && cacheKey) cache->setAttribute(pCtx, cacheKey, PROTO_NONE);
         // A compile failure has already signalled a precise SyntaxError; report
@@ -714,15 +734,11 @@ static const proto::ProtoObject* executeFileModuleNative(
     argsList = argsList->appendLast(pCtx, pCtx->fromUTF8String(filePath.c_str()));
     argsList = argsList->appendLast(pCtx, pCtx->fromUTF8String(dirName.c_str()));
 
-    callJSFunction(pCtx, wrapperFn, PROTO_NONE, argsList);
-
-    if (hasCallException()) {
-        // Leave the exception pending: the interpreter promotes it once this
-        // native method returns.  A module that threw is not kept -- as in
-        // Node, the next require runs the body again rather than serving a
-        // half-built exports object.
+    try {
+        callJSFunction(pCtx, wrapperFn, PROTO_NONE, argsList);
+    } catch (const JSException&) {
         if (cache && cacheKey) cache->setAttribute(pCtx, cacheKey, PROTO_NONE);
-        return PROTO_NONE;
+        throw;
     }
 
     setAttr(pCtx, moduleObj, "loaded", PROTO_TRUE);

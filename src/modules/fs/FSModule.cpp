@@ -613,9 +613,13 @@ const proto::ProtoObject* runWithCallback(proto::ProtoContext* ctx,
                 }
                 const ProtoBytecodeModule* mod =
                     static_cast<const ProtoBytecodeModule*>(wrapper->getRootModule());
-                callJSFunctionFromAsync(c, cb, PROTO_NONE, cbArgs, mod,
-                                        wrapper->getNativeGlobalRootPtr());
-                drainCallbackException(c, "fs callback");
+                // An exception escaping the callback is uncaught, as in Node.
+                try {
+                    callJSFunctionFromAsync(c, cb, PROTO_NONE, cbArgs, mod,
+                                            wrapper->getNativeGlobalRootPtr());
+                } catch (const JSException& thrown) {
+                    reportUncaughtException(c, "fs callback", thrown.value());
+                }
             }
             if (rs) rs->remove(pin);
             g_activeCallbacks.fetch_sub(1);

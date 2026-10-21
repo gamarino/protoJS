@@ -3,6 +3,7 @@
 #include "JSContext.h"
 #include "CPUThreadPool.h"
 #include "EventLoop.h"
+#include "runtime/ProtoInterpreter.h"
 #include "protoCore.h"
 #include <iostream>
 #include <memory>
@@ -399,6 +400,10 @@ void Deferred::runDeferredTaskInProtoThread(std::shared_ptr<DeferredTask> task) 
         } else {
             enqueueResolve(task, nullptr, 0);
         }
+    } catch (const JSException&) {
+        // A JavaScript exception must not escape this thread; eval reports
+        // the function's own exceptions, so this is one raised around it.
+        enqueueReject(task, "Uncaught exception in Deferred function");
     } catch (const std::exception& e) {
         enqueueReject(task, e.what());
     }

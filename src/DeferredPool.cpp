@@ -192,17 +192,19 @@ void DeferredPool::runTask(proto::ProtoContext* root, const Task& task,
     // The function stays pinned until it has returned.
     const proto::ProtoObject* fn = rs->resolve(task.fn);
     const proto::ProtoObject* undefinedValue = getUndefinedSentinel();
-    const proto::ProtoObject* result = callJSFunctionFromAsync(
-        &taskCtx, fn, undefinedValue ? undefinedValue : PROTO_NONE, taskCtx.newList(),
-        task.module, &globalSlot);
+    // Pin the outcome before anything else allocates.  An exception must not
+    // escape this pool thread: it rejects the Deferred.
     bool threw = false;
-    if (hasCallException()) {
+    proto::ProtoRootSet::Handle outcome = proto::ProtoRootSet::kNullHandle;
+    try {
+        const proto::ProtoObject* result = callJSFunctionFromAsync(
+            &taskCtx, fn, undefinedValue ? undefinedValue : PROTO_NONE, taskCtx.newList(),
+            task.module, &globalSlot);
+        outcome = rs->add(result ? result : PROTO_NONE);
+    } catch (const JSException& thrown) {
         threw = true;
-        result = consumeCallException();
+        outcome = rs->add(thrown.value());
     }
-    if (!result) result = PROTO_NONE;
-    // Pin the outcome before anything else allocates.
-    const proto::ProtoRootSet::Handle outcome = rs->add(result);
     rs->remove(task.fn);
 
     // Jobs the function queued on this thread (an async helper that settled,

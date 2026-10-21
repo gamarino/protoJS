@@ -4630,18 +4630,15 @@ static const proto::ProtoObject* arraySort(
     // swallowed the abrupt and returned false, so toSorted /
     // toSorted-via-sort kept hammering the comparator after the
     // first throw (built-ins/Array/prototype/toSorted/comparefn-
-    // stop-after-error).  std::stable_sort cannot be cancelled
-    // mid-call, so use a sticky abort flag — once set, the lambda
-    // short-circuits and we propagate the exception after the sort
-    // returns.
-    bool comparatorAborted = false;
+    // stop-after-error).  The comparator's exception (a JSException)
+    // unwinds out of std::stable_sort, which cancels the sort; the
+    // elements are plain pointers and `defined` is discarded, so the
+    // basic exception guarantee of the algorithm suffices.
     auto less = [&](const proto::ProtoObject* a, const proto::ProtoObject* b) -> bool {
-        if (comparatorAborted) return false;
         if (hasFn) {
             const proto::ProtoObject* cbItems[2] = {a ? a : PROTO_NONE, b ? b : PROTO_NONE};
             const proto::ProtoArguments cbArgs(cbItems, 2);   // no list per comparison
             const proto::ProtoObject* res = callJSFunction(ctx, fn, PROTO_NONE, &cbArgs);
-            if (hasCallException()) { comparatorAborted = true; return false; }
             if (!res || res == PROTO_NONE) return false;
             if (res->isInteger(ctx)) return res->asLong(ctx) < 0;
             if (res->isDouble(ctx) || res->isFloat(ctx)) return res->asDouble(ctx) < 0.0;
@@ -4652,7 +4649,6 @@ static const proto::ProtoObject* arraySort(
     };
 
     std::stable_sort(defined.begin(), defined.end(), less);
-    if (comparatorAborted) return PROTO_NONE;
 
     // Write back: sorted defined values, then explicit-undefined,
     // then holes preserved as ABSENT slots per §23.1.3.30 step 6
@@ -5585,7 +5581,12 @@ static const proto::ProtoObject* arrayFrom(
                 const proto::ProtoObject* returnFn =
                     iter->getAttribute(ctx, returnK, true);
                 if (!returnFn || returnFn == PROTO_NONE) return;
-                callJSFunction(ctx, returnFn, iter, ctx->newList());
+                // Called from the handler of the original exception, which
+                // the caller rethrows.
+                try {
+                    callJSFunction(ctx, returnFn, iter, ctx->newList());
+                } catch (const JSException&) {
+                }
             };
             while (nextFn && nextFn != PROTO_NONE) {
                 const proto::ProtoList* nArgs = ctx->newList();
@@ -5597,12 +5598,16 @@ static const proto::ProtoObject* arrayFrom(
                 if (!dv || dv == PROTO_NONE)
                     dv = res->getAttribute(ctx, doneKey, false);
                 if (dv == PROTO_TRUE) break;
-                const proto::ProtoObject* vv = invokeAccessor(res, valueKey);
-                if (hasCallException()) { closeIteratorPre(); return PROTO_NONE; }
-                if (!vv || vv == PROTO_NONE)
-                    vv = res->getAttribute(ctx, valueKey, false);
-                const proto::ProtoObject* mapped = applyMap(vv, idx);
-                if (hasCallException()) { closeIteratorPre(); return PROTO_NONE; }
+                const proto::ProtoObject* mapped = nullptr;
+                try {
+                    const proto::ProtoObject* vv = invokeAccessor(res, valueKey);
+                    if (!vv || vv == PROTO_NONE)
+                        vv = res->getAttribute(ctx, valueKey, false);
+                    mapped = applyMap(vv, idx);
+                } catch (const JSException&) {
+                    closeIteratorPre();
+                    throw;
+                }
                 resultEls = resultEls->appendLast(ctx, mapped ? mapped : PROTO_NONE);
                 idx++;
                 if (idx > 100000) break; // safety
@@ -5637,13 +5642,23 @@ static const proto::ProtoObject* arrayFrom(
                 // The return() invocation may itself throw — those
                 // abrupt completions are discarded when the outer
                 // completion is also abrupt (§7.4.6 IteratorClose step
-                // 6).  Our simpler model: best-effort call; if it
-                // raises, the original exception is still in flight.
-                callJSFunction(ctx, returnFn, iter, ctx->newList());
+                // 6).  Called from the handler of the original
+                // exception, which the caller rethrows.
+                try {
+                    callJSFunction(ctx, returnFn, iter, ctx->newList());
+                } catch (const JSException&) {
+                }
             };
             for (long long i = 0; i < idx; i++) {
-                if (arrayThrowIfCreateDataPropertyFails(ctx, result,
-                        static_cast<proto::proto_ulong>(i))) {
+                bool createFails = false;
+                try {
+                    createFails = arrayThrowIfCreateDataPropertyFails(ctx, result,
+                        static_cast<proto::proto_ulong>(i));
+                } catch (const JSException&) {
+                    closeIterator();
+                    throw;
+                }
+                if (createFails) {
                     closeIterator();
                     return PROTO_NONE;
                 }

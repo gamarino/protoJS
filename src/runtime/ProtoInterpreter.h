@@ -8,9 +8,32 @@
 
 #include "ProtoBytecodeModule.h"
 #include "protoCore.h"
+#include <memory>
 #include <vector>
 
 namespace protojs {
+
+/**
+ * A JavaScript exception in flight is a C++ exception: `throw` (OP_throw) and
+ * a native that raises (signalNativeException) throw a JSException carrying
+ * the thrown value, which may be any value (`throw undefined` included).  The
+ * value is pinned in a root set of its ProtoSpace while any copy of the
+ * JSException exists: unwinding ends the contexts that allocated it, which no
+ * longer anchor it.
+ */
+class JSException {
+public:
+    JSException(proto::ProtoContext* ctx, const proto::ProtoObject* value);
+    /** The thrown value. */
+    const proto::ProtoObject* value() const { return value_; }
+private:
+    struct Pin;
+    const proto::ProtoObject* value_;
+    std::shared_ptr<Pin> pin_;
+};
+
+/** Throws `value` as a JSException (the context pins it). */
+[[noreturn]] void throwJS(proto::ProtoContext* ctx, const proto::ProtoObject* value);
 
 /**
  * Run the loaded bytecode module with the given `this` value, arguments and
@@ -138,7 +161,7 @@ const proto::ProtoObject** getCurrentGlobalRoot();
  * Only one pending exception is stored at a time; calling this twice before the
  * interpreter checks it will overwrite the first exception.
  */
-void signalNativeException(const proto::ProtoObject* errorObj);
+[[noreturn]] void signalNativeException(const proto::ProtoObject* errorObj);
 
 /**
  * The ECMAScript global object for the value of a global root slot.  The root

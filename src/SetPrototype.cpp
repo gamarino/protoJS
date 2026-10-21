@@ -219,7 +219,6 @@ static bool iterateSetLikeKeys(proto::ProtoContext* ctx,
     // iterator (test262 set-like-iter-return.js cases on
     // isDisjointFrom / isSubsetOf / isSupersetOf).
     auto closeIter = [&]() {
-        const proto::ProtoObject* savedEx = consumeCallException();
         const proto::ProtoObject* rKo = ctx->fromUTF8String("return");
         const proto::ProtoString* rKs = rKo ? rKo->asString(ctx) : nullptr;
         if (rKs) {
@@ -227,11 +226,14 @@ static bool iterateSetLikeKeys(proto::ProtoContext* ctx,
             if (retFn && retFn != PROTO_NONE
                 && retFn != getUndefinedSentinel()
                 && retFn != getNullSentinel()) {
-                callJSFunction(ctx, retFn, iter, ctx->newList());
-                (void)consumeCallException();
+                // Discard any throw from return(): on a throw completion
+                // the caller rethrows the original abrupt.
+                try {
+                    callJSFunction(ctx, retFn, iter, ctx->newList());
+                } catch (const JSException&) {
+                }
             }
         }
-        if (savedEx) signalNativeException(savedEx);
     };
     // Probe `__get_next__` once before the loop — class-style
     // iterators install `next` as an accessor on the prototype, so
@@ -293,7 +295,14 @@ static bool iterateSetLikeKeys(proto::ProtoContext* ctx,
         // §24.2.1.2 (GetSetRecord-driven loops) step 7.b.ii: if nextValue
         // is -0𝔽, set nextValue to +0𝔽 BEFORE handing it to the operation.
         if (val) val = normalizeSetVal(ctx, val);
-        if (!emit(val ? val : PROTO_NONE)) {
+        bool more = false;
+        try {
+            more = emit(val ? val : PROTO_NONE);
+        } catch (const JSException&) {
+            closeIter();
+            throw;
+        }
+        if (!more) {
             closeIter();
             return false;
         }
@@ -809,7 +818,6 @@ static const proto::ProtoObject* setConstruct(
                     return PROTO_NONE;
                 }
                 auto closeIter = [&]() {
-                    const proto::ProtoObject* savedEx = consumeCallException();
                     const proto::ProtoObject* rKo = ctx->fromUTF8String("return");
                     const proto::ProtoString* rKs = rKo ? rKo->asString(ctx) : nullptr;
                     if (rKs) {
@@ -818,11 +826,14 @@ static const proto::ProtoObject* setConstruct(
                             && retFn != getUndefinedSentinel()
                             && retFn != getNullSentinel()) {
                             const proto::ProtoList* retArgs = ctx->newList();
-                            callJSFunction(ctx, retFn, iterator, retArgs);
-                            (void)consumeCallException();
+                            // Discard any throw from return(): on a throw completion
+                            // the caller rethrows the original abrupt.
+                            try {
+                                callJSFunction(ctx, retFn, iterator, retArgs);
+                            } catch (const JSException&) {
+                            }
                         }
                     }
-                    if (savedEx) signalNativeException(savedEx);
                 };
                 while (true) {
                     const proto::ProtoList* nextArgs = ctx->newList();
@@ -846,30 +857,34 @@ static const proto::ProtoObject* setConstruct(
                     bool done = doneV == PROTO_TRUE
                         || (doneV && doneV->isBoolean(ctx) && doneV->asBoolean(ctx));
                     if (done) break;
-                    const proto::ProtoString* valKs =
-                        ctx->fromUTF8String("value")->asString(ctx);
-                    const proto::ProtoObject* val = nullptr;
-                    // §7.4.4 IteratorValue: fire `__get_value__` accessor
-                    // so a throwing `get value` propagates.
-                    {
-                        const proto::ProtoObject* gko = ctx->fromUTF8String("__get_value__");
-                        const proto::ProtoString* gks = gko ? gko->asString(ctx) : nullptr;
-                        if (gks) {
-                            const proto::ProtoObject* getter = stepRes->getAttribute(ctx, gks, true);
-                            if (getter && getter != PROTO_NONE) {
-                                val = callJSFunction(ctx, getter, stepRes, ctx->newList());
-                                if (hasCallException()) { closeIter(); return PROTO_NONE; }
+                    // An abrupt completion of the value getter or the adder
+                    // closes the iterator before it propagates (§7.4.10).
+                    try {
+                        const proto::ProtoString* valKs =
+                            ctx->fromUTF8String("value")->asString(ctx);
+                        const proto::ProtoObject* val = nullptr;
+                        // §7.4.4 IteratorValue: fire `__get_value__` accessor
+                        // so a throwing `get value` propagates.
+                        {
+                            const proto::ProtoObject* gko = ctx->fromUTF8String("__get_value__");
+                            const proto::ProtoString* gks = gko ? gko->asString(ctx) : nullptr;
+                            if (gks) {
+                                const proto::ProtoObject* getter = stepRes->getAttribute(ctx, gks, true);
+                                if (getter && getter != PROTO_NONE) {
+                                    val = callJSFunction(ctx, getter, stepRes, ctx->newList());
+                                }
                             }
                         }
+                        if (!val || val == PROTO_NONE) {
+                            val = valKs ? stepRes->getAttribute(ctx, valKs, true) : PROTO_NONE;
+                        }
+                        const proto::ProtoList* addArgs = ctx->newList();
+                        addArgs = addArgs->appendLast(ctx, val);
+                        callJSFunction(ctx, adder, self, addArgs);
+                    } catch (const JSException&) {
+                        closeIter();
+                        throw;
                     }
-                    if (!val || val == PROTO_NONE) {
-                        val = valKs ? stepRes->getAttribute(ctx, valKs, true) : PROTO_NONE;
-                    }
-                    if (hasCallException()) { closeIter(); return PROTO_NONE; }
-                    const proto::ProtoList* addArgs = ctx->newList();
-                    addArgs = addArgs->appendLast(ctx, val);
-                    callJSFunction(ctx, adder, self, addArgs);
-                    if (hasCallException()) { closeIter(); return PROTO_NONE; }
                 }
             } else {
                 const proto::ProtoString* lenKs = JSSymbols::length(ctx);

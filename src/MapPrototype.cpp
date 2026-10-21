@@ -1024,11 +1024,10 @@ static const proto::ProtoObject* mapConstruct(
                 // and silently absorb any throw (the original abrupt
                 // wins per §7.4.10 IfAbruptCloseIterator).
                 auto closeIter = [&]() {
-                    // Save the original abrupt so it survives the
-                    // iterator.return() call (which may itself throw —
-                    // §7.4.10 IfAbruptCloseIterator: the inner abrupt
+                    // Called from the catch handler of the original abrupt,
+                    // which the caller rethrows: iterator.return() may itself
+                    // throw (§7.4.10 IfAbruptCloseIterator: the inner abrupt
                     // wins, the close's abrupt is silently discarded).
-                    const proto::ProtoObject* savedEx = consumeCallException();
                     const proto::ProtoObject* rKo = ctx->fromUTF8String("return");
                     const proto::ProtoString* rKs = rKo ? rKo->asString(ctx) : nullptr;
                     if (rKs) {
@@ -1037,13 +1036,14 @@ static const proto::ProtoObject* mapConstruct(
                             && retFn != getUndefinedSentinel()
                             && retFn != getNullSentinel()) {
                             const proto::ProtoList* retArgs = ctx->newList();
-                            callJSFunction(ctx, retFn, iterator, retArgs);
-                            // Discard any throw from return() — the
-                            // original abrupt is what propagates.
-                            (void)consumeCallException();
+                            // Discard any throw from return() — the original abrupt,
+                            // which the caller rethrows, is what propagates.
+                            try {
+                                callJSFunction(ctx, retFn, iterator, retArgs);
+                            } catch (const JSException&) {
+                            }
                         }
                     }
-                    if (savedEx) signalNativeException(savedEx);
                 };
                 while (true) {
                     const proto::ProtoList* nextArgs = ctx->newList();
@@ -1067,55 +1067,56 @@ static const proto::ProtoObject* mapConstruct(
                     bool done = doneV == PROTO_TRUE
                         || (doneV && doneV->isBoolean(ctx) && doneV->asBoolean(ctx));
                     if (done) break;
-                    const proto::ProtoString* valKs =
-                        ctx->fromUTF8String("value")->asString(ctx);
-                    const proto::ProtoObject* pair = nullptr;
-                    // §7.4.4 IteratorValue: Get(step, "value") fires
-                    // accessor getters; their abrupt completion must
-                    // propagate.  Probe `__get_value__` first.
-                    {
-                        const proto::ProtoObject* gko = ctx->fromUTF8String("__get_value__");
-                        const proto::ProtoString* gks = gko ? gko->asString(ctx) : nullptr;
-                        if (gks) {
-                            const proto::ProtoObject* getter = stepRes->getAttribute(ctx, gks, true);
-                            if (getter && getter != PROTO_NONE) {
-                                pair = callJSFunction(ctx, getter, stepRes, ctx->newList());
-                                if (hasCallException()) { closeIter(); return PROTO_NONE; }
+                    // An abrupt completion from here on (the value getter, a
+                    // non-entry value, reading the entry, the setter) closes the
+                    // iterator before it propagates (§7.4.10 IfAbruptCloseIterator).
+                    try {
+                        const proto::ProtoString* valKs =
+                            ctx->fromUTF8String("value")->asString(ctx);
+                        const proto::ProtoObject* pair = nullptr;
+                        // §7.4.4 IteratorValue: Get(step, "value") fires
+                        // accessor getters; their abrupt completion must
+                        // propagate.  Probe `__get_value__` first.
+                        {
+                            const proto::ProtoObject* gko = ctx->fromUTF8String("__get_value__");
+                            const proto::ProtoString* gks = gko ? gko->asString(ctx) : nullptr;
+                            if (gks) {
+                                const proto::ProtoObject* getter = stepRes->getAttribute(ctx, gks, true);
+                                if (getter && getter != PROTO_NONE) {
+                                    pair = callJSFunction(ctx, getter, stepRes, ctx->newList());
+                                }
                             }
                         }
-                    }
-                    if (!pair || pair == PROTO_NONE) {
-                        pair = valKs ? stepRes->getAttribute(ctx, valKs, true) : PROTO_NONE;
-                    }
-                    if (hasCallException()) { closeIter(); return PROTO_NONE; }
-                    bool isSymPair = false;
-                    {
-                        const proto::ProtoString* symK = JSSymbols::isSymbol(ctx);
-                        if (symK && pair && pair != PROTO_NONE
-                            && pair->getAttribute(ctx, symK, true) == PROTO_TRUE)
-                            isSymPair = true;
-                    }
-                    if (!pair || pair == PROTO_NONE
-                        || isSymPair
-                        || pair->isInteger(ctx) || pair->isDouble(ctx)
-                        || pair->isFloat(ctx)   || pair->isString(ctx)
-                        || pair->isBoolean(ctx)
-                        || pair == getNullSentinel()
-                        || pair == getUndefinedSentinel()) {
-                        signalNativeException(makeNativeError(ctx, "TypeError",
-                            "Iterator value is not an entry object"));
+                        if (!pair || pair == PROTO_NONE) {
+                            pair = valKs ? stepRes->getAttribute(ctx, valKs, true) : PROTO_NONE;
+                        }
+                        bool isSymPair = false;
+                        {
+                            const proto::ProtoString* symK = JSSymbols::isSymbol(ctx);
+                            if (symK && pair && pair != PROTO_NONE
+                                && pair->getAttribute(ctx, symK, true) == PROTO_TRUE)
+                                isSymPair = true;
+                        }
+                        if (!pair || pair == PROTO_NONE
+                            || isSymPair
+                            || pair->isInteger(ctx) || pair->isDouble(ctx)
+                            || pair->isFloat(ctx)   || pair->isString(ctx)
+                            || pair->isBoolean(ctx)
+                            || pair == getNullSentinel()
+                            || pair == getUndefinedSentinel()) {
+                            signalNativeException(makeNativeError(ctx, "TypeError",
+                                "Iterator value is not an entry object"));
+                        }
+                        const proto::ProtoObject* pkey = readEl(pair, 0);
+                        const proto::ProtoObject* pval = readEl(pair, 1);
+                        const proto::ProtoList* setArgs = ctx->newList();
+                        setArgs = setArgs->appendLast(ctx, pkey);
+                        setArgs = setArgs->appendLast(ctx, pval);
+                        callJSFunction(ctx, setterFn, self, setArgs);
+                    } catch (const JSException&) {
                         closeIter();
-                        return PROTO_NONE;
+                        throw;
                     }
-                    const proto::ProtoObject* pkey = readEl(pair, 0);
-                    if (hasCallException()) { closeIter(); return PROTO_NONE; }
-                    const proto::ProtoObject* pval = readEl(pair, 1);
-                    if (hasCallException()) { closeIter(); return PROTO_NONE; }
-                    const proto::ProtoList* setArgs = ctx->newList();
-                    setArgs = setArgs->appendLast(ctx, pkey);
-                    setArgs = setArgs->appendLast(ctx, pval);
-                    callJSFunction(ctx, setterFn, self, setArgs);
-                    if (hasCallException()) { closeIter(); return PROTO_NONE; }
                 }
             } else {
                 // Array-like fast path: prefer __elements__ native storage;
@@ -2133,7 +2134,6 @@ static const proto::ProtoObject* weakMapConstruct(
                     return PROTO_NONE;
                 }
                 auto closeIter = [&]() {
-                    const proto::ProtoObject* savedEx = consumeCallException();
                     const proto::ProtoObject* rKo = ctx->fromUTF8String("return");
                     const proto::ProtoString* rKs = rKo ? rKo->asString(ctx) : nullptr;
                     if (rKs) {
@@ -2142,11 +2142,14 @@ static const proto::ProtoObject* weakMapConstruct(
                             && retFn != getUndefinedSentinel()
                             && retFn != getNullSentinel()) {
                             const proto::ProtoList* retArgs = ctx->newList();
-                            callJSFunction(ctx, retFn, iterator, retArgs);
-                            (void)consumeCallException();
+                            // Discard any throw from return() — the original abrupt,
+                            // which the caller rethrows, is what propagates.
+                            try {
+                                callJSFunction(ctx, retFn, iterator, retArgs);
+                            } catch (const JSException&) {
+                            }
                         }
                     }
-                    if (savedEx) signalNativeException(savedEx);
                 };
                 while (true) {
                     const proto::ProtoList* nextArgs = ctx->newList();
@@ -2170,54 +2173,55 @@ static const proto::ProtoObject* weakMapConstruct(
                     bool done = doneV == PROTO_TRUE
                         || (doneV && doneV->isBoolean(ctx) && doneV->asBoolean(ctx));
                     if (done) break;
-                    const proto::ProtoString* valKs =
-                        ctx->fromUTF8String("value")->asString(ctx);
-                    const proto::ProtoObject* pair = nullptr;
-                    // §7.4.4 IteratorValue: Get(step, "value") fires
-                    // accessor getters; their abrupt completion must
-                    // propagate.  Probe `__get_value__` first.
-                    {
-                        const proto::ProtoObject* gko = ctx->fromUTF8String("__get_value__");
-                        const proto::ProtoString* gks = gko ? gko->asString(ctx) : nullptr;
-                        if (gks) {
-                            const proto::ProtoObject* getter = stepRes->getAttribute(ctx, gks, true);
-                            if (getter && getter != PROTO_NONE) {
-                                pair = callJSFunction(ctx, getter, stepRes, ctx->newList());
-                                if (hasCallException()) { closeIter(); return PROTO_NONE; }
+                    // An abrupt completion from here on (the value getter, a
+                    // non-entry value, reading the entry, the setter) closes the
+                    // iterator before it propagates (§7.4.10 IfAbruptCloseIterator).
+                    try {
+                        const proto::ProtoString* valKs =
+                            ctx->fromUTF8String("value")->asString(ctx);
+                        const proto::ProtoObject* pair = nullptr;
+                        // §7.4.4 IteratorValue: Get(step, "value") fires
+                        // accessor getters; their abrupt completion must
+                        // propagate.  Probe `__get_value__` first.
+                        {
+                            const proto::ProtoObject* gko = ctx->fromUTF8String("__get_value__");
+                            const proto::ProtoString* gks = gko ? gko->asString(ctx) : nullptr;
+                            if (gks) {
+                                const proto::ProtoObject* getter = stepRes->getAttribute(ctx, gks, true);
+                                if (getter && getter != PROTO_NONE) {
+                                    pair = callJSFunction(ctx, getter, stepRes, ctx->newList());
+                                }
                             }
                         }
-                    }
-                    if (!pair || pair == PROTO_NONE) {
-                        pair = valKs ? stepRes->getAttribute(ctx, valKs, true) : PROTO_NONE;
-                    }
-                    if (hasCallException()) { closeIter(); return PROTO_NONE; }
-                    bool isSymPair = false;
-                    {
-                        const proto::ProtoString* symK = JSSymbols::isSymbol(ctx);
-                        if (symK && pair && pair != PROTO_NONE
-                            && pair->getAttribute(ctx, symK, true) == PROTO_TRUE)
-                            isSymPair = true;
-                    }
-                    if (!pair || pair == PROTO_NONE
-                        || isSymPair
-                        || pair->isInteger(ctx) || pair->isDouble(ctx)
-                        || pair->isFloat(ctx)   || pair->isString(ctx)
-                        || pair->isBoolean(ctx)
-                        || pair == getNullSentinel() || pair == getUndefinedSentinel()) {
-                        signalNativeException(makeNativeError(ctx, "TypeError",
-                            "Iterator value is not an entry object"));
+                        if (!pair || pair == PROTO_NONE) {
+                            pair = valKs ? stepRes->getAttribute(ctx, valKs, true) : PROTO_NONE;
+                        }
+                        bool isSymPair = false;
+                        {
+                            const proto::ProtoString* symK = JSSymbols::isSymbol(ctx);
+                            if (symK && pair && pair != PROTO_NONE
+                                && pair->getAttribute(ctx, symK, true) == PROTO_TRUE)
+                                isSymPair = true;
+                        }
+                        if (!pair || pair == PROTO_NONE
+                            || isSymPair
+                            || pair->isInteger(ctx) || pair->isDouble(ctx)
+                            || pair->isFloat(ctx)   || pair->isString(ctx)
+                            || pair->isBoolean(ctx)
+                            || pair == getNullSentinel() || pair == getUndefinedSentinel()) {
+                            signalNativeException(makeNativeError(ctx, "TypeError",
+                                "Iterator value is not an entry object"));
+                        }
+                        const proto::ProtoObject* pkey = readEl(pair, 0);
+                        const proto::ProtoObject* pval = readEl(pair, 1);
+                        const proto::ProtoList* setArgs = ctx->newList();
+                        setArgs = setArgs->appendLast(ctx, pkey);
+                        setArgs = setArgs->appendLast(ctx, pval);
+                        callJSFunction(ctx, setterFn, self, setArgs);
+                    } catch (const JSException&) {
                         closeIter();
-                        return PROTO_NONE;
+                        throw;
                     }
-                    const proto::ProtoObject* pkey = readEl(pair, 0);
-                    if (hasCallException()) { closeIter(); return PROTO_NONE; }
-                    const proto::ProtoObject* pval = readEl(pair, 1);
-                    if (hasCallException()) { closeIter(); return PROTO_NONE; }
-                    const proto::ProtoList* setArgs = ctx->newList();
-                    setArgs = setArgs->appendLast(ctx, pkey);
-                    setArgs = setArgs->appendLast(ctx, pval);
-                    callJSFunction(ctx, setterFn, self, setArgs);
-                    if (hasCallException()) { closeIter(); return PROTO_NONE; }
                 }
             } else {
                 const proto::ProtoString* lenKs = JSSymbols::length(ctx);

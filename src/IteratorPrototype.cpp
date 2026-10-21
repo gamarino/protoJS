@@ -182,13 +182,12 @@ static void iterClose(proto::ProtoContext* ctx,
     const proto::ProtoString* nfK = JSSymbols::nativeFn(ctx);
     if (!callable && nfK && fn->hasAttribute(ctx, nfK) == PROTO_TRUE) callable = true;
     if (!callable) return;
-    bool hadEx = hasCallException();
-    const proto::ProtoObject* savedEx = hadEx ? consumeCallException() : nullptr;
-    (void)callJSFunction(ctx, fn, iter, ctx->newList());
-    // Discard the abrupt — spec swallows it during cleanup.
-    if (hasCallException()) consumeCallException();
-    if (hadEx) {
-        signalNativeException(savedEx);
+    // Discard the abrupt — spec swallows it during cleanup.  A caller closing
+    // on a throw completion calls this from its catch handler and rethrows
+    // the original exception afterwards.
+    try {
+        (void)callJSFunction(ctx, fn, iter, ctx->newList());
+    } catch (const JSException&) {
     }
 }
 
@@ -257,8 +256,12 @@ static const proto::ProtoObject* iteratorForEach(
         const proto::ProtoList* cbArgs = ctx->newList();
         cbArgs = cbArgs->appendLast(ctx, val ? val : PROTO_NONE);
         cbArgs = cbArgs->appendLast(ctx, ctx->fromInteger(counter++));
-        (void)callJSFunction(ctx, fn, getUndefinedSentinel(), cbArgs);
-        if (hasCallException()) { iterClose(ctx, self); return PROTO_NONE; }
+        try {
+            (void)callJSFunction(ctx, fn, getUndefinedSentinel(), cbArgs);
+        } catch (const JSException&) {
+            iterClose(ctx, self);
+            throw;
+        }
     }
     return getUndefinedSentinel();
 }
@@ -307,8 +310,12 @@ static const proto::ProtoObject* iteratorReduce(
         cbArgs = cbArgs->appendLast(ctx, acc ? acc : PROTO_NONE);
         cbArgs = cbArgs->appendLast(ctx, val ? val : PROTO_NONE);
         cbArgs = cbArgs->appendLast(ctx, ctx->fromInteger(counter++));
-        acc = callJSFunction(ctx, fn, getUndefinedSentinel(), cbArgs);
-        if (hasCallException()) { iterClose(ctx, self); return PROTO_NONE; }
+        try {
+            acc = callJSFunction(ctx, fn, getUndefinedSentinel(), cbArgs);
+        } catch (const JSException&) {
+            iterClose(ctx, self);
+            throw;
+        }
     }
     if (!hasAcc) {
         signalNativeException(makeNativeError(ctx, "TypeError",
@@ -358,8 +365,13 @@ static const proto::ProtoObject* iteratorBoolPredicate(
         const proto::ProtoList* cbArgs = ctx->newList();
         cbArgs = cbArgs->appendLast(ctx, val ? val : PROTO_NONE);
         cbArgs = cbArgs->appendLast(ctx, ctx->fromInteger(counter++));
-        const proto::ProtoObject* r = callJSFunction(ctx, fn, getUndefinedSentinel(), cbArgs);
-        if (hasCallException()) { iterClose(ctx, self); return PROTO_NONE; }
+        const proto::ProtoObject* r = nullptr;
+        try {
+            r = callJSFunction(ctx, fn, getUndefinedSentinel(), cbArgs);
+        } catch (const JSException&) {
+            iterClose(ctx, self);
+            throw;
+        }
         // ToBoolean(r)
         bool truthy = !(r == nullptr || r == PROTO_NONE || r == PROTO_FALSE
             || r == getUndefinedSentinel() || r == getNullSentinel()
@@ -515,8 +527,13 @@ static const proto::ProtoObject* iteratorMapNext(
     const proto::ProtoList* cbArgs = ctx->newList();
     cbArgs = cbArgs->appendLast(ctx, val ? val : PROTO_NONE);
     cbArgs = cbArgs->appendLast(ctx, ctx->fromInteger(counter));
-    const proto::ProtoObject* mapped = callJSFunction(ctx, cb, getUndefinedSentinel(), cbArgs);
-    if (hasCallException()) { iterClose(ctx, underlying); return PROTO_NONE; }
+    const proto::ProtoObject* mapped = nullptr;
+    try {
+        mapped = callJSFunction(ctx, cb, getUndefinedSentinel(), cbArgs);
+    } catch (const JSException&) {
+        iterClose(ctx, underlying);
+        throw;
+    }
     // Bump counter on the helper.
     if (nK) {
         const proto::ProtoObject* newSelf =
@@ -584,8 +601,13 @@ static const proto::ProtoObject* iteratorFilterNext(
         const proto::ProtoList* cbArgs = ctx->newList();
         cbArgs = cbArgs->appendLast(ctx, val ? val : PROTO_NONE);
         cbArgs = cbArgs->appendLast(ctx, ctx->fromInteger(counter++));
-        const proto::ProtoObject* r = callJSFunction(ctx, cb, getUndefinedSentinel(), cbArgs);
-        if (hasCallException()) { iterClose(ctx, underlying); return PROTO_NONE; }
+        const proto::ProtoObject* r = nullptr;
+        try {
+            r = callJSFunction(ctx, cb, getUndefinedSentinel(), cbArgs);
+        } catch (const JSException&) {
+            iterClose(ctx, underlying);
+            throw;
+        }
         bool truthy = !(r == nullptr || r == PROTO_NONE || r == PROTO_FALSE
             || r == getUndefinedSentinel() || r == getNullSentinel()
             || (r->isInteger(ctx) && r->asLong(ctx) == 0));
@@ -866,25 +888,36 @@ static const proto::ProtoObject* iteratorFlatMapNext(
         cbArgs = cbArgs->appendLast(ctx, outerVal ? outerVal : PROTO_NONE);
         cbArgs = cbArgs->appendLast(ctx, ctx->fromInteger(counter++));
         if (nK) self->setAttribute(ctx, nK, ctx->fromInteger(counter));
-        const proto::ProtoObject* mapped = callJSFunction(ctx, cb, getUndefinedSentinel(), cbArgs);
-        if (hasCallException()) { iterClose(ctx, outer); return PROTO_NONE; }
+        const proto::ProtoObject* mapped = nullptr;
+        try {
+            mapped = callJSFunction(ctx, cb, getUndefinedSentinel(), cbArgs);
+        } catch (const JSException&) {
+            iterClose(ctx, outer);
+            throw;
+        }
         if (!mapped || mapped == PROTO_NONE
             || mapped == getNullSentinel() || mapped == getUndefinedSentinel()
             || mapped->isInteger(ctx) || mapped->isDouble(ctx)
             || mapped->isFloat(ctx) || mapped->isBoolean(ctx)) {
             // §27.1.4.3 step 4.b.iv.2: mapper must return an Object.
-            signalNativeException(makeNativeError(ctx, "TypeError",
-                "Iterator.prototype.flatMap: mapper must return an Object"));
+            // IfAbruptCloseIterator: close the outer iterator first, then
+            // throw (an error from return() is swallowed).
+            const proto::ProtoObject* err = makeNativeError(ctx, "TypeError",
+                "Iterator.prototype.flatMap: mapper must return an Object");
             iterClose(ctx, outer);
-            return PROTO_NONE;
+            signalNativeException(err);
         }
         // GetIterator: invoke mapped[@@iterator]() to extract its iterator.
         const proto::ProtoString* sIK = JSSymbols::symbolIterator(ctx);
         const proto::ProtoObject* itoFn = sIK ? mapped->getAttribute(ctx, sIK, true) : nullptr;
         const proto::ProtoObject* newInner = nullptr;
         if (itoFn && itoFn != PROTO_NONE && itoFn != getUndefinedSentinel()) {
-            newInner = callJSFunction(ctx, itoFn, mapped, ctx->newList());
-            if (hasCallException()) { iterClose(ctx, outer); return PROTO_NONE; }
+            try {
+                newInner = callJSFunction(ctx, itoFn, mapped, ctx->newList());
+            } catch (const JSException&) {
+                iterClose(ctx, outer);
+                throw;
+            }
         }
         if (!newInner || newInner == PROTO_NONE || newInner == getUndefinedSentinel()) {
             // Treat as no-yield; loop to next outer.
@@ -1354,13 +1387,22 @@ static const proto::ProtoObject* iteratorZip(
     proto::proto_ulong n = outerEls->getSize(ctx);
     for (proto::proto_ulong i = 0; i < n; i++) {
         const proto::ProtoObject* src = outerEls->getAt(ctx, static_cast<int>(i));
-        const proto::ProtoObject* inner = getIteratorFor(ctx, src);
-        if (!inner) {
-            // Close previously-acquired iterators.
+        // Close previously-acquired iterators.
+        auto closePrevious = [&]() {
             for (proto::proto_ulong j = 0; j < i; j++) {
                 const proto::ProtoObject* prev = innersEls->getAt(ctx, static_cast<int>(j));
                 if (prev && prev != PROTO_NONE) iterClose(ctx, prev);
             }
+        };
+        const proto::ProtoObject* inner = nullptr;
+        try {
+            inner = getIteratorFor(ctx, src);
+        } catch (const JSException&) {
+            closePrevious();
+            throw;
+        }
+        if (!inner) {
+            closePrevious();
             return PROTO_NONE;
         }
         innersEls = innersEls->appendLast(ctx, inner);
@@ -1453,6 +1495,14 @@ static const proto::ProtoObject* iteratorZipKeyed(
     const proto::ProtoList* keysEls = ctx->newList();
     const proto::ProtoList* itersEls = ctx->newList();
     long long count = 0;
+    // Close any already-gathered iterators.
+    auto closeGathered = [&]() {
+        proto::proto_ulong sz = itersEls->getSize(ctx);
+        for (proto::proto_ulong j = 0; j < sz; j++) {
+            const proto::ProtoObject* prev = itersEls->getAt(ctx, static_cast<int>(j));
+            if (prev && prev != PROTO_NONE) iterClose(ctx, prev);
+        }
+    };
     const proto::ProtoSparseList* own = obj->getOwnAttributes(ctx);
     if (own) {
         const proto::ProtoSparseListIterator* it = own->getIterator(ctx);
@@ -1466,14 +1516,15 @@ static const proto::ProtoObject* iteratorZipKeyed(
             std::string ks;
             propKey->toUTF8String(ctx, ks);
             if (ks.size() >= 2 && ks[0] == '_' && ks[1] == '_') continue; // internal
-            const proto::ProtoObject* inner = getIteratorFor(ctx, val);
+            const proto::ProtoObject* inner = nullptr;
+            try {
+                inner = getIteratorFor(ctx, val);
+            } catch (const JSException&) {
+                closeGathered();
+                throw;
+            }
             if (!inner) {
-                // Close any already-gathered iterators.
-                proto::proto_ulong sz = itersEls->getSize(ctx);
-                for (proto::proto_ulong j = 0; j < sz; j++) {
-                    const proto::ProtoObject* prev = itersEls->getAt(ctx, static_cast<int>(j));
-                    if (prev && prev != PROTO_NONE) iterClose(ctx, prev);
-                }
+                closeGathered();
                 return PROTO_NONE;
             }
             keysEls = keysEls->appendLast(ctx, ctx->fromUTF8String(ks.c_str()));
@@ -1486,13 +1537,15 @@ static const proto::ProtoObject* iteratorZipKeyed(
         std::vector<std::pair<const proto::ProtoString*, const proto::ProtoObject*>> de;
         dict::entries(ctx, obj, de);
         for (const auto& e : de) {
-            const proto::ProtoObject* inner = getIteratorFor(ctx, e.second);
+            const proto::ProtoObject* inner = nullptr;
+            try {
+                inner = getIteratorFor(ctx, e.second);
+            } catch (const JSException&) {
+                closeGathered();
+                throw;
+            }
             if (!inner) {
-                proto::proto_ulong sz = itersEls->getSize(ctx);
-                for (proto::proto_ulong j = 0; j < sz; j++) {
-                    const proto::ProtoObject* prev = itersEls->getAt(ctx, static_cast<int>(j));
-                    if (prev && prev != PROTO_NONE) iterClose(ctx, prev);
-                }
+                closeGathered();
                 return PROTO_NONE;
             }
             keysEls = keysEls->appendLast(ctx, e.first->asObject(ctx));

@@ -1,6 +1,9 @@
 #include "EventLoop.h"
 #include "GcOrphanQueue.h"
 #include "MicrotaskQueue.h"
+#include "ProtoDeferred.h"
+#include "ThreadProtoContext.h"
+#include "runtime/ProtoInterpreter.h"
 #include <iostream>
 
 namespace protojs {
@@ -37,6 +40,11 @@ void EventLoop::processCallbacks() {
             // await continuations) before the next one, as Node does.
             MicrotaskQueue::checkpointThread();
             if (endOfTurnHook) endOfTurnHook();
+        } catch (const JSException& thrown) {
+            // A JavaScript exception that escaped the callback: nothing will
+            // catch it, so, as in Node, it ends the process.
+            reportUncaughtException(threadProtoContext(), "event-loop callback",
+                                    thrown.value());
         } catch (const std::exception& e) {
             // Log error but continue processing other callbacks
             std::cerr << "Exception in event loop callback: " << e.what() << std::endl;

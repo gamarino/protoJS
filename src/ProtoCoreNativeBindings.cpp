@@ -81,7 +81,12 @@ const proto::ProtoObject* cpuChunkThreadEntry(
     if (!context || !context->space) return PROTO_NONE;
     proto::ProtoContext threadCtx(context->space, nullptr, nullptr,
                                    nullptr, nullptr, nullptr);
-    return cpuChunkWorker(&threadCtx, self, pl, args, kwargs);
+    // A thread entry: no exception may leave the thread.
+    try {
+        return cpuChunkWorker(&threadCtx, self, pl, args, kwargs);
+    } catch (const protojs::JSException&) {
+        return PROTO_NONE;
+    }
 }
 
 const std::unordered_map<std::string, proto::ProtoMethod>& nativeWorkers() {

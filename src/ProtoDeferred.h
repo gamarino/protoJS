@@ -90,6 +90,14 @@ public:
 void drainCallbackException(proto::ProtoContext* ctx, const char* where);
 
 /**
+ * Report `exc`, a JavaScript exception that escaped a callback nothing else
+ * catches (the JSException caught at that boundary), exactly as
+ * drainCallbackException does, and end the process with status 1.
+ */
+[[noreturn]] void reportUncaughtException(proto::ProtoContext* ctx, const char* where,
+                                          const proto::ProtoObject* exc);
+
+/**
  * The end of an event-loop turn (after the main script, after each callback):
  * an exception still pending is fatal (drainCallbackException), and so is a
  * rejected promise that no handler has claimed -- reported as "Uncaught

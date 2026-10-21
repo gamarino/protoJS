@@ -2218,16 +2218,15 @@ static const proto::ProtoObject* reflectDefineProperty(
         objCtor->getAttribute(ctx, defPropKey, false);
     if (!fn || fn == PROTO_NONE) return PROTO_FALSE;
 
-    const proto::ProtoObject* result = callJSFunction(ctx, fn, objCtor, args);
     // §28.1.3 Reflect.defineProperty step 5: any abrupt completion from
     // [[DefineOwnProperty]] is swallowed and returned as false (vs
     // Object.defineProperty which propagates the TypeError). Pre-fix
-    // the exception was left pending on t_callException and bubbled to
-    // the caller, so Reflect.defineProperty(o, ...) on a frozen
-    // receiver still threw.
-    if (t_hasCallException) {
-        t_hasCallException = false;
-        t_callException    = nullptr;
+    // the exception bubbled to the caller, so Reflect.defineProperty(o,
+    // ...) on a frozen receiver still threw.
+    const proto::ProtoObject* result = nullptr;
+    try {
+        result = callJSFunction(ctx, fn, objCtor, args);
+    } catch (const JSException&) {
         return PROTO_FALSE;
     }
     return (result && result != PROTO_NONE) ? PROTO_TRUE : PROTO_FALSE;
@@ -8831,6 +8830,17 @@ const proto::ProtoObject* runBytecode(proto::ProtoContext* pContext,
         BIGINT_BIN_DISPATCH(op); \
     } while(0)
 
+    // Transitional (tasks/cpp_exceptions_plan.md, S1): a native or a call
+    // that raises throws a JSException; this activation catches it and
+    // dispatches it to its catch handlers as an exception the opcodes left
+    // pending.
+    bool resumeAtHandler = false;
+    for (;;) {
+    try {
+    if (resumeAtHandler) {
+        resumeAtHandler = false;
+        goto handle_exception_label;
+    }
     DISPATCH();
     {
             // --- Constant and immediate pushes ---
@@ -19463,6 +19473,13 @@ const proto::ProtoObject* runBytecode(proto::ProtoContext* pContext,
 
             exit_dispatch: ;
     }
+    break;
+    } catch (const JSException& thrown) {
+        pending_exception = thrown.value();
+        has_pending_exception = true;
+        resumeAtHandler = true;
+    }
+    }
     #undef DISPATCH
     #undef PROTOJS_DISPATCH_JUMP
     #undef PROTOJS_DISPATCH_TARGETS
@@ -20197,21 +20214,23 @@ static const proto::ProtoString* afsKey(proto::ProtoContext* ctx, bool next) {
 // AsyncFromSyncIteratorContinuation(result, promise).
 static void afsContinuation(proto::ProtoContext* ctx, const proto::ProtoObject* result,
                             const proto::ProtoObject* promise) {
-    auto rejectPending = [&]() {
-        const proto::ProtoObject* e = consumeCallException();
-        rejectPromise(ctx, promise, e ? e : PROTO_NONE);
-    };
     if (!jsIsObject(ctx, result)) {
         rejectPromise(ctx, promise, makeNativeError(ctx, "TypeError", "Iterator result is not an object"));
         return;
     }
-    const proto::ProtoObject* doneV = jsGetProperty(ctx, result, "done");
-    if (hasCallException()) { rejectPending(); return; }
-    const bool done = toBool(ctx, doneV);
-    const proto::ProtoObject* value = jsGetProperty(ctx, result, "value");
-    if (hasCallException()) { rejectPending(); return; }
-    const proto::ProtoObject* wrapper = promiseResolveIntrinsic(ctx, value);
-    if (!wrapper || hasCallException()) { rejectPending(); return; }
+    // An abrupt completion of the steps below rejects the promise.
+    bool done = false;
+    const proto::ProtoObject* wrapper = nullptr;
+    try {
+        const proto::ProtoObject* doneV = jsGetProperty(ctx, result, "done");
+        done = toBool(ctx, doneV);
+        const proto::ProtoObject* value = jsGetProperty(ctx, result, "value");
+        wrapper = promiseResolveIntrinsic(ctx, value);
+    } catch (const JSException& e) {
+        rejectPromise(ctx, promise, e.value());
+        return;
+    }
+    if (!wrapper) { rejectPromise(ctx, promise, PROTO_NONE); return; }
     performPromiseThenInternal(ctx, wrapper, kReactIterResult, promise,
                                done ? PROTO_TRUE : PROTO_FALSE, PROTO_NONE);
 }
@@ -20230,21 +20249,24 @@ static const proto::ProtoObject* afsMethod(proto::ProtoContext* ctx, const proto
     if (completion == kCompletionNormal) {
         method = self->getOwnAttributeDirect(ctx, afsKey(ctx, true));
     } else {
-        method = jsGetProperty(ctx, syncIter, completion == kCompletionReturn ? "return" : "throw");
-        if (hasCallException()) {
-            const proto::ProtoObject* e = consumeCallException();
-            rejectPromise(ctx, promise, e ? e : PROTO_NONE);
+        try {
+            method = jsGetProperty(ctx, syncIter, completion == kCompletionReturn ? "return" : "throw");
+        } catch (const JSException& e) {
+            rejectPromise(ctx, promise, e.value());
             return promise;
         }
         if (!jsIsCallable(ctx, method)) {
             if (completion == kCompletionReturn) {
                 resolvePromise(ctx, promise, makeIteratorResult(ctx, value, true));
             } else {
-                // No throw(): close the sync iterator and reject (§27.1.6.2.3).
-                const proto::ProtoObject* ret = jsGetProperty(ctx, syncIter, "return");
-                if (!hasCallException() && jsIsCallable(ctx, ret))
-                    callJSFunction(ctx, ret, syncIter, ctx->newList());
-                consumeCallException();
+                // No throw(): close the sync iterator and reject (§27.1.6.2.3);
+                // what closing raises is dropped for the TypeError.
+                try {
+                    const proto::ProtoObject* ret = jsGetProperty(ctx, syncIter, "return");
+                    if (jsIsCallable(ctx, ret))
+                        callJSFunction(ctx, ret, syncIter, ctx->newList());
+                } catch (const JSException&) {
+                }
                 rejectPromise(ctx, promise, makeNativeError(ctx, "TypeError",
                     "The iterator does not provide a 'throw' method"));
             }
@@ -20253,10 +20275,11 @@ static const proto::ProtoObject* afsMethod(proto::ProtoContext* ctx, const proto
     }
     const proto::ProtoList* callArgs = ctx->newList();
     if (hasValue) callArgs = callArgs->appendLast(ctx, value ? value : PROTO_NONE);
-    const proto::ProtoObject* result = callJSFunction(ctx, method, syncIter, callArgs);
-    if (hasCallException()) {
-        const proto::ProtoObject* e = consumeCallException();
-        rejectPromise(ctx, promise, e ? e : PROTO_NONE);
+    const proto::ProtoObject* result = nullptr;
+    try {
+        result = callJSFunction(ctx, method, syncIter, callArgs);
+    } catch (const JSException& e) {
+        rejectPromise(ctx, promise, e.value());
         return promise;
     }
     afsContinuation(ctx, result, promise);
@@ -20358,9 +20381,58 @@ const proto::ProtoObject** getCurrentGlobalRoot() {
     return t_currentGlobalRoot;
 }
 
+// ---------------------------------------------------------------------------
+// JSException: a JavaScript exception in flight (ProtoInterpreter.h).
+// ---------------------------------------------------------------------------
+
+namespace {
+
+// One root set per ProtoSpace for the values of exceptions in flight, made on
+// first use and kept for the space's lifetime.
+proto::ProtoRootSet* exceptionRootSet(proto::ProtoSpace* space) {
+    static std::mutex m;
+    static std::vector<std::pair<proto::ProtoSpace*, proto::ProtoRootSet*>> sets;
+    std::lock_guard<std::mutex> lock(m);
+    for (const auto& e : sets)
+        if (e.first == space) return e.second;
+    proto::ProtoRootSet* rs = space->createRootSet("protojs-exceptions-in-flight");
+    sets.emplace_back(space, rs);
+    return rs;
+}
+
+// The context a native that raises runs in: the innermost interpreter
+// frame's, or, outside any frame (a native producer run by the event loop or
+// a pool thread before JavaScript runs), the current wrapper's root context.
+proto::ProtoContext* raisingContext() {
+    if (!t_interpFrames.empty()) return t_interpFrames.back().ctx;
+    JSContextWrapper* w = JSContextWrapper::current();
+    return w ? w->getProtoContext() : nullptr;
+}
+
+}  // namespace
+
+struct JSException::Pin {
+    proto::ProtoRootSet* set;
+    proto::ProtoRootSet::Handle handle;
+    ~Pin() { set->remove(handle); }
+};
+
+JSException::JSException(proto::ProtoContext* ctx, const proto::ProtoObject* value)
+    : value_(value ? value : PROTO_NONE) {
+    // Only a heap cell needs pinning; tagged values (small integers, the
+    // sentinels' immediates) are not collected.
+    if (ctx && ctx->space && value_ != PROTO_NONE && value_->isCell(ctx)) {
+        proto::ProtoRootSet* rs = exceptionRootSet(ctx->space);
+        pin_ = std::make_shared<Pin>(Pin{rs, rs->add(value_)});
+    }
+}
+
+void throwJS(proto::ProtoContext* ctx, const proto::ProtoObject* value) {
+    throw JSException(ctx, value);
+}
+
 void signalNativeException(const proto::ProtoObject* errorObj) {
-    t_callException    = errorObj;
-    t_hasCallException = true;
+    throwJS(raisingContext(), errorObj);
 }
 
 const proto::ProtoObject* makeNativeError(proto::ProtoContext* ctx,
@@ -20403,17 +20475,20 @@ const proto::ProtoObject* callJSFunctionFromAsync(
     // bytecode callback scheduled by setImmediate / Deferred would silently
     // no-op.  RAII restore on exit so re-entrant async calls don't clobber
     // each other.
-    const ProtoBytecodeModule* prevCurrent = t_currentModule;
-    const ProtoBytecodeModule* prevRoot    = t_rootModule;
-    const proto::ProtoObject** prevGR      = t_currentGlobalRoot;
+    struct ModuleScope {
+        const ProtoBytecodeModule* prevCurrent = t_currentModule;
+        const ProtoBytecodeModule* prevRoot    = t_rootModule;
+        const proto::ProtoObject** prevGR      = t_currentGlobalRoot;
+        ~ModuleScope() {
+            t_currentModule     = prevCurrent;
+            t_rootModule        = prevRoot;
+            t_currentGlobalRoot = prevGR;
+        }
+    } scope;
     t_currentModule    = module;
     t_rootModule       = module;
     t_currentGlobalRoot = globalRoot;
-    const proto::ProtoObject* result = callJSFunction(ctx, fn, thisVal, args);
-    t_currentModule     = prevCurrent;
-    t_rootModule        = prevRoot;
-    t_currentGlobalRoot = prevGR;
-    return result;
+    return callJSFunction(ctx, fn, thisVal, args);
 }
 
 const proto::ProtoObject* callJSFunction(
@@ -20593,13 +20668,9 @@ const proto::ProtoObject* callJSFunction(
         t_activeFunc = prevActiveK;
         t_activeArgs = prevArgsK;
         anchorCallOutcome(childCtx, result, childEx);
-        // Propagate exceptions from JS callbacks via thread-local so that
-        // iterator-related call sites inside runBytecode can set pending_exception.
-        if (childEx && childEx != PROTO_NONE) {
-            t_callException    = childEx;
-            t_hasCallException = true;
-            return PROTO_NONE;
-        }
+        // The callee's exception propagates to the native caller as a C++
+        // exception.
+        if (childEx && childEx != PROTO_NONE) throwJS(ctx, childEx);
         return result ? result : PROTO_NONE;
     }
 
