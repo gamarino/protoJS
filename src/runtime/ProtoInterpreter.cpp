@@ -181,6 +181,40 @@ static const proto::ProtoObject* resolveFieldOOP(proto::ProtoContext* ctx, const
     return res;
 }
 
+// The common [[Get]] of a named property, by protoCore: one lookup, whose
+// result decides. An accessor is an annotation in the chain (the getter's
+// __get_<key>__ sidecar, with an undefined placeholder under the key itself
+// where a script defined it), so the standard lookups return the annotation
+// in place of a value. Answers only what the full OP_get_field path answers:
+//   * not a key a property dictionary may hold, not a proxy receiver, and
+//     the receiver's behavior is the default (custom behaviors' getField
+//     decides);
+//   * an own defined value is the value: own data shadows every inherited
+//     accessor (ECMA-262 §10.1.8.1);
+//   * otherwise a defined value found on the chain is the value when no
+//     getter sidecar of that key is found on the chain either.
+// nullptr: the caller's full path decides (undefined, absent, accessors,
+// proxies, dictionaries, the [[Prototype]] override walk). The caller has
+// materialised a lazy `prototype` first. `getterKeyFor(key)` names the
+// sidecar; it is asked only when the value is inherited.
+template <typename GetterKeyFor>
+static inline const proto::ProtoObject* namedGetFast(proto::ProtoContext* ctx,
+                                                     const proto::ProtoObject* obj,
+                                                     const proto::ProtoString* key,
+                                                     GetterKeyFor&& getterKeyFor) {
+    if (!key || protojs::dict::mayBeDictionaryKey(ctx, key)) return nullptr;
+    if (protojs::isProxy(ctx, obj)) return nullptr;
+    const auto& reg = protojs::BehaviorRegistry::instance();
+    if (reg.resolve(ctx, obj) != reg.getDefault()) return nullptr;
+    const proto::ProtoObject* own = obj->getOwnAttributeDirect(ctx, key);
+    if (own && own != PROTO_NONE) return own == t_undefinedSentinel ? nullptr : own;
+    const proto::ProtoObject* v = obj->getAttribute(ctx, key, true);
+    if (!v || v == PROTO_NONE || v == t_undefinedSentinel) return nullptr;
+    const proto::ProtoString* gk = getterKeyFor(key);
+    if (!gk || obj->getAttribute(ctx, gk, true) != PROTO_NONE) return nullptr;
+    return v;
+}
+
 static const proto::ProtoObject* putDictionaryProperty(proto::ProtoContext* ctx,
                                                        const proto::ProtoObject* obj,
                                                        const proto::ProtoString* key,
@@ -770,18 +804,12 @@ inline const proto::ProtoObject* getOrCreateFrameObj(proto::ProtoContext* ctx,
 inline bool isCell(proto::ProtoContext* ctx, const proto::ProtoObject* o) {
     if (!o || o == PROTO_NONE) return false;
     if (!t_cellMarker) return false;  // no cells exist yet on this thread
-    // Reject everything that isn't an addressable mutable object: any
-    // primitive (number, bool, string, none) or built-in collection
-    // returns true for one of these public type predicates and is
-    // therefore not a cell wrapper.  This relies only on protoCore's
-    // public API — no tagged-pointer bit assumptions.
-    if (o->isInteger(ctx) || o->isFloat(ctx) || o->isDouble(ctx) ||
-        o->isBoolean(ctx) || o->isNone(ctx) || o->isString(ctx) ||
-        o->isMethod(ctx) || o->isTuple(ctx) || o->isSet(ctx) ||
-        o->isMultiset(ctx) || o->isByteBuffer(ctx) || o->isDate(ctx) ||
-        o->isTimestamp(ctx) || o->isTimeDelta(ctx)) {
-        return false;
-    }
+    // A cell is an object whose first parent is the cell marker, and only
+    // cells are its children. getFirstParent answers PROTO_NONE for
+    // anything that is not an object cell (a primitive, a string, a tuple,
+    // a set, a method), so this one protoCore call decides; the fourteen
+    // type predicates that ran first (several of them attribute lookups for
+    // wrapper objects) cost every read of a variable holding an object.
     return o->getFirstParent(ctx) == t_cellMarker;
 }
 
@@ -11088,6 +11116,10 @@ const proto::ProtoObject* runBytecode(proto::ProtoContext* pContext,
                     DISPATCH();
                 }
                 protojs::materializeLazyPrototypeForKey(pContext, obj, name);  // LazyPrototype.h
+                if (const proto::ProtoObject* fv = namedGetFast(pContext, obj, name, getterSymbolFor)) {
+                    pAutomaticLocals[currentStackBase + _PF().stackTop++] = fv;
+                    DISPATCH();
+                }
                 // string.length is handled by the dedicated OP_get_length
                 // opcode that QuickJS emits for `.length` accesses; no
                 // length fast path needed here.  The rare `s["length"]`
@@ -11228,6 +11260,10 @@ const proto::ProtoObject* runBytecode(proto::ProtoContext* pContext,
                 }
 
                 protojs::materializeLazyPrototypeForKey(pContext, obj, key);  // LazyPrototype.h
+                if (const proto::ProtoObject* fv = namedGetFast(pContext, obj, key, getterSymbolFor)) {
+                    stackPush(pContext, fv);
+                    DISPATCH();
+                }
                 // string.length is handled by the dedicated OP_get_length
                 // opcode; no length fast path needed here.
 

@@ -93,6 +93,13 @@ add_test(NAME cli/no-method-self-cycles
             "$<TARGET_FILE:protojs>"
             "${CMAKE_CURRENT_BINARY_DIR}/cli-scratch/method-cycles")
 
+# Named property reads resolved by one protoCore lookup (namedGetFast in
+# ProtoInterpreter.cpp) answer what the full [[Get]] path answers: the script's
+# output must equal Node's.
+add_test(NAME cli/attribute-access
+    COMMAND ${PROTOJS_SH} "${CMAKE_CURRENT_SOURCE_DIR}/cli/attribute-access.sh"
+            "$<TARGET_FILE:protojs>")
+
 # protoCore's finalizer contract, asserted against the source because three of the
 # five finalizers cannot be reached at run time at all (each pins the object that
 # carries its own ExternalPointer). Follows calls one whole call graph deep, which is

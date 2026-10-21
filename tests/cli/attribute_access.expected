@@ -1,0 +1,23 @@
+own 1 undefined null m getter function
+inherit 1 sub+m getter
+literal 1 own accessor
+defineProperty defined
+nearer getter mid getter
+map size 1
+submap size 2
+proxy trapped true
+proxy ancestor from trap anything
+setPrototypeOf two
+symbol symval k
+lazy prototype object true
+string 3 ABC
+array 3 2,4
+__proto__ true true
+frozen 7
+static static sm
+counter 2
+redefine data->accessor redefined
+deep deep
+typed 2 6 2
+regexp g true
+null read true

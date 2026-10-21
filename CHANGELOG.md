@@ -4,6 +4,32 @@ All notable changes to protoJS are documented in this file.
 
 ## [Unreleased]
 
+### Changed — named property reads by one protoCore lookup (2026-10-20)
+
+- **`OP_get_field` / `OP_get_field2` answer the common read with
+  `namedGetFast`**: an own defined value is the value (own data shadows
+  every inherited accessor); otherwise a defined value found by one
+  `getAttribute` of the chain is the value when the same standard lookup
+  finds no `__get_<key>__` getter sidecar on the chain. A key a property
+  dictionary may hold, a proxy receiver, a non-default behavior, an
+  undefined or absent result and every accessor take the full path,
+  unchanged.
+- **`isCell` is one `getFirstParent` comparison**: only closure cells are
+  children of the cell marker, and getFirstParent answers PROTO_NONE for
+  anything that is not an object cell. The fourteen type predicates that
+  ran first (several of them attribute lookups for wrapper objects) cost
+  every read of a variable holding an object.
+- New CLI fixture `cli/attribute-access` (Node oracle).
+- Interleaved A/B, three rounds, same protoCore, cycles: own field read
+  -44 % (-50 % five levels deep), method call -38 %, call probe -36 %,
+  inherited data -34 %, getter -28 %, `array_literal` -11 %,
+  `tree_traversal` -7 %, `json_transform` -4 %, `function_calls` -4 %;
+  `control_flow` +3.8 % with instructions unchanged (-0.1 %), a layout
+  effect, not work.
+- Known divergences from Node, unchanged by this work: a private field
+  read through a getter answers empty; reading an absent property prints
+  as an empty string instead of `undefined`.
+
 ### Changed — protoCore 3.0.0: natives read their arguments in place (2026-10-20)
 
 - **Built against protoCore 3.0.0** (SOVERSION 4), now the declared minimum:
