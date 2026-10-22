@@ -25,7 +25,7 @@ name: CI
 # so a protojs linked against an older SOVERSION-3 protoCore loads without
 # complaint (memory: ABI mismatch crashes stale binaries).  The maintainer's
 # machine also carries a root-owned protoCore 1.0.0 at /usr/local/lib.  The step
-# asserts that libprotoCore.so.3 resolves inside the workspace and nowhere else.
+# asserts that libprotoCore.so.4 (protoCore 3.0.0) resolves inside the workspace and nowhere else.
 #
 # HOW test262 IS OBTAINED: tc39/test262 as a SIBLING ../test262 at a PINNED
 # commit.  Not vendored (53,582 files) and not a submodule.  The pin is the whole
@@ -177,12 +177,12 @@ jobs:
           cmake -S protoCore -B protoCore/build_release -DCMAKE_BUILD_TYPE=Release
           cmake --build protoCore/build_release --target protoCore
 
-      - name: Confirm protoCore built SOVERSION 3
+      - name: Confirm protoCore built SOVERSION 4
         # protoJS's own configure checks this too (CMakeLists.txt:94-99); doing it
         # here attributes the failure to protoCore rather than to protoJS.
         run: |
           ls -l protoCore/build_release/libprotoCore.so*
-          test -e protoCore/build_release/libprotoCore.so.3
+          test -e protoCore/build_release/libprotoCore.so.4
 
       - name: Configure protoJS
         # Developer/sibling mode: no PROTO_CORE_PREFIX and no
@@ -204,11 +204,11 @@ jobs:
         working-directory: protoJS
         run: |
           ldd build_release/protojs | tee ldd.txt
-          RESOLVED=$(awk '/libprotoCore\.so\.3/ {print $3}' ldd.txt)
-          echo "libprotoCore.so.3 resolved to: ${RESOLVED:-<unresolved>}"
+          RESOLVED=$(awk '/libprotoCore\.so\.4/ {print $3}' ldd.txt)
+          echo "libprotoCore.so.4 resolved to: ${RESOLVED:-<unresolved>}"
           case "$RESOLVED" in
-            */protoCore/build_release/libprotoCore.so.3) ;;
-            *) echo "libprotoCore.so.3 must resolve inside the workspace build tree, not ${RESOLVED:-nothing}"; exit 1 ;;
+            */protoCore/build_release/libprotoCore.so.4) ;;
+            *) echo "libprotoCore.so.4 must resolve inside the workspace build tree, not ${RESOLVED:-nothing}"; exit 1 ;;
           esac
           if ldd build_release/protojs | grep -q '/usr/local/.*protoCore'; then
             echo "protojs is linked against a protoCore under /usr/local"

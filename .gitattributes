@@ -8,3 +8,4 @@
 *.cjs  text eol=lf
 *.json text eol=lf
 *.py   text eol=lf
+*.expected text eol=lf
