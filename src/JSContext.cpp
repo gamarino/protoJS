@@ -31,6 +31,7 @@
 #include <cstring>
 #include <cmath>
 #include <iostream>
+#include <optional>
 #include <fstream>
 #include <sstream>
 #include "platform/Posix.h"
@@ -624,13 +625,17 @@ JSValue JSContextWrapper::eval(const std::string& code, const std::string& filen
                 rootModule_ = modPtr;
                 rootModuleStorage_ = std::move(modulePtr);
                 // An uncaught exception is reported below (nullptr: none;
-                // PROTO_NONE is a thrown undefined).
+                // PROTO_NONE is a thrown undefined).  The caught exception is
+                // held while it is reported: it is what keeps `exception`
+                // alive (docs/GC_BRIDGING.md).
+                std::optional<proto::ProtoException> held;
                 const proto::ProtoObject* exception = nullptr;
                 const proto::ProtoObject* result = nullptr;
                 try {
                     result = protojs::runBytecode(&frameCtx, modPtr, globalObj, nullptr,
                                                   &nativeGlobalRoot_);
                 } catch (const proto::ProtoException& thrown) {
+                    held.emplace(thrown);
                     exception = thrown.value();
                 }
                 frameCtx.returnValue = exception ? exception : result;

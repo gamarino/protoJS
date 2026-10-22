@@ -251,12 +251,35 @@ Two rules follow from the pin living in the space:
   inside the wrapper's scope and ends the process with `exitNow`, which does
   not unwind (`src/main.cpp`, `guardTopLevel`); a worker catches before its
   wrapper is reset.
-- **A value kept after the catch is an ordinary value again.** Copying
-  `e.value()` into a C++ local after the handler ends is the out-parameter
-  hazard above: anchor it (push it on the interpreter stack, store it in a
-  pinned object) before the exception is destroyed. The interpreter's catch
-  does: `runProtectedRange` pushes the value on the activation's stack, a root,
-  before the handler ends.
+- **A thrown value is rooted only while the exception lives.** The pin
+  belongs to the exception object, not to the value: when the last copy of the
+  caught exception is destroyed -- at the end of the `catch` block -- a copy of
+  `e.value()` in a C++ local is an ordinary value again, the out-parameter
+  hazard above. Either use the value inside the `catch` (reject the promise,
+  report it, push it), or anchor it (push it on the interpreter stack, store it
+  in a pinned object) before the handler ends, or keep the exception alive for
+  as long as the value is used. The last is the idiom for a value used after
+  the `try`:
+
+  ```cpp
+  std::optional<proto::ProtoException> held;   // shares the pin
+  const proto::ProtoObject* exception = nullptr;
+  try {
+      result = runBytecode(...);
+  } catch (const proto::ProtoException& thrown) {
+      held.emplace(thrown);
+      exception = thrown.value();
+  }
+  // ... allocate, then reject / complete / report with `exception` ...
+  ```
+
+  `std::exception_ptr held = std::current_exception();` does the same where
+  the exception is rethrown later (`ObjectPrototype.cpp`, the getter walk).
+  The interpreter's catch anchors instead: `runProtectedRange` pushes the value
+  on the activation's stack, a root, before the handler ends. The async entry,
+  the await resume and `AsyncGeneratorAwaitReturn` in `ProtoInterpreter.cpp`,
+  and `JSContextWrapper::eval`, hold the exception
+  (`tests/unit/test_exception_value_rooting.cpp`).
 
 ### Interpreter thread-locals (audit, 2026-10-04)
 

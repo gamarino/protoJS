@@ -4,6 +4,25 @@ All notable changes to protoJS are documented in this file.
 
 ## [Unreleased]
 
+### Fixed — a caught exception's value used after its catch (2026-10-21)
+
+- **The value is rooted only while the exception lives.** Three interpreter
+  boundaries copied `e.value()` out of a `catch` and used it after the
+  exception was destroyed, as a bare C++ local, while allocating: the async
+  function entry (`startAsyncActivation`) and the await resume
+  (`resumeContinuation`) rejecting the promise or completing the async
+  generator, and `AsyncGeneratorAwaitReturn` completing the generator when
+  `PromiseResolve` throws. A collection in that window could reject the
+  promise with a freed cell. Each now holds the caught exception
+  (`std::optional<proto::ProtoException>`, whose copy shares the pin) until
+  the value is stored. `JSContextWrapper::eval`, which anchored the value as
+  the frame's return value before any allocation, does the same so the
+  report does not depend on that ordering. The other 65 handlers consume the
+  value inside the catch, rethrow, or never read it.
+  `tests/unit/test_exception_value_rooting.cpp` checks the rule
+  deterministically (a forced cycle after the catch) and drives the fixed
+  paths under collections requested from a second thread.
+
 ### Changed — protoCore's unified exception model (2026-10-21)
 
 - **One exception type.** `protojs::JSException` is now a subclass of

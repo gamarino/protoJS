@@ -19225,12 +19225,15 @@ static const proto::ProtoObject* startAsyncActivation(proto::ProtoContext* pCont
     t_asyncEntryKind = kAsyncFunction;
     t_asyncEntryOwner = promise;
     // The body's exception rejects the promise (nullptr: none; PROTO_NONE is
-    // a thrown undefined).
+    // a thrown undefined).  The caught exception is held until the promise is
+    // settled: it is what keeps `exception` alive (docs/GC_BRIDGING.md).
+    std::optional<proto::ProtoException> held;
     const proto::ProtoObject* exception = nullptr;
     const proto::ProtoObject* r = nullptr;
     try {
         r = runBytecode(pContext, module, thisObj, args, pGlobalRoot);
     } catch (const proto::ProtoException& thrown) {
+        held.emplace(thrown);
         exception = thrown.value();
     }
     if (t_asyncSuspended) {
@@ -19267,11 +19270,14 @@ static void resumeContinuation(proto::ProtoContext* ctx, const proto::ProtoObjec
     t_asyncResumeCont = cont;
     t_asyncResumeValue = value ? value : PROTO_NONE;
     t_asyncResumeCompletion = completion;
+    // The caught exception is held until the activation is completed with it.
+    std::optional<proto::ProtoException> held;
     const proto::ProtoObject* exception = nullptr;
     const proto::ProtoObject* r = nullptr;
     try {
         r = runBytecode(&childCtx, mod, thisObj, args, t_currentGlobalRoot);
     } catch (const proto::ProtoException& thrown) {
+        held.emplace(thrown);
         exception = thrown.value();
     }
     childCtx.returnValue = r;
@@ -19370,11 +19376,14 @@ static void asyncGenAwaitReturn(proto::ProtoContext* ctx, const proto::ProtoObje
     const proto::ProtoObject* value = PROTO_NONE;
     if (!asyncGenFirstRequest(ctx, gen, completion, value)) return;
     // An abrupt completion of PromiseResolve completes the generator with it.
+    // The caught exception is held until the generator is completed with it.
+    std::optional<proto::ProtoException> held;
     const proto::ProtoObject* promise = nullptr;
     const proto::ProtoObject* e = PROTO_NONE;
     try {
         promise = promiseResolveIntrinsic(ctx, value);
     } catch (const proto::ProtoException& thrown) {
+        held.emplace(thrown);
         e = thrown.value();
     }
     if (!promise) {
