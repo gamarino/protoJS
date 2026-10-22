@@ -4,6 +4,10 @@ All notable changes to protoJS are documented in this file.
 
 ## [Unreleased]
 
+## [0.2.0] - 2026-10-22
+
+**Requires protoCore 3.0.0** (SOVERSION 4), the declared minimum for a build from source; the `.deb` depends on `protocore (>= 3.0.0)`. CI pins protoCore tag `v3.0.0` on every job.
+
 ### Fixed — a caught exception's value used after its catch (2026-10-21)
 
 - **The value is rooted only while the exception lives.** Three interpreter

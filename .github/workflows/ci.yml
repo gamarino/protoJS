@@ -91,7 +91,7 @@ concurrency:
 
 env:
   PROTOCORE_REPO: numaes/protoCore
-  # protoCore 3.0.0 (branch feature/args-calling-convention, commit cf52f9f5),
+  # protoCore 3.0.0 (tag v3.0.0, commit ce00a4a2),
   # SOVERSION 4, except on the nightly schedule, which builds protoCore
   # master.  Bump deliberately.  protoJS's floor is 3.0.0: natives read their
   # arguments through ProtoArguments descriptors (PROTOCORE_MIN_VERSION in
@@ -100,7 +100,7 @@ env:
   # from a space's first Deferred (src/JSContext.cpp, "Memory policy").
   # protoJS declares PROTOCORE_ABI_SOVERSION 4 in CMakeLists.txt and the ldd
   # step below asserts the library actually loaded is this tree's.
-  PROTOCORE_REF: ${{ github.event_name == 'schedule' && 'master' || 'cf52f9f5056919bb07326afc7159d5b3d78c03a3' }}
+  PROTOCORE_REF: ${{ github.event_name == 'schedule' && 'master' || 'ce00a4a26b6583ea8a58e776eee2ea91c743469e' }}
   TEST262_REPO: tc39/test262
   # The corpus commit every published protoJS figure was measured against
   # (docs/TEST262_STATUS.md, tests/test262/config/regression_gate_baseline.json).
