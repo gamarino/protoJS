@@ -181,7 +181,7 @@ static void iterClose(proto::ProtoContext* ctx,
     // the original exception afterwards.
     try {
         (void)callJSFunction(ctx, fn, iter, ctx->newList());
-    } catch (const JSException&) {
+    } catch (const proto::ProtoException&) {
     }
 }
 
@@ -250,7 +250,7 @@ static const proto::ProtoObject* iteratorForEach(
         cbArgs = cbArgs->appendLast(ctx, ctx->fromInteger(counter++));
         try {
             (void)callJSFunction(ctx, fn, getUndefinedSentinel(), cbArgs);
-        } catch (const JSException&) {
+        } catch (const proto::ProtoException&) {
             iterClose(ctx, self);
             throw;
         }
@@ -303,7 +303,7 @@ static const proto::ProtoObject* iteratorReduce(
         cbArgs = cbArgs->appendLast(ctx, ctx->fromInteger(counter++));
         try {
             acc = callJSFunction(ctx, fn, getUndefinedSentinel(), cbArgs);
-        } catch (const JSException&) {
+        } catch (const proto::ProtoException&) {
             iterClose(ctx, self);
             throw;
         }
@@ -358,7 +358,7 @@ static const proto::ProtoObject* iteratorBoolPredicate(
         const proto::ProtoObject* r = nullptr;
         try {
             r = callJSFunction(ctx, fn, getUndefinedSentinel(), cbArgs);
-        } catch (const JSException&) {
+        } catch (const proto::ProtoException&) {
             iterClose(ctx, self);
             throw;
         }
@@ -517,7 +517,7 @@ static const proto::ProtoObject* iteratorMapNext(
     const proto::ProtoObject* mapped = nullptr;
     try {
         mapped = callJSFunction(ctx, cb, getUndefinedSentinel(), cbArgs);
-    } catch (const JSException&) {
+    } catch (const proto::ProtoException&) {
         iterClose(ctx, underlying);
         throw;
     }
@@ -590,7 +590,7 @@ static const proto::ProtoObject* iteratorFilterNext(
         const proto::ProtoObject* r = nullptr;
         try {
             r = callJSFunction(ctx, cb, getUndefinedSentinel(), cbArgs);
-        } catch (const JSException&) {
+        } catch (const proto::ProtoException&) {
             iterClose(ctx, underlying);
             throw;
         }
@@ -872,7 +872,7 @@ static const proto::ProtoObject* iteratorFlatMapNext(
         const proto::ProtoObject* mapped = nullptr;
         try {
             mapped = callJSFunction(ctx, cb, getUndefinedSentinel(), cbArgs);
-        } catch (const JSException&) {
+        } catch (const proto::ProtoException&) {
             iterClose(ctx, outer);
             throw;
         }
@@ -895,7 +895,7 @@ static const proto::ProtoObject* iteratorFlatMapNext(
         if (itoFn && itoFn != PROTO_NONE && itoFn != getUndefinedSentinel()) {
             try {
                 newInner = callJSFunction(ctx, itoFn, mapped, ctx->newList());
-            } catch (const JSException&) {
+            } catch (const proto::ProtoException&) {
                 iterClose(ctx, outer);
                 throw;
             }
@@ -1372,7 +1372,7 @@ static const proto::ProtoObject* iteratorZip(
         const proto::ProtoObject* inner = nullptr;
         try {
             inner = getIteratorFor(ctx, src);
-        } catch (const JSException&) {
+        } catch (const proto::ProtoException&) {
             closePrevious();
             throw;
         }
@@ -1493,7 +1493,7 @@ static const proto::ProtoObject* iteratorZipKeyed(
             const proto::ProtoObject* inner = nullptr;
             try {
                 inner = getIteratorFor(ctx, val);
-            } catch (const JSException&) {
+            } catch (const proto::ProtoException&) {
                 closeGathered();
                 throw;
             }
@@ -1514,7 +1514,7 @@ static const proto::ProtoObject* iteratorZipKeyed(
             const proto::ProtoObject* inner = nullptr;
             try {
                 inner = getIteratorFor(ctx, e.second);
-            } catch (const JSException&) {
+            } catch (const proto::ProtoException&) {
                 closeGathered();
                 throw;
             }

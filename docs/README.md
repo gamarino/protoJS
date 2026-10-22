@@ -7,6 +7,7 @@ Index of the documentation in this repository. Start with the [project README](.
 - [README.md](../README.md) — project overview, build instructions, basic usage and roadmap.
 - [INSTALLATION.md](INSTALLATION.md) — building and installing protoJS and its protoCore dependency from source, and building packages locally (no prebuilt packages are published).
 - [API_REFERENCE.md](API_REFERENCE.md) — command-line options, environment variables, and the globals installed for scripts.
+- [EXCEPTIONS.md](EXCEPTIONS.md) — the exception model shared with protoCore: catching a module's error types, how protoCore's errors map to JavaScript classes, foreign C++ exceptions, and what happens to an uncaught exception.
 - [EXAMPLES.md](EXAMPLES.md) — short example scripts.
 - [DEFERRED_USAGE.md](DEFERRED_USAGE.md) — `Deferred`, a promise whose function runs in parallel on a pool of protoCore threads sharing the script's objects.
 - [PROTOCORE_MODULE.md](PROTOCORE_MODULE.md) — the `protoCore` global: `runInThread` for native work on protoCore threads, and the collection helpers not yet reachable from scripts.

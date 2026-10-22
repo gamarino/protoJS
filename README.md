@@ -38,6 +38,7 @@ Four language runtimes (protoJS, protoPython, protoST, protoClojure) and protoCp
 - **Native threads.** `protoCore.runInThread` runs a registered C++ worker on a new protoCore thread that shares the same object space, without serialising arguments or results.
 - **Garbage collection** is provided by protoCore's concurrent collector. A sequential program runs under a fixed heap ceiling (75 % of physical memory, or of the cgroup limit); a program that uses Deferreds switches, at its first Deferred, to protoCore's adaptive heap controller, which keeps the heap far below that budget (23-65 % less peak memory with 6-12 Deferreds, at -11 to +26 % wall time depending on the workload). Heap memory is not returned to the operating system before the process ends. See [Memory](docs/API_REFERENCE.md#memory).
 - **Promises and async functions per ECMA-262.** Promise reactions run as jobs on a per-thread microtask queue, drained after the main script and after every event-loop callback, in the order Node runs them; `await` suspends the async function and resumes it from a job; async generators queue their requests; an unhandled rejection ends the process with status 1. See [Promises and async functions](docs/API_REFERENCE.md#promises-and-async-functions).
+- **One exception type with every language on protoCore.** A JavaScript `throw` is a C++ `throw` of protoCore's `ProtoException`, so the errors a C++ module (or another language) raises are caught by a JavaScript `catch` naming the module's types (`e instanceof geometry.NegativeRadius`), protoCore's own errors arrive as `SyntaxError` / `TypeError` / `RangeError`, and a C++ standard exception a module lets escape arrives as an `Error`. See [docs/EXCEPTIONS.md](docs/EXCEPTIONS.md).
 - **Node.js-style modules** (`fs`, `path`, `http`, `net`, `stream`, `events`, `crypto`, `worker_threads`, and others) and developer tools (memory analyzer, profiler, Chrome DevTools Protocol debugger) implemented in C++.
 - **Command-line interface** with Node.js-style flags and an interactive REPL.
 
@@ -416,6 +417,7 @@ Full index: **[docs/README.md](docs/README.md)** — user guides, contributor do
 - **[docs/INSTALLATION.md](docs/INSTALLATION.md)** - Installation: building from source, installing and packaging
 - **[docs/API_REFERENCE.md](docs/API_REFERENCE.md)** - API reference
 - **[docs/EXAMPLES.md](docs/EXAMPLES.md)** - Advanced examples
+- **[docs/EXCEPTIONS.md](docs/EXCEPTIONS.md)** - Exceptions: catching module error types, protoCore's errors, uncaught exceptions
 - **[docs/DEFERRED_USAGE.md](docs/DEFERRED_USAGE.md)** - Deferred usage guide
 - **[docs/PROTOCORE_MODULE.md](docs/PROTOCORE_MODULE.md)** - protoCore module guide
 - **[docs/NATIVE_MODULES.md](docs/NATIVE_MODULES.md)** - Native addon modules (C++ shared libraries)

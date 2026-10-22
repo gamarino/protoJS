@@ -693,7 +693,7 @@ const proto::ProtoObject* promiseConstructor(proto::ProtoContext* ctx,
     createResolvingFunctions(ctx, p, resolveFn, rejectFn);
     try {
         callJSFunction(ctx, executor, undef(), list2(ctx, resolveFn, rejectFn));
-    } catch (const JSException& thrown) {
+    } catch (const proto::ProtoException& thrown) {
         // A throwing executor rejects the promise; a throwing reject
         // function propagates.
         callJSFunction(ctx, rejectFn, undef(), list1(ctx, thrown.value()));
@@ -765,7 +765,7 @@ const proto::ProtoObject* promiseStaticTry(proto::ProtoContext* ctx,
     const proto::ProtoObject* result = nullptr;
     try {
         result = callJSFunction(ctx, argAt(ctx, args, 0), undef(), fwd ? fwd : ctx->newList());
-    } catch (const JSException& thrown) {
+    } catch (const proto::ProtoException& thrown) {
         Capability cap;
         if (!newPromiseCapability(ctx, self, cap)) return PROTO_NONE;
         capabilitySettle(ctx, cap, true, thrown.value());
@@ -857,7 +857,7 @@ void iteratorCloseOnThrow(proto::ProtoContext* ctx, IteratorRecord& rec) {
             jsGet(ctx, rec.iterator, keyReturn(ctx), sym(ctx, "__get_return__"));
         if (isCallable(ctx, ret))
             callJSFunction(ctx, ret, rec.iterator, ctx->newList());
-    } catch (const JSException&) {
+    } catch (const proto::ProtoException&) {
     }
 }
 
@@ -1035,7 +1035,7 @@ const proto::ProtoObject* promiseCombinator(proto::ProtoContext* ctx,
     try {
         promiseResolve = getPromiseResolve(ctx, C);
         getIterator(ctx, argAt(ctx, args, 0), iter);
-    } catch (const JSException& thrown) {
+    } catch (const proto::ProtoException& thrown) {
         return rejectWith(ctx, cap, thrown.value());
     }
 
@@ -1046,7 +1046,7 @@ const proto::ProtoObject* promiseCombinator(proto::ProtoContext* ctx,
         int step = 0;
         try {
             step = iteratorStepValue(ctx, iter, value);
-        } catch (const JSException& thrown) {
+        } catch (const proto::ProtoException& thrown) {
             // The iterator threw: it is done, so it is not closed.
             return rejectWith(ctx, cap, thrown.value());
         }
@@ -1059,7 +1059,7 @@ const proto::ProtoObject* promiseCombinator(proto::ProtoContext* ctx,
                 try {
                     if (kind == kAny) capabilitySettle(ctx, cap, true, makeAggregateError(ctx, arr));
                     else capabilitySettle(ctx, cap, false, arr);
-                } catch (const JSException& thrown) {
+                } catch (const proto::ProtoException& thrown) {
                     return rejectWith(ctx, cap, thrown.value());
                 }
             }
@@ -1069,7 +1069,7 @@ const proto::ProtoObject* promiseCombinator(proto::ProtoContext* ctx,
         const proto::ProtoObject* nextPromise = nullptr;
         try {
             nextPromise = callJSFunction(ctx, promiseResolve, C, list1(ctx, value));
-        } catch (const JSException& thrown) {
+        } catch (const proto::ProtoException& thrown) {
             iteratorCloseOnThrow(ctx, iter);
             return rejectWith(ctx, cap, thrown.value());
         }
@@ -1089,7 +1089,7 @@ const proto::ProtoObject* promiseCombinator(proto::ProtoContext* ctx,
         if (agg) aggregateIncrement(ctx, agg);
         try {
             invokeThen(ctx, nextPromise, list2(ctx, onFulfilled, onRejected));
-        } catch (const JSException& thrown) {
+        } catch (const proto::ProtoException& thrown) {
             iteratorCloseOnThrow(ctx, iter);
             return rejectWith(ctx, cap, thrown.value());
         }
@@ -1206,7 +1206,7 @@ void resolvePromise(proto::ProtoContext* ctx, const proto::ProtoObject* promise,
     const proto::ProtoObject* thenAction = nullptr;
     try {
         thenAction = jsGet(ctx, resolution, keyThen(ctx), keyThenGetter(ctx));
-    } catch (const JSException& thrown) {
+    } catch (const proto::ProtoException& thrown) {
         settle(ctx, promise, kRejected, thrown.value());
         return;
     }
@@ -1266,7 +1266,7 @@ bool performAwait(proto::ProtoContext* ctx, const proto::ProtoObject* value,
     const proto::ProtoObject* thenAction = nullptr;
     try {
         thenAction = jsGet(ctx, value, keyThen(ctx), keyThenGetter(ctx));
-    } catch (const JSException& thrown) {
+    } catch (const proto::ProtoException& thrown) {
         enqueueReactionJob(ctx, reaction(), thrown.value(), kRejected);
         return true;
     }
@@ -1373,14 +1373,14 @@ void promiseReactionJob(proto::ProtoContext* ctx, const proto::ProtoObject* reac
     bool isThrow = rejected;
     // A throwing handler rejects the derived promise.  The caught exception
     // is kept (it pins its value) until the derived promise is settled.
-    std::optional<JSException> handlerThrew;
+    std::optional<proto::ProtoException> handlerThrew;
     if (handler && handler != PROTO_NONE) {
         try {
             const proto::ProtoObject* result =
                 callJSFunction(ctx, handler, undef(), list1(ctx, argument));
             value = result ? result : undef();
             isThrow = false;
-        } catch (const JSException& thrown) {
+        } catch (const proto::ProtoException& thrown) {
             handlerThrew.emplace(thrown);
             value = thrown.value();
             isThrow = true;
@@ -1397,7 +1397,7 @@ void promiseReactionJob(proto::ProtoContext* ctx, const proto::ProtoObject* reac
             // An exception from the capability's function is discarded.
             try {
                 callJSFunction(ctx, cap->getAt(ctx, isThrow ? 2 : 1), undef(), list1(ctx, value));
-            } catch (const JSException&) {
+            } catch (const proto::ProtoException&) {
             }
         }
         break;
@@ -1415,12 +1415,12 @@ void promiseResolveThenableJob(proto::ProtoContext* ctx, const proto::ProtoObjec
     createResolvingFunctions(ctx, promise, resolveFn, rejectFn);
     try {
         callJSFunction(ctx, then, thenable, list2(ctx, resolveFn, rejectFn));
-    } catch (const JSException& thrown) {
+    } catch (const proto::ProtoException& thrown) {
         // A throwing `then` rejects the promise; an exception from the
         // reject function is discarded.
         try {
             callJSFunction(ctx, rejectFn, undef(), list1(ctx, thrown.value()));
-        } catch (const JSException&) {
+        } catch (const proto::ProtoException&) {
         }
     }
 }

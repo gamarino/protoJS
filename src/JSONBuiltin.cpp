@@ -988,7 +988,7 @@ const proto::ProtoObject* JSONBuiltin::stringify(proto::ProtoContext* ctx,
     };
     ReplacerGuard replGuard(replacerFnLocal);
     // The walk publishes the current key in tlCurrentKey and restores it as
-    // it returns; an exception (a JSException from toJSON, a replacer or a
+    // it returns; an exception (a ProtoException from toJSON, a replacer or a
     // getter) unwinds past those restores, so the key is restored here.
     struct CurrentKeyGuard {
         std::string prev;

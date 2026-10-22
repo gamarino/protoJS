@@ -40,7 +40,7 @@ void EventLoop::processCallbacks() {
             // await continuations) before the next one, as Node does.
             MicrotaskQueue::checkpointThread();
             if (endOfTurnHook) endOfTurnHook();
-        } catch (const JSException& thrown) {
+        } catch (const proto::ProtoException& thrown) {
             // A JavaScript exception that escaped the callback: nothing will
             // catch it, so, as in Node, it ends the process.
             reportUncaughtException(threadProtoContext(), "event-loop callback",

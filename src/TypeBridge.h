@@ -37,6 +37,18 @@ public:
      * @brief Converts a protoCore ProtoObject to a QuickJS JSValue.
      */
     static JSValue toJS(JSContext* ctx, const proto::ProtoObject* obj, proto::ProtoContext* pContext);
+
+    /**
+     * @brief Raises, on the QuickJS context, the C++ exception being handled.
+     *
+     * A C++ exception must never unwind through QuickJS's C frames.  Call it
+     * from a `catch (...)` at a place where QuickJS calls into protoJS (a C
+     * function callback, a module-loader hook): a proto::ProtoException is
+     * raised as its value (toJS), a `std::exception` as an `Error` whose
+     * message is what(), anything else as an `Error` saying so.  Returns
+     * JS_EXCEPTION.
+     */
+    static JSValue throwCurrentOnQuickJS(JSContext* ctx, proto::ProtoContext* pContext);
 };
 
 void initializeUndefinedSentinel(proto::ProtoContext* ctx);

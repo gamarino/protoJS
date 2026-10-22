@@ -188,10 +188,10 @@ static const proto::ProtoObject* coerceToInteger(proto::ProtoContext* ctx,
         }
         std::string body = s.substr(lo, hi - lo);
         // §7.1.14 StringToBigInt: the trimmed body must contain ONLY
-        // digits valid for the radix.  protoCore's fromString throws
-        // std::invalid_argument on malformed input rather than returning
-        // nullptr, so pre-validate to avoid the crash and surface the
-        // spec-mandated SyntaxError instead.
+        // digits valid for the radix.  protoCore's fromString raises its
+        // InvalidArgument error (a ProtoException, a SyntaxError through
+        // protoJS's error factory) on malformed input rather than returning
+        // nullptr; pre-validate so the SyntaxError carries the usual message.
         auto isValidDigit = [&](char c) -> bool {
             if (base == 16)  return (c >= '0' && c <= '9')
                                  || (c >= 'a' && c <= 'f')
@@ -211,7 +211,7 @@ static const proto::ProtoObject* coerceToInteger(proto::ProtoContext* ctx,
         const proto::ProtoObject* parsed = nullptr;
         try {
             parsed = ctx->fromString(body.c_str(), base);
-        } catch (...) {
+        } catch (const proto::ProtoException&) {
             signalNativeException(makeNativeError(ctx, "SyntaxError",
                 "Cannot convert string to a BigInt"));
             return PROTO_NONE;

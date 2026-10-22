@@ -393,7 +393,7 @@ static void collectOwnKeys(
                 const proto::ProtoObject* gres = nullptr;
                 try {
                     gres = callJSFunction(cbCtx, getter, s->obj, noArgs);
-                } catch (const JSException&) {
+                } catch (const proto::ProtoException&) {
                     s->vals->push_back(PROTO_NONE);
                     s->aborted = true;
                     s->thrown = std::current_exception();
@@ -4928,7 +4928,7 @@ static const proto::ProtoObject* objectFromEntries(
                     const proto::ProtoList* noA = ctx->newList();
                     try {
                         (void)callJSFunction(ctx, retFn, iter, noA);
-                    } catch (const JSException&) {
+                    } catch (const proto::ProtoException&) {
                     }
                 }
             }
@@ -4972,7 +4972,7 @@ static const proto::ProtoObject* objectFromEntries(
             // closes for abrupt completions after a successful step).
             try {
                 processPair(pair);
-            } catch (const JSException&) {
+            } catch (const proto::ProtoException&) {
                 closeAndPropagate();
                 throw;
             }

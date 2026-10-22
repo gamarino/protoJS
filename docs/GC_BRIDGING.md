@@ -227,14 +227,36 @@ Anything else the callee hands back -- through an out-parameter, a C++ local or 
 thread-local -- is unreachable once the child context ends, and the next
 allocation may collect it.
 
-A JavaScript exception is a C++ exception, `protojs::JSException`
-(`src/runtime/ProtoInterpreter.h`), and unwinding ends the child contexts that
-allocated the thrown value. The JSException therefore pins the value in a root set
-of its ProtoSpace for as long as any copy of it exists, from the throw to the
-catch that consumes it; a native that catches it, runs more JavaScript
-(IteratorClose calling `return()`) and rethrows keeps it pinned
-(`cli/gc-exceptions`, `tests/integration/gc/exception_across_contexts.js`). A call
-that returns normally still anchors its result as the child's return value.
+A JavaScript exception is a C++ exception: `proto::ProtoException`, protoCore's
+one exception type, thrown by the interpreter as its subclass
+`protojs::JSException` (`src/runtime/ProtoInterpreter.h`), which adds no state.
+Unwinding ends the child contexts that allocated the thrown value, so the value
+must be pinned while the exception travels. **protoCore pins it**: a
+`ProtoException` holds the value in a root set of its space for as long as any
+copy of it exists, from the throw to the catch that consumes it, and copies
+share the pin. protoJS no longer keeps a root set of its own for this (until
+the unified exception model, `JSException` carried its own pin in a
+`protojs-exceptions-in-flight` root set). A native that catches it, runs more
+JavaScript (IteratorClose calling `return()`) and rethrows keeps it pinned
+(`cli/gc-exceptions`, `tests/integration/gc/exception_across_contexts.js`). The
+same holds for an error raised by protoCore itself or by a module written in
+C++: it is the same type with the same pin. A call that returns normally still
+anchors its result as the child's return value.
+
+Two rules follow from the pin living in the space:
+
+- **An exception must not outlive its space.** Its destructor releases the pin
+  in the space's root set. A handler that reports an uncaught exception runs
+  while the `JSContextWrapper` (which owns the space) is alive: `main` catches
+  inside the wrapper's scope and ends the process with `exitNow`, which does
+  not unwind (`src/main.cpp`, `guardTopLevel`); a worker catches before its
+  wrapper is reset.
+- **A value kept after the catch is an ordinary value again.** Copying
+  `e.value()` into a C++ local after the handler ends is the out-parameter
+  hazard above: anchor it (push it on the interpreter stack, store it in a
+  pinned object) before the exception is destroyed. The interpreter's catch
+  does: `runProtectedRange` pushes the value on the activation's stack, a root,
+  before the handler ends.
 
 ### Interpreter thread-locals (audit, 2026-10-04)
 

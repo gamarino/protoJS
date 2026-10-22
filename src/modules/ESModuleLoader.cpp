@@ -132,9 +132,11 @@ void ESModuleLoader::evaluateModule(ESModuleRecord* record, JSContext* ctx) {
     const proto::ProtoObject* result = nullptr;
     try {
         result = protojs::runBytecode(&frameCtx, &module, globalObj, nullptr, &globalObj);
-    } catch (const protojs::JSException& thrown) {
+    } catch (...) {
+        // A ProtoException is raised as its value; a foreign C++ exception as
+        // an Error (TypeBridge::throwCurrentOnQuickJS).
         record->isEvaluating = false;
-        JS_Throw(ctx, TypeBridge::toJS(ctx, thrown.value(), &frameCtx));
+        TypeBridge::throwCurrentOnQuickJS(ctx, &frameCtx);
         return;
     }
     frameCtx.returnValue = result;

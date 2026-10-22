@@ -223,7 +223,7 @@ const proto::ProtoObject* dnsLookup(
             try {
                 callJSFunctionFromAsync(c, cb, PROTO_NONE, cbArgs, mod,
                                         wrapper->getNativeGlobalRootPtr());
-            } catch (const JSException& thrown) {
+            } catch (const proto::ProtoException& thrown) {
                 reportUncaughtException(c, "dns callback", thrown.value());
             }
         });

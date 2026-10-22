@@ -18,6 +18,8 @@
 #include <unordered_map>
 #include <string>
 #include <cstdint>
+#include <exception>
+#include <iostream>
 
 namespace protojs {
 
@@ -84,7 +86,13 @@ const proto::ProtoObject* cpuChunkThreadEntry(
     // A thread entry: no exception may leave the thread.
     try {
         return cpuChunkWorker(&threadCtx, self, pl, args, kwargs);
-    } catch (const protojs::JSException&) {
+    } catch (const proto::ProtoException&) {
+        return PROTO_NONE;
+    } catch (const std::exception& e) {
+        std::cerr << "protojs: C++ exception in a cpuChunk worker: " << e.what() << std::endl;
+        return PROTO_NONE;
+    } catch (...) {
+        std::cerr << "protojs: unknown C++ exception in a cpuChunk worker" << std::endl;
         return PROTO_NONE;
     }
 }

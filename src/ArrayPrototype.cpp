@@ -4499,7 +4499,7 @@ static const proto::ProtoObject* arraySort(
     // swallowed the abrupt and returned false, so toSorted /
     // toSorted-via-sort kept hammering the comparator after the
     // first throw (built-ins/Array/prototype/toSorted/comparefn-
-    // stop-after-error).  The comparator's exception (a JSException)
+    // stop-after-error).  The comparator's exception (a ProtoException)
     // unwinds out of std::stable_sort, which cancels the sort; the
     // elements are plain pointers and `defined` is discarded, so the
     // basic exception guarantee of the algorithm suffices.
@@ -5442,7 +5442,7 @@ static const proto::ProtoObject* arrayFrom(
                 // the caller rethrows.
                 try {
                     callJSFunction(ctx, returnFn, iter, ctx->newList());
-                } catch (const JSException&) {
+                } catch (const proto::ProtoException&) {
                 }
             };
             while (nextFn && nextFn != PROTO_NONE) {
@@ -5459,7 +5459,7 @@ static const proto::ProtoObject* arrayFrom(
                     if (!vv || vv == PROTO_NONE)
                         vv = res->getAttribute(ctx, valueKey, false);
                     mapped = applyMap(vv, idx);
-                } catch (const JSException&) {
+                } catch (const proto::ProtoException&) {
                     closeIteratorPre();
                     throw;
                 }
@@ -5501,7 +5501,7 @@ static const proto::ProtoObject* arrayFrom(
                 // exception, which the caller rethrows.
                 try {
                     callJSFunction(ctx, returnFn, iter, ctx->newList());
-                } catch (const JSException&) {
+                } catch (const proto::ProtoException&) {
                 }
             };
             for (long long i = 0; i < idx; i++) {
@@ -5509,7 +5509,7 @@ static const proto::ProtoObject* arrayFrom(
                 try {
                     createFails = arrayThrowIfCreateDataPropertyFails(ctx, result,
                         static_cast<proto::proto_ulong>(i));
-                } catch (const JSException&) {
+                } catch (const proto::ProtoException&) {
                     closeIterator();
                     throw;
                 }

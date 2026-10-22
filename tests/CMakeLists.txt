@@ -420,6 +420,26 @@ add_test(NAME js/native_addons/test_resolution
     COMMAND "$<TARGET_FILE:protojs>"
             "$<TARGET_FILE_DIR:fixture_addon>/test_resolution.js")
 
+# Errors of a module written in C++ (protoCore's geometry example, loaded
+# through UMD by the geometry addon) are caught by JavaScript handlers naming
+# the module's types; protoCore's own errors and a C++ standard exception
+# arrive as JavaScript errors (docs/EXCEPTIONS.md).  Built only when protoCore's
+# example sources are available (CMakeLists.txt, geometry_addon).
+if(TARGET geometry_addon)
+    add_test(NAME js/native_addons/test_module_exceptions
+        COMMAND "$<TARGET_FILE:protojs>"
+                "${CMAKE_CURRENT_SOURCE_DIR}/integration/native_addons/test_module_exceptions.js"
+                "$<TARGET_FILE:geometry_addon>")
+    # Uncaught, the module's error is reported from its name and message.
+    add_test(NAME js/native_addons/module_exception_uncaught
+        COMMAND "$<TARGET_FILE:protojs>"
+                "${CMAKE_CURRENT_SOURCE_DIR}/integration/native_addons/module_exception_uncaught.js"
+                "$<TARGET_FILE:geometry_addon>")
+    set_tests_properties(js/native_addons/module_exception_uncaught PROPERTIES
+        PASS_REGULAR_EXPRESSION "NegativeRadius: circleArea: the radius -1.000000 is negative"
+        FAIL_REGULAR_EXPRESSION "not reached")
+endif()
+
 # process.argv carries the arguments after the script; process.memoryUsage().
 add_test(NAME js/modules/process_argv_memory
     COMMAND "$<TARGET_FILE:protojs>"

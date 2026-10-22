@@ -8,6 +8,7 @@
 
 #include "ProtoBytecodeModule.h"
 #include "protoCore.h"
+#include <exception>
 #include <memory>
 #include <vector>
 
@@ -16,24 +17,85 @@ namespace protojs {
 /**
  * A JavaScript exception in flight is a C++ exception: `throw` (OP_throw) and
  * a native that raises (signalNativeException) throw a JSException carrying
- * the thrown value, which may be any value (`throw undefined` included).  The
- * value is pinned in a root set of its ProtoSpace while any copy of the
- * JSException exists: unwinding ends the contexts that allocated it, which no
- * longer anchor it.
+ * the thrown value, which may be any value (`throw undefined` included).
+ *
+ * JSException is protoCore's one exception type, proto::ProtoException, under
+ * the name the interpreter throws; it adds no state.  protoCore pins the value
+ * while any copy exists, so unwinding past the contexts that allocated it
+ * cannot reclaim it.  Every handler -- a JavaScript `catch`, a boundary to
+ * QuickJS, an event-loop job -- catches the base, `const proto::ProtoException&`,
+ * so that the errors protoCore itself raises (through the error factory, see
+ * installErrorFactory) and the errors a module written in C++ or in another
+ * language raises are caught exactly like a JavaScript throw.  See
+ * docs/EXCEPTIONS.md.
  */
-class JSException {
+class JSException : public proto::ProtoException {
 public:
-    JSException(proto::ProtoContext* ctx, const proto::ProtoObject* value);
-    /** The thrown value. */
-    const proto::ProtoObject* value() const { return value_; }
-private:
-    struct Pin;
-    const proto::ProtoObject* value_;
-    std::shared_ptr<Pin> pin_;
+    using proto::ProtoException::ProtoException;
 };
 
-/** Throws `value` as a JSException (the context pins it). */
+/** Throws `value` as a JSException (protoCore pins it while it is in flight). */
 [[noreturn]] void throwJS(proto::ProtoContext* ctx, const proto::ProtoObject* value);
+
+/**
+ * Raises the JavaScript `Error` that stands for a foreign C++ exception (a
+ * `std::exception` that a native or a module method let escape): its message is
+ * `what`.  A C++ standard exception is a defect of the module, not a JavaScript
+ * value; it never crosses the interpreter as is.  See callNative.
+ */
+[[noreturn]] void raiseForeignCppError(proto::ProtoContext* ctx, const char* what);
+
+/**
+ * Calls a native (a protoCore ProtoMethod: a built-in, an addon function, a
+ * method of a UMD module) from the interpreter.  A proto::ProtoException the
+ * method raises passes through untouched; a `std::exception` is translated into
+ * a JavaScript `Error` with `what()` as its message (raiseForeignCppError).
+ */
+inline const proto::ProtoObject* callNative(proto::ProtoMethod method,
+                                            proto::ProtoContext* ctx,
+                                            const proto::ProtoObject* self,
+                                            const proto::ProtoArguments* args,
+                                            const proto::ProtoKeywordArguments* kwargs = nullptr) {
+    try {
+        return method(ctx, self, nullptr, args, kwargs);
+    } catch (const std::exception& e) {
+        raiseForeignCppError(ctx, e.what());
+    }
+}
+
+/**
+ * Whether `v` is an object of a module written outside JavaScript (in C++, or
+ * in another language on protoCore): a plain protoCore object -- not
+ * callable, not a Proxy -- whose prototype chain holds no JavaScript
+ * Object.prototype and that has no JavaScript [[Prototype]] override.  The
+ * error types and error values of such a module are this kind of object
+ * (docs/EXCEPTIONS.md).  For them protoJS extends two operations:
+ * `x instanceof T` with such a T tests T against x's prototype chain, and a
+ * conversion to a primitive answers foreignObjectString.
+ */
+bool isForeignObject(proto::ProtoContext* ctx, const proto::ProtoObject* v);
+
+/**
+ * The string form of a foreign object (isForeignObject): "<name>: <message>"
+ * from its `name` and `message` attributes, as Error.prototype.toString
+ * builds it, or "[object Object]" when it has neither.
+ */
+const proto::ProtoObject* foreignObjectString(proto::ProtoContext* ctx,
+                                              const proto::ProtoObject* v);
+
+/**
+ * Installs protoJS's error factory in `space` (ProtoSpace::setErrorFactory):
+ * protoCore's own errors are raised as the JavaScript error classes of the
+ * calling thread's realm.  Called once, when the space is created.
+ *
+ *   ProtoErrorKind     JavaScript class
+ *   InvalidArgument    SyntaxError   (BigInt("x"))
+ *   TypeMismatch       TypeError
+ *   Overflow           RangeError
+ *   DivisionByZero     RangeError    (1n / 0n, 1n % 0n: "Division by zero")
+ *   ArityMismatch      TypeError
+ */
+void installErrorFactory(proto::ProtoSpace* space);
 
 /**
  * Run the loaded bytecode module with the given `this` value, arguments and
@@ -44,7 +106,8 @@ private:
  * - `pGlobalRoot`: pointer to current global object; used for reads and updated on put_field.
  *
  * Returns the result ProtoObject, or PROTO_NONE on a void return.  A JavaScript
- * exception the code does not catch propagates as a JSException.
+ * exception the code does not catch propagates as a proto::ProtoException (a
+ * JSException) carrying the thrown value.
  * QuickJS (JSContext*) is not used during execution; atoms must be pre-resolved
  * via preResolveAllAtoms() before calling this function.
  */
@@ -150,8 +213,8 @@ void initializeUndefinedSentinel(proto::ProtoContext* ctx);
 const proto::ProtoObject** getCurrentGlobalRoot();
 
 /**
- * Raise `errorObj` from a native function: throws it as a JSException (the
- * context of the innermost interpreter frame pins it).  Does not return.
+ * Raise `errorObj` from a native function: throws it as a JSException (a
+ * proto::ProtoException; protoCore pins the value).  Does not return.
  */
 [[noreturn]] void signalNativeException(const proto::ProtoObject* errorObj);
 

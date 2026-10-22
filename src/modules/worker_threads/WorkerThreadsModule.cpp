@@ -843,8 +843,24 @@ void workerThreadEntry(WorkerState* state) {
     buf << file.rdbuf();
     std::string code = buf.str();
 
-    JSValue rv = state->workerWrapper->eval(code, state->filename);
-    if (JS_IsException(rv)) {
+    // A worker thread's entry: no C++ exception may leave it.  eval reports a
+    // JavaScript exception itself; one raised around it (a ProtoException) or
+    // a foreign C++ exception becomes the worker's "error" event.  The
+    // worker's space is alive here (state->workerWrapper).
+    JSValue rv = JS_UNDEFINED;
+    std::string escaped;
+    try {
+        rv = state->workerWrapper->eval(code, state->filename);
+    } catch (const proto::ProtoException&) {
+        escaped = "Uncaught exception in worker";
+    } catch (const std::exception& e) {
+        escaped = std::string("Uncaught C++ exception in worker: ") + e.what();
+    } catch (...) {
+        escaped = "Uncaught C++ exception of an unknown type in worker";
+    }
+    if (!escaped.empty()) {
+        emitOnWorker(state->mainWrapper, state->workerPin, "error", escaped, true);
+    } else if (JS_IsException(rv)) {
         JSContext* wctx = state->workerWrapper->getJSContext();
         JSValue exc = JS_GetException(wctx);
         const char* err = JS_ToCString(wctx, exc);

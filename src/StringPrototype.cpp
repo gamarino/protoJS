@@ -517,6 +517,13 @@ static std::string objToStr(proto::ProtoContext* ctx, const proto::ProtoObject* 
             return "";
         }
     }
+    // A value of a module written outside JavaScript: "<name>: <message>"
+    // (isForeignObject, ProtoInterpreter.h), as String(value) answers.
+    if (isForeignObject(ctx, obj)) {
+        std::string s;
+        foreignObjectString(ctx, obj)->asString(ctx)->toUTF8String(ctx, s);
+        return s;
+    }
     return "[object Object]";
 }
 

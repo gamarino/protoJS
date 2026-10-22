@@ -166,7 +166,7 @@ void runInline(proto::ProtoContext* ctx, const proto::ProtoObject* fn,
     const proto::ProtoObject* result = nullptr;
     try {
         result = callJSFunction(ctx, fn, u ? u : PROTO_NONE, ctx->newList());
-    } catch (const JSException& thrown) {
+    } catch (const proto::ProtoException& thrown) {
         rejectPromise(ctx, d, thrown.value());
         return;
     }

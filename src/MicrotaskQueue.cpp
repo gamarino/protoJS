@@ -241,7 +241,7 @@ void MicrotaskQueue::runJob(proto::ProtoContext* ctx, const proto::ProtoObject* 
         default:
             break;
         }
-    } catch (const JSException& thrown) {
+    } catch (const proto::ProtoException& thrown) {
         reportUncaughtException(ctx, "microtask", thrown.value());
     }
 }

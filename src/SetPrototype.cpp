@@ -228,7 +228,7 @@ static bool iterateSetLikeKeys(proto::ProtoContext* ctx,
                 // the caller rethrows the original abrupt.
                 try {
                     callJSFunction(ctx, retFn, iter, ctx->newList());
-                } catch (const JSException&) {
+                } catch (const proto::ProtoException&) {
                 }
             }
         }
@@ -292,7 +292,7 @@ static bool iterateSetLikeKeys(proto::ProtoContext* ctx,
         bool more = false;
         try {
             more = emit(val ? val : PROTO_NONE);
-        } catch (const JSException&) {
+        } catch (const proto::ProtoException&) {
             closeIter();
             throw;
         }
@@ -821,7 +821,7 @@ static const proto::ProtoObject* setConstruct(
                             // the caller rethrows the original abrupt.
                             try {
                                 callJSFunction(ctx, retFn, iterator, retArgs);
-                            } catch (const JSException&) {
+                            } catch (const proto::ProtoException&) {
                             }
                         }
                     }
@@ -871,7 +871,7 @@ static const proto::ProtoObject* setConstruct(
                         const proto::ProtoList* addArgs = ctx->newList();
                         addArgs = addArgs->appendLast(ctx, val);
                         callJSFunction(ctx, adder, self, addArgs);
-                    } catch (const JSException&) {
+                    } catch (const proto::ProtoException&) {
                         closeIter();
                         throw;
                     }

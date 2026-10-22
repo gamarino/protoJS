@@ -437,8 +437,31 @@ const m = new Map([['zeta', 1], ['alpha', 2], ['mid', 3]]);
 Test262 tests that observe key order fail for this reason; see
 [TEST262_STATUS.md](TEST262_STATUS.md#property-enumeration-order).
 
+### Module error types and `instanceof`
+
+`x instanceof T` where `T` is an object a module defines outside JavaScript --
+a plain protoCore prototype exported by a C++ module or by another language on
+protoCore, not callable -- tests `T` against `x`'s prototype chain, where
+ECMA-262 §13.10.2 would throw a `TypeError` for a right-hand side that is not
+callable:
+
+```js
+const geometry = require('example/geometry');
+try { geometry.circleArea(-1); }
+catch (e) { e instanceof geometry.NegativeRadius; }   // true
+```
+
+It applies only to objects no JavaScript program can create: anything
+JavaScript makes descends from `Object.prototype` or carries a `[[Prototype]]`
+override, and keeps the specification's behaviour. The portable form is
+`Object.prototype.isPrototypeOf.call(geometry.NegativeRadius, e)`. Such
+objects also convert to a string as an `Error` does (`"<name>: <message>"`)
+instead of throwing, since they inherit no `toString`. Decided 2026-10-21 with
+protoCore's unified exception model; see [EXCEPTIONS.md](EXCEPTIONS.md).
+
 ## See also
 
+- [Exceptions](EXCEPTIONS.md)
 - [Deferred](DEFERRED_USAGE.md)
 - [The `protoCore` global](PROTOCORE_MODULE.md)
 - [Thread pool configuration](THREAD_POOLS.md)

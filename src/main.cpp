@@ -347,7 +347,44 @@ void printUsage(const char* programName) {
     std::cerr << "  --unhandled-rejections=MODE  throw (default) or strict: report and exit 1; warn: report; none: ignore" << std::endl;
 }
 
+// The outermost handler of a JavaScript program: an exception that left every
+// JavaScript boundary.  A proto::ProtoException (a JavaScript throw, an error
+// protoCore or a module raised) is reported as Node reports one, "Uncaught
+// exception in main: <name>: <message>"; a foreign C++ exception is reported
+// with its what().  Either way the process ends with status 1, through exitNow:
+// worker and I/O threads may still be running, and the exception must not
+// outlive `wrapper`'s space, which owns its pin.  Nothing reaches
+// std::terminate.
+template <class Body>
+static int guardTopLevel(protojs::JSContextWrapper& wrapper, Body&& body) {
+    try {
+        return body();
+    } catch (const proto::ProtoException& e) {
+        protojs::reportUncaughtException(wrapper.getProtoContext(), "main", e.value());
+    } catch (const std::exception& e) {
+        std::cerr << "Uncaught C++ exception in main: " << e.what() << std::endl;
+    } catch (...) {
+        std::cerr << "Uncaught C++ exception of an unknown type in main" << std::endl;
+    }
+    protojs::platform::exitNow(1);
+}
+
+static int runMain(int argc, char** argv);
+
 int main(int argc, char** argv) {
+    // Argument parsing and the syntax check run before any space exists; a
+    // C++ exception there is reported, never left to std::terminate.
+    try {
+        return runMain(argc, argv);
+    } catch (const std::exception& e) {
+        std::cerr << "protojs: " << e.what() << std::endl;
+    } catch (...) {
+        std::cerr << "protojs: unknown C++ exception" << std::endl;
+    }
+    protojs::platform::exitNow(1);
+}
+
+static int runMain(int argc, char** argv) {
     prepareStandardStreams();
     configureThreadStacks();
     if (argc < 2) {
@@ -472,10 +509,12 @@ int main(int argc, char** argv) {
         // protoCore is the single execution path (compile → load → run).
         wrapper.setUseProtoEval(true);
 
-        installRuntimeGlobals(wrapper, scriptArgc, scriptArgv.data(), filename, /*minimal=*/false);
+        return guardTopLevel(wrapper, [&]() -> int {
+            installRuntimeGlobals(wrapper, scriptArgc, scriptArgv.data(), filename, /*minimal=*/false);
 
-        protojs::REPL::start(wrapper.getJSContext());
-        return 0;
+            protojs::REPL::start(wrapper.getJSContext());
+            return 0;
+        });
     }
 
     if (code.empty() && !executeCode) {
@@ -490,147 +529,149 @@ int main(int argc, char** argv) {
     // protoCore is the single execution path (compile → load → run).
     wrapper.setUseProtoEval(true);
 
-    if (minimalInit) {
-        installRuntimeGlobals(wrapper, scriptArgc, scriptArgv.data(), filename, /*minimal=*/true);
-        JSValue result = wrapper.eval(code, filename, inputTypeModule);
-        JS_FreeValue(wrapper.getJSContext(), result);
-        return 0;
-    }
-
-    // JSON.stringify / JSON.parse polyfill is prepended to the user's
-    // code below rather than eval'd separately.  In the current runtime,
-    // function references defined in one wrapper.eval call do not work
-    // correctly when called from a later one (the function's bytecode is
-    // keyed by module-relative bcId, which goes stale once that module's
-    // compile-time tables are released).  Prepending keeps the polyfill
-    // and user code in the same module so the references stay valid.
-    installRuntimeGlobals(wrapper, scriptArgc, scriptArgv.data(), filename, /*minimal=*/false);
-
-    // Evaluate preload files as scripts to set up globals (e.g., harness for test262).
-    for (const auto& preload : preloadFiles) {
-        std::ifstream pf(preload, std::ios::binary);
-        if (!pf.is_open()) {
-            std::cerr << "Could not open preload file: " << preload << std::endl;
-            return 1;
+    return guardTopLevel(wrapper, [&]() -> int {
+        if (minimalInit) {
+            installRuntimeGlobals(wrapper, scriptArgc, scriptArgv.data(), filename, /*minimal=*/true);
+            JSValue result = wrapper.eval(code, filename, inputTypeModule);
+            JS_FreeValue(wrapper.getJSContext(), result);
+            return 0;
         }
-        std::stringstream pss;
-        pss << pf.rdbuf();
-        JSValue pResult = wrapper.evalPreload(pss.str(), preload);
-        if (JS_IsException(pResult)) {
+
+        // JSON.stringify / JSON.parse polyfill is prepended to the user's
+        // code below rather than eval'd separately.  In the current runtime,
+        // function references defined in one wrapper.eval call do not work
+        // correctly when called from a later one (the function's bytecode is
+        // keyed by module-relative bcId, which goes stale once that module's
+        // compile-time tables are released).  Prepending keeps the polyfill
+        // and user code in the same module so the references stay valid.
+        installRuntimeGlobals(wrapper, scriptArgc, scriptArgv.data(), filename, /*minimal=*/false);
+
+        // Evaluate preload files as scripts to set up globals (e.g., harness for test262).
+        for (const auto& preload : preloadFiles) {
+            std::ifstream pf(preload, std::ios::binary);
+            if (!pf.is_open()) {
+                std::cerr << "Could not open preload file: " << preload << std::endl;
+                return 1;
+            }
+            std::stringstream pss;
+            pss << pf.rdbuf();
+            JSValue pResult = wrapper.evalPreload(pss.str(), preload);
+            if (JS_IsException(pResult)) {
+                JS_FreeValue(wrapper.getJSContext(), pResult);
+                return 1;
+            }
             JS_FreeValue(wrapper.getJSContext(), pResult);
-            return 1;
         }
-        JS_FreeValue(wrapper.getJSContext(), pResult);
-    }
 
-    JSValue result = wrapper.eval(code, filename, inputTypeModule);
+        JSValue result = wrapper.eval(code, filename, inputTypeModule);
 
-    // An exception that escaped the main script ends the process, as in Node:
-    // eval has already reported it, and work the script queued must not run.
-    // exitNow, not return: worker and I/O threads may still be running.
-    if (JS_IsException(result)) {
-        JS_FreeValue(wrapper.getJSContext(), result);
-        protojs::platform::exitNow(1);
-    }
-    // The end of the first turn: a rejection nobody handled is fatal. Every
-    // later turn (each event-loop callback) ends with the same checks.
-    protojs::endOfTurnChecks(wrapper.getProtoContext());
-    protojs::EventLoop::getInstance().setEndOfTurnHook([&wrapper]() {
+        // An exception that escaped the main script ends the process, as in Node:
+        // eval has already reported it, and work the script queued must not run.
+        // exitNow, not return: worker and I/O threads may still be running.
+        if (JS_IsException(result)) {
+            JS_FreeValue(wrapper.getJSContext(), result);
+            protojs::platform::exitNow(1);
+        }
+        // The end of the first turn: a rejection nobody handled is fatal. Every
+        // later turn (each event-loop callback) ends with the same checks.
         protojs::endOfTurnChecks(wrapper.getProtoContext());
-    });
+        protojs::EventLoop::getInstance().setEndOfTurnHook([&wrapper]() {
+            protojs::endOfTurnChecks(wrapper.getProtoContext());
+        });
 
-    // Print result if -p flag is set
-    if (printResult && !JS_IsException(result) && !JS_IsUndefined(result)) {
-        const char* resultStr = JS_ToCString(wrapper.getJSContext(), result);
-        if (resultStr) {
-            std::cout << resultStr << std::endl;
-            JS_FreeCString(wrapper.getJSContext(), resultStr);
+        // Print result if -p flag is set
+        if (printResult && !JS_IsException(result) && !JS_IsUndefined(result)) {
+            const char* resultStr = JS_ToCString(wrapper.getJSContext(), result);
+            if (resultStr) {
+                std::cout << resultStr << std::endl;
+                JS_FreeCString(wrapper.getJSContext(), resultStr);
+            }
         }
-    }
 
-    // Process the event loop while work is pending (Deferreds, workers,
-    // servers, sockets, I/O), as Node.js does: there is no time limit.  Until
-    // 2026-10-03 protojs gave up after 180 seconds, which ended long
-    // computations and servers alike.  PROTOJS_EXIT_TIMEOUT_SECONDS restores
-    // a limit for diagnostics.
-    auto start = std::chrono::steady_clock::now();
-    long long timeoutSeconds = 0;
-    if (const char* t = std::getenv("PROTOJS_EXIT_TIMEOUT_SECONDS")) timeoutSeconds = std::atoll(t);
-    const auto timeout = std::chrono::seconds(timeoutSeconds);
+        // Process the event loop while work is pending (Deferreds, workers,
+        // servers, sockets, I/O), as Node.js does: there is no time limit.  Until
+        // 2026-10-03 protojs gave up after 180 seconds, which ended long
+        // computations and servers alike.  PROTOJS_EXIT_TIMEOUT_SECONDS restores
+        // a limit for diagnostics.
+        auto start = std::chrono::steady_clock::now();
+        long long timeoutSeconds = 0;
+        if (const char* t = std::getenv("PROTOJS_EXIT_TIMEOUT_SECONDS")) timeoutSeconds = std::atoll(t);
+        const auto timeout = std::chrono::seconds(timeoutSeconds);
 
-    // PROTOJS_GC_STATS census, printed to stderr at exit.
-    //
-    // A fixture that waits for something and then passes has to prove it actually
-    // waited for what it claims. Under a heap ceiling this census is that proof: if
-    // no collection cycle ever ran, then no thread ever had to wait for memory, the
-    // blocking-join guards were never exercised, and the case established nothing.
-    //
-    // Two numbers, both straight from protoCore's public atomics:
-    //   cycles         ProtoSpace::getGCCycleCount() -- monotone, so a non-zero
-    //                  value is unambiguous evidence that collection ran.
-    //   reclaimed-last ProtoSpace::reclaimedLastCycle -- cells the most recently
-    //                  COMPLETED cycle swept into the freelist. Non-zero means a
-    //                  cycle not only ran but freed memory, which is the condition
-    //                  protoCore itself uses as its out-of-memory signal.
-    //
-    // There is deliberately no running total: protoCore keeps none, and one
-    // accumulated from 10 ms samples here would silently miss cycles and read as
-    // cumulative while being a lower bound. A number that looks exact and is not is
-    // worse than no number.
-    proto::ProtoSpace* censusSpace = wrapper.getProtoSpace();
-    const bool gcStats = std::getenv("PROTOJS_GC_STATS") != nullptr;
+        // PROTOJS_GC_STATS census, printed to stderr at exit.
+        //
+        // A fixture that waits for something and then passes has to prove it actually
+        // waited for what it claims. Under a heap ceiling this census is that proof: if
+        // no collection cycle ever ran, then no thread ever had to wait for memory, the
+        // blocking-join guards were never exercised, and the case established nothing.
+        //
+        // Two numbers, both straight from protoCore's public atomics:
+        //   cycles         ProtoSpace::getGCCycleCount() -- monotone, so a non-zero
+        //                  value is unambiguous evidence that collection ran.
+        //   reclaimed-last ProtoSpace::reclaimedLastCycle -- cells the most recently
+        //                  COMPLETED cycle swept into the freelist. Non-zero means a
+        //                  cycle not only ran but freed memory, which is the condition
+        //                  protoCore itself uses as its out-of-memory signal.
+        //
+        // There is deliberately no running total: protoCore keeps none, and one
+        // accumulated from 10 ms samples here would silently miss cycles and read as
+        // cumulative while being a lower bound. A number that looks exact and is not is
+        // worse than no number.
+        proto::ProtoSpace* censusSpace = wrapper.getProtoSpace();
+        const bool gcStats = std::getenv("PROTOJS_GC_STATS") != nullptr;
 
-    EventLoopTimerResolution timerResolution;
-    while (protojs::EventLoop::getInstance().hasPendingCallbacks() ||
-           protojs::EventLoop::getInstance().hasPendingOperations() ||
-           protojs::GcOrphanQueue::pending() > 0 ||
-           protojs::WorkerThreadsModule::getActiveWorkerCount() > 0 ||
-           protojs::Deferred::getActiveDeferredCount() > 0 ||
-           protojs::ProtoDeferred::getActiveCount() > 0 ||
-           protojs::HTTPModule::getActiveServerCount() > 0 ||
-           protojs::HTTPModule::getActiveClientCount() > 0 ||
-           protojs::NetModule::getActiveCount() > 0 ||
-           protojs::FSModule::getActiveCount() > 0) {
+        EventLoopTimerResolution timerResolution;
+        while (protojs::EventLoop::getInstance().hasPendingCallbacks() ||
+               protojs::EventLoop::getInstance().hasPendingOperations() ||
+               protojs::GcOrphanQueue::pending() > 0 ||
+               protojs::WorkerThreadsModule::getActiveWorkerCount() > 0 ||
+               protojs::Deferred::getActiveDeferredCount() > 0 ||
+               protojs::ProtoDeferred::getActiveCount() > 0 ||
+               protojs::HTTPModule::getActiveServerCount() > 0 ||
+               protojs::HTTPModule::getActiveClientCount() > 0 ||
+               protojs::NetModule::getActiveCount() > 0 ||
+               protojs::FSModule::getActiveCount() > 0) {
+            protojs::EventLoop::getInstance().processCallbacks();
+            timerResolution.raise();
+            {
+                // Wake as soon as another thread hands work over (a Deferred
+                // settling, an I/O completion); poll the other conditions at
+                // least every 10 ms.
+                proto::ProtoContext::UnmanagedScope u(wrapper.getProtoContext());
+                protojs::EventLoop::getInstance().waitForCallbacks(std::chrono::milliseconds(10));
+            }
+
+            auto now = std::chrono::steady_clock::now();
+            if (timeoutSeconds > 0 && now - start > timeout) {
+                std::cerr << "Warning: Event loop timeout reached. Some callbacks may not have completed." << std::endl;
+                break;
+            }
+        }
+
+        timerResolution.lower();
+
+        // Process any remaining callbacks one more time
         protojs::EventLoop::getInstance().processCallbacks();
-        timerResolution.raise();
-        {
-            // Wake as soon as another thread hands work over (a Deferred
-            // settling, an I/O completion); poll the other conditions at
-            // least every 10 ms.
-            proto::ProtoContext::UnmanagedScope u(wrapper.getProtoContext());
-            protojs::EventLoop::getInstance().waitForCallbacks(std::chrono::milliseconds(10));
+        // And release anything a finalizer handed over after that last pass. Orphans
+        // recorded by a finalizer are released by EventLoop::processCallbacks, which is
+        // pumped above; this is the belt-and-braces pass for a finalizer that ran during
+        // the final callbacks.
+        protojs::GcOrphanQueue::drain();
+
+        if (gcStats) {
+            std::cerr << "protojs gc: cycles="
+                      << (censusSpace ? censusSpace->getGCCycleCount() : 0)
+                      << " reclaimed-last=" << (censusSpace
+                            ? censusSpace->reclaimedLastCycle.load(std::memory_order_relaxed)
+                            : PROTO_UL(0))
+                      << " orphans-posted=" << protojs::GcOrphanQueue::postedTotal()
+                      << " orphans-released=" << protojs::GcOrphanQueue::releasedTotal()
+                      << std::endl;
         }
 
-        auto now = std::chrono::steady_clock::now();
-        if (timeoutSeconds > 0 && now - start > timeout) {
-            std::cerr << "Warning: Event loop timeout reached. Some callbacks may not have completed." << std::endl;
-            break;
-        }
-    }
+        const int exitCode = JS_IsException(result) ? 1 : 0;
+        JS_FreeValue(wrapper.getJSContext(), result);
 
-    timerResolution.lower();
-
-    // Process any remaining callbacks one more time
-    protojs::EventLoop::getInstance().processCallbacks();
-    // And release anything a finalizer handed over after that last pass. Orphans
-    // recorded by a finalizer are released by EventLoop::processCallbacks, which is
-    // pumped above; this is the belt-and-braces pass for a finalizer that ran during
-    // the final callbacks.
-    protojs::GcOrphanQueue::drain();
-
-    if (gcStats) {
-        std::cerr << "protojs gc: cycles="
-                  << (censusSpace ? censusSpace->getGCCycleCount() : 0)
-                  << " reclaimed-last=" << (censusSpace
-                        ? censusSpace->reclaimedLastCycle.load(std::memory_order_relaxed)
-                        : PROTO_UL(0))
-                  << " orphans-posted=" << protojs::GcOrphanQueue::postedTotal()
-                  << " orphans-released=" << protojs::GcOrphanQueue::releasedTotal()
-                  << std::endl;
-    }
-
-    const int exitCode = JS_IsException(result) ? 1 : 0;
-    JS_FreeValue(wrapper.getJSContext(), result);
-
-    return exitCode;
+        return exitCode;
+    });
 }

@@ -78,7 +78,7 @@ JSValue NativeModuleWrapper::callNativeFunction(
         JSValue jsResult = TypeBridge::toJS(ctx, result, pContext);
         
         return jsResult;
-    } catch (const JSException& thrown) {
+    } catch (const proto::ProtoException& thrown) {
         // A C++ exception must not unwind through QuickJS: raise the
         // native's JavaScript exception on the QuickJS context instead.
         return JS_Throw(ctx, TypeBridge::toJS(ctx, thrown.value(), pContext));

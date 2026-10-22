@@ -201,9 +201,17 @@ void DeferredPool::runTask(proto::ProtoContext* root, const Task& task,
             &taskCtx, fn, undefinedValue ? undefinedValue : PROTO_NONE, taskCtx.newList(),
             task.module, &globalSlot);
         outcome = rs->add(result ? result : PROTO_NONE);
-    } catch (const JSException& thrown) {
+    } catch (const proto::ProtoException& thrown) {
         threw = true;
         outcome = rs->add(thrown.value());
+    } catch (const std::exception& e) {
+        // A foreign C++ exception must not end the pool thread either: the
+        // Deferred is rejected with the Error that stands for it.
+        threw = true;
+        outcome = rs->add(makeNativeError(&taskCtx, "Error", e.what()));
+    } catch (...) {
+        threw = true;
+        outcome = rs->add(makeNativeError(&taskCtx, "Error", "unknown C++ exception"));
     }
     rs->remove(task.fn);
 

@@ -249,6 +249,11 @@ JSContextWrapper::JSContextWrapper(size_t cpuThreads, size_t ioThreads, double i
     // at a destruction site nor `JSContextWrapper::current()` can substitute.
     setThreadProtoContext(pContext);
     
+    // protoCore's own errors (a BigInt division by zero, a malformed integer
+    // literal, ...) are raised as JavaScript errors: install the factory before
+    // any code runs in the space (ProtoInterpreter.h, installErrorFactory).
+    protojs::installErrorFactory(&pSpace);
+
     // Bootstrap JS Object and derived prototypes (array, arguments, regexp)
     BootstrapJSPrototypes(&pSpace, pContext, &jsPrototypes_);
     
@@ -625,7 +630,7 @@ JSValue JSContextWrapper::eval(const std::string& code, const std::string& filen
                 try {
                     result = protojs::runBytecode(&frameCtx, modPtr, globalObj, nullptr,
                                                   &nativeGlobalRoot_);
-                } catch (const protojs::JSException& thrown) {
+                } catch (const proto::ProtoException& thrown) {
                     exception = thrown.value();
                 }
                 frameCtx.returnValue = exception ? exception : result;
@@ -814,7 +819,7 @@ const proto::ProtoObject* JSContextWrapper::evalIsolatedToProto(
     const proto::ProtoObject* result = nullptr;
     try {
         result = protojs::runBytecode(&frameCtx, modPtr, globalObj, nullptr, &nativeGlobalRoot_);
-    } catch (const protojs::JSException& thrown) {
+    } catch (const proto::ProtoException& thrown) {
         exception = thrown.value();
     }
     rootNativeGlobal();

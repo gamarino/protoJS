@@ -523,6 +523,39 @@ target_link_libraries(fixture_addon PRIVATE ${PROTOJS_ADDON_LIBS})
 target_compile_options(fixture_addon PRIVATE ${PROTOJS_MSVC_WARNINGS})
 target_link_options(fixture_addon PRIVATE ${PROTOJS_ADDON_LINK_OPTIONS})
 
+# Geometry addon for the module-exception test
+# (tests/integration/native_addons/test_module_exceptions.js): protoCore's
+# example module of foreign error types, compiled in, and an init that
+# registers its UMD provider (tests/native_addons/geometry/geometry_addon.cpp).
+# The module's source ships with protoCore's sources, not with an installed
+# package: the addon, and the test, exist only when PROTOJS_GEOMETRY_EXAMPLE_DIR
+# holds it (by default the sibling ../protoCore checkout).
+set(PROTOJS_GEOMETRY_EXAMPLE_DIR
+    "${CMAKE_SOURCE_DIR}/../protoCore/examples/exceptions/geometry_module"
+    CACHE PATH "protoCore's examples/exceptions/geometry_module (for the exception test addon)")
+if(EXISTS "${PROTOJS_GEOMETRY_EXAMPLE_DIR}/GeometryModule.cpp")
+    add_library(geometry_addon SHARED
+        tests/native_addons/geometry/geometry_addon.cpp
+        "${PROTOJS_GEOMETRY_EXAMPLE_DIR}/GeometryModule.cpp")
+    target_include_directories(geometry_addon PRIVATE
+        ${CMAKE_SOURCE_DIR}/src
+        ${PROTOCORE_INCLUDE_DIRS}
+        "${PROTOJS_GEOMETRY_EXAMPLE_DIR}"
+    )
+    set_target_properties(geometry_addon PROPERTIES
+        PREFIX ""
+        OUTPUT_NAME "geometry"
+        LIBRARY_OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR}/tests/native_addons/geometry
+        RUNTIME_OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR}/tests/native_addons/geometry
+    )
+    target_link_libraries(geometry_addon PRIVATE ${PROTOJS_ADDON_LIBS})
+    target_compile_options(geometry_addon PRIVATE ${PROTOJS_MSVC_WARNINGS})
+    target_link_options(geometry_addon PRIVATE ${PROTOJS_ADDON_LINK_OPTIONS})
+else()
+    message(STATUS "protoJS: protoCore's geometry example not found at "
+                   "${PROTOJS_GEOMETRY_EXAMPLE_DIR}; the module-exception test is not built")
+endif()
+
 # --- Install RPATH: installed binary finds libprotoCore without LD_LIBRARY_PATH ---
 if(UNIX)
     if(APPLE)

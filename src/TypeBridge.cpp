@@ -511,6 +511,28 @@ const proto::ProtoObject* TypeBridge::fromJS(JSContext* ctx, JSValue val, proto:
     return PROTO_NONE;
 }
 
+JSValue TypeBridge::throwCurrentOnQuickJS(JSContext* ctx, proto::ProtoContext* pContext) {
+    auto plainError = [ctx](const char* message) {
+        JSValue error = JS_NewError(ctx);
+        JS_SetPropertyStr(ctx, error, "message", JS_NewString(ctx, message));
+        return JS_Throw(ctx, error);
+    };
+    try {
+        throw;
+    } catch (const proto::ProtoException& thrown) {
+        if (!pContext) return plainError("uncaught exception");
+        try {
+            return JS_Throw(ctx, toJS(ctx, thrown.value(), pContext));
+        } catch (...) {
+            return plainError("uncaught exception");
+        }
+    } catch (const std::exception& e) {
+        return plainError(e.what());
+    } catch (...) {
+        return plainError("unknown C++ exception");
+    }
+}
+
 JSValue TypeBridge::toJS(JSContext* ctx, const proto::ProtoObject* obj, proto::ProtoContext* pContext) {
     const proto::ProtoObject* nullSentinel = protojs::getNullSentinel();
     if (nullSentinel && obj == nullSentinel) {

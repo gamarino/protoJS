@@ -79,7 +79,7 @@ public:
 
 /**
  * Report `exc`, a JavaScript exception that escaped a callback nothing else
- * catches (the JSException caught at that boundary): "Uncaught exception in
+ * catches (the ProtoException caught at that boundary): "Uncaught exception in
  * <where>: <name>: <message>" on stderr, and the process ends with status 1 at
  * once (queued work does not run), as in Node.
  */

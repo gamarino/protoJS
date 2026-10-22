@@ -1032,7 +1032,7 @@ static const proto::ProtoObject* mapConstruct(
                             // which the caller rethrows, is what propagates.
                             try {
                                 callJSFunction(ctx, retFn, iterator, retArgs);
-                            } catch (const JSException&) {
+                            } catch (const proto::ProtoException&) {
                             }
                         }
                     }
@@ -1104,7 +1104,7 @@ static const proto::ProtoObject* mapConstruct(
                         setArgs = setArgs->appendLast(ctx, pkey);
                         setArgs = setArgs->appendLast(ctx, pval);
                         callJSFunction(ctx, setterFn, self, setArgs);
-                    } catch (const JSException&) {
+                    } catch (const proto::ProtoException&) {
                         closeIter();
                         throw;
                     }
@@ -2133,7 +2133,7 @@ static const proto::ProtoObject* weakMapConstruct(
                             // which the caller rethrows, is what propagates.
                             try {
                                 callJSFunction(ctx, retFn, iterator, retArgs);
-                            } catch (const JSException&) {
+                            } catch (const proto::ProtoException&) {
                             }
                         }
                     }
@@ -2204,7 +2204,7 @@ static const proto::ProtoObject* weakMapConstruct(
                         setArgs = setArgs->appendLast(ctx, pkey);
                         setArgs = setArgs->appendLast(ctx, pval);
                         callJSFunction(ctx, setterFn, self, setArgs);
-                    } catch (const JSException&) {
+                    } catch (const proto::ProtoException&) {
                         closeIter();
                         throw;
                     }

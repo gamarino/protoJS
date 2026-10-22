@@ -400,7 +400,7 @@ void Deferred::runDeferredTaskInProtoThread(std::shared_ptr<DeferredTask> task) 
         } else {
             enqueueResolve(task, nullptr, 0);
         }
-    } catch (const JSException&) {
+    } catch (const proto::ProtoException&) {
         // A JavaScript exception must not escape this thread; eval reports
         // the function's own exceptions, so this is one raised around it.
         enqueueReject(task, "Uncaught exception in Deferred function");

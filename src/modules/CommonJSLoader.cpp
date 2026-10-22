@@ -570,12 +570,12 @@ JSValue CommonJSLoader::requireImpl(JSContext* ctx, JSValueConst this_val, int a
     JSValue result = JS_UNDEFINED;
     try {
         result = require(specifier, fromPath, ctx);
-    } catch (const JSException& thrown) {
+    } catch (...) {
+        // A ProtoException is raised as its value; a foreign C++ exception as
+        // an Error (TypeBridge::throwCurrentOnQuickJS).
         JS_FreeCString(ctx, specifier);
         JSContextWrapper* wrapper = static_cast<JSContextWrapper*>(JS_GetContextOpaque(ctx));
-        proto::ProtoContext* pContext = wrapper ? wrapper->getProtoContext() : nullptr;
-        if (!pContext) return JS_ThrowInternalError(ctx, "require: uncaught exception");
-        return JS_Throw(ctx, TypeBridge::toJS(ctx, thrown.value(), pContext));
+        return TypeBridge::throwCurrentOnQuickJS(ctx, wrapper ? wrapper->getProtoContext() : nullptr);
     }
     JS_FreeCString(ctx, specifier);
     
@@ -702,7 +702,7 @@ static const proto::ProtoObject* executeFileModuleNative(
     const proto::ProtoObject* wrapperFn = nullptr;
     try {
         wrapperFn = wrapper->evalIsolatedToProto(wrapped, filePath);
-    } catch (const JSException&) {
+    } catch (const proto::ProtoException&) {
         if (cache && cacheKey) cache->setAttribute(pCtx, cacheKey, PROTO_NONE);
         throw;
     }
@@ -736,7 +736,7 @@ static const proto::ProtoObject* executeFileModuleNative(
 
     try {
         callJSFunction(pCtx, wrapperFn, PROTO_NONE, argsList);
-    } catch (const JSException&) {
+    } catch (const proto::ProtoException&) {
         if (cache && cacheKey) cache->setAttribute(pCtx, cacheKey, PROTO_NONE);
         throw;
     }

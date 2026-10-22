@@ -2202,7 +2202,7 @@ static const proto::ProtoObject* reflectDefineProperty(
     const proto::ProtoObject* result = nullptr;
     try {
         result = callJSFunction(ctx, fn, objCtor, args);
-    } catch (const JSException&) {
+    } catch (const proto::ProtoException&) {
         return PROTO_FALSE;
     }
     return (result && result != PROTO_NONE) ? PROTO_TRUE : PROTO_FALSE;
@@ -3719,6 +3719,9 @@ static const proto::ProtoObject* toNumber(proto::ProtoContext* context,
     // array-like-to-length-throws pins this for the array-spread
     // length probe; same path matters for every numeric coercion of
     // an object with both poisoned).
+    // A value of a module written outside JavaScript converts through its
+    // string form (see toString), which is not a number: NaN.
+    if (isForeignObject(context, value)) return makeNaN();
     signalNativeException(makeNativeError(context, "TypeError",
         "Cannot convert object to primitive value"));
     return PROTO_NONE;
@@ -4032,6 +4035,10 @@ static const proto::ProtoObject* toString(proto::ProtoContext* context,
             if (prim && isStringPrim(prim)) return toString(context, prim);
         }
     }
+    // A value of a module written outside JavaScript has no toString or
+    // valueOf of its own (its chain holds no Object.prototype): it converts
+    // to "<name>: <message>", as an Error does (isForeignObject).
+    if (isForeignObject(context, value)) return foreignObjectString(context, value);
     // §7.1.1 OrdinaryToPrimitive step 5: when neither toString nor
     // valueOf returned a primitive, the spec throws TypeError. Pre-fix
     // the helper returned the literal "[object Object]" silently, so
@@ -4135,7 +4142,7 @@ static bool jsAbstractEquals(proto::ProtoContext* ctx,
             const proto::ProtoObject* parsed = ctx->fromString(s.c_str(), 10);
             const proto::ProtoObject* bi = x->getAttribute(ctx, vk, false);
             return parsed && bi && bi->compare(ctx, parsed) == 0;
-        } catch (...) { return false; }
+        } catch (const proto::ProtoException&) { return false; }  // not a BigInt literal
     }
     if (xStr && yBig) return jsAbstractEquals(ctx, y, x, depth + 1);
 
@@ -6401,7 +6408,7 @@ static PROTOJS_NOINLINE bool suspendGenerator(proto::ProtoContext* pContext, int
 
 // The active function, new.target and arguments of a call (t_activeFunc,
 // t_activeNewTgt, t_activeArgs) are put back however the call is left: an
-// exception propagating out of it (a JSException) included.
+// exception propagating out of it (a ProtoException) included.
 struct ActiveCallScope {
     const proto::ProtoObject* func   = t_activeFunc;
     const proto::ProtoObject* newTgt = t_activeNewTgt;
@@ -6415,7 +6422,7 @@ struct ActiveCallScope {
 // slots, interpreter frame) that starts at the range's first opcode, inside a
 // C++ try.  The level ends where its catch frame is removed (OP_drop of the
 // frame's sentinel, OP_nip_catch), and the enclosing level carries on after
-// it.  An exception thrown in the range (a JSException: OP_throw, an opcode, a
+// it.  An exception thrown in the range (a ProtoException: OP_throw, an opcode, a
 // native, a callee) cuts the operand stack to the sentinel's slot, pushes the
 // thrown value there and continues at the handler, in the enclosing level.  A
 // return inside a range returns from every level.  catch_stack holds the open
@@ -6456,16 +6463,30 @@ static PROTOJS_NOINLINE bool runProtectedRange(proto::ProtoContext* pContext,
                                                const proto::ProtoList* args,
                                                const proto::ProtoObject** pGlobalRoot,
                                                NestedLevel& range, std::size_t frame) {
-    try {
-        range.result = runBytecodeImpl(pContext, module, thisObj, args, pGlobalRoot, &range);
-        return range.exit == NestedLevel::kReturn;
-    } catch (const JSException& thrown) {
+    // The handler receives `value`: the level ends, the stack is cut back to
+    // the catch frame's slot and the enclosing level continues at the handler.
+    auto enterHandler = [&](const proto::ProtoObject* value) {
         std::vector<CatchFrame>& catchStack = *range.catchStack;
         const CatchFrame f = catchStack[frame];
         catchStack.resize(frame);
         while (stackSize(pContext) > f.placeholder_stack_pos) stackPop(pContext);
-        stackPush(pContext, thrown.value());
+        stackPush(pContext, value);
         range.exitPc = f.handler_pc;
+    };
+    try {
+        range.result = runBytecodeImpl(pContext, module, thisObj, args, pGlobalRoot, &range);
+        return range.exit == NestedLevel::kReturn;
+    } catch (const proto::ProtoException& thrown) {
+        // Every exception of every language on protoCore: a JavaScript throw,
+        // an error protoCore raised through the error factory, a module's own
+        // error type.  A JavaScript `catch` takes them all (§14.15).
+        enterHandler(thrown.value());
+        return false;
+    } catch (const std::exception& e) {
+        // A C++ standard exception that reached the interpreter by a path
+        // that does not go through callNative: the JavaScript Error that
+        // stands for it (raiseForeignCppError), built here.
+        enterHandler(makeError(pContext, "Error", e.what(), pGlobalRoot));
         return false;
     }
 }
@@ -6518,7 +6539,7 @@ static const proto::ProtoObject* runBytecodeImpl(proto::ProtoContext* pContext,
     unsigned varCount = module->varCount();
 
 
-    // The exception an opcode raises, thrown (as a JSException) right after
+    // The exception an opcode raises, thrown (as a ProtoException) right after
     // it is made; see "A JavaScript try is a C++ try" below.
     const proto::ProtoObject* pending_exception = nullptr;
     // A resume with a throw completion (gen.throw, a rejected await): thrown
@@ -8818,7 +8839,7 @@ static const proto::ProtoObject* runBytecodeImpl(proto::ProtoContext* pContext,
     // range as a nested level inside a C++ try, and the level ends where its
     // catch frame is removed (OP_drop of the frame's sentinel, OP_nip_catch);
     // the enclosing level carries on after it.  An exception thrown in the
-    // range (a JSException: OP_throw, an opcode, a native, a callee) cuts the
+    // range (a ProtoException: OP_throw, an opcode, a native, a callee) cuts the
     // operand stack to the sentinel's slot, pushes the thrown value there
     // and continues at the handler, in the enclosing level.  A return inside
     // a range returns from every level.  catch_stack holds the open ranges
@@ -13565,7 +13586,11 @@ static const proto::ProtoObject* runBytecodeImpl(proto::ProtoContext* pContext,
                     }
                 }
 
-                // Fallback: ToPrimitive
+                // Fallback: ToPrimitive.  A value of a module written outside
+                // JavaScript has no toString / valueOf to call: its string
+                // form, as String(value) answers (isForeignObject).
+                if (isForeignObject(pContext, a)) a = foreignObjectString(pContext, a);
+                if (isForeignObject(pContext, b)) b = foreignObjectString(pContext, b);
                 BIGINT_AFTER_TOPRIM(kBigAdd);
                 const proto::ProtoObject* pa = toPrimIfObject(a);
                 const proto::ProtoObject* pb = toPrimIfObject(b);
@@ -15280,6 +15305,12 @@ static const proto::ProtoObject* runBytecodeImpl(proto::ProtoContext* pContext,
                 const proto::ProtoString* protoKey = JSSymbols::prototype(pContext);
                 protojs::materializeLazyPrototype(pContext, func);  // LazyPrototype.h
                 const proto::ProtoObject* protoObj = func ? func->getAttribute(pContext, protoKey, false) : nullptr;
+                // Platform extension: a type a module defines outside
+                // JavaScript (a plain protoCore prototype, not callable) is
+                // its own prototype: `e instanceof geometry.NegativeRadius`
+                // tests NegativeRadius against e's chain (isForeignObject).
+                if ((!protoObj || protoObj == PROTO_NONE) && isForeignObject(pContext, func))
+                    protoObj = func;
                 // Spec §13.10.2 step 5: If Type(F.[[Prototype]]) is not Object → throw TypeError.
                 // We only throw if protoObj is a primitive (not null/undefined — PROTO_NONE — which
                 // produces false instead of TypeError per spec OrdinaryHasInstance step 3).
@@ -15847,9 +15878,11 @@ static const proto::ProtoObject* runBytecodeImpl(proto::ProtoContext* pContext,
                     // Invoke the native function directly via asMethod() to bypass the
                     // ProtoObject::call() attribute-lookup indirection.
                     const proto::ProtoMethod nativeFn = func->asMethod(pContext);
+                    // callNative: a C++ standard exception the native lets
+                    // escape arrives as a JavaScript Error.
                     const proto::ProtoObject* result = nativeFn
-                        ? nativeFn(pContext, thisVal, nullptr,
-                                   listArgsN ? &*listArgsN : &inlineArgsN, nullptr)
+                        ? callNative(nativeFn, pContext, thisVal,
+                                     listArgsN ? &*listArgsN : &inlineArgsN)
                         : PROTO_NONE;
                     for (uint32_t i = 0; i < argc + 2; i++) stackPop(pContext);
                     // Tail-call: see comment in the JS-callee branch above.
@@ -16826,8 +16859,8 @@ static const proto::ProtoObject* runBytecodeImpl(proto::ProtoContext* pContext,
 
                     const proto::ProtoMethod nativeFn = func->asMethod(pContext);
                     const proto::ProtoObject* result = nativeFn
-                        ? nativeFn(pContext, thisVal, nullptr,
-                                   listArgsC ? &*listArgsC : &inlineArgsC, nullptr)
+                        ? callNative(nativeFn, pContext, thisVal,
+                                     listArgsC ? &*listArgsC : &inlineArgsC)
                         : PROTO_NONE;
                     for (uint32_t i = 0; i <= argc; i++) stackPop(pContext);
                     REFRESH_INTERP_STATE();
@@ -16858,7 +16891,7 @@ static const proto::ProtoObject* runBytecodeImpl(proto::ProtoContext* pContext,
                         const proto::ProtoObject* res = callJSFunction(pContext, target, bThis ? bThis : PROTO_NONE, merged);
                         REFRESH_INTERP_STATE();
                         // The callee's exception propagates from
-                        // callJSFunction (a JSException) to this
+                        // callJSFunction (a ProtoException) to this
                         // activation's enclosing try.
                         if (is_tail_call) return res;
                         stackPush(pContext, res);
@@ -18068,7 +18101,7 @@ static const proto::ProtoObject* runBytecodeImpl(proto::ProtoContext* pContext,
                                         const proto::ProtoList* emptyRetArgs = pContext->newList();
                                         callJSFunction(pContext, retFn, actualIterCL, emptyRetArgs);
                                     }
-                                } catch (const JSException&) {
+                                } catch (const proto::ProtoException&) {
                                 }
                                 REFRESH_INTERP_STATE();
                             }
@@ -19070,7 +19103,7 @@ static const proto::ProtoObject* resumeGenerator(proto::ProtoContext* ctx,
     const proto::ProtoObject* result = nullptr;
     try {
         result = runBytecode(&childCtx, mod, genThis, nullptr, gr);
-    } catch (const JSException&) {
+    } catch (const proto::ProtoException&) {
         if (t_genResumePc == -2) t_genResumePc = -1;
         genSetInt(ctx, iter, kGenState, 1LL);
         throw;
@@ -19197,7 +19230,7 @@ static const proto::ProtoObject* startAsyncActivation(proto::ProtoContext* pCont
     const proto::ProtoObject* r = nullptr;
     try {
         r = runBytecode(pContext, module, thisObj, args, pGlobalRoot);
-    } catch (const JSException& thrown) {
+    } catch (const proto::ProtoException& thrown) {
         exception = thrown.value();
     }
     if (t_asyncSuspended) {
@@ -19238,7 +19271,7 @@ static void resumeContinuation(proto::ProtoContext* ctx, const proto::ProtoObjec
     const proto::ProtoObject* r = nullptr;
     try {
         r = runBytecode(&childCtx, mod, thisObj, args, t_currentGlobalRoot);
-    } catch (const JSException& thrown) {
+    } catch (const proto::ProtoException& thrown) {
         exception = thrown.value();
     }
     childCtx.returnValue = r;
@@ -19341,7 +19374,7 @@ static void asyncGenAwaitReturn(proto::ProtoContext* ctx, const proto::ProtoObje
     const proto::ProtoObject* e = PROTO_NONE;
     try {
         promise = promiseResolveIntrinsic(ctx, value);
-    } catch (const JSException& thrown) {
+    } catch (const proto::ProtoException& thrown) {
         e = thrown.value();
     }
     if (!promise) {
@@ -19721,7 +19754,7 @@ static void afsContinuation(proto::ProtoContext* ctx, const proto::ProtoObject* 
         done = toBool(ctx, doneV);
         const proto::ProtoObject* value = jsGetProperty(ctx, result, "value");
         wrapper = promiseResolveIntrinsic(ctx, value);
-    } catch (const JSException& e) {
+    } catch (const proto::ProtoException& e) {
         rejectPromise(ctx, promise, e.value());
         return;
     }
@@ -19746,7 +19779,7 @@ static const proto::ProtoObject* afsMethod(proto::ProtoContext* ctx, const proto
     } else {
         try {
             method = jsGetProperty(ctx, syncIter, completion == kCompletionReturn ? "return" : "throw");
-        } catch (const JSException& e) {
+        } catch (const proto::ProtoException& e) {
             rejectPromise(ctx, promise, e.value());
             return promise;
         }
@@ -19760,7 +19793,7 @@ static const proto::ProtoObject* afsMethod(proto::ProtoContext* ctx, const proto
                     const proto::ProtoObject* ret = jsGetProperty(ctx, syncIter, "return");
                     if (jsIsCallable(ctx, ret))
                         callJSFunction(ctx, ret, syncIter, ctx->newList());
-                } catch (const JSException&) {
+                } catch (const proto::ProtoException&) {
                 }
                 rejectPromise(ctx, promise, makeNativeError(ctx, "TypeError",
                     "The iterator does not provide a 'throw' method"));
@@ -19773,7 +19806,7 @@ static const proto::ProtoObject* afsMethod(proto::ProtoContext* ctx, const proto
     const proto::ProtoObject* result = nullptr;
     try {
         result = callJSFunction(ctx, method, syncIter, callArgs);
-    } catch (const JSException& e) {
+    } catch (const proto::ProtoException& e) {
         rejectPromise(ctx, promise, e.value());
         return promise;
     }
@@ -19877,23 +19910,11 @@ const proto::ProtoObject** getCurrentGlobalRoot() {
 }
 
 // ---------------------------------------------------------------------------
-// JSException: a JavaScript exception in flight (ProtoInterpreter.h).
+// JSException: a JavaScript exception in flight (ProtoInterpreter.h).  The
+// value is pinned by proto::ProtoException; nothing is kept here.
 // ---------------------------------------------------------------------------
 
 namespace {
-
-// One root set per ProtoSpace for the values of exceptions in flight, made on
-// first use and kept for the space's lifetime.
-proto::ProtoRootSet* exceptionRootSet(proto::ProtoSpace* space) {
-    static std::mutex m;
-    static std::vector<std::pair<proto::ProtoSpace*, proto::ProtoRootSet*>> sets;
-    std::lock_guard<std::mutex> lock(m);
-    for (const auto& e : sets)
-        if (e.first == space) return e.second;
-    proto::ProtoRootSet* rs = space->createRootSet("protojs-exceptions-in-flight");
-    sets.emplace_back(space, rs);
-    return rs;
-}
 
 // The context a native that raises runs in: the innermost interpreter
 // frame's, or, outside any frame (a native producer run by the event loop or
@@ -19904,29 +19925,94 @@ proto::ProtoContext* raisingContext() {
     return w ? w->getProtoContext() : nullptr;
 }
 
+// The global root the error classes are read from: the running frame's, or,
+// outside any frame (protoCore raising during a bridge conversion, a native
+// producer), the current wrapper's.  Both are GC roots: the wrapper pins the
+// object its slot points at (JSContextWrapper::rootNativeGlobal).
+const proto::ProtoObject* const* errorClassRoot() {
+    if (t_currentGlobalRoot && *t_currentGlobalRoot) return t_currentGlobalRoot;
+    JSContextWrapper* w = JSContextWrapper::current();
+    return w ? w->getNativeGlobalRootPtr() : nullptr;
+}
+
+// protoCore's errors as JavaScript errors (ProtoInterpreter.h,
+// installErrorFactory).  Must not throw: a failure while building the error
+// answers a plain object carrying the message.
+const proto::ProtoObject* jsErrorFactory(proto::ProtoContext* ctx, proto::ProtoErrorKind kind,
+                                         const char* message) {
+    const char* type = "Error";
+    switch (kind) {
+        case proto::ProtoErrorKind::InvalidArgument: type = "SyntaxError"; break;
+        case proto::ProtoErrorKind::TypeMismatch:    type = "TypeError";   break;
+        case proto::ProtoErrorKind::Overflow:        type = "RangeError";  break;
+        case proto::ProtoErrorKind::DivisionByZero:  type = "RangeError";  break;
+        case proto::ProtoErrorKind::ArityMismatch:   type = "TypeError";   break;
+    }
+    // ECMAScript's wording for a BigInt division by zero (V8 and SpiderMonkey).
+    if (kind == proto::ProtoErrorKind::DivisionByZero) message = "Division by zero";
+    try {
+        const proto::ProtoObject* e = makeError(ctx, type, message, errorClassRoot());
+        if (e && e != PROTO_NONE) return e;
+    } catch (...) {
+    }
+    try {
+        return ctx->newObject(true)->setAttribute(
+            ctx, proto::ProtoString::createSymbol(ctx, "message"),
+            ctx->fromUTF8String(message ? message : ""));
+    } catch (...) {
+        return PROTO_NONE;
+    }
+}
+
 }  // namespace
 
-struct JSException::Pin {
-    Pin(proto::ProtoRootSet* s, const proto::ProtoObject* v) : set(s), handle(s->add(v)) {}
-    Pin(const Pin&) = delete;
-    Pin& operator=(const Pin&) = delete;
-    ~Pin() { set->remove(handle); }
-    proto::ProtoRootSet* set;
-    proto::ProtoRootSet::Handle handle;
-};
-
-JSException::JSException(proto::ProtoContext* ctx, const proto::ProtoObject* value)
-    : value_(value ? value : PROTO_NONE) {
-    // Only a heap cell needs pinning; tagged values (small integers, the
-    // sentinels' immediates) are not collected.
-    if (ctx && ctx->space && value_ != PROTO_NONE && value_->isCell(ctx)) {
-        proto::ProtoRootSet* rs = exceptionRootSet(ctx->space);
-        pin_ = std::make_shared<Pin>(rs, value_);
-    }
+void installErrorFactory(proto::ProtoSpace* space) {
+    if (space) space->setErrorFactory(&jsErrorFactory);
 }
 
 void throwJS(proto::ProtoContext* ctx, const proto::ProtoObject* value) {
     throw JSException(ctx, value);
+}
+
+void raiseForeignCppError(proto::ProtoContext* ctx, const char* what) {
+    if (!ctx) ctx = raisingContext();
+    throwJS(ctx, makeError(ctx, "Error", what ? what : "C++ exception", errorClassRoot()));
+}
+
+bool isForeignObject(proto::ProtoContext* ctx, const proto::ProtoObject* v) {
+    if (!jsIsObject(ctx, v) || jsIsCallable(ctx, v) || protojs::isProxy(ctx, v)) return false;
+    // A JavaScript object with a [[Prototype]] other than its protoCore
+    // parent (Object.create(null), Object.setPrototypeOf), or below one.
+    if (protojs::getJSProtoOverride(ctx, v)) return false;
+    const proto::ProtoString* overrideKey = JSSymbols::protoOverride(ctx);
+    if (overrideKey && v->hasAttribute(ctx, overrideKey) == PROTO_TRUE) return false;
+    // Every other object JavaScript creates descends from a snapshot of
+    // Object.prototype, which carries the `__proto__` accessor.  The space's
+    // current Object.prototype pointer is not compared: a write to
+    // Object.prototype re-snapshots it, and older objects keep the old one.
+    const proto::ProtoString* protoAccessor = JSSymbols::getProto(ctx);
+    return protoAccessor && v->hasAttribute(ctx, protoAccessor) != PROTO_TRUE;
+}
+
+const proto::ProtoObject* foreignObjectString(proto::ProtoContext* ctx,
+                                              const proto::ProtoObject* v) {
+    auto text = [&](const proto::ProtoString* key, std::string& out) {
+        const proto::ProtoObject* a = key ? v->getAttribute(ctx, key, true) : nullptr;
+        if (!a || a == PROTO_NONE || !a->isString(ctx)) return false;
+        a->asString(ctx)->toUTF8String(ctx, out);
+        return true;
+    };
+    std::string name, message;
+    const bool hasName = text(JSSymbols::name(ctx), name);
+    const bool hasMessage = text(JSSymbols::message(ctx), message);
+    // Error.prototype.toString (§20.5.3.4) over the value's own name and
+    // message; Object.prototype.toString's answer when it has neither.
+    std::string out;
+    if (!hasName && !hasMessage) out = "[object Object]";
+    else if (!hasName || name.empty()) out = message;
+    else if (!hasMessage || message.empty()) out = name;
+    else out = name + ": " + message;
+    return ctx->fromUTF8String(out.c_str());
 }
 
 void signalNativeException(const proto::ProtoObject* errorObj) {
@@ -20072,7 +20158,7 @@ const proto::ProtoObject* callJSFunction(
     // Native ProtoMethod: call directly.
     if (fn->isMethod(ctx)) {
         proto::ProtoMethod nativeFn = fn->asMethod(ctx);
-        return nativeFn ? nativeFn(ctx, thisVal ? thisVal : PROTO_NONE, nullptr, args, nullptr)
+        return nativeFn ? callNative(nativeFn, ctx, thisVal ? thisVal : PROTO_NONE, args)
                         : PROTO_NONE;
     }
 

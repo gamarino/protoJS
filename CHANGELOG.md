@@ -4,6 +4,49 @@ All notable changes to protoJS are documented in this file.
 
 ## [Unreleased]
 
+### Changed — protoCore's unified exception model (2026-10-21)
+
+- **One exception type.** `protojs::JSException` is now a subclass of
+  protoCore's `proto::ProtoException` with no state of its own; its own pin
+  and the `protojs-exceptions-in-flight` root set are gone (protoCore pins the
+  value in flight). Every handler -- the JavaScript `try` level
+  (`runProtectedRange`), promise and async jobs, iterator close, the event
+  loop, the module loaders, the Deferred pool -- catches
+  `const proto::ProtoException&`, so errors raised by protoCore or by a
+  module written in C++ or another language are caught like a JavaScript
+  `throw`.
+- **Module error types.** `e instanceof T` where `T` is a plain protoCore
+  prototype a module defines outside JavaScript tests `T` against `e`'s
+  prototype chain (a platform extension; ECMA-262 would throw a `TypeError`
+  for a non-callable right-hand side). Such values convert to a string as an
+  `Error` does (`"<name>: <message>"`) and to a number as `NaN`. The portable
+  `Object.prototype.isPrototypeOf.call(T, e)` works too.
+- **Error factory.** protoCore's own errors arrive as JavaScript errors:
+  `InvalidArgument` as `SyntaxError`, `TypeMismatch` and `ArityMismatch` as
+  `TypeError`, `Overflow` and `DivisionByZero` as `RangeError`
+  (`1n % 0n` is `RangeError: Division by zero`; before, protoCore's
+  `std::runtime_error` reached `std::terminate` and the process aborted, even
+  inside a `try`).
+- **Foreign C++ exceptions.** A `std::exception` a native or a module method
+  lets escape becomes a JavaScript `Error` with `what()` as its message at the
+  native-call boundary (`callNative`) and in a JavaScript `try`. QuickJS
+  boundaries raise it on the QuickJS context; a Deferred pool thread rejects
+  with it; `main` and worker threads report it instead of reaching
+  `std::terminate` (`main` had no handler at all).
+- **Embedding.** A JavaScript error that no JavaScript handler catches leaves
+  `runBytecode` / `callJSFunction` as the `ProtoException` carrying the
+  JavaScript error object (new unit test `[exceptions]`).
+- New tests: `js/native_addons/test_module_exceptions` and
+  `js/native_addons/module_exception_uncaught`, which import protoCore's
+  example geometry module (`protoCore/examples/exceptions/`) through UMD with a
+  test addon that registers its provider (`tests/native_addons/geometry`).
+- Docs: new [docs/EXCEPTIONS.md](docs/EXCEPTIONS.md); GC_BRIDGING.md (the pin
+  is protoCore's); the deviation in API_REFERENCE.md.
+- test262 whole corpus (corpus `aae8cf6e`, concurrency 4) against `8f7f35b71`:
+  33,849 -> 33,850, one newly passing
+  (`language/expressions/modulus/bigint-modulo-zero.js`), none newly failing.
+  ctest 169/169 -> 173/173 (four new tests).
+
 ### Measured — JavaScript exceptions as C++ exceptions (2026-10-21)
 
 - Final measurement of `perf/cpp-exceptions` (`fb95f3c5d`) against
