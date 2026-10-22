@@ -1,0 +1,88 @@
+Using protojs: /home/gamarino/Documentos/proyectos/.agent_scratch/meas_1022/before/protoJS/build/protojs
+Standard benchmarks dir: /home/gamarino/Documentos/proyectos/.agent_scratch/meas_1022/after/protoJS/tests/benchmarks/standard
+
+Running: array_literal.js
+  => Node.js 80.33x (protoJS 241.00 ms, Node 3.00 ms)
+
+Running: control_flow.js
+  => Node.js 34.29x (protoJS 240.00 ms, Node 7.00 ms)
+
+Running: function_calls.js
+  => Node.js 238.00x (protoJS 238.00 ms, Node 1.00 ms)
+
+Running: json_transform.js
+  => Node.js 21.50x (protoJS 43.00 ms, Node 2.00 ms)
+
+Running: json_transform_small.js
+  => Node.js 6.00x (protoJS 3.00 ms, Node 0.00 ms)
+
+Running: json_transform_tiny.js
+  => Node.js 2.00x (protoJS 1.00 ms, Node 0.00 ms)
+
+Running: list_snapshot_history.js
+  => Node.js 38.00x (protoJS 19.00 ms, Node 0.00 ms)
+
+Running: numeric_loop.js
+  => Node.js 107.00x (protoJS 107.00 ms, Node 1.00 ms)
+
+Running: object_property.js
+  => Node.js 12.44x (protoJS 672.00 ms, Node 54.00 ms)
+
+Running: object_read_only.js
+  => Node.js 50.00x (protoJS 100.00 ms, Node 2.00 ms)
+
+Running: object_write_only.js
+  => Node.js 137.80x (protoJS 2067.00 ms, Node 15.00 ms)
+
+Running: parallel_cpu.js
+  => protoJS 11.40x (protoJS 5.00 ms, Node 57.00 ms)
+
+Running: string_concat.js
+  => Node.js 46.00x (protoJS 92.00 ms, Node 2.00 ms)
+
+Running: string_concat_large_chunks.js
+  => Node.js 1.00x (protoJS 0.00 ms, Node 0.00 ms)
+
+Running: string_insert_middle.js
+  => Node.js 1.00x (protoJS 0.00 ms, Node 0.00 ms)
+
+Running: string_processing.js
+  => Node.js 10.00x (protoJS 5.00 ms, Node 0.00 ms)
+
+Running: string_repeated_doubling.js
+  => protoJS 58.00x (protoJS 1.00 ms, Node 58.00 ms)
+
+Running: tree_traversal.js
+  => Node.js 69.00x (protoJS 69.00 ms, Node 1.00 ms)
+
+======================================================================
+Standard benchmark comparison (in-process time_ms)
+======================================================================
+
+Benchmark results (median time_ms from 5 runs):
+----------------------------------------------------------------------
+array_literal: protoJS 241.00 ms, Node 3.00 ms => Node.js 80.33x
+control_flow: protoJS 240.00 ms, Node 7.00 ms => Node.js 34.29x
+function_calls: protoJS 238.00 ms, Node 1.00 ms => Node.js 238.00x
+json_transform: protoJS 43.00 ms, Node 2.00 ms => Node.js 21.50x
+json_transform: protoJS 3.00 ms, Node 0.00 ms => Node.js 6.00x
+json_transform: protoJS 1.00 ms, Node 0.00 ms => Node.js 2.00x
+list_snapshot_history: protoJS 19.00 ms, Node 0.00 ms => Node.js 38.00x
+numeric_loop: protoJS 107.00 ms, Node 1.00 ms => Node.js 107.00x
+object_property: protoJS 672.00 ms, Node 54.00 ms => Node.js 12.44x
+object_read_only: protoJS 100.00 ms, Node 2.00 ms => Node.js 50.00x
+object_write_only: protoJS 2067.00 ms, Node 15.00 ms => Node.js 137.80x
+parallel_cpu: protoJS 5.00 ms, Node 57.00 ms => protoJS 11.40x
+string_concat: protoJS 92.00 ms, Node 2.00 ms => Node.js 46.00x
+string_concat_large_chunks: protoJS 0.00 ms, Node 0.00 ms => Node.js 1.00x
+string_insert_middle: protoJS 0.00 ms, Node 0.00 ms => Node.js 1.00x
+string_processing: protoJS 5.00 ms, Node 0.00 ms => Node.js 10.00x
+string_repeated_doubling: protoJS 1.00 ms, Node 58.00 ms => protoJS 58.00x
+tree_traversal: protoJS 69.00 ms, Node 1.00 ms => Node.js 69.00x
+----------------------------------------------------------------------
+Geometric mean: Node.js 10.60x faster than protoJS (in-process time)
+protoJS wins: 2/18
+
+JSON report: /home/gamarino/Documentos/proyectos/.agent_scratch/meas_1022/after/protoJS/tests/benchmarks/results/standard_comparison.json
+
+Done.

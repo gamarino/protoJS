@@ -1,0 +1,57 @@
+| Workload | AFTER | BEFORE | AFTER/BEFORE | Node | old base 8182924ea (10-21) |
+|---|---:|---:|---:|---:|---:|
+| `object_write_only` | 2054 | 2067 | 0.994 | 17 | 1595 |
+| `object_property` | 687 | 672 | 1.022 | 53.5 | 502 |
+| `array_literal` | 253 | 244 | 1.037 | 4 | 187 |
+| `function_calls` | 242 | 238 | 1.017 | 1 | 183 |
+| `control_flow` | 226 | 240 | 0.942 | 7 | 182 |
+| `numeric_loop` | 114 | 98 | 1.163 | 1 | 78 |
+| `object_read_only` | 102 | 97 | 1.052 | 2 | 80 |
+| `string_concat` | 96 | 93 | 1.032 | 1.5 | 72 |
+| `tree_traversal` | 65 | 70 | 0.929 | 1 | 53 |
+| `json_transform` | 45 | 44 | 1.023 | 2 | 36 |
+| `list_snapshot_history` | 19 | 19 | 1.000 | 0 | 14 |
+| `string_processing` | 5 | 5 | 1.000 (<10 ms) | 0 | 4 |
+| `json_transform(json_transform_small)` | 4 | 3 | 1.333 (<10 ms) | 0 | 2 |
+| `parallel_cpu` | 4 | 5 | 0.800 (<10 ms) | 59 | 3 |
+| `json_transform(json_transform_tiny)` | 1 | 1 | 1.000 (<10 ms) | 0 | 0 |
+| `string_repeated_doubling` | 1 | 1 | 1.000 (<10 ms) | 61 | 1 |
+| `string_concat_large_chunks` | 0 | 0 | nan (<10 ms) | 0 | 0 |
+| `string_insert_middle` | 0 | 0 | nan (<10 ms) | 0.5 | 0 |
+
+geomean AFTER/BEFORE (BEFORE >= 10 ms, n=11): 1.017
+
+per-round raw (ms):
+  array_literal after [241, 253, 253] before [244, 245, 241] node [4, 4, 4, 4, 4, 3]
+  control_flow after [239, 223, 226] before [240, 229, 240] node [6, 8, 8, 7, 6, 7]
+  function_calls after [235, 245, 242] before [230, 245, 238] node [1, 1, 1, 1, 1, 1]
+  json_transform after [45, 44, 45] before [44, 52, 43] node [3, 2, 1, 2, 1, 2]
+  json_transform(json_transform_small) after [3, 4, 4] before [3, 5, 3] node [0, 0, 0, 0, 0, 0]
+  json_transform(json_transform_tiny) after [1, 0, 1] before [1, 1, 1] node [0, 0, 0, 0, 0, 0]
+  list_snapshot_history after [19, 20, 17] before [19, 19, 19] node [0, 0, 1, 0, 0, 0]
+  numeric_loop after [118, 114, 113] before [94, 98, 107] node [1, 1, 1, 2, 1, 1]
+  object_property after [683, 690, 687] before [662, 678, 672] node [48, 67, 54, 53, 46, 54]
+  object_read_only after [102, 126, 102] before [97, 93, 100] node [3, 2, 2, 2, 2, 2]
+  object_write_only after [2015, 2086, 2054] before [2108, 2062, 2067] node [18, 16, 16, 20, 19, 15]
+  parallel_cpu after [4, 4, 4] before [4, 5, 5] node [60, 57, 59, 59, 65, 57]
+  string_concat after [93, 98, 96] before [93, 120, 92] node [1, 1, 2, 1, 3, 2]
+  string_concat_large_chunks after [0, 0, 0] before [0, 0, 0] node [0, 0, 0, 0, 0, 0]
+  string_insert_middle after [0, 0, 0] before [0, 1, 0] node [1, 0, 0, 1, 1, 0]
+  string_processing after [6, 5, 5] before [5, 8, 5] node [0, 0, 0, 0, 1, 0]
+  string_repeated_doubling after [1, 1, 1] before [1, 1, 1] node [58, 61, 61, 61, 68, 58]
+  tree_traversal after [65, 67, 65] before [70, 92, 69] node [0, 1, 1, 1, 1, 1]
+
+| Probe | iters | AFTER cyc/it | BEFORE cyc/it | AFTER/BEFORE | Node cyc/it | AFTER ms | BEFORE ms |
+|---|---:|---:|---:|---:|---:|---:|---:|
+startup cycles (whole process, empty script): before 88337264  after 98610703  node 114085109
+| `throw_primitive` | 200000 | 11,013 | 11,321 | 0.97x | 4,394 | 756 | 795 |
+| `throw_catch` | 200000 | 27,762 | 29,548 | 0.94x | 15,635 | 1884 | 2121 |
+| `native_typeerror` | 200000 | 70,655 | 69,693 | 1.01x | 44,352 | 5406 | 5251 |
+| `throw_across_calls` | 100000 | 149,192 | 160,538 | 0.93x | 17,627 | 5718 | 6200 |
+| `try_no_throw` | 2000000 | 618 | 639 | 0.97x | -3 | 449 | 468 |
+| `finally_loop` | 2000000 | 912 | 944 | 0.97x | 3 | 728 | 746 |
+| `empty_loop` | 2000000 | 413 | 422 | 0.98x | -5 | 358 | 362 |
+| `method_call` | 1000000 | 2,113 | 2,153 | 0.98x | -4 | 859 | 864 |
+| `gen_iter` | 200000 | 330,729 | 330,576 | 1.00x | 425 | 24814 | 24998 |
+| `async_await` | 100000 | 38,560 | 38,536 | 1.00x | 380 | 1476 | 1470 |
+| `fib` | 1 | 396,745,689 | 396,537,803 | 1.00x | -8,400,023 | 187 | 185 |

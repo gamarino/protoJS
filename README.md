@@ -277,6 +277,34 @@ The detailed history is in [docs/archive/TEST262_ROUNDS.md](docs/archive/TEST262
 
 ### Performance Benchmarks
 
+**protoCore's unified exception model (measured 2026-10-22, branch
+`perf/cpp-exceptions` at `40f7d66f3`, not merged).**
+- A JavaScript exception is now a `proto::ProtoException` selected by
+  prototype, so `instanceof` in a `catch` also matches error types that a
+  C++ module or another language defines.
+- Compared against the branch just before the port (`fb95f3c5d`, protoCore
+  `cf52f9f5`): both Release, interleaved, three rounds.
+- The machine had 2-4 busy CPUs, so absolute times run about 20 % above the
+  2026-10-21 run. Only the ratios count.
+
+| | AFTER / BEFORE |
+|---|---:|
+| standard comparison, geomean of 11 workloads of 10 ms or more | 1.017 |
+| `numeric_loop` | **1.16** (1 % fewer instructions, 13-23 % more cycles; code layout suspected, not isolated) |
+| structure benchmarks, geomean of 50 cells | 1.028 (not alternated; worst cell `join` N=1, 1.38) |
+| `throw new Error` caught | 0.94x |
+| a throw five frames deep | 0.93x |
+| `undefined.x` caught | 1.01x |
+| entering a `try` that does not throw | 0.97x |
+
+- The port itself costs nothing on the exception paths.
+- The 4-11x cost of a throw relative to the pending-flag design remains.
+  That cost is the 2026-10-21 change below.
+- Two of the three test262 tests that had timed out under load pass when
+  rerun. The third, `length-truncate-nonconfigurable-sparse`, fails
+  identically before the port. It is a known bug, not a regression.
+- Raw results: [`benchmarks/reports/2026-10-22-unified-exceptions/`](benchmarks/reports/2026-10-22-unified-exceptions/).
+
 **JavaScript exceptions as C++ exceptions (measured 2026-10-21, branch
 `perf/cpp-exceptions`, not merged).** `throw` is a C++ `throw` and each `try`
 a nested interpreter level inside a C++ `try`; the pending-exception check

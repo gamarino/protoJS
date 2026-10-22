@@ -1,0 +1,31 @@
+OK  array_literal.js {"name": "array_literal", "size": 100000, "iterations": 5}
+OK  control_flow.js {"name": "control_flow", "iterations": 5, "inner": 1000000}
+OK  function_calls.js {"name": "function_calls", "iterations": 5, "state": 1000001, "calls": 200000}
+OK  json_transform.js {"name": "json_transform", "records": 5000, "iterations": 5}
+OK  json_transform_small.js {"name": "json_transform", "records": 500, "iterations": 5}
+OK  json_transform_tiny.js {"name": "json_transform", "records": 50, "iterations": 1}
+OK  list_snapshot_history.js {"name": "list_snapshot_history", "iterations": 5, "snapshots": 200, "checksum": 20100}
+OK  numeric_loop.js {"name": "numeric_loop", "iterations": 5, "inner": 1000000}
+OK  object_property.js {"ops": 200000, "name": "object_property", "iterations": 5}
+OK  object_read_only.js {"ops": 100000, "name": "object_read_only", "iterations": 5}
+OK  object_write_only.js {"ops": 1000000, "name": "object_write_only", "iterations": 5}
+BAD parallel_cpu.js {"before": [0, {"name": "parallel_cpu", "iterations": 5, "work_per_task": 2000000, "total_work": 8000000, "parallel": true, "executor": "protoCore.runInThread (native cpuChunk worker, 4 protoCore threads)", "tasks": 4}], "after": [0, {"name": "parallel_cpu", "iterations": 5, "work_per_task": 2000000, "total_work": 8000000, "parallel": true, "executor": "protoCore.runInThread (native cpuChunk worker, 4 protoCore threads)", "tasks": 4}], "node": [0, {"name": "parallel_cpu", "iterations": 5, "tasks": 4, "parallel": false, "work_per_task": 2000000, "total_work": 8000000, "executor": "sequential JavaScript loop"}]}
+OK  string_concat.js {"ops": 50000, "name": "string_concat", "iterations": 5}
+OK  string_concat_large_chunks.js {"name": "string_concat_large_chunks", "iterations": 5, "chunk_size": 200, "outer": 1, "chunks": 200}
+OK  string_insert_middle.js {"name": "string_insert_middle", "iterations": 5, "base_len": 1000, "inserts": 100, "chunk_len": 50}
+OK  string_processing.js {"name": "string_processing", "rows": 100, "iterations": 5}
+OK  string_repeated_doubling.js {"name": "string_repeated_doubling", "iterations": 5, "doublings": 18, "outer": 200}
+OK  tree_traversal.js {"sum": 49136, "name": "tree_traversal", "iterations": 5, "depth": 14}
+OK  async_await.js ['CHECK 100000']
+OK  empty_loop.js ['CHECK 2000000']
+OK  fib.js ['CHECK 75025']
+OK  finally_loop.js ['CHECK 4000000']
+OK  gen_iter.js ['CHECK 600000']
+OK  method_call.js ['CHECK 1000000']
+OK  native_typeerror.js ['CHECK 200000']
+OK  startup.js ['CHECK 0']
+OK  throw_across_calls.js ['CHECK 100000']
+OK  throw_catch.js ['CHECK 200000']
+OK  throw_primitive.js ['CHECK 200000']
+OK  try_no_throw.js ['CHECK 2000000']
+VERIFY_BAD 1

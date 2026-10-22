@@ -1,0 +1,55 @@
+{
+  "generatedAt": "2026-10-22T04:18:26.871Z",
+  "patterns": [
+    "staging/sm/JSON/parse-mega-huge-array.js",
+    "staging/sm/TypedArray/set-same-buffer-different-source-target-types.js",
+    "staging/sm/Array/length-truncate-nonconfigurable-sparse.js"
+  ],
+  "corpusRoot": "/home/gamarino/Documentos/proyectos/test262",
+  "corpusCommit": "aae8cf6eed6d6c6a203be48c1184bb194880f66b",
+  "binary": "/home/gamarino/Documentos/proyectos/.agent_scratch/meas_1022/after/protoJS/build/protojs",
+  "concurrency": 1,
+  "lenientClassification": false,
+  "skipListEntries": 11,
+  "wallClockMs": 8691,
+  "total": 3,
+  "denominator": 3,
+  "passRatePercent": 66.67,
+  "summary": {
+    "passed": 2,
+    "failed_syntax": 0,
+    "failed_semantics": 1,
+    "failed_negative": 0,
+    "failed_async": 0,
+    "timeout": 0,
+    "skipped": 0
+  },
+  "results": [
+    {
+      "path": "staging/sm/Array/length-truncate-nonconfigurable-sparse.js",
+      "result": "failed_semantics",
+      "durationMs": 2333,
+      "negative": null,
+      "flags": [
+        "noStrict"
+      ],
+      "errorSummary": "Command failed: /home/gamarino/Documentos/proyectos/.agent_scratch/meas_1022/after/protoJS/build/protojs --unhandled-rejections=none /home/gamarino/Documentos/proyectos/.agent_scratch/meas_1022/after/"
+    },
+    {
+      "path": "staging/sm/JSON/parse-mega-huge-array.js",
+      "result": "passed",
+      "durationMs": 3187,
+      "negative": null,
+      "flags": [],
+      "errorSummary": null
+    },
+    {
+      "path": "staging/sm/TypedArray/set-same-buffer-different-source-target-types.js",
+      "result": "passed",
+      "durationMs": 2275,
+      "negative": null,
+      "flags": [],
+      "errorSummary": null
+    }
+  ]
+}

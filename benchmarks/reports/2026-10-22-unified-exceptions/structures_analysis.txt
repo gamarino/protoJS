@@ -1,0 +1,57 @@
+cells 50 geomean AFTER/BEFORE 1.028  min 0.92 max 1.38
+  doctree   geomean 1.039
+  graph     geomean 0.999
+  join      geomean 1.081
+  records   geomean 0.991
+  wordfreq  geomean 1.032
+| workload | mode | N | AFTER ms | BEFORE ms | ratio | Node ms |
+| doctree | par | 1 | 1270 | 1162 | 1.09 | 47 |
+| doctree | par | 2 | 1307 | 1250 | 1.05 | 70 |
+| doctree | par | 4 | 1685 | 1603 | 1.05 | 87 |
+| doctree | par | 6 | 1997 | 1938 | 1.03 | 127 |
+| doctree | par | 12 | 5248 | 5173 | 1.01 | 368 |
+| doctree | seq | 1 | 1091 | 1111 | 0.98 | 17 |
+| doctree | seq | 2 | 2361 | 2242 | 1.05 | 15 |
+| doctree | seq | 4 | 4491 | 4479 | 1.00 | 31 |
+| doctree | seq | 6 | 6783 | 6697 | 1.01 | 51 |
+| doctree | seq | 12 | 15498 | 13927 | 1.11 | 78 |
+| graph | par | 1 | 1886 | 1798 | 1.05 | - |
+| graph | par | 2 | 2431 | 2649 | 0.92 | - |
+| graph | par | 4 | 3124 | 3001 | 1.04 | - |
+| graph | par | 6 | 3910 | 4053 | 0.96 | - |
+| graph | par | 12 | 12045 | 12157 | 0.99 | - |
+| graph | seq | 1 | 1954 | 1975 | 0.99 | 22 |
+| graph | seq | 2 | 4072 | 4079 | 1.00 | 37 |
+| graph | seq | 4 | 7846 | 7496 | 1.05 | 55 |
+| graph | seq | 6 | 11890 | 11722 | 1.01 | 101 |
+| graph | seq | 12 | 27504 | 27889 | 0.99 | 219 |
+| join | par | 1 | 1522 | 1294 | 1.18 | 141 |
+| join | par | 2 | 1550 | 1629 | 0.95 | 139 |
+| join | par | 4 | 1903 | 1828 | 1.04 | 207 |
+| join | par | 6 | 2226 | 2191 | 1.02 | 236 |
+| join | par | 12 | 6576 | 5937 | 1.11 | 394 |
+| join | seq | 1 | 1794 | 1296 | 1.38 | 40 |
+| join | seq | 2 | 2880 | 2546 | 1.13 | 82 |
+| join | seq | 4 | 5379 | 5171 | 1.04 | 129 |
+| join | seq | 6 | 7702 | 7301 | 1.05 | 124 |
+| join | seq | 12 | 14719 | 15161 | 0.97 | 276 |
+| records | par | 1 | 1612 | 1577 | 1.02 | 176 |
+| records | par | 2 | 1955 | 2013 | 0.97 | 245 |
+| records | par | 4 | 2197 | 2223 | 0.99 | 420 |
+| records | par | 6 | 2845 | 2896 | 0.98 | 525 |
+| records | par | 12 | 5774 | 5903 | 0.98 | 942 |
+| records | seq | 1 | 1396 | 1404 | 0.99 | 14 |
+| records | seq | 2 | 2916 | 3013 | 0.97 | 23 |
+| records | seq | 4 | 5202 | 5367 | 0.97 | 39 |
+| records | seq | 6 | 8445 | 8487 | 1.00 | 53 |
+| records | seq | 12 | 19795 | 19048 | 1.04 | 98 |
+| wordfreq | par | 1 | 920 | 918 | 1.00 | 20 |
+| wordfreq | par | 2 | 1165 | 1034 | 1.13 | 24 |
+| wordfreq | par | 4 | 1470 | 1243 | 1.18 | 33 |
+| wordfreq | par | 6 | 1578 | 1545 | 1.02 | 34 |
+| wordfreq | par | 12 | 3198 | 3235 | 0.99 | 63 |
+| wordfreq | seq | 1 | 905 | 892 | 1.01 | 19 |
+| wordfreq | seq | 2 | 1784 | 1807 | 0.99 | 41 |
+| wordfreq | seq | 4 | 3545 | 3540 | 1.00 | 73 |
+| wordfreq | seq | 6 | 5483 | 5205 | 1.05 | 107 |
+| wordfreq | seq | 12 | 10545 | 10986 | 0.96 | 220 |

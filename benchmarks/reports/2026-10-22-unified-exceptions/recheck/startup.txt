@@ -1,0 +1,6 @@
+startup before r1 79121074 23
+startup after r1 77702158 23
+startup before r2 77745904 23
+startup after r2 75020076 23
+startup before r3 74666812 23
+startup after r3 78544290 25

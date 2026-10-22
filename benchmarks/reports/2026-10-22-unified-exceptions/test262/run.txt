@@ -1,0 +1,48 @@
+Discovered 3 Test262 files for patterns: staging/sm/JSON/parse-mega-huge-array.js, staging/sm/TypedArray/set-same-buffer-different-source-target-types.js, staging/sm/Array/length-truncate-nonconfigurable-sparse.js
+Loaded 11 skip entries from tests/test262/config/skip_proto_eval.json
+FAILED_SEMANTICS: staging/sm/Array/length-truncate-nonconfigurable-sparse.js (2333 ms)
+PASSED: staging/sm/JSON/parse-mega-huge-array.js (3187 ms)
+PASSED: staging/sm/TypedArray/set-same-buffer-different-source-target-types.js (2275 ms)
+
+=== Test262 run summary ===
+patterns          : staging/sm/JSON/parse-mega-huge-array.js, staging/sm/TypedArray/set-same-buffer-different-source-target-types.js, staging/sm/Array/length-truncate-nonconfigurable-sparse.js
+corpus            : /home/gamarino/Documentos/proyectos/test262 @ aae8cf6eed6d6c6a203be48c1184bb194880f66b
+binary            : /home/gamarino/Documentos/proyectos/.agent_scratch/meas_1022/after/protoJS/build/protojs
+classification    : strict
+concurrency       : 1
+discovered        : 3
+skipped           : 0
+denominator       : 3
+passed            : 2
+failed (syntax)   : 0
+failed (semantics): 1
+failed (negative) : 0
+failed (async)    : 0
+timeout           : 0
+pass rate         : 66.67 %
+wall clock        : 9 s
+Snapshot written to tests/test262/reports/snapshot-staging-sm-JSON-parse-mega-huge-array.js_staging-sm-TypedArray-set-same-buffer-d-1792642706887.json
+Command exited with non-zero status 1
+	Command being timed: "env PROTOJS=/home/gamarino/Documentos/proyectos/.agent_scratch/meas_1022/after/protoJS/build/protojs TEST262_ROOT=/home/gamarino/Documentos/proyectos/test262 TEST262_USE_PROTO_EVAL=1 TEST262_CONCURRENCY=1 TEST262_VERBOSE=1 TEST262_PATTERNS=staging/sm/JSON/parse-mega-huge-array.js,staging/sm/TypedArray/set-same-buffer-different-source-target-types.js,staging/sm/Array/length-truncate-nonconfigurable-sparse.js node tests/test262/runner/test262_runner.js"
+	User time (seconds): 4.24
+	System time (seconds): 4.21
+	Percent of CPU this job got: 96%
+	Elapsed (wall clock) time (h:mm:ss or m:ss): 0:08.75
+	Average shared text size (kbytes): 0
+	Average unshared data size (kbytes): 0
+	Average stack size (kbytes): 0
+	Average total size (kbytes): 0
+	Maximum resident set size (kbytes): 3095788
+	Average resident set size (kbytes): 0
+	Major (requiring I/O) page faults: 107
+	Minor (reclaiming a frame) page faults: 1543452
+	Voluntary context switches: 2859
+	Involuntary context switches: 166
+	Swaps: 0
+	File system inputs: 60127
+	File system outputs: 48
+	Socket messages sent: 0
+	Socket messages received: 0
+	Signals delivered: 0
+	Page size (bytes): 4096
+	Exit status: 1

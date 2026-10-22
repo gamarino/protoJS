@@ -1,0 +1,40 @@
+== verify_before
+	libprotoCore.so.4 => /home/gamarino/Documentos/proyectos/.agent_scratch/meas_1022/js_out/libs/verify_before/libprotoCore.so.4 (0x0000715ba10d0000)
+== verify_after
+	libprotoCore.so.4 => /home/gamarino/Documentos/proyectos/.agent_scratch/meas_1022/js_out/libs/verify_after/libprotoCore.so.4 (0x0000725150d31000)
+== after_r1
+	libprotoCore.so.4 => /home/gamarino/Documentos/proyectos/.agent_scratch/meas_1022/js_out/libs/after_r1/libprotoCore.so.4 (0x00007d1294a69000)
+== before_r1
+	libprotoCore.so.4 => /home/gamarino/Documentos/proyectos/.agent_scratch/meas_1022/js_out/libs/before_r1/libprotoCore.so.4 (0x00007997d6d2d000)
+== before_r2
+	libprotoCore.so.4 => /home/gamarino/Documentos/proyectos/.agent_scratch/meas_1022/js_out/libs/before_r2/libprotoCore.so.4 (0x00007510b62d6000)
+== after_r2
+	libprotoCore.so.4 => /home/gamarino/Documentos/proyectos/.agent_scratch/meas_1022/js_out/libs/after_r2/libprotoCore.so.4 (0x00007dee64696000)
+== after_r3
+	libprotoCore.so.4 => /home/gamarino/Documentos/proyectos/.agent_scratch/meas_1022/js_out/libs/after_r3/libprotoCore.so.4 (0x000075b7986a2000)
+== before_r3
+	libprotoCore.so.4 => /home/gamarino/Documentos/proyectos/.agent_scratch/meas_1022/js_out/libs/before_r3/libprotoCore.so.4 (0x000077c3f6ec9000)
+== probes_before
+	libprotoCore.so.4 => /home/gamarino/Documentos/proyectos/.agent_scratch/meas_1022/js_out/libs/probes_before/libprotoCore.so.4 (0x000079df41d40000)
+== probes_after
+	libprotoCore.so.4 => /home/gamarino/Documentos/proyectos/.agent_scratch/meas_1022/js_out/libs/probes_after/libprotoCore.so.4 (0x0000708ffba96000)
+== struct_before_records
+	libprotoCore.so.4 => /home/gamarino/Documentos/proyectos/.agent_scratch/meas_1022/js_out/libs/struct_before_records/libprotoCore.so.4 (0x00007f1bb303e000)
+== struct_after_records
+	libprotoCore.so.4 => /home/gamarino/Documentos/proyectos/.agent_scratch/meas_1022/js_out/libs/struct_after_records/libprotoCore.so.4 (0x000070d37b673000)
+== struct_before_join
+	libprotoCore.so.4 => /home/gamarino/Documentos/proyectos/.agent_scratch/meas_1022/js_out/libs/struct_before_join/libprotoCore.so.4 (0x00007d7a3740f000)
+== struct_after_join
+	libprotoCore.so.4 => /home/gamarino/Documentos/proyectos/.agent_scratch/meas_1022/js_out/libs/struct_after_join/libprotoCore.so.4 (0x00007e1b7064b000)
+== struct_before_doctree
+	libprotoCore.so.4 => /home/gamarino/Documentos/proyectos/.agent_scratch/meas_1022/js_out/libs/struct_before_doctree/libprotoCore.so.4 (0x00007095cbee4000)
+== struct_after_doctree
+	libprotoCore.so.4 => /home/gamarino/Documentos/proyectos/.agent_scratch/meas_1022/js_out/libs/struct_after_doctree/libprotoCore.so.4 (0x000075d31d741000)
+== struct_before_wordfreq
+	libprotoCore.so.4 => /home/gamarino/Documentos/proyectos/.agent_scratch/meas_1022/js_out/libs/struct_before_wordfreq/libprotoCore.so.4 (0x000072ae8c10f000)
+== struct_after_wordfreq
+	libprotoCore.so.4 => /home/gamarino/Documentos/proyectos/.agent_scratch/meas_1022/js_out/libs/struct_after_wordfreq/libprotoCore.so.4 (0x000071615c5f9000)
+== struct_before_graph
+	libprotoCore.so.4 => /home/gamarino/Documentos/proyectos/.agent_scratch/meas_1022/js_out/libs/struct_before_graph/libprotoCore.so.4 (0x00007f5d3f0f6000)
+== struct_after_graph
+	libprotoCore.so.4 => /home/gamarino/Documentos/proyectos/.agent_scratch/meas_1022/js_out/libs/struct_after_graph/libprotoCore.so.4 (0x00007b0ce1e72000)
