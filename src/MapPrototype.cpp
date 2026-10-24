@@ -8,6 +8,7 @@
 #include "HashedCollection.h"
 #include "PrototypeUtils.h"
 #include "runtime/ProtoInterpreter.h"
+#include "debugger/DebugHooks.h"
 #include "protoCore.h"
 #include <cmath>
 #include <cstring>
@@ -1031,6 +1032,7 @@ static const proto::ProtoObject* mapConstruct(
                             // Discard any throw from return() — the original abrupt,
                             // which the caller rethrows, is what propagates.
                             try {
+                                debughooks::CatchingNative catching;   // a throw here is caught (DebugHooks.h)
                                 callJSFunction(ctx, retFn, iterator, retArgs);
                             } catch (const proto::ProtoException&) {
                             }
@@ -2132,6 +2134,7 @@ static const proto::ProtoObject* weakMapConstruct(
                             // Discard any throw from return() — the original abrupt,
                             // which the caller rethrows, is what propagates.
                             try {
+                                debughooks::CatchingNative catching;   // a throw here is caught (DebugHooks.h)
                                 callJSFunction(ctx, retFn, iterator, retArgs);
                             } catch (const proto::ProtoException&) {
                             }

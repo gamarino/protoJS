@@ -26,6 +26,7 @@
 #include "ProxyBuiltin.h"
 #include "runtime/PinnedBuiltin.h"
 #include "runtime/ProtoInterpreter.h"
+#include "debugger/DebugHooks.h"
 
 #include <optional>
 #include <string>
@@ -692,6 +693,7 @@ const proto::ProtoObject* promiseConstructor(proto::ProtoContext* ctx,
     const proto::ProtoObject* rejectFn = PROTO_NONE;
     createResolvingFunctions(ctx, p, resolveFn, rejectFn);
     try {
+        debughooks::CatchingNative catching;   // a throw here is caught (DebugHooks.h)
         callJSFunction(ctx, executor, undef(), list2(ctx, resolveFn, rejectFn));
     } catch (const proto::ProtoException& thrown) {
         // A throwing executor rejects the promise; a throwing reject
@@ -764,6 +766,7 @@ const proto::ProtoObject* promiseStaticTry(proto::ProtoContext* ctx,
     const proto::ProtoList* fwd = (argc > 1) ? args->asList(ctx)->getSlice(ctx, 1, argc) : ctx->newList();
     const proto::ProtoObject* result = nullptr;
     try {
+        debughooks::CatchingNative catching;   // a throw here is caught (DebugHooks.h)
         result = callJSFunction(ctx, argAt(ctx, args, 0), undef(), fwd ? fwd : ctx->newList());
     } catch (const proto::ProtoException& thrown) {
         Capability cap;
@@ -853,6 +856,7 @@ int iteratorStepValue(proto::ProtoContext* ctx, IteratorRecord& rec,
 void iteratorCloseOnThrow(proto::ProtoContext* ctx, IteratorRecord& rec) {
     if (rec.done || rec.stringItems) return;
     try {
+        debughooks::CatchingNative catching;   // a throw here is caught (DebugHooks.h)
         const proto::ProtoObject* ret =
             jsGet(ctx, rec.iterator, keyReturn(ctx), sym(ctx, "__get_return__"));
         if (isCallable(ctx, ret))
@@ -1033,6 +1037,7 @@ const proto::ProtoObject* promiseCombinator(proto::ProtoContext* ctx,
     const proto::ProtoObject* promiseResolve = nullptr;
     IteratorRecord iter;
     try {
+        debughooks::CatchingNative catching;   // a throw here is caught (DebugHooks.h)
         promiseResolve = getPromiseResolve(ctx, C);
         getIterator(ctx, argAt(ctx, args, 0), iter);
     } catch (const proto::ProtoException& thrown) {
@@ -1045,6 +1050,7 @@ const proto::ProtoObject* promiseCombinator(proto::ProtoContext* ctx,
         const proto::ProtoObject* value = PROTO_NONE;
         int step = 0;
         try {
+            debughooks::CatchingNative catching;   // a throw here is caught (DebugHooks.h)
             step = iteratorStepValue(ctx, iter, value);
         } catch (const proto::ProtoException& thrown) {
             // The iterator threw: it is done, so it is not closed.
@@ -1057,6 +1063,7 @@ const proto::ProtoObject* promiseCombinator(proto::ProtoContext* ctx,
                 // the combinator: the iterator is done, so it is not closed,
                 // and IfAbruptRejectPromise rejects the capability.
                 try {
+                    debughooks::CatchingNative catching;   // a throw here is caught (DebugHooks.h)
                     if (kind == kAny) capabilitySettle(ctx, cap, true, makeAggregateError(ctx, arr));
                     else capabilitySettle(ctx, cap, false, arr);
                 } catch (const proto::ProtoException& thrown) {
@@ -1068,6 +1075,7 @@ const proto::ProtoObject* promiseCombinator(proto::ProtoContext* ctx,
         if (agg) aggregateAppendUndefined(ctx, agg);
         const proto::ProtoObject* nextPromise = nullptr;
         try {
+            debughooks::CatchingNative catching;   // a throw here is caught (DebugHooks.h)
             nextPromise = callJSFunction(ctx, promiseResolve, C, list1(ctx, value));
         } catch (const proto::ProtoException& thrown) {
             iteratorCloseOnThrow(ctx, iter);
@@ -1088,6 +1096,7 @@ const proto::ProtoObject* promiseCombinator(proto::ProtoContext* ctx,
         }
         if (agg) aggregateIncrement(ctx, agg);
         try {
+            debughooks::CatchingNative catching;   // a throw here is caught (DebugHooks.h)
             invokeThen(ctx, nextPromise, list2(ctx, onFulfilled, onRejected));
         } catch (const proto::ProtoException& thrown) {
             iteratorCloseOnThrow(ctx, iter);
@@ -1205,6 +1214,7 @@ void resolvePromise(proto::ProtoContext* ctx, const proto::ProtoObject* promise,
     }
     const proto::ProtoObject* thenAction = nullptr;
     try {
+        debughooks::CatchingNative catching;   // a throw here is caught (DebugHooks.h)
         thenAction = jsGet(ctx, resolution, keyThen(ctx), keyThenGetter(ctx));
     } catch (const proto::ProtoException& thrown) {
         settle(ctx, promise, kRejected, thrown.value());
@@ -1265,6 +1275,7 @@ bool performAwait(proto::ProtoContext* ctx, const proto::ProtoObject* value,
     // is fulfilled with the object.
     const proto::ProtoObject* thenAction = nullptr;
     try {
+        debughooks::CatchingNative catching;   // a throw here is caught (DebugHooks.h)
         thenAction = jsGet(ctx, value, keyThen(ctx), keyThenGetter(ctx));
     } catch (const proto::ProtoException& thrown) {
         enqueueReactionJob(ctx, reaction(), thrown.value(), kRejected);
@@ -1376,6 +1387,7 @@ void promiseReactionJob(proto::ProtoContext* ctx, const proto::ProtoObject* reac
     std::optional<proto::ProtoException> handlerThrew;
     if (handler && handler != PROTO_NONE) {
         try {
+            debughooks::CatchingNative catching;   // a throw here is caught (DebugHooks.h)
             const proto::ProtoObject* result =
                 callJSFunction(ctx, handler, undef(), list1(ctx, argument));
             value = result ? result : undef();
@@ -1396,6 +1408,7 @@ void promiseReactionJob(proto::ProtoContext* ctx, const proto::ProtoObject* reac
         if (cap && cap->getSize(ctx) >= 3) {
             // An exception from the capability's function is discarded.
             try {
+                debughooks::CatchingNative catching;   // a throw here is caught (DebugHooks.h)
                 callJSFunction(ctx, cap->getAt(ctx, isThrow ? 2 : 1), undef(), list1(ctx, value));
             } catch (const proto::ProtoException&) {
             }
@@ -1414,11 +1427,13 @@ void promiseResolveThenableJob(proto::ProtoContext* ctx, const proto::ProtoObjec
     const proto::ProtoObject* rejectFn = PROTO_NONE;
     createResolvingFunctions(ctx, promise, resolveFn, rejectFn);
     try {
+        debughooks::CatchingNative catching;   // a throw here is caught (DebugHooks.h)
         callJSFunction(ctx, then, thenable, list2(ctx, resolveFn, rejectFn));
     } catch (const proto::ProtoException& thrown) {
         // A throwing `then` rejects the promise; an exception from the
         // reject function is discarded.
         try {
+            debughooks::CatchingNative catching;   // a throw here is caught (DebugHooks.h)
             callJSFunction(ctx, rejectFn, undef(), list1(ctx, thrown.value()));
         } catch (const proto::ProtoException&) {
         }

@@ -18,6 +18,9 @@
  *   - every activation of a bytecode function (a call, a generator or async
  *     resume) is pushed on this thread's activation stack, and popped when it
  *     ends, by any path;
+ *   - every JavaScript exception is reported to the throw handler before it
+ *     is thrown (throwJS, the `throw` opcode, protoCore's error factory), and
+ *     every try range that takes one to the catch handler;
  *   - before every instruction the interpreter calls the installed
  *     instruction handler with the current context and the activation stack,
  *     the innermost activation's `pc` already set to the instruction's byte
@@ -48,11 +51,32 @@ struct Activation {
     int pc;        // byte offset of the instruction being executed
     int lastLine;  // line of the last instruction reported (0: none yet)
     int lastPc;
+    const void* catchStack;   // the activation's open try ranges (the
+                              // interpreter's std::vector<CatchFrame>)
 };
 
 /** The instruction handler: `ctx` is the running context, `stack` this
  *  thread's activations, innermost last. */
 using InstructionHandler = void (*)(proto::ProtoContext* ctx, std::vector<Activation>& stack);
+
+/** Where a thrown value comes from. */
+enum class ThrowKind {
+    Statement,   // a `throw` statement (OP_throw)
+    Runtime,     // an opcode or a native function (TypeError, RangeError...)
+    Kernel,      // protoCore's error factory (BigInt division by zero...)
+};
+
+/** A JavaScript exception about to be thrown on this thread, before the C++
+ *  exception that carries it: the frames, their locals and the activation
+ *  stack are intact.  The handler may block and run code, like the
+ *  instruction handler.  `value` is rooted only by the caller's C++ frame:
+ *  the handler pins it if it allocates. */
+using ThrowHandler = void (*)(proto::ProtoContext* ctx, std::vector<Activation>& stack,
+                              const proto::ProtoObject* value, ThrowKind kind);
+
+/** A JavaScript try range of this thread took `value`: a `catch` clause, or,
+ *  with `finallyOnly`, a `finally` block that will rethrow it. */
+using CatchHandler = void (*)(const proto::ProtoObject* value, bool finallyOnly);
 
 /** A function's module loaded with its line tables: `root` and every function
  *  of its flat nested table.  Called on the loading thread, after the table
@@ -65,16 +89,64 @@ inline bool enabled() { return g_enabled; }
 /** Turns the hooks on.  Call once, before any JavaScript is compiled. */
 void enable(InstructionHandler onInstruction, ModuleLoadedHandler onModuleLoaded);
 
-/** While true on this thread the instruction handler is not called. */
+/** Installs the exception handlers (either may be null).  Call after
+ *  enable(), before any JavaScript runs. */
+void setExceptionHandlers(ThrowHandler onThrow, CatchHandler onCatch);
+
+/** While true on this thread neither the instruction handler nor the throw
+ *  handler is called. */
 void setSuppressed(bool suppressed);
 bool suppressed();
 
+/** Engine-internal exceptions: while one of these is alive on this thread,
+ *  what is thrown is not reported to the throw handler.  For the native code
+ *  that throws and catches as a probe (a kernel parse that fails, an abrupt
+ *  completion the specification turns into `false`), never for code that
+ *  runs the user's functions. */
+struct InternalTry {
+    InternalTry();
+    ~InternalTry();
+    InternalTry(const InternalTry&) = delete;
+    InternalTry& operator=(const InternalTry&) = delete;
+    bool on;
+};
+
+/** A native that catches whatever the JavaScript it calls throws and turns it
+ *  into something else (a promise rejection, a discarded error): while one of
+ *  these is alive, an exception thrown by the activations above it is caught
+ *  (see throwWillBeCaught).  Natives that rethrow need none. */
+struct CatchingNative {
+    CatchingNative();
+    ~CatchingNative();
+    CatchingNative(const CatchingNative&) = delete;
+    CatchingNative& operator=(const CatchingNative&) = delete;
+    bool on;
+};
+
+/** Whether an exception thrown now on this thread will be caught: by a
+ *  JavaScript `catch` of an activation on the stack (a `finally` that
+ *  rethrows does not count), by an async function (it rejects the
+ *  function's promise) or by a CatchingNative, before it leaves the
+ *  outermost activation.  Natives between activations are assumed to
+ *  propagate it. */
+bool throwWillBeCaught(const std::vector<Activation>& stack);
+
 // --- called by the interpreter and the loader (only when enabled()) -------
 void pushActivation(proto::ProtoContext* ctx, const ProtoBytecodeModule* module,
-                    const proto::ProtoObject* thisObj, const proto::ProtoObject** pGlobalRoot);
+                    const proto::ProtoObject* thisObj, const proto::ProtoObject** pGlobalRoot,
+                    const void* catchStack);
 void popActivation();
 void onInstruction(proto::ProtoContext* ctx, int pc);
+/** The innermost activation, of context `ctx`, is at byte offset `pc` (a
+ *  throw before its first instruction ran: a resume's throw completion). */
+void setPc(proto::ProtoContext* ctx, int pc);
+void onThrow(proto::ProtoContext* ctx, const proto::ProtoObject* value, ThrowKind kind);
+void onCatch(const proto::ProtoObject* value, bool finallyOnly);
 void moduleLoaded(const ProtoBytecodeModule& root);
+
+/** Whether activation `a` has an open try range with a `catch` clause
+ *  (defined in the interpreter, which knows the catch frames and opcodes). */
+bool activationCatches(const Activation& a);
 
 /** This thread's activation stack, innermost last. */
 std::vector<Activation>& activations();

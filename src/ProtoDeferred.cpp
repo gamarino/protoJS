@@ -10,6 +10,7 @@
 #include "MicrotaskQueue.h"
 #include "platform/ProcessExit.h"
 #include "runtime/ProtoInterpreter.h"
+#include "debugger/DebugHooks.h"
 #include "runtime/ProtoBytecodeModule.h"
 #include <atomic>
 #include <cstdio>
@@ -165,6 +166,7 @@ void runInline(proto::ProtoContext* ctx, const proto::ProtoObject* fn,
     const proto::ProtoObject* u = getUndefinedSentinel();
     const proto::ProtoObject* result = nullptr;
     try {
+        debughooks::CatchingNative catching;   // a throw here is caught (DebugHooks.h)
         result = callJSFunction(ctx, fn, u ? u : PROTO_NONE, ctx->newList());
     } catch (const proto::ProtoException& thrown) {
         rejectPromise(ctx, d, thrown.value());

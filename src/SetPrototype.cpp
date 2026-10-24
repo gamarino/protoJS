@@ -8,6 +8,7 @@
 #include "HashedCollection.h"
 #include "PrototypeUtils.h"
 #include "runtime/ProtoInterpreter.h"
+#include "debugger/DebugHooks.h"
 #include "protoCore.h"
 #include <cmath>
 #include <cstring>
@@ -227,6 +228,7 @@ static bool iterateSetLikeKeys(proto::ProtoContext* ctx,
                 // Discard any throw from return(): on a throw completion
                 // the caller rethrows the original abrupt.
                 try {
+                    debughooks::CatchingNative catching;   // a throw here is caught (DebugHooks.h)
                     callJSFunction(ctx, retFn, iter, ctx->newList());
                 } catch (const proto::ProtoException&) {
                 }
@@ -820,6 +822,7 @@ static const proto::ProtoObject* setConstruct(
                             // Discard any throw from return(): on a throw completion
                             // the caller rethrows the original abrupt.
                             try {
+                                debughooks::CatchingNative catching;   // a throw here is caught (DebugHooks.h)
                                 callJSFunction(ctx, retFn, iterator, retArgs);
                             } catch (const proto::ProtoException&) {
                             }

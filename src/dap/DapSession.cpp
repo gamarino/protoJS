@@ -93,6 +93,16 @@ struct VarRef {
     const proto::ProtoObject* object = nullptr;  // Object: the object to expand
 };
 
+// What an exception stop reports (stopped event, exceptionInfo).
+struct ExceptionStop {
+    std::string text;         // "TypeError: x is not a function"
+    std::string description;  // the text, and where it was raised
+    std::string breakMode;    // "always" (All Exceptions), "unhandled" (Uncaught)
+    std::string typeName;     // the class (Error subclass), or the type of a non-object
+    std::string message;
+    std::string stackTrace;
+};
+
 // The stop in progress (main thread only).
 struct StopState {
     proto::ProtoContext* ctx = nullptr;
@@ -186,6 +196,9 @@ public:
     // Engine hooks (debugger/DebugHooks.h).
     void onInstruction(proto::ProtoContext* ctx, std::vector<dh::Activation>& stack);
     void onModuleLoaded(const ProtoBytecodeModule& root);
+    void onThrow(proto::ProtoContext* ctx, std::vector<dh::Activation>& stack,
+                 const proto::ProtoObject* value, dh::ThrowKind kind);
+    void onCatch(const proto::ProtoObject* value, bool finallyOnly);
     // Every way the process ends goes through here once.
     void endSession(int exitCode);
 
@@ -196,6 +209,8 @@ private:
     void handleLaunch(const json& req);
     void handleSetBreakpoints(const json& req);
     void handleResume(const json& req, const std::string& command);
+    void handleSetExceptionBreakpoints(const json& req);
+    void handleExceptionInfo(const json& req);
     void handleDisconnect(const json& req, bool terminate);
     void postTask(const json& req, std::function<void(StopState&)> task);
 
@@ -215,7 +230,12 @@ private:
 
     // --- stops (main thread) ---------------------------------------------
     void stop(proto::ProtoContext* ctx, std::vector<dh::Activation>& stack,
-              const char* reason, const std::vector<int>& hitIds);
+              const char* reason, const std::vector<int>& hitIds,
+              const ExceptionStop* exception = nullptr);
+    ExceptionStop describeException(proto::ProtoContext* ctx, std::vector<dh::Activation>& stack,
+                                    const proto::ProtoObject* value, dh::ThrowKind kind,
+                                    bool innermostIsUser);
+    void setInFlight(const proto::ProtoObject* value);
     bool conditionHolds(proto::ProtoContext* ctx, std::vector<dh::Activation>& stack,
                         const std::string& condition);
     const dh::Activation* frameAt(StopState& st, int frameIndex) const;
@@ -253,6 +273,16 @@ private:
     std::deque<std::function<void(StopState&)>> tasks_;
     bool resumeReady_ = false;
     Mode resumeMode_ = Mode::Free;
+    std::optional<ExceptionStop> exception_;   // the current stop's, if it is one
+
+    // Exception breakpoints (setExceptionBreakpoints).
+    std::atomic<bool> breakRaised_{false};
+    std::atomic<bool> breakUncaught_{false};
+    // The exception last reported, until a `catch` takes it: its rethrows (a
+    // `finally` block's, an `await` of the promise it rejected) do not stop
+    // again.  Pinned in the wrapper's root set (main thread only).
+    const proto::ProtoObject* inFlight_ = nullptr;
+    std::optional<proto::ProtoRootSet::Handle> inFlightPin_;
 
     // Read by the main thread before every new line; written by the reader.
     std::atomic<int> mode_{static_cast<int>(Mode::Free)};
@@ -277,6 +307,13 @@ void hookInstruction(proto::ProtoContext* ctx, std::vector<dh::Activation>& stac
 }
 void hookModuleLoaded(const ProtoBytecodeModule& root) {
     if (g_session) g_session->onModuleLoaded(root);
+}
+void hookThrow(proto::ProtoContext* ctx, std::vector<dh::Activation>& stack,
+               const proto::ProtoObject* value, dh::ThrowKind kind) {
+    if (g_session) g_session->onThrow(ctx, stack, value, kind);
+}
+void hookCatch(const proto::ProtoObject* value, bool finallyOnly) {
+    if (g_session) g_session->onCatch(value, finallyOnly);
 }
 void hookExit() {
     if (g_session) g_session->endSession(platform::exitStatus());
@@ -323,6 +360,7 @@ int Session::run(char* argv0, ProgramRunner runProgram) {
     // out end the session through the exit hook.
     platform::addExitHook(&hookExit);
     dh::enable(&hookInstruction, &hookModuleLoaded);
+    dh::setExceptionHandlers(&hookThrow, &hookCatch);
     t_isDebuggee = true;
 
     std::vector<std::string> argvStore;
@@ -394,6 +432,16 @@ void Session::handleRequest(const json& req) {
             {"supportsConditionalBreakpoints", true},
             {"supportsEvaluateForHovers", true},
             {"supportsTerminateRequest", true},
+            {"supportsExceptionInfoRequest", true},
+            {"exceptionBreakpointFilters", json::array({
+                {{"filter", "raised"}, {"label", "All Exceptions"}, {"default", false},
+                 {"description", "Stop at every exception thrown in your code, caught or not, "
+                                 "before it unwinds the stack."}},
+                {{"filter", "uncaught"}, {"label", "Uncaught Exceptions"}, {"default", false},
+                 {"description", "Stop where an exception is thrown that no try/catch on the "
+                                 "stack catches.  A throw in an async function or a promise "
+                                 "callback rejects a promise instead: it is not uncaught."}},
+            })},
         });
         sendEvent("initialized");
     } else if (command == "launch") {
@@ -401,7 +449,9 @@ void Session::handleRequest(const json& req) {
     } else if (command == "setBreakpoints") {
         handleSetBreakpoints(req);
     } else if (command == "setExceptionBreakpoints") {
-        sendResponse(req, {{"breakpoints", json::array()}});
+        handleSetExceptionBreakpoints(req);
+    } else if (command == "exceptionInfo") {
+        handleExceptionInfo(req);
     } else if (command == "configurationDone") {
         sendResponse(req);
         {
@@ -519,6 +569,49 @@ void Session::handleResume(const json& req, const std::string& command) {
     cv_.notify_all();
     if (command == "continue") sendResponse(req, {{"allThreadsContinued", true}});
     else sendResponse(req);
+}
+
+void Session::handleSetExceptionBreakpoints(const json& req) {
+    const json args = req.value("arguments", json::object());
+    std::vector<std::string> filters;
+    if (args.contains("filters") && args["filters"].is_array())
+        for (const auto& f : args["filters"])
+            if (f.is_string()) filters.push_back(f.get<std::string>());
+    if (args.contains("filterOptions") && args["filterOptions"].is_array())
+        for (const auto& f : args["filterOptions"])
+            if (f.is_object()) filters.push_back(f.value("filterId", ""));
+    bool raised = false, uncaught = false;
+    json result = json::array();
+    for (const auto& f : filters) {
+        const bool known = f == "raised" || f == "uncaught";
+        raised = raised || f == "raised";
+        uncaught = uncaught || f == "uncaught";
+        json b = {{"verified", known}};
+        if (!known) b["message"] = "unknown exception filter " + f;
+        result.push_back(std::move(b));
+    }
+    breakRaised_.store(raised);
+    breakUncaught_.store(uncaught);
+    sendResponse(req, {{"breakpoints", result}});
+}
+
+void Session::handleExceptionInfo(const json& req) {
+    std::optional<ExceptionStop> e;
+    {
+        std::lock_guard<std::mutex> lk(mu_);
+        if (stopped_) e = exception_;
+    }
+    if (!e) {
+        sendError(req, "the program is not stopped at an exception");
+        return;
+    }
+    sendResponse(req, {
+        {"exceptionId", e->typeName},
+        {"description", e->description},
+        {"breakMode", e->breakMode},
+        {"details", {{"typeName", e->typeName}, {"message", e->message},
+                     {"stackTrace", e->stackTrace}}},
+    });
 }
 
 void Session::handleDisconnect(const json& req, bool terminate) {
@@ -740,7 +833,8 @@ void Session::onInstruction(proto::ProtoContext* ctx, std::vector<dh::Activation
 }
 
 void Session::stop(proto::ProtoContext* ctx, std::vector<dh::Activation>& stack,
-                   const char* reason, const std::vector<int>& hitIds) {
+                   const char* reason, const std::vector<int>& hitIds,
+                   const ExceptionStop* exception) {
     mode_.store(static_cast<int>(Mode::Free));
     // A line printed without a newline is still in a buffer.
     std::cout.flush();
@@ -763,9 +857,15 @@ void Session::stop(proto::ProtoContext* ctx, std::vector<dh::Activation>& stack,
         stopped_ = true;
         resumeReady_ = false;
         tasks_.clear();
+        if (exception) exception_ = *exception;
+        else exception_.reset();
     }
     json body = {{"reason", reason}, {"threadId", 1}, {"allThreadsStopped", true}};
     if (!hitIds.empty()) body["hitBreakpointIds"] = hitIds;
+    if (exception) {
+        body["description"] = exception->description;
+        body["text"] = exception->text;
+    }
     sendEvent("stopped", body);
 
     Mode next = Mode::Free;
@@ -781,6 +881,7 @@ void Session::stop(proto::ProtoContext* ctx, std::vector<dh::Activation>& stack,
                 tasks_.pop_front();
             } else {
                 stopped_ = false;
+                exception_.reset();
                 next = resumeMode_;
             }
         }
@@ -805,6 +906,53 @@ void Session::stop(proto::ProtoContext* ctx, std::vector<dh::Activation>& stack,
     // is read from here on.
     stepDepth_ = static_cast<int>(stack.size());
     mode_.store(static_cast<int>(next));
+}
+
+// ---------------------------------------------------------------------------
+// Exception breakpoints (main thread)
+// ---------------------------------------------------------------------------
+
+void Session::onThrow(proto::ProtoContext* ctx, std::vector<dh::Activation>& stack,
+                      const proto::ProtoObject* value, dh::ThrowKind kind) {
+    if (!t_isDebuggee) return;
+    const bool raised = breakRaised_.load(std::memory_order_relaxed);
+    const bool uncaught = breakUncaught_.load(std::memory_order_relaxed);
+    if (!raised && !uncaught) return;
+    if (!value) value = PROTO_NONE;
+    // A rethrow of the exception already reported: a `finally` block's, the
+    // `await` of the promise it rejected.
+    if (inFlight_ && value == inFlight_) return;
+    // The innermost frame of the user's own code (a file on disk).
+    size_t user = stack.size();
+    for (size_t i = stack.size(); i-- > 0;) {
+        const dh::Activation& a = stack[i];
+        if (a.module && fileInfo(a.module->debugFile).isUserFile) { user = i; break; }
+    }
+    if (user == stack.size()) return;
+    const bool innermostIsUser = user + 1 == stack.size();
+    const char* breakMode = nullptr;
+    if (uncaught && !dh::throwWillBeCaught(stack)) breakMode = "unhandled";
+    else if (raised && innermostIsUser) breakMode = "always";
+    if (!breakMode) return;
+
+    setInFlight(value);   // which also keeps it alive during the stop
+    ExceptionStop e = describeException(ctx, stack, value, kind, innermostIsUser);
+    e.breakMode = breakMode;
+    stop(ctx, stack, "exception", {}, &e);
+}
+
+void Session::onCatch(const proto::ProtoObject* value, bool finallyOnly) {
+    if (!t_isDebuggee || finallyOnly || !inFlight_ || value != inFlight_) return;
+    setInFlight(nullptr);
+}
+
+void Session::setInFlight(const proto::ProtoObject* value) {
+    JSContextWrapper* w = JSContextWrapper::current();
+    proto::ProtoRootSet* rs = w ? w->getRootSet() : nullptr;
+    if (inFlightPin_ && rs) rs->remove(*inFlightPin_);
+    inFlightPin_.reset();
+    inFlight_ = value;
+    if (value && rs) inFlightPin_ = rs->add(value);
 }
 
 bool Session::conditionHolds(proto::ProtoContext* ctx, std::vector<dh::Activation>& stack,
@@ -1148,6 +1296,62 @@ std::string Session::format(proto::ProtoContext* ctx, const proto::ProtoObject* 
     }
     if (kids.size() > 5) s += ", \xE2\x80\xA6";
     return s + "}";
+}
+
+ExceptionStop Session::describeException(proto::ProtoContext* ctx, std::vector<dh::Activation>& stack,
+                                         const proto::ProtoObject* v, dh::ThrowKind kind,
+                                         bool innermostIsUser) {
+    ExceptionStop e;
+    const bool isObject = !isPrimitive(ctx, v) && !v->isMethod(ctx);
+    const proto::ProtoString* messageKey = JSSymbols::message(ctx);
+    const proto::ProtoObject* messageAttr =
+        (isObject && messageKey) ? v->getAttribute(ctx, messageKey, true) : PROTO_NONE;
+    if (messageAttr && messageAttr != PROTO_NONE) {
+        // An error: its name (along the prototype chain) and message.
+        e.typeName = stringAttr(ctx, v, JSSymbols::name(ctx), true);
+        if (e.typeName.empty()) e.typeName = "Error";
+        e.message = stringAttr(ctx, v, messageKey, true);
+        e.text = e.message.empty() ? e.typeName : e.typeName + ": " + e.message;
+    } else {
+        if (v == PROTO_NONE || v == getUndefinedSentinel()) e.typeName = "undefined";
+        else if (v == getNullSentinel()) e.typeName = "null";
+        else if (v->isString(ctx)) e.typeName = "string";
+        else if (v->isBoolean(ctx)) e.typeName = "boolean";
+        else if (v->isInteger(ctx) || v->isDouble(ctx)) e.typeName = "number";
+        else if (!isObject) e.typeName = "function";
+        else {
+            e.typeName = "Object";
+            if (const proto::ProtoString* ck = JSSymbols::constructor(ctx)) {
+                const proto::ProtoObject* c = v->getAttribute(ctx, ck, true);
+                if (c && c != PROTO_NONE && !isPrimitive(ctx, c)) {
+                    const std::string n = stringAttr(ctx, c, JSSymbols::name(ctx), false);
+                    if (!n.empty()) e.typeName = n;
+                }
+            }
+        }
+        e.message = format(ctx, v);
+        e.text = e.message;
+    }
+    e.description = e.text;
+    if (!innermostIsUser) {
+        e.description += " (thrown in code that is not one of your files; "
+                         "stopped at your innermost frame)";
+    } else if (kind == dh::ThrowKind::Runtime) {
+        e.description += " (raised by the runtime: an operation or a built-in "
+                         "function called on this line)";
+    } else if (kind == dh::ThrowKind::Kernel) {
+        e.description += " (raised by protoCore: an operation on this line)";
+    }
+    for (size_t i = stack.size(); i-- > 0;) {
+        const dh::Activation& a = stack[i];
+        const FileInfo& file = fileInfo(a.module ? a.module->debugFile : std::string());
+        std::string where = file.isUserFile ? file.displayPath
+                          : (a.module && !a.module->debugFile.empty() ? a.module->debugFile
+                                                                      : std::string("<native>"));
+        e.stackTrace += "    at " + displayName(a) + " (" + where + ":" +
+                        std::to_string(dh::lineForPc(a.module, a.pc)) + ")\n";
+    }
+    return e;
 }
 
 } // namespace

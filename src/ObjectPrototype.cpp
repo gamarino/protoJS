@@ -13,6 +13,7 @@
 #include "protoCore.h"
 #include "JSContext.h"
 #include "runtime/ProtoInterpreter.h"
+#include "debugger/DebugHooks.h"
 #include "runtime/BehaviorRegistry.h"
 #include "runtime/PinnedBuiltin.h"
 #include "runtime/PropertyDictionary.h"
@@ -4927,6 +4928,7 @@ static const proto::ProtoObject* objectFromEntries(
                 if (retFn && retFn != PROTO_NONE) {
                     const proto::ProtoList* noA = ctx->newList();
                     try {
+                        debughooks::CatchingNative catching;   // a throw here is caught (DebugHooks.h)
                         (void)callJSFunction(ctx, retFn, iter, noA);
                     } catch (const proto::ProtoException&) {
                     }

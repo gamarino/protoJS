@@ -2202,6 +2202,8 @@ static const proto::ProtoObject* reflectDefineProperty(
     // ...) on a frozen receiver still threw.
     const proto::ProtoObject* result = nullptr;
     try {
+        // The abrupt completion becomes `false`: not an exception to report.
+        debughooks::InternalTry internal;
         result = callJSFunction(ctx, fn, objCtor, args);
     } catch (const proto::ProtoException&) {
         return PROTO_FALSE;
@@ -4140,6 +4142,7 @@ static bool jsAbstractEquals(proto::ProtoContext* ctx,
             return bi && bi->compare(ctx, zero) == 0;
         }
         try {
+            debughooks::InternalTry internal;   // a probe: protoCore raises on a non-literal
             const proto::ProtoObject* parsed = ctx->fromString(s.c_str(), 10);
             const proto::ProtoObject* bi = x->getAttribute(ctx, vk, false);
             return parsed && bi && bi->compare(ctx, parsed) == 0;
@@ -6453,6 +6456,18 @@ static const proto::ProtoObject* runBytecodeImpl(proto::ProtoContext* pContext,
                                                  const proto::ProtoObject** pGlobalRoot,
                                                  NestedLevel* nested);
 
+// Whether the handler at `handlerPc` is a `finally` block's: QuickJS compiles
+// `try {} finally {}` to a range whose handler calls the finally block and
+// rethrows (gosub finally; throw), and a `catch` clause's handler starts with
+// the binding (or a drop).  Used only by the debugger.
+static bool handlerIsFinally(proto::ProtoContext* ctx, const ProtoBytecodeModule* module,
+                             int handlerPc) {
+    if (!module || !module->pBytecode || handlerPc < 0) return false;
+    const uint8_t* code = reinterpret_cast<const uint8_t*>(module->pBytecode->getBuffer(ctx));
+    const int len = static_cast<int>(module->pBytecode->getSize(ctx));
+    return code && handlerPc < len && code[handlerPc] == OP_gosub;
+}
+
 // Runs the range whose catch frame is (*range.catchStack)[frame] as a nested
 // level.  True when the activation returned inside it (range.result holds
 // the value); otherwise the enclosing level continues at range.exitPc: after
@@ -6469,6 +6484,8 @@ static PROTOJS_NOINLINE bool runProtectedRange(proto::ProtoContext* pContext,
     auto enterHandler = [&](const proto::ProtoObject* value) {
         std::vector<CatchFrame>& catchStack = *range.catchStack;
         const CatchFrame f = catchStack[frame];
+        if (__builtin_expect(debughooks::g_enabled, 0))
+            debughooks::onCatch(value, handlerIsFinally(pContext, module, f.handler_pc));
         catchStack.resize(frame);
         while (stackSize(pContext) > f.placeholder_stack_pos) stackPop(pContext);
         stackPush(pContext, value);
@@ -6724,7 +6741,7 @@ static const proto::ProtoObject* runBytecodeImpl(proto::ProtoContext* pContext,
         // Under the debugger, the activation it reports (DebugHooks.h);
         // popped with the frame, below.
         if (__builtin_expect(debughooks::g_enabled, 0))
-            debughooks::pushActivation(pContext, module, thisObj, pGlobalRoot);
+            debughooks::pushActivation(pContext, module, thisObj, pGlobalRoot, &catch_stack);
         // The async owner (promise or generator) lives in the slot below the
         // metadata, out of the operand stack's reach, so the collector sees
         // it for the whole activation.
@@ -8871,6 +8888,8 @@ static const proto::ProtoObject* runBytecodeImpl(proto::ProtoContext* pContext,
             REFRESH_GLOBAL_OBJ();
         } else if (hasThrowOnResume) {
             hasThrowOnResume = false;
+            // Under the debugger the throw is reported at the resume point.
+            if (__builtin_expect(debughooks::g_enabled, 0)) debughooks::setPc(pContext, pc);
             throwJS(pContext, throwOnResume);
         }
         int opcode = 0;
@@ -10040,7 +10059,11 @@ static const proto::ProtoObject* runBytecodeImpl(proto::ProtoContext* pContext,
                 if (stackEmpty(pContext)) return PROTO_NONE;
                 const proto::ProtoObject* exObj = stackTop(pContext);
                 stackPop(pContext);
-                throwJS(pContext, exObj ? exObj : PROTO_NONE);
+                if (!exObj) exObj = PROTO_NONE;
+                // A `throw` statement (or a `finally` block's rethrow).
+                if (__builtin_expect(debughooks::g_enabled, 0))
+                    debughooks::onThrow(pContext, exObj, debughooks::ThrowKind::Statement);
+                throw JSException(pContext, exObj);
                 DISPATCH();
             }
             L_OP_drop: {
@@ -18099,6 +18122,7 @@ static const proto::ProtoObject* runBytecodeImpl(proto::ProtoContext* pContext,
                             if (retFn && retFn != PROTO_NONE) {
                                 // Closing is best-effort: what return() raises is dropped.
                                 try {
+                                    debughooks::CatchingNative catching;
                                     if (retFn->isMethod(pContext)) {
                                         proto::ProtoMethod nativeRet = retFn->asMethod(pContext);
                                         if (nativeRet)
@@ -19771,6 +19795,7 @@ static void afsContinuation(proto::ProtoContext* ctx, const proto::ProtoObject* 
     bool done = false;
     const proto::ProtoObject* wrapper = nullptr;
     try {
+        debughooks::CatchingNative catching;   // an exception rejects the promise
         const proto::ProtoObject* doneV = jsGetProperty(ctx, result, "done");
         done = toBool(ctx, doneV);
         const proto::ProtoObject* value = jsGetProperty(ctx, result, "value");
@@ -19799,6 +19824,7 @@ static const proto::ProtoObject* afsMethod(proto::ProtoContext* ctx, const proto
         method = self->getOwnAttributeDirect(ctx, afsKey(ctx, true));
     } else {
         try {
+            debughooks::CatchingNative catching;
             method = jsGetProperty(ctx, syncIter, completion == kCompletionReturn ? "return" : "throw");
         } catch (const proto::ProtoException& e) {
             rejectPromise(ctx, promise, e.value());
@@ -19811,6 +19837,7 @@ static const proto::ProtoObject* afsMethod(proto::ProtoContext* ctx, const proto
                 // No throw(): close the sync iterator and reject (§27.1.6.2.3);
                 // what closing raises is dropped for the TypeError.
                 try {
+                    debughooks::CatchingNative catching;
                     const proto::ProtoObject* ret = jsGetProperty(ctx, syncIter, "return");
                     if (jsIsCallable(ctx, ret))
                         callJSFunction(ctx, ret, syncIter, ctx->newList());
@@ -19826,6 +19853,7 @@ static const proto::ProtoObject* afsMethod(proto::ProtoContext* ctx, const proto
     if (hasValue) callArgs = callArgs->appendLast(ctx, value ? value : PROTO_NONE);
     const proto::ProtoObject* result = nullptr;
     try {
+        debughooks::CatchingNative catching;
         result = callJSFunction(ctx, method, syncIter, callArgs);
     } catch (const proto::ProtoException& e) {
         rejectPromise(ctx, promise, e.value());
@@ -19973,7 +20001,12 @@ const proto::ProtoObject* jsErrorFactory(proto::ProtoContext* ctx, proto::ProtoE
     if (kind == proto::ProtoErrorKind::DivisionByZero) message = "Division by zero";
     try {
         const proto::ProtoObject* e = makeError(ctx, type, message, errorClassRoot());
-        if (e && e != PROTO_NONE) return e;
+        if (e && e != PROTO_NONE) {
+            // protoCore throws it on return (ProtoContext::raiseError).
+            if (__builtin_expect(debughooks::g_enabled, 0))
+                debughooks::onThrow(ctx, e, debughooks::ThrowKind::Kernel);
+            return e;
+        }
     } catch (...) {
     }
     try {
@@ -19992,6 +20025,10 @@ void installErrorFactory(proto::ProtoSpace* space) {
 }
 
 void throwJS(proto::ProtoContext* ctx, const proto::ProtoObject* value) {
+    // Under the debugger: an exception break stops here, before the C++
+    // exception unwinds the frames (DebugHooks.h).
+    if (__builtin_expect(debughooks::g_enabled, 0))
+        debughooks::onThrow(ctx, value, debughooks::ThrowKind::Runtime);
     throw JSException(ctx, value);
 }
 
@@ -20462,6 +20499,14 @@ const proto::ProtoObject* callJSFunction(
 // ---------------------------------------------------------------------------
 namespace protojs {
 namespace debughooks {
+
+bool activationCatches(const Activation& a) {
+    const auto* frames = static_cast<const std::vector<CatchFrame>*>(a.catchStack);
+    if (!frames) return false;
+    for (const CatchFrame& f : *frames)
+        if (!handlerIsFinally(a.ctx, a.module, f.handler_pc)) return true;
+    return false;
+}
 
 void collectFrameVars(const Activation& a, std::vector<FrameVar>& out) {
     out.clear();

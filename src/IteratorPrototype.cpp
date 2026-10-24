@@ -9,6 +9,7 @@
 #include "JSSymbols.h"
 #include "PrototypeUtils.h"
 #include "runtime/ProtoInterpreter.h"
+#include "debugger/DebugHooks.h"
 #include "protoCore.h"
 #include <cmath>
 #include <limits>
@@ -180,6 +181,7 @@ static void iterClose(proto::ProtoContext* ctx,
     // on a throw completion calls this from its catch handler and rethrows
     // the original exception afterwards.
     try {
+        debughooks::CatchingNative catching;   // a throw here is caught (DebugHooks.h)
         (void)callJSFunction(ctx, fn, iter, ctx->newList());
     } catch (const proto::ProtoException&) {
     }

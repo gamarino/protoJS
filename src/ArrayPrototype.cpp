@@ -10,6 +10,7 @@
 #include "ProxyBuiltin.h"
 #include "ObjectPrototype.h"
 #include "runtime/ProtoInterpreter.h"
+#include "debugger/DebugHooks.h"
 #include "runtime/LazyPrototype.h"
 #include "JSSymbols.h"
 #include "protoCore.h"
@@ -5441,6 +5442,7 @@ static const proto::ProtoObject* arrayFrom(
                 // Called from the handler of the original exception, which
                 // the caller rethrows.
                 try {
+                    debughooks::CatchingNative catching;   // a throw here is caught (DebugHooks.h)
                     callJSFunction(ctx, returnFn, iter, ctx->newList());
                 } catch (const proto::ProtoException&) {
                 }
@@ -5500,6 +5502,7 @@ static const proto::ProtoObject* arrayFrom(
                 // 6).  Called from the handler of the original
                 // exception, which the caller rethrows.
                 try {
+                    debughooks::CatchingNative catching;   // a throw here is caught (DebugHooks.h)
                     callJSFunction(ctx, returnFn, iter, ctx->newList());
                 } catch (const proto::ProtoException&) {
                 }

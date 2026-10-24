@@ -6,7 +6,9 @@ Usage: dap_session.py <protojs> <scratch-dir>
 Each case starts `protojs --dap`, speaks the Debug Adapter Protocol to it over
 its stdin/stdout and checks what comes back: breakpoints (verified once the
 file is loaded), stops, the call stack, variables, evaluate, stepping in, over
-and out, stopOnEntry, conditional breakpoints, process.exit, and the
+and out, stopOnEntry, conditional breakpoints, exception breakpoints (All Exceptions,
+Uncaught Exceptions, exceptionInfo, no stop on the engine's own control flow),
+process.exit, and the
 program's output arriving as `output` events -- including more than 64 KB of
 non-ASCII text and a child process that reads stdin, neither of which may
 disturb the protocol.  Paths are absolute, and on Windows spelled with a lower
@@ -127,10 +129,12 @@ class Adapter:
                 m["_seen"] = True
                 return m
 
-    def start(self, program, breakpoints=None, stop_on_entry=False, conditions=None):
+    def start(self, program, breakpoints=None, stop_on_entry=False, conditions=None,
+              exception_filters=None):
         r = self.request("initialize", {"adapterID": "protojs", "pathFormat": "path",
                                         "linesStartAt1": True, "columnsStartAt1": True})
         check(r["success"], "initialize succeeds")
+        self.capabilities = r.get("body", {})
         self.wait_event("initialized")
         r = self.request("launch", {"program": program, "stopOnEntry": stop_on_entry,
                                     "cwd": os.path.dirname(program)})
@@ -143,6 +147,10 @@ class Adapter:
             bps.append(b)
         r = self.request("setBreakpoints", {"source": {"path": program}, "breakpoints": bps})
         check(r["success"], "setBreakpoints succeeds")
+        if exception_filters is not None:
+            e = self.request("setExceptionBreakpoints", {"filters": exception_filters})
+            check(e["success"] and len(e["body"]["breakpoints"]) == len(exception_filters),
+                  "setExceptionBreakpoints %s succeeds" % exception_filters)
         self.request("configurationDone")
         return r
 
@@ -361,6 +369,163 @@ def case_uncaught(a):
     check("boom" in a.output["stderr"], "the error is reported on stderr")
 
 
+RAISED = """function risky(n) {
+  const local = n * 2;
+  throw new TypeError('bad ' + local);
+}
+let caught = null;
+try {
+  risky(21);
+} catch (e) {
+  caught = e.message;
+}
+console.log('caught', caught);
+"""
+
+
+def no_stop(a):
+    """Runs to the end; True when no `stopped` event arrived."""
+    a.finish()
+    return not [e for e in a.events if e["event"] == "stopped"]
+
+
+def case_exception_raised(a):
+    prog = write("raised.js", RAISED)
+    a.start(prog, exception_filters=["raised"])
+    filters = {f["filter"]: f for f in a.capabilities.get("exceptionBreakpointFilters", [])}
+    check("raised" in filters and "uncaught" in filters, "initialize advertises raised and uncaught")
+    check(a.capabilities.get("supportsExceptionInfoRequest") is True, "supportsExceptionInfoRequest")
+    s = a.wait_event("stopped")
+    check(s["body"]["reason"] == "exception", "raised: stops with reason exception")
+    check(s["body"].get("text") == "TypeError: bad 42", "raised: text is the class and message")
+    frames = stack(a)
+    check(frames[0]["name"] == "risky" and frames[0]["line"] == 3, "raised: stops at the throw, line 3")
+    check(len(frames) >= 2 and frames[1]["line"] == 7, "raised: the caller is at line 7")
+    loc = variables(a, frames[0]["id"])
+    check(loc.get("n", {}).get("value") == "21" and loc.get("local", {}).get("value") == "42",
+          "raised: locals n=21 local=42 intact")
+    check(evaluate(a, "local + 1", frames[0]["id"]) == "43", "raised: evaluate in the throwing frame")
+    info = a.request("exceptionInfo", {"threadId": 1})
+    b = info.get("body", {})
+    check(info["success"] and b.get("exceptionId") == "TypeError" and b.get("breakMode") == "always",
+          "exceptionInfo: TypeError, breakMode always")
+    check(b.get("details", {}).get("message") == "bad 42" and
+          "risky" in b.get("details", {}).get("stackTrace", ""), "exceptionInfo details")
+    a.request("continue", {"threadId": 1})
+    check(a.finish() == 0, "raised: the catch runs and the program ends normally")
+    check("caught bad 42" in a.output["stdout"], "raised: the catch saw the exception")
+    stops = [e for e in a.events if e["event"] == "stopped"]
+    check(len(stops) == 1, "raised: one stop only")
+
+
+INTERNAL = """function* gen() { try { yield 1; yield 2; } finally { } }
+let s = 0;
+for (const x of gen()) { s += x; }
+for (const x of gen()) { break; }
+for (const [k, v] of new Map([[1, 2]])) s += k + v;
+const [a, b, ...rest] = [1, 2, 3, 4];
+s += [...new Set([1, 2])].length + rest.length;
+const it = [1, 2, 3][Symbol.iterator]();
+for (const x of it) { if (x === 2) break; }
+Array.from({ length: 3 }, (_, i) => i).forEach(x => { s += x; });
+JSON.parse('{"a": [1, 2]}');
+Reflect.defineProperty(Object.freeze({}), 'x', { value: 1 });
+console.log('bigint', 10n == 'abc');
+outer: for (;;) { try { break outer; } finally { s += 0; } }
+function early() { try { return 1; } finally { s += 0; } }
+early();
+Promise.reject(new Error('rejected, never thrown')).catch(() => {});
+async function f() { await null; for await (const x of [1, 2]) s += x; return 5; }
+f().then(v => { s += v; console.log('sum', s); });
+"""
+
+
+def case_exception_internal(a):
+    prog = write("internal.js", INTERNAL)
+    a.start(prog, exception_filters=["raised"])
+    check(no_stop(a), "raised: no stop on iteration, generators, finally, break, return, promises")
+    check("sum" in a.output["stdout"] and "bigint false" in a.output["stdout"],
+          "internal-flow program ran to the end")
+
+
+THROWS = """function f() { throw new Error('one'); }
+try { f(); } catch (e) { console.log('got', e.message); }
+throw new RangeError('two');
+"""
+
+
+def case_exception_off(a):
+    prog = write("off.js", THROWS)
+    a.start(prog, exception_filters=[])
+    code = a.finish()
+    check(not [e for e in a.events if e["event"] == "stopped"], "filters off: no exception stop")
+    check(code != 0 and "two" in a.output["stderr"], "filters off: the uncaught error ends the program")
+
+
+UNCAUGHT = """function inner() { try { throw new Error('caught one'); } catch (e) { return e; } }
+function outer(v) {
+  inner();
+  const w = v + 1;
+  try { null.x; } finally { console.log('finally ran'); }
+}
+new Promise(() => { throw new Error('rejects a promise'); }).catch(() => {});
+async function af() { throw new Error('rejects the async function'); }
+af().catch(() => {});
+outer(1);
+"""
+
+
+def case_exception_uncaught(a):
+    prog = write("uncaught.js", UNCAUGHT)
+    a.start(prog, exception_filters=["uncaught"])
+    s = a.wait_event("stopped")
+    frames = stack(a)
+    check(s["body"]["reason"] == "exception" and frames[0]["name"] == "outer" and
+          frames[0]["line"] == 5, "uncaught: stops in outer at line 5, not at the caught throw")
+    check(s["body"].get("text", "").startswith("TypeError"), "uncaught: a TypeError from the runtime")
+    check(len(frames) >= 2 and frames[1]["line"] == 10, "uncaught: the stack is intact (caller line 10)")
+    loc = variables(a, frames[0]["id"])
+    check(loc.get("w", {}).get("value") == "2" and loc.get("v", {}).get("value") == "1",
+          "uncaught: locals v=1 w=2")
+    info = a.request("exceptionInfo", {"threadId": 1})["body"]
+    check(info.get("breakMode") == "unhandled" and info.get("exceptionId") == "TypeError",
+          "exceptionInfo: TypeError, breakMode unhandled")
+    a.request("continue", {"threadId": 1})
+    code = a.finish()
+    stops = [e for e in a.events if e["event"] == "stopped"]
+    check(len(stops) == 1, "uncaught: one stop (the finally block's rethrow does not stop again)")
+    check(code != 0 and "finally ran" in a.output["stdout"], "uncaught: finally runs, the program fails")
+
+
+AWAITS = """async function thrower() { throw new Error('first'); }
+async function main() {
+  try { await thrower(); } catch (e) { console.log('main caught', e.message); }
+  try {
+    await Promise.reject(new Error('awaited rejection'));
+  } catch (e) { console.log('main caught', e.message); }
+}
+main();
+"""
+
+
+def case_exception_await(a):
+    prog = write("awaits.js", AWAITS)
+    a.start(prog, exception_filters=["raised"])
+    a.wait_event("stopped")
+    frames = stack(a)
+    check(frames[0]["name"] == "thrower" and frames[0]["line"] == 1, "await: stops at the throw in thrower")
+    a.request("continue", {"threadId": 1})
+    s = a.wait_event("stopped")
+    frames = stack(a)
+    check(s["body"].get("text") == "Error: awaited rejection" and frames[0]["line"] == 5,
+          "await: an awaited rejected promise stops at the await (line 5)")
+    a.request("continue", {"threadId": 1})
+    check(a.finish() == 0, "await: the program ends normally")
+    stops = [e for e in a.events if e["event"] == "stopped"]
+    check(len(stops) == 2, "await: two stops (the await of thrower() does not stop again)")
+    check(a.output["stdout"].count("main caught") == 2, "await: both catches ran")
+
+
 os.makedirs(SCRATCH, exist_ok=True)
 run_case("breakpoints, stack, variables, evaluate, stepping, output", case_breakpoints)
 run_case("stopOnEntry", case_stop_on_entry)
@@ -368,6 +533,11 @@ run_case("conditional breakpoint", case_condition)
 run_case("breakpoint in a required module", case_module)
 run_case("process.exit", case_exit)
 run_case("uncaught exception", case_uncaught)
+run_case("exception breakpoints: All Exceptions", case_exception_raised)
+run_case("exception breakpoints: no stop on internal control flow", case_exception_internal)
+run_case("exception breakpoints: filters off", case_exception_off)
+run_case("exception breakpoints: Uncaught Exceptions", case_exception_uncaught)
+run_case("exception breakpoints: await and rejected promises", case_exception_await)
 
 if failures:
     print("%d check(s) failed" % len(failures))
