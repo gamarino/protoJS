@@ -20,14 +20,14 @@ the `.vsix` (the same on Windows, Linux and macOS; needs Node.js for `npx`):
 ```bash
 cd editor-integration/vscode
 npx @vscode/vsce@3.2.1 package --skip-license
-code --install-extension protojs-debug-0.2.0.vsix
+code --install-extension protojs-debug-0.3.0.vsix
 ```
 
 On Linux and macOS you can instead symlink the folder, which picks up edits
 after **Developer: Reload Window**:
 
 ```bash
-ln -s "$(pwd)/editor-integration/vscode" ~/.vscode/extensions/protojs-debug-0.2.0
+ln -s "$(pwd)/editor-integration/vscode" ~/.vscode/extensions/protojs-debug-0.3.0
 ```
 
 The extension runs `protojs` from, in this order:
@@ -71,9 +71,8 @@ The extension runs `protojs` from, in this order:
   breakpoint in a file that has not been loaded yet shows as unverified and
   becomes verified when the file loads; a breakpoint on a line without code
   (a comment, a blank line) moves to the next line that has code.
-- **Conditional breakpoints**: the condition is evaluated in the frame, and
-  the program stops when it is truthy (a condition that throws stops too, and
-  its error is printed to the Debug Console).
+- **Conditional breakpoints, hit counts and logpoints** (see
+  [Breakpoint conditions, hit counts and logpoints](#breakpoint-conditions-hit-counts-and-logpoints)).
 - **Continue, step over, step into, step out, pause**, and `stopOnEntry`.
   Steps stop at statements. Step into enters a JavaScript function called on
   the line (a native function such as `Array.prototype.map` is stepped over,
@@ -104,6 +103,40 @@ The extension runs `protojs` from, in this order:
 - **process.exit** and an uncaught exception end the session with the
   program's exit status.
 
+## Breakpoint conditions, hit counts and logpoints
+
+Right-click a breakpoint → **Edit Condition** / **Edit Hit Count** /
+**Edit Log Message** (or **Add Conditional Breakpoint…** / **Add Logpoint…**
+in the gutter):
+
+- **Condition**: a JavaScript expression, evaluated in the frame at the
+  breakpoint's line each time the line is reached (its arguments, locals,
+  closure variables, the script's bindings and the globals). The program
+  stops when it is truthy in JavaScript's sense.
+- **Hit count**: when the breakpoint stops, counting only the hits whose
+  condition held. `N` or `== N` stops at the Nth hit, `>= N`, `> N`, `< N`
+  and `<= N` at the hits that compare so, and `% N` at every Nth hit (the
+  Nth, the 2Nth...). Anything else shows the breakpoint as unverified, with
+  the reason. The count starts again when the file's breakpoints are set
+  again (an edit of any breakpoint in the file).
+- **Log message**: a logpoint does not stop; it prints the message to the
+  Debug Console. `{expression}` parts are evaluated in the frame (`{i}`,
+  `{obj.name}`, `{({a: i}).a}`); a string prints without quotes, other values
+  as the Variables view shows them; an expression that fails prints
+  `<error: ReferenceError: x is not defined>`. `{{` and `}}` print a literal
+  brace. A logpoint with a condition or a hit count logs only when they pass.
+
+A condition that fails (a syntax error, or it throws) **stops** the program,
+with `breakpoint condition `...` failed: <message>` in the stop's
+description and on the Debug Console's stderr; a logpoint whose condition
+fails stops too, instead of logging.
+
+Conditions, logpoint expressions and exception conditions run with the
+debugger switched off on the program's thread: a breakpoint in a function
+the expression calls does not stop, and an exception it throws is not an
+exception stop. Each one is compiled the first time it runs in a frame with
+a given set of variables, and reused from then on.
+
 ## Exception breakpoints
 
 The Breakpoints view lists two exception filters, both off by default:
@@ -120,6 +153,25 @@ and message (`TypeError: x is not a function`). **Continue** lets it go on:
 to its `catch`, or, uncaught, to the end of the program. The exception
 widget (and the `exceptionInfo` request) shows the class, the message, the
 break mode and a stack trace.
+
+**Conditions on the filters.** Each filter takes a condition (the pencil
+next to it in the Breakpoints view): a JavaScript expression evaluated in the
+throwing frame, with the frame's variables and the globals, and with the
+exception bound to **`error`** — which shadows a variable of the frame named
+`error`. The program stops only when it is truthy:
+
+- `error instanceof TypeError`
+- `error.message.includes("timeout")`
+- `!(error instanceof RangeError) && count > 3` (`count` a local of the frame)
+
+A condition that fails (a syntax error, or it throws: `error.code.length` on
+an error without `code`) stops at the exception, with `exception breakpoint
+condition `...` failed: <message>` in the stop's description and on the
+Debug Console's stderr. A syntax error is found when the condition first runs
+(at the first exception), not when it is set: the program's thread is the
+only one that can compile JavaScript. With both filters on, Uncaught's
+condition decides for an uncaught exception, and All Exceptions' for the
+others (and for an uncaught one whose Uncaught condition is false).
 
 What counts as a throw:
 
@@ -204,9 +256,9 @@ What never stops:
 - **Uncaught Exceptions is a prediction** made at the throw (see above): an
   exception swallowed by a built-in other than the ones listed there would
   still stop, and an exception turned into a promise rejection never does.
-  There are no exception options (no filtering by class) and no conditions
-  on exception breakpoints.
-- No logpoints or hit counts, no column breakpoints, no `debugger;`
+  There are no exception options (filter by class with a condition such as
+  `error instanceof TypeError` instead).
+- No column breakpoints, no `debugger;`
   statement (it is ignored), no attach to a running process.
 - **Slower execution under the debugger**: the bytecode specialiser is off,
   and while a breakpoint is set (or a step is in progress) every instruction
@@ -255,7 +307,10 @@ What never stops:
   no stop on iteration, generators, `finally`, promises and the engine's
   probes, no stop with the filters off, Uncaught Exceptions at a throw that
   only a `finally` covers (and not at caught ones, nor at those that reject a
-  promise), and an awaited rejection.
+  promise), an awaited rejection; conditions on the filters (true, false,
+  failing, calling a function with a breakpoint), hit counts (`>= 5`, `3`,
+  `% 2`, an invalid one), line conditions (true, false, failing) and
+  logpoints (`{i}`, `{{literal}}`, an expression error, with a hit count).
 
 The `debugger` global (`globalThis["debugger"]`, `startCDPServer`) is an older
 Chrome DevTools-flavoured module that records breakpoints but never stops the

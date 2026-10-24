@@ -6,6 +6,24 @@ All notable changes to protoJS are documented in this file.
 
 **Requires protoCore 3.1.0** (untagged master, commit 267b9fc9; SOVERSION 4). CI pins that commit on every job.
 
+### Added — conditions, hit counts and logpoints in the debugger (2026-10-24)
+
+- **Conditions on the exception filters** (`supportsExceptionFilterOptions`,
+  `filterOptions[].condition`): a JavaScript expression evaluated in the
+  throwing frame with the exception bound to `error`
+  (`error instanceof TypeError`).
+- **Hit counts** on line breakpoints (`N`, `== N`, `>= N`, `> N`, `< N`,
+  `<= N`, `% N`; counting only the hits whose condition held; anything else
+  is unverified) and **logpoints** (`logMessage` with `{expression}`
+  interpolated in the frame, `{{`/`}}` literal, `<error: ...>` for a failing
+  expression; no stop).
+- A condition that fails (line or exception) stops and reports
+  "... condition `...` failed: <message>" in the stop and on stderr.
+  Conditions and logpoint expressions are compiled once per frame shape and
+  run with the debugger's hooks suppressed (a breakpoint in a function they
+  call does not stop, an exception they throw is not reported).
+  VS Code extension 0.3.0 (documentation only).
+
 ### Added — exception breakpoints in the debugger (2026-10-24)
 
 - **All Exceptions** (`raised`) and **Uncaught Exceptions** (`uncaught`)

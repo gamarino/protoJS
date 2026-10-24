@@ -1,8 +1,9 @@
 # protoJS Debugger — VS Code extension
 
 Debug JavaScript programs with protoJS in VS Code: breakpoints (including
-conditional ones), exception breakpoints (All Exceptions, Uncaught
-Exceptions), stepping, the call stack, variables and the Debug Console.
+conditional ones, hit counts and logpoints), exception breakpoints (All
+Exceptions, Uncaught Exceptions, with conditions on the exception `error`),
+stepping, the call stack, variables and the Debug Console.
 The debug adapter is the `protojs` binary itself, invoked as `protojs --dap`,
 which speaks the
 [Debug Adapter Protocol](https://microsoft.github.io/debug-adapter-protocol/)
@@ -32,14 +33,14 @@ platform):
 ```bash
 cd editor-integration/vscode
 npx @vscode/vsce@3.2.1 package --skip-license
-code --install-extension protojs-debug-0.2.0.vsix
+code --install-extension protojs-debug-0.3.0.vsix
 ```
 
 Or, on Linux and macOS, symlink the folder (picks up edits after a
 `Developer: Reload Window`):
 
 ```bash
-ln -s "$(pwd)/editor-integration/vscode" ~/.vscode/extensions/protojs-debug-0.2.0
+ln -s "$(pwd)/editor-integration/vscode" ~/.vscode/extensions/protojs-debug-0.3.0
 ```
 
 ## Use
