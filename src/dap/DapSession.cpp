@@ -158,6 +158,13 @@ bool looksWindows(const std::string& p) {
            p.find('\\') != std::string::npos;
 }
 
+// The last component of a path in either convention (a client's Windows
+// path on a Linux adapter has no '/').
+std::string baseName(const std::string& p) {
+    const size_t i = p.find_last_of("/\\");
+    return i == std::string::npos ? p : p.substr(i + 1);
+}
+
 std::string forwardSlashes(std::string p) {
     for (char& c : p) if (c == '\\') c = '/';
     while (p.size() > 1 && p.back() == '/' && !(p.size() == 3 && p[1] == ':')) p.pop_back();
@@ -1025,7 +1032,7 @@ json Session::sourceJson(const FileInfo& file) const {
         return j;
     }
     if (file.isUserFile)
-        return {{"name", fs::path(file.displayPath).filename().string()}, {"path", file.displayPath}};
+        return {{"name", baseName(file.displayPath)}, {"path", file.displayPath}};
     return json();
 }
 

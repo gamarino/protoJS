@@ -733,6 +733,8 @@ def case_path_mappings(a):
           "the stop is reported with the client's path (%s)" % frames[0].get("source"))
     check(len(frames) > 1 and frames[1].get("source", {}).get("path") == fake_main,
           "every frame of the main script has the client's path")
+    check(frames[0].get("source", {}).get("name") == "main.js",
+          "the source's name is the base name of the client's path, on any adapter OS")
     a.request("continue", {"threadId": 1})
     a.wait_event("stopped")
     check(stack(a)[0]["line"] == 6, "second breakpoint, line 6")
