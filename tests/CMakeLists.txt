@@ -236,6 +236,13 @@ add_test(NAME cli/process-exit
             "$<TARGET_FILE:protojs>"
             "${CMAKE_CURRENT_BINARY_DIR}/cli-scratch/process-exit")
 
+# A Deferred of an ES module (QuickJS-run) runs on the main wrapper's pool, in
+# the one ProtoSpace, and settles its then callback.
+add_test(NAME cli/module-mode-deferred
+    COMMAND ${PROTOJS_SH} "${CMAKE_CURRENT_SOURCE_DIR}/cli/module-mode-deferred.sh"
+            "$<TARGET_FILE:protojs>"
+            "${CMAKE_CURRENT_BINARY_DIR}/cli-scratch/module-mode-deferred")
+
 # An exception that escapes an event-loop callback, or a promise rejection no
 # handler has claimed by the end of its turn, ends the process with status 1 (as
 # in Node); handled rejections and caught exceptions do not.
@@ -382,7 +389,9 @@ foreach(js_test
         basic/dictionary_keys
         basic/dictionary_shadowing
         deferred/dictionary_keys_shared
-        workers/dictionary_keys_message)
+        deferred/result_is_shared
+        workers/dictionary_keys_message
+        workers/one_space_messages)
     add_test(NAME js/${js_test}
         COMMAND "$<TARGET_FILE:protojs>"
                 "${CMAKE_CURRENT_SOURCE_DIR}/integration/${js_test}.js")
@@ -397,6 +406,14 @@ add_test(NAME js/deferred/adaptive_heap_budget
             "${CMAKE_CURRENT_SOURCE_DIR}/integration/deferred/adaptive_heap_budget.js")
 set_tests_properties(js/deferred/adaptive_heap_budget PROPERTIES
     ENVIRONMENT "PROTOCORE_HEAP_LIMIT_CELLS=4000000")
+
+# Many Deferreds under a small heap budget: collections run while the pool
+# allocates, results arrive intact, the kept ones survive, one ProtoSpace.
+add_test(NAME js/deferred/many_deferreds_small_heap
+    COMMAND "$<TARGET_FILE:protojs>"
+            "${CMAKE_CURRENT_SOURCE_DIR}/integration/deferred/many_deferreds_small_heap.js")
+set_tests_properties(js/deferred/many_deferreds_small_heap PROPERTIES
+    ENVIRONMENT "PROTOCORE_HEAP_LIMIT_CELLS=3000000" TIMEOUT 600)
 
 # Workers start and stop while the main thread allocates arrays, typed arrays,
 # maps and sets under a small heap ceiling: nothing the main thread makes may

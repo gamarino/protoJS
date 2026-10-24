@@ -27,6 +27,30 @@ public:
      * @param ioFactor Factor for I/O threads (used if ioThreads == 0, default: 3.0)
      */
     JSContextWrapper(size_t cpuThreads = 0, size_t ioThreads = 0, double ioFactor = 3.0);
+
+    /**
+     * @brief A wrapper that runs in @p owner's ProtoSpace instead of creating one.
+     *
+     * One ProtoSpace per process (protoCore's recommended model): a
+     * `worker_threads` worker runs on a protoCore thread of the main space,
+     * shares its heap, and passes values without serialization. What JavaScript
+     * requires to be per agent stays per wrapper: the global object (a child of
+     * the owner's global object, so the realm's intrinsics are shared and the
+     * worker's own top-level bindings and globals are not), the module caches,
+     * the job queue, the root set, the bytecode modules and the QuickJS context.
+     *
+     * @param owner the wrapper that owns the space; it must outlive this one
+     *        (~JSContextWrapper releases its workers first).
+     * @param threadContext the root context of the calling protoCore thread,
+     *        which must be a thread of the owner's space; used by this wrapper
+     *        on that thread. The constructing thread must already have adopted
+     *        the owner thread's identity objects (runtime/ThreadIdentity.h).
+     * @param ownerGlobal the owner's global object, read on the owner's thread
+     *        and kept alive by the caller until this wrapper has made its own
+     *        global; nullptr reads it from the owner.
+     */
+    JSContextWrapper(JSContextWrapper& owner, proto::ProtoContext* threadContext,
+                     const proto::ProtoObject* ownerGlobal = nullptr);
     ~JSContextWrapper();
 
     /**
@@ -90,8 +114,33 @@ public:
      */
     proto::ProtoContext* getProtoContext() {
         if (const ThreadView* v = t_threadView_) return v->context;
+        // A wrapper that borrows its space is also used from the owner's
+        // thread (a worker's message listeners run on the main event loop):
+        // each thread allocates through its own context.
+        if (owner_) {
+            if (proto::ProtoContext* c = threadContextForBorrowedWrapper()) return c;
+        }
         return pContext;
     }
+
+    /**
+     * @brief For a wrapper that borrows its space: the thread it was built on
+     * is about to end, and with it the context it was given.  From here on
+     * the wrapper uses the calling thread's own context (getProtoContext).
+     * Called on that thread, as its last use of the wrapper.
+     */
+    void releaseThreadContext();
+
+    /** @brief The wrapper whose space this one borrows, or nullptr if it owns its space. */
+    JSContextWrapper* spaceOwner() const { return owner_; }
+
+    /**
+     * @brief The root set that keeps space-wide objects alive for the life of
+     * the space: the owner's when this wrapper borrows its space, this one's
+     * otherwise. Built-ins cached per space (runtime/PinnedBuiltin.h) are
+     * pinned here, never in a borrowing wrapper's own set, which dies with it.
+     */
+    proto::ProtoRootSet* spaceRootSet() { return owner_ ? owner_->spaceRootSet() : getRootSet(); }
 
     /**
      * @brief The per-thread view a Deferred pool thread has of its owner.
@@ -159,7 +208,7 @@ public:
     /**
      * @brief Returns the protoCore space.
      */
-    proto::ProtoSpace* getProtoSpace() { return &pSpace; }
+    proto::ProtoSpace* getProtoSpace() { return pSpace_; }
 
     /**
      * @brief Returns the QuickJS runtime.
@@ -365,8 +414,18 @@ private:
     std::unique_ptr<MicrotaskQueue> microtasks_;
     JSRuntime* rt;
     JSContext* ctx;
-    proto::ProtoSpace pSpace;
-    proto::ProtoContext* pContext; // rootContext owned by ProtoSpace
+    /** The space this wrapper created (null when it borrows its owner's). */
+    std::unique_ptr<proto::ProtoSpace> ownedSpace_;
+    /** The space this wrapper runs in: ownedSpace_, or the owner's. */
+    proto::ProtoSpace* pSpace_;
+    /** The wrapper whose space this one borrows (null when it owns its space). */
+    JSContextWrapper* owner_{nullptr};
+    /** The space's root context, or the borrowing thread's root context. */
+    proto::ProtoContext* pContext;
+    /** The owner's global object, the parent of this wrapper's (borrowing only). */
+    const proto::ProtoObject* ownerGlobal_{nullptr};
+    /** The calling thread's own context, for a wrapper that borrows its space. */
+    static proto::ProtoContext* threadContextForBorrowedWrapper();
     JSPrototypes jsPrototypes_;
     /** Current script path for ProtoContext::currentFileName (keeps pointer valid during eval). */
     std::string currentScript_;

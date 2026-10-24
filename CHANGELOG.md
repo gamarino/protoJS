@@ -4,6 +4,50 @@ All notable changes to protoJS are documented in this file.
 
 ## [Unreleased]
 
+**Requires protoCore 3.1.0** (untagged master, commit 267b9fc9; SOVERSION 4). CI pins that commit on every job.
+
+### Changed — one ProtoSpace per process (2026-10-24)
+
+- **`worker_threads` workers run in the main thread's space.** A worker is a
+  protoCore thread of that space (`ProtoSpace::newThread`) with a
+  `JSContextWrapper` that borrows the space (new constructor
+  `JSContextWrapper(owner, threadContext, ownerGlobal)`): its own global
+  object (a child of the main global object), module cache, job queue and
+  root set, and the realm's intrinsics shared. Until now each worker built a
+  whole ProtoSpace with its own collector thread. A change a worker makes to a
+  built-in prototype is now seen by every thread (a deliberate deviation from
+  Node, docs/API_REFERENCE.md, "worker_threads").
+- **Messages are structured clones made in the one space.** `postMessage`
+  and `workerData` give the receiver a clone made by the sender at the call:
+  immutable values (numbers, strings, booleans, BigInts, `undefined`, `null`)
+  are shared, arrays and objects copied, cycles and shared parts kept, and a
+  function or Symbol throws `DataCloneError`. They used to cross as JSON
+  text, which turned floating-point numbers into strings, `undefined` into
+  `null`, and looped forever on a cycle.
+- **`Worker.terminate()` joins the worker from the event loop**, not inside
+  the native call: the worker is a thread of the same space, and a join
+  inside the call's GC critical section held the stop-the-world quorum the
+  worker needed (protoCore EMBEDDER-CONFORMANCE rule 12; found by
+  `cli/blocking-joins-and-finalizers`, `worker-terminate`).
+- **The `Deferred` of an ES module (`--input-type=module`, run by QuickJS)
+  runs on the DeferredPool**, in the main space: the function's source is
+  compiled into a protoCore function on the calling thread and the result is
+  converted into the QuickJS heap once, when it settles. It used to build a
+  `JSContextWrapper` -- and a ProtoSpace -- per task and carry the result back
+  with `JS_WriteObject` / `JS_ReadObject`. Measured (300 such Deferreds,
+  seven interleaved runs, medians, a noisy machine shared with another build):
+  about 25 times faster in wall clock. The dead bytecode path and the unused
+  thread-local QuickJS runtime path were removed. A script's `Deferred`
+  (ProtoDeferred) already ran in the main space and is unchanged: 10,000
+  Deferreds took 1.01 times as long as before (ten interleaved runs, medians).
+- `protoCore.gcStats().liveSpaces` reports the number of live ProtoSpaces
+  (1). New tests: `js/deferred/result_is_shared` (a Deferred's result is the
+  same object, 100,000 elements), `js/deferred/many_deferreds_small_heap`
+  (2,000 Deferreds under a 3,000,000-cell budget, collections asserted),
+  `js/workers/one_space_messages`, `cli/module-mode-deferred`. Test262
+  `built-ins/Promise` and `language/expressions/async-*`: 1,344 of 1,508
+  before and after, the same 164 failures.
+
 ## [0.2.0] - 2026-10-22
 
 **Requires protoCore 3.0.0** (SOVERSION 4), the declared minimum for a build from source; the `.deb` depends on `protocore (>= 3.0.0)`. CI pins protoCore tag `v3.0.0` on every job.

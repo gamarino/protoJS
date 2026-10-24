@@ -43,6 +43,7 @@
 #include <condition_variable>
 #include <cstddef>
 #include <deque>
+#include <functional>
 #include <mutex>
 #include <vector>
 
@@ -63,6 +64,11 @@ public:
         // The module the function's bytecode IDs index (resolveNestedFunction).
         const ProtoBytecodeModule* module = nullptr;
         ThreadIdentity identity;
+        // Instead of settling `deferred` (then kNullHandle): called on the
+        // owner thread, as a microtask, with the outcome and whether the
+        // function threw. Used by the QuickJS-side Deferred of ES modules
+        // (src/Deferred.h). It does not count in ProtoDeferred's active tasks.
+        std::function<void(proto::ProtoContext*, const proto::ProtoObject*, bool)> onSettled;
     };
 
     DeferredPool(JSContextWrapper* owner, std::size_t threads);

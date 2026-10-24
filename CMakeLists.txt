@@ -73,8 +73,11 @@ set(QUICKJS_DIR ${CMAKE_CURRENT_SOURCE_DIR}/deps/quickjs)
 # soname move together.
 # 3.0.0: methods receive their arguments as ProtoArguments /
 # ProtoKeywordArguments descriptors (protoCore docs/CALLING_CONVENTION.md).
-set(PROTOCORE_MIN_VERSION      "3.0")
-set(PROTOCORE_MIN_VERSION_FULL "3.0.0")
+# 3.1.0: one ProtoSpace per process -- Deferreds and workers run in the main
+# space, and the dead states of the mutable table are retired
+# (ProtoSpace::liveSpaceCount, PROTOCORE_HAS_LIVE_SPACE_COUNT).
+set(PROTOCORE_MIN_VERSION      "3.1")
+set(PROTOCORE_MIN_VERSION_FULL "3.1.0")
 set(PROTOCORE_NEXT_MAJOR       "4.0.0")
 set(PROTOCORE_ABI_SOVERSION    "4")
 option(PROTOCORE_REQUIRE_PACKAGE

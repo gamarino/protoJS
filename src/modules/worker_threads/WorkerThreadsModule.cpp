@@ -18,7 +18,7 @@
 #include "../../runtime/ProtoInterpreter.h"
 #include "../../runtime/ProtoBytecodeModule.h"
 #include "../events/EventsModule.h"
-#include "../../platform/SizedThread.h"
+#include "../../runtime/ThreadIdentity.h"
 #include "../../console.h"
 #include <fstream>
 #include <sstream>
@@ -35,13 +35,10 @@ namespace {
 
 // ---- Attribute keys ----------------------------------------------------
 //
-// IMPORTANT: do NOT cache via thread_local.  Each JSContextWrapper owns
-// its own ProtoSpace and therefore its own SymbolTable, so the
-// "__events__" symbol interned on the main space is a DIFFERENT pointer
-// from the one interned on a worker space.  Caching across calls would
-// silently mismatch attribute keys when a callback running on the main
-// thread inspects an object that lives in the worker space.  Re-intern
-// per-call: createSymbol is a hash-bucket lookup, very cheap.
+// Re-interned per call: createSymbol is a hash-bucket lookup, very cheap.
+// (Workers once had spaces of their own, with symbol tables of their own,
+// and a cached key of one space mismatched in another; a worker now runs in
+// the main thread's space.)
 
 const proto::ProtoString* keyEvents(proto::ProtoContext* ctx) {
     return proto::ProtoString::createSymbol(ctx, "__events__");
@@ -56,282 +53,111 @@ const proto::ProtoString* keyWorkerRef(proto::ProtoContext* ctx) {
 // Counter — main.cpp's drain loop already checks getActiveWorkerCount.
 std::atomic<int> g_activeWorkers{0};
 
-// ---- Minimal JSON encode / decode for ProtoObject ----------------------
+// ---- Messages: a structured clone inside the one space -----------------
 //
-// Cross-thread message payloads need to traverse the worker / main
-// JSContextWrapper boundary, and ProtoObjects bound to one ProtoSpace
-// can't be passed into another.  The original module did the same
-// dance through QuickJS's native JS_JSONStringify / JS_ParseJSON; here
-// we do it directly in C++ so the migration doesn't depend on any
-// JS-side polyfill being installed in the worker context.
+// A worker runs in the main thread's space (docs/API_REFERENCE.md, "worker_threads"), so a message
+// is not serialized: the sender makes a structured clone of the value, in its
+// own thread, at the time of the call, and the receiver gets that clone, as
+// HTML's structured clone algorithm and Node's postMessage specify.  What
+// cannot change is shared instead of copied, because a copy would be
+// indistinguishable from it: numbers, strings, booleans, BigInts, undefined,
+// null and protoCore's own immutable values.  Arrays and objects are copied,
+// with their own enumerable data properties cloned in turn; a value reached
+// twice is cloned once, so cycles and shared substructure survive.  A
+// function or a Symbol cannot be cloned: postMessage throws DataCloneError.
+// Other built-in objects (Map, Set, Date, typed arrays) are copied as plain
+// objects of their own data properties, as the JSON encoding before did.
 
-void escapeJSONString(const std::string& s, std::string& out) {
-    out.push_back('"');
-    for (unsigned char c : s) {
-        switch (c) {
-            case '"':  out += "\\\""; break;
-            case '\\': out += "\\\\"; break;
-            case '\n': out += "\\n";  break;
-            case '\r': out += "\\r";  break;
-            case '\t': out += "\\t";  break;
-            case '\b': out += "\\b";  break;
-            case '\f': out += "\\f";  break;
-            default:
-                if (c < 0x20) {
-                    char buf[8];
-                    std::snprintf(buf, sizeof(buf), "\\u%04x", c);
-                    out += buf;
-                } else {
-                    out.push_back(static_cast<char>(c));
-                }
-        }
+[[noreturn]] void throwDataCloneError(proto::ProtoContext* ctx, const char* what) {
+    std::string msg = std::string(what) + " could not be cloned.";
+    const proto::ProtoObject* err = makeNativeError(ctx, "Error", msg.c_str());
+    if (err && err != PROTO_NONE) {
+        if (const proto::ProtoString* nk = JSSymbols::name(ctx))
+            err = err->setAttribute(ctx, nk, ctx->fromUTF8String("DataCloneError"));
     }
-    out.push_back('"');
+    signalNativeException(err);
 }
 
-void serializeJSON(proto::ProtoContext* ctx,
-                    const proto::ProtoObject* val,
-                    std::string& out) {
-    if (!val || val == PROTO_NONE) { out += "null"; return; }
-    if (val == PROTO_TRUE)  { out += "true";  return; }
-    if (val == PROTO_FALSE) { out += "false"; return; }
-    if (!ctx) { out += "null"; return; }
-    if (val->isString(ctx)) {
-        std::string s;
-        val->asString(ctx)->toUTF8String(ctx, s);
-        escapeJSONString(s, out);
-        return;
-    }
-    if (val->isInteger(ctx)) {
-        out += std::to_string(val->asLong(ctx));
-        return;
-    }
-    if (val->isFloat(ctx)) {
-        char buf[40];
-        std::snprintf(buf, sizeof(buf), "%.17g", val->asDouble(ctx));
-        out += buf;
-        return;
-    }
-    // Array? Look for the canonical JS-array marker.
-    const proto::ProtoString* arrKey = JSSymbols::isArray(ctx);
-    if (arrKey) {
-        const proto::ProtoObject* flag = val->getAttribute(ctx, arrKey, false);
-        if (flag && flag != PROTO_NONE) {
-            out.push_back('[');
-            const proto::ProtoList* els = getArrayElements(ctx, val);
-            long long n = els
-                ? static_cast<long long>(els->getSize(ctx)) : 0;
-            for (long long i = 0; i < n; ++i) {
-                if (i > 0) out.push_back(',');
-                serializeJSON(ctx, els->getAt(ctx, static_cast<int>(i)), out);
-            }
-            out.push_back(']');
-            return;
-        }
-    }
-    // Plain object: enumerate own attributes, skip internal markers.
-    out.push_back('{');
-    const proto::ProtoSparseList* own = val->getOwnAttributes(ctx);
-    if (own) {
-        const proto::ProtoSparseListIterator* it = own->getIterator(ctx);
-        bool first = true;
-        while (it && it->hasNext(ctx)) {
-            proto::proto_ulong rawKey = it->nextKey(ctx);
-            const proto::ProtoObject* v = it->nextValue(ctx);
-            it = const_cast<proto::ProtoSparseListIterator*>(it)->advance(ctx);
-            const proto::ProtoString* k =
-                reinterpret_cast<const proto::ProtoString*>(rawKey);
-            if (!k || !v) continue;
-            std::string ks;
-            k->toUTF8String(ctx, ks);
-            // Skip our own internal markers and metadata.
-            if (ks.size() >= 2 && ks[0] == '_' && ks[1] == '_') continue;
-            if (!first) out.push_back(',');
-            escapeJSONString(ks, out);
-            out.push_back(':');
-            serializeJSON(ctx, v, out);
-            first = false;
-        }
-    }
-    // The keys of the property dictionary (runtime/PropertyDictionary.h).
-    {
-        std::vector<std::pair<const proto::ProtoString*, const proto::ProtoObject*>> de;
-        dict::entries(ctx, val, de);
-        bool firstD = !own || out.back() == '{';
-        for (const auto& e : de) {
-            std::string ks;
-            e.first->toUTF8String(ctx, ks);
-            if (!firstD) out.push_back(',');
-            escapeJSONString(ks, out);
-            out.push_back(':');
-            serializeJSON(ctx, e.second, out);
-            firstD = false;
-        }
-    }
-    out.push_back('}');
-}
-
-// ---- JSON parser -------------------------------------------------------
-
-struct JSONParser {
-    const char* p;
-    const char* end;
+struct MessageCloner {
     proto::ProtoContext* ctx;
+    // Originals already cloned, and their clones (cycles, shared parts).
+    std::vector<std::pair<const proto::ProtoObject*, const proto::ProtoObject*>> seen;
+    // Every clone made, pinned by the caller's young generation: `ctx` is a
+    // context of the sending thread that lives until the clone is handed on.
 
-    void skipWS() {
-        while (p < end) {
-            char c = *p;
-            if (c == ' ' || c == '\t' || c == '\n' || c == '\r') { ++p; }
-            else break;
-        }
+    const proto::ProtoObject* cloned(const proto::ProtoObject* v) const {
+        for (const auto& e : seen) if (e.first == v) return e.second;
+        return nullptr;
     }
-    const proto::ProtoObject* parseValue();
-    const proto::ProtoObject* parseString();
-    const proto::ProtoObject* parseNumber();
-    const proto::ProtoObject* parseArray();
-    const proto::ProtoObject* parseObject();
+
+    // A value that is not a mutable JavaScript object: shared, not copied.
+    bool isShared(const proto::ProtoObject* v) const {
+        if (!v || v == PROTO_NONE) return true;
+        if (proto::isSmallInt(v)) return true;
+        if ((reinterpret_cast<uintptr_t>(v) & 0x3F) != 0) return true;  // tagged values
+        if (v == getUndefinedSentinel() || v == getNullSentinel()) return true;
+        // A BigInt is an object cell carrying its own value slot.
+        const proto::ProtoString* bigK = JSSymbols::bigIntValue(ctx);
+        if (bigK && v->hasOwnAttribute(ctx, bigK) == PROTO_TRUE) return true;
+        return false;
+    }
+
+    const proto::ProtoObject* clone(const proto::ProtoObject* v) {
+        if (isShared(v)) return v;
+        if (const proto::ProtoObject* c = cloned(v)) return c;
+        const proto::ProtoString* symK = JSSymbols::isSymbol(ctx);
+        if (symK && v->getAttribute(ctx, symK, false) == PROTO_TRUE)
+            throwDataCloneError(ctx, "Symbol()");
+        if (isCallableValue(ctx, v)) throwDataCloneError(ctx, "function");
+
+        const proto::ProtoString* arrKey = JSSymbols::isArray(ctx);
+        const proto::ProtoObject* flag = arrKey ? v->getAttribute(ctx, arrKey, false) : nullptr;
+        if (flag && flag != PROTO_NONE) {
+            const proto::ProtoObject* arr = createNewArray(ctx, nullptr);
+            seen.emplace_back(v, arr);
+            const proto::ProtoList* src = getArrayElements(ctx, v);
+            const long long n = src ? static_cast<long long>(src->getSize(ctx)) : 0;
+            const proto::ProtoList* els = ctx->newList();
+            for (long long i = 0; i < n; ++i)
+                els = els->appendLast(ctx, clone(src->getAt(ctx, static_cast<int>(i))));
+            setArrayElements(ctx, arr, els);
+            if (const proto::ProtoString* lk = JSSymbols::length(ctx))
+                arr->setAttribute(ctx, lk, ctx->fromInteger(n));
+            return arr;
+        }
+
+        const proto::ProtoObject* obj = ctx->newObject(/*mutable=*/true);
+        seen.emplace_back(v, obj);
+        // Own attributes, without protoJS's internal markers.
+        const proto::ProtoSparseList* own = v->getOwnAttributes(ctx);
+        if (own) {
+            const proto::ProtoSparseListIterator* it = own->getIterator(ctx);
+            while (it && it->hasNext(ctx)) {
+                proto::proto_ulong rawKey = it->nextKey(ctx);
+                const proto::ProtoObject* pv = it->nextValue(ctx);
+                it = const_cast<proto::ProtoSparseListIterator*>(it)->advance(ctx);
+                const proto::ProtoString* k = reinterpret_cast<const proto::ProtoString*>(rawKey);
+                if (!k || !pv) continue;
+                std::string ks;
+                k->toUTF8String(ctx, ks);
+                if (ks.size() >= 2 && ks[0] == '_' && ks[1] == '_') continue;
+                obj = dict::createDataProperty(ctx, obj, k, clone(pv));
+            }
+        }
+        // The keys of the property dictionary (runtime/PropertyDictionary.h).
+        std::vector<std::pair<const proto::ProtoString*, const proto::ProtoObject*>> de;
+        dict::entries(ctx, v, de);
+        for (const auto& e : de) obj = dict::createDataProperty(ctx, obj, e.first, clone(e.second));
+        // createDataProperty may return a new object for an immutable one;
+        // the clone is mutable, so the identity recorded above stands.
+        return obj;
+    }
 };
 
-const proto::ProtoObject* JSONParser::parseString() {
-    if (p >= end || *p != '"') return PROTO_NONE;
-    ++p;
-    std::string out;
-    while (p < end && *p != '"') {
-        char c = *p++;
-        if (c == '\\' && p < end) {
-            char esc = *p++;
-            switch (esc) {
-                case '"':  out.push_back('"'); break;
-                case '\\': out.push_back('\\'); break;
-                case '/':  out.push_back('/'); break;
-                case 'n':  out.push_back('\n'); break;
-                case 'r':  out.push_back('\r'); break;
-                case 't':  out.push_back('\t'); break;
-                case 'b':  out.push_back('\b'); break;
-                case 'f':  out.push_back('\f'); break;
-                case 'u': {
-                    if (p + 4 > end) return PROTO_NONE;
-                    int code = 0;
-                    for (int i = 0; i < 4; ++i) {
-                        char h = *p++;
-                        int d = (h >= '0' && h <= '9') ? h - '0'
-                              : (h >= 'a' && h <= 'f') ? h - 'a' + 10
-                              : (h >= 'A' && h <= 'F') ? h - 'A' + 10 : -1;
-                        if (d < 0) return PROTO_NONE;
-                        code = (code << 4) | d;
-                    }
-                    if (code < 0x80) out.push_back(static_cast<char>(code));
-                    else if (code < 0x800) {
-                        out.push_back(static_cast<char>(0xC0 | (code >> 6)));
-                        out.push_back(static_cast<char>(0x80 | (code & 0x3F)));
-                    } else {
-                        out.push_back(static_cast<char>(0xE0 | (code >> 12)));
-                        out.push_back(static_cast<char>(0x80 | ((code >> 6) & 0x3F)));
-                        out.push_back(static_cast<char>(0x80 | (code & 0x3F)));
-                    }
-                    break;
-                }
-                default: out.push_back(esc); break;
-            }
-        } else {
-            out.push_back(c);
-        }
-    }
-    if (p >= end || *p != '"') return PROTO_NONE;
-    ++p;
-    return ctx->fromUTF8String(out.c_str());
-}
-
-const proto::ProtoObject* JSONParser::parseNumber() {
-    const char* start = p;
-    if (p < end && (*p == '-' || *p == '+')) ++p;
-    bool isFloat = false;
-    while (p < end) {
-        char c = *p;
-        if (c >= '0' && c <= '9') { ++p; continue; }
-        if (c == '.' || c == 'e' || c == 'E' || c == '+' || c == '-') {
-            isFloat = true; ++p; continue;
-        }
-        break;
-    }
-    std::string s(start, p - start);
-    if (isFloat) return ctx->fromUTF8String(s.c_str());  // float fallback
-    try {
-        return ctx->fromInteger(std::stoll(s));
-    } catch (...) {
-        return PROTO_NONE;
-    }
-}
-
-const proto::ProtoObject* JSONParser::parseArray() {
-    if (p >= end || *p != '[') return PROTO_NONE;
-    ++p;
-    skipWS();
-    const proto::ProtoObject* arr = createNewArray(ctx, nullptr);
-    const proto::ProtoList* els = ctx->newList();
-    if (p < end && *p == ']') { ++p; setArrayElements(ctx, arr, els); return arr; }
-    while (p < end) {
-        skipWS();
-        const proto::ProtoObject* v = parseValue();
-        els = els->appendLast(ctx, v ? v : PROTO_NONE);
-        skipWS();
-        if (p < end && *p == ',') { ++p; continue; }
-        if (p < end && *p == ']') { ++p; break; }
-        return PROTO_NONE;
-    }
-    setArrayElements(ctx, arr, els);
-    const proto::ProtoString* lk = JSSymbols::length(ctx);
-    if (lk) arr->setAttribute(ctx, lk,
-        ctx->fromInteger(static_cast<long long>(els->getSize(ctx))));
-    return arr;
-}
-
-const proto::ProtoObject* JSONParser::parseObject() {
-    if (p >= end || *p != '{') return PROTO_NONE;
-    ++p;
-    skipWS();
-    const proto::ProtoObject* obj = ctx->newObject(/*mutable=*/true);
-    if (p < end && *p == '}') { ++p; return obj; }
-    while (p < end) {
-        skipWS();
-        const proto::ProtoObject* keyObj = parseString();
-        if (!keyObj || keyObj == PROTO_NONE) return PROTO_NONE;
-        skipWS();
-        if (p >= end || *p != ':') return PROTO_NONE;
-        ++p;
-        skipWS();
-        const proto::ProtoObject* v = parseValue();
-        const proto::ProtoString* k = keyObj->asString(ctx);
-        // A key that is data goes to the property dictionary
-        // (runtime/PropertyDictionary.h) instead of being interned.
-        if (k) obj = dict::createDataProperty(ctx, obj, k, v ? v : PROTO_NONE);
-        skipWS();
-        if (p < end && *p == ',') { ++p; continue; }
-        if (p < end && *p == '}') { ++p; break; }
-        return PROTO_NONE;
-    }
-    return obj;
-}
-
-const proto::ProtoObject* JSONParser::parseValue() {
-    skipWS();
-    if (p >= end) return PROTO_NONE;
-    char c = *p;
-    if (c == '"') return parseString();
-    if (c == '[') return parseArray();
-    if (c == '{') return parseObject();
-    if (c == '-' || c == '+' || (c >= '0' && c <= '9')) return parseNumber();
-    if (end - p >= 4 && std::strncmp(p, "true",  4) == 0) { p += 4; return PROTO_TRUE; }
-    if (end - p >= 5 && std::strncmp(p, "false", 5) == 0) { p += 5; return PROTO_FALSE; }
-    if (end - p >= 4 && std::strncmp(p, "null",  4) == 0) { p += 4; return PROTO_NONE; }
-    return PROTO_NONE;
-}
-
-const proto::ProtoObject* parseJSON(proto::ProtoContext* ctx,
-                                      const std::string& text) {
-    if (!ctx) return PROTO_NONE;
-    JSONParser pr{text.data(), text.data() + text.size(), ctx};
-    return pr.parseValue();
+// The structured clone of `value`, made through `ctx` (the sender's).
+const proto::ProtoObject* cloneMessage(proto::ProtoContext* ctx, const proto::ProtoObject* value) {
+    MessageCloner cloner{ctx, {}};
+    return cloner.clone(value);
 }
 
 // ---- EventEmitter helper ----------------------------------------------
@@ -362,10 +188,7 @@ const proto::ProtoObject* makeEventEmitterInstance(
     return eeProto->newChild(ctx, /*mutable=*/true);
 }
 
-// Forward declare: workerThreadEntry (the thread body) uses these.
 struct WorkerState;
-
-void workerThreadEntry(WorkerState* state);
 
 // ---- WorkerState (carried via ExternalPointer) -------------------------
 
@@ -373,13 +196,26 @@ struct WorkerState : GcOrphanQueue::Orphan {
     JSContextWrapper* mainWrapper{nullptr};
     proto::ProtoRootSet::Handle workerPin{
         proto::ProtoRootSet::kNullHandle};
+    // The worker's wrapper: it borrows the main wrapper's space
+    // (docs/API_REFERENCE.md, "worker_threads"), built and used on the worker thread.
     std::unique_ptr<JSContextWrapper> workerWrapper;
-    // The worker runs JavaScript, so it gets the main thread's stack
-    // (platform::jsThreadStackBytes), not the platform's default for a new
-    // thread -- 512 KiB on macOS. See src/platform/SizedThread.h.
-    platform::SizedThread thread;
+    // The worker's protoCore thread, in the main space; it gets the stack
+    // main.cpp configures for every JavaScript thread
+    // (ProtoSpace::setThreadStackBytes).  Pinned in the main wrapper's root
+    // set until it has been joined.
+    const proto::ProtoThread* thread{nullptr};
+    proto::ProtoRootSet::Handle threadPin{proto::ProtoRootSet::kNullHandle};
+    std::mutex joinMutex;
+    bool joined{false};
     std::string filename;
-    std::string workerDataJson;
+    // The clone of options.workerData, and the main thread's global object
+    // (the parent of the worker's), pinned in the main wrapper's root set
+    // until the worker thread has read them.
+    proto::ProtoRootSet::Handle workerData{proto::ProtoRootSet::kNullHandle};
+    proto::ProtoRootSet::Handle ownerGlobal{proto::ProtoRootSet::kNullHandle};
+    // The main thread's identity objects (undefined, null, ...), adopted by
+    // the worker thread: values pass between the two without a copy.
+    ThreadIdentity identity;
     std::atomic<bool> terminated{false};
     std::atomic<bool> running{false};
 
@@ -410,15 +246,31 @@ void requestWorkerTeardown(WorkerState* s) {
     s->running.store(false);
 }
 
-// The blocking half.  The guard lives HERE rather than at each caller, so a new caller
-// cannot forget it.  `ctx` may be null, in which case the calling thread's own
-// registered context is used.  The worker owns its OWN ProtoSpace and is that space's
-// adopted main thread; this thread is registered in the main space, and leaving the
-// main space's running set here is what lets it collect while the worker finishes.
+// The blocking half.  `ctx` may be null, in which case the calling thread's own
+// registered context is used.  The worker is a protoCore thread of this space, and
+// ProtoThread::join leaves the running set while it waits, so the space can still
+// collect while the worker finishes.  One caller joins; the others find it joined.
 void awaitWorkerTeardown(WorkerState* s, proto::ProtoContext* ctx) {
     if (!s) return;
-    ThreadUnmanagedScope parked(ctx);   // an UnmanagedScope on ctx, or on this thread's
-    if (s->thread.joinable()) s->thread.join();
+    if (!ctx) ctx = threadProtoContext();
+    std::lock_guard<std::mutex> lock(s->joinMutex);
+    if (s->joined || !s->thread || !ctx) return;
+    const_cast<proto::ProtoThread*>(s->thread)->join(ctx);
+    s->joined = true;
+    if (s->mainWrapper && s->threadPin != proto::ProtoRootSet::kNullHandle) {
+        if (proto::ProtoRootSet* rs = s->mainWrapper->getRootSet()) rs->remove(s->threadPin);
+        s->threadPin = proto::ProtoRootSet::kNullHandle;
+    }
+}
+
+// The workerData clone and the owner's global, if the worker thread never read them.
+void releaseStartupPins(WorkerState* s) {
+    proto::ProtoRootSet* rs = s->mainWrapper ? s->mainWrapper->getRootSet() : nullptr;
+    if (!rs) return;
+    for (proto::ProtoRootSet::Handle* h : {&s->workerData, &s->ownerGlobal}) {
+        if (*h != proto::ProtoRootSet::kNullHandle) rs->remove(*h);
+        *h = proto::ProtoRootSet::kNullHandle;
+    }
 }
 
 // Everything the old finalizer did after the two stores, now on a mutator thread.
@@ -434,8 +286,7 @@ void awaitWorkerTeardown(WorkerState* s, proto::ProtoContext* ctx) {
 // root collection; and `workerWrapper.reset()` runs ~JSContextWrapper, which
 // destroys a ProtoRootSet, runs GCBridge::cleanup -- which iterates a
 // ProtoSparseList and dereferences ProtoObject*s, two more things S7 forbids
-// outright -- and finally destroys an entire second ProtoSpace. From another
-// space's GC thread, mid-sweep.
+// outright. From the GC thread, mid-sweep.
 //
 // It no longer shuts the process-wide thread pools down, and that was a real bug
 // rather than a cosmetic one: CPUThreadPool and IOThreadPool are singletons, so a
@@ -456,6 +307,7 @@ void WorkerState::releaseOnMutator() {
     // joins; that call brackets itself with a ThreadUnmanagedScope, and because the slot
     // it reads is THIS thread's rather than the worker wrapper's context, it parks
     // the right thread.
+    releaseStartupPins(this);
     workerWrapper.reset();
     unregisterWorkerState(this);
     delete this;
@@ -557,12 +409,21 @@ const proto::ProtoObject* workerPostMessage(
     if (!state || !state->workerWrapper || state->terminated.load())
         return PROTO_NONE;
 
-    std::string payload;
-    serializeJSON(ctx, args->getAt(ctx, 0), payload);
+    // The clone is made now, on this thread (a later change to the value is
+    // not seen), and pinned until it is delivered.
+    proto::ProtoRootSet* rs = state->mainWrapper ? state->mainWrapper->getRootSet() : nullptr;
+    if (!rs) return PROTO_NONE;
+    proto::ProtoRootSet::Handle message;
+    {
+        proto::ProtoContext cloneCtx(ctx->space, ctx, nullptr, nullptr, nullptr, nullptr);
+        message = rs->add(cloneMessage(&cloneCtx, args->getAt(ctx, 0)));
+    }
 
     JSContextWrapper* wrapperRaw = state->workerWrapper.get();
     EventLoop::getInstance().enqueueCallback(
-        [wrapperRaw, payload]() {
+        [wrapperRaw, rs, message]() {
+            const proto::ProtoObject* msgVal = rs->resolve(message);
+            rs->remove(message);
             if (!wrapperRaw) return;
             JSContextWrapper::CurrentScope ws(wrapperRaw);
             proto::ProtoContext* wctx = wrapperRaw->getProtoContext();
@@ -574,10 +435,9 @@ const proto::ProtoObject* workerPostMessage(
             const proto::ProtoObject* pp =
                 ppKey ? wg->getAttribute(wctx, ppKey, false) : nullptr;
             if (!pp || pp == PROTO_NONE) return;
-            const proto::ProtoObject* msgVal = parseJSON(wctx, payload);
             const proto::ProtoList* a = wctx->newList()
                 ->appendLast(wctx, wctx->fromUTF8String("message"))
-                ->appendLast(wctx, msgVal);
+                ->appendLast(wctx, msgVal ? msgVal : PROTO_NONE);
             invokeEEMethodFromAsync(wrapperRaw, pp, "emit", a);
         });
     return PROTO_NONE;
@@ -591,20 +451,27 @@ const proto::ProtoObject* workerTerminate(
     const proto::ProtoKeywordArguments*) {
     WorkerState* state = getWorkerState(ctx, self);
     if (state) {
-        // The owner relinquish point. It used to set two flags and return, leaving
-        // the join, the pin release and the worker space's destruction to the
-        // collector -- which is exactly where protoCore's contract says they must
-        // not happen. Doing them here means that a script that calls terminate()
-        // never reaches the deferred path at all.
+        // The owner relinquish point: the join, the pin release and the
+        // destruction of the worker's wrapper happen on a mutator thread, never
+        // in the collector (protoCore's finalizer contract).  Not here, though:
+        // a native runs inside a GC critical section, and the worker is a
+        // thread of this space, so a join here would hold the stop-the-world
+        // quorum that the worker may need to finish (EMBEDDER-CONFORMANCE rule
+        // 12).  They run as the next event-loop callback, outside any critical
+        // section -- as Node's terminate(), which is asynchronous too.
         requestWorkerTeardown(state);
-        awaitWorkerTeardown(state, ctx);
-        if (state->mainWrapper &&
-            state->workerPin != proto::ProtoRootSet::kNullHandle) {
-            proto::ProtoRootSet* rs = state->mainWrapper->getRootSet();
-            if (rs) rs->remove(state->workerPin);
-            state->workerPin = proto::ProtoRootSet::kNullHandle;
-        }
-        state->workerWrapper.reset();
+        EventLoop::getInstance().enqueueCallback([state]() {
+            JSContextWrapper* mainWrapper = state->mainWrapper;
+            if (!mainWrapper) return;  // released by releaseWorkersOf already
+            awaitWorkerTeardown(state, mainWrapper->getProtoContext());
+            if (state->workerPin != proto::ProtoRootSet::kNullHandle) {
+                proto::ProtoRootSet* rs = mainWrapper->getRootSet();
+                if (rs) rs->remove(state->workerPin);
+                state->workerPin = proto::ProtoRootSet::kNullHandle;
+            }
+            releaseStartupPins(state);
+            state->workerWrapper.reset();
+        });
     }
     return PROTO_NONE;
 }
@@ -625,9 +492,9 @@ const proto::ProtoObject* getWorkerProto(proto::ProtoContext* ctx) {
 
 // ---- Worker side: parentPort.postMessage -------------------------------
 //
-// Runs on the worker thread.  Serializes the value (worker space),
-// captures by std::string into the EventLoop callback, and dispatches
-// back into the main wrapper to emit('message') on the Worker instance.
+// Runs on the worker thread.  Clones the value (see cloneMessage), pins the
+// clone, and dispatches back into the main wrapper to emit('message') on the
+// Worker instance.
 
 const proto::ProtoObject* parentPortPostMessage(
     proto::ProtoContext* ctx,
@@ -644,25 +511,28 @@ const proto::ProtoObject* parentPortPostMessage(
     auto* state = static_cast<WorkerState*>(refExt->getPointer(ctx));
     if (!state || !state->mainWrapper) return PROTO_NONE;
 
-    std::string payload;
-    serializeJSON(ctx, args->getAt(ctx, 0), payload);
-
     JSContextWrapper* mainWrapper = state->mainWrapper;
+    proto::ProtoRootSet* rs = mainWrapper->getRootSet();
+    if (!rs) return PROTO_NONE;
+    proto::ProtoRootSet::Handle message;
+    {
+        proto::ProtoContext cloneCtx(ctx->space, ctx, nullptr, nullptr, nullptr, nullptr);
+        message = rs->add(cloneMessage(&cloneCtx, args->getAt(ctx, 0)));
+    }
+
     proto::ProtoRootSet::Handle pin = state->workerPin;
     EventLoop::getInstance().enqueueCallback(
-        [mainWrapper, pin, payload]() {
-            if (!mainWrapper) return;
+        [mainWrapper, rs, pin, message]() {
+            const proto::ProtoObject* msgVal = rs->resolve(message);
+            rs->remove(message);
             JSContextWrapper::CurrentScope ws(mainWrapper);
             proto::ProtoContext* mctx = mainWrapper->getProtoContext();
             if (!mctx) return;
-            proto::ProtoRootSet* rs = mainWrapper->getRootSet();
-            const proto::ProtoObject* worker =
-                rs ? rs->resolve(pin) : nullptr;
+            const proto::ProtoObject* worker = rs->resolve(pin);
             if (!worker || worker == PROTO_NONE) return;
-            const proto::ProtoObject* msgVal = parseJSON(mctx, payload);
             const proto::ProtoList* a = mctx->newList()
                 ->appendLast(mctx, mctx->fromUTF8String("message"))
-                ->appendLast(mctx, msgVal);
+                ->appendLast(mctx, msgVal ? msgVal : PROTO_NONE);
             invokeEEMethodFromAsync(mainWrapper, worker, "emit", a);
         });
     return PROTO_NONE;
@@ -681,13 +551,14 @@ const proto::ProtoObject* getParentPortProto(proto::ProtoContext* ctx) {
 
 // ---- Worker thread body ------------------------------------------------
 
+// Emits `eventName` on the Worker instance, on the main thread, with `arg` as
+// a string argument (none when empty).
 void emitOnWorker(JSContextWrapper* mainWrapper,
                    proto::ProtoRootSet::Handle pin,
                    const std::string& eventName,
-                   const std::string& argJson,
-                   bool argIsString) {
+                   const std::string& arg) {
     EventLoop::getInstance().enqueueCallback(
-        [mainWrapper, pin, eventName, argJson, argIsString]() {
+        [mainWrapper, pin, eventName, arg]() {
             if (!mainWrapper) return;
             JSContextWrapper::CurrentScope ws(mainWrapper);
             proto::ProtoContext* mctx = mainWrapper->getProtoContext();
@@ -698,44 +569,40 @@ void emitOnWorker(JSContextWrapper* mainWrapper,
             if (!worker || worker == PROTO_NONE) return;
             const proto::ProtoList* a = mctx->newList()
                 ->appendLast(mctx, mctx->fromUTF8String(eventName.c_str()));
-            if (!argJson.empty()) {
-                const proto::ProtoObject* arg = argIsString
-                    ? mctx->fromUTF8String(argJson.c_str())
-                    : parseJSON(mctx, argJson);
-                a = a->appendLast(mctx, arg);
-            }
+            if (!arg.empty()) a = a->appendLast(mctx, mctx->fromUTF8String(arg.c_str()));
             invokeEEMethodFromAsync(mainWrapper, worker, "emit", a);
         });
 }
 
-void workerThreadEntry(WorkerState* state) {
-    if (!state) return;
-    state->running.store(true);
+// The worker's body, on its protoCore thread in the main space.
+void runWorker(WorkerState* state, proto::ProtoContext* ctx) {
+    // Values pass between the threads without a copy: this thread must use the
+    // main thread's `undefined`, `null` and the other identity objects.
+    adoptThreadIdentity(state->identity);
 
-    // Build the worker's own JSContextWrapper.  setUseProtoEval keeps
-    // the worker's eval on the protoCore path.
-    auto wrapper = std::make_unique<JSContextWrapper>(0, 0, 3.0);
-    wrapper->setUseProtoEval(true);
-    state->workerWrapper = std::move(wrapper);
+    proto::ProtoRootSet* mainRs = state->mainWrapper->getRootSet();
+    const proto::ProtoObject* ownerGlobal =
+        (mainRs && state->ownerGlobal != proto::ProtoRootSet::kNullHandle)
+            ? mainRs->resolve(state->ownerGlobal) : nullptr;
+    // The worker's wrapper borrows the main wrapper's space; its global is a
+    // child of the main global object (JSContextWrapper's borrowing
+    // constructor).  setUseProtoEval keeps eval on the protoCore path.
+    state->workerWrapper =
+        std::make_unique<JSContextWrapper>(*state->mainWrapper, ctx, ownerGlobal);
+    state->workerWrapper->setUseProtoEval(true);
 
-    // Initialise events module on the worker's native global so the
-    // user's worker script (and our parentPort) can use EventEmitter.
     {
         JSContextWrapper::CurrentScope ws(state->workerWrapper.get());
-        proto::ProtoContext* wctx = state->workerWrapper->getProtoContext();
-        if (!wctx) {
-            state->running.store(false);
-            g_activeWorkers.fetch_sub(1);
+        proto::ProtoContext* wctx = ctx;
+        // The worker's global inherits console, the modules and the realm's
+        // constructors from the main global: nothing to install but its own
+        // parentPort and workerData.
+        const proto::ProtoObject* wg = state->workerWrapper->getNativeGlobal();
+        if (!wg) {
+            emitOnWorker(state->mainWrapper, state->workerPin, "error",
+                         "Worker: could not create the worker's global object");
             return;
         }
-        const proto::ProtoObject* wg = state->workerWrapper->getNativeGlobal();
-        // Console + EventsModule on the worker's global so the worker
-        // script can call console.log() and parentPort.on() out of the
-        // box.  Console::init mutates wg in-place; events module
-        // returns the new pointer.
-        Console::init(wctx, wg);
-        wg = EventsModule::init(wctx, wg);
-        state->workerWrapper->updateNativeGlobal(wg);
 
         // Build parentPort instance from a prototype + an EventEmitter
         // mixin so users can call parentPort.on('message', cb).
@@ -814,11 +681,9 @@ void workerThreadEntry(WorkerState* state) {
             state->workerWrapper->updateNativeGlobal(wg);
         }
 
-        // workerData (parsed from the JSON snapshot the main side
-        // produced).  Empty json → leave undefined.
-        if (!state->workerDataJson.empty()) {
-            const proto::ProtoObject* wd =
-                parseJSON(wctx, state->workerDataJson);
+        // workerData: the clone the main thread made when it built the Worker.
+        if (mainRs && state->workerData != proto::ProtoRootSet::kNullHandle) {
+            const proto::ProtoObject* wd = mainRs->resolve(state->workerData);
             const proto::ProtoString* wdKey =
                 wctx->fromUTF8String("workerData")->asString(wctx);
             if (wdKey && wd) {
@@ -826,27 +691,23 @@ void workerThreadEntry(WorkerState* state) {
                 state->workerWrapper->updateNativeGlobal(wg);
             }
         }
+        // Both now hang off the worker's global.
+        releaseStartupPins(state);
     }
 
-    // Read and eval the file.  Eval is QuickJS-side here because the
-    // wrapper.eval entry point is still the QuickJS eval; protoCore
-    // path is selected via setUseProtoEval(true) (already done).
     std::ifstream file(state->filename, std::ios::binary);
     if (!file.is_open()) {
         emitOnWorker(state->mainWrapper, state->workerPin, "error",
-                     "Cannot open file: " + state->filename, true);
-        state->running.store(false);
-        g_activeWorkers.fetch_sub(1);
+                     "Cannot open file: " + state->filename);
         return;
     }
     std::stringstream buf;
     buf << file.rdbuf();
     std::string code = buf.str();
 
-    // A worker thread's entry: no C++ exception may leave it.  eval reports a
-    // JavaScript exception itself; one raised around it (a ProtoException) or
-    // a foreign C++ exception becomes the worker's "error" event.  The
-    // worker's space is alive here (state->workerWrapper).
+    // eval reports a JavaScript exception itself; one raised around it (a
+    // ProtoException) or a foreign C++ exception becomes the worker's "error"
+    // event (workerThreadMain catches what escapes this function).
     JSValue rv = JS_UNDEFINED;
     std::string escaped;
     try {
@@ -859,21 +720,50 @@ void workerThreadEntry(WorkerState* state) {
         escaped = "Uncaught C++ exception of an unknown type in worker";
     }
     if (!escaped.empty()) {
-        emitOnWorker(state->mainWrapper, state->workerPin, "error", escaped, true);
+        emitOnWorker(state->mainWrapper, state->workerPin, "error", escaped);
     } else if (JS_IsException(rv)) {
-        JSContext* wctx = state->workerWrapper->getJSContext();
-        JSValue exc = JS_GetException(wctx);
-        const char* err = JS_ToCString(wctx, exc);
+        JSContext* wqctx = state->workerWrapper->getJSContext();
+        JSValue exc = JS_GetException(wqctx);
+        const char* err = JS_ToCString(wqctx, exc);
         std::string msg = err ? err : "worker exception";
-        if (err) JS_FreeCString(wctx, err);
-        JS_FreeValue(wctx, exc);
-        emitOnWorker(state->mainWrapper, state->workerPin, "error", msg, true);
+        if (err) JS_FreeCString(wqctx, err);
+        JS_FreeValue(wqctx, exc);
+        emitOnWorker(state->mainWrapper, state->workerPin, "error", msg);
     }
     JS_FreeValue(state->workerWrapper->getJSContext(), rv);
+}
 
-    emitOnWorker(state->mainWrapper, state->workerPin, "exit", "", true);
+// The entry of the worker's protoCore thread: args[0] is the WorkerState.
+// No C++ exception may leave it.
+const proto::ProtoObject* workerThreadMain(proto::ProtoContext* ctx,
+                                           const proto::ProtoObject* /*self*/,
+                                           const proto::ParentLink*,
+                                           const proto::ProtoArguments* args,
+                                           const proto::ProtoKeywordArguments*) {
+    if (!ctx || !args || args->getSize(ctx) < 1) return PROTO_NONE;
+    const proto::ProtoObject* p = args->getAt(ctx, 0);
+    const proto::ProtoExternalPointer* ep = p ? p->asExternalPointer(ctx) : nullptr;
+    auto* state = ep ? static_cast<WorkerState*>(ep->getPointer(ctx)) : nullptr;
+    if (!state) return PROTO_NONE;
+    state->running.store(true);
+    try {
+        runWorker(state, ctx);
+    } catch (const proto::ProtoException&) {
+        emitOnWorker(state->mainWrapper, state->workerPin, "error", "Uncaught exception in worker");
+    } catch (const std::exception& e) {
+        emitOnWorker(state->mainWrapper, state->workerPin, "error",
+                     std::string("Uncaught C++ exception in worker: ") + e.what());
+    } catch (...) {
+        emitOnWorker(state->mainWrapper, state->workerPin, "error",
+                     "Uncaught C++ exception of an unknown type in worker");
+    }
+    // This thread's context ends with this function; the wrapper lives on
+    // (its listeners run on the main event loop) and is destroyed there.
+    if (state->workerWrapper) state->workerWrapper->releaseThreadContext();
+    emitOnWorker(state->mainWrapper, state->workerPin, "exit", "");
     state->running.store(false);
     g_activeWorkers.fetch_sub(1);
+    return PROTO_NONE;
 }
 
 // ---- Worker constructor (main side) ------------------------------------
@@ -891,8 +781,14 @@ const proto::ProtoObject* workerConstructor(
     std::string filename;
     fileArg->asString(ctx)->toUTF8String(ctx, filename);
 
-    // workerData: pull from options.workerData and serialise.
-    std::string workerDataJson;
+    JSContextWrapper* mainWrapper = JSContextWrapper::current();
+    if (!mainWrapper) return PROTO_NONE;
+    proto::ProtoRootSet* rs = mainWrapper->getRootSet();
+    if (!rs) return PROTO_NONE;
+
+    // workerData: the structured clone of options.workerData, made now
+    // (a DataCloneError is thrown here, before any thread exists).
+    proto::ProtoRootSet::Handle workerData = proto::ProtoRootSet::kNullHandle;
     if (args->getSize(ctx) > 1) {
         const proto::ProtoObject* opts = args->getAt(ctx, 1);
         if (opts && opts != PROTO_NONE) {
@@ -900,12 +796,12 @@ const proto::ProtoObject* workerConstructor(
                 ctx->fromUTF8String("workerData")->asString(ctx);
             const proto::ProtoObject* wdv =
                 wdKey ? opts->getAttribute(ctx, wdKey, false) : nullptr;
-            if (wdv && wdv != PROTO_NONE) serializeJSON(ctx, wdv, workerDataJson);
+            if (wdv && wdv != PROTO_NONE) {
+                proto::ProtoContext cloneCtx(ctx->space, ctx, nullptr, nullptr, nullptr, nullptr);
+                workerData = rs->add(cloneMessage(&cloneCtx, wdv));
+            }
         }
     }
-
-    JSContextWrapper* mainWrapper = JSContextWrapper::current();
-    if (!mainWrapper) return PROTO_NONE;
 
     // Build the Worker instance.
     const proto::ProtoObject* proto = getWorkerProto(ctx);
@@ -921,33 +817,47 @@ const proto::ProtoObject* workerConstructor(
     auto* state = new WorkerState{};
     state->mainWrapper = mainWrapper;
     state->filename    = filename;
-    state->workerDataJson = std::move(workerDataJson);
+    state->workerData  = workerData;
+    // The parent of the worker's global object, and the identity objects
+    // the worker thread adopts: both read here, on the main thread.
+    if (const proto::ProtoObject* g = mainWrapper->getGlobalObject(ctx))
+        state->ownerGlobal = rs->add(g);
+    state->identity = captureThreadIdentity(ctx);
 
     // Pin the Worker instance so the worker thread can resolve it
     // when emitting message/error/exit events.
-    proto::ProtoRootSet* rs = mainWrapper->getRootSet();
-    if (rs) state->workerPin = rs->add(worker);
+    state->workerPin = rs->add(worker);
 
     const proto::ProtoObject* extPtr =
         ctx->fromExternalPointer(state, freeWorkerState);
     if (!extPtr) {
-        if (rs && state->workerPin != proto::ProtoRootSet::kNullHandle) {
-            rs->remove(state->workerPin);
-        }
+        rs->remove(state->workerPin);
+        releaseStartupPins(state);
         delete state;
         return PROTO_NONE;
     }
     registerWorkerState(state);
     worker->setAttribute(ctx, keyWorkerState(ctx), extPtr);
 
+    // The worker is a protoCore thread of this space (docs/API_REFERENCE.md, "worker_threads").
     g_activeWorkers.fetch_add(1);
-    if (!state->thread.start(platform::jsThreadStackBytes(),
-                             [state]() { workerThreadEntry(state); })) {
-        // As std::thread's constructor, which threw std::system_error here.
+    const proto::ProtoObject* self = ctx->fromExternalPointer(state, /*finalizer=*/nullptr);
+    const proto::ProtoList* threadArgs = self ? ctx->newList()->appendLast(ctx, self) : nullptr;
+    const proto::ProtoString* threadName = proto::ProtoString::createSymbol(ctx, "worker");
+    const proto::ProtoThread* thread = threadArgs
+        ? ctx->space->newThread(ctx, threadName, &workerThreadMain, threadArgs, nullptr)
+        : nullptr;
+    if (!thread) {
         g_activeWorkers.fetch_sub(1);
         signalNativeException(makeNativeError(ctx, "Error",
             "Worker: could not create the worker thread"));
         return PROTO_NONE;
+    }
+    {
+        // A ProtoThread is a cell: pinned until it has been joined.
+        std::lock_guard<std::mutex> lock(state->joinMutex);
+        state->thread = thread;
+        state->threadPin = rs->add(reinterpret_cast<const proto::ProtoObject*>(thread));
     }
     return worker;
 }
@@ -955,7 +865,7 @@ const proto::ProtoObject* workerConstructor(
 // ---- Module-level functions: isMainThread / parentPort / workerData ---
 //
 // In a Worker, these are populated on the worker's own global (see
-// workerThreadEntry).  At module-init time on the main side the
+// runWorker).  At module-init time on the main side the
 // wrapper is the main thread's, so `isMainThread` is true and
 // `parentPort` / `workerData` are absent / null.
 
@@ -1044,6 +954,7 @@ void WorkerThreadsModule::releaseWorkersOf(JSContextWrapper* owner) {
             if (proto::ProtoRootSet* rs = owner->getRootSet()) rs->remove(s->workerPin);
             s->workerPin = proto::ProtoRootSet::kNullHandle;
         }
+        releaseStartupPins(s);
         s->workerWrapper.reset();
         s->mainWrapper = nullptr;
     }

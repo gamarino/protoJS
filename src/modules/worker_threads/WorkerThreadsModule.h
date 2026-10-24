@@ -11,18 +11,16 @@ class JSContextWrapper;
 /**
  * @brief Node-style `worker_threads` module — protoCore-native.
  *
- * Replaces the original QuickJS-side implementation: the Worker class
- * is built from a prototype + wrapNativeFunction constructor, and per-
- * instance state (the std::thread, the worker's owned JSContextWrapper,
- * the running/terminated flags) lives behind a ProtoExternalPointer
- * attribute on the Worker instance.  No JS_NewClassID / JS_SetOpaque is
- * used.
+ * A Worker runs on a protoCore thread of the main thread's ProtoSpace (one
+ * space per process), with a JSContextWrapper that borrows that space: its
+ * own global object (a child of the main global object), module cache, job
+ * queue and root set, and the realm's intrinsics shared.  Per-instance state
+ * (the thread, the worker's wrapper, the running/terminated flags) lives
+ * behind a ProtoExternalPointer attribute on the Worker instance.
  *
- * Cross-context message passing keeps the original "JSON serialize +
- * EventLoop hop" contract: ProtoObjects from the worker space cannot
- * reach the main space directly, so payloads are JSON-encoded by a
- * minimal C++ serializer (`serializeJSON`) and decoded on the other
- * side by `parseJSON`.
+ * A message is the structured clone of the posted value, made by the sender
+ * at the call inside the one space: immutable values are shared, objects and
+ * arrays copied.  No serialization (docs/API_REFERENCE.md, "worker_threads").
  */
 class WorkerThreadsModule {
 public:
@@ -37,15 +35,13 @@ public:
 
     /**
      * Release every Worker that `owner` created and that is still held:
-     * stop it if it still runs, join its thread, drop its pin and destroy
-     * its JSContextWrapper (and with it the worker's ProtoSpace and that
-     * space's collector thread).  Called by ~JSContextWrapper before the
+     * stop it if it still runs, join its thread, drop its pins and destroy
+     * its JSContextWrapper.  Called by ~JSContextWrapper before the
      * owner's space goes away.  A Worker pins itself, so its finalizer runs
      * only at the owner space's teardown, where it can merely post an orphan
      * that no event loop drains any more: without this call a worker left
-     * to finish on its own kept its space -- and a running collector thread
-     * -- into the process's static destructors, which then crashed
-     * (cli/blocking-joins-and-finalizers, worker-to-completion).
+     * to finish on its own kept its thread into the process's static
+     * destructors (cli/blocking-joins-and-finalizers, worker-to-completion).
      */
     static void releaseWorkersOf(JSContextWrapper* owner);
 };
