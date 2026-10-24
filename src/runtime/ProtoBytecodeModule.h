@@ -11,6 +11,7 @@
 #include <vector>
 #include <unordered_map>
 #include <cstdint>
+#include <string>
 
 struct JSContext;
 
@@ -133,6 +134,17 @@ struct ProtoBytecodeModule {
     /** Runs of writes to one object published once, indexed by the group
      *  operand of OP_PROTO_PUT_FIELD_GROUP / _END (markPutFieldGroups). */
     std::vector<PutFieldGroup> putFieldGroups;
+
+    /** Debugger data (src/debugger/DebugHooks.h), filled by loadBytecode only
+     *  while a debug session is active; empty otherwise.  debugLinePcs[i] is
+     *  the first byte offset at which source line debugLines[i] applies,
+     *  ascending.  debugVarNames names the argument and local slots
+     *  (argCount + varCount entries, empty for a slot without a name).
+     *  debugFile is the file name the function was compiled from. */
+    std::vector<uint32_t> debugLinePcs;
+    std::vector<int> debugLines;
+    std::vector<std::string> debugVarNames;
+    std::string debugFile;
 
     unsigned argCount() const { return argCount_; }
     unsigned varCount() const { return varCount_; }

@@ -23293,6 +23293,9 @@ static void emit_u32(JSParseState *s, uint32_t val)
     dbuf_put_u32(&s->cur_func->byte_code, val);
 }
 
+/* protojs: set by the debugger (protojs_set_statement_line_info) */
+static int protojs_statement_line_info;
+
 static void emit_source_pos(JSParseState *s, const uint8_t *source_ptr)
 {
     JSFunctionDef *fd = s->cur_func;
@@ -28340,6 +28343,19 @@ static __exception int js_parse_statement_or_decl(JSParseState *s,
     JSContext *ctx = s->ctx;
     JSAtom label_name;
     int tok;
+
+    /* protojs: under the debugger every statement starts a line in the
+       pc2line table, not only the operations that can throw. */
+    if (protojs_statement_line_info && s->token.val != '{' && s->token.val != ';'
+    &&  s->token.val != TOK_FUNCTION) {
+        /* Not emit_source_pos: it skips a position equal to the last one,
+           and a script's first statement is at the position it starts
+           with. */
+        DynBuf *bc = &s->cur_func->byte_code;
+        dbuf_putc(bc, OP_line_num);
+        dbuf_put_u32(bc, s->token.ptr - s->buf_start);
+        s->cur_func->last_opcode_source_ptr = s->token.ptr;
+    }
 
     /* specific label handling */
     /* XXX: support multiple labels on loop statements */
@@ -34024,7 +34040,11 @@ static void compute_pc2line_info(JSFunctionDef *s)
                                            buf_start + source_pos);
             diff_line = line_num - last_line_num;
             diff_col = col_num - last_col_num;
-            if (diff_line == 0 && diff_col == 0)
+            /* protojs: under the debugger an entry that repeats the previous
+               position is kept: the first statement of a script at line 1,
+               column 1 must not merge into the function's own position,
+               which covers the hoisted declarations before it. */
+            if (diff_line == 0 && diff_col == 0 && !protojs_statement_line_info)
                 continue;
 
             if (diff_line >= PC2LINE_BASE &&
@@ -34336,6 +34356,18 @@ static __exception int resolve_labels(JSContext *ctx, JSFunctionDef *s)
                compressed table to reduce memory usage and get better
                performance */
             line_num = get_u32(bc_buf + pos + 1);
+            /* protojs: under the debugger every source position starts a
+               line in the table, not only the instructions that can throw,
+               so it can stop on each line (src/debugger/DebugHooks.h). */
+            if (protojs_statement_line_info) {
+                /* The first statement gets its own entry even at the
+                   function's own position, which then covers only what
+                   comes before it (hoisted declarations, parameter setup);
+                   see also compute_pc2line_info. */
+                if (s->line_number_count == 0)
+                    s->line_number_last = -1;
+                add_pc2line_info(s, bc_out.size, line_num);
+            }
             break;
 
         case OP_label:
@@ -59847,4 +59879,76 @@ int protojs_bytecode_source_len(void *bytecode) {
     JSFunctionBytecode *b = (JSFunctionBytecode *)bytecode;
     if (!b->has_debug) return 0;
     return b->debug.source_len;
+}
+
+/* The function's pc -> line table, decoded from its pc2line debug info, for
+   the debugger (src/debugger).  Writes at most `cap` pairs: pcs[i] is the
+   first byte offset at which lines[i] applies, ascending; the first pair is
+   (0, the function's own line).  Returns the number of pairs available
+   (which may exceed `cap`), or 0 when the function has no debug info. */
+int protojs_bytecode_pc2line(void *bytecode, uint32_t *pcs, int *lines, int cap) {
+    JSFunctionBytecode *b = (JSFunctionBytecode *)bytecode;
+    const uint8_t *p, *p_end;
+    uint32_t val;
+    int ret, v, pc, line_num, n;
+    unsigned int op;
+
+    if (!b->has_debug || !b->debug.pc2line_buf)
+        return 0;
+    p = b->debug.pc2line_buf;
+    p_end = p + b->debug.pc2line_len;
+    ret = get_leb128(&val, p, p_end);
+    if (ret < 0)
+        return 0;
+    p += ret;
+    line_num = val + 1;
+    ret = get_leb128(&val, p, p_end);   /* the function's column */
+    if (ret < 0)
+        return 0;
+    p += ret;
+    n = 0;
+    if (n < cap) { pcs[n] = 0; lines[n] = line_num; }
+    n++;
+    pc = 0;
+    while (p < p_end) {
+        op = *p++;
+        if (op == 0) {
+            ret = get_leb128(&val, p, p_end);
+            if (ret < 0)
+                break;
+            pc += val;
+            p += ret;
+            ret = get_sleb128(&v, p, p_end);
+            if (ret < 0)
+                break;
+            p += ret;
+            line_num += v;
+        } else {
+            op -= PC2LINE_OP_FIRST;
+            pc += (op / PC2LINE_RANGE);
+            line_num += (op % PC2LINE_RANGE) + PC2LINE_BASE;
+        }
+        ret = get_sleb128(&v, p, p_end);   /* column delta */
+        if (ret < 0)
+            break;
+        p += ret;
+        if (n < cap) { pcs[n] = (uint32_t)pc; lines[n] = line_num; }
+        n++;
+    }
+    return n;
+}
+
+/* Under the debugger: statement-level line information (see
+   js_parse_statement_or_decl and resolve_labels). */
+void protojs_set_statement_line_info(int on) {
+    protojs_statement_line_info = on;
+}
+
+/* The file name the function was compiled from (its debug info), or NULL.
+   Caller must JS_FreeCString. */
+const char* protojs_bytecode_filename(JSContext *ctx, void *bytecode) {
+    JSFunctionBytecode *b = (JSFunctionBytecode *)bytecode;
+    if (!b->has_debug || b->debug.filename == JS_ATOM_NULL)
+        return NULL;
+    return JS_AtomToCString(ctx, b->debug.filename);
 }

@@ -13,6 +13,7 @@
 #include "PropertyDictionary.h"
 #include "ThreadIdentity.h"
 #include "NativeStackGuard.h"
+#include "../debugger/DebugHooks.h"
 #include "../ArrayPrototype.h"
 #include "../StringPrototype.h"
 #include "../RegExpPrototype.h"
@@ -6720,6 +6721,10 @@ static const proto::ProtoObject* runBytecodeImpl(proto::ProtoContext* pContext,
             }
         }
         t_interpFrames.push_back(InterpFrame{ pContext, slotsForLocals, initialStackTop, reservedStack });
+        // Under the debugger, the activation it reports (DebugHooks.h);
+        // popped with the frame, below.
+        if (__builtin_expect(debughooks::g_enabled, 0))
+            debughooks::pushActivation(pContext, module, thisObj, pGlobalRoot);
         // The async owner (promise or generator) lives in the slot below the
         // metadata, out of the operand stack's reach, so the collector sees
         // it for the whole activation.
@@ -6737,6 +6742,7 @@ static const proto::ProtoObject* runBytecodeImpl(proto::ProtoContext* pContext,
         bool pushed;
         ~InterpFramePopOnExit() {
             if (pushed && !t_interpFrames.empty()) t_interpFrames.pop_back();
+            if (pushed && __builtin_expect(debughooks::g_enabled, 0)) debughooks::popActivation();
         }
     } _interpFramePopOnExit{nested == nullptr};
 
@@ -18988,6 +18994,12 @@ static const proto::ProtoObject* runBytecodeImpl(proto::ProtoContext* pContext,
             // with the next opcode; the compiler turns the switch into one
             // indexed jump. Unlisted opcodes go to L_default.
             protojs_dispatch_switch:
+            // Under the debugger, every instruction is reported first; the
+            // handler may stop here and run code (DebugHooks.h).
+            if (__builtin_expect(debughooks::g_enabled, 0)) {
+                debughooks::onInstruction(pContext, pc - 1);
+                REFRESH_INTERP_STATE();
+            }
             switch (opcode) {
                 #define PROTOJS_DISPATCH_CASE(op, label) case op: goto label;
                 PROTOJS_DISPATCH_TARGETS(PROTOJS_DISPATCH_CASE)
@@ -20440,4 +20452,46 @@ const proto::ProtoObject* callJSFunction(
     return callJSFunction(ctx, fn, thisVal, &positional);
 }
 
+} // namespace protojs
+
+// ---------------------------------------------------------------------------
+// The debugger's view of a frame (debugger/DebugHooks.h).  Here because the
+// slot layout and the closure cells are the interpreter's: arguments first,
+// then locals, then closure variables, each slot holding a value or the cell a
+// closure shares it through.
+// ---------------------------------------------------------------------------
+namespace protojs {
+namespace debughooks {
+
+void collectFrameVars(const Activation& a, std::vector<FrameVar>& out) {
+    out.clear();
+    proto::ProtoContext* ctx = a.ctx;
+    const ProtoBytecodeModule* m = a.module;
+    if (!ctx || !m) return;
+    const unsigned argCount = m->argCount();
+    const unsigned varCount = m->varCount();
+    auto valueOf = [&](unsigned slot) -> const proto::ProtoObject* {
+        const proto::ProtoObject* v = readCell(ctx, getSlot(ctx, slot));
+        // A `let` or `const` before its declaration ran: no value yet.
+        if (v && v == t_tdzSentinel) return nullptr;
+        return v;
+    };
+    for (unsigned i = 0; i < argCount + varCount; i++) {
+        const std::string& name = i < m->debugVarNames.size() ? m->debugVarNames[i] : std::string();
+        if (name.empty() || name[0] == '<') continue;   // hidden: <ret>, <this>...
+        out.push_back(FrameVar{name, valueOf(i), i < argCount ? FrameVar::Argument : FrameVar::Local});
+    }
+    for (size_t i = 0; i < m->closureVarNames.size(); i++) {
+        const std::string& name = m->closureVarNames[i];
+        if (name.empty() || name[0] == '<' || name == "this") continue;
+        // Only variables of enclosing functions (local, argument or theirs):
+        // the global ones are the script's, shown with the globals.
+        const int type = i < m->closureVarTypes.size() ? m->closureVarTypes[i] : -1;
+        if (type < 0 || type > 2) continue;
+        out.push_back(FrameVar{name, valueOf(argCount + varCount + static_cast<unsigned>(i)),
+                               FrameVar::Closure});
+    }
+}
+
+} // namespace debughooks
 } // namespace protojs

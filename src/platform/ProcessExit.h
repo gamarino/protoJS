@@ -39,6 +39,7 @@ struct ExitHooks {
     ExitHook hooks[kMaxExitHooks] = {};
     std::atomic<std::size_t> count{0};
     std::atomic<bool> ran{false};
+    std::atomic<int> code{0};    // the status exitNow was given
 };
 
 inline ExitHooks& exitHooks() {
@@ -59,6 +60,10 @@ inline void runExitHooks() {
 
 } // namespace detail
 
+// The status the process is ending with, for an exit hook: the one exitNow
+// was given, 0 on the other ways out.
+inline int exitStatus() { return detail::exitHooks().code.load(std::memory_order_acquire); }
+
 // Register a hook to run when the process ends, by any path. Call during
 // start-up, from the main thread. Returns false when the table is full.
 inline bool addExitHook(ExitHook hook) {
@@ -78,6 +83,7 @@ inline bool addExitHook(ExitHook hook) {
     std::cerr.flush();
     std::clog.flush();
     std::fflush(nullptr);
+    detail::exitHooks().code.store(code, std::memory_order_release);
     detail::runExitHooks();
     std::_Exit(code);
 }

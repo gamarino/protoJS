@@ -933,6 +933,9 @@ const proto::ProtoObject* JSContextWrapper::evalIsolatedToProto(
         }
     }
 
+    // The result outlives this frame: anchored in the caller's context, not
+    // left in the young generation the frame hands to the collector.
+    frameCtx.returnValue = result;
     return result;
 }
 

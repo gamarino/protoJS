@@ -4,6 +4,7 @@
 #include "QuickJSBytecodeExport.h"
 #include "QuickJSOpcodeEnum.h"
 #include "../JSSymbols.h"
+#include "../debugger/DebugHooks.h"
 #include "PropertyDictionary.h"
 #include <cstring>
 #include "../TypeBridge.h"
@@ -393,6 +394,35 @@ static bool loadBytecodeRecursive(JSContext* ctx,
     }
     out->closureSymbols = cSymbols;
 
+    // The debugger's line table, slot names and file name (DebugHooks.h).
+    out->debugLinePcs.clear();
+    out->debugLines.clear();
+    out->debugVarNames.clear();
+    out->debugFile.clear();
+    if (debughooks::enabled()) {
+        const int n = protojs_bytecode_pc2line(quickjsBytecode, nullptr, nullptr, 0);
+        if (n > 0) {
+            out->debugLinePcs.resize(static_cast<size_t>(n));
+            out->debugLines.resize(static_cast<size_t>(n));
+            protojs_bytecode_pc2line(quickjsBytecode, out->debugLinePcs.data(),
+                                     out->debugLines.data(), n);
+        }
+        const unsigned slots = static_cast<unsigned>(out->argCount_) + out->varCount_;
+        out->debugVarNames.resize(slots);
+        for (unsigned i = 0; i < slots; i++) {
+            const char* name = protojs_bytecode_var_name(ctx, quickjsBytecode, static_cast<uint16_t>(i));
+            if (name) {
+                out->debugVarNames[i] = name;
+                JS_FreeCString(ctx, name);
+            }
+        }
+        const char* file = protojs_bytecode_filename(ctx, quickjsBytecode);
+        if (file) {
+            out->debugFile = file;
+            JS_FreeCString(ctx, file);
+        }
+    }
+
     // Translate constant pool to ProtoObject values and nested functions.
     const int cpoolCount = protojs_bytecode_cpool_count(quickjsBytecode);
     const void* cpoolPtr = protojs_bytecode_cpool(quickjsBytecode);
@@ -463,6 +493,7 @@ bool loadBytecode(JSContext* ctx, void* bytecode, proto::ProtoContext* pContext,
     for (auto& nf : out->nestedFunctions) nf.ownerRoot = out;
     /* Pre-resolve all atom operands so the interpreter never needs JSContext* at runtime. */
     preResolveAllAtoms(ctx, out, pContext);
+    if (debughooks::enabled()) debughooks::moduleLoaded(*out);
     return true;
 }
 

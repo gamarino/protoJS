@@ -33,6 +33,7 @@
 #include "profiling/VisualProfiler.h"
 #include "memory/MemoryAnalyzer.h"
 #include "debugging/IntegratedDebugger.h"
+#include "dap/DapSession.h"
 #include "repl/REPL.h"
 #include "platform/ProcessExit.h"
 #include "platform/SizedThread.h"
@@ -72,6 +73,10 @@ static void restoreConsoleCodePages() {
 #endif
 static void prepareStandardStreams() {
 #if defined(_WIN32)
+    // Once: `protojs --dap` runs the program through runMain a second time.
+    static bool prepared = false;
+    if (prepared) return;
+    prepared = true;
     _setmode(_fileno(stdin), _O_BINARY);
     _setmode(_fileno(stdout), _O_BINARY);
     _setmode(_fileno(stderr), _O_BINARY);
@@ -339,6 +344,7 @@ void printUsage(const char* programName) {
     std::cerr << "  -e \"code\"            Execute code directly" << std::endl;
     std::cerr << "  -p, --print          Print result of -e" << std::endl;
     std::cerr << "  -c, --check          Syntax check only (parse without executing)" << std::endl;
+    std::cerr << "  --dap                Run as a Debug Adapter Protocol server on stdin/stdout (VS Code)" << std::endl;
     std::cerr << "  -v, --version        Show version" << std::endl;
     std::cerr << "  --input-type=module  Treat input as ES module" << std::endl;
     std::cerr << "  --proto-eval         Deprecated; accepted and ignored (the protoCore interpreter is always used)" << std::endl;
@@ -390,6 +396,13 @@ static int runMain(int argc, char** argv) {
     if (argc < 2) {
         printUsage(argv[0]);
         return 1;
+    }
+
+    // `protojs --dap`: a Debug Adapter Protocol server on stdin/stdout
+    // (docs/DEBUGGING.md). It runs the program the client launches through
+    // runMain, as `protojs <program> <args...>`.
+    if (std::string(argv[1]) == "--dap") {
+        return protojs::dap::runDapSession(argv[0], &runMain);
     }
 
     size_t cpuThreads = 0;

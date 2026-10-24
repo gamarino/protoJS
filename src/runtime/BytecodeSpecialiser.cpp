@@ -1,5 +1,6 @@
 #include "BytecodeSpecialiser.h"
 #include "QuickJSOpcodeEnum.h"
+#include "../debugger/DebugHooks.h"
 
 #include <cstdlib>
 #include <cstring>
@@ -1204,6 +1205,9 @@ int markPutFieldGroups(std::vector<uint8_t>& code,
 // ─────────────────────────────────────────────────────────────────
 
 SpecialiseMode getSpecialiseMode() {
+    // Under the debugger the bytecode keeps QuickJS's byte offsets, which
+    // the line tables describe (debugger/DebugHooks.h).
+    if (debughooks::enabled()) return SpecialiseMode::Off;
     static SpecialiseMode cached = []() {
         const char* v = std::getenv("PROTOJS_SPECIALISER");
         // Default is `compact` — the form that produces the biggest

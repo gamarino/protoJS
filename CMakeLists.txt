@@ -196,6 +196,20 @@ set(QUICKJS_SRCS
 # QuickJS Compiler Flags
 set_source_files_properties(${QUICKJS_SRCS} PROPERTIES COMPILE_FLAGS "-D_GNU_SOURCE -DCONFIG_VERSION=\\\"2024-01-13\\\"")
 
+# nlohmann/json: the Debug Adapter Protocol's messages (src/dap). Header only;
+# an installed copy is used when there is one, otherwise the release archive is
+# fetched (smaller and faster than cloning the repository).
+find_package(nlohmann_json 3.11 QUIET)
+if(NOT nlohmann_json_FOUND)
+    include(FetchContent)
+    FetchContent_Declare(
+        nlohmann_json
+        URL https://github.com/nlohmann/json/releases/download/v3.11.3/json.tar.xz
+        URL_HASH SHA256=d6c65aca6b1ed68e7a182f4757257b107ae403032760ed6ef121c9d55e81757d
+    )
+    FetchContent_MakeAvailable(nlohmann_json)
+endif()
+
 # Core static library: all shared sources (reused by both protojs and protojs_tests)
 add_library(protojs_core STATIC
     src/TypeBridge.cpp
@@ -251,6 +265,11 @@ add_library(protojs_core STATIC
     src/profiling/Profiler.cpp
     src/profiling/VisualProfiler.cpp
     src/debugging/IntegratedDebugger.cpp
+    # Debugger: the engine hooks and the Debug Adapter Protocol server
+    src/debugger/DebugHooks.cpp
+    src/dap/DapTransport.cpp
+    src/dap/DapStdio.cpp
+    src/dap/DapSession.cpp
     # protoCore-backed array adapter and QuickJS integration
     src/JSSymbols.cpp
     src/NumberPrototype.cpp
@@ -313,6 +332,8 @@ target_link_libraries(protojs_core
     PUBLIC
     ${PROTOCORE_LIBRARY}
     ${PROTOJS_SYSTEM_LIBS}
+    PRIVATE
+    nlohmann_json::nlohmann_json
 )
 
 # Built-in modules written in JavaScript are embedded in the binary as byte

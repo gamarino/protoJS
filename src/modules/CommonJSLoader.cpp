@@ -649,9 +649,11 @@ static const proto::ProtoObject* executeFileModuleNative(
     sourceBuffer << file.rdbuf();
 
     // The CommonJS wrapper: the module body becomes a function whose parameters
-    // are the five names a module may use.
+    // are the five names a module may use.  The body starts on the wrapper's
+    // line, as in Node, so its line numbers are the file's (the debugger's
+    // breakpoints and stack frames).
     std::string wrapped =
-        "(function(exports, require, module, __filename, __dirname) {\n";
+        "(function(exports, require, module, __filename, __dirname) {";
     wrapped += sourceBuffer.str();
     wrapped += "\n});";
 
@@ -855,7 +857,8 @@ JSValue CommonJSLoader::executeModule(
     JSContext* ctx
 ) {
     // Create CommonJS wrapper: script that evaluates to the wrapper function
-    std::string wrapped = "(function(exports, require, module, __filename, __dirname) {\n";
+    // The body starts on the wrapper's line: its line numbers are the file's.
+    std::string wrapped = "(function(exports, require, module, __filename, __dirname) {";
     wrapped += source;
     wrapped += "\n});";
 

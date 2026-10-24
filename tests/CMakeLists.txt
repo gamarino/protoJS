@@ -537,3 +537,14 @@ foreach(path_test
         COMMAND "$<TARGET_FILE:protojs>"
                 "${CMAKE_CURRENT_SOURCE_DIR}/integration/path/${path_test}.js")
 endforeach()
+
+# `protojs --dap`: debug sessions driven the way VS Code drives them --
+# breakpoints, the call stack, variables, evaluate, stepping, stopOnEntry,
+# conditional breakpoints, process.exit, and the program's output (more than
+# 64 KB of non-ASCII text, a child reading stdin) arriving as `output` events
+# without disturbing the protocol (docs/DEBUGGING.md). A few seconds.
+add_test(NAME cli/dap-session
+    COMMAND ${PROTOJS_PYTHON} "${CMAKE_CURRENT_SOURCE_DIR}/cli/dap_session.py"
+            "$<TARGET_FILE:protojs>"
+            "${CMAKE_CURRENT_BINARY_DIR}/cli-scratch/dap-session")
+set_tests_properties(cli/dap-session PROPERTIES TIMEOUT 300)

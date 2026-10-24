@@ -100,6 +100,22 @@ const char* protojs_bytecode_source(void* bytecode);
  *  Zero when source is unavailable. */
 int protojs_bytecode_source_len(void* bytecode);
 
+/** The function's pc -> line table (its pc2line debug info), for the
+ *  debugger.  Writes at most `cap` pairs: pcs[i] is the first byte offset at
+ *  which lines[i] applies, ascending; the first pair is (0, the function's own
+ *  line).  Returns the number of pairs available (possibly more than `cap`),
+ *  0 when the function has no debug info. */
+int protojs_bytecode_pc2line(void* bytecode, uint32_t* pcs, int* lines, int cap);
+
+/** Under the debugger: every statement gets a line in the pc2line table, not
+ *  only the operations that can throw (QuickJS's default).  Set before any
+ *  compilation; changes only the debug info, never the bytecode run. */
+void protojs_set_statement_line_info(int on);
+
+/** The file name the function was compiled from, or NULL.  Caller must
+ *  JS_FreeCString(ctx, result). */
+const char* protojs_bytecode_filename(struct JSContext* ctx, void* bytecode);
+
 #ifdef __cplusplus
 }
 #endif
