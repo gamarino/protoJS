@@ -6,6 +6,27 @@ All notable changes to protoJS are documented in this file.
 
 **Requires protoCore 3.1.0** (untagged master, commit 267b9fc9; SOVERSION 4). CI pins that commit on every job.
 
+### Added — sources by reference, path mappings, remote debugging (2026-10-25)
+
+- **Sources without a file** in `protojs --dap`: code embedded in protojs
+  (`protojs:internal/util/inspect.js`, deemphasized) and code compiled from a
+  string (`new Function`, a Deferred's function; each anonymous one is named
+  `<Function#N>` under the debugger) come with a `sourceReference`; the
+  `source` request serves their text; steps and breakpoints work in them.
+- **`loadedSources`** and `loadedSource` events (VS Code's Loaded Scripts).
+- **`pathMappings`** (`[{localRoot, remoteRoot}]`, as debugpy): program, cwd
+  and breakpoint paths client to adapter, the call stack, breakpoints,
+  exception stack traces and loaded sources back; longest prefix, either
+  separator, case-insensitive Windows roots. A file under no mapping is
+  served by reference. Invalid mappings fail the launch.
+- **VS Code extension 0.4.0**: `remote: {command, path}` runs
+  `<command...> <path> --dap` (ssh, wsl, docker exec) and requires
+  `pathMappings`; "Launch over SSH" / "Launch in WSL" snippets;
+  `extensionKind: ["workspace"]` for VS Code Remote.
+- docs/DEBUGGING.md: remote debugging (both options, the silent-shell
+  caveat), sources without a file, JetBrains IDEs through LSP4IJ (not yet
+  tried in a JetBrains IDE).
+
 ### Added — conditions, hit counts and logpoints in the debugger (2026-10-24)
 
 - **Conditions on the exception filters** (`supportsExceptionFilterOptions`,

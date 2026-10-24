@@ -1,8 +1,8 @@
 {
   "name": "protojs-debug",
   "displayName": "protoJS Debugger",
-  "description": "Debug JavaScript with protoJS: breakpoints with conditions, hit counts and logpoints, exception breakpoints, stepping, call stack, variables and the Debug Console through the protojs --dap Debug Adapter Protocol adapter.",
-  "version": "0.3.0",
+  "description": "Debug JavaScript with protoJS, locally or on a remote machine: breakpoints with conditions, hit counts and logpoints, exception breakpoints, stepping, call stack, variables and the Debug Console through the protojs --dap Debug Adapter Protocol adapter.",
+  "version": "0.4.0",
   "publisher": "protojs-placeholder",
   "engines": {
     "vscode": "^1.66.0"
@@ -11,6 +11,9 @@
     "Debuggers"
   ],
   "main": "./extension.js",
+  "extensionKind": [
+    "workspace"
+  ],
   "activationEvents": [
     "onDebugResolve:protojs",
     "onDebugDynamicConfigurations:protojs",
@@ -75,6 +78,55 @@
                 "type": "boolean",
                 "description": "Stop at the first line of the program.",
                 "default": false
+              },
+              "pathMappings": {
+                "type": "array",
+                "description": "Path translation between this machine (localRoot) and the machine protojs runs on (remoteRoot), for remote debugging: program, cwd, breakpoints and the call stack are translated. A file under no mapping is shown read-only, served by protojs.",
+                "items": {
+                  "type": "object",
+                  "required": [
+                    "localRoot",
+                    "remoteRoot"
+                  ],
+                  "properties": {
+                    "localRoot": {
+                      "type": "string",
+                      "description": "A directory on this machine (the editor's side).",
+                      "default": "${workspaceFolder}"
+                    },
+                    "remoteRoot": {
+                      "type": "string",
+                      "description": "The same directory where protojs runs."
+                    }
+                  }
+                },
+                "default": [
+                  {
+                    "localRoot": "${workspaceFolder}",
+                    "remoteRoot": ""
+                  }
+                ]
+              },
+              "remote": {
+                "type": "object",
+                "description": "Run protojs --dap on another machine through a command that pipes stdin/stdout (ssh, wsl, docker exec). Requires pathMappings.",
+                "required": [
+                  "command"
+                ],
+                "properties": {
+                  "command": {
+                    "type": "array",
+                    "items": {
+                      "type": "string"
+                    },
+                    "description": "The command prefix, e.g. [\"ssh\", \"-T\", \"-o\", \"BatchMode=yes\", \"user@host\"] or [\"wsl\", \"-d\", \"Ubuntu-24.04\", \"--\"]. protojs's path and --dap are appended."
+                  },
+                  "path": {
+                    "type": "string",
+                    "description": "The protojs executable on the remote side.",
+                    "default": "protojs"
+                  }
+                }
               }
             }
           }
@@ -98,6 +150,57 @@
               "name": "Debug current file with protoJS",
               "program": "^\"\\${file}\"",
               "stopOnEntry": false
+            }
+          },
+          {
+            "label": "protoJS: Launch over SSH",
+            "description": "Run protojs --dap on a remote machine over ssh; the workspace is mapped to its copy there.",
+            "body": {
+              "type": "protojs",
+              "request": "launch",
+              "name": "protoJS over SSH",
+              "program": "^\"\\${workspaceFolder}/main.js\"",
+              "remote": {
+                "command": [
+                  "ssh",
+                  "-T",
+                  "-o",
+                  "BatchMode=yes",
+                  "user@host"
+                ],
+                "path": "protojs"
+              },
+              "pathMappings": [
+                {
+                  "localRoot": "^\"\\${workspaceFolder}\"",
+                  "remoteRoot": "/home/user/project"
+                }
+              ]
+            }
+          },
+          {
+            "label": "protoJS: Launch in WSL",
+            "description": "Run a Linux protojs --dap in WSL on this Windows machine.",
+            "body": {
+              "type": "protojs",
+              "request": "launch",
+              "name": "protoJS in WSL",
+              "program": "^\"\\${workspaceFolder}/main.js\"",
+              "remote": {
+                "command": [
+                  "wsl",
+                  "-d",
+                  "Ubuntu-24.04",
+                  "--"
+                ],
+                "path": "/home/user/.local/bin/protojs"
+              },
+              "pathMappings": [
+                {
+                  "localRoot": "^\"\\${workspaceFolder}\"",
+                  "remoteRoot": "/home/user/project"
+                }
+              ]
             }
           }
         ]

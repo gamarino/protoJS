@@ -20,14 +20,14 @@ the `.vsix` (the same on Windows, Linux and macOS; needs Node.js for `npx`):
 ```bash
 cd editor-integration/vscode
 npx @vscode/vsce@3.2.1 package --skip-license
-code --install-extension protojs-debug-0.3.0.vsix
+code --install-extension protojs-debug-0.4.0.vsix
 ```
 
 On Linux and macOS you can instead symlink the folder, which picks up edits
 after **Developer: Reload Window**:
 
 ```bash
-ln -s "$(pwd)/editor-integration/vscode" ~/.vscode/extensions/protojs-debug-0.3.0
+ln -s "$(pwd)/editor-integration/vscode" ~/.vscode/extensions/protojs-debug-0.4.0
 ```
 
 The extension runs `protojs` from, in this order:
@@ -64,6 +64,8 @@ The extension runs `protojs` from, in this order:
 | `cwd`         | string   | Working directory of the program. |
 | `env`         | object   | Environment variables added for the program. |
 | `stopOnEntry` | boolean  | Stop at the program's first statement. |
+| `pathMappings` | {localRoot, remoteRoot}[] | Path translation for remote debugging (see [Remote debugging](#remote-debugging)). |
+| `remote`      | {command, path} | VS Code extension only: run `protojs --dap` through a command such as `ssh` or `wsl` (see [Remote debugging](#remote-debugging)). |
 
 ## What works
 
@@ -100,8 +102,156 @@ The extension runs `protojs` from, in this order:
   empty (end of file): it is not the debugger's input stream.
 - **Exception breakpoints**: **All Exceptions** and **Uncaught Exceptions**
   in the Breakpoints view (see below).
+- **Sources without a file**: code embedded in protojs and code compiled
+  from a string open read-only, and breakpoints and steps work in them; the
+  **Loaded Scripts** view lists every source the program loaded (see
+  [Sources without a file](#sources-without-a-file)).
+- **Remote debugging** over ssh, WSL or Docker, with `pathMappings`.
 - **process.exit** and an uncaught exception end the session with the
   program's exit status.
+
+## Sources without a file
+
+A frame whose code has a file the editor can open shows that file. The rest
+is served by `protojs --dap` itself, as a read-only document the editor
+fetches with the `source` request (a `sourceReference`):
+
+- **Code embedded in protojs**: `protojs:internal/util/inspect.js`, the
+  JavaScript behind `util.inspect` and `util.format`. It is shown
+  deemphasized (origin "embedded in protojs").
+- **Code compiled from a string**: `new Function(...)`, a `Deferred`'s
+  function (compiled from its source text), the REPL. Under the debugger each
+  of these gets a name of its own, `<Function#3>`, `(deferred#4)`, so that two
+  functions compiled from different strings are two sources; that name also
+  appears in their errors' stack traces while debugging.
+- **A file under no path mapping** when `pathMappings` is set (below): the
+  editor cannot open the adapter's path, so the file's content is served,
+  named by its base name, with its path on the adapter's side as the origin.
+
+You can step into all of them, see their code, set breakpoints in them (they
+are kept by reference for the whole session) and stop there. The
+expressions of the debugger itself (Debug Console, Watch, conditions) are
+not sources and never appear.
+
+**Loaded Scripts** (the Run and Debug view's `...` menu) lists the main
+script, every file it `require`s, and the embedded and generated sources, as
+the program loads them (`loadedSources` request, `loadedSource` events).
+
+## Remote debugging
+
+**Option 1: VS Code Remote (SSH, WSL, Dev Containers).** Open the folder on
+the remote machine with the Remote extension, install protojs there and
+install the `.vsix` there (Extensions view, `...`, **Install from VSIX...**,
+while connected). The extension declares `"extensionKind": ["workspace"]`,
+so it runs on the remote side and starts the remote `protojs`; everything
+else works as locally. Nothing to configure.
+
+**Option 2: `remote.command` and `pathMappings`.** The editor and the
+sources stay on this machine; `protojs --dap` runs on another one, reached by
+a command that connects its stdin and stdout: `ssh`, `wsl`, `docker exec -i`.
+The extension runs `<command...> <remote.path> --dap` (`remote.path` defaults
+to `protojs`), and the adapter translates the paths:
+
+```json
+{
+  "type": "protojs",
+  "request": "launch",
+  "name": "protoJS over SSH",
+  "program": "${workspaceFolder}/main.js",
+  "cwd": "${workspaceFolder}",
+  "remote": {
+    "command": ["ssh", "-T", "-o", "BatchMode=yes", "user@host"],
+    "path": "/home/user/.local/bin/protojs"
+  },
+  "pathMappings": [
+    { "localRoot": "${workspaceFolder}", "remoteRoot": "/home/user/project" }
+  ]
+}
+```
+
+WSL, from VS Code on Windows (the Linux build of protojs in the WSL
+distribution, the project checked out there too):
+
+```json
+{
+  "type": "protojs",
+  "request": "launch",
+  "name": "protoJS in WSL",
+  "program": "${workspaceFolder}/main.js",
+  "remote": {
+    "command": ["wsl", "-d", "Ubuntu-24.04", "--"],
+    "path": "/home/user/.local/bin/protojs"
+  },
+  "pathMappings": [
+    { "localRoot": "${workspaceFolder}", "remoteRoot": "/home/user/project" }
+  ]
+}
+```
+
+(`["docker", "exec", "-i", "my-container"]` works the same way.)
+
+`pathMappings` is the attribute debugpy uses: `localRoot` is the editor's
+side, `remoteRoot` the adapter's. `protojs --dap` translates the program,
+`cwd` and breakpoint paths from local to remote, and the call stack,
+breakpoints, exception stack traces and Loaded Scripts back. The longest
+matching root wins, `\` and `/` are both accepted, and a Windows-looking root
+(`c:\...`) matches whatever the case of the drive letter and the names. A
+file under no mapping (a module outside the project, a global
+`node_modules`) is shown read-only through a `sourceReference` (above).
+Without `pathMappings` paths are used as they are. A mapping without both
+roots fails the launch with a message; the extension refuses a `remote`
+launch without `pathMappings`.
+
+The program's files must exist on the remote side (the adapter runs them
+there): check out or sync the project there, at `remoteRoot`.
+
+**The remote shell must stay silent.** The protocol is the command's
+stdin/stdout, so anything the remote side prints before `protojs` starts (a
+login banner, an `echo` in `.bashrc`, a `motd`) breaks the session. Use
+`ssh -T` (no terminal) and `-o BatchMode=yes` (no password prompt: use a key
+or an agent), and keep the non-interactive shell startup quiet.
+
+Other DAP clients (below) use the same command and `pathMappings`.
+
+## JetBrains IDEs (IntelliJ IDEA, WebStorm, PyCharm, CLion, ...)
+
+The JetBrains IDEs debug JavaScript with their own Node.js debugger; protoJS
+can be added next to it with the **LSP4IJ** plugin (Red Hat), which runs any
+Debug Adapter Protocol server. The built-in Node.js run configurations are
+not affected.
+
+1. Install **LSP4IJ** from the JetBrains Marketplace.
+2. Create a run configuration of type **Debug Adapter Protocol** (Run, Edit
+   Configurations, `+`).
+3. **Server** tab: the command `protojs --dap`, with the full path of
+   `protojs` (`%LOCALAPPDATA%\Programs\proto\bin\protojs.exe`,
+   `~/.local/bin/protojs`), or, for a remote machine, the same command form
+   as above: `ssh -T -o BatchMode=yes user@host /home/user/.local/bin/protojs --dap`.
+4. **Mappings** tab: the files that take breakpoints, e.g. the file name
+   pattern `*.js` (or the JavaScript language / file type).
+5. **Configuration** tab: the working directory, the file to debug, and the
+   launch parameters as JSON, with the same attributes as `launch.json`:
+
+   ```json
+   {
+     "type": "protojs",
+     "request": "launch",
+     "program": "/path/to/main.js",
+     "stopOnEntry": false,
+     "pathMappings": [{ "localRoot": "/path/on/this/machine", "remoteRoot": "/path/remote" }]
+   }
+   ```
+
+   (`remote` is not used there: the command goes in the Server tab.)
+6. Debug it. The exception filters (All Exceptions, Uncaught Exceptions)
+   appear after the first run, once the adapter has announced them.
+
+Syntax highlighting is the IDE's own for JavaScript; there is nothing to
+import.
+
+*This section was written from LSP4IJ's documentation and the adapter's
+protocol behaviour; it has not been clicked through in a JetBrains IDE, and
+menu and field names may differ between plugin versions.*
 
 ## Breakpoint conditions, hit counts and logpoints
 
@@ -259,7 +409,8 @@ What never stops:
   There are no exception options (filter by class with a condition such as
   `error instanceof TypeError` instead).
 - No column breakpoints, no `debugger;`
-  statement (it is ignored), no attach to a running process.
+  statement (it is ignored), no attach to a running process (a remote
+  session launches the program on the remote side).
 - **Slower execution under the debugger**: the bytecode specialiser is off,
   and while a breakpoint is set (or a step is in progress) every instruction
   is checked. In a compute-bound benchmark that came to about 1.3-1.5 times

@@ -33,14 +33,14 @@ platform):
 ```bash
 cd editor-integration/vscode
 npx @vscode/vsce@3.2.1 package --skip-license
-code --install-extension protojs-debug-0.3.0.vsix
+code --install-extension protojs-debug-0.4.0.vsix
 ```
 
 Or, on Linux and macOS, symlink the folder (picks up edits after a
 `Developer: Reload Window`):
 
 ```bash
-ln -s "$(pwd)/editor-integration/vscode" ~/.vscode/extensions/protojs-debug-0.3.0
+ln -s "$(pwd)/editor-integration/vscode" ~/.vscode/extensions/protojs-debug-0.4.0
 ```
 
 ## Use
@@ -70,7 +70,30 @@ ln -s "$(pwd)/editor-integration/vscode" ~/.vscode/extensions/protojs-debug-0.3.
 | `env`         | object   | no       | Environment variables added for the program.    |
 | `stopOnEntry` | boolean  | no       | Stop at the first statement (default off).      |
 
-See `docs/DEBUGGING.md` for the full debugging guide and its limitations
+| `pathMappings`| array    | no       | `[{localRoot, remoteRoot}]`: path translation for a remote adapter. |
+| `remote`      | object   | no       | `{command: [...], path}`: run `<command...> <path> --dap` (ssh, wsl, docker exec). Needs `pathMappings`. |
+
+## Remote debugging
+
+- **VS Code Remote (SSH / WSL / Dev Containers):** install protojs and this
+  `.vsix` on the remote side while connected; the extension is a
+  `workspace` extension, so it runs there. Nothing else to set.
+- **`remote` + `pathMappings`:** keep the editor here and run the adapter
+  elsewhere. Snippets **protoJS: Launch over SSH** and **protoJS: Launch in
+  WSL** (Run → Add Configuration…) write:
+
+```json
+"remote": { "command": ["ssh", "-T", "-o", "BatchMode=yes", "user@host"], "path": "protojs" },
+"pathMappings": [{ "localRoot": "${workspaceFolder}", "remoteRoot": "/home/user/project" }]
+```
+
+The remote shell must print nothing on a non-interactive start (no banner,
+no `echo` in `.bashrc`): the protocol runs over that stream. Files outside
+the mappings, code embedded in protojs and code built with `new Function`
+open read-only, served by the adapter.
+
+See `docs/DEBUGGING.md` for the full debugging guide (also: JetBrains IDEs
+through LSP4IJ) and its limitations
 (only the main thread is debugged; ES modules are not debuggable; an
 assignment to a local in the Debug Console does not reach the program;
 Uncaught Exceptions does not stop at a throw that rejects a promise).
