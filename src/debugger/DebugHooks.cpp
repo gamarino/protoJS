@@ -3,6 +3,7 @@
 #include "../runtime/QuickJSBytecodeExport.h"
 
 #include <algorithm>
+#include <atomic>
 
 namespace protojs {
 namespace debughooks {
@@ -93,6 +94,35 @@ bool throwWillBeCaught(const std::vector<Activation>& stack) {
         if (stack[i].module && stack[i].module->isAsync) return true;
     }
     return !t_catchingNatives.empty();
+}
+
+namespace {
+thread_local std::string t_compiledName;
+thread_local std::string t_compiledText;
+std::atomic<int> s_anonymousSources{0};
+} // namespace
+
+std::string sourceCompiled(const char* filename, const char* text, size_t len) {
+    std::string name = filename ? filename : "";
+    // The debugger's own expressions are not sources of the program.
+    if (name == "<debugger>") return name;
+    if (!name.empty() && (name[0] == '<' || name[0] == '(')) {
+        const std::string n = "#" + std::to_string(++s_anonymousSources);
+        const char last = name.back();
+        if (name.size() > 1 && (last == '>' || last == ')')) name.insert(name.size() - 1, n);
+        else name += n;
+    }
+    t_compiledName = name;
+    t_compiledText.assign(text ? text : "", text ? len : 0);
+    return name;
+}
+
+bool takeCompiledSource(const std::string& filename, std::string& text) {
+    if (t_compiledName.empty() || t_compiledName != filename) return false;
+    text.swap(t_compiledText);
+    t_compiledName.clear();
+    t_compiledText.clear();
+    return true;
 }
 
 void moduleLoaded(const ProtoBytecodeModule& root) {

@@ -24,6 +24,8 @@
 #include <cstring>
 #include <deque>
 #include <filesystem>
+#include <fstream>
+#include <sstream>
 #include <functional>
 #include <iostream>
 #include <map>
@@ -123,10 +125,82 @@ struct BreakpointFile {
 
 // What the debugger knows of a file name a function was compiled from.
 struct FileInfo {
-    std::string key;          // normalised path (fileKey), empty if none
-    std::string displayPath;  // the path reported to the client
-    bool isUserFile = false;  // a file on disk: stops happen only there
+    std::string key;          // breakpoint key: fileKey(path), or "ref:" + name
+    std::string displayPath;  // the path reported to the client (none: a reference)
+    std::string adapterPath;  // a file: its path here, where the adapter runs
+    std::string name;         // the source's name for the client
+    bool isUserFile = false;  // a file on disk
+    int ref = 0;              // a sourceReference: no file the client can open
+    bool embedded = false;    // built into protojs (deemphasized)
+    bool stoppable() const { return isUserFile || ref > 0; }
 };
+
+// A source the client reads through `source`: code without a file (embedded
+// in protojs, compiled from a string) or a file outside every path mapping.
+struct SourceEntry {
+    std::string key;
+    std::string name;
+    std::string origin;
+    std::string text;         // the code (no file)
+    std::string filePath;     // the file to read (outside the mappings)
+    bool embedded = false;
+};
+
+// launch.pathMappings: localRoot is the client's side, remoteRoot the
+// adapter's.
+struct PathMapping {
+    std::string localRoot;
+    std::string remoteRoot;
+};
+
+bool looksWindows(const std::string& p) {
+    return (p.size() >= 2 && std::isalpha(static_cast<unsigned char>(p[0])) && p[1] == ':') ||
+           p.find('\\') != std::string::npos;
+}
+
+std::string forwardSlashes(std::string p) {
+    for (char& c : p) if (c == '\\') c = '/';
+    while (p.size() > 1 && p.back() == '/' && !(p.size() == 3 && p[1] == ':')) p.pop_back();
+    return p;
+}
+
+std::string lowered(std::string p) {
+    for (char& c : p) if (c >= 'A' && c <= 'Z') c = static_cast<char>(c - 'A' + 'a');
+    return p;
+}
+
+// `path` under one of the roots, by the longest matching root: the path
+// rebuilt under the corresponding root of the other side, with that side's
+// separators.  Empty when no root matches.
+std::string mapPath(const std::vector<PathMapping>& mappings, const std::string& path,
+                    bool clientToAdapter) {
+    const std::string sp = forwardSlashes(path);
+    size_t best = std::string::npos, bestLen = 0;
+    for (size_t i = 0; i < mappings.size(); i++) {
+        const std::string& from = clientToAdapter ? mappings[i].localRoot : mappings[i].remoteRoot;
+        const std::string root = forwardSlashes(from);
+        if (root.empty()) continue;
+        const bool ci = looksWindows(from);
+        const std::string a = ci ? lowered(sp) : sp;
+        const std::string b = ci ? lowered(root) : root;
+        const bool match = a == b ||
+            (a.size() > b.size() && a.compare(0, b.size(), b) == 0 &&
+             (b.back() == '/' || a[b.size()] == '/'));
+        if (match && (best == std::string::npos || root.size() > bestLen)) {
+            best = i;
+            bestLen = root.size();
+        }
+    }
+    if (best == std::string::npos) return {};
+    const std::string& to = clientToAdapter ? mappings[best].remoteRoot : mappings[best].localRoot;
+    std::string rest = sp.substr(bestLen);
+    if (!rest.empty() && rest[0] == '/') rest.erase(0, 1);
+    std::string out = forwardSlashes(to);
+    if (!rest.empty()) out += (out.empty() || out.back() == '/' ? "" : "/") + rest;
+    if (looksWindows(to))
+        for (char& c : out) if (c == '/') c = '\\';
+    return out;
+}
 
 // A variables handle.
 struct VarRef {
@@ -266,6 +340,14 @@ private:
     // --- breakpoints -----------------------------------------------------
     std::string fileKey(const std::string& path) const;
     const FileInfo& fileInfo(const std::string& debugFile);
+    // Paths across launch.pathMappings (unchanged without mappings).
+    std::string toAdapter(const std::string& clientPath) const;
+    std::optional<std::string> toClient(const std::string& adapterPath) const;
+    int registerSource(SourceEntry entry);
+    json sourceJson(const FileInfo& file) const;
+    void announceSource(const FileInfo& file);
+    void handleSource(const json& req);
+    void handleLoadedSources(const json& req);
     bool breakpointAt(const std::string& key, int line, Breakpoint& out);
     static void resolve(Breakpoint& bp, const std::set<int>& lines);
     json breakpointJson(const Breakpoint& bp, const std::set<int>* lines) const;
@@ -358,6 +440,15 @@ private:
     int nextBreakpointId_ = 1;
 
     std::unordered_map<std::string, FileInfo> fileInfos_;   // main thread only
+    std::unordered_map<std::string, std::string> sourceTexts_;   // main thread only
+    std::vector<PathMapping> mappings_;   // set by launch, before the program runs
+
+    // Sources served by reference (ref n is sources_[n - 1]) and the loaded
+    // sources, in load order; guarded by srcMu_.
+    std::mutex srcMu_;
+    std::vector<SourceEntry> sources_;
+    std::unordered_map<std::string, int> refByKey_;
+    std::vector<json> loaded_;
 };
 
 Session* g_session = nullptr;
@@ -495,6 +586,7 @@ void Session::handleRequest(const json& req) {
             {"supportsExceptionInfoRequest", true},
             {"supportsHitConditionalBreakpoints", true},
             {"supportsLogPoints", true},
+            {"supportsLoadedSourcesRequest", true},
             {"supportsExceptionFilterOptions", true},
             {"exceptionBreakpointFilters", json::array({
                 {{"filter", "raised"}, {"label", "All Exceptions"}, {"default", false},
@@ -521,6 +613,10 @@ void Session::handleRequest(const json& req) {
         handleSetExceptionBreakpoints(req);
     } else if (command == "exceptionInfo") {
         handleExceptionInfo(req);
+    } else if (command == "source") {
+        handleSource(req);
+    } else if (command == "loadedSources") {
+        handleLoadedSources(req);
     } else if (command == "configurationDone") {
         sendResponse(req);
         {
@@ -555,6 +651,34 @@ void Session::handleRequest(const json& req) {
 
 void Session::handleLaunch(const json& req) {
     json args = req.value("arguments", json::object());
+    if (args.contains("pathMappings")) {
+        const json& pm = args["pathMappings"];
+        std::string bad;
+        if (!pm.is_array()) bad = "launch: 'pathMappings' must be an array of {localRoot, remoteRoot}";
+        for (size_t i = 0; bad.empty() && i < pm.size(); i++) {
+            const json& m = pm[i];
+            const std::string lr = m.is_object() ? m.value("localRoot", "") : "";
+            const std::string rr = m.is_object() ? m.value("remoteRoot", "") : "";
+            if (lr.empty() || rr.empty()) {
+                bad = "launch: pathMappings[" + std::to_string(i) +
+                      "] needs both 'localRoot' (the path on the client's side) and "
+                      "'remoteRoot' (the path where protojs runs)";
+                break;
+            }
+            mappings_.push_back({lr, rr});
+        }
+        if (!bad.empty()) {
+            mappings_.clear();
+            sendError(req, bad);
+            sendEvent("terminated");
+            return;
+        }
+    }
+    // The program and its directory as the client names them, here.
+    const std::string clientProgram = args.value("program", "");
+    if (!clientProgram.empty()) args["program"] = toAdapter(clientProgram);
+    if (args.contains("cwd") && args["cwd"].is_string())
+        args["cwd"] = toAdapter(args["cwd"].get<std::string>());
     const std::string program = args.value("program", "");
     std::error_code ec;
     if (program.empty() || !fs::is_regular_file(fs::path(program), ec)) {
@@ -580,7 +704,7 @@ void Session::handleLaunch(const json& req) {
         // The program's own path, as the client spells it, names its file.
         std::lock_guard<std::mutex> lk(bpMu_);
         BreakpointFile& f = breakpoints_[fileKey(program)];
-        if (f.clientPath.empty()) f.clientPath = program;
+        if (f.clientPath.empty()) f.clientPath = clientProgram;
     }
     sendResponse(req);
     {
@@ -593,13 +717,29 @@ void Session::handleLaunch(const json& req) {
 
 void Session::handleSetBreakpoints(const json& req) {
     const json args = req.value("arguments", json::object());
-    const std::string path = args.value("source", json::object()).value("path", "");
-    const std::string key = fileKey(path);
+    const json source = args.value("source", json::object());
+    const std::string path = source.value("path", "");
+    const int sourceRef = source.value("sourceReference", 0);
+    std::string key;
+    if (sourceRef > 0) {
+        std::lock_guard<std::mutex> lk(srcMu_);
+        if (static_cast<size_t>(sourceRef) <= sources_.size()) key = sources_[sourceRef - 1].key;
+    } else {
+        key = fileKey(toAdapter(path));
+    }
     json result = json::array();
+    if (key.empty()) {
+        if (args.contains("breakpoints") && args["breakpoints"].is_array())
+            for (const auto& b : args["breakpoints"])
+                result.push_back({{"verified", false}, {"line", b.value("line", 0)},
+                                  {"message", "unknown source"}});
+        sendResponse(req, {{"breakpoints", result}});
+        return;
+    }
     {
         std::lock_guard<std::mutex> lk(bpMu_);
         BreakpointFile& f = breakpoints_[key];
-        f.clientPath = path;
+        if (sourceRef <= 0) f.clientPath = path;
         f.breakpoints.clear();   // setBreakpoints replaces the file's list
         auto lines = codeLines_.find(key);
         const std::set<int>* known = lines == codeLines_.end() ? nullptr : &lines->second;
@@ -619,7 +759,9 @@ void Session::handleSetBreakpoints(const json& req) {
                 }
                 if (known) resolve(bp, *known);
                 f.breakpoints.push_back(bp);
-                result.push_back(breakpointJson(bp, known));
+                json bj = breakpointJson(bp, known);
+                bj["source"] = source;   // as the client named it
+                result.push_back(std::move(bj));
             }
         }
         bool any = false;
@@ -787,20 +929,159 @@ const FileInfo& Session::fileInfo(const std::string& debugFile) {
     auto it = fileInfos_.find(debugFile);
     if (it != fileInfos_.end()) return it->second;
     FileInfo info;
-    info.key = fileKey(debugFile);
-    if (!info.key.empty()) {
+    if (!debugFile.empty()) {
         std::error_code ec;
         fs::path p(debugFile);
-        if (p.is_relative()) p = fs::path(baseDir_) / p;
-        p = p.lexically_normal();
-        info.isUserFile = fs::is_regular_file(p, ec);
-        info.displayPath = p.make_preferred().string();
-        std::lock_guard<std::mutex> lk(bpMu_);
-        auto f = breakpoints_.find(info.key);
-        if (f != breakpoints_.end() && !f->second.clientPath.empty())
-            info.displayPath = f->second.clientPath;
+        const bool named = debugFile[0] != '<' && debugFile[0] != '(';
+        if (named && p.is_relative()) p = fs::path(baseDir_) / p;
+        if (named) p = p.lexically_normal();
+        info.isUserFile = named && fs::is_regular_file(p, ec);
+        if (info.isUserFile) {
+            info.adapterPath = p.make_preferred().string();
+            info.key = fileKey(info.adapterPath);
+            info.name = fs::path(info.adapterPath).filename().string();
+            std::string clientPath;
+            {
+                std::lock_guard<std::mutex> lk(bpMu_);
+                auto f = breakpoints_.find(info.key);
+                if (f != breakpoints_.end()) clientPath = f->second.clientPath;
+            }
+            if (!clientPath.empty()) {
+                info.displayPath = clientPath;
+            } else if (mappings_.empty()) {
+                info.displayPath = info.adapterPath;
+            } else if (auto c = toClient(info.adapterPath)) {
+                info.displayPath = *c;
+            } else {
+                // Under no mapping: the client cannot open this path, so the
+                // adapter serves the file.
+                SourceEntry e;
+                e.key = info.key;
+                e.name = info.name;
+                e.origin = info.adapterPath;
+                e.filePath = info.adapterPath;
+                info.ref = registerSource(std::move(e));
+            }
+        } else if (debugFile != "<debugger>") {
+            // Code without a file: embedded in protojs, or compiled from a
+            // string (new Function, a Deferred's function, ...).
+            info.key = "ref:" + debugFile;
+            info.name = debugFile;
+            info.embedded = debugFile.compare(0, 8, "protojs:") == 0;
+            SourceEntry e;
+            e.key = info.key;
+            e.name = debugFile;
+            e.embedded = info.embedded;
+            e.origin = info.embedded ? "embedded in protojs" : "code compiled from a string";
+            auto t = sourceTexts_.find(debugFile);
+            if (t != sourceTexts_.end()) {
+                e.text = std::move(t->second);
+                sourceTexts_.erase(t);
+            } else {
+                e.text = "// The source of " + debugFile + " is not available.\n";
+            }
+            info.ref = registerSource(std::move(e));
+        }
     }
-    return fileInfos_.emplace(debugFile, std::move(info)).first->second;
+    const FileInfo& stored = fileInfos_.emplace(debugFile, std::move(info)).first->second;
+    if (stored.stoppable()) announceSource(stored);
+    return stored;
+}
+
+std::string Session::toAdapter(const std::string& clientPath) const {
+    if (mappings_.empty() || clientPath.empty()) return clientPath;
+    std::string m = mapPath(mappings_, clientPath, true);
+    return m.empty() ? clientPath : m;
+}
+
+std::optional<std::string> Session::toClient(const std::string& adapterPath) const {
+    if (mappings_.empty()) return adapterPath;
+    std::string m = mapPath(mappings_, adapterPath, false);
+    if (m.empty()) return std::nullopt;
+    return m;
+}
+
+int Session::registerSource(SourceEntry entry) {
+    std::lock_guard<std::mutex> lk(srcMu_);
+    auto it = refByKey_.find(entry.key);
+    if (it != refByKey_.end()) return it->second;
+    sources_.push_back(std::move(entry));
+    const int ref = static_cast<int>(sources_.size());
+    refByKey_[sources_.back().key] = ref;
+    return ref;
+}
+
+json Session::sourceJson(const FileInfo& file) const {
+    if (file.ref > 0) {
+        json j = {{"name", file.name}, {"sourceReference", file.ref}};
+        if (file.embedded) {
+            j["origin"] = "embedded in protojs";
+            j["presentationHint"] = "deemphasize";
+        } else if (!file.isUserFile) {
+            j["origin"] = "code compiled from a string";
+        } else {
+            j["origin"] = file.adapterPath;
+        }
+        return j;
+    }
+    if (file.isUserFile)
+        return {{"name", fs::path(file.displayPath).filename().string()}, {"path", file.displayPath}};
+    return json();
+}
+
+void Session::announceSource(const FileInfo& file) {
+    json src = sourceJson(file);
+    if (src.is_null()) return;
+    {
+        std::lock_guard<std::mutex> lk(srcMu_);
+        loaded_.push_back(src);
+    }
+    sendEvent("loadedSource", {{"reason", "new"}, {"source", src}});
+}
+
+void Session::handleSource(const json& req) {
+    const json args = req.value("arguments", json::object());
+    int ref = args.value("sourceReference", 0);
+    const json source = args.value("source", json::object());
+    if (ref <= 0) ref = source.value("sourceReference", 0);
+    std::string text, filePath;
+    bool found = false;
+    if (ref > 0) {
+        std::lock_guard<std::mutex> lk(srcMu_);
+        if (static_cast<size_t>(ref) <= sources_.size()) {
+            const SourceEntry& e = sources_[ref - 1];
+            text = e.text;
+            filePath = e.filePath;
+            found = true;
+        }
+    } else if (source.contains("path") && source["path"].is_string()) {
+        filePath = toAdapter(source["path"].get<std::string>());
+        found = true;
+    }
+    if (found && !filePath.empty()) {
+        std::ifstream in(fs::path(filePath), std::ios::binary);
+        if (in) {
+            std::ostringstream ss;
+            ss << in.rdbuf();
+            text = ss.str();
+        } else {
+            found = false;
+        }
+    }
+    if (!found) {
+        sendError(req, "source: no such source");
+        return;
+    }
+    sendResponse(req, {{"content", text}, {"mimeType", "text/javascript"}});
+}
+
+void Session::handleLoadedSources(const json& req) {
+    json list = json::array();
+    {
+        std::lock_guard<std::mutex> lk(srcMu_);
+        for (const auto& s : loaded_) list.push_back(s);
+    }
+    sendResponse(req, {{"sources", list}});
 }
 
 void Session::resolve(Breakpoint& bp, const std::set<int>& lines) {
@@ -847,12 +1128,18 @@ long long Session::countHit(const std::string& key, int id) {
 }
 
 void Session::onModuleLoaded(const ProtoBytecodeModule& root) {
+    // Only the debugged thread registers sources (fileInfo is its own).
+    if (!t_isDebuggee) return;
+    {
+        std::string text;
+        if (dh::takeCompiledSource(root.debugFile, text)) sourceTexts_[root.debugFile] = std::move(text);
+    }
     // The lines of each file that have code, from every function loaded.
     std::map<std::string, std::set<int>> found;
     std::string lastFile, lastKey;
     auto add = [&](const ProtoBytecodeModule& m) {
         if (m.debugFile.empty()) return;
-        if (m.debugFile != lastFile) { lastFile = m.debugFile; lastKey = fileKey(lastFile); }
+        if (m.debugFile != lastFile) { lastFile = m.debugFile; lastKey = fileInfo(lastFile).key; }
         if (lastKey.empty()) return;
         std::set<int>& s = found[lastKey];
         // A line has code when its entry covers an instruction, outside the
@@ -907,7 +1194,7 @@ void Session::onInstruction(proto::ProtoContext* ctx, std::vector<dh::Activation
     if (!newLine) return;
 
     const FileInfo& file = fileInfo(a.module->debugFile);
-    if (!file.isUserFile) return;   // never stop inside code that is not a file
+    if (!file.stoppable()) return;   // never stop in code the client cannot show
 
     const int depth = static_cast<int>(stack.size());
     const char* reason = nullptr;
@@ -1207,12 +1494,9 @@ void Session::doStackTrace(StopState& st, const json& req) {
             {"column", 1},
         };
         const FileInfo& file = fileInfo(a.module ? a.module->debugFile : std::string());
-        if (file.isUserFile) {
-            f["source"] = {{"name", fs::path(file.displayPath).filename().string()},
-                           {"path", file.displayPath}};
-        } else {
-            f["presentationHint"] = "subtle";
-        }
+        json src = sourceJson(file);
+        if (!src.is_null()) f["source"] = std::move(src);
+        if (!file.isUserFile) f["presentationHint"] = "subtle";
         frames.push_back(std::move(f));
     }
     sendResponse(req, {{"stackFrames", frames}, {"totalFrames", total}});
@@ -1577,7 +1861,8 @@ ExceptionStop Session::describeException(proto::ProtoContext* ctx, std::vector<d
     for (size_t i = stack.size(); i-- > 0;) {
         const dh::Activation& a = stack[i];
         const FileInfo& file = fileInfo(a.module ? a.module->debugFile : std::string());
-        std::string where = file.isUserFile ? file.displayPath
+        std::string where = !file.displayPath.empty() ? file.displayPath
+                          : !file.name.empty() ? file.name
                           : (a.module && !a.module->debugFile.empty() ? a.module->debugFile
                                                                       : std::string("<native>"));
         e.stackTrace += "    at " + displayName(a) + " (" + where + ":" +

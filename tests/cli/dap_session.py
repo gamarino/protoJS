@@ -8,7 +8,9 @@ its stdin/stdout and checks what comes back: breakpoints (verified once the
 file is loaded), stops, the call stack, variables, evaluate, stepping in, over
 and out, stopOnEntry, conditional breakpoints, exception breakpoints (All Exceptions,
 Uncaught Exceptions, exceptionInfo, no stop on the engine's own control flow,
-conditions on the filters), hit counts, logpoints,
+conditions on the filters), hit counts, logpoints, pathMappings, sources
+served by reference (files outside the mappings, embedded and generated code),
+loadedSources,
 process.exit, and the
 program's output arriving as `output` events -- including more than 64 KB of
 non-ASCII text and a child process that reads stdin, neither of which may
@@ -688,6 +690,140 @@ def case_condition_error(a):
     a.kill()
 
 
+FAKE_ROOT = "C:\\Fake\\Proj"          # a Windows client, whatever the adapter runs on
+MAPPED_MAIN = """const lib = require('../outside/lib.js');
+function local(n) {
+  return n + 1;
+}
+const r = local(1);
+console.log('r', lib.twice(r));
+console.log('again', lib.twice(5));
+"""
+OUTSIDE_LIB = """function twice(x) {
+  const y = x * 2;
+  return y;
+}
+module.exports = { twice };
+"""
+
+
+def case_path_mappings(a):
+    mapped = os.path.join(SCRATCH, "mapped")
+    outside = os.path.join(SCRATCH, "outside")
+    os.makedirs(mapped, exist_ok=True)
+    os.makedirs(outside, exist_ok=True)
+    with open(os.path.join(mapped, "main.js"), "w", encoding="utf-8", newline="\n") as f:
+        f.write(MAPPED_MAIN)
+    with open(os.path.join(outside, "lib.js"), "w", encoding="utf-8", newline="\n") as f:
+        f.write(OUTSIDE_LIB)
+    fake_main = "c:\\fake\\proj\\main.js"     # another case and spelling than the root
+    a.request("initialize", {"adapterID": "protojs", "pathFormat": "path"})
+    a.wait_event("initialized")
+    r = a.request("launch", {"program": fake_main, "cwd": "c:/fake/proj",
+                             "pathMappings": [{"localRoot": FAKE_ROOT, "remoteRoot": mapped}]})
+    check(r["success"], "launch with pathMappings and a client-side program path")
+    r = a.request("setBreakpoints", {"source": {"path": fake_main},
+                                      "breakpoints": [{"line": 3}, {"line": 6}]})
+    check(r["success"] and r["body"]["breakpoints"][0]["source"]["path"] == fake_main,
+          "breakpoints set by the client's path")
+    a.request("configurationDone")
+    a.wait_event("stopped")
+    frames = stack(a)
+    check(frames[0]["line"] == 3 and frames[0].get("source", {}).get("path") == fake_main,
+          "the stop is reported with the client's path (%s)" % frames[0].get("source"))
+    check(len(frames) > 1 and frames[1].get("source", {}).get("path") == fake_main,
+          "every frame of the main script has the client's path")
+    a.request("continue", {"threadId": 1})
+    a.wait_event("stopped")
+    check(stack(a)[0]["line"] == 6, "second breakpoint, line 6")
+    a.request("stepIn", {"threadId": 1})
+    a.wait_event("stopped")
+    frames = stack(a)
+    src = frames[0].get("source", {})
+    check(frames[0]["name"] == "twice" and src.get("sourceReference", 0) > 0 and "path" not in src,
+          "a file outside the mappings comes back as a sourceReference (%s)" % src)
+    check(src.get("name") == "lib.js" and src.get("origin", "").endswith("lib.js"),
+          "its name is the basename and its origin the adapter-side path")
+    ref = src.get("sourceReference", 0)
+    content = a.request("source", {"sourceReference": ref, "source": src})
+    check(content["success"] and content["body"]["content"] == OUTSIDE_LIB,
+          "source returns the file's content")
+    r = a.request("setBreakpoints", {"source": {"name": "lib.js", "sourceReference": ref},
+                                      "breakpoints": [{"line": 2}]})
+    b = r["body"]["breakpoints"][0]
+    check(b.get("verified") and b.get("source", {}).get("sourceReference") == ref,
+          "a breakpoint on the sourceReference is verified, with the same reference")
+    srcs = a.request("loadedSources")["body"]["sources"]
+    check(any(x.get("path") == fake_main for x in srcs) and
+          any(x.get("sourceReference") == ref for x in srcs),
+          "loadedSources lists the main script (client path) and the module (reference)")
+    check(any(e["event"] == "loadedSource" for e in a.events), "loadedSource events are sent")
+    a.request("continue", {"threadId": 1})
+    a.wait_event("stopped")
+    frames = stack(a)
+    check(frames[0]["name"] == "twice" and frames[0]["line"] == 2 and
+          evaluate(a, "x", frames[0]["id"]) == "5",
+          "the breakpoint on the sourceReference stops in the second call (x = 5)")
+    a.request("continue", {"threadId": 1})
+    check(a.finish() == 0 and "again 10" in a.output["stdout"], "mapped program ends")
+
+
+def case_path_mappings_invalid(a):
+    prog = write("exit.js", "process.exit(0);\n")
+    a.request("initialize", {})
+    a.wait_event("initialized")
+    r = a.request("launch", {"program": prog, "pathMappings": [{"localRoot": "/x"}]})
+    check(not r["success"] and "remoteRoot" in r.get("message", ""),
+          "a mapping without remoteRoot is a launch error that names it")
+
+
+GENERATED = """const util = require('util');
+util.inspect({ a: 1 });
+const f = new Function('a', 'const b = a + 1;\\nreturn b;');
+let s = f(1);
+s += f(2);
+console.log('s', s);
+"""
+
+
+def case_generated_sources(a):
+    prog = write("generated.js", GENERATED)
+    a.start(prog, breakpoints=[4])
+    a.wait_event("stopped")
+    srcs = a.request("loadedSources")["body"]["sources"]
+    emb = [x for x in srcs if x.get("presentationHint") == "deemphasize" and x.get("sourceReference")]
+    check(any(x.get("path") == prog for x in srcs), "loadedSources lists the main script")
+    check(emb and "inspect" in emb[0].get("name", ""),
+          "the embedded util.inspect source is listed, deemphasized (%s)" % [x.get("name") for x in srcs])
+    if emb:
+        c = a.request("source", {"sourceReference": emb[0]["sourceReference"]})
+        check(c["success"] and "function" in c["body"]["content"], "source returns the embedded text")
+    a.request("stepIn", {"threadId": 1})
+    a.wait_event("stopped")
+    frames = stack(a)
+    src = frames[0].get("source", {})
+    ref = src.get("sourceReference", 0)
+    check(ref > 0 and "Function" in src.get("name", "") and "path" not in src,
+          "stepIn into new Function code: a frame with a sourceReference (%s)" % src)
+    text = a.request("source", {"sourceReference": ref})["body"].get("content", "")
+    check("return b;" in text, "source returns the function's generated text")
+    lines = text.split("\n")
+    ret_line = next((i + 1 for i, l in enumerate(lines) if "return b;" in l), 0)
+    r = a.request("setBreakpoints", {"source": {"sourceReference": ref, "name": src.get("name")},
+                                      "breakpoints": [{"line": ret_line}]})
+    check(r["body"]["breakpoints"][0].get("verified"), "a breakpoint in the generated code is verified")
+    a.request("continue", {"threadId": 1})
+    a.wait_event("stopped")
+    frames = stack(a)
+    check(frames[0]["line"] == ret_line and evaluate(a, "b", frames[0]["id"]) == "2",
+          "it stops there in the first call (b = 2)")
+    a.request("continue", {"threadId": 1})
+    a.wait_event("stopped")
+    check(evaluate(a, "b", stack(a)[0]["id"]) == "3", "and in the second (b = 3)")
+    a.request("continue", {"threadId": 1})
+    check(a.finish() == 0 and "s 5" in a.output["stdout"], "generated-code program ends")
+
+
 os.makedirs(SCRATCH, exist_ok=True)
 run_case("breakpoints, stack, variables, evaluate, stepping, output", case_breakpoints)
 run_case("stopOnEntry", case_stop_on_entry)
@@ -708,6 +844,9 @@ run_case("hit conditions", case_hit_conditions)
 run_case("hit condition % 2 and line conditions", case_hit_modulo)
 run_case("logpoints", case_logpoints)
 run_case("line condition that throws", case_condition_error)
+run_case("pathMappings and a file served by reference", case_path_mappings)
+run_case("pathMappings validation", case_path_mappings_invalid)
+run_case("embedded and generated sources", case_generated_sources)
 
 if failures:
     print("%d check(s) failed" % len(failures))

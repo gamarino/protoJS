@@ -144,6 +144,16 @@ void onThrow(proto::ProtoContext* ctx, const proto::ProtoObject* value, ThrowKin
 void onCatch(const proto::ProtoObject* value, bool finallyOnly);
 void moduleLoaded(const ProtoBytecodeModule& root);
 
+/** A source about to be compiled under `filename` on this thread (the compile
+ *  funnel, compileToBytecodeWithFlags).  Returns the name to compile it
+ *  under: an anonymous source's (`<Function>`, `(deferred)`...) gets a
+ *  number, `<Function#3>`, so each one is a source of its own; others keep
+ *  theirs.  The text is kept for takeCompiledSource. */
+std::string sourceCompiled(const char* filename, const char* text, size_t len);
+/** The text of the source last compiled on this thread under `filename`, if
+ *  it is that one (and forgets it). */
+bool takeCompiledSource(const std::string& filename, std::string& text);
+
 /** Whether activation `a` has an open try range with a `catch` clause
  *  (defined in the interpreter, which knows the catch frames and opcodes). */
 bool activationCatches(const Activation& a);
