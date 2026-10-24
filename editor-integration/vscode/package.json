@@ -1,8 +1,8 @@
 {
   "name": "protojs-debug",
   "displayName": "protoJS Debugger",
-  "description": "Debug JavaScript with protoJS: breakpoints, stepping, call stack, variables and the Debug Console through the protojs --dap Debug Adapter Protocol adapter.",
-  "version": "0.1.0",
+  "description": "Debug JavaScript with protoJS: breakpoints, exception breakpoints, stepping, call stack, variables and the Debug Console through the protojs --dap Debug Adapter Protocol adapter.",
+  "version": "0.2.0",
   "publisher": "protojs-placeholder",
   "engines": {
     "vscode": "^1.66.0"

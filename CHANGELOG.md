@@ -6,6 +6,23 @@ All notable changes to protoJS are documented in this file.
 
 **Requires protoCore 3.1.0** (untagged master, commit 267b9fc9; SOVERSION 4). CI pins that commit on every job.
 
+### Added — exception breakpoints in the debugger (2026-10-24)
+
+- **All Exceptions** (`raised`) and **Uncaught Exceptions** (`uncaught`)
+  exception filters in `protojs --dap`, with `exceptionInfo`. A stop happens
+  where the exception is thrown, before the C++ exception unwinds: stack,
+  locals and evaluate are the throwing statement's. The throws are reported
+  from `throwJS`, the `throw` opcode and protoCore's error factory; Uncaught
+  is predicted from the activations' open `try` ranges (a `finally`-only
+  range does not catch), async functions and the built-ins that turn an
+  exception into a rejection (`debughooks::CatchingNative`). Not reported:
+  the engine's own probes (`debughooks::InternalTry`: a BigInt parse in
+  `==`, `Reflect.defineProperty`), a `finally` block's or an `await`'s
+  rethrow of the exception just reported, the debugger's own evaluations.
+  A rejected promise stops only where it is awaited. Other threads
+  (workers, Deferreds, `runInThread`) are still not debugged
+  (docs/DEBUGGING.md). VS Code extension 0.2.0 (documentation only).
+
 ### Added — debugging in VS Code (2026-10-24)
 
 - **`protojs --dap`**, a Debug Adapter Protocol server built into the

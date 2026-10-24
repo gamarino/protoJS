@@ -1,7 +1,8 @@
 # protoJS Debugger — VS Code extension
 
 Debug JavaScript programs with protoJS in VS Code: breakpoints (including
-conditional ones), stepping, the call stack, variables and the Debug Console.
+conditional ones), exception breakpoints (All Exceptions, Uncaught
+Exceptions), stepping, the call stack, variables and the Debug Console.
 The debug adapter is the `protojs` binary itself, invoked as `protojs --dap`,
 which speaks the
 [Debug Adapter Protocol](https://microsoft.github.io/debug-adapter-protocol/)
@@ -31,14 +32,14 @@ platform):
 ```bash
 cd editor-integration/vscode
 npx @vscode/vsce@3.2.1 package --skip-license
-code --install-extension protojs-debug-0.1.0.vsix
+code --install-extension protojs-debug-0.2.0.vsix
 ```
 
 Or, on Linux and macOS, symlink the folder (picks up edits after a
 `Developer: Reload Window`):
 
 ```bash
-ln -s "$(pwd)/editor-integration/vscode" ~/.vscode/extensions/protojs-debug-0.1.0
+ln -s "$(pwd)/editor-integration/vscode" ~/.vscode/extensions/protojs-debug-0.2.0
 ```
 
 ## Use
@@ -70,4 +71,9 @@ ln -s "$(pwd)/editor-integration/vscode" ~/.vscode/extensions/protojs-debug-0.1.
 
 See `docs/DEBUGGING.md` for the full debugging guide and its limitations
 (only the main thread is debugged; ES modules are not debuggable; an
-assignment to a local in the Debug Console does not reach the program).
+assignment to a local in the Debug Console does not reach the program;
+Uncaught Exceptions does not stop at a throw that rejects a promise).
+
+The exception filters (**All Exceptions**, **Uncaught Exceptions**) appear
+in the Breakpoints view once a session starts: `protojs --dap` announces
+them, so the extension needs no setting for them.

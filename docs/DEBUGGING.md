@@ -20,14 +20,14 @@ the `.vsix` (the same on Windows, Linux and macOS; needs Node.js for `npx`):
 ```bash
 cd editor-integration/vscode
 npx @vscode/vsce@3.2.1 package --skip-license
-code --install-extension protojs-debug-0.1.0.vsix
+code --install-extension protojs-debug-0.2.0.vsix
 ```
 
 On Linux and macOS you can instead symlink the folder, which picks up edits
 after **Developer: Reload Window**:
 
 ```bash
-ln -s "$(pwd)/editor-integration/vscode" ~/.vscode/extensions/protojs-debug-0.1.0
+ln -s "$(pwd)/editor-integration/vscode" ~/.vscode/extensions/protojs-debug-0.2.0
 ```
 
 The extension runs `protojs` from, in this order:
@@ -99,14 +99,96 @@ The extension runs `protojs` from, in this order:
   `console.error`, uncaught-exception reports, the output of child processes
   that inherit them) appears in the Debug Console. The program's stdin is
   empty (end of file): it is not the debugger's input stream.
+- **Exception breakpoints**: **All Exceptions** and **Uncaught Exceptions**
+  in the Breakpoints view (see below).
 - **process.exit** and an uncaught exception end the session with the
   program's exit status.
+
+## Exception breakpoints
+
+The Breakpoints view lists two exception filters, both off by default:
+
+- **All Exceptions** (`raised`) stops at every exception thrown in your code,
+  caught or not.
+- **Uncaught Exceptions** (`uncaught`) stops at an exception that nothing on
+  the stack will catch.
+
+Either stops **where the exception is thrown, before it unwinds**: the call
+stack, the frames' variables and evaluate are those of the throwing
+statement, and the stop's reason is *exception*, with the exception's class
+and message (`TypeError: x is not a function`). **Continue** lets it go on:
+to its `catch`, or, uncaught, to the end of the program. The exception
+widget (and the `exceptionInfo` request) shows the class, the message, the
+break mode and a stack trace.
+
+What counts as a throw:
+
+- a `throw` statement;
+- an error the runtime raises: a `TypeError` or `ReferenceError` from an
+  operation, a `RangeError` (the call stack exhausted too), an error thrown by
+  a built-in function (`JSON.parse`, ...), an error protoCore raises (a
+  BigInt division by zero). The stop is at the statement that ran the
+  operation or called the built-in, and its description says the runtime
+  raised it;
+- an `await` of a rejected promise, which throws the rejection at the
+  `await`;
+- `generator.throw(value)`.
+
+A promise that is rejected (`Promise.reject(e)`, the `reject` function of
+an executor) is not a throw, and does not stop by itself: it stops where it is
+awaited, or never, if its rejection is only handled with `.catch()`.
+
+**Uncaught** is decided when the exception is thrown, from the stack: it is
+caught when an activation on the stack has an open `try` with a `catch`
+clause (a `try`/`finally` alone rethrows, so it does not count), and also when
+the exception turns into something else before it leaves the stack:
+
+- thrown in an **async function**, it rejects the function's promise;
+- thrown in a **promise executor**, a `then`/`catch`/`finally` callback, a
+  thenable's `then`, `Promise.try` or the iterables of `Promise.all` & co., it
+  rejects a promise;
+- thrown by an iterator's `return()` while a loop closes it on an exception,
+  it is discarded.
+
+None of those stops the **Uncaught** filter (use **All Exceptions**), even
+when the rejected promise ends up unhandled: protoJS reports an unhandled
+rejection after the fact, when the stack is gone. Every other built-in that
+calls your functions (`Array.prototype.map`, `forEach`, `sort`, getters,
+iterators...) passes their exceptions on, so the prediction looks through
+it to the caller's `try`. An exception thrown inside a callback that the
+event loop runs (`setImmediate`, `queueMicrotask`, a `fs` callback) is
+uncaught when that callback does not catch it.
+
+What never stops:
+
+- **The engine's own control flow.** protoJS uses no exceptions for
+  iteration, generators, `break`/`continue`/`return` through `finally`, or
+  `async`/`await`: `for...of`, spread, destructuring, closing an iterator,
+  `generator.return()` and resolved awaits throw nothing. The exceptions the
+  engine throws and catches itself are filtered out: protoCore's failure to
+  parse a string as a BigInt in `10n == "abc"`, and `Reflect.defineProperty`'s
+  failed definition (which answers `false`).
+- **A rethrow of the exception just reported**: the rethrow at the end of a
+  `finally` block, or the `await` of the promise that the exception rejected,
+  does not stop a second time. Once a `catch` clause takes the exception, a
+  new `throw` of it (`catch (e) { throw e; }`) is a new throw and stops again.
+- **Code that is not one of your files** (it has no source): All Exceptions
+  stops only when the innermost frame is in one of your files; Uncaught
+  stops in your innermost frame and says so.
+- **The debugger's own code**: an expression in the Debug Console, a Watch
+  or a breakpoint condition that throws reports its error there.
+- **Other threads** (below).
 
 ## Limitations
 
 - **Only the main thread is debugged.** Code running on other threads — a
   `Deferred`'s function, `worker_threads` workers, `protoCore.runInThread` —
-  runs normally and does not stop at breakpoints.
+  runs normally and does not stop at breakpoints or exception breakpoints.
+  Each of those runs JavaScript in a context of its own (its own global
+  object, module cache and job queue), so debugging it would take a child
+  debug session per thread (one `startDebugging` per worker), which the
+  adapter does not implement; the **Call Stack** view shows one thread,
+  `main`.
 - **ES modules are not debuggable.** A program run with
   `--input-type=module` runs in QuickJS's own interpreter, not in protoJS's,
   and its breakpoints never hit. CommonJS (`require`) works.
@@ -119,9 +201,13 @@ The extension runs `protojs` from, in this order:
 - **Variables show own properties only**: no prototype chain, no getters run,
   no internal state of `Map`, `Set`, `Date` or `Promise`; arrays show their
   first 1000 elements.
-- No exception breakpoints (an uncaught exception ends the program and is
-  reported on stderr), no logpoints or hit counts, no column breakpoints, no
-  `debugger;` statement (it is ignored), no attach to a running process.
+- **Uncaught Exceptions is a prediction** made at the throw (see above): an
+  exception swallowed by a built-in other than the ones listed there would
+  still stop, and an exception turned into a promise rejection never does.
+  There are no exception options (no filtering by class) and no conditions
+  on exception breakpoints.
+- No logpoints or hit counts, no column breakpoints, no `debugger;`
+  statement (it is ignored), no attach to a running process.
 - **Slower execution under the debugger**: the bytecode specialiser is off,
   and while a breakpoint is set (or a step is in progress) every instruction
   is checked. In a compute-bound benchmark that came to about 1.3-1.5 times
@@ -149,12 +235,27 @@ The extension runs `protojs` from, in this order:
   for the operations that can throw), the interpreter reports every
   activation and every instruction, and the bytecode specialiser is off so
   the byte offsets run are the ones the line tables describe.
+- Exceptions go through three places, each reported to the debugger before
+  the C++ exception that carries the value is thrown: `throwJS` (every error
+  the runtime and the built-ins raise), the `throw` opcode, and the error
+  factory protoCore calls for its own errors. A JavaScript `try` is a C++
+  `try` around the protected range, and each activation keeps its open ranges
+  (`catch_stack`); the prediction reads them, telling a `catch` handler from
+  a `finally` one by its first opcode (QuickJS compiles a `finally` handler
+  as `gosub finally; throw`). The built-ins that catch what the code they call
+  throws mark themselves (`debughooks::CatchingNative`), and the engine's own
+  probes are excluded (`debughooks::InternalTry`).
 - The test `cli/dap-session` (`tests/cli/dap_session.py`) drives sessions the
   way VS Code does — absolute paths, on Windows with a lower-case drive letter
   — and checks breakpoints, the stack, variables, evaluate, stepping,
   stopOnEntry, conditions, a breakpoint in a required module, process.exit,
-  an uncaught exception, more than 64 KB of non-ASCII output and a child
-  process reading stdin.
+  an uncaught exception, more than 64 KB of non-ASCII output, a child
+  process reading stdin, and the exception filters: All Exceptions at a throw
+  in a function (line, locals, evaluate, exceptionInfo, then the catch runs),
+  no stop on iteration, generators, `finally`, promises and the engine's
+  probes, no stop with the filters off, Uncaught Exceptions at a throw that
+  only a `finally` covers (and not at caught ones, nor at those that reject a
+  promise), and an awaited rejection.
 
 The `debugger` global (`globalThis["debugger"]`, `startCDPServer`) is an older
 Chrome DevTools-flavoured module that records breakpoints but never stops the
