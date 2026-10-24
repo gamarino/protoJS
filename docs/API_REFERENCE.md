@@ -46,7 +46,7 @@ protojs [options] -e "<code>"
 | `PROTOJS_EXIT_TIMEOUT_SECONDS` | `src/main.cpp` | After the main script, `protojs` runs while work is pending, without a time limit (Node's behaviour). A positive value makes it stop waiting after that many seconds, printing `Warning: Event loop timeout reached`. Until 2026-10-03 a fixed 180-second limit applied. |
 | `PROTOJS_LITERAL_BUILD` | `src/runtime/BytecodeSpecialiser.cpp` | Object literals are built immutable and made mutable once, after their last field (`markObjectLiterals`). Set to `off` to build them field by field on a mutable object, as before 2026-10-02. |
 | `PROTOJS_PUTFIELD_GROUPS` | `src/runtime/BytecodeSpecialiser.cpp` | A run of `obj.name = value` statements on one receiver whose values cannot run code is published as one new version of the object (`markPutFieldGroups`, protoCore's `ProtoObject::setAttributes`). Set to `off` to publish every write separately, as before 2026-10-03. `PROTOJS_PUTFIELD_GROUPS_DUMP=1` prints each run found at load time. |
-| `PROTOCORE_HEAP_LIMIT_CELLS` | protoCore, `src/JSContext.cpp`, `src/HeapLimit.cpp` | The heap limit, in 64-byte cells, of each protoCore space (the main one and each worker's): `<hard>` or `<soft>,<hard>`. A sequential program runs with it as a fixed ceiling; once Deferreds run it is the adaptive controller's budget (see [Memory](#memory)). A live set that does not fit ends the process with status 3. Default: 75 % of physical memory, or of the cgroup memory limit on Linux when one is set and smaller (a container, systemd `MemoryMax`); `protoCore.gcStats().heapLimitCells` shows the effective value. Set a lower value to bound a program's footprint, especially with several workers, since each worker's space has its own limit. Until 2026-10-02 the default was 10,000,000 cells (640 MB), or a quarter of physical memory if smaller. `0` removes the ceiling and keeps the adaptive controller off. |
+| `PROTOCORE_HEAP_LIMIT_CELLS` | protoCore, `src/JSContext.cpp`, `src/HeapLimit.cpp` | The heap limit, in 64-byte cells, of the process's protoCore space (Deferreds and workers share it): `<hard>` or `<soft>,<hard>`. A sequential program runs with it as a fixed ceiling; once Deferreds run it is the adaptive controller's budget (see [Memory](#memory)). A live set that does not fit ends the process with status 3. Default: 75 % of physical memory, or of the cgroup memory limit on Linux when one is set and smaller (a container, systemd `MemoryMax`); `protoCore.gcStats().heapLimitCells` shows the effective value. Set a lower value to bound a program's footprint; one limit covers the main thread, its Deferreds and its workers, since they share one space (until 2026-10-24 each worker had a space, and a limit, of its own). Until 2026-10-02 the default was 10,000,000 cells (640 MB), or a quarter of physical memory if smaller. `0` removes the ceiling and keeps the adaptive controller off. |
 | `PROTOCORE_ADAPTIVE_HEAP` | protoCore, `src/JSContext.cpp`, `src/HeapLimit.cpp` | `1` runs protoCore's adaptive heap controller from the start, also for sequential programs; `0` never runs it, also with Deferreds (the fixed ceiling throughout). Unset (or any other value): the controller starts with the first Deferred. See [Memory](#memory). |
 | `PROTOCORE_HEAP_TRACE` | protoCore | `1` prints one line per collection cycle on stderr (`fixed` for the fixed ceiling, the controller's state otherwise). For diagnosis. |
 
@@ -55,8 +55,8 @@ protojs [options] -e "<code>"
 ### Memory
 
 protoJS's objects live in protoCore's heap, whose collector runs concurrently
-with the program. How large the heap may grow is decided per space (the main
-one and each worker's), in two modes:
+with the program. The process has one space, shared by the main thread, its
+Deferreds and its workers. How large its heap may grow is decided in two modes:
 
 - **A sequential program** has a fixed ceiling: by default 75 % of physical
   memory, or of the cgroup memory limit on Linux when one is set and smaller.
@@ -357,6 +357,45 @@ Differences from Node:
 - `errno` is the negated C `errno`, which is Node's value on Linux and macOS;
   on Windows Node reports libuv's own numbers (`ENOENT` is -4058) and protoJS
   the C runtime's (-2). `code`, `syscall`, `path` and the message are the same.
+
+---
+
+## `worker_threads`
+
+`new Worker(file, { workerData })` runs `file` on a new thread. The worker
+is a protoCore thread of the main thread's space: the process holds one
+ProtoSpace (`protoCore.gcStats().liveSpaces` is 1), the worker shares the
+heap, and nothing is serialized. Until 2026-10-24 each worker built a
+ProtoSpace of its own, and messages crossed as JSON text.
+
+- **Messages are structured clones.** `postMessage(value)` (either way) and
+  `workerData` hand the receiver the structured clone of the value, made by
+  the sender at the call, as in Node: a later change to the value is not seen,
+  and the receiver never gets the sender's object. The clone is made inside
+  the one space, so what cannot change is shared instead of copied, being
+  indistinguishable from a copy: numbers (integers and floating point keep
+  their kind), strings, booleans, BigInts, `undefined`, `null` and protoCore's
+  immutable values. Arrays and objects are copied with their own enumerable
+  data properties, recursively; a value reached twice is cloned once, so
+  cycles and shared parts survive. A function or a Symbol cannot be cloned:
+  `postMessage` throws a `DataCloneError`. `Map`, `Set`, `Date`, typed arrays
+  and other built-in objects are copied as plain objects of their own data
+  properties (not yet with their type, as before).
+- **What is per worker.** The worker's global object, its top-level bindings,
+  its `require` module cache and its job queue are its own. Its global object
+  is a child of the main thread's global object, so the main thread's
+  globals (its built-in modules, `console`, explicit `globalThis.x = ...`
+  properties) are visible to it; a global the worker defines is not visible
+  to the main thread or to another worker.
+- **What is shared: the realm's intrinsics.** `Object.prototype`,
+  `Array.prototype` and the other built-in prototypes and constructors are
+  those of the one space, shared by every worker and Deferred. A worker that
+  changes a built-in prototype changes it for every thread. This is a
+  deliberate deviation from Node, where each worker has its own realm.
+- `parentPort` and `workerData` are globals in a worker (Node has them only on
+  the module), `isMainThread` is a function (`require('worker_threads').isMainThread()`),
+  and `SharedArrayBuffer` behaves as before. A worker's message listeners run
+  on the main thread's event loop once its script has finished, as before.
 
 ---
 

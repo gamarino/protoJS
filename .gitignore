@@ -83,3 +83,4 @@ build_tsan/
 # Default output of the structure benchmark runners
 benchmarks/structures/results.jsonl
 benchmarks/structures/cad/cad.jsonl
+.gitnexus

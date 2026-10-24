@@ -748,7 +748,8 @@ const proto::ProtoObject* isSmallIntegerFn(
 
 // protoCore.gcStats(): the collector's counters for this script's space, in
 // cells of 64 bytes: {cycles, liveCellsLastCycle, reclaimedLastCycle,
-// heapCells, freeCells, heapLimitCells, softLimitCells, adaptiveHeap}.
+// heapCells, freeCells, heapLimitCells, softLimitCells, adaptiveHeap,
+// liveSpaces}.  liveSpaces is the number of ProtoSpaces live in the process.
 // liveCellsLastCycle is what the last completed cycle found reachable (0
 // before the first cycle); heapLimitCells is the hard ceiling (0 when there
 // is none); softLimitCells the soft limit at which cycles start (0 when
@@ -780,6 +781,13 @@ const proto::ProtoObject* gcStatsFn(
 #endif
     if (const proto::ProtoString* k = proto::ProtoString::createSymbol(ctx, "adaptiveHeap"))
         obj = obj->setAttribute(ctx, k, adaptive ? PROTO_TRUE : PROTO_FALSE);
+#if defined(PROTOCORE_HAS_LIVE_SPACE_COUNT)
+    // How many ProtoSpaces the process holds: 1, since Deferreds and workers
+    // run in the main space.
+    if (const proto::ProtoString* k = proto::ProtoString::createSymbol(ctx, "liveSpaces"))
+        obj = obj->setAttribute(ctx, k,
+            ctx->fromInteger(static_cast<long long>(proto::ProtoSpace::liveSpaceCount())));
+#endif
     return obj;
 }
 

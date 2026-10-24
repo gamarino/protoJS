@@ -16,19 +16,21 @@ namespace protojs {
 class JSContextWrapper;
 
 /**
- * @brief Lightweight task that executes in a ProtoThread (protoCore multithreading only).
+ * @brief The `Deferred` of a QuickJS-run ES module (`--input-type=module`).
  *
- * Deferred tasks are scheduled via ProtoSpace::newThread (public API); each task runs in its own
- * ProtoThread. Roots are tracked by protoCore's GC. No native threads are used for execution.
- * If wrapper/space is unavailable or newThread fails, the Deferred is rejected (no CPUThreadPool fallback).
+ * A script runs on protoCore's interpreter and gets ProtoDeferred
+ * (src/ProtoDeferred.h). An ES module still runs on QuickJS, whose heap is not
+ * protoCore's; its `Deferred` compiles the function's source into a protoCore
+ * function on the calling thread and runs it on the wrapper's DeferredPool, in
+ * the wrapper's own space, like any other Deferred (one ProtoSpace per
+ * process). The outcome is converted into the QuickJS heap once, on the owner
+ * thread, where the `then` / `catch` callbacks run.
  */
 class Deferred {
 public:
     /** Lightweight task structure (public so TaskHandle can be used across modules). */
     struct DeferredTask {
         JSValue func = JS_UNDEFINED;
-        uint8_t* serializedFunc = nullptr;
-        size_t serializedFuncSize = 0;
         JSValue resolve;
         JSValue reject;
         JSContext* mainJSContext = nullptr;
@@ -43,14 +45,10 @@ public:
         JSValue catchCallback = JS_UNDEFINED;
         JSValue deferredObj = JS_UNDEFINED;
         std::string functionSource;
-        uint8_t* serializedResult = nullptr;
-        size_t serializedResultSize = 0;
-        bool hasError = false;
 
-        DeferredTask(JSContext* ctx, JSValue f, uint8_t* serialized, size_t serializedSize,
+        DeferredTask(JSContext* ctx, JSValue f,
                      JSValue res, JSValue rej, JSRuntime* runtime, proto::ProtoSpace* s, JSContextWrapper* w,
                      JSValue deferred_obj, std::string fn_source);
-        ~DeferredTask();
     };
 
     static void init(JSContext* ctx, JSContextWrapper* wrapper);
@@ -59,8 +57,6 @@ public:
     static std::pair<JSValue, TaskHandle> createPending(JSContext* ctx, JSContextWrapper* wrapper);
     static void resolveTaskFromNative(TaskHandle task, JSValue resultValue);
     static void incrementActiveCount();
-    /** Runs the task in the current thread using JSContextWrapper (protoCore path). Used by ProtoThread entry. */
-    static void runDeferredTaskInProtoThread(std::shared_ptr<DeferredTask> task);
 
 private:
     static JSValue constructor(JSContext* ctx, JSValueConst new_target, int argc, JSValueConst* argv);
@@ -69,18 +65,13 @@ private:
     static JSValue catch_(JSContext* ctx, JSValueConst this_val, int argc, JSValueConst* argv);
     
     /**
-     * @brief Execute a Deferred task in worker thread using bytecode transfer.
-     * 
-     * Serializes the function, executes it in a worker thread, and handles result round-trip.
+     * @brief Run the task's function on the wrapper's DeferredPool, in the
+     * wrapper's space, and settle the task on the owner thread.
      */
-    static void executeTaskInWorkerThread(std::shared_ptr<DeferredTask> task);
-    
-    /**
-     * @brief Worker thread execution function.
-     * 
-     * Deserializes function, executes it, and serializes result.
-     */
-    static void workerThreadExecution(std::shared_ptr<DeferredTask> task);
+    static void executeOnPool(std::shared_ptr<DeferredTask> task);
+
+    /** @brief Settle `task` on the owner thread: reject with `message`. */
+    static void rejectWithMessage(std::shared_ptr<DeferredTask> task, const std::string& message);
     
     /**
      * @brief Helper to get JSContextWrapper from JSContext opaque data.

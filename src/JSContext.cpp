@@ -211,10 +211,11 @@ void JSContextWrapper::adoptAdaptiveHeapForDeferreds() {
     if (adaptiveHeapConsidered_) return;
     adaptiveHeapConsidered_ = true;
 #if defined(PROTOCORE_HAS_ADAPTIVE_HEAP)
-    if (pSpace.adaptiveHeapStats().enabled) return;  // PROTOCORE_ADAPTIVE_HEAP=1
+    if (owner_) return;  // the owner of the space decides its heap policy
+    if (pSpace_->adaptiveHeapStats().enabled) return;  // PROTOCORE_ADAPTIVE_HEAP=1
     if (protojs::heaplimit::adaptiveHeapWanted(adaptiveHeapMode(), /*deferredsStarted=*/true,
                                                std::getenv("PROTOCORE_HEAP_LIMIT_CELLS")))
-        pSpace.enableAdaptiveHeap();
+        pSpace_->enableAdaptiveHeap();
 #endif
 }
 
@@ -231,18 +232,23 @@ JSContextWrapper::CurrentScope::~CurrentScope() {
 std::atomic<size_t> JSContextWrapper::poolOwners_{0};
 
 // See JSContext.h for semantics.
-JSContextWrapper::JSContextWrapper(size_t cpuThreads, size_t ioThreads, double ioFactor) : pSpace() {
-    configureHeap(pSpace);
+proto::ProtoContext* JSContextWrapper::threadContextForBorrowedWrapper() {
+    return threadProtoContext();
+}
+
+JSContextWrapper::JSContextWrapper(size_t cpuThreads, size_t ioThreads, double ioFactor)
+    : ownedSpace_(std::make_unique<proto::ProtoSpace>()), pSpace_(ownedSpace_.get()) {
+    configureHeap(*pSpace_);
     rt = JS_NewRuntime();
     ctx = JS_NewContext(rt);
     
     // Initialize protoCore root context
-    pContext = pSpace.rootContext;
+    pContext = pSpace_->rootContext;
 
     // The job queue of this agent (promise reactions, await continuations).
     microtasks_ = std::make_unique<MicrotaskQueue>(this);
 
-    // Record this context as the constructing thread's.  `pSpace`'s constructor
+    // Record this context as the constructing thread's.  The space's constructor
     // has just adopted this thread as that space's main thread and counted it in
     // `runningThreads`, so this is the context whose parked/running accounting
     // describes this thread -- and the one that blocking code with no context in
@@ -253,10 +259,10 @@ JSContextWrapper::JSContextWrapper(size_t cpuThreads, size_t ioThreads, double i
     // protoCore's own errors (a BigInt division by zero, a malformed integer
     // literal, ...) are raised as JavaScript errors: install the factory before
     // any code runs in the space (ProtoInterpreter.h, installErrorFactory).
-    protojs::installErrorFactory(&pSpace);
+    protojs::installErrorFactory(pSpace_);
 
     // Bootstrap JS Object and derived prototypes (array, arguments, regexp)
-    BootstrapJSPrototypes(&pSpace, pContext, &jsPrototypes_);
+    BootstrapJSPrototypes(pSpace_, pContext, &jsPrototypes_);
     
     // Initialize GCBridge for this context
     GCBridge::initialize(ctx);
@@ -308,6 +314,42 @@ JSContextWrapper::JSContextWrapper(size_t cpuThreads, size_t ioThreads, double i
     // Event loop is initialized on first access (singleton)
 }
 
+// A wrapper in the owner's space (see JSContext.h).  Everything the space
+// already has -- its heap policy, its error factory, the realm's prototypes,
+// the identity objects -- is the owner's; only what is per agent is made here.
+JSContextWrapper::JSContextWrapper(JSContextWrapper& owner, proto::ProtoContext* threadContext,
+                                   const proto::ProtoObject* ownerGlobal)
+    : pSpace_(owner.getProtoSpace()), owner_(&owner), ownerGlobal_(ownerGlobal) {
+    rt = JS_NewRuntime();
+    ctx = JS_NewContext(rt);
+    pContext = threadContext;
+
+    microtasks_ = std::make_unique<MicrotaskQueue>(this);
+    setThreadProtoContext(pContext);
+
+    // The realm's prototypes are the owner's: one space, one set of
+    // intrinsics (docs/API_REFERENCE.md, "worker_threads").
+    jsPrototypes_ = owner.jsPrototypes_;
+    jsPrototypes_.array = owner.getJSArrayPrototype();
+
+    GCBridge::initialize(ctx);
+    ExecutionEngine::initialize(ctx, pContext);
+    // No-ops once the thread has adopted the owner's identity objects, which
+    // the caller does first; kept so a wrapper never runs without them.
+    protojs::initializeNullSentinel(pContext);
+    protojs::initializeUndefinedSentinel(pContext);
+
+    JS_SetContextOpaque(ctx, this);
+    // The owner holds the process-wide pools already; this only counts the claim.
+    poolOwners_.fetch_add(1, std::memory_order_acq_rel);
+}
+
+void JSContextWrapper::releaseThreadContext() {
+    if (!owner_ || !pContext) return;
+    clearThreadProtoContext(pContext);
+    pContext = nullptr;
+}
+
 const proto::ProtoObject* JSContextWrapper::getGlobalObject(proto::ProtoContext* ctx) {
     const proto::ProtoObject* root = getNativeGlobal();
     return (root && ctx) ? protojs::globalObjectForRoot(ctx, root) : root;
@@ -317,6 +359,21 @@ const proto::ProtoObject* JSContextWrapper::getNativeGlobal() {
     // A Deferred pool thread reads its own copy of the root slot (ThreadView).
     if (const ThreadView* v = t_threadView_) return v->globalSlot ? *v->globalSlot : nullptr;
     if (nativeGlobalRoot_) return nativeGlobalRoot_;
+    if (owner_) {
+        // A wrapper in its owner's space: its global object is a child of the
+        // owner's.  The realm's constructors and the runtime's modules are
+        // found through it (they are installed once per space, and the
+        // interpreter's initialisation finds them and leaves them alone); the
+        // worker's own globals and top-level bindings land on this object and
+        // its module scope, never on the owner's.
+        proto::ProtoContext* c = getProtoContext();
+        const proto::ProtoObject* ownerGlobal =
+            ownerGlobal_ ? ownerGlobal_ : owner_->getGlobalObject(c);
+        if (!ownerGlobal || !c) return nullptr;
+        nativeGlobalRoot_ = ownerGlobal->newChild(c, true);
+        rootNativeGlobal();
+        return nativeGlobalRoot_;
+    }
     if (!jsPrototypes_.object || !pContext) return nullptr;
     /* Build a blank global object; converted modules register onto it explicitly. */
     nativeGlobalRoot_ = jsPrototypes_.object->newChild(pContext, true);
@@ -379,7 +436,7 @@ const proto::ProtoObject* JSContextWrapper::getJSArrayPrototype() const {
 
 proto::ProtoRootSet* JSContextWrapper::getRootSet() {
     if (rootSet_) return rootSet_;
-    rootSet_ = pSpace.createRootSet("protojs-async");
+    rootSet_ = pSpace_->createRootSet("protojs-async");
     return rootSet_;
 }
 
@@ -404,7 +461,7 @@ JSContextWrapper::~JSContextWrapper() {
     // protoCore space (the space owns the set and will free orphans
     // in its destructor, but explicit cleanup is cheaper and clearer).
     if (rootSet_) {
-        pSpace.destroyRootSet(rootSet_);
+        pSpace_->destroyRootSet(rootSet_);
         rootSet_ = nullptr;
     }
 
@@ -447,13 +504,18 @@ JSContextWrapper::~JSContextWrapper() {
 
     // Per-space caches shared by the threads of this space: no thread of the
     // space runs any more, and a later space may be allocated at this address.
-    PinnedBuiltin::forgetSpace(&pSpace);
-    BehaviorRegistry::forgetSpace(&pSpace);
-    forgetSpaceProtoOverrides(&pSpace);
+    // A wrapper that borrows its space leaves them: the space lives on.
+    if (!owner_) {
+        PinnedBuiltin::forgetSpace(pSpace_);
+        BehaviorRegistry::forgetSpace(pSpace_);
+        forgetSpaceProtoOverrides(pSpace_);
+    }
 
     // Only clears the slot if it still holds THIS context.  A worker's wrapper is
-    // destroyed by the main thread, and must not unregister the main thread.
-    clearThreadProtoContext(pContext);
+    // destroyed by the main thread, and must not unregister the main thread; a
+    // wrapper that borrows its space has released its thread's context already
+    // (releaseThreadContext) and holds none.
+    if (pContext) clearThreadProtoContext(pContext);
 }
 
 JSValue JSContextWrapper::eval(const std::string& code, const std::string& filename, bool isModule) {
@@ -562,7 +624,7 @@ JSValue JSContextWrapper::eval(const std::string& code, const std::string& filen
     } _wscope(this);
 
     // Single path: compile → load → run (protoCore interpreter). No legacy JS_Eval.
-    proto::ProtoContext frameCtx(&pSpace, pContext, nullptr, nullptr, nullptr, nullptr);
+    proto::ProtoContext frameCtx(pSpace_, pContext, nullptr, nullptr, nullptr, nullptr);
     frameCtx.currentFileName = pContext->currentFileName;
     frameCtx.currentLineNumber = pContext->currentLineNumber;
 
@@ -771,9 +833,12 @@ const proto::ProtoObject* JSContextWrapper::evalIsolatedToProto(
         ~WrapperScope() { t_currentWrapper = prev; }
     } _wscope(this);
 
-    proto::ProtoContext frameCtx(&pSpace, pContext, nullptr, nullptr, nullptr, nullptr);
-    frameCtx.currentFileName = pContext->currentFileName;
-    frameCtx.currentLineNumber = pContext->currentLineNumber;
+    // The calling thread's context: a Function constructor may run on a
+    // Deferred pool thread, or in a worker's listener on the main thread.
+    proto::ProtoContext* baseCtx = getProtoContext();
+    proto::ProtoContext frameCtx(pSpace_, baseCtx, nullptr, nullptr, nullptr, nullptr);
+    frameCtx.currentFileName = baseCtx->currentFileName;
+    frameCtx.currentLineNumber = baseCtx->currentLineNumber;
 
     // Clear any stale pending exception so compile sees a clean slate.
     if (JS_HasException(ctx)) {

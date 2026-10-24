@@ -138,8 +138,10 @@ still the embedder's obligation.
 calls any `registerThread`. A thread enters `runningThreads` either by constructing a
 `ProtoSpace` — whose constructor adopts the constructing thread as that space's main
 thread — or through `ProtoSpace::newThread`. So the JS main thread is registered, and
-each `worker_threads` worker is registered **in its own space**, because it constructs
-its own `JSContextWrapper`. The CPU and I/O pool workers, the `net`/`http` accept and
+so are the Deferred pool threads and each `worker_threads` worker: they are protoCore
+threads of the main thread's space, the process's only space (a worker's
+`JSContextWrapper` borrows that space; until 2026-10-24 each worker built a space of its
+own). The CPU and I/O pool workers, the `net`/`http` accept and
 read loops and the GC thread are **not**: protoCore's `Thread.cpp` says explicitly
 that a bare `std::thread` is not counted.
 
@@ -157,11 +159,11 @@ further away than that is one a future reader will not connect to the call eithe
 Two substitutes that look reasonable and are both wrong:
 
 - **`this->pContext` at a destruction site.** A worker's `JSContextWrapper` is
-  destroyed by the main thread, and its context belongs to the worker's own space with
-  the worker thread adopted as that space's main thread. Parking that context from the
-  main thread increments `parkedThreads` for a thread that is actively running managed
-  code — the inverse failure, where the collector reaches quorum and scans while a
-  mutator mutates.
+  destroyed by the main thread, and the context it was built with belongs to the worker
+  thread. Parking another thread's context increments `parkedThreads` for a thread that
+  may be actively running managed code — the inverse failure, where the collector
+  reaches quorum and scans while a mutator mutates. (The worker releases that context
+  when its thread ends, `JSContextWrapper::releaseThreadContext`.)
 - **`JSContextWrapper::current()`.** It is only published during `eval()` and under
   `CurrentScope`, so it is null on exactly the teardown paths that block.
 

@@ -221,6 +221,16 @@ void DeferredPool::runTask(proto::ProtoContext* root, const Task& task,
 
     // Settle the Deferred on the owner thread, as a microtask.
     const proto::ProtoRootSet::Handle deferredHandle = task.deferred;
+    if (task.onSettled) {
+        auto onSettled = task.onSettled;
+        owner_->microtasks().enqueueFromAnyThread(
+            [rs, outcome, threw, onSettled](proto::ProtoContext* c) {
+                const proto::ProtoObject* v = rs->resolve(outcome);
+                onSettled(c, v ? v : PROTO_NONE, threw);
+                rs->remove(outcome);
+            });
+        return;
+    }
     owner_->microtasks().enqueueFromAnyThread(
         [rs, deferredHandle, outcome, threw](proto::ProtoContext* c) {
             const proto::ProtoObject* d = rs->resolve(deferredHandle);

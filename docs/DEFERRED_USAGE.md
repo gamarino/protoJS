@@ -51,7 +51,7 @@ The process stays alive while a Deferred is pending.
 
 ## The pool
 
-One pool per runtime instance (per protoCore space), started on the first
+One pool per runtime instance (the main thread, and each worker), started on the first
 `new Deferred`, with as many threads as the CPU pool: `--cpu-threads N`, or the
 number of hardware threads by default (see [THREAD_POOLS.md](THREAD_POOLS.md)).
 Deferreds beyond that number wait in a queue, first in, first out. The pool
@@ -134,10 +134,16 @@ a Deferred's function: a promise belongs to the thread that settles it, and
 its reactions run on whichever thread settles it.
 
 `Deferred` is available to scripts run by the protoCore interpreter (the
-default mode) on the main runtime; it is not installed in `worker_threads`
-workers. ES modules run with `--input-type=module` are executed by
-QuickJS, where the legacy QuickJS-side `Deferred` (`src/Deferred.cpp`) is
-installed instead; it is not covered by this page.
+default mode), on the main thread and in `worker_threads` workers, which run
+in the same space and see the main thread's globals; a worker's Deferreds run
+on a pool of its own. ES modules run with `--input-type=module` are executed
+by QuickJS, where the QuickJS-side `Deferred` (`src/Deferred.cpp`) is
+installed instead: it compiles the function's source into a protoCore
+function and runs it on the same pool, in the same space, and converts the
+result into the QuickJS heap once, when it settles. Such a function sees the
+protoCore global (not the module's bindings), as before. Until 2026-10-24 it
+built a whole runtime and ProtoSpace per task and carried the result back
+serialized.
 
 ## Native producers
 

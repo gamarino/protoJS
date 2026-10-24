@@ -9,9 +9,12 @@ namespace protojs {
 
 namespace {
 
+// The root set that lives as long as the space: a worker's wrapper borrows
+// the main wrapper's space, and its own root set dies with it, while the
+// built-in stays cached for the space.
 proto::ProtoRootSet* currentRootSet() {
     JSContextWrapper* w = JSContextWrapper::current();
-    return w ? w->getRootSet() : nullptr;
+    return w ? w->spaceRootSet() : nullptr;
 }
 
 // One mutex for every writer of every instance, and for the instance list.
