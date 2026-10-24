@@ -72,7 +72,49 @@ struct Breakpoint {
     int requested = 0;     // the line the client asked for
     int resolved = 0;      // the first line with code at or after it (0: unknown)
     std::string condition;
+    std::string hitCondition;
+    std::string logMessage;   // a logpoint: logs instead of stopping
+    char hitOp = 0;           // 0: none; '=', '>', 'g' (>=), '<', 'l' (<=), '%'
+    long long hitN = 0;
+    long long hits = 0;       // hits whose condition passed
+    std::string invalid;      // why the breakpoint cannot be verified
 };
+
+// "N", "== N", ">= N", "> N", "< N", "<= N", "% N" (VS Code's hit count).
+bool parseHitCondition(const std::string& text, char& op, long long& n) {
+    size_t i = 0;
+    auto skip = [&] { while (i < text.size() && std::isspace(static_cast<unsigned char>(text[i]))) i++; };
+    skip();
+    op = '=';
+    if (text.compare(i, 2, "==") == 0) { op = '='; i += 2; }
+    else if (text.compare(i, 2, ">=") == 0) { op = 'g'; i += 2; }
+    else if (text.compare(i, 2, "<=") == 0) { op = 'l'; i += 2; }
+    else if (i < text.size() && (text[i] == '>' || text[i] == '<' || text[i] == '%' || text[i] == '=')) {
+        op = text[i] == '=' ? '=' : text[i];
+        i++;
+    }
+    skip();
+    const size_t start = i;
+    while (i < text.size() && std::isdigit(static_cast<unsigned char>(text[i]))) i++;
+    if (i == start || i - start > 15) return false;
+    n = std::stoll(text.substr(start, i - start));
+    skip();
+    if (i != text.size()) return false;
+    if (op == '%' && n <= 0) return false;
+    return true;
+}
+
+bool hitMatches(char op, long long n, long long hits) {
+    switch (op) {
+        case '=': return hits == n;
+        case '>': return hits > n;
+        case 'g': return hits >= n;
+        case '<': return hits < n;
+        case 'l': return hits <= n;
+        case '%': return n > 0 && hits % n == 0;
+        default:  return true;
+    }
+}
 
 struct BreakpointFile {
     std::string clientPath;   // the path as the client spelled it
@@ -231,13 +273,25 @@ private:
     // --- stops (main thread) ---------------------------------------------
     void stop(proto::ProtoContext* ctx, std::vector<dh::Activation>& stack,
               const char* reason, const std::vector<int>& hitIds,
-              const ExceptionStop* exception = nullptr);
+              const ExceptionStop* exception = nullptr, const std::string& note = std::string());
     ExceptionStop describeException(proto::ProtoContext* ctx, std::vector<dh::Activation>& stack,
                                     const proto::ProtoObject* value, dh::ThrowKind kind,
                                     bool innermostIsUser);
     void setInFlight(const proto::ProtoObject* value);
+    // Evaluates `condition` in frame `frameIndex` of the stack (0: innermost)
+    // with the debugger's hooks suppressed, `bindName` bound to `bindValue`
+    // when given.  True when it holds; on an error, true (a condition that
+    // fails stops) with the message in `error`.
     bool conditionHolds(proto::ProtoContext* ctx, std::vector<dh::Activation>& stack,
-                        const std::string& condition);
+                        int frameIndex, const std::string& condition, std::string& error,
+                        const char* bindName = nullptr,
+                        const proto::ProtoObject* bindValue = nullptr);
+    bool truthy(proto::ProtoContext* ctx, const proto::ProtoObject* v);
+    // A logpoint's message with its {expressions} evaluated in the frame.
+    std::string interpolate(proto::ProtoContext* ctx, std::vector<dh::Activation>& stack,
+                            const std::string& message);
+    // Counts a hit of breakpoint `id`; the count after it.
+    long long countHit(const std::string& key, int id);
     const dh::Activation* frameAt(StopState& st, int frameIndex) const;
     void doStackTrace(StopState& st, const json& req);
     void doScopes(StopState& st, const json& req);
@@ -246,7 +300,9 @@ private:
     // Evaluates `expr` in frame `frameIndex`. True with the value in `out`;
     // false with the error text in `error`.
     bool evaluate(StopState& st, int frameIndex, const std::string& expr,
-                  const proto::ProtoObject*& out, std::string& error);
+                  const proto::ProtoObject*& out, std::string& error,
+                  const char* bindName = nullptr, const proto::ProtoObject* bindValue = nullptr,
+                  bool cache = false);
     int handleFor(StopState& st, const proto::ProtoObject* v);
     json variable(StopState& st, const std::string& name, const proto::ProtoObject* v);
     std::string format(proto::ProtoContext* ctx, const proto::ProtoObject* v, int depth = 0);
@@ -278,6 +334,10 @@ private:
     // Exception breakpoints (setExceptionBreakpoints).
     std::atomic<bool> breakRaised_{false};
     std::atomic<bool> breakUncaught_{false};
+    std::string raisedCondition_, uncaughtCondition_;   // guarded by bpMu_
+    // Compiled condition functions, by source; pinned (main thread only).
+    std::unordered_map<std::string, const proto::ProtoObject*> compiled_;
+    std::vector<proto::ProtoRootSet::Handle> compiledPins_;
     // The exception last reported, until a `catch` takes it: its rethrows (a
     // `finally` block's, an `await` of the promise it rejected) do not stop
     // again.  Pinned in the wrapper's root set (main thread only).
@@ -433,11 +493,20 @@ void Session::handleRequest(const json& req) {
             {"supportsEvaluateForHovers", true},
             {"supportsTerminateRequest", true},
             {"supportsExceptionInfoRequest", true},
+            {"supportsHitConditionalBreakpoints", true},
+            {"supportsLogPoints", true},
+            {"supportsExceptionFilterOptions", true},
             {"exceptionBreakpointFilters", json::array({
                 {{"filter", "raised"}, {"label", "All Exceptions"}, {"default", false},
+                 {"supportsCondition", true},
+                 {"conditionDescription", "A JavaScript expression; the exception is `error`, e.g. "
+                                          "error instanceof TypeError"},
                  {"description", "Stop at every exception thrown in your code, caught or not, "
                                  "before it unwinds the stack."}},
                 {{"filter", "uncaught"}, {"label", "Uncaught Exceptions"}, {"default", false},
+                 {"supportsCondition", true},
+                 {"conditionDescription", "A JavaScript expression; the exception is `error`, e.g. "
+                                          "error instanceof TypeError"},
                  {"description", "Stop where an exception is thrown that no try/catch on the "
                                  "stack catches.  A throw in an async function or a promise "
                                  "callback rejects a promise instead: it is not uncaught."}},
@@ -540,6 +609,14 @@ void Session::handleSetBreakpoints(const json& req) {
                 bp.id = nextBreakpointId_++;
                 bp.requested = b.value("line", 0);
                 bp.condition = b.value("condition", "");
+                bp.hitCondition = b.value("hitCondition", "");
+                bp.logMessage = b.value("logMessage", "");
+                if (!bp.hitCondition.empty() &&
+                    !parseHitCondition(bp.hitCondition, bp.hitOp, bp.hitN)) {
+                    bp.hitOp = 0;
+                    bp.invalid = "invalid hit count '" + bp.hitCondition +
+                                 "': use N, == N, >= N, > N, < N, <= N or % N";
+                }
                 if (known) resolve(bp, *known);
                 f.breakpoints.push_back(bp);
                 result.push_back(breakpointJson(bp, known));
@@ -573,22 +650,31 @@ void Session::handleResume(const json& req, const std::string& command) {
 
 void Session::handleSetExceptionBreakpoints(const json& req) {
     const json args = req.value("arguments", json::object());
-    std::vector<std::string> filters;
+    // (filter id, condition): `filters` are unconditional; `filterOptions`
+    // may carry a condition.
+    std::vector<std::pair<std::string, std::string>> filters;
     if (args.contains("filters") && args["filters"].is_array())
         for (const auto& f : args["filters"])
-            if (f.is_string()) filters.push_back(f.get<std::string>());
+            if (f.is_string()) filters.emplace_back(f.get<std::string>(), std::string());
     if (args.contains("filterOptions") && args["filterOptions"].is_array())
         for (const auto& f : args["filterOptions"])
-            if (f.is_object()) filters.push_back(f.value("filterId", ""));
+            if (f.is_object())
+                filters.emplace_back(f.value("filterId", ""), f.value("condition", ""));
     bool raised = false, uncaught = false;
+    std::string raisedCond, uncaughtCond;
     json result = json::array();
-    for (const auto& f : filters) {
+    for (const auto& [f, cond] : filters) {
         const bool known = f == "raised" || f == "uncaught";
-        raised = raised || f == "raised";
-        uncaught = uncaught || f == "uncaught";
+        if (f == "raised") { raised = true; raisedCond = cond; }
+        if (f == "uncaught") { uncaught = true; uncaughtCond = cond; }
         json b = {{"verified", known}};
         if (!known) b["message"] = "unknown exception filter " + f;
         result.push_back(std::move(b));
+    }
+    {
+        std::lock_guard<std::mutex> lk(bpMu_);
+        raisedCondition_ = raisedCond;
+        uncaughtCondition_ = uncaughtCond;
     }
     breakRaised_.store(raised);
     breakUncaught_.store(uncaught);
@@ -724,7 +810,10 @@ void Session::resolve(Breakpoint& bp, const std::set<int>& lines) {
 
 json Session::breakpointJson(const Breakpoint& bp, const std::set<int>* lines) const {
     json j = {{"id", bp.id}, {"line", bp.resolved ? bp.resolved : bp.requested}};
-    if (bp.resolved) {
+    if (!bp.invalid.empty()) {
+        j["verified"] = false;
+        j["message"] = bp.invalid;
+    } else if (bp.resolved) {
         j["verified"] = true;
     } else {
         j["verified"] = false;
@@ -739,12 +828,22 @@ bool Session::breakpointAt(const std::string& key, int line, Breakpoint& out) {
     auto f = breakpoints_.find(key);
     if (f == breakpoints_.end()) return false;
     for (const Breakpoint& bp : f->second.breakpoints) {
+        if (!bp.invalid.empty()) continue;   // never hit (not verified)
         if ((bp.resolved ? bp.resolved : bp.requested) == line) {
             out = bp;
             return true;
         }
     }
     return false;
+}
+
+long long Session::countHit(const std::string& key, int id) {
+    std::lock_guard<std::mutex> lk(bpMu_);
+    auto f = breakpoints_.find(key);
+    if (f == breakpoints_.end()) return 0;
+    for (Breakpoint& bp : f->second.breakpoints)
+        if (bp.id == id) return ++bp.hits;
+    return 0;
 }
 
 void Session::onModuleLoaded(const ProtoBytecodeModule& root) {
@@ -821,20 +920,36 @@ void Session::onInstruction(proto::ProtoContext* ctx, std::vector<dh::Activation
         case Mode::Free:     break;
     }
     std::vector<int> hit;
+    std::string note;
     if (haveBreakpoints) {
         Breakpoint bp;
-        if (breakpointAt(file.key, line, bp) &&
-            (bp.condition.empty() || conditionHolds(ctx, stack, bp.condition))) {
-            hit.push_back(bp.id);
-            if (!reason) reason = "breakpoint";
+        if (breakpointAt(file.key, line, bp)) {
+            bool pass = true;
+            std::string error;
+            if (!bp.condition.empty())
+                pass = conditionHolds(ctx, stack, 0, bp.condition, error);
+            if (!error.empty()) {
+                // A condition that fails stops, whatever else the breakpoint says.
+                note = "breakpoint condition `" + bp.condition + "` failed: " + error;
+                sendOutput("stderr", note + "\n");
+            } else if (pass) {
+                const long long hits = countHit(file.key, bp.id);
+                pass = hitMatches(bp.hitOp, bp.hitN, hits);
+            }
+            if (pass && error.empty() && !bp.logMessage.empty()) {
+                sendOutput("console", interpolate(ctx, stack, bp.logMessage) + "\n");
+            } else if (pass) {
+                hit.push_back(bp.id);
+                if (!reason) reason = "breakpoint";
+            }
         }
     }
-    if (reason) stop(ctx, stack, reason, hit);
+    if (reason) stop(ctx, stack, reason, hit, nullptr, note);
 }
 
 void Session::stop(proto::ProtoContext* ctx, std::vector<dh::Activation>& stack,
                    const char* reason, const std::vector<int>& hitIds,
-                   const ExceptionStop* exception) {
+                   const ExceptionStop* exception, const std::string& note) {
     mode_.store(static_cast<int>(Mode::Free));
     // A line printed without a newline is still in a buffer.
     std::cout.flush();
@@ -865,6 +980,11 @@ void Session::stop(proto::ProtoContext* ctx, std::vector<dh::Activation>& stack,
     if (exception) {
         body["description"] = exception->description;
         body["text"] = exception->text;
+    }
+    if (!note.empty()) {
+        body["description"] = body.contains("description")
+            ? body["description"].get<std::string>() + " -- " + note : note;
+        if (!body.contains("text")) body["text"] = note;
     }
     sendEvent("stopped", body);
 
@@ -930,14 +1050,44 @@ void Session::onThrow(proto::ProtoContext* ctx, std::vector<dh::Activation>& sta
     }
     if (user == stack.size()) return;
     const bool innermostIsUser = user + 1 == stack.size();
+    const bool isUncaught = uncaught && !dh::throwWillBeCaught(stack);
+    const bool isRaised = raised && innermostIsUser;
+    if (!isUncaught && !isRaised) return;
+    std::string raisedCond, uncaughtCond;
+    {
+        std::lock_guard<std::mutex> lk(bpMu_);
+        raisedCond = raisedCondition_;
+        uncaughtCond = uncaughtCondition_;
+    }
+
+    // The filters' conditions, in the throwing frame with the exception bound
+    // to `error`.  The value is pinned while they run.
+    JSContextWrapper* w = JSContextWrapper::current();
+    proto::ProtoRootSet* rs = w ? w->getRootSet() : nullptr;
+    std::optional<proto::ProtoRootSet::Handle> pin;
+    if (rs) pin = rs->add(value);
+    const int frame = static_cast<int>(stack.size() - 1 - user);
     const char* breakMode = nullptr;
-    if (uncaught && !dh::throwWillBeCaught(stack)) breakMode = "unhandled";
-    else if (raised && innermostIsUser) breakMode = "always";
+    std::string note;
+    auto passes = [&](const std::string& cond) {
+        if (cond.empty()) return true;
+        std::string error;
+        const bool ok = conditionHolds(ctx, stack, frame, cond, error, "error", value);
+        if (!error.empty()) {
+            note = "exception breakpoint condition `" + cond + "` failed: " + error;
+            sendOutput("stderr", note + "\n");
+        }
+        return ok;
+    };
+    if (isUncaught && passes(uncaughtCond)) breakMode = "unhandled";
+    else if (isRaised && passes(raisedCond)) breakMode = "always";
+    if (pin && rs) rs->remove(*pin);
     if (!breakMode) return;
 
     setInFlight(value);   // which also keeps it alive during the stop
     ExceptionStop e = describeException(ctx, stack, value, kind, innermostIsUser);
     e.breakMode = breakMode;
+    if (!note.empty()) e.description += " -- " + note;
     stop(ctx, stack, "exception", {}, &e);
 }
 
@@ -956,20 +1106,28 @@ void Session::setInFlight(const proto::ProtoObject* value) {
 }
 
 bool Session::conditionHolds(proto::ProtoContext* ctx, std::vector<dh::Activation>& stack,
-                             const std::string& condition) {
+                             int frameIndex, const std::string& condition, std::string& error,
+                             const char* bindName, const proto::ProtoObject* bindValue) {
     StopState st;
     st.ctx = ctx;
     st.stack = &stack;
     st.depth = stack.size();
     const proto::ProtoObject* v = nullptr;
-    std::string error;
+    error.clear();
+    // What the condition runs (a call, a getter) must not stop or report.
+    const bool wasSuppressed = dh::suppressed();
     dh::setSuppressed(true);
-    const bool ok = evaluate(st, 0, condition, v, error);
-    dh::setSuppressed(false);
+    const bool ok = evaluate(st, frameIndex, condition, v, error, bindName, bindValue, true);
+    dh::setSuppressed(wasSuppressed);
     if (!ok) {
-        sendOutput("stderr", "breakpoint condition '" + condition + "': " + error + "\n");
+        if (error.empty()) error = "error";
         return true;   // a condition that fails stops, as in other debuggers
     }
+    error.clear();
+    return truthy(ctx, v);
+}
+
+bool Session::truthy(proto::ProtoContext* ctx, const proto::ProtoObject* v) {
     if (!v || v == PROTO_NONE || v == PROTO_FALSE || v == getNullSentinel() ||
         v == getUndefinedSentinel())
         return false;
@@ -977,6 +1135,49 @@ bool Session::conditionHolds(proto::ProtoContext* ctx, std::vector<dh::Activatio
     if (v->isDouble(ctx)) { double d = v->asDouble(ctx); return d != 0 && !std::isnan(d); }
     if (v->isString(ctx)) return v->asString(ctx)->getSize(ctx) != 0;
     return true;
+}
+
+std::string Session::interpolate(proto::ProtoContext* ctx, std::vector<dh::Activation>& stack,
+                                 const std::string& message) {
+    StopState st;
+    st.ctx = ctx;
+    st.stack = &stack;
+    st.depth = stack.size();
+    std::string out;
+    const bool wasSuppressed = dh::suppressed();
+    dh::setSuppressed(true);
+    for (size_t i = 0; i < message.size();) {
+        const char c = message[i];
+        if (c == '{' && i + 1 < message.size() && message[i + 1] == '{') { out += '{'; i += 2; continue; }
+        if (c == '}' && i + 1 < message.size() && message[i + 1] == '}') { out += '}'; i += 2; continue; }
+        if (c != '{') { out += c; i++; continue; }
+        // {expression}: up to the matching brace (an object literal or a
+        // block inside it nests).
+        size_t j = i + 1;
+        int depth = 1;
+        for (; j < message.size(); j++) {
+            if (message[j] == '{') depth++;
+            else if (message[j] == '}' && --depth == 0) break;
+        }
+        if (j >= message.size()) { out += message.substr(i); break; }
+        const std::string expr = message.substr(i + 1, j - i - 1);
+        const proto::ProtoObject* v = nullptr;
+        std::string error;
+        if (evaluate(st, 0, expr, v, error, nullptr, nullptr, true)) {
+            // As console.log prints it: a string without quotes.
+            if (v && v != PROTO_NONE && v->isString(ctx)) out += toUtf8(ctx, v->asString(ctx));
+            else out += format(ctx, v ? v : PROTO_NONE);
+        } else {
+            if (error.compare(0, 9, "Uncaught ") == 0) error.erase(0, 9);
+            out += "<error: " + error + ">";
+        }
+        i = j + 1;
+    }
+    dh::setSuppressed(wasSuppressed);
+    if (JSContextWrapper* w = JSContextWrapper::current())
+        if (proto::ProtoRootSet* rs = w->getRootSet())
+            for (auto h : st.pins) rs->remove(h);
+    return out;
 }
 
 const dh::Activation* Session::frameAt(StopState& st, int frameIndex) const {
@@ -1091,7 +1292,8 @@ void Session::doEvaluate(StopState& st, const json& req) {
 }
 
 bool Session::evaluate(StopState& st, int frameIndex, const std::string& exprIn,
-                       const proto::ProtoObject*& out, std::string& error) {
+                       const proto::ProtoObject*& out, std::string& error,
+                       const char* bindName, const proto::ProtoObject* bindValue, bool cache) {
     std::string expr = exprIn;
     while (!expr.empty() && std::isspace(static_cast<unsigned char>(expr.back()))) expr.pop_back();
     while (!expr.empty() && std::isspace(static_cast<unsigned char>(expr.front()))) expr.erase(expr.begin());
@@ -1104,7 +1306,12 @@ bool Session::evaluate(StopState& st, int frameIndex, const std::string& exprIn,
     std::vector<dh::FrameVar> fv;
     dh::collectFrameVars(*a, fv);
 
-    // A variable of the frame, read in place.
+    // The bound name (an exception condition's `error`), then a variable of
+    // the frame, read in place.
+    if (bindName && expr == bindName) {
+        out = bindValue ? bindValue : PROTO_NONE;
+        return true;
+    }
     for (auto& v : fv) {
         if (v.name == expr) {
             if (!v.value) { error = "ReferenceError: " + expr + " is not initialized"; return false; }
@@ -1122,6 +1329,12 @@ bool Session::evaluate(StopState& st, int frameIndex, const std::string& exprIn,
     std::vector<std::string> names;
     std::vector<const proto::ProtoObject*> values;
     std::set<std::string> seen;
+    // The bound name shadows a frame variable of the same name.
+    if (bindName) {
+        names.push_back(bindName);
+        values.push_back(bindValue ? bindValue : PROTO_NONE);
+        seen.insert(bindName);
+    }
     for (auto& v : fv) {
         if (!v.value || !isIdentifier(v.name) || !seen.insert(v.name).second) continue;
         names.push_back(v.name);
@@ -1136,11 +1349,30 @@ bool Session::evaluate(StopState& st, int frameIndex, const std::string& exprIn,
         const std::string code = attempt == 0
             ? "(function(" + params + ") { return (" + expr + "\n); })"
             : "(function(" + params + ") {\n" + expr + "\n})";
+        if (cache) {
+            auto hitIt = compiled_.find(code);
+            if (hitIt != compiled_.end()) { fn = hitIt->second; break; }
+        }
         try {
             fn = wrapper->evalIsolatedToProto(code, "<debugger>");
             if (fn == PROTO_NONE) fn = nullptr;
         } catch (const proto::ProtoException& e) {
             if (attempt == 0) compileError = format(ctx, e.value());
+        }
+        // A condition or a logpoint expression is compiled once (the frame's
+        // variables are part of the source, so a frame with others compiles
+        // its own).
+        if (fn && cache) {
+            proto::ProtoRootSet* rs = wrapper->getRootSet();
+            if (rs) {
+                if (compiled_.size() >= 256) {
+                    for (auto h : compiledPins_) rs->remove(h);
+                    compiledPins_.clear();
+                    compiled_.clear();
+                }
+                compiledPins_.push_back(rs->add(fn));
+                compiled_.emplace(code, fn);
+            }
         }
     }
     if (!fn) { error = compileError.empty() ? "cannot compile the expression" : compileError; return false; }

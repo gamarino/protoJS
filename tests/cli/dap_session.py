@@ -7,7 +7,8 @@ Each case starts `protojs --dap`, speaks the Debug Adapter Protocol to it over
 its stdin/stdout and checks what comes back: breakpoints (verified once the
 file is loaded), stops, the call stack, variables, evaluate, stepping in, over
 and out, stopOnEntry, conditional breakpoints, exception breakpoints (All Exceptions,
-Uncaught Exceptions, exceptionInfo, no stop on the engine's own control flow),
+Uncaught Exceptions, exceptionInfo, no stop on the engine's own control flow,
+conditions on the filters), hit counts, logpoints,
 process.exit, and the
 program's output arriving as `output` events -- including more than 64 KB of
 non-ASCII text and a child process that reads stdin, neither of which may
@@ -116,6 +117,23 @@ class Adapter:
             if m.get("type") == "response" and m.get("request_seq") == seq:
                 return m
 
+    def next_stop(self):
+        """The next `stopped` event, or None once the program has terminated."""
+        deadline = time.time() + TIMEOUT
+        for e in self.events:
+            if e["event"] in ("stopped", "terminated") and not e.get("_seen"):
+                if e["event"] == "terminated":
+                    return None
+                e["_seen"] = True
+                return e
+        while True:
+            m = self.next_message(deadline)
+            if m.get("type") == "event" and m["event"] == "terminated":
+                return None
+            if m.get("type") == "event" and m["event"] == "stopped":
+                m["_seen"] = True
+                return m
+
     def wait_event(self, name):
         deadline = time.time() + TIMEOUT
         # An event that already arrived (while waiting for a response).
@@ -130,7 +148,7 @@ class Adapter:
                 return m
 
     def start(self, program, breakpoints=None, stop_on_entry=False, conditions=None,
-              exception_filters=None):
+              exception_filters=None, bp_options=None, exception_options=None):
         r = self.request("initialize", {"adapterID": "protojs", "pathFormat": "path",
                                         "linesStartAt1": True, "columnsStartAt1": True})
         check(r["success"], "initialize succeeds")
@@ -144,6 +162,8 @@ class Adapter:
             b = {"line": line}
             if conditions and line in conditions:
                 b["condition"] = conditions[line]
+            if bp_options and line in bp_options:
+                b.update(bp_options[line])
             bps.append(b)
         r = self.request("setBreakpoints", {"source": {"path": program}, "breakpoints": bps})
         check(r["success"], "setBreakpoints succeeds")
@@ -151,6 +171,11 @@ class Adapter:
             e = self.request("setExceptionBreakpoints", {"filters": exception_filters})
             check(e["success"] and len(e["body"]["breakpoints"]) == len(exception_filters),
                   "setExceptionBreakpoints %s succeeds" % exception_filters)
+        if exception_options is not None:
+            e = self.request("setExceptionBreakpoints",
+                             {"filters": [], "filterOptions": exception_options})
+            check(e["success"] and len(e["body"]["breakpoints"]) == len(exception_options),
+                  "setExceptionBreakpoints with filterOptions succeeds")
         self.request("configurationDone")
         return r
 
@@ -526,6 +551,143 @@ def case_exception_await(a):
     check(a.output["stdout"].count("main caught") == 2, "await: both catches ran")
 
 
+EXC_COND = """function f(kind) {
+  if (kind === 'type') throw new TypeError('t');
+  throw new RangeError('r');
+}
+for (const k of ['range', 'type']) { try { f(k); } catch (e) { console.log('caught', e.name); } }
+"""
+
+
+def stops_until_end(a, expr=None):
+    """(line, text, value of expr) of every stop until the program ends."""
+    seen = []
+    while True:
+        s = a.next_stop()
+        if s is None:
+            return seen
+        frames = stack(a)
+        val = evaluate(a, expr, frames[0]["id"]) if expr else None
+        seen.append((frames[0]["line"], s["body"].get("text", ""), val, s["body"].get("description", "")))
+        a.request("continue", {"threadId": 1})
+
+
+def case_exception_condition(a):
+    prog = write("exccond.js", EXC_COND)
+    a.start(prog, exception_options=[{"filterId": "raised", "condition": "error instanceof TypeError"}])
+    filters = {f["filter"]: f for f in a.capabilities.get("exceptionBreakpointFilters", [])}
+    check(a.capabilities.get("supportsExceptionFilterOptions") is True and
+          filters.get("raised", {}).get("supportsCondition") is True and
+          "error" in filters.get("raised", {}).get("conditionDescription", ""),
+          "initialize: filters take conditions on `error`")
+    seen = stops_until_end(a)
+    check([x[:2] for x in seen] == [(2, "TypeError: t")],
+          "exception condition true stops only at the TypeError (%s)" % seen)
+    check(a.finish() == 0 and a.output["stdout"].count("caught") == 2, "the program then ends normally")
+
+
+def case_exception_condition_false(a):
+    prog = write("exccond.js", EXC_COND)
+    a.start(prog, exception_options=[{"filterId": "raised", "condition": "error instanceof SyntaxError"}])
+    check(no_stop(a), "exception condition false: no stop")
+    check(a.output["stdout"].count("caught") == 2, "exception condition false: the catches ran")
+
+
+def case_exception_condition_error(a):
+    prog = write("exccond.js", EXC_COND)
+    a.start(prog, exception_options=[{"filterId": "raised", "condition": "error.nope.x"}])
+    seen = stops_until_end(a)
+    check([x[0] for x in seen] == [3, 2], "a failing exception condition stops at every throw (%s)" % seen)
+    check(seen and "exception breakpoint condition `error.nope.x` failed" in seen[0][3],
+          "the stop's description reports the condition's error")
+    check("exception breakpoint condition `error.nope.x` failed" in a.output["stderr"],
+          "the condition's error is reported in the output")
+    a.finish()
+
+
+COND_CALL = """function check(e) {
+  const r = e instanceof TypeError;
+  return r;
+}
+function g() { throw new TypeError('x'); }
+try { g(); } catch (e) {}
+console.log('end');
+"""
+
+
+def case_exception_condition_breakpoint(a):
+    prog = write("condcall.js", COND_CALL)
+    a.start(prog, breakpoints=[2],
+            exception_options=[{"filterId": "raised", "condition": "check(error)"}])
+    seen = stops_until_end(a)
+    check([x[0] for x in seen] == [5] and seen[0][1] == "TypeError: x",
+          "a condition calling a function with a breakpoint does not stop there (%s)" % seen)
+    check(a.finish() == 0 and "end" in a.output["stdout"], "condition with a call: program ends")
+
+
+LOOP = """let acc = 0;
+for (let i = 1; i <= 6; i++) {
+  acc += i;
+  acc -= 0;
+  acc *= 1;
+}
+console.log('acc', acc);
+"""
+
+
+def case_hit_conditions(a):
+    prog = write("hits.js", LOOP)
+    r = a.start(prog, breakpoints=[3, 4, 5],
+                bp_options={3: {"hitCondition": ">= 5"}, 4: {"hitCondition": "3"},
+                            5: {"hitCondition": "every other"}})
+    bps = r["body"]["breakpoints"]
+    check(bps[2].get("verified") is False and "hit count" in bps[2].get("message", ""),
+          "an invalid hitCondition is not verified")
+    check(a.capabilities.get("supportsHitConditionalBreakpoints") is True and
+          a.capabilities.get("supportsLogPoints") is True, "initialize: hit counts and logpoints")
+    seen = [(x[0], x[2]) for x in stops_until_end(a, "i")]
+    check(seen == [(4, "3"), (3, "5"), (3, "6")],
+          "hitCondition >= 5 and 3: stops at i=3 (line 4), 5 and 6 (line 3) (%s)" % seen)
+    check(a.finish() == 0, "hit counts: program ends")
+
+
+def case_hit_modulo(a):
+    prog = write("hits.js", LOOP)
+    a.start(prog, breakpoints=[3, 4, 5],
+            bp_options={3: {"hitCondition": "% 2"}, 4: {"condition": "i === 5"},
+                        5: {"condition": "i > 100"}})
+    seen = [(x[0], x[2]) for x in stops_until_end(a, "i")]
+    check(seen == [(3, "2"), (3, "4"), (4, "5"), (3, "6")],
+          "hitCondition %% 2 and conditions true/false: exact stops (%s)" % seen)
+    check(a.finish() == 0 and "acc 21" in a.output["stdout"], "program ends with acc 21")
+
+
+def case_logpoints(a):
+    prog = write("hits.js", LOOP)
+    a.start(prog, breakpoints=[3, 4, 5],
+            bp_options={3: {"logMessage": "i={i} {{lit}} sq={i * i}", "hitCondition": "<= 2"},
+                        4: {"logMessage": "two {nope.x}", "condition": "i === 2"},
+                        5: {"logMessage": "obj {({a: i}).a}"}})
+    seen = stops_until_end(a)
+    check(seen == [], "logpoints do not stop (%s)" % seen)
+    out = a.output.get("console", "")
+    check("i=1 {lit} sq=1\n" in out and "i=2 {lit} sq=4\n" in out and "i=3 " not in out,
+          "logpoint interpolates {i}, {{literal}} and respects its hitCondition")
+    check(out.count("two <error: ReferenceError") == 1, "a logpoint expression error interpolates as <error: ...>")
+    check(out.count("obj ") == 6 and "obj 6\n" in out, "a logpoint expression with braces")
+    check(a.finish() == 0, "logpoints: program ends")
+
+
+def case_condition_error(a):
+    prog = write("hits.js", LOOP)
+    a.start(prog, breakpoints=[3], conditions={3: "nope.x"})
+    s = a.next_stop()
+    check(s is not None and "breakpoint condition `nope.x` failed" in s["body"].get("description", ""),
+          "a failing line condition stops and says why")
+    check("breakpoint condition `nope.x` failed" in a.output["stderr"], "and reports it in the output")
+    a.kill()
+
+
 os.makedirs(SCRATCH, exist_ok=True)
 run_case("breakpoints, stack, variables, evaluate, stepping, output", case_breakpoints)
 run_case("stopOnEntry", case_stop_on_entry)
@@ -538,6 +700,14 @@ run_case("exception breakpoints: no stop on internal control flow", case_excepti
 run_case("exception breakpoints: filters off", case_exception_off)
 run_case("exception breakpoints: Uncaught Exceptions", case_exception_uncaught)
 run_case("exception breakpoints: await and rejected promises", case_exception_await)
+run_case("exception filter condition true", case_exception_condition)
+run_case("exception filter condition false", case_exception_condition_false)
+run_case("exception filter condition that throws", case_exception_condition_error)
+run_case("exception filter condition calling a function with a breakpoint", case_exception_condition_breakpoint)
+run_case("hit conditions", case_hit_conditions)
+run_case("hit condition % 2 and line conditions", case_hit_modulo)
+run_case("logpoints", case_logpoints)
+run_case("line condition that throws", case_condition_error)
 
 if failures:
     print("%d check(s) failed" % len(failures))
