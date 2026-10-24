@@ -6,6 +6,21 @@ All notable changes to protoJS are documented in this file.
 
 **Requires protoCore 3.1.0** (untagged master, commit 267b9fc9; SOVERSION 4). CI pins that commit on every job.
 
+### Added — debugging in VS Code (2026-10-24)
+
+- **`protojs --dap`**, a Debug Adapter Protocol server built into the
+  executable, and a VS Code extension (`editor-integration/vscode`) that
+  registers it as the **protoJS** debugger for JavaScript: line and
+  conditional breakpoints, continue / step over / into / out / pause,
+  `stopOnEntry`, the call stack, Locals / Closure / Script variables,
+  evaluate in a frame, and the program's stdout and stderr as Debug Console
+  output (docs/DEBUGGING.md). The engine hooks (src/debugger/DebugHooks.h)
+  are off unless `--dap` turns them on.
+- **A required module's line numbers are the file's.** The CommonJS wrapper
+  put the module body on the line after its own, so the compiler's line
+  information for a required file was one line off (the debugger would have
+  stopped one line early).
+
 ### Changed — one ProtoSpace per process (2026-10-24)
 
 - **`worker_threads` workers run in the main thread's space.** A worker is a

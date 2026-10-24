@@ -1,0 +1,27 @@
+{
+  "version": "0.2.0",
+  "configurations": [
+    {
+      "type": "protojs",
+      "request": "launch",
+      "name": "Debug current file with protoJS",
+      "program": "${file}",
+      "stopOnEntry": false
+    },
+    {
+      "type": "protojs",
+      "request": "launch",
+      "name": "Debug current file with protoJS (stop on entry)",
+      "program": "${file}",
+      "stopOnEntry": true
+    },
+    {
+      "type": "protojs",
+      "request": "launch",
+      "name": "Debug debug_demo.js",
+      "program": "${workspaceFolder}/debug_demo.js",
+      "cwd": "${workspaceFolder}",
+      "stopOnEntry": false
+    }
+  ]
+}

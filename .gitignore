@@ -84,3 +84,6 @@ build_tsan/
 benchmarks/structures/results.jsonl
 benchmarks/structures/cad/cad.jsonl
 .gitnexus
+
+# VS Code extension packages (editor-integration/vscode)
+*.vsix

@@ -13,6 +13,7 @@ Index of the documentation in this repository. Start with the [project README](.
 - [PROTOCORE_MODULE.md](PROTOCORE_MODULE.md) — the `protoCore` global: `runInThread` for native work on protoCore threads, and the collection helpers not yet reachable from scripts.
 - [NATIVE_MODULES.md](NATIVE_MODULES.md) — loading native C++ addon modules through `require()`.
 - [THREAD_POOLS.md](THREAD_POOLS.md) — the CPU and I/O thread pools and their options.
+- [DEBUGGING.md](DEBUGGING.md) — debugging in VS Code with `protojs --dap`: installing the extension, what works, limitations.
 - [MODULE_DISCOVERY_PROTOCORE.md](MODULE_DISCOVERY_PROTOCORE.md) — how `require()` uses protoCore's unified module discovery system.
 - [TROUBLESHOOTING.md](TROUBLESHOOTING.md) — solutions to common build, runtime and module problems.
 

@@ -39,7 +39,8 @@ Four language runtimes (protoJS, protoPython, protoST, protoClojure) and protoCp
 - **Garbage collection** is provided by protoCore's concurrent collector. A sequential program runs under a fixed heap ceiling (75 % of physical memory, or of the cgroup limit); a program that uses Deferreds switches, at its first Deferred, to protoCore's adaptive heap controller, which keeps the heap far below that budget (23-65 % less peak memory with 6-12 Deferreds, at -11 to +26 % wall time depending on the workload). Heap memory is not returned to the operating system before the process ends. See [Memory](docs/API_REFERENCE.md#memory).
 - **Promises and async functions per ECMA-262.** Promise reactions run as jobs on a per-thread microtask queue, drained after the main script and after every event-loop callback, in the order Node runs them; `await` suspends the async function and resumes it from a job; async generators queue their requests; an unhandled rejection ends the process with status 1. See [Promises and async functions](docs/API_REFERENCE.md#promises-and-async-functions).
 - **One exception type with every language on protoCore.** A JavaScript `throw` is a C++ `throw` of protoCore's `ProtoException`, so the errors a C++ module (or another language) raises are caught by a JavaScript `catch` naming the module's types (`e instanceof geometry.NegativeRadius`), protoCore's own errors arrive as `SyntaxError` / `TypeError` / `RangeError`, and a C++ standard exception a module lets escape arrives as an `Error`. See [docs/EXCEPTIONS.md](docs/EXCEPTIONS.md).
-- **Node.js-style modules** (`fs`, `path`, `http`, `net`, `stream`, `events`, `crypto`, `worker_threads`, and others) and developer tools (memory analyzer, profiler, Chrome DevTools Protocol debugger) implemented in C++.
+- **Node.js-style modules** (`fs`, `path`, `http`, `net`, `stream`, `events`, `crypto`, `worker_threads`, and others) and developer tools (memory analyzer, profiler) implemented in C++.
+- **Debugging in VS Code** through `protojs --dap`, a Debug Adapter Protocol server built into the executable: breakpoints, stepping, the call stack, variables and the Debug Console. See [Debugging in VS Code](#-debugging-in-vs-code).
 - **Command-line interface** with Node.js-style flags and an interactive REPL.
 
 ---
@@ -136,6 +137,7 @@ All options are parsed by `src/main.cpp`.
 | `<file>` | Script to run. Every argument that does not start with `-` is read as the script file, so extra positional arguments for the script are not supported. |
 | `-e "code"` | Evaluate `code` instead of a file. |
 | `-p`, `--print` | Print the result of the evaluation when it is not `undefined`. |
+| `--dap` | Run as a Debug Adapter Protocol server on stdin/stdout, for VS Code and other DAP clients (see [Debugging in VS Code](#-debugging-in-vs-code)). |
 | `-c`, `--check` | Parse the input without executing it. A file that parses prints nothing and exits 0; otherwise the syntax error is printed and the status is 1. Combining it with `-e` exits with status 9. With `--input-type=module` the module itself is parsed, but its imports cannot be resolved: any `import` is reported as `ReferenceError: could not load module`, so the check is limited to modules without imports. |
 | `-v`, `--version` | Print `protoJS v0.2.0` and exit. |
 | `--input-type=module` | Compile the input as an ES module. |
@@ -198,13 +200,35 @@ profiler.stopProfiling();
 profiler.exportProfile("profile.json");      // Chrome DevTools format
 profiler.generateHTMLReport("profile.html");
 
-// Chrome DevTools Protocol debugger
+// The `debugger` module records breakpoints but never stops the program;
+// to debug, use VS Code with `protojs --dap` (below).
 const dbg = globalThis["debugger"];
-dbg.startCDPServer(9229);
 dbg.setBreakpoint("script.js", 10);          // script, line[, column]
 ```
 
 For more examples, see [docs/EXAMPLES.md](docs/EXAMPLES.md). For thread pool configuration, see [docs/THREAD_POOLS.md](docs/THREAD_POOLS.md).
+
+---
+
+## 🐞 Debugging in VS Code
+
+`protojs --dap` is a [Debug Adapter Protocol](https://microsoft.github.io/debug-adapter-protocol/) server built into the `protojs` executable, and [`editor-integration/vscode`](editor-integration/vscode) is a small VS Code extension that registers it as the **protoJS** debugger for JavaScript files. VS Code's own JavaScript support and its Node.js debugger are untouched: protoJS is offered next to Node.js.
+
+**Install** (once; needs Node.js for `npx`):
+
+```bash
+cd editor-integration/vscode
+npx @vscode/vsce@3.2.1 package --skip-license
+code --install-extension protojs-debug-0.1.0.vsix
+```
+
+The extension runs `protojs` from the `protojs.path` setting, else from the default install location (`%LOCALAPPDATA%\Programs\proto\bin\protojs.exe` on Windows, `~/.local/bin/protojs` elsewhere), else from the `PATH`.
+
+**Start a session:** open a `.js` file, set breakpoints in the gutter, press **F5** and pick **protoJS**. Without a `launch.json` the active file is debugged; **Run → Add Configuration… → protoJS** writes one (`program`, `args`, `cwd`, `env`, `stopOnEntry`), and [`examples/.vscode/launch.json`](examples/.vscode/launch.json) has ready-made configurations for [`examples/debug_demo.js`](examples/debug_demo.js).
+
+**What works:** line breakpoints in the main script and in `require`d files (pending until the file loads, moved to the next line with code), conditional breakpoints, continue / step over / step into / step out / pause, `stopOnEntry`, the call stack with files and lines, Locals / Closure / Script variables with expandable objects and arrays, evaluate in the selected frame (Debug Console, Watch, hover), and the program's stdout and stderr in the Debug Console; `process.exit` and uncaught exceptions end the session with the program's status.
+
+**Limitations:** only the main thread is debugged (a `Deferred`'s function, workers and `runInThread` run without stopping); programs run as ES modules (`--input-type=module`) are not debuggable; an assignment to a local variable in the Debug Console changes a copy, not the program's variable (globals, top-level bindings and object properties do change); no exception breakpoints, logpoints, `debugger;` statements or attach; a compute-bound program runs about 1.3-1.5 times slower while breakpoints are set. The full guide is [docs/DEBUGGING.md](docs/DEBUGGING.md).
 
 ---
 
@@ -450,6 +474,7 @@ Full index: **[docs/README.md](docs/README.md)** — user guides, contributor do
 - **[docs/PROTOCORE_MODULE.md](docs/PROTOCORE_MODULE.md)** - protoCore module guide
 - **[docs/NATIVE_MODULES.md](docs/NATIVE_MODULES.md)** - Native addon modules (C++ shared libraries)
 - **[docs/THREAD_POOLS.md](docs/THREAD_POOLS.md)** - Thread pool configuration
+- **[docs/DEBUGGING.md](docs/DEBUGGING.md)** - Debugging in VS Code (`protojs --dap`)
 - **[docs/TROUBLESHOOTING.md](docs/TROUBLESHOOTING.md)** - Solutions to common problems
 
 ### Contributor Documentation

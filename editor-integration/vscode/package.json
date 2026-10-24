@@ -1,0 +1,112 @@
+{
+  "name": "protojs-debug",
+  "displayName": "protoJS Debugger",
+  "description": "Debug JavaScript with protoJS: breakpoints, stepping, call stack, variables and the Debug Console through the protojs --dap Debug Adapter Protocol adapter.",
+  "version": "0.1.0",
+  "publisher": "protojs-placeholder",
+  "engines": {
+    "vscode": "^1.66.0"
+  },
+  "categories": [
+    "Debuggers"
+  ],
+  "main": "./extension.js",
+  "activationEvents": [
+    "onDebugResolve:protojs",
+    "onDebugDynamicConfigurations:protojs",
+    "onDebugInitialConfigurations"
+  ],
+  "contributes": {
+    "configuration": {
+      "title": "protoJS",
+      "properties": {
+        "protojs.path": {
+          "type": "string",
+          "default": "",
+          "description": "Path to the protojs executable. Leave empty to use the default install location, then 'protojs' from PATH."
+        }
+      }
+    },
+    "breakpoints": [
+      {
+        "language": "javascript"
+      }
+    ],
+    "debuggers": [
+      {
+        "type": "protojs",
+        "label": "protoJS",
+        "languages": [
+          "javascript"
+        ],
+        "configurationAttributes": {
+          "launch": {
+            "required": [
+              "program"
+            ],
+            "properties": {
+              "program": {
+                "type": "string",
+                "description": "Path to the JavaScript file to debug.",
+                "default": "${file}"
+              },
+              "args": {
+                "type": "array",
+                "items": {
+                  "type": "string"
+                },
+                "description": "Arguments for the script (process.argv after the script's path).",
+                "default": []
+              },
+              "cwd": {
+                "type": "string",
+                "description": "Working directory of the program.",
+                "default": "${workspaceFolder}"
+              },
+              "env": {
+                "type": "object",
+                "additionalProperties": {
+                  "type": "string"
+                },
+                "description": "Environment variables added for the program.",
+                "default": {}
+              },
+              "stopOnEntry": {
+                "type": "boolean",
+                "description": "Stop at the first line of the program.",
+                "default": false
+              }
+            }
+          }
+        },
+        "initialConfigurations": [
+          {
+            "type": "protojs",
+            "request": "launch",
+            "name": "Debug current file with protoJS",
+            "program": "${file}",
+            "stopOnEntry": false
+          }
+        ],
+        "configurationSnippets": [
+          {
+            "label": "protoJS: Launch current file",
+            "description": "Debug the active .js file with the protoJS DAP adapter.",
+            "body": {
+              "type": "protojs",
+              "request": "launch",
+              "name": "Debug current file with protoJS",
+              "program": "^\"\\${file}\"",
+              "stopOnEntry": false
+            }
+          }
+        ]
+      }
+    ]
+  },
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/gamarino/protoJS"
+  },
+  "license": "MIT"
+}
