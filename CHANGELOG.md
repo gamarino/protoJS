@@ -4,7 +4,27 @@ All notable changes to protoJS are documented in this file.
 
 ## [Unreleased]
 
-**Requires protoCore 3.1.0** (untagged master, commit 267b9fc9; SOVERSION 4). CI pins that commit on every job.
+**Requires protoCore 3.1.0** (untagged master, commit 267b9fc9; SOVERSION 4). CI builds protoCore 3.2.0 (commit bb2d581a, what the installers ship) on Linux, macOS and Windows, and 3.1.0 in the Windows floor job.
+
+### Fixed — tests whose premise depended on one protoCore's cell accounting (2026-10-25)
+
+- **cli/toplevel-bindings-survive-gc** sizes its workload at run time: each
+  program allocates until `protoCore.gcStats()` shows a completed collection
+  cycle since the allocation began (at least the original 200,000
+  iterations, at most 20,000,000), then reads the bindings back; the
+  exit-time census must still show a cycle, and the sum of the lengths is
+  checked in closed form. With protoCore 3.2.0 (a heap string is its rope
+  root: one cell instead of two) the fixed 200,000-iteration `after` loop
+  filled the 500,000-cell ceiling without a cycle (0 cycles; 3.1.0: 1). The
+  collector was not at fault: scaled up, 3.2.0 collects as often as the
+  garbage requires and every cycle reclaims about as much as on 3.1.0
+  (~400,000-450,000 cells); it just takes fewer cycles for the same loop
+  (800,000 iterations: 3 cycles against 5 in the callback, 16 against 18 at
+  top level).
+- **cli/module-identity** runs on Windows without the symbolic-link privilege
+  (Developer Mode off, not elevated): it falls back to a directory junction
+  (`mklink /J`), which any user may create and which the canonical path
+  resolves the same way, and says which kind of link it used.
 
 ### Added — sources by reference, path mappings, remote debugging (2026-10-25)
 
