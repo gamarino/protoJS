@@ -6,8 +6,8 @@
     "built-ins/Proxy"
   ],
   "corpusCommit": "aae8cf6eed6d6c6a203be48c1184bb194880f66b",
-  "denominator": 3875,
-  "passed": 3760,
+  "denominator": 3874,
+  "passed": 3759,
   "failures": [
     "built-ins/Object/defineProperties/15.2.3.7-6-a-124.js",
     "built-ins/Object/defineProperties/15.2.3.7-6-a-128.js",
