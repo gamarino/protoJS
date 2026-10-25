@@ -413,11 +413,10 @@ const proto::ProtoObject* workerPostMessage(
     // not seen), and pinned until it is delivered.
     proto::ProtoRootSet* rs = state->mainWrapper ? state->mainWrapper->getRootSet() : nullptr;
     if (!rs) return PROTO_NONE;
-    proto::ProtoRootSet::Handle message;
-    {
-        proto::ProtoContext cloneCtx(ctx->space, ctx, nullptr, nullptr, nullptr, nullptr);
-        message = rs->add(cloneMessage(&cloneCtx, args->getAt(ctx, 0)));
-    }
+    // Cloned in the caller's context (a native creates none): the partial
+    // clones are young objects of that context, alive until it ends, and the
+    // finished clone is pinned before this returns.
+    const proto::ProtoRootSet::Handle message = rs->add(cloneMessage(ctx, args->getAt(ctx, 0)));
 
     JSContextWrapper* wrapperRaw = state->workerWrapper.get();
     EventLoop::getInstance().enqueueCallback(
@@ -514,11 +513,10 @@ const proto::ProtoObject* parentPortPostMessage(
     JSContextWrapper* mainWrapper = state->mainWrapper;
     proto::ProtoRootSet* rs = mainWrapper->getRootSet();
     if (!rs) return PROTO_NONE;
-    proto::ProtoRootSet::Handle message;
-    {
-        proto::ProtoContext cloneCtx(ctx->space, ctx, nullptr, nullptr, nullptr, nullptr);
-        message = rs->add(cloneMessage(&cloneCtx, args->getAt(ctx, 0)));
-    }
+    // Cloned in the caller's context (a native creates none): the partial
+    // clones are young objects of that context, alive until it ends, and the
+    // finished clone is pinned before this returns.
+    const proto::ProtoRootSet::Handle message = rs->add(cloneMessage(ctx, args->getAt(ctx, 0)));
 
     proto::ProtoRootSet::Handle pin = state->workerPin;
     EventLoop::getInstance().enqueueCallback(
@@ -796,10 +794,8 @@ const proto::ProtoObject* workerConstructor(
                 ctx->fromUTF8String("workerData")->asString(ctx);
             const proto::ProtoObject* wdv =
                 wdKey ? opts->getAttribute(ctx, wdKey, false) : nullptr;
-            if (wdv && wdv != PROTO_NONE) {
-                proto::ProtoContext cloneCtx(ctx->space, ctx, nullptr, nullptr, nullptr, nullptr);
-                workerData = rs->add(cloneMessage(&cloneCtx, wdv));
-            }
+            // Cloned in the caller's context, as in workerPostMessage.
+            if (wdv && wdv != PROTO_NONE) workerData = rs->add(cloneMessage(ctx, wdv));
         }
     }
 
