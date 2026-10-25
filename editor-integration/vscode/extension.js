@@ -30,8 +30,31 @@ function defaultInstallPath() {
   return path.join(os.homedir(), ".local", "bin", "protojs");
 }
 
+function configuredPath() {
+  return vscode.workspace.getConfiguration("protojs").get("path");
+}
+
+// What is wrong with the `protojs.path` setting, or null: it names a file
+// (not a bare command looked up in PATH) that does not exist. Checked before
+// the launch, so the user reads which setting is wrong instead of a spawn
+// error.
+function configuredPathProblem() {
+  const configured = configuredPath();
+  if (!configured || !/[\\/]/.test(configured) || fs.existsSync(configured)) return null;
+  return `protoJS: the protojs.path setting is "${configured}", which does not exist. ` +
+    "Fix it, or clear it to use the default install location or protojs from PATH.";
+}
+
+// Shows a message and aborts the launch, without waiting for the user to
+// close the message: a launch that waited would stay pending for as long as
+// the notification is not dismissed.
+function refuse(kind, message) {
+  vscode.window[kind](message);
+  return undefined;
+}
+
 function protojsCommand() {
-  const configured = vscode.workspace.getConfiguration("protojs").get("path");
+  const configured = configuredPath();
   if (configured) return configured;
   const installed = defaultInstallPath();
   return fs.existsSync(installed) ? installed : "protojs";
@@ -54,12 +77,14 @@ const configurationProvider = {
     }
     const remoteError = checkRemote(config);
     if (remoteError) {
-      return vscode.window.showErrorMessage(remoteError).then(() => undefined);
+      return refuse("showErrorMessage", remoteError);
     }
     if (!config.program) {
-      return vscode.window
-        .showInformationMessage("protoJS: open a .js file or set 'program' in launch.json.")
-        .then(() => undefined);
+      return refuse("showInformationMessage", "protoJS: open a .js file or set 'program' in launch.json.");
+    }
+    if (!config.remote) {
+      const problem = configuredPathProblem();
+      if (problem) return refuse("showErrorMessage", problem);
     }
     return config;
   },

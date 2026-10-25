@@ -87,3 +87,7 @@ benchmarks/structures/cad/cad.jsonl
 
 # VS Code extension packages (editor-integration/vscode)
 *.vsix
+
+# VS Code extension tests (editor-integration/vscode: npm install, npm test)
+editor-integration/vscode/node_modules/
+editor-integration/vscode/.vscode-test/

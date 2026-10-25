@@ -20,14 +20,14 @@ the `.vsix` (the same on Windows, Linux and macOS; needs Node.js for `npx`):
 ```bash
 cd editor-integration/vscode
 npx @vscode/vsce@3.2.1 package --skip-license
-code --install-extension protojs-debug-0.4.0.vsix
+code --install-extension protojs-debug-0.4.1.vsix
 ```
 
 On Linux and macOS you can instead symlink the folder, which picks up edits
 after **Developer: Reload Window**:
 
 ```bash
-ln -s "$(pwd)/editor-integration/vscode" ~/.vscode/extensions/protojs-debug-0.4.0
+ln -s "$(pwd)/editor-integration/vscode" ~/.vscode/extensions/protojs-debug-0.4.1
 ```
 
 The extension runs `protojs` from, in this order:

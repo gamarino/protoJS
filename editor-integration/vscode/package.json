@@ -2,7 +2,7 @@
   "name": "protojs-debug",
   "displayName": "protoJS Debugger",
   "description": "Debug JavaScript with protoJS, locally or on a remote machine: breakpoints with conditions, hit counts and logpoints, exception breakpoints, stepping, call stack, variables and the Debug Console through the protojs --dap Debug Adapter Protocol adapter.",
-  "version": "0.4.0",
+  "version": "0.4.1",
   "publisher": "protojs-placeholder",
   "engines": {
     "vscode": "^1.66.0"
@@ -211,5 +211,12 @@
     "type": "git",
     "url": "https://github.com/gamarino/protoJS"
   },
-  "license": "MIT"
+  "license": "MIT",
+  "scripts": {
+    "test": "node ./test/runTest.js"
+  },
+  "devDependencies": {
+    "@vscode/test-electron": "2.5.2",
+    "mocha": "10.8.2"
+  }
 }

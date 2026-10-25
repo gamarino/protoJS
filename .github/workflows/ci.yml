@@ -278,6 +278,23 @@ jobs:
           } >> "$GITHUB_STEP_SUMMARY"
           exit "$STATUS"
 
+      - name: VS Code extension integration tests
+        # editor-integration/vscode/test: the extension's own code (the F5
+        # provider, the adapter lookup, launch refusals) in a real VS Code
+        # Extension Development Host -- a pinned VS Code under xvfb -- against
+        # the protojs just built. Local launches only: the remote test needs
+        # WSL and skips itself. About a minute, most of it the download.
+        timeout-minutes: 10
+        working-directory: protoJS/editor-integration/vscode
+        env:
+          PROTO_E2E_EXE: ${{ github.workspace }}/protoJS/build_release/protojs
+          VSCODE_TEST_CACHE: ${{ runner.temp }}/vscode-test
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y xvfb libnss3 libgbm1 libasound2t64 libgtk-3-0t64 libxss1 libsecret-1-0
+          npm ci --no-audit --no-fund
+          xvfb-run -a npm test < /dev/null
+
   informational:
     name: Red-by-design and slow-by-design checks (informational, never gates)
     runs-on: ubuntu-24.04

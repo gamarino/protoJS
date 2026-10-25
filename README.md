@@ -219,7 +219,7 @@ For more examples, see [docs/EXAMPLES.md](docs/EXAMPLES.md). For thread pool con
 ```bash
 cd editor-integration/vscode
 npx @vscode/vsce@3.2.1 package --skip-license
-code --install-extension protojs-debug-0.4.0.vsix
+code --install-extension protojs-debug-0.4.1.vsix
 ```
 
 The extension runs `protojs` from the `protojs.path` setting, else from the default install location (`%LOCALAPPDATA%\Programs\proto\bin\protojs.exe` on Windows, `~/.local/bin/protojs` elsewhere), else from the `PATH`.

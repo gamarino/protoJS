@@ -26,6 +26,22 @@ All notable changes to protoJS are documented in this file.
   (`mklink /J`), which any user may create and which the canonical path
   resolves the same way, and says which kind of link it used.
 
+### Added — VS Code extension tests (2026-10-25)
+
+- **VS Code extension 0.4.1: integration tests, and two launch fixes they
+  found.** `editor-integration/vscode/test/` runs the extension in a real VS
+  Code Extension Development Host (`npm install && npm test`; the extension
+  README's "Testing the extension"): a local launch with a breakpoint, stack,
+  a local and stdout; F5 without a launch.json; the executable lookup; a
+  remote launch through WSL with pathMappings; the refusal without them; the
+  `raised` exception filter; the launch schema and snippets. CI runs the
+  local ones on Linux under xvfb. Fixed: a refused launch (no `program`, a
+  bad `remote`, `remote` without `pathMappings`) waited for the user to close
+  the error notification, so the launch stayed pending as long as it was not
+  dismissed; it now ends at once. A `protojs.path` naming a file that does
+  not exist is refused with a message naming the setting, instead of a bare
+  spawn error.
+
 ### Added — sources by reference, path mappings, remote debugging (2026-10-25)
 
 - **Sources without a file** in `protojs --dap`: code embedded in protojs
