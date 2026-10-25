@@ -154,11 +154,14 @@ source --compileToBytecodeWithFlags (QuickJS, compile only)--> JSFunctionBytecod
     converts each with `TypeBridge::fromJS`; a nested function becomes a
     placeholder object carrying `__bytecode_id__`, an index into the root
     module's flat `nestedFunctions` table.
-- **Unknown opcodes.** A byte without a handler goes to `L_default`
-  (`ProtoInterpreter.cpp:19010`), which prints
-  `[ProtoInterpreter] unsupported opcode 0x.. at byte offset N` on stderr and
-  returns `undefined` from the current function. The script goes on (section
-  6, issue 1).
+- **Unknown opcodes.** A byte without a handler goes to `L_default`, which
+  raises a JavaScript error naming it: a SyntaxError
+  `protoJS does not support <construct> (opcode 0x.. at byte offset N)` for
+  a construct the VM does not implement (dynamic `import()`), an `Error`
+  `protoJS internal error: unknown opcode 0x..` otherwise. A truncated
+  operand or an operand-stack underflow raises `Error: protoJS internal
+  error: malformed bytecode`. The function never returns `undefined` as if
+  it had completed.
 
 ### 1.3 Loader rewrites
 
@@ -191,7 +194,7 @@ size, so no jump changes.
    the run keeps.
 3. **`specialise`** (`PROTOJS_SPECIALISER=on|off`; **on is the default**,
    and the debugger forces off). A peephole pass that puts a fused
-   instruction with a SmallInteger fast path in front of three loop shapes:
+   instruction with a Number fast path in front of three loop shapes:
    - `get_loc dst; get_loc src; add; put_loc dst` (and QuickJS's
      `get_loc src; add_loc dst`) gets `proto_acc_loc8_loc8 dst src skip`
      (244): `s += i`.
@@ -203,11 +206,11 @@ size, so no jump changes.
    `get_loc` here means any of `get_loc0`..`3`, `get_loc8`, `get_loc` (index
    up to 255) and `get_loc_check`. The fused instruction is a **guarded
    header**: the original instructions stay right after it. When both
-   operands are SmallIntegers (read through closure cells; for 246 the
+   operands are Numbers (read through closure cells; for 246 the
    global object's own property, which is what `get_var` reads first) the
    header computes the result and skips them (`skip` bytes) or takes the
    jump; otherwise execution falls through into the original instructions,
-   so BigInts, objects, strings, doubles, TDZ and undeclared globals keep
+   so BigInts, objects, strings, TDZ and undeclared globals keep
    their exact semantics. The buffer grows, so every code offset is
    re-encoded through an old-to-new offset table: jumps, `catch` handlers,
    `gosub` targets and `with_*` labels. A sequence with a jump target
@@ -374,14 +377,13 @@ A JavaScript `try` is a C++ `try`. Every throw raises a
 **251 opcode values are defined** (0 to 250): the 244 final opcodes of
 QuickJS (values 0 to 243, `quickjs-opcode.h`) and 7 protoJS opcodes (244 to
 250). The VM's dispatch table (`PROTOJS_DISPATCH_TARGETS`,
-`ProtoInterpreter.cpp:8499`) has handlers for **235** of them: 228 QuickJS
-opcodes and all 7 protoJS ones. The **16 QuickJS opcodes without a handler**
-are `invalid`, `apply_eval`, `import`, `private_in`, `delete_var`,
-`get_ref_value`, `put_ref_value`, `make_loc_ref`, `make_arg_ref`,
-`make_var_ref_ref`, `make_var_ref`, and the five `with_*` opcodes; QuickJS
-emits them for `with`, sloppy-mode `delete x` of a global, sloppy direct
-`eval` that declares `var`s, `eval(...spread)`, dynamic `import()` and
-`#x in obj`. Reaching one aborts the current function (1.2, section 6).
+`ProtoInterpreter.cpp`) has handlers for **250** of them: 243 QuickJS
+opcodes and all 7 protoJS ones. The one opcode without a handler is
+`invalid` (0), which QuickJS never emits; reaching it, or a byte that is not
+an opcode, raises `Error: protoJS internal error: unknown opcode` (1.2).
+`import` (dynamic `import()`) has no handler on purpose: it raises
+`SyntaxError: protoJS does not support dynamic import()` where it is
+reached (section 6).
 Every handled opcode is emitted by QuickJS or by the loader; `invalid` is
 never emitted.
 
@@ -391,7 +393,7 @@ traps, `valueOf` / `toString`, iterators, callees). Every handler ends with
 `DISPATCH()`, so every instruction can be followed by the safepoint poll
 (1.6); the GC column lists only what the instruction adds. Unless stated
 otherwise, malformed bytecode (a truncated operand, a stack underflow)
-makes the function return `undefined` silently.
+raises `Error: protoJS internal error: malformed bytecode` (1.2).
 
 `undefined` has two representations: `PROTO_NONE` (an absent value) and the
 heap singleton pushed by `undefined` (so that `[void 0]` stores an element,
@@ -402,7 +404,7 @@ JavaScript.
 
 | Op | # | Size | Operands | Stack | Semantics and errors | GC | Emitted by |
 |---|---|---|---|---|---|---|---|
-| `invalid` | 0 | 1 | none | | No handler. | | never |
+| `invalid` | 0 | 1 | none | | No handler: an internal error if reached (1.2). | | never |
 | `push_i32` | 1 | 5 | i32 | `-> n` | Pushes the integer. | | integer literals outside the i16 range |
 | `push_const` | 2 | 5 | u32 constant | `-> v` | Pushes the constant (number, string, BigInt, template object, ...). An out-of-range index pushes `undefined`. | | doubles, large BigInts, template objects; class constructors before the loader's rewrite (1.3) |
 | `push_atom_value` | 4 | 5 | u32 atom | `-> string` | Pushes the atom as an interned string. | | string literals |
@@ -411,7 +413,7 @@ JavaScript.
 | `push_this` | 8 | 1 | none | `-> this` | Strict code: `this` as passed. Sloppy code: `undefined` / `null` become the global object; a primitive is **not** boxed. | | function prologue that initialises the hidden `this` local |
 | `push_false` | 9 | 1 | none | `-> false` | | | `false`; `delete` of a local |
 | `push_true` | 10 | 1 | none | `-> true` | | | `true` |
-| `special_object` | 12 | 2 | u8 kind | `-> obj` | 0 arguments / 1 mapped arguments: an array-like copy of the call's arguments (`length`, `Symbol.toStringTag`); both kinds are unmapped and have no `callee`. 2 the active function, 3 `new.target`, 4 the home object (`__home_object__` of the active function), 5 var object and 6 `import.meta`: `undefined`. | Allocates (kinds 0, 1). | function prologue: `arguments`, `new.target`, `super`, a named function expression's own name, sloppy direct `eval` |
+| `special_object` | 12 | 2 | u8 kind | `-> obj` | 0 arguments / 1 mapped arguments: an array-like copy of the call's arguments (`length`, `Symbol.toStringTag`); both kinds are unmapped and have no `callee`. 2 the active function, 3 `new.target`, 4 the home object (`__home_object__` of the active function), 5 the variable object of a sloppy function with a direct `eval` (an object with no prototype), 6 `import.meta`: `undefined`. | Allocates (kinds 0, 1, 5). | function prologue: `arguments`, `new.target`, `super`, a named function expression's own name, sloppy direct `eval` |
 | `rest` | 13 | 3 | u16 first index | `-> array` | An Array of the arguments from the index on. | Allocates. | rest parameter `...r` |
 | `push_bigint_i32` | 176 | 5 | i32 | `-> bigint` | A BigInt of the value. | Allocates. | BigInt literals that fit in 32 bits |
 | `push_minus1`, `push_0` .. `push_7` | 178, 179-186 | 1 | value in the opcode | `-> n` | | | short forms |
@@ -469,19 +471,19 @@ object and may allocate.
 | `set_var_ref` | 93 | 3 | u16 closure var | `v -> v` | | the same, as a value |
 | `set_loc_uninitialized` | 94 | 3 | u16 local | `->` | Stores the TDZ sentinel. | entry of a scope with `let` / `const` / `class` |
 | `get_loc_check` | 95 | 3 | u16 local | `-> v` | ReferenceError `Cannot access before initialization` on the TDZ sentinel (the message omits the name). | reads of a lexical local not proven initialised |
-| `put_loc_check` | 96 | 3 | u16 local | `v ->` | Writes like `put_loc`: **no TDZ check** (section 6). | assignment to a `let` local |
+| `put_loc_check` | 96 | 3 | u16 local | `v ->` | As `put_loc`; ReferenceError `Cannot access before initialization` while the slot (or its cell) holds the TDZ sentinel. | assignment to a `let` local |
 | `set_loc_check` | 97 | 3 | u16 local | `v -> v` | As `put_loc_check`, keeping the value. | QuickJS peephole `dup; put_loc_check` (example 02) |
-| `put_loc_check_init` | 98 | 3 | u16 local | `v ->` | ReferenceError `'this' can be initialized only once` unless the slot holds the TDZ sentinel; not cell-aware. | `this` after `super()` in a derived constructor |
+| `put_loc_check_init` | 98 | 3 | u16 local | `v ->` | ReferenceError `'this' can be initialized only once` unless the slot (or its cell, when an arrow captured `this`) holds the TDZ sentinel. | `this` after `super()` in a derived constructor |
 | `get_loc_checkthis` | 99 | 3 | u16 local | `-> this` | ReferenceError `this is not initialized - super() must be called first` on TDZ. | implicit `return this` of a derived constructor |
 | `get_var_ref_check` | 100 | 3 | u16 closure var | `-> v` | As `get_var_ref`. | reads of a captured `let` / `const` / `class` |
-| `put_var_ref_check` | 101 | 3 | u16 closure var | `v ->` | No TDZ check (section 6). | assignment to a captured `let` |
-| `put_var_ref_check_init` | 102 | 3 | u16 closure var | `v ->` | Same body as `put_var_ref_check`. | `this` initialised by `super()` inside an arrow |
+| `put_var_ref_check` | 101 | 3 | u16 closure var | `v ->` | As `put_var_ref`; ReferenceError while the cell holds the TDZ sentinel. | assignment to a captured `let` |
+| `put_var_ref_check_init` | 102 | 3 | u16 closure var | `v ->` | As `put_var_ref`; ReferenceError `'this' can be initialized only once` unless the cell holds the TDZ sentinel. | `this` initialised by `super()` inside an arrow |
 | `close_loc` | 103 | 3 | u16 local | `->` | Replaces the local's cell by the cell's value; closures created before keep the old cell. | end of a scope whose locals were captured; per-iteration `let` |
 | `get_loc8`, `put_loc8`, `set_loc8` | 192-194 | 2 | u8 local | as above | | short forms |
 | `get_loc0`..`3`, `put_loc0`..`3`, `set_loc0`..`3` | 195-206 | 1 | index in the opcode | as above | | short forms |
 | `get_arg0`..`3`, `put_arg0`..`3`, `set_arg0`..`3` | 207-218 | 1 | index in the opcode | as above | | short forms |
 | `get_var_ref0`..`3`, `put_var_ref0`..`3`, `set_var_ref0`..`3` | 219-230 | 1 | index in the opcode | as above | | short forms |
-| `make_loc_ref`, `make_arg_ref`, `make_var_ref_ref` | 118-120 | 7 | u32 atom, u16 index | `-> obj atom` | **No handler.** | assignments to a local inside `with` |
+| `make_loc_ref`, `make_arg_ref`, `make_var_ref_ref` | 118-120 | 7 | u32 atom, u16 index | `-> ref name` | A reference to the variable: an object holding its cell (the slot is promoted to a cell, as for a closure), read and written by `get_ref_value` / `put_ref_value`. | assignments to a variable inside `with` or after a sloppy direct `eval` |
 
 ### 2.4 Globals and scope variables
 
@@ -495,14 +497,14 @@ root".
 
 | Op | # | Size | Operands | Stack | Semantics and errors | GC | Emitted by |
 |---|---|---|---|---|---|---|---|
-| `get_var_undef` | 55 | 3 | u16 closure var | `-> v` | Reads the global; `undefined` when absent; no TDZ check. Getters on the global object are not called. | | `typeof x` of a global name |
+| `get_var_undef` | 55 | 3 | u16 closure var | `-> v` | Reads the global; `undefined` when absent and undeclared; ReferenceError for a declared lexical global in its TDZ. Getters on the global object are not called. | | `typeof x` of a global name |
 | `get_var` | 56 | 3 | u16 closure var | `-> v` | As above, plus ReferenceError `Cannot access 'x' before initialization` (lexical, absent) and `x is not defined` (absent and not declared). | | reads of a global or undeclared name |
-| `put_var` | 57 | 3 | u16 closure var | `v ->` | `writeGlobalBinding`. TypeError on a `const`; ReferenceError `Cannot assign to read only binding 'undefined'` for `undefined`; SyntaxError for a lexical `eval` / `arguments`. No TDZ check, no strict-mode unresolvable-reference check (section 6). | Allocates. | assignment to a global |
+| `put_var` | 57 | 3 | u16 closure var | `v ->` | `writeGlobalBinding`. TypeError on a `const`; ReferenceError `Cannot assign to read only binding 'undefined'` for `undefined`; SyntaxError for a lexical `eval` / `arguments`. ReferenceError `Cannot access 'x' before initialization` for a lexical global not yet declared. No strict-mode unresolvable-reference check (section 6). | Allocates. | assignment to a global |
 | `put_var_init` | 58 | 3 | u16 closure var | `v ->` | As `put_var` without the `const` check; creating the binding ends its TDZ. | Allocates. | initialisation of a top-level `let` / `const` / `class` |
-| `get_ref_value`, `put_ref_value` | 59, 60 | 1 | none | | **No handler.** | | identifier references inside `with` |
-| `delete_var` | 151 | 5 | u32 atom | `-> bool` | **No handler.** | | sloppy `delete x` of a global |
-| `with_get_var`, `with_put_var`, `with_delete_var`, `with_make_ref`, `with_get_ref` | 113-117 | 10 | u32 atom, i32 label, u8 | | **No handler.** | | identifiers inside `with (o) { ... }`; variables of a sloppy direct `eval` |
-| `make_var_ref` | 121 | 5 | u32 atom | `-> obj atom` | **No handler.** | | global references inside `with` |
+| `get_ref_value`, `put_ref_value` | 59, 60 | 1 | none | `obj name -> obj name v` / `obj name v ->` | GetValue / PutValue of a reference: the cell of a variable reference, else [[HasProperty]] then [[Get]] / [[Set]] on the object. An unresolvable reference (`undefined`) is a ReferenceError, except a sloppy-mode write, which creates a global. | Runs JS. | identifier references inside `with` |
+| `delete_var` | 151 | 5 | u32 atom | `-> bool` | `delete x` of a global name: deletes the global property; false when it is not configurable (a `var` or function declaration), true when absent. | Runs JS (Proxy). | sloppy `delete x` of a global |
+| `with_get_var`, `with_put_var`, `with_delete_var`, `with_make_ref`, `with_get_ref` | 113-117 | 10 | u32 atom, i32 label, u8 is_with | `obj -> ...` | One object environment record (a `with` object, or a sloppy function's variable object): when `obj` has the binding (and, for `with`, `obj[Symbol.unscopables]` does not block it), the access is done on `obj` and execution jumps to the label; otherwise `obj` is dropped and the next record follows. | Runs JS. | identifiers inside `with (o) { ... }`; variables of a sloppy direct `eval` |
+| `make_var_ref` | 121 | 5 | u32 atom | `-> obj name` | The global object when it has the name, else `undefined` (an unresolvable reference, resolved by `put_ref_value`). | | global references inside `with` |
 
 ### 2.5 Control flow
 
@@ -518,7 +520,7 @@ root".
 | `nop` | 177 | 1 | none | `->` | | QuickJS leftovers |
 
 Falsy values (`toBool`): `undefined` (both forms), `null`, `false`, 0, -0,
-`NaN`, `""`. Everything else is truthy, **including `0n`** (section 6).
+`NaN`, `""`, `0n`. Everything else is truthy.
 
 ### 2.6 Calls and returns
 
@@ -527,18 +529,18 @@ Falsy values (`toBool`): `undefined` (both forms), `null`, `false`, 0, -0,
 | `call` | 34 | 3 | u16 argc | `f a1..an -> r` | Calls `f` with `this` undefined (1.5). TypeError `is not a function` (no callee name); `Class constructor cannot be invoked without 'new'`. | Runs JS. Natives run under a critical section of the caller's context. | `f(args)` |
 | `call0`..`call3` | 236-239 | 1 | argc in the opcode | as `call` | | | short forms |
 | `tail_call` | 35 | 3 | u16 argc | `f a1..an ->` | As `call`, then returns the result from the current function. | | `return f(args)` (QuickJS peephole `call; return`) |
-| `call_method` | 36 | 3 | u16 argc | `this f a1..an -> r` | Calls `f` with the receiver as `this`. Does not reject class constructors (section 6). | Runs JS. | `o.m(args)`, `o[k](args)` |
-| `tail_call_method` | 37 | 3 | u16 argc | `this f a1..an ->` | As `call_method`, then returns. **The bound-function branch pushes nothing and does not return** (section 6). | | `return o.m(args)` (examples 12, 14) |
+| `call_method` | 36 | 3 | u16 argc | `this f a1..an -> r` | Calls `f` with the receiver as `this`. TypeError `Class constructor cannot be invoked without 'new'` for a class constructor. | Runs JS. | `o.m(args)`, `o[k](args)` |
+| `tail_call_method` | 37 | 3 | u16 argc | `this f a1..an ->` | As `call_method`, then returns the result. | | `return o.m(args)` (examples 12, 14) |
 | `call_constructor` | 33 | 3 | u16 argc | `f newTarget a1..an -> obj` | `new` and `super(...)`: creates the object from `newTarget.prototype`, runs the constructor, keeps its result if it is an object. TypeError `function is not a constructor` (arrows, methods, generators, async); the Proxy `construct` trap errors; RangeError `Invalid array length` (Array). | Allocates. The whole handler runs inside a critical section on the caller's context; the body runs in a child context. | `new F(args)`, `super(args)` |
-| `apply` | 39 | 3 | u16 magic (bit 0: construct) | `f this array -> r` | Spread call: `callJSFunction(f, this, elements)`; magic 1 creates the object from `new.target.prototype` of the **running** function (section 6). | Runs JS. | `f(...xs)`, `new F(...xs)`, `super(...xs)` (example 17) |
+| `apply` | 39 | 3 | u16 magic (bit 0: construct) | `f this array -> r` | Spread call: `callJSFunction(f, this, elements)`; with magic 1 the middle operand is the new.target, as in QuickJS (`f` for `new F(...xs)`, the running constructor's new.target for `super(...xs)`): the object is created from its `prototype`. | Runs JS. | `f(...xs)`, `new F(...xs)`, `super(...xs)` (example 17) |
 | `array_from` | 38 | 3 | u16 count | `e1..en -> array` | An Array of the values; `PROTO_NONE` becomes the undefined singleton. | Allocates. | array literals; argument arrays of spread calls |
-| `eval` | 50 | 5 | u16 argc, u16 scope | `f a1..an -> undefined` | **Direct eval is not implemented**: pops everything and pushes `undefined`. (Indirect `eval` throws SyntaxError `eval is not implemented in protoJS`.) | | `eval(...)` |
-| `apply_eval` | 51 | 3 | u16 scope | | **No handler.** | | `eval(...xs)` |
-| `import` | 54 | 1 | none | | **No handler.** | | dynamic `import()` |
+| `eval` | 50 | 5 | u16 argc, u16 scope | `f a1..an -> r` | When `f` is %eval%, a direct eval (`performEval`): a string argument is compiled against the calling function's QuickJS bytecode at `scope` (`protojs_compile_direct_eval`), cached per (caller, scope, source), and run in a child context whose closure variables are the caller's variables (as cells); any other argument is the result. Otherwise an ordinary call with `this` undefined. Calling %eval% itself is an indirect eval (global code). | Runs JS. Allocates. | `eval(...)` |
+| `apply_eval` | 51 | 3 | u16 scope | `f array -> r` | `eval(...xs)`: as `eval` with the array's first element. | Runs JS. | `eval(...xs)` |
+| `import` | 54 | 1 | none | | **No handler**: SyntaxError `protoJS does not support dynamic import()` (section 6). | | dynamic `import()` |
 | `return` | 40 | 1 | none | `v ->` | Returns `v` from the activation (from every nested level). | | `return e` |
 | `return_undef` | 41 | 1 | none | `->` | Returns `undefined`. | | `return;`, end of a body |
 | `return_async` | 47 | 1 | none | `v ->` | Returns `v` from a generator or async activation; the caller settles the promise or wraps `{value, done: true}`. | | every `return` of generators and async functions |
-| `check_ctor` | 43 | 1 | none | `->` | No-op (the check is in `call`). | | start of a class constructor |
+| `check_ctor` | 43 | 1 | none | `->` | TypeError `Class constructor cannot be invoked without 'new'` when the activation has no new.target (every construct path publishes one). | | start of a class constructor |
 | `check_ctor_return` | 42 | 1 | none | `r -> r useThis` | `undefined` → true, an object → false, else TypeError `derived class constructor must return an object or undefined`. Symbol and BigInt results are accepted (section 6). | | `return` in a derived constructor |
 | `init_ctor` | 44 | 1 | none | `-> this` | Default derived constructor: calls the parent constructor with the call's arguments and pushes the object. | Runs JS. Allocates. | `class B extends A {}` without a constructor |
 
@@ -554,7 +556,7 @@ Falsy values (`toBool`): `undefined` (both forms), `null`, `false`, 0, -0,
 | Op | # | Size | Operands | Stack | Semantics and errors | Emitted by |
 |---|---|---|---|---|---|---|
 | `catch` | 107 | 5 | i32 offset (handler) | `-> sentinel` | Opens a protected range as a nested level (1.7). The handler starts with the thrown value in the sentinel's slot. | `try` |
-| `nip_catch` | 110 | 1 | none | `sentinel .. v -> v` | Closes the innermost range, keeping the top value; ends the nested level. | `return` / `break` out of a `try` |
+| `nip_catch` | 110 | 1 | none | `sentinel .. v -> v` | Closes the innermost range, keeping the top value; ends the nested level. When a for-of record is above the innermost range, the value replaces the record's catch slot instead (`return` inside a for-of body). | `return` / `break` out of a `try` or a for-of |
 | `throw` | 48 | 1 | none | `v ->` | Throws `v` (any value). | `throw`; rethrow after a `finally` |
 | `throw_error` | 49 | 6 | u32 atom, u8 kind | `->` | Kind 0 TypeError `'x' is read-only`, 1 SyntaxError `redeclaration of 'x'`, 2 ReferenceError `x is not initialized`, 3 ReferenceError `unsupported reference to 'super'`, 4 TypeError `iterator does not have a throw method`. | assignment to a `const`, redeclarations, `delete super.x`, `yield*` |
 
@@ -579,11 +581,11 @@ and ToNumber. The slow paths run JS and allocate.
 | `shl`, `sar`, `shr` | 158-160 | 1 | `a b -> r` | `ToInt32(a)` shifted by `ToUint32(b) & 31`; `>>>` on BigInts: TypeError `BigInt does not support unsigned right shift`. |
 | `and`, `xor`, `or` | 171-173 | 1 | `a b -> r` | Bitwise on `ToInt32`, or on BigInts. |
 | `lt`, `lte`, `gt`, `gte` | 161-164 | 1 | `a b -> bool` | BigInt comparison; `undefined` on either side gives false without converting the other (section 6); strings compare lexicographically, else numerically; `NaN` gives false. |
-| `eq`, `neq` | 167, 168 | 1 | `a b -> bool` | Abstract equality, **after ToPrimitive of both operands**, so two distinct objects can compare equal (section 6). |
+| `eq`, `neq` | 167, 168 | 1 | `a b -> bool` | Abstract equality (§7.2.14): two objects are equal only when identical, an object never equals `null` / `undefined`, and ToPrimitive runs only for an object compared with another primitive. |
 | `strict_eq`, `strict_neq` | 169, 170 | 1 | `a b -> bool` | Identity, numbers by value (`NaN` unequal, `0 === -0`), strings by content, BigInts by value. No JS. |
 | `instanceof` | 165 | 1 | `obj C -> bool` | Walks the prototype chain against `C.prototype` (Proxy `getPrototypeOf` traps honoured). TypeError `Right-hand side of 'instanceof' is not callable` for a primitive `C`. Ignores `Symbol.hasInstance` and bound functions (section 6). |
 | `in` | 166 | 1 | `key obj -> bool` | Own and inherited properties, accessors, Proxy `has`. TypeError `Cannot use 'in' operator to search for property in non-object`. |
-| `private_in` | 175 | 1 | `obj brand -> bool` | **No handler.** Emitted for `#x in obj`. |
+| `private_in` | 175 | 1 | `obj x -> bool` | `#x in obj`: whether `obj` has the private field `x` (a private name), or the brand of the class of the private method `x`. TypeError for a primitive `obj`. |
 | `neg` | 138 | 1 | `a -> -a` | |
 | `plus` | 139 | 1 | `a -> +a` | ToNumber; TypeError for BigInt and Symbol. |
 | `inc`, `dec` | 141, 140 | 1 | `a -> a±1` | |
@@ -636,7 +638,7 @@ top. A missing property is `undefined`.
 | `define_method_computed` | 82 | 2 | u8 flags | `obj key fn -> obj` | As `define_method` with a computed key. | Runs JS. | `{[k]() {}}` |
 | `regexp` | 52 | 1 | none | `pattern bytecode -> rx` | A RegExp from the pattern and the flags read from QuickJS's compiled pattern. Flags above the low byte (named groups) are lost (section 6). | Allocates. | regular expression literals |
 | `to_object` | 111 | 1 | none | `v -> v` | TypeError `Cannot convert undefined to object` / `null`; the value is left as is. | | destructuring |
-| `to_propkey` | 112 | 1 | none | `k -> k` | Does **not** convert the key; the conversion happens later, at the consumer (section 6). | | computed keys |
+| `to_propkey` | 112 | 1 | none | `k -> key` | ToPropertyKey: an integer, a string or a Symbol stays; an object goes through ToPrimitive with hint string; any other value becomes its ToString. | Runs JS. | computed keys of object literals and classes |
 
 ### 2.12 Classes, `super` and private members
 
@@ -647,12 +649,12 @@ top. A missing property is `undefined`.
 | `get_super` | 53 | 1 | none | `obj -> parent` | The parent constructor (`__class_parent__`) for `super(...)`, else the prototype of the home object. | `super(...)`, `super.x` |
 | `get_super_value` | 71 | 1 | none | `this super key -> v` | `[[Get]]` on the super object with `this` as receiver. | `super.x` |
 | `put_super_value` | 72 | 1 | none | `this super key v ->` | `[[Set]]` with `this` as receiver; TypeError in strict code when refused. | `super.x = v` |
-| `private_symbol` | 5 | 5 | u32 atom | `-> sym` | An object naming the private field. Private names are stored as ordinary attributes named by the field's name: no brand, no uniqueness. | each `#x` declaration |
-| `get_private_field` | 64 | 1 | none | `obj sym -> v` | Reads the attribute; no brand check. | `this.#x` |
-| `put_private_field` | 65 | 1 | none | `obj v sym -> obj` | Writes the attribute and **leaves `obj` on the stack** (QuickJS pops all three; section 6). | `this.#x = v` |
-| `define_private_field` | 66 | 1 | none | `obj sym v -> obj` | **Reads its operands in the wrong order and defines nothing**: `#x = 1` initialisers have no effect (section 6). | private field initialisers |
-| `check_brand` | 45 | 1 | none | `obj fn -> obj fn` | **Pops both operands** instead of checking and keeping them: private methods and accessors read as `undefined` (section 6). | private method and accessor access |
-| `add_brand` | 46 | 1 | none | `obj home ->` | Pops both; no brand is recorded. | classes with private methods |
+| `private_symbol` | 5 | 5 | u32 atom | `-> sym` | A new private name for this evaluation of the class: an object holding a unique attribute key (`__priv_<n>_#x__`, hidden from every key enumeration) and the source name. | each `#x` declaration |
+| `get_private_field` | 64 | 1 | none | `obj sym -> v` | The own field under the name's key; TypeError `Cannot read private member #x from an object whose class did not declare it` when absent. | `this.#x` |
+| `put_private_field` | 65 | 1 | none | `obj v sym ->` | Writes the own field; TypeError when absent. | `this.#x = v` |
+| `define_private_field` | 66 | 1 | none | `obj sym v -> obj` | Adds the field; TypeError when it exists (`Cannot initialize #x twice on the same object`). | private field initialisers |
+| `check_brand` | 45 | 1 | none | `obj fn -> obj fn` | TypeError unless `obj` carries the brand of the class (the home object) of the private method or accessor `fn`. | private method and accessor access |
+| `add_brand` | 46 | 1 | none | `obj home ->` | Gives the class (`home`) a unique brand key on first use and stamps it on `obj`. | classes with private methods |
 
 ### 2.13 Iteration
 
@@ -666,7 +668,7 @@ top. A missing property is `undefined`.
 | `for_await_of_next` | 127 | 1 | none | `iter next catch -> iter next catch r` | Calls `next()`; the following `await` waits for it. | Runs JS. | `for await` |
 | `iterator_get_value_done` | 129 | 1 | none | `catch r -> catch value done` | Reads `value` and `done` from a result object; does not check that it is an object and accepts only the booleans as `done` (section 6). | | `for await` |
 | `iterator_check_object` | 128 | 1 | none | `v -> v` | TypeError `iterator result is not an object`. | | `yield*` |
-| `iterator_close` | 130 | 1 | none | `rec next catch ->` | Calls `return()` if present. On the for-of path an exception from `return()` is swallowed (section 6). | Runs JS. | `break` / `return` out of for-of, end of array destructuring |
+| `iterator_close` | 130 | 1 | none | `rec next catch ->` | IteratorClose with a normal completion: calls `return()` when the iterator is not done; its exceptions propagate, and a non-object result is a TypeError. An exception leaving a for-of loop or a destructuring pattern closes its iterator with a throw completion (the handler's stack cut, or the function's exit), dropping what `return()` raises. | Runs JS. | `break` / `return` out of for-of, end of array destructuring |
 | `iterator_next` | 131 | 1 | none | `iter next catch v -> iter next catch r` | `next.call(iter, v)`. | Runs JS. | `yield*` |
 | `iterator_call` | 132 | 2 | u8 flags (bit 0: `throw` else `return`; bit 1: no argument) | `iter next catch v -> iter next catch r noMethod` | Calls `iter.throw` / `iter.return` if present. | Runs JS. | `yield*` |
 
@@ -688,9 +690,9 @@ QuickJS never emits these; the loader passes of section 1.3 create them.
 
 | Op | # | Size | Operands | Stack | Semantics | Created by |
 |---|---|---|---|---|---|---|
-| `proto_acc_loc8_loc8` | 244 | 4 | u8 dst, u8 src locals, u8 skip | `->` | Header in front of `s += i`: when both locals (through cells) are SmallIntegers and the sum fits, stores it and skips `skip` bytes; otherwise falls through into the original instructions. | `specialise` |
-| `proto_lt_loc8_loc8_jfalse` | 245 | 8 | u8 a, u8 b, u8 skip, i32 offset from the end | `->` | Header in front of `i < n; if_false`: with two SmallIntegers, jumps when `!(local[a] < local[b])` and skips the original instructions otherwise; any other operand falls through into them. | `specialise` |
-| `proto_lt_loc_var_jfalse` | 246 | 9 | u8 local, u16 closure var, u8 skip, i32 offset from the end | `->` | As 245 with a global on the right, read as the global object's own property; an absent or non-SmallInteger global falls through to `get_var`. | `specialise` |
+| `proto_acc_loc8_loc8` | 244 | 4 | u8 dst, u8 src locals, u8 skip | `->` | Header in front of `s += i`: when both locals (through cells) are Numbers, stores their sum and skips `skip` bytes; otherwise falls through into the original instructions. | `specialise` |
+| `proto_lt_loc8_loc8_jfalse` | 245 | 8 | u8 a, u8 b, u8 skip, i32 offset from the end | `->` | Header in front of `i < n; if_false`: with two Numbers, jumps when `!(local[a] < local[b])` and skips the original instructions otherwise; any other operand falls through into them. | `specialise` |
+| `proto_lt_loc_var_jfalse` | 246 | 9 | u8 local, u16 closure var, u8 skip, i32 offset from the end | `->` | As 245 with a global on the right, read as the global object's own property; an absent or non-Number global falls through to `get_var`. | `specialise` |
 | `proto_object_imm` | 247 | 1 | none | `-> obj` | A new **immutable** child of `Object.prototype`. | `markObjectLiterals` |
 | `proto_define_field_last` | 248 | 5 | u32 atom | `obj v -> obj'` | Defines the field, then makes the object mutable with one clone. | `markObjectLiterals` |
 | `proto_put_field_group` | 249 | 5 | u16 group, u16 position | `recv v -> v` (group active) or `recv v ->` | Position 0 checks once whether the group applies (`putFieldGroupApplies`); if it does, the value stays on the stack for the final publication; if not, `put_field`. | `markPutFieldGroups` |
@@ -1136,7 +1138,7 @@ function 1 countdown: args 1, locals 1, closure vars 0, stack 2, constructor
 
 - `s += i` got the header `proto_acc_loc8_loc8 0 1 10` (the specialiser,
   1.3) in front of QuickJS's `get_loc_check s; get_loc_check i; add;
-  put_loc_check s` (10 bytes). With SmallIntegers the header does the
+  put_loc_check s` (10 bytes). With two Numbers the header does the
   addition and skips the 10 bytes; otherwise those instructions run.
   The loop test `i < n` compares a local with an *argument*, which no fused
   pattern covers, so it stays `get_loc_check; get_arg0; lt; if_false8`.
@@ -2416,107 +2418,76 @@ through `callJSFunction`, which creates the context for that activation.
 
 Found while writing this document, on `master` at `0dcefe1be` built with
 protoCore 3.2.0. Every item marked *verified* was run on that build; the
-expected value is the ECMA-262 (Node.js) result. None is fixed by the change
-that added this document.
+expected value is the ECMA-262 (Node.js) result. The branch
+`fix/vm-known-issues` fixed the unhandled opcodes, the specialiser, the
+class, bound-call, equality, truthiness, TDZ and iterator-closing bugs found
+then (CHANGELOG); what remains is listed here.
+
+Decisions taken by the agent that fixed them, pending the maintainer's
+review: dynamic `import()` raises a SyntaxError where it is reached rather
+than returning a rejected promise (issue 1); `eval(...xs)` is a direct eval
+as the specification says, although Node 22 treats it as indirect; direct
+eval compilations are cached for the life of the process (issue 10); the
+specialiser keeps the instructions it fuses after a guarded header instead
+of replacing them (1.3).
 
 ### Unhandled opcodes
 
-1. **Sixteen opcodes have no handler** (section 2). The constructs that emit
-   them compile, then abort the function that reaches them: the VM prints
-   `[ProtoInterpreter] unsupported opcode 0x.. at byte offset N` on stderr
-   and returns `undefined` from the current function; at the top level the
-   rest of the script is skipped, and the process exits 0. Verified:
-   - `var o = {a: 1}; with (o) { console.log(a); } console.log("after");`
-     prints only the diagnostic (`with_get_var`, 0x71);
-   - `y = 2; console.log(delete y); console.log("after");` prints only the
-     diagnostic (`delete_var`, 0x97);
-   - `function v() { eval("var ev = 3"); return ev; }` returns `undefined`.
-
-   `private_in` (`#x in o`), `import()` and `eval(...xs)` reach the same
-   path. Direct `eval(...)` is handled but returns `undefined` (verified:
-   `eval("1+1")` is `undefined`), while the global `eval` function throws
-   SyntaxError.
+1. **Dynamic `import()` is not supported**: the `import` opcode has no
+   handler, and reaching it raises `SyntaxError: protoJS does not support
+   dynamic import()`. ES modules run on the QuickJS module evaluator
+   (1.1), which the VM cannot hand a module namespace to yet. Static
+   `import` declarations work in module mode.
 
 ### Verified VM bugs
 
-2. **Closures created in a class constructor cannot be called.** `class A {
-   constructor() { const f = () => 1; f(); } }; new A()` throws `TypeError:
-   Class constructor cannot be invoked without 'new'`. The closure's parent
-   chain includes the enclosing frame object, whose parents include the
-   constructor, so `call` finds the constructor's `__is_class_ctor__` flag.
-3. **An arrow created before `super()` breaks `this` initialisation**:
-   `constructor() { const f = () => this; super(); }` throws `'this' can be
-   initialized only once` (`put_loc_check_init` is not cell-aware).
-4. **Private members**: `#x = 1` initialisers have no effect
-   (`define_private_field` reads its operands in the wrong order);
-   `this.#m()` and `this.#g` are `undefined` (`check_brand` pops its
-   operands); each `this.#x = v` leaves one value on the operand stack (a
-   loop of 100000 writes returned 17 instead of 99999); reading a private
-   field of a foreign object gives `undefined` instead of TypeError.
-5. **`return o.m()` with a bound function returns `undefined`**:
-   `tail_call_method`'s bound-function branch neither pushes nor returns the
-   result. `const o = {m: f.bind(null, 41)}; function h() { return o.m(); }`
-   gives `undefined` (expected 42); `const r = o.m(); return r;` gives 42.
-7. **Equality and truthiness**: `({}) == ({})` and `[] == []` are true (`eq`
-   converts objects to primitives first); `0n` is truthy; `typeof
-   "Symbol(x)"` is `"symbol"`.
-8. **Missing TDZ checks**: assignment to a `let` before its declaration
-   (local, captured or global) does not throw; `typeof x` of a global `let`
-   in its TDZ gives `"undefined"`.
-9. **Strict mode**: assigning to an undeclared name creates a global instead
+2. **Typeof**: `typeof "Symbol(x)"` is `"symbol"` (a string whose text starts
+   with `Symbol(` or `Symbol.`).
+3. **Strict mode**: assigning to an undeclared name creates a global instead
    of throwing ReferenceError. In sloppy code `undefined = 5` throws instead
    of being ignored.
-10. **Globals**: getters defined on `globalThis` read as `undefined` through
-    a global name (`get_var` does not call accessors).
-11. **`arguments`** is never mapped to the parameters and has no `callee`.
-12. **Operators**: `1 ** Infinity` is 1 (expected `NaN`) and `**` converts
-    its right operand first; `undefined < obj` does not call
-    `obj.valueOf`; `'x' in undefined` is false and `delete null.x` is true
-    (both should throw); `instanceof` ignores `Symbol.hasInstance` and bound
-    functions.
-13. **Calls**: `({C}).C()` runs a class constructor without `new`
-    (`call_method` and `callJSFunction` do not check); `new F(...[])` can
-    give `undefined`, and inside a constructor `new G(...[])` gets the
-    enclosing constructor's prototype (`apply` magic 1 uses the running
-    function's `new.target`).
-14. **Properties**: `null.length` / `undefined.length` give `undefined`
-    (`get_length`); `proxy["m"]()` ignores the Proxy (`get_array_el2`); a
-    computed key's `toString` runs after the value is evaluated and twice
-    in `o[k] += 1` (`to_propkey` is a no-op); a derived constructor may
-    return a Symbol; named capture groups are lost (`.groups` is
-    `undefined`); `{..."ab"}` is `{}`; a function under a Symbol key in an
-    object literal is named `Symbol(d)` instead of `[d]`.
-15. **Iteration**: a `[Symbol.iterator]` that returns `undefined` ends the
-    whole function silently (no TypeError, exit 0); array-likes without
-    `@@iterator` are iterated; `next` is read on every step and a getter
-    `next` is not called; an exception from `return()` on `break` is
-    swallowed; an exception thrown in a for-of body does not call
-    `return()`; for-await accepts non-object results and only exact booleans
-    as `done`; calling `it.next()` from inside the running generator recurses
-    until RangeError instead of TypeError; for-in visits keys deleted during
-    the loop and does not list integer keys first.
+4. **Globals**: getters defined on `globalThis` read as `undefined` through
+   a global name (`get_var` does not call accessors).
+5. **`arguments`** is never mapped to the parameters and has no `callee`.
+6. **Operators**: `1 ** Infinity` is 1 (expected `NaN`) and `**` converts
+   its right operand first; `undefined < obj` does not call
+   `obj.valueOf`; `'x' in undefined` is false and `delete null.x` is true
+   (both should throw); `instanceof` ignores `Symbol.hasInstance` and bound
+   functions.
+7. **Calls**: a class constructor called through a native that calls back
+   into JavaScript (`C.call(o)`, `Reflect.apply(C, ...)`) from inside
+   another constructor runs, because that constructor's new.target is still
+   published (`check_ctor` reads it); at any other place it throws as it
+   should.
+8. **Properties**: `null.length` / `undefined.length` give `undefined`
+   (`get_length`); `proxy["m"]()` ignores the Proxy (`get_array_el2`); a
+   derived constructor may return a Symbol; named capture groups are lost
+   (`.groups` is `undefined`); `{..."ab"}` is `{}`; a function under a
+   Symbol key in an object literal is named `Symbol(d)` instead of `[d]`.
+9. **Iteration**: array-likes without `@@iterator` are iterated; `next` is
+   read on every step and a getter `next` is not called; for-await accepts
+   non-object results and only exact booleans as `done`; calling `it.next()`
+   from inside the running generator recurses until RangeError instead of
+   TypeError; for-in visits keys deleted during the loop and does not list
+   integer keys first.
+10. **Direct eval caches its compilations**: each distinct (calling
+    function, scope, source text) is compiled once and kept for the life of
+    the process (`JSContextWrapper::loadEvalModule`), so a program that
+    evaluates an unbounded number of different strings grows without
+    bound. Interned private-name keys (one per evaluation of a class with
+    private members) are kept the same way.
+11. **`with` and Proxies**: a Proxy used as a `with` object sees
+    `Symbol.unscopables` as the string key `"Symbol.unscopables"` in its
+    traps (protoJS carries well-known Symbols as strings), and an
+    assignment does not repeat the HasProperty / GetOwnProperty steps of
+    SetMutableBinding (test262 `language/statements/with/*-with-proxy-env`).
+    There are no proper tail calls (`tco-*` tests exhaust the stack).
 
 ### Oddities (from reading the code)
 
-- **Silent aborts on malformed bytecode.** Handlers return `undefined` from
-  the function on a truncated operand or a stack underflow, and `L_default`
-  does the same for an unknown opcode, instead of raising an internal error.
-  A compiler, loader or specialiser bug therefore looks like a function that
-  returned `undefined` (issue 6 above is an instance).
-- **Stale comments in `ProtoInterpreter.cpp`**: `globalObj` is said to be
-  "recomputed on every dispatch" (it is refreshed only where needed);
-  the region above the operand stack is called "reserved (PROTO_NONE)" (it
-  holds the three rooting slots and the for-of slots); several comments
-  still describe a `pending_exception` flag and `childEx` checks, although
-  exceptions are C++ exceptions now and the `childEx` tests after each call
-  are dead code; `put_private_field`'s comment gives a wrong QuickJS
-  signature; the `for_of_start` comment says non-iterables "vacuously pass"
-  (it throws TypeError); `iterator_next` / `iterator_call` comments describe
-  destructuring and rest collection, but QuickJS emits them only for
-  `yield*`, and their slot-record paths look unreachable.
-- **`check_ctor`** is a no-op; the class-constructor check lives in `call`
-  only.
-- **`return_async`**'s branch that wraps the value in a resolved promise is
+- **Stale comments in `ProtoInterpreter.cpp`**: the `iterator_next` /
+  `iterator_call` comments describe destructuring and rest collection, but
+  QuickJS emits them only for `yield*`, and their slot-record paths look
   unreachable.
 - **String length and indexing** count code points, not UTF-16 code units:
   `"\u{1F600}".length` is 1.

@@ -6,6 +6,70 @@ All notable changes to protoJS are documented in this file.
 
 **Requires protoCore 3.1.0** (untagged master, commit 267b9fc9; SOVERSION 4). CI builds protoCore 3.2.0 (commit bb2d581a, what the installers ship) on Linux, macOS and Windows, and 3.1.0 in the Windows floor job.
 
+### Fixed — the VM bugs found while documenting it (2026-10-25)
+
+The known issues of docs/VM.md section 6, each with an asserting test under
+`tests/integration/basic/` whose expected values are Node's (or the
+specification's, where Node deviates; noted in the test).
+
+- **Specialiser** (on by default): it fused loop sequences that a jump
+  entered in the middle, did not re-encode `catch` / `gosub` offsets (a loop
+  inside a `try` sent the handler into garbage and the function returned
+  undefined), and its fused handlers had slow paths of their own that
+  differed from `add` / `lt` (BigInt threw, `s += [2]` gave 3, an undeclared
+  global bound read as undefined). The fused instruction is now a guarded
+  header in front of the original instructions: its fast path runs only
+  with SmallInteger operands, everything else falls through into the
+  original code; every code offset (jumps, `catch`, `gosub`, `with_*`) is
+  re-encoded and a sequence with an interior jump target is not fused.
+  `add_loc` (`x += e`) has the semantics of `+` (BigInt, ToPrimitive). One
+  instruction-size table for the loader, the specialiser and the
+  disassembler. (`specialiser_correctness.js`)
+- **No silent aborts**: an opcode without a handler raises a SyntaxError
+  naming the construct (only dynamic `import()` remains) or an internal
+  error; a truncated operand or a stack underflow raises
+  `protoJS internal error: malformed bytecode`. Neither returns undefined
+  from the function any more.
+- **eval and with**: direct `eval` is implemented (the source is compiled
+  against the caller's bytecode by the new `protojs_compile_direct_eval` and
+  sees and writes the caller's variables, its sloppy `var`s land in the
+  caller's variable object; compilations are cached per caller, scope and
+  text); the global `eval` is an indirect eval (global code); `eval(...xs)`,
+  the `with` statement (with `Symbol.unscopables`), variable references inside
+  `with`, and `delete x` of a global (`apply_eval`, `with_*`, `make_*_ref`,
+  `get_ref_value`, `put_ref_value`, `delete_var`). (`eval_and_with.js`)
+- **Classes**: closures created in a class constructor can be called (the
+  class flag is read as an own attribute); an arrow created before `super()`
+  shares the constructor's `this`; private fields, methods, accessors,
+  static members and `#x in o` work, with per-class-evaluation names, brand
+  checks and TypeErrors for foreign objects; private writes no longer leak a
+  stack slot; `check_ctor` rejects a class constructor run without
+  new.target, and `call_method` rejects `({C}).C()`; `new F(...xs)` and
+  `super(...xs)` use the right new.target. `return o.m()` with a bound `m`
+  returns its result. (`class_members_and_calls.js`)
+- **Semantics**: `({}) == ({})` is false (ToPrimitive only against a
+  primitive); `0n` is falsy (also in `Boolean()`); assignments to a `let` /
+  `const` / class binding in its TDZ throw (local, captured and global), as
+  does `typeof` of a global `let` in its TDZ; `to_propkey` converts computed
+  keys of object literals where the specification says; `IteratorClose`
+  runs on `break` / `return` (its exceptions propagate) and when an
+  exception leaves a for-of loop or a destructuring pattern (its exceptions
+  are dropped); a `Symbol.iterator` that returns a non-object is a
+  TypeError. (`semantics_equality_tdz_iterators.js`)
+- **Found by comparing test262 subsets with master**: an iterator whose
+  `next()` (or the reads of its result) throws is done, so `return()` is not
+  called; an indirect eval compiles as indirect code (its `let` stays in it)
+  and checks its global declarations first (a function over `NaN` is a
+  TypeError and defines nothing); `call_method` calls a built-in constructor
+  reached through a member (`o.f = Object; o.f()`); `with (undefined)` throws.
+- **Dead code and comments**: the unreachable promise wrap in `return_async`
+  and the dead `childEx` tests after every call are gone; stale comments
+  (the specialiser's default, `globalObj`, the frame layout, the exception
+  flag) are corrected.
+- **Contexts**: the three worker_threads natives that opened a
+  `ProtoContext` to clone a message now clone in the caller's context (a
+  native creates none).
+
 ### Added — VM documentation and `protojs --disasm` (2026-10-25)
 
 - **docs/VM.md** describes the bytecode virtual machine for contributors: a
