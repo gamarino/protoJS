@@ -24,13 +24,12 @@ namespace protojs {
 ///
 /// `OP_proto_acc_loc8_loc8 dst src skip`  (4 bytes) in front of
 ///   get_loc dst; get_loc src; add; put_loc dst   or   get_loc src; add_loc dst
-/// Fast path: both locals SmallIntegers and the sum in range:
-/// `local[dst] = local[dst] + local[src]`.
+/// Fast path: both locals Numbers: `local[dst] = local[dst] + local[src]`.
 constexpr uint8_t OP_PROTO_ACC_LOC8_LOC8 = 244;
 
 /// `OP_proto_lt_loc8_loc8_jfalse a b skip offset32` (8 bytes) in front of
 ///   get_loc a; get_loc b; lt; if_false[8] target
-/// Fast path: both locals SmallIntegers; jumps to `end + offset` when
+/// Fast path: both locals Numbers; jumps to `end + offset` when
 /// `local[a] < local[b]` is false (`end` is the address after the header),
 /// otherwise skips the original instructions.
 constexpr uint8_t OP_PROTO_LT_LOC8_LOC8_JFALSE = 245;
@@ -38,8 +37,8 @@ constexpr uint8_t OP_PROTO_LT_LOC8_LOC8_JFALSE = 245;
 /// `OP_proto_lt_loc_var_jfalse loc var_u16 skip offset32` (9 bytes) in front of
 ///   get_loc loc; get_var var; lt; if_false[8] target
 /// `var` is the closure-variable index of OP_get_var.  Fast path: the local
-/// and the global's own property (the value OP_get_var reads first) are
-/// SmallIntegers.
+/// is a SmallInteger and the global's property (the value OP_get_var reads
+/// first) a Number.
 constexpr uint8_t OP_PROTO_LT_LOC_VAR_JFALSE = 246;
 
 /// Object literals built in one immutable step (markObjectLiterals):
@@ -395,11 +394,11 @@ bool writeJumpTarget(std::vector<uint8_t>& out, int newPc, int target) {
 //
 // The header's handler runs the fast path only when it can prove the
 // result equals what the original instructions would compute: both
-// operands SmallIntegers (read through closure cells), and for P3 the
+// operands Numbers (read through closure cells), and for P3 the
 // global read the same `get_var` performs.  It then skips the original
 // instructions (`skip` bytes) or takes the jump.  In every other case
-// (BigInt, objects with valueOf / Symbol.toPrimitive, strings, doubles,
-// the TDZ sentinel, an undeclared global, an overflowing sum) it does
+// (BigInt, objects with valueOf / Symbol.toPrimitive, strings,
+// the TDZ sentinel, an undeclared global) it does
 // nothing and execution falls through into the original instructions,
 // which give the exact semantics by construction.  The fused handlers
 // therefore have no slow path of their own to keep in sync with `add`,

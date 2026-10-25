@@ -3,7 +3,7 @@
 
 /**
  * BytecodeSpecialiser -- post-codegen peephole pass that adds fused
- * "super-instructions" with inline SmallInteger fast paths in front of the
+ * "super-instructions" with inline Number fast paths in front of the
  * common loop shapes QuickJS emits.
  *
  * Patterns recognised (`get_loc` is any of get_loc0..3, get_loc8, get_loc
@@ -21,9 +21,9 @@
  *
  * The fused instruction is a guarded header: the original instructions
  * stay right after it.  Its fast path runs only when both operands are
- * SmallIntegers and skips them; in every other case execution falls
+ * Numbers (SmallIntegers or doubles) and skips them; in every other case execution falls
  * through into the original instructions, so BigInts, objects, strings,
- * doubles, the TDZ sentinel and undeclared globals keep their exact
+ * the TDZ sentinel and undeclared globals keep their exact
  * semantics.  Every code offset (jumps, catch handlers, gosub targets,
  * with_* labels) is re-encoded through an old-to-new offset table, and a
  * sequence with a jump target inside it is not fused.  See

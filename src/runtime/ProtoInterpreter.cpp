@@ -12056,13 +12056,19 @@ static const proto::ProtoObject* runBytecodeImpl(proto::ProtoContext* pContext,
                 if (locIndex < varCount && (argCount + locIndex) < (argCount + varCount)) {
                     // Respect closure cells — see L_OP_set_loc_uninitialized.
                     const proto::ProtoObject* slotVal = getSlot(pContext, argCount + locIndex);
-                    const bool cell = isCell(pContext, slotVal);
-                    if ((cell ? readCell(pContext, slotVal) : slotVal) == tdzSentinel) {
-                        throwJS(pContext, makeError(pContext, "ReferenceError",
-                            "Cannot access before initialization", pGlobalRoot));
+                    if (!proto::isSmallInt(slotVal)) {
+                        if (slotVal == tdzSentinel)
+                            throwJS(pContext, makeError(pContext, "ReferenceError",
+                                "Cannot access before initialization", pGlobalRoot));
+                        if (isCell(pContext, slotVal)) {
+                            if (readCell(pContext, slotVal) == tdzSentinel)
+                                throwJS(pContext, makeError(pContext, "ReferenceError",
+                                    "Cannot access before initialization", pGlobalRoot));
+                            writeCell(pContext, slotVal, val);
+                            DISPATCH();
+                        }
                     }
-                    if (cell) writeCell(pContext, slotVal, val);
-                    else setSlot(pContext, argCount + locIndex, val);
+                    setSlot(pContext, argCount + locIndex, val);
                 }
                 DISPATCH();
             }
@@ -15608,10 +15614,10 @@ static const proto::ProtoObject* runBytecodeImpl(proto::ProtoContext* pContext,
             // Fused loop instructions (BytecodeSpecialiser.h).  Each is a
             // guarded header in front of the instructions it stands for,
             // which follow it unchanged.  The fast path runs only when both
-            // operands are SmallIntegers (read through closure cells) and
+            // operands are Numbers (read through closure cells) and
             // then skips those instructions (`skip` bytes) or takes the
-            // jump; anything else -- BigInt, objects, strings, doubles, the
-            // TDZ sentinel, an undeclared global, an overflowing sum --
+            // jump; anything else -- BigInt, objects, strings, the
+            // TDZ sentinel, an undeclared global --
             // falls through into the original instructions, which give the
             // exact semantics.
             //
@@ -15638,7 +15644,17 @@ static const proto::ProtoObject* runBytecodeImpl(proto::ProtoContext* pContext,
                             if (dstCell) writeCell(pContext, dstCell, proto::makeSmallInt(sum));
                             else setSlot(pContext, argCount + dstIdx, proto::makeSmallInt(sum));
                             pc += skip;
+                            DISPATCH();
                         }
+                    }
+                    // Two Numbers (doubles, or a sum past the SmallInteger
+                    // range): their sum as `add` computes it.
+                    double dd, ds;
+                    if (numberToDouble(pContext, dst, dd) && numberToDouble(pContext, src, ds)) {
+                        const proto::ProtoObject* nv = makeNumber(pContext, dd + ds);
+                        if (dstCell) writeCell(pContext, dstCell, nv);
+                        else setSlot(pContext, argCount + dstIdx, nv);
+                        pc += skip;
                     }
                 }
                 DISPATCH();
@@ -15659,6 +15675,11 @@ static const proto::ProtoObject* runBytecodeImpl(proto::ProtoContext* pContext,
                     if (!proto::isSmallInt(b)) b = readCell(pContext, b);
                     if (proto::isSmallInt(a) && proto::isSmallInt(b)) {
                         pc += (proto::asSmallInt(a) < proto::asSmallInt(b)) ? skip : diff;
+                    } else {
+                        // Two Numbers: IsLessThan on their values (NaN false).
+                        double da, db;
+                        if (numberToDouble(pContext, a, da) && numberToDouble(pContext, b, db))
+                            pc += (da < db) ? skip : diff;
                     }
                 }
                 DISPATCH();
@@ -15690,6 +15711,10 @@ static const proto::ProtoObject* runBytecodeImpl(proto::ProtoContext* pContext,
                             key ? liveGlobal->getAttribute(pContext, key, false) : nullptr;
                         if (b && proto::isSmallInt(b)) {
                             pc += (proto::asSmallInt(a) < proto::asSmallInt(b)) ? skip : diff;
+                        } else {
+                            double db;
+                            if (b && numberToDouble(pContext, b, db))
+                                pc += (static_cast<double>(proto::asSmallInt(a)) < db) ? skip : diff;
                         }
                     }
                 }
