@@ -18,6 +18,7 @@
 
 #include "ArrayElementsStorage.h"
 #include "ArrayPrototype.h"
+#include "BigIntPrototype.h"
 #include "JSContext.h"
 #include "JSSymbols.h"
 #include "MicrotaskQueue.h"
@@ -165,6 +166,10 @@ bool toBooleanValue(proto::ProtoContext* ctx, const proto::ProtoObject* v) {
         return d == d && d != 0.0;
     }
     if (v->isString(ctx)) return v->asString(ctx)->getSize(ctx) != 0;
+    if (!v->isMethod(ctx) && isBigInt(ctx, v)) {  // 0n is falsy
+        const proto::ProtoObject* iv = v->getOwnAttributeDirect(ctx, JSSymbols::bigIntValue(ctx));
+        return !(iv && proto::isSmallInt(iv) && proto::asSmallInt(iv) == 0);
+    }
     return true;
 }
 

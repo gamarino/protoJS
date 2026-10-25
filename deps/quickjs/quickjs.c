@@ -59715,6 +59715,64 @@ void* protojs_get_function_bytecode(JSContext *ctx, const void *value_ptr) {
     return JS_GetFunctionBytecode(val);
 }
 
+/* protoJS: compile the source of a direct eval (ECMA-262 PerformEval with
+   direct = true) as QuickJS's __JS_EvalInternal does for JS_EVAL_TYPE_DIRECT,
+   but with the calling function's bytecode passed in instead of taken from
+   QuickJS's stack frame: protoJS runs the caller, QuickJS only compiles.
+   `scope_operand` is the u16 scope operand of OP_eval / OP_apply_eval.  The
+   result's closure variables name the caller's arguments, locals and closure
+   variables by index (add_closure_variables), as for a nested function.
+   `input` must be zero terminated.  Returns the JSFunctionBytecode, kept
+   alive for the life of the runtime like every bytecode protoJS loads, or
+   NULL with the SyntaxError pending in ctx. */
+void* protojs_compile_direct_eval(JSContext *ctx, void *caller_bytecode, int scope_operand,
+                                  const char *input, size_t input_len, const char *filename) {
+    JSParseState s1, *s = &s1;
+    JSFunctionBytecode *b = (JSFunctionBytecode *)caller_bytecode;
+    JSFunctionDef *fd;
+    JSValue fun_obj;
+    int err;
+    int scope_idx = scope_operand + ARG_SCOPE_END;
+
+    if (!b || !b->vardefs) {
+        JS_ThrowSyntaxError(ctx, "direct eval: the calling function has no variable table");
+        return NULL;
+    }
+    js_parse_init(ctx, s, input, input_len, filename);
+    skip_shebang(&s->buf_ptr, s->buf_end);
+    fd = js_new_function_def(ctx, NULL, TRUE, FALSE, filename,
+                             s->buf_start, &s->get_line_col_cache);
+    if (!fd)
+        return NULL;
+    s->cur_func = fd;
+    fd->eval_type = JS_EVAL_TYPE_DIRECT;
+    fd->has_this_binding = FALSE;
+    fd->new_target_allowed = b->new_target_allowed;
+    fd->super_call_allowed = b->super_call_allowed;
+    fd->super_allowed = b->super_allowed;
+    fd->arguments_allowed = b->arguments_allowed;
+    fd->js_mode = b->js_mode;
+    fd->func_name = JS_DupAtom(ctx, JS_ATOM__eval_);
+    if (add_closure_variables(ctx, fd, b, scope_idx))
+        goto fail;
+    fd->module = NULL;
+    s->is_module = FALSE;
+    s->allow_html_comments = TRUE;
+    push_scope(s); /* body scope */
+    fd->body_scope = fd->scope_level;
+    err = js_parse_program(s);
+    if (err) {
+    fail:
+        free_token(s, &s->token);
+        js_free_function_def(ctx, fd);
+        return NULL;
+    }
+    fun_obj = js_create_function(ctx, fd);
+    if (JS_IsException(fun_obj))
+        return NULL;
+    return JS_VALUE_GET_PTR(fun_obj);
+}
+
 const uint8_t* protojs_bytecode_buf(void *bytecode) {
     JSFunctionBytecode *b = (JSFunctionBytecode *)bytecode;
     return b->byte_code_buf;

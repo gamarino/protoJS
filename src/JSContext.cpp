@@ -24,6 +24,7 @@
 #include "ThreadProtoContext.h"
 #include "runtime/ProtoCompileOnly.h"
 #include "runtime/ProtoBytecodeModule.h"
+#include "runtime/QuickJSBytecodeExport.h"
 #include "runtime/ProtoInterpreter.h"
 #include "quickjs.h"
 #include <climits>
@@ -937,6 +938,48 @@ const proto::ProtoObject* JSContextWrapper::evalIsolatedToProto(
     // left in the young generation the frame hands to the collector.
     frameCtx.returnValue = result;
     return result;
+}
+
+const void* JSContextWrapper::loadEvalModule(JSContext* quickjsCtx, void* callerBytecode,
+                                            int scopeOperand, const std::string& source,
+                                            std::string& error) {
+    JSContext* qctx = quickjsCtx ? quickjsCtx : ctx;
+    const auto key = std::make_pair(std::make_pair(callerBytecode, scopeOperand), source);
+    const auto hit = evalModuleCache_.find(key);
+    if (hit != evalModuleCache_.end()) return hit->second;
+
+    if (JS_HasException(qctx)) JS_FreeValue(qctx, JS_GetException(qctx));
+    void* bytecode = callerBytecode
+        ? protojs_compile_direct_eval(qctx, callerBytecode, scopeOperand, source.c_str(),
+                                      source.size(), "<eval>")
+        : protojs::compileToBytecodeWithFlags(qctx, source.c_str(), source.size(), "<eval>",
+                                              JS_EVAL_TYPE_GLOBAL, nullptr);
+    if (!bytecode) {
+        JSValue exc = JS_GetException(qctx);
+        error = "Invalid eval source";
+        JSValue msgVal = JS_GetPropertyStr(qctx, exc, "message");
+        if (const char* m = JS_ToCString(qctx, msgVal)) {
+            error = m;
+            JS_FreeCString(qctx, m);
+        }
+        JS_FreeValue(qctx, msgVal);
+        JS_FreeValue(qctx, exc);
+        return nullptr;
+    }
+    proto::ProtoContext* baseCtx = getProtoContext();
+    proto::ProtoContext loadCtx(pSpace_, baseCtx, nullptr, nullptr, nullptr, nullptr);
+    auto modulePtr = std::make_unique<protojs::ProtoBytecodeModule>();
+    protojs::ProtoBytecodeModule* modPtr = modulePtr.get();
+    if (!protojs::loadBytecode(qctx, bytecode, &loadCtx, modPtr)) {
+        error = "eval: the compiled source could not be loaded";
+        return nullptr;
+    }
+    // The module's metadata roots its constant pool and nested functions for
+    // as long as the module is kept, which is the wrapper's lifetime.
+    if (proto::ProtoRootSet* rs = getRootSet()) subEvalHandles_.push_back(rs->add(modPtr->metadata));
+    subEvalModules_.push_back(std::move(modulePtr));
+    evalModuleCache_.emplace(key, modPtr);
+    return modPtr;
 }
 
 JSValue JSContextWrapper::evalPreload(const std::string& code, const std::string& filename) {

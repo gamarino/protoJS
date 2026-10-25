@@ -70,7 +70,15 @@ static void preResolveAllAtoms(JSContext* ctx, ProtoBytecodeModule* mod,
                         op == OP_delete_var       ||
                         op == OP_define_method    ||
                         op == OP_define_class     ||
-                        op == OP_define_class_computed);
+                        op == OP_define_class_computed ||
+                        op == OP_with_get_var     ||
+                        op == OP_with_put_var     ||
+                        op == OP_with_delete_var  ||
+                        op == OP_with_make_ref    ||
+                        op == OP_with_get_ref     ||
+                        op == OP_make_loc_ref     ||
+                        op == OP_make_arg_ref     ||
+                        op == OP_make_var_ref_ref);
         if (hasAtom && pc + 5 <= len) {
             uint32_t atomIndex = (uint32_t)buf[pc+1] | ((uint32_t)buf[pc+2] << 8) |
                                  ((uint32_t)buf[pc+3] << 16) | ((uint32_t)buf[pc+4] << 24);
@@ -203,6 +211,7 @@ static bool loadBytecodeRecursive(JSContext* ctx,
     if (!ctx || !quickjsBytecode || !pContext || !out) return false;
 
     out->jsContext = ctx;
+    out->quickjsBytecode = quickjsBytecode;
 
     // Copy raw bytecode buffer and metadata from the QuickJS function.
     const uint8_t* buf = protojs_bytecode_buf(quickjsBytecode);

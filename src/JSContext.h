@@ -93,6 +93,21 @@ public:
                                                   const std::string& filename);
 
     /**
+     * @brief The loaded module of an eval's source (ECMA-262 PerformEval).
+     *
+     * With `callerBytecode` (a direct eval) the source is compiled against
+     * the calling function's QuickJS bytecode at the eval's scope, so its
+     * closure variables name the caller's variables; without it (an
+     * indirect eval) it is compiled as global code.  `quickjsCtx` is the
+     * QuickJS context that compiled the caller.  The module lives for the
+     * wrapper's lifetime, and one compilation per distinct (caller, scope,
+     * source) is cached, so an eval in a loop compiles once.  Returns
+     * nullptr with the SyntaxError's message in `error`.
+     */
+    const void* loadEvalModule(JSContext* quickjsCtx, void* callerBytecode, int scopeOperand,
+                               const std::string& source, std::string& error);
+
+    /**
      * @brief Use protoCore interpreter path for eval (compile -> load -> run).
      * Always true; single execution path.
      */
@@ -406,6 +421,9 @@ private:
     /** Pinning handles for the sub-eval modules' metadata, parallel to
      *  subEvalModules_. Released alongside the modules in ~JSContextWrapper. */
     std::vector<proto::ProtoRootSet::Handle> subEvalHandles_;
+    /** loadEvalModule's cache: (caller bytecode, scope operand, source) to
+     *  the module, owned by subEvalModules_. */
+    std::map<std::pair<std::pair<void*, int>, std::string>, const void*> evalModuleCache_;
     /** ProtoCore-side root set for pinning async-callback receivers
      *  across event-loop hops; lazy-init, destroyed on wrapper destruction. */
     proto::ProtoRootSet* rootSet_{nullptr};

@@ -23,6 +23,10 @@ typedef struct JSContext JSContext;
  * Returns NULL if *value_ptr is not a bytecode function.
  */
 void* protojs_get_function_bytecode(JSContext* ctx, const void* value_ptr);
+/** Compile the source of a direct eval against the calling function's bytecode
+ *  (quickjs.c, protojs_compile_direct_eval). NULL with the error pending in ctx. */
+void* protojs_compile_direct_eval(JSContext* ctx, void* caller_bytecode, int scope_operand,
+                                  const char* input, size_t input_len, const char* filename);
 
 /**
  * Accessors for bytecode (void* is JSFunctionBytecode*).

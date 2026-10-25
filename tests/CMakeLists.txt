@@ -398,6 +398,9 @@ foreach(js_test
         basic/dictionary_keys
         basic/dictionary_shadowing
         basic/specialiser_correctness
+        basic/eval_and_with
+        basic/class_members_and_calls
+        basic/semantics_equality_tdz_iterators
         deferred/dictionary_keys_shared
         deferred/result_is_shared
         workers/dictionary_keys_message

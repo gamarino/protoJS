@@ -2,6 +2,7 @@
 #include "JSSymbols.h"
 #include "PrototypeUtils.h"
 #include "TypeBridge.h"
+#include "BigIntPrototype.h"
 #include "runtime/ProtoInterpreter.h"
 #include "protoCore.h"
 #include <cmath>
@@ -109,6 +110,11 @@ static const proto::ProtoObject* booleanConstruct(
                 ps->toUTF8String(ctx, s);
                 val = !s.empty();
             }
+        } else if (protojs::isBigInt(ctx, a)) {
+            // A BigInt primitive (own __bigint_value__): false for 0n.
+            const proto::ProtoString* vk = JSSymbols::bigIntValue(ctx);
+            const proto::ProtoObject* iv = vk ? a->getOwnAttributeDirect(ctx, vk) : nullptr;
+            val = !(iv && proto::isSmallInt(iv) && proto::asSmallInt(iv) == 0);
         } else {
             val = true; // any other non-falsy object → truthy
         }

@@ -738,6 +738,19 @@ inline const proto::ProtoString* cellValueKey(proto::ProtoContext* ctx) {
     return t_cellValueKey;
 }
 
+// Marks the intrinsic %eval% (the global `eval` as installed): OP_eval and
+// OP_apply_eval perform a direct eval only when the callee is that function.
+thread_local const proto::ProtoString* t_intrinsicEvalKey = nullptr;
+inline const proto::ProtoString* intrinsicEvalKey(proto::ProtoContext* ctx) {
+    if (!t_intrinsicEvalKey)
+        t_intrinsicEvalKey = proto::ProtoString::createSymbol(ctx, "__intrinsic_eval__");
+    return t_intrinsicEvalKey;
+}
+inline bool isIntrinsicEval(proto::ProtoContext* ctx, const proto::ProtoObject* fn) {
+    return fn && fn != PROTO_NONE && !proto::isSmallInt(fn)
+        && fn->getOwnAttributeDirect(ctx, intrinsicEvalKey(ctx)) == PROTO_TRUE;
+}
+
 inline const proto::ProtoString* captureScopeKey(proto::ProtoContext* ctx) {
     if (!t_captureScopeKey)
         t_captureScopeKey = proto::ProtoString::createSymbol(ctx, "__capture_scope__");
@@ -803,6 +816,12 @@ inline const proto::ProtoObject* getOrCreateFrameObj(proto::ProtoContext* ctx,
     t_currentFrameObj = frameObj;
     return frameObj;
 }
+
+static const proto::ProtoObject* makeError(proto::ProtoContext* ctx, const char* name,
+                                           const char* message,
+                                           const proto::ProtoObject* const* globalRoot = nullptr);
+static const proto::ProtoObject* toString(proto::ProtoContext* context,
+                                          const proto::ProtoObject* value);
 
 inline bool isCell(proto::ProtoContext* ctx, const proto::ProtoObject* o) {
     if (!o || o == PROTO_NONE) return false;
@@ -1353,6 +1372,12 @@ static const proto::ProtoObject* reflectConstruct(
     // allocated receiver. The harness only inspects whether the call
     // throws, so this is sufficient for isConstructor.
     if (isBytecodeFn) {
+        // The body's new.target (OP_check_ctor), restored on every exit.
+        struct NewTargetScope {
+            const proto::ProtoObject* saved = t_activeNewTgt;
+            ~NewTargetScope() { t_activeNewTgt = saved; }
+        } newTargetScope;
+        t_activeNewTgt = newTarget;
         const proto::ProtoObject* res = callJSFunction(ctx, target, newObj, callArgs);
         return isObjectResult(res) ? res : newObj;
     }
@@ -3183,7 +3208,10 @@ static const proto::ProtoObject* globalDecodeURI(
 //   [argCount .. argCount+varCount-1]            local vars
 //   [argCount+varCount .. stackBase-1]           closure vars
 //   [stackBase .. stackBase + stackTop - 1]      pushed operand stack
-//   [stackBase + stackTop .. automaticCount-1]   reserved (PROTO_NONE)
+//   [stackBase + stackTop .. stackBase + R - 1]  free operand slots (R = stackSize + 16);
+//                                                its last three root the module metadata,
+//                                                the async owner and the active function
+//   [stackBase + R ..]                           for-of state, 3 slots per loop
 //
 // `stackBase` and `stackTop` are tracked in a thread_local stack of
 // frames (one entry per nested runBytecode invocation).  RAII-pushed
@@ -3310,6 +3338,489 @@ static const proto::ProtoObject* captureClosureVars(proto::ProtoContext* ctx,
     return scope;
 }
 
+// ECMA-262 PerformEval (§19.2.1.1).  A non-string argument is the result.
+// `caller` is the module running OP_eval / OP_apply_eval for a direct eval
+// (its frame is `ctx`, with the given argument and local counts), or nullptr
+// for an indirect eval, which runs the source as global code.  The source is
+// compiled once per (caller, scope, text) (JSContextWrapper::loadEvalModule);
+// a direct eval's closure variables are the caller's arguments, locals and
+// closure variables, captured as cells exactly as OP_fclosure captures them,
+// so the eval code reads and writes the caller's bindings and a sloppy-mode
+// `var` lands in the caller's variable object.  The eval code runs as a
+// method activation: one child context, like any call of a bytecode function.
+static PROTOJS_NOINLINE const proto::ProtoObject* performEval(
+        proto::ProtoContext* ctx, const ProtoBytecodeModule* caller,
+        unsigned argCount, unsigned varCount, int scopeOperand,
+        const proto::ProtoObject* source, const proto::ProtoObject* thisObj,
+        const proto::ProtoObject** globalRoot) {
+    if (!source || source == PROTO_NONE || !source->isString(ctx)) return source ? source : PROTO_NONE;
+    JSContextWrapper* wrapper = JSContextWrapper::current();
+    if (!wrapper)
+        throwJS(ctx, makeError(ctx, "Error", "eval: no JavaScript context on this thread", globalRoot));
+    std::string text;
+    source->asString(ctx)->toUTF8String(ctx, text);
+    std::string error;
+    const auto* mod = static_cast<const ProtoBytecodeModule*>(wrapper->loadEvalModule(
+        caller ? caller->jsContext : nullptr, caller ? caller->quickjsBytecode : nullptr,
+        scopeOperand, text, error));
+    if (!mod) throwJS(ctx, makeError(ctx, "SyntaxError", error.c_str(), globalRoot));
+    const ProtoBytecodeModule& nf = *mod;
+    const size_t closureCount = nf.closureSymbols ? nf.closureSymbols->getSize(ctx) : 0;
+    const size_t totalSlots = nf.argCount() + nf.varCount() + closureCount + nf.stackSize() + 16;
+    proto::ProtoContext childCtx(ctx->space, ctx, nullptr, nullptr, nullptr, nullptr, totalSlots, nullptr);
+    childCtx.currentFileName = ctx->currentFileName;
+    childCtx.currentLineNumber = ctx->currentLineNumber;
+    if (caller) {
+        // The cells of the caller's variables, straight into the eval
+        // code's closure-variable slots (populateClosureCellsFromInstance
+        // without the intermediate function object).
+        for (size_t i = 0; i < nf.closureVarNames.size() && i < closureCount; ++i) {
+            const int cvType = (i < nf.closureVarTypes.size()) ? nf.closureVarTypes[i] : -1;
+            const unsigned cvIdx = (i < nf.closureVarIndices.size()) ? nf.closureVarIndices[i] : 0;
+            const proto::ProtoObject* captured = nullptr;
+            if (cvType == 0 /* LOCAL */ || cvType == 1 /* ARG */) {
+                const unsigned slot = (cvType == 0) ? argCount + cvIdx : cvIdx;
+                const proto::ProtoObject* slotVal = getSlot(ctx, slot);
+                if (isCell(ctx, slotVal)) {
+                    captured = slotVal;
+                } else {
+                    captured = allocCell(ctx, slotVal);
+                    if (captured) setSlot(ctx, slot, captured);
+                }
+            } else if (cvType == 2 /* REF */) {
+                captured = getSlot(ctx, argCount + varCount + cvIdx);
+            }
+            if (captured && captured != PROTO_NONE)
+                setSlot(&childCtx, nf.argCount() + nf.varCount() + static_cast<unsigned>(i), captured);
+        }
+    }
+    const proto::ProtoObject* evalThis = caller ? thisObj : (globalRoot && *globalRoot ? *globalRoot : PROTO_NONE);
+    const proto::ProtoObject* result = runBytecode(&childCtx, &nf, evalThis, nullptr, globalRoot);
+    anchorCallOutcome(childCtx, result, nullptr);
+    return result ? result : PROTO_NONE;
+}
+
+// [[HasProperty]](obj, key) (§7.3.12) of an object: a Proxy's `has` trap,
+// typed-array and array indices, data and accessor properties, the property
+// dictionary, and a Proxy on the prototype chain.  `keyVal` is the key as the
+// program gave it (an integer index keeps its fast path), `key` the property
+// key it converts to.  The `in` operator and the `with` / sloppy direct eval
+// bindings (OP_with_*, OP_get_ref_value, OP_put_ref_value) use it.
+static PROTOJS_NOINLINE bool hasPropertyJS(proto::ProtoContext* ctx,
+                                       const proto::ProtoObject* obj,
+                                       const proto::ProtoObject* keyVal,
+                                       const proto::ProtoString* key) {
+    protojs::materializeLazyPrototypeForKey(ctx, obj, key);  // LazyPrototype.h
+    // Proxy receiver → dispatch to handler.has.
+    if (key && protojs::isProxy(ctx, obj)) {
+        return protojs::proxyDispatchHas(ctx, obj, key) == PROTO_TRUE;
+    }
+    // Array index fast path: indices live in __elements__,
+    // not as data keys, so the regular hasAttribute walk
+    // misses them.  Pre-fix `0 in [10,20]` returned false.
+    // Handles both numeric and numeric-string keys.
+    long long arrIdxIn = -1;
+    if (keyVal && keyVal->isInteger(ctx)) {
+        arrIdxIn = keyVal->asLong(ctx);
+    } else if (key) {
+        std::string ks;
+        key->toUTF8String(ctx, ks);
+        if (!ks.empty()) {
+            bool allDigits = true;
+            for (char c : ks) if (c < '0' || c > '9') { allDigits = false; break; }
+            if (allDigits) {
+                try { arrIdxIn = std::stoll(ks); } catch (...) { arrIdxIn = -1; }
+            }
+        }
+    }
+    // A typed array has exactly its in-bounds integer indices
+    // (§10.4.5.2 [[HasProperty]]); its elements are bytes of
+    // its buffer, so neither the list nor the attributes
+    // below know them.
+    if (arrIdxIn >= 0) {
+        const uint8_t taTypeIn = getTypedArrayElementType(ctx, obj);
+        if (taTypeIn != 0xFF) {
+            return arrIdxIn < static_cast<long long>(getTypedArrayLength(ctx, obj));
+        }
+    }
+    if (arrIdxIn >= 0) {
+        const proto::ProtoList* els = protojs::getArrayElements(ctx, obj);
+        if (els && arrIdxIn < static_cast<long long>(els->getSize(ctx))) {
+            const proto::ProtoObject* v = els->getAt(ctx, static_cast<int>(arrIdxIn));
+            if (v && v != PROTO_NONE) return true;
+        }
+    }
+    // IMPORTANT: hasAttribute returns PROTO_TRUE or PROTO_FALSE (both are non-null
+    // pointers), so must compare against PROTO_TRUE — never cast to bool directly.
+    // Check data key first.
+    const proto::ProtoObject* hasResult = (key) ? obj->hasAttribute(ctx, key) : PROTO_FALSE;
+    // Also check accessor sidecars (__get_<N>__, __set_<N>__) — when a property is
+    // defined via Object.defineProperty as an accessor, there is no data key (it is
+    // removed during definition).  The property still exists and 'in' must return true.
+    if (hasResult != PROTO_TRUE && key) {
+        std::string keyStr;
+        key->toUTF8String(ctx, keyStr);
+        for (const char* prefix : {"__get_", "__set_"}) {
+            std::string sk = std::string(prefix) + keyStr + "__";
+            const proto::ProtoObject* sko = ctx->fromUTF8String(sk.c_str());
+            const proto::ProtoString* sks = sko ? sko->asString(ctx) : nullptr;
+            if (sks && obj->hasAttribute(ctx, sks) == PROTO_TRUE) {
+                hasResult = PROTO_TRUE;
+                break;
+            }
+        }
+    }
+    // A key of the property dictionary of obj or of a prototype
+    // (runtime/PropertyDictionary.h).
+    if (hasResult != PROTO_TRUE && key
+        && protojs::dict::findInChain(ctx, obj, key)) {
+        hasResult = PROTO_TRUE;
+    }
+    // §10.1.7.1 OrdinaryHasProperty step 5: when not found
+    // on own attrs, recurse into the [[Prototype]] chain
+    // via [[HasProperty]].  A Proxy ancestor must dispatch
+    // its `has` trap; the protoCore parent walk that
+    // hasAttribute uses skips trap dispatch entirely.
+    // Pre-fix `'attr' in Object.create(new Proxy({}, {has}))`
+    // returned false without ever firing the trap (test262
+    // Proxy/has/call-{in-prototype,object-create}.js).
+    if (hasResult != PROTO_TRUE && key) {
+        auto advance = [&](const proto::ProtoObject* o) -> const proto::ProtoObject* {
+            const proto::ProtoObject* over = protojs::getJSProtoOverride(ctx, o);
+            if (over) return over;
+            return o->getPrototype(ctx);
+        };
+        const proto::ProtoObject* cur = advance(obj);
+        while (cur && cur != PROTO_NONE && cur != t_nullSentinel) {
+            if (protojs::isProxy(ctx, cur)) {
+                return protojs::proxyDispatchHas(ctx, cur, key) == PROTO_TRUE;
+            }
+            cur = advance(cur);
+        }
+    }
+    return hasResult == PROTO_TRUE;
+}
+
+// ---------------------------------------------------------------------------
+// Object environment records: `with (obj)` and the variable object of a
+// sloppy-mode function that contains a direct eval.
+//
+// QuickJS resolves an identifier that may live in such an object to a chain
+// of OP_with_* tests (one per enclosing `with` / variable object) before the
+// ordinary access; an assignment target inside them is a reference pair
+// (object, name) built by OP_make_*_ref and used by OP_get_ref_value /
+// OP_put_ref_value.  The pair for a local, an argument or a closure
+// variable is a reference object holding the variable's cell (the slot is
+// promoted to a cell as for a closure), so writes through it reach the
+// variable.
+// ---------------------------------------------------------------------------
+
+thread_local const proto::ProtoString* t_refCellKey = nullptr;
+inline const proto::ProtoString* refCellKey(proto::ProtoContext* ctx) {
+    if (!t_refCellKey) t_refCellKey = proto::ProtoString::createSymbol(ctx, "__ref_cell__");
+    return t_refCellKey;
+}
+
+// The reference object of a variable whose cell is `cell`.
+static PROTOJS_NOINLINE const proto::ProtoObject* makeVariableReference(
+        proto::ProtoContext* ctx, const proto::ProtoObject* cell) {
+    return ctx->newObject(false)->setAttribute(ctx, refCellKey(ctx), cell ? cell : PROTO_NONE);
+}
+
+// The cell of a reference object, or nullptr for any other value.
+static const proto::ProtoObject* variableReferenceCell(proto::ProtoContext* ctx,
+                                                       const proto::ProtoObject* ref) {
+    if (!ref || ref == PROTO_NONE || proto::isSmallInt(ref)) return nullptr;
+    const proto::ProtoObject* c = ref->getOwnAttributeDirect(ctx, refCellKey(ctx));
+    return (c && c != PROTO_NONE) ? c : nullptr;
+}
+
+// The cell of a frame slot, promoting the slot to one if needed.
+static const proto::ProtoObject* slotCell(proto::ProtoContext* ctx, unsigned slot) {
+    const proto::ProtoObject* v = getSlot(ctx, slot);
+    if (isCell(ctx, v)) return v;
+    const proto::ProtoObject* cell = allocCell(ctx, v);
+    if (cell) setSlot(ctx, slot, cell);
+    return cell;
+}
+
+static const proto::ProtoObject* bindingGet(proto::ProtoContext* ctx, const proto::ProtoObject* obj,
+                                            const proto::ProtoString* key) {
+    if (const proto::ProtoObject* cell = variableReferenceCell(ctx, obj)) return readCell(ctx, cell);
+    const proto::ProtoList* args = ctx->newList()
+        ->appendLast(ctx, obj)->appendLast(ctx, key->asObject(ctx));
+    const proto::ProtoObject* v =
+        reflectGet(ctx, nullptr, nullptr, argsView(proto::ProtoListArguments(ctx, args)), nullptr);
+    return v ? v : PROTO_NONE;
+}
+
+// [[Set]]; false when refused (a non-writable property, a getter without a setter).
+static bool bindingSet(proto::ProtoContext* ctx, const proto::ProtoObject* obj,
+                       const proto::ProtoString* key, const proto::ProtoObject* value) {
+    if (const proto::ProtoObject* cell = variableReferenceCell(ctx, obj)) {
+        writeCell(ctx, cell, value);
+        return true;
+    }
+    const proto::ProtoList* args = ctx->newList()
+        ->appendLast(ctx, obj)->appendLast(ctx, key->asObject(ctx))
+        ->appendLast(ctx, value ? value : PROTO_NONE)->appendLast(ctx, obj);
+    return reflectSet(ctx, nullptr, nullptr, argsView(proto::ProtoListArguments(ctx, args)), nullptr)
+        != PROTO_FALSE;
+}
+
+static bool bindingHas(proto::ProtoContext* ctx, const proto::ProtoObject* obj,
+                       const proto::ProtoString* key) {
+    if (variableReferenceCell(ctx, obj)) return true;
+    if (!obj || obj == PROTO_NONE || !jsIsObject(ctx, obj) || !key) return false;
+    return hasPropertyJS(ctx, obj, key->asObject(ctx), key);
+}
+
+// HasBinding of an object environment record (§9.1.1.2.1): the property
+// exists and, for a `with` object, is not blocked by obj[@@unscopables].
+static PROTOJS_NOINLINE bool objectEnvironmentHasBinding(proto::ProtoContext* ctx,
+                                                         const proto::ProtoObject* obj,
+                                                         const proto::ProtoString* key,
+                                                         bool isWith) {
+    if (!bindingHas(ctx, obj, key)) return false;
+    if (!isWith) return true;
+    const proto::ProtoObject* unscopables = jsGetProperty(ctx, obj, "Symbol.unscopables");
+    if (!unscopables || unscopables == PROTO_NONE || !jsIsObject(ctx, unscopables)) return true;
+    return !jsToBoolean(ctx, bindingGet(ctx, unscopables, key));
+}
+
+[[noreturn]] static PROTOJS_NOINLINE void throwNotDefined(proto::ProtoContext* ctx,
+                                                          const proto::ProtoString* key,
+                                                          const proto::ProtoObject* const* globalRoot) {
+    std::string name;
+    if (key) key->toUTF8String(ctx, name);
+    name += " is not defined";
+    throwJS(ctx, makeError(ctx, "ReferenceError", name.c_str(), globalRoot));
+}
+
+// ---------------------------------------------------------------------------
+// Private class members (§7.3.26-31 PrivateFieldAdd / PrivateGet / PrivateSet,
+// PrivateBrandCheck).
+//
+// A private name is created once per evaluation of a class
+// (OP_private_symbol).  It holds a unique attribute key,
+// "__priv_<n>_#x__", under which instances store the field as an own
+// attribute: the key cannot be named by program code, and the
+// double-underscore form keeps it out of every key enumeration
+// (isInternalKey).  Private methods and accessors are not stored on
+// instances; QuickJS keeps them in class-scope variables and checks the
+// receiver's brand (OP_check_brand): the class's home object gets a unique
+// brand key on first OP_add_brand, and every instance the class constructs
+// carries it as an own attribute.
+// ---------------------------------------------------------------------------
+
+thread_local const proto::ProtoString* t_privateKeyKey = nullptr;
+thread_local const proto::ProtoString* t_privateNameKey = nullptr;
+thread_local const proto::ProtoString* t_privateBrandKey = nullptr;
+static std::atomic<unsigned long long> s_privateNameCounter{0};
+
+inline const proto::ProtoString* privateKeyKey(proto::ProtoContext* ctx) {
+    if (!t_privateKeyKey) t_privateKeyKey = proto::ProtoString::createSymbol(ctx, "__private_key__");
+    return t_privateKeyKey;
+}
+inline const proto::ProtoString* privateNameKey(proto::ProtoContext* ctx) {
+    if (!t_privateNameKey) t_privateNameKey = proto::ProtoString::createSymbol(ctx, "__private_name__");
+    return t_privateNameKey;
+}
+inline const proto::ProtoString* privateBrandKey(proto::ProtoContext* ctx) {
+    if (!t_privateBrandKey) t_privateBrandKey = proto::ProtoString::createSymbol(ctx, "__private_brand__");
+    return t_privateBrandKey;
+}
+
+static PROTOJS_NOINLINE const proto::ProtoObject* newPrivateName(proto::ProtoContext* ctx,
+                                                                 const proto::ProtoString* name) {
+    std::string src = "#?";
+    if (name) name->toUTF8String(ctx, src);
+    const unsigned long long n = ++s_privateNameCounter;
+    const std::string keyName = "__priv_" + std::to_string(n) + "_" + src + "__";
+    const proto::ProtoString* key = proto::ProtoString::createSymbol(ctx, keyName.c_str());
+    const proto::ProtoObject* sym = ctx->newObject(false);
+    sym = sym->setAttribute(ctx, privateKeyKey(ctx), key->asObject(ctx));
+    if (name) sym = sym->setAttribute(ctx, privateNameKey(ctx), name->asObject(ctx));
+    return sym;
+}
+
+// The storage key of a private name, or nullptr when `sym` is not one (a
+// private method or accessor function).
+static const proto::ProtoString* privateFieldKey(proto::ProtoContext* ctx,
+                                                 const proto::ProtoObject* sym) {
+    if (!sym || sym == PROTO_NONE || proto::isSmallInt(sym)) return nullptr;
+    const proto::ProtoObject* k = sym->getOwnAttributeDirect(ctx, privateKeyKey(ctx));
+    return (k && k != PROTO_NONE) ? k->asString(ctx) : nullptr;
+}
+
+static std::string privateName(proto::ProtoContext* ctx, const proto::ProtoObject* sym) {
+    std::string r = "#?";
+    if (sym && sym != PROTO_NONE && !proto::isSmallInt(sym)) {
+        const proto::ProtoObject* n = sym->getOwnAttributeDirect(ctx, privateNameKey(ctx));
+        if (n && n != PROTO_NONE && n->asString(ctx)) n->asString(ctx)->toUTF8String(ctx, r);
+    }
+    return r;
+}
+
+// The own private field of obj, or nullptr when obj has none under `key`.
+static const proto::ProtoObject* privateOwn(proto::ProtoContext* ctx, const proto::ProtoObject* obj,
+                                            const proto::ProtoString* key) {
+    if (!obj || obj == PROTO_NONE || proto::isSmallInt(obj) || !jsIsObject(ctx, obj)) return nullptr;
+    if (obj->hasOwnAttribute(ctx, key) != PROTO_TRUE) return nullptr;
+    const proto::ProtoObject* v = obj->getOwnAttributeDirect(ctx, key);
+    return v ? v : PROTO_NONE;
+}
+
+// Writes the field and returns the object as it is now (the same object for
+// a mutable one).
+static PROTOJS_NOINLINE const proto::ProtoObject* privateStore(proto::ProtoContext* ctx,
+                                                               const proto::ProtoObject* obj,
+                                                               const proto::ProtoString* key,
+                                                               const proto::ProtoObject* value) {
+    const proto::ProtoObject* updated = obj->setAttribute(ctx, key, value ? value : PROTO_NONE);
+    return updated ? updated : obj;
+}
+
+[[noreturn]] static PROTOJS_NOINLINE void throwPrivateNotFound(
+        proto::ProtoContext* ctx, const proto::ProtoObject* sym, const char* verb,
+        const proto::ProtoObject* const* globalRoot) {
+    std::string msg = std::string("Cannot ") + verb + " private member " + privateName(ctx, sym)
+        + (std::strcmp(verb, "read") == 0 ? " from" : " to")
+        + " an object whose class did not declare it";
+    throwJS(ctx, makeError(ctx, "TypeError", msg.c_str(), globalRoot));
+}
+
+// The brand key of the class whose home object is `home`, created on demand.
+static PROTOJS_NOINLINE const proto::ProtoString* classBrand(proto::ProtoContext* ctx,
+                                                            const proto::ProtoObject* home,
+                                                            bool create) {
+    if (!home || home == PROTO_NONE || proto::isSmallInt(home)) return nullptr;
+    const proto::ProtoObject* b = home->getOwnAttributeDirect(ctx, privateBrandKey(ctx));
+    if (b && b != PROTO_NONE) return b->asString(ctx);
+    if (!create) return nullptr;
+    const unsigned long long n = ++s_privateNameCounter;
+    const std::string keyName = "__brand_" + std::to_string(n) + "__";
+    const proto::ProtoString* key = proto::ProtoString::createSymbol(ctx, keyName.c_str());
+    home->setAttribute(ctx, privateBrandKey(ctx), key->asObject(ctx));
+    return key;
+}
+
+static PROTOJS_NOINLINE void privateAddBrand(proto::ProtoContext* ctx, const proto::ProtoObject* obj,
+                                             const proto::ProtoObject* home,
+                                             const proto::ProtoObject* const* globalRoot) {
+    const proto::ProtoString* brand = classBrand(ctx, home, true);
+    if (!brand || !jsIsObject(ctx, obj)) return;
+    if (obj->hasOwnAttribute(ctx, brand) == PROTO_TRUE)
+        throwJS(ctx, makeError(ctx, "TypeError", "Cannot initialize private methods twice on the same object",
+                               globalRoot));
+    privateStore(ctx, obj, brand, PROTO_TRUE);
+}
+
+// Whether obj carries the brand of the class of the private method `func`.
+static PROTOJS_NOINLINE bool privateBrandCheck(proto::ProtoContext* ctx, const proto::ProtoObject* obj,
+                                               const proto::ProtoObject* func) {
+    if (!jsIsObject(ctx, obj) || !func || func == PROTO_NONE || proto::isSmallInt(func)) return false;
+    const proto::ProtoObject* hoKo = ctx->fromUTF8String("__home_object__");
+    const proto::ProtoString* hoK = hoKo ? hoKo->asString(ctx) : nullptr;
+    const proto::ProtoObject* home = hoK ? func->getAttribute(ctx, hoK, false) : nullptr;
+    const proto::ProtoString* brand = classBrand(ctx, home, false);
+    return brand && obj->hasOwnAttribute(ctx, brand) == PROTO_TRUE;
+}
+
+// ---------------------------------------------------------------------------
+// IteratorClose (§7.4.11) of the iterator records for_of_start pushes for a
+// for-of loop or a destructuring pattern: [wrapper, next, catch].  The
+// wrapper carries __iter_slot__, the first of the record's three state slots
+// (iterator, index: -1 for an iterator driven by next(), done flag).
+//
+// With a normal completion (break, return out of the loop, the end of a
+// destructuring pattern; OP_iterator_close) an exception from return()
+// propagates, and a result that is not an object is a TypeError.  With a
+// throw completion (an exception leaving the loop) return() is called and
+// whatever it raises is dropped: the original exception continues.
+// ---------------------------------------------------------------------------
+
+// The state-slot base of an iterator record's wrapper, or -1.
+static long long iteratorRecordSlot(proto::ProtoContext* ctx, const proto::ProtoObject* wrapper) {
+    if (!wrapper || wrapper == PROTO_NONE || proto::isSmallInt(wrapper)
+        || (reinterpret_cast<uintptr_t>(wrapper) & 0x3F) != 0) return -1;
+    const proto::ProtoString* k = JSSymbols::iterSlot(ctx);
+    const proto::ProtoObject* v = k ? wrapper->getOwnAttributeDirect(ctx, k) : nullptr;
+    return (v && v != PROTO_NONE && proto::isSmallInt(v)) ? proto::asSmallInt(v) : -1;
+}
+
+static PROTOJS_NOINLINE void closeIteratorRecord(proto::ProtoContext* ctx, long long base,
+                                                 bool throwCompletion,
+                                                 const proto::ProtoObject* const* globalRoot) {
+    if (base < 0) return;
+    const unsigned bs = static_cast<unsigned>(base);
+    const proto::ProtoObject* iter = getSlot(ctx, bs);
+    const proto::ProtoObject* idx = getSlot(ctx, bs + 1);
+    const proto::ProtoObject* done = getSlot(ctx, bs + 2);
+    // Only an iterator driven by next() can have a return method; arrays
+    // iterated by index have nothing to close.
+    if (!(idx && proto::isSmallInt(idx) && proto::asSmallInt(idx) == -1)) return;
+    if (done && proto::isSmallInt(done) && proto::asSmallInt(done) == 1) return;
+    setSlot(ctx, bs + 2, ctx->fromInteger(1LL));  // closed: never twice
+    if (!iter || iter == PROTO_NONE) return;
+    const proto::ProtoObject* retFn = nullptr;
+    try {
+        retFn = jsGetProperty(ctx, iter, "return");
+    } catch (const proto::ProtoException&) {
+        if (!throwCompletion) throw;
+        return;
+    }
+    if (!retFn || retFn == PROTO_NONE || retFn == t_nullSentinel
+        || retFn == getUndefinedSentinel()) return;
+    if (throwCompletion) {
+        try {
+            debughooks::CatchingNative catching;
+            callJSFunction(ctx, retFn, iter, ctx->newList());
+        } catch (const proto::ProtoException&) {
+        }
+        return;
+    }
+    if (!jsIsCallable(ctx, retFn))
+        throwJS(ctx, makeError(ctx, "TypeError", "iterator.return is not a function", globalRoot));
+    const proto::ProtoObject* r = callJSFunction(ctx, retFn, iter, ctx->newList());
+    if (!jsIsObject(ctx, r))
+        throwJS(ctx, makeError(ctx, "TypeError", "Iterator result is not an object", globalRoot));
+}
+
+// Closes, with a throw completion, every iterator record on the running
+// frame's operand stack at index `from` and above, innermost first: the loops
+// and patterns an exception is leaving (it is caught at a stack cut at `from`,
+// or leaves the function with from = 0).
+static PROTOJS_NOINLINE void closeIteratorRecordsOnThrow(proto::ProtoContext* ctx, unsigned from,
+                                                         const proto::ProtoObject* const* globalRoot) {
+    InterpFrame* f = currentFrame(ctx);
+    if (!f) return;
+    for (unsigned i = f->stackTop; i-- > from; ) {
+        const proto::ProtoObject* v = ctx->getAutomaticLocals()[f->stackBase + i];
+        const long long base = iteratorRecordSlot(ctx, v);
+        if (base >= 0) closeIteratorRecord(ctx, base, true, globalRoot);
+        f = currentFrame(ctx);
+        if (!f) return;
+    }
+}
+
+// The value of ToPropertyKey (§7.1.19) for OP_to_propkey, for a key that is
+// not already a SmallInteger or a string: a Symbol as is, an object through
+// ToPrimitive with hint string (toString first) and then the same rule, any
+// other primitive its ToString.
+static PROTOJS_NOINLINE const proto::ProtoObject* toPropertyKeyValue(proto::ProtoContext* ctx,
+                                                                     const proto::ProtoObject* key) {
+    const proto::ProtoString* symK = JSSymbols::isSymbol(ctx);
+    auto isSymbolValue = [&](const proto::ProtoObject* v) {
+        return symK && v && v != PROTO_NONE && !proto::isSmallInt(v)
+            && (reinterpret_cast<uintptr_t>(v) & 0x3F) == 0
+            && v->getOwnAttributeDirect(ctx, symK) == PROTO_TRUE;
+    };
+    if (isSymbolValue(key)) return key;
+    const proto::ProtoObject* s = toString(ctx, key);
+    return (s && s != PROTO_NONE) ? s : key;
+}
+
 static PROTOJS_ALWAYS_INLINE void initStack(proto::ProtoContext* ctx) {
     InterpFrame* f = currentFrame(ctx);
     if (f) f->stackTop = 0;
@@ -3424,6 +3935,14 @@ static bool toBool(proto::ProtoContext* context, const proto::ProtoObject* value
         const proto::ProtoString* s = value->asString(context);
         if (!s) return false;
         return s->getSize(context) != 0;
+    }
+
+    // A BigInt is falsy when it is 0n (§7.1.2).  A BigInt wrapper object
+    // (Object(0n)) has no own __bigint_value__, so it stays truthy.
+    if (!value->isMethod(context) && protojs::isBigInt(context, value)) {
+        const proto::ProtoString* vk = JSSymbols::bigIntValue(context);
+        const proto::ProtoObject* iv = vk ? value->getOwnAttributeDirect(context, vk) : nullptr;
+        return !(iv && proto::isSmallInt(iv) && proto::asSmallInt(iv) == 0);
     }
 
     // Objects, lists, sets, etc. are always truthy.
@@ -3932,12 +4451,8 @@ static const proto::ProtoObject* toString(proto::ProtoContext* context,
                                          v->isFloat(context));
     };
     // Re-implement a minimal toString invocation here (the runBytecode
-    // toPrimIfObject lambda has access to pending_exception/global root;
-    // this static helper does not).  Any exception thrown by the user's
-    // method propagates via t_hasCallException-style mechanism if the
-    // caller dispatches via callJSFunction — but the receivers in this
-    // file's call sites uniformly check has_pending_exception after the
-    // call returns, so an uncaught throw will surface there.
+    // toPrimIfObject lambda is not reachable from this static helper).  An
+    // exception thrown by the user's method propagates as a C++ exception.
     // §7.1.1 OrdinaryToPrimitive(hint="string"): toString then valueOf.
     // Each step is an abrupt-completion site that must propagate; pre-
     // fix the helper swallowed throws and dropped to "[object Object]"
@@ -4672,7 +5187,7 @@ static void ensureBuiltinErrorConstructors(proto::ProtoContext* ctx,
 static const proto::ProtoObject* makeError(proto::ProtoContext* ctx,
                                            const char* name,
                                            const char* message,
-                                           const proto::ProtoObject* const* globalRoot = nullptr) {
+                                           const proto::ProtoObject* const* globalRoot) {
     if (!ctx) return PROTO_NONE;
     // Try to get the prototype from the global so instanceof works.
     const proto::ProtoObject* base = nullptr;
@@ -4716,6 +5231,51 @@ static const proto::ProtoObject* makeError(proto::ProtoContext* ctx,
     }
     (void)name; // name flows through the prototype chain only.
     return err ? err : PROTO_NONE;
+}
+
+/** A construct the VM does not implement: a SyntaxError naming it, thrown
+ *  where the code reaches the opcode QuickJS compiled it to. */
+[[noreturn]] static PROTOJS_NOINLINE void throwUnsupportedOpcode(
+        proto::ProtoContext* ctx, int opcode, int pc,
+        const proto::ProtoObject* const* globalRoot) {
+    const char* what = nullptr;
+    switch (opcode) {
+        case OP_with_get_var: case OP_with_put_var: case OP_with_delete_var:
+        case OP_with_make_ref: case OP_with_get_ref:
+        case OP_make_loc_ref: case OP_make_arg_ref: case OP_make_var_ref_ref:
+        case OP_make_var_ref: case OP_get_ref_value: case OP_put_ref_value:
+            what = "the with statement and variables declared by a sloppy-mode direct eval";
+            break;
+        case OP_delete_var: what = "delete of a variable"; break;
+        case OP_apply_eval: what = "eval with a spread argument"; break;
+        case OP_import: what = "dynamic import()"; break;
+        case OP_private_in: what = "the #x in obj brand check"; break;
+        default: break;
+    }
+    char msg[256];
+    if (what)
+        std::snprintf(msg, sizeof msg, "protoJS does not support %s (opcode 0x%02x at byte offset %d)",
+                      what, static_cast<unsigned>(opcode), pc);
+    else
+        std::snprintf(msg, sizeof msg,
+                      "protoJS internal error: unknown opcode 0x%02x at byte offset %d",
+                      static_cast<unsigned>(opcode), pc);
+    throwJS(ctx, makeError(ctx, what ? "SyntaxError" : "Error", msg, globalRoot));
+}
+
+/** An instruction whose operands run past the end of the bytecode, or whose
+ *  operand stack holds fewer values than it pops: a compiler, loader or
+ *  specialiser bug.  An internal error, instead of returning undefined from
+ *  the function as if it had completed. */
+[[noreturn]] static PROTOJS_NOINLINE void throwMalformedBytecode(
+        proto::ProtoContext* ctx, int opcode, int pc,
+        const proto::ProtoObject* const* globalRoot) {
+    char msg[200];
+    std::snprintf(msg, sizeof msg,
+                  "protoJS internal error: malformed bytecode (opcode 0x%02x before byte offset %d: "
+                  "truncated operand or operand-stack underflow)",
+                  static_cast<unsigned>(opcode), pc);
+    throwJS(ctx, makeError(ctx, "Error", msg, globalRoot));
 }
 
 } // namespace
@@ -6487,6 +7047,13 @@ static PROTOJS_NOINLINE bool runProtectedRange(proto::ProtoContext* pContext,
         if (__builtin_expect(debughooks::g_enabled, 0))
             debughooks::onCatch(value, handlerIsFinally(pContext, module, f.handler_pc));
         catchStack.resize(frame);
+        // The for-of loops and destructuring patterns the exception leaves.
+        if (value) {
+            try {
+                closeIteratorRecordsOnThrow(pContext, f.placeholder_stack_pos, pGlobalRoot);
+            } catch (...) {
+            }
+        }
         while (stackSize(pContext) > f.placeholder_stack_pos) stackPop(pContext);
         stackPush(pContext, value);
         range.exitPc = f.handler_pc;
@@ -6757,11 +7324,23 @@ static const proto::ProtoObject* runBytecodeImpl(proto::ProtoContext* pContext,
     }
     struct InterpFramePopOnExit {
         bool pushed;
+        proto::ProtoContext* ctx;
+        const proto::ProtoObject** globalRoot;
+        int uncaught;
         ~InterpFramePopOnExit() {
+            // An exception leaving the function leaves its open for-of loops
+            // and destructuring patterns too: IteratorClose with a throw
+            // completion, whose own errors are dropped.
+            if (pushed && __builtin_expect(std::uncaught_exceptions() > uncaught, 0)) {
+                try {
+                    closeIteratorRecordsOnThrow(ctx, 0, globalRoot);
+                } catch (...) {
+                }
+            }
             if (pushed && !t_interpFrames.empty()) t_interpFrames.pop_back();
             if (pushed && __builtin_expect(debughooks::g_enabled, 0)) debughooks::popActivation();
         }
-    } _interpFramePopOnExit{nested == nullptr};
+    } _interpFramePopOnExit{nested == nullptr, pContext, pGlobalRoot, std::uncaught_exceptions()};
 
     // OP_yield resume: the InterpFrame now exists so stackPush will hit the
     // correct slots.  Push sent-value first (bottom) then resume kind (top)
@@ -6795,9 +7374,14 @@ static const proto::ProtoObject* runBytecodeImpl(proto::ProtoContext* pContext,
         for (size_t i = 0; i < module->closureVarNames.size(); i++) {
             if (module->closureVarNames[i].empty()) continue;
             // Arrow function: the closure var "this" must come from thisObj, not the global.
+            // When the arrow captured the enclosing function's `this` slot as
+            // a cell (populateClosureCellsFromInstance), the cell is the
+            // binding: an arrow created before super() in a derived
+            // constructor sees the `this` super() initialises later.
             if (module->isArrow && module->closureVarNames[i] == "this") {
-                setSlot(pContext, argCount + varCount + static_cast<unsigned>(i),
-                    thisObj ? thisObj : PROTO_NONE);
+                const unsigned thisSlot = argCount + varCount + static_cast<unsigned>(i);
+                if (isCell(pContext, getSlot(pContext, thisSlot))) continue;
+                setSlot(pContext, thisSlot, thisObj ? thisObj : PROTO_NONE);
                 continue;
             }
             // Skip slots already populated by populateClosureCellsFromInstance
@@ -7166,15 +7750,10 @@ static const proto::ProtoObject* runBytecodeImpl(proto::ProtoContext* pContext,
         for (int gi = 0; kUnimplementedGlobals[gi]; ++gi)
             ensureGlobalConst(kUnimplementedGlobals[gi], PROTO_NONE);
 
-        // Install a stub eval(x) as a real function so the global
-        // descriptor probe (Object.getOwnPropertyDescriptor(this,
-        // 'eval').value === global.eval) round-trips.  Pre-fix eval was
-        // stamped as PROTO_NONE, so the descriptor's value field was
-        // absent and built-ins/Object/getOwnPropertyDescriptor/
-        // 15.2.3.3-4-4.js threw 'Cannot read properties of undefined'.
-        // The stub throws when called — direct eval semantics are not
-        // implemented — but the function value exists and the
-        // descriptor probes work.
+        // %eval% (§19.2.1).  Called as a function it is an indirect eval:
+        // the source runs as global code (performEval without a caller).
+        // It carries __intrinsic_eval__, by which OP_eval and
+        // OP_apply_eval recognise a direct eval.
         {
             const proto::ProtoString* evalKey =
                 pContext->fromUTF8String("eval")
@@ -7187,11 +7766,11 @@ static const proto::ProtoObject* runBytecodeImpl(proto::ProtoContext* pContext,
             if (evalFn) {
                 static const proto::ProtoMethod evalStub = [](
                     proto::ProtoContext* ictx, const proto::ProtoObject*,
-                    const proto::ParentLink*, const proto::ProtoArguments*,
+                    const proto::ParentLink*, const proto::ProtoArguments* evalArgs,
                     const proto::ProtoKeywordArguments*) -> const proto::ProtoObject* {
-                    signalNativeException(makeNativeError(ictx, "SyntaxError",
-                        "eval is not implemented in protoJS"));
-                    return PROTO_NONE;
+                    const proto::ProtoObject* src = (evalArgs && evalArgs->getSize(ictx) > 0)
+                        ? evalArgs->getAt(ictx, 0) : PROTO_NONE;
+                    return performEval(ictx, nullptr, 0, 0, 0, src, PROTO_NONE, t_currentGlobalRoot);
                 };
                 const proto::ProtoString* nfK = JSSymbols::nativeFn(pContext);
                 if (nfK) evalFn = evalFn->setAttribute(pContext, nfK,
@@ -7208,6 +7787,7 @@ static const proto::ProtoObject* runBytecodeImpl(proto::ProtoContext* pContext,
                 const proto::ProtoString* pdlK = JSSymbols::pdLength(pContext);
                 if (pdlK) evalFn = evalFn->setAttribute(pContext, pdlK,
                     pContext->fromInteger(0x2LL));
+                evalFn = evalFn->setAttribute(pContext, intrinsicEvalKey(pContext), PROTO_TRUE);
                 if (evalKey)
                     *pGlobalRoot = (*pGlobalRoot)->setAttribute(pContext, evalKey, evalFn);
                 // \xc2\xa719.2.1: eval's global descriptor is {writable: true,
@@ -8093,7 +8673,7 @@ static const proto::ProtoObject* runBytecodeImpl(proto::ProtoContext* pContext,
     } _frameObjPopOnExit{prevFrameObj};
 
     /* Invoke a method stored as a bytecode or native function on thisVal with no arguments.
-     * If the method throws, sets pending_exception / has_pending_exception and returns PROTO_NONE.
+     * An exception the method throws propagates (a C++ exception).
      * Returns PROTO_NONE (without setting exception) when fn is null or unresolvable. */
     auto callMethod = [&](const proto::ProtoObject* fn,
                           const proto::ProtoString* keyHint,
@@ -8115,14 +8695,9 @@ static const proto::ProtoObject* runBytecodeImpl(proto::ProtoContext* pContext,
             }
             proto::ProtoContext childCtx(pContext->space, pContext, nullptr, nullptr, nullptr, nullptr);
             childCtx.currentFileName = pContext->currentFileName;
-            const proto::ProtoObject* childEx = PROTO_NONE;
             const proto::ProtoObject* result = runBytecode(&childCtx, resolvedFn, effectiveThisLambda,
                                                             pContext->newList(), pGlobalRoot);
-            anchorCallOutcome(childCtx, result, childEx);
-            if (childEx && childEx != PROTO_NONE) {
-                throwJS(pContext, childEx);
-                return PROTO_NONE;
-            }
+            anchorCallOutcome(childCtx, result, nullptr);
             return result;
         }
         if (fn->isMethod(pContext)) {
@@ -8418,8 +8993,7 @@ static const proto::ProtoObject* runBytecodeImpl(proto::ProtoContext* pContext,
 
     /* Accessor property helper: invoke getter stored as __get_<keyStr>__ on the object (or
      * its prototype chain).  Returns the getter result, PROTO_NONE if no getter is defined,
-     * or PROTO_NONE with has_pending_exception set if the getter throws.
-     * Call sites should `break` immediately when has_pending_exception is true. */
+     * An exception the getter throws propagates (a C++ exception). */
     auto invokeGetterIfPresent = [&](
             const proto::ProtoObject* obj,
             const std::string& keyStr) -> const proto::ProtoObject* {
@@ -8596,6 +9170,20 @@ static const proto::ProtoObject* runBytecodeImpl(proto::ProtoContext* pContext,
     X(OP_init_ctor, L_OP_init_ctor) \
     X(OP_regexp, L_OP_regexp) \
     X(OP_eval, L_OP_eval) \
+    X(OP_apply_eval, L_OP_apply_eval) \
+    X(OP_with_get_var, L_OP_with_get_var) \
+    X(OP_with_put_var, L_OP_with_put_var) \
+    X(OP_with_delete_var, L_OP_with_delete_var) \
+    X(OP_with_make_ref, L_OP_with_make_ref) \
+    X(OP_with_get_ref, L_OP_with_get_ref) \
+    X(OP_make_loc_ref, L_OP_make_loc_ref) \
+    X(OP_make_arg_ref, L_OP_make_arg_ref) \
+    X(OP_make_var_ref_ref, L_OP_make_var_ref_ref) \
+    X(OP_make_var_ref, L_OP_make_var_ref) \
+    X(OP_get_ref_value, L_OP_get_ref_value) \
+    X(OP_put_ref_value, L_OP_put_ref_value) \
+    X(OP_delete_var, L_OP_delete_var) \
+    X(OP_private_in, L_OP_private_in) \
     X(OP_check_brand, L_OP_check_brand) \
     X(OP_add_brand, L_OP_add_brand) \
     X(OP_set_home_object, L_OP_set_home_object) \
@@ -8806,10 +9394,10 @@ static const proto::ProtoObject* runBytecodeImpl(proto::ProtoContext* pContext,
     X(OP_yield_star, L_OP_yield_star)
 
 
-    // globalObj is recomputed on every dispatch because some opcodes
-    // (top-level `var` set, OP_put_field on the global root) re-bind
-    // *pGlobalRoot.  Keep this read in DISPATCH so every case sees the
-    // current value without a per-case re-read.
+    // globalObj caches *pGlobalRoot.  Some opcodes (a top-level `var` set,
+    // OP_put_field on the global root) re-bind *pGlobalRoot, so the opcodes
+    // that read or write the global object refresh it first
+    // (REFRESH_GLOBAL_OBJ); DISPATCH does not.
     const proto::ProtoObject* globalObj = (pGlobalRoot && *pGlobalRoot) ? *pGlobalRoot : PROTO_NONE;
     // The opcode being executed is a local of each dispatch level.
     // Write groups (see above runBytecode): the atom OP_put_field's body
@@ -8860,6 +9448,7 @@ static const proto::ProtoObject* runBytecodeImpl(proto::ProtoContext* pContext,
      * dispatch-bound benches (numeric_loop, tight inner loops) this is
      * a measurable win (~5-8 % wall).
      */
+    #define MALFORMED_BYTECODE() throwMalformedBytecode(pContext, opcode, pc, pGlobalRoot)
     #define PROTOJS_DISPATCH_JUMP() goto protojs_dispatch_switch
     #define DISPATCH() do { \
         if (__builtin_expect((++t_dispatchCount & 1023) == 0, 0)) pContext->safepoint(); \
@@ -8996,13 +9585,13 @@ static const proto::ProtoObject* runBytecodeImpl(proto::ProtoContext* pContext,
                 stackPush(pContext,proto::makeSmallInt(7));
                 DISPATCH();
             L_OP_push_i8: {
-                if (pc + 1 > len) return PROTO_NONE;
+                if (pc + 1 > len) MALFORMED_BYTECODE();
                 int8_t v = static_cast<int8_t>(buf[pc++]);
                 stackPush(pContext,proto::makeSmallInt(v));
                 DISPATCH();
             }
             L_OP_push_i16: {
-                if (pc + 2 > len) return PROTO_NONE;
+                if (pc + 2 > len) MALFORMED_BYTECODE();
                 int16_t v = static_cast<int16_t>(get_u16(buf + pc));
                 pc += 2;
                 if (proto::smallIntInRange(v)) {
@@ -9014,7 +9603,7 @@ static const proto::ProtoObject* runBytecodeImpl(proto::ProtoContext* pContext,
             }
             L_OP_push_i32: {
                 // push_i32 encodes a 32-bit signed immediate.
-                if (pc + 4 > len) return PROTO_NONE;
+                if (pc + 4 > len) MALFORMED_BYTECODE();
                 int32_t v = (int32_t)get_u32(buf + pc);
                 pc += 4;
                 if (proto::smallIntInRange(v)) {
@@ -9033,7 +9622,7 @@ static const proto::ProtoObject* runBytecodeImpl(proto::ProtoContext* pContext,
                 // arithmetic dispatch routes through bignum ops.  Huge
                 // literals come through the cpool path (push_const)
                 // where TypeBridge::fromJS already wraps them.
-                if (pc + 4 > len) return PROTO_NONE;
+                if (pc + 4 > len) MALFORMED_BYTECODE();
                 int32_t v = (int32_t)get_u32(buf + pc);
                 pc += 4;
                 const proto::ProtoObject* inner = pContext->fromInteger(static_cast<long long>(v));
@@ -9041,7 +9630,7 @@ static const proto::ProtoObject* runBytecodeImpl(proto::ProtoContext* pContext,
                 DISPATCH();
             }
             L_OP_push_const8: {
-                if (pc + 1 > len) return PROTO_NONE;
+                if (pc + 1 > len) MALFORMED_BYTECODE();
                 uint8_t idx = buf[pc++];
                 if (cpool && idx < cpool->getSize(pContext))
                     stackPush(pContext, cpool->getAt(pContext, static_cast<int>(idx)));
@@ -9087,7 +9676,7 @@ static const proto::ProtoObject* runBytecodeImpl(proto::ProtoContext* pContext,
                 }
                 DISPATCH();
             L_OP_special_object: {
-                if (pc + 1 > len) return PROTO_NONE;
+                if (pc + 1 > len) MALFORMED_BYTECODE();
                 uint8_t soKind = buf[pc++];
                 if (soKind == 0 || soKind == 1) {
                     // ARGUMENTS / MAPPED_ARGUMENTS: build array-like object from args.
@@ -9189,8 +9778,13 @@ static const proto::ProtoObject* runBytecodeImpl(proto::ProtoContext* pContext,
                         }
                     }
                     stackPush(pContext, home);
+                } else if (soKind == 5) {
+                    // VAR_OBJECT: the variable object of a sloppy function
+                    // with a direct eval -- an object with a null
+                    // prototype, where the eval's `var`s land.
+                    stackPush(pContext, pContext->newObject(true));
                 } else {
-                    // kinds 5 (VAR_OBJECT), 6 (IMPORT_META) — undefined.
+                    // kind 6 (IMPORT_META) -- undefined.
                     stackPush(pContext, PROTO_NONE);
                 }
                 DISPATCH();
@@ -9200,7 +9794,7 @@ static const proto::ProtoObject* runBytecodeImpl(proto::ProtoContext* pContext,
                 // from the first-rest-index onward.  The call-time `args`
                 // ProtoList is passed into runBytecode so we have the
                 // full pre-truncation argument list available here.
-                if (pc + 2 > len) return PROTO_NONE;
+                if (pc + 2 > len) MALFORMED_BYTECODE();
                 uint16_t firstRestIdx = get_u16(buf + pc);
                 pc += 2;
                 REFRESH_GLOBAL_OBJ();
@@ -9241,7 +9835,7 @@ static const proto::ProtoObject* runBytecodeImpl(proto::ProtoContext* pContext,
                 // Emitted for spread call:    f(...arr)   → magic=0
                 //                  new f(...arr)         → magic=1
                 //                  super(...args)        → magic=1
-                if (pc + 2 > len || stackSize(pContext) < 3) return PROTO_NONE;
+                if (pc + 2 > len || stackSize(pContext) < 3) MALFORMED_BYTECODE();
                 uint16_t magic = get_u16(buf + pc);
                 pc += 2;
                 const proto::ProtoObject* argsArr = pAutomaticLocals[currentStackBase + --_PF().stackTop];
@@ -9279,10 +9873,14 @@ static const proto::ProtoObject* runBytecodeImpl(proto::ProtoContext* pContext,
                     // the original derived class's prototype for super()
                     // call), not fn.prototype.  This keeps `new B()` ending
                     // up as a B instance even when super(args) dispatches A.
+                    // The operand under the array is the new.target, as in
+                    // QuickJS (js_function_apply, magic 1): the callee itself
+                    // for `new F(...xs)`, the running constructor's new.target
+                    // for `super(...xs)`.
                     const proto::ProtoString* protoKey = JSSymbols::prototype(pContext);
                     const proto::ProtoObject* ntForProto =
-                        (t_activeNewTgt && t_activeNewTgt != PROTO_NONE)
-                            ? t_activeNewTgt : fn;
+                        jsIsObject(pContext, thisArg) ? thisArg
+                        : (t_activeNewTgt && t_activeNewTgt != PROTO_NONE) ? t_activeNewTgt : fn;
                     protojs::materializeLazyPrototype(pContext, ntForProto);  // LazyPrototype.h
                     const proto::ProtoObject* funcProto = (protoKey && ntForProto && ntForProto != PROTO_NONE)
                         ? ntForProto->getAttribute(pContext, protoKey, false) : nullptr;
@@ -9291,6 +9889,8 @@ static const proto::ProtoObject* runBytecodeImpl(proto::ProtoContext* pContext,
                         : pContext->newObject(true);
                     // Instance fields are initialised by the constructor
                     // bodies themselves; see the note in L_OP_call_constructor.
+                    ActiveCallScope applyCallScope;
+                    t_activeNewTgt = ntForProto;
                     const proto::ProtoObject* ret =
                         callJSFunction(pContext, fn, newObj, argList);
                     // If constructor returned a non-undefined object, use it; else newObj.
@@ -9309,9 +9909,16 @@ static const proto::ProtoObject* runBytecodeImpl(proto::ProtoContext* pContext,
                 DISPATCH();
             }
             L_OP_check_ctor: {
-                // Verify the function was called as a constructor.
-                // Minimal impl: no-op — the strict spec semantics are
-                // not enforced yet and most tests pass-through.
+                // DEF(check_ctor, 1, 0, 0, none), at the start of a class
+                // constructor: §10.2.1 [[Call]] step 2, a class constructor
+                // run without new.target is a TypeError.  Every construct
+                // path publishes the new.target (t_activeNewTgt): OP_call_
+                // constructor, OP_apply (magic 1), OP_init_ctor, Reflect.
+                // construct.  OP_call and OP_call_method also reject a class
+                // constructor before calling it.
+                if (!t_activeNewTgt || t_activeNewTgt == PROTO_NONE)
+                    throwJS(pContext, makeError(pContext, "TypeError",
+                        "Class constructor cannot be invoked without 'new'", pGlobalRoot));
                 DISPATCH();
             }
             L_OP_check_ctor_return: {
@@ -9353,10 +9960,10 @@ static const proto::ProtoObject* runBytecodeImpl(proto::ProtoContext* pContext,
                 // bare RegExp.prototype child with only the source
                 // attribute, so r.test / r.exec / r.flags all
                 // returned wrong.
-                if (stackEmpty(pContext)) return PROTO_NONE;
+                if (stackEmpty(pContext)) MALFORMED_BYTECODE();
                 const proto::ProtoObject* bytecode = stackTop(pContext);
                 stackPop(pContext);
-                if (stackEmpty(pContext)) return PROTO_NONE;
+                if (stackEmpty(pContext)) MALFORMED_BYTECODE();
                 const proto::ProtoObject* pattern = stackTop(pContext);
                 stackPop(pContext);
                 // Best-effort flag recovery from the QJS-emitted bytecode
@@ -9436,19 +10043,263 @@ static const proto::ProtoObject* runBytecodeImpl(proto::ProtoContext* pContext,
                 stackPush(pContext, rx ? rx : PROTO_NONE);
                 DISPATCH();
             }
-            L_OP_eval: {
-                // DEF(eval, 7, 1, 1, npop_u16)
-                // We don't implement runtime eval. Pop arguments and
-                // push undefined to keep the stack balanced rather than
-                // bailing out.
-                if (pc + 4 > len) return PROTO_NONE;
-                uint16_t evalArgc = get_u16(buf + pc);
-                pc += 4;
-                for (uint32_t i = 0; i <= static_cast<uint32_t>(evalArgc); ++i) {
-                    if (stackEmpty(pContext)) break;
+            // OP_with_get_var / put_var / delete_var / make_ref / get_ref
+            //   atom, label (i32, from the address after the atom), u8 is_with.
+            //   The object of one object environment record is on top of the
+            //   stack.  When it has the binding, the access is done on it and
+            //   execution continues at the label; otherwise the object is
+            //   dropped and the next record (or the ordinary access) follows.
+            L_OP_with_get_var: ;
+            L_OP_with_put_var: ;
+            L_OP_with_delete_var: ;
+            L_OP_with_make_ref: ;
+            L_OP_with_get_ref: {
+                if (pc + 9 > len || _PF().stackTop < 1) MALFORMED_BYTECODE();
+                const uint32_t withAtom = get_u32(buf + pc);
+                const int32_t withDiff = static_cast<int32_t>(get_u32(buf + pc + 4));
+                const bool isWith = buf[pc + 8] != 0;
+                const int withLabel = pc + 4 + withDiff;
+                pc += 9;
+                const proto::ProtoString* key = resolveAtom(mod, pContext, withAtom);
+                if (!key) MALFORMED_BYTECODE();
+                const proto::ProtoObject* envObj = stackTop(pContext);
+                const bool found = objectEnvironmentHasBinding(pContext, envObj, key, isWith);
+                REFRESH_INTERP_STATE();
+                if (!found) {
                     stackPop(pContext);
+                    DISPATCH();
                 }
-                stackPush(pContext, PROTO_NONE);
+                const bool strict = module && module->isStrict;
+                switch (opcode) {
+                    case OP_with_get_var: {
+                        // GetBindingValue asks HasProperty again (§9.1.1.2.6).
+                        if (!bindingHas(pContext, envObj, key)) {
+                            if (strict) throwNotDefined(pContext, key, pGlobalRoot);
+                            pAutomaticLocals[currentStackBase + _PF().stackTop - 1] = PROTO_NONE;
+                            break;
+                        }
+                        const proto::ProtoObject* v = bindingGet(pContext, envObj, key);
+                        REFRESH_INTERP_STATE();
+                        pAutomaticLocals[currentStackBase + _PF().stackTop - 1] = v;
+                        break;
+                    }
+                    case OP_with_put_var: {
+                        // stack [..., value, obj]
+                        if (_PF().stackTop < 2) MALFORMED_BYTECODE();
+                        const proto::ProtoObject* v = pAutomaticLocals[currentStackBase + _PF().stackTop - 2];
+                        if (!bindingHas(pContext, envObj, key) && strict)
+                            throwNotDefined(pContext, key, pGlobalRoot);
+                        const bool ok = bindingSet(pContext, envObj, key, v);
+                        REFRESH_INTERP_STATE();
+                        if (!ok && strict)
+                            throwJS(pContext, makeError(pContext, "TypeError",
+                                "Cannot assign to read only property", pGlobalRoot));
+                        _PF().stackTop -= 2;
+                        break;
+                    }
+                    case OP_with_delete_var: {
+                        const proto::ProtoList* dargs = pContext->newList()
+                            ->appendLast(pContext, envObj)->appendLast(pContext, key->asObject(pContext));
+                        const proto::ProtoObject* r = reflectDeleteProperty(pContext, nullptr, nullptr,
+                            argsView(proto::ProtoListArguments(pContext, dargs)), nullptr);
+                        REFRESH_INTERP_STATE();
+                        pAutomaticLocals[currentStackBase + _PF().stackTop - 1] =
+                            (r == PROTO_TRUE) ? PROTO_TRUE : PROTO_FALSE;
+                        break;
+                    }
+                    case OP_with_make_ref:
+                        // A reference (obj, name): the object stays, the name is pushed.
+                        stackPush(pContext, key->asObject(pContext));
+                        break;
+                    default: {  // OP_with_get_ref: (obj, method) for a call with obj as `this`
+                        const proto::ProtoObject* v = bindingHas(pContext, envObj, key)
+                            ? bindingGet(pContext, envObj, key) : PROTO_NONE;
+                        REFRESH_INTERP_STATE();
+                        stackPush(pContext, v);
+                        break;
+                    }
+                }
+                pc = withLabel;
+                DISPATCH();
+            }
+            // OP_make_loc_ref / make_arg_ref / make_var_ref_ref atom u16:
+            //   push (reference object of the variable's cell, name).
+            L_OP_make_loc_ref: ;
+            L_OP_make_arg_ref: ;
+            L_OP_make_var_ref_ref: {
+                if (pc + 6 > len) MALFORMED_BYTECODE();
+                const uint32_t refAtom = get_u32(buf + pc);
+                const uint16_t refIdx = get_u16(buf + pc + 4);
+                pc += 6;
+                const proto::ProtoString* key = resolveAtom(mod, pContext, refAtom);
+                if (!key) MALFORMED_BYTECODE();
+                const proto::ProtoObject* cell;
+                if (opcode == OP_make_loc_ref) {
+                    if (refIdx >= varCount) MALFORMED_BYTECODE();
+                    cell = slotCell(pContext, argCount + refIdx);
+                } else if (opcode == OP_make_arg_ref) {
+                    if (refIdx >= argCount) MALFORMED_BYTECODE();
+                    cell = slotCell(pContext, refIdx);
+                } else {
+                    cell = getSlot(pContext, argCount + varCount + refIdx);
+                    if (!isCell(pContext, cell)) cell = slotCell(pContext, argCount + varCount + refIdx);
+                }
+                const proto::ProtoObject* ref = makeVariableReference(pContext, cell);
+                REFRESH_INTERP_STATE();
+                stackPush(pContext, ref);
+                stackPush(pContext, key->asObject(pContext));
+                DISPATCH();
+            }
+            // OP_make_var_ref atom: push (global object or undefined, name)
+            // for an assignment to a global name inside `with` (an
+            // unresolvable reference is undefined; put_ref_value decides).
+            L_OP_make_var_ref: {
+                if (pc + 4 > len) MALFORMED_BYTECODE();
+                const uint32_t refAtom = get_u32(buf + pc);
+                pc += 4;
+                const proto::ProtoString* key = resolveAtom(mod, pContext, refAtom);
+                if (!key) MALFORMED_BYTECODE();
+                REFRESH_GLOBAL_OBJ();
+                const bool present = globalObj && globalObj != PROTO_NONE
+                    && bindingHas(pContext, globalObj, key);
+                REFRESH_INTERP_STATE();
+                stackPush(pContext, present ? globalObj : PROTO_NONE);
+                stackPush(pContext, key->asObject(pContext));
+                DISPATCH();
+            }
+            // OP_get_ref_value: [obj name] -> [obj name value] (GetValue).
+            L_OP_get_ref_value: {
+                if (_PF().stackTop < 2) MALFORMED_BYTECODE();
+                const proto::ProtoObject* refObj = pAutomaticLocals[currentStackBase + _PF().stackTop - 2];
+                const proto::ProtoObject* refName = pAutomaticLocals[currentStackBase + _PF().stackTop - 1];
+                const proto::ProtoString* key = refName && refName != PROTO_NONE ? refName->asString(pContext) : nullptr;
+                if (!key) MALFORMED_BYTECODE();
+                if (!refObj || refObj == PROTO_NONE) throwNotDefined(pContext, key, pGlobalRoot);
+                const proto::ProtoObject* v = PROTO_NONE;
+                if (bindingHas(pContext, refObj, key)) v = bindingGet(pContext, refObj, key);
+                else if (module && module->isStrict) throwNotDefined(pContext, key, pGlobalRoot);
+                REFRESH_INTERP_STATE();
+                stackPush(pContext, v);
+                DISPATCH();
+            }
+            // OP_put_ref_value: [obj name value] -> [] (PutValue).
+            L_OP_put_ref_value: {
+                if (_PF().stackTop < 3) MALFORMED_BYTECODE();
+                const proto::ProtoObject* refObj = pAutomaticLocals[currentStackBase + _PF().stackTop - 3];
+                const proto::ProtoObject* refName = pAutomaticLocals[currentStackBase + _PF().stackTop - 2];
+                const proto::ProtoObject* v = pAutomaticLocals[currentStackBase + _PF().stackTop - 1];
+                const proto::ProtoString* key = refName && refName != PROTO_NONE ? refName->asString(pContext) : nullptr;
+                if (!key) MALFORMED_BYTECODE();
+                const bool strict = module && module->isStrict;
+                if (!refObj || refObj == PROTO_NONE) {
+                    // An unresolvable reference: ReferenceError in strict
+                    // code, a new global property otherwise.
+                    if (strict) throwNotDefined(pContext, key, pGlobalRoot);
+                    REFRESH_GLOBAL_OBJ();
+                    refObj = globalObj;
+                } else if (strict && !bindingHas(pContext, refObj, key)) {
+                    throwNotDefined(pContext, key, pGlobalRoot);
+                }
+                bool ok = true;
+                if (pGlobalRoot && refObj == *pGlobalRoot) {
+                    // A global name: the global environment record writes a
+                    // lexical binding on the binding scope, anything else on
+                    // the global object (writeGlobalBinding).
+                    const bool lexical = refObj->hasOwnAttribute(pContext, key) == PROTO_TRUE
+                        && globalObjectForRoot(pContext, refObj) != refObj;
+                    writeGlobalBinding(pContext, pGlobalRoot, key, v, lexical);
+                    REFRESH_GLOBAL_OBJ();
+                } else {
+                    ok = bindingSet(pContext, refObj, key, v);
+                }
+                REFRESH_INTERP_STATE();
+                if (!ok && strict)
+                    throwJS(pContext, makeError(pContext, "TypeError",
+                        "Cannot assign to read only property", pGlobalRoot));
+                _PF().stackTop -= 3;
+                DISPATCH();
+            }
+            // OP_delete_var atom: `delete x` of a name that is not a local
+            // (sloppy code): deletes the global property; false when it is
+            // not configurable (a `var` or function declaration).
+            L_OP_delete_var: {
+                if (pc + 4 > len) MALFORMED_BYTECODE();
+                const uint32_t delAtom = get_u32(buf + pc);
+                pc += 4;
+                const proto::ProtoString* key = resolveAtom(mod, pContext, delAtom);
+                if (!key) MALFORMED_BYTECODE();
+                REFRESH_GLOBAL_OBJ();
+                const proto::ProtoObject* r = PROTO_TRUE;
+                const proto::ProtoObject* gobj = (globalObj && globalObj != PROTO_NONE)
+                    ? globalObjectForRoot(pContext, globalObj) : nullptr;
+                if (gobj && gobj != globalObj && globalObj->hasOwnAttribute(pContext, key) == PROTO_TRUE) {
+                    r = PROTO_FALSE;  // a lexical global (let / const / class)
+                } else if (gobj && bindingHas(pContext, gobj, key)) {
+                    const proto::ProtoList* dargs = pContext->newList()
+                        ->appendLast(pContext, gobj)->appendLast(pContext, key->asObject(pContext));
+                    r = reflectDeleteProperty(pContext, nullptr, nullptr,
+                        argsView(proto::ProtoListArguments(pContext, dargs)), nullptr);
+                }
+                REFRESH_INTERP_STATE();
+                stackPush(pContext, r == PROTO_TRUE ? PROTO_TRUE : PROTO_FALSE);
+                DISPATCH();
+            }
+            L_OP_eval: {
+                // DEF(eval, 5, 1, 1, npop_u16): u16 argc, u16 scope.
+                //   stack [..., fn, a1..an] -> [..., result]
+                // A direct eval when fn is %eval% (§13.3.6.1 step 6), an
+                // ordinary call with `this` undefined otherwise.  The operands
+                // stay on the stack (rooted) until the result is pushed.
+                if (pc + 4 > len) MALFORMED_BYTECODE();
+                const uint16_t evalArgc = get_u16(buf + pc);
+                const int evalScope = static_cast<int>(get_u16(buf + pc + 2));
+                pc += 4;
+                if (_PF().stackTop < static_cast<unsigned>(evalArgc) + 1u) MALFORMED_BYTECODE();
+                const unsigned fnSlot = currentStackBase + _PF().stackTop - evalArgc - 1;
+                const proto::ProtoObject* evalFn = pAutomaticLocals[fnSlot];
+                const proto::ProtoObject* evalResult;
+                if (isIntrinsicEval(pContext, evalFn)) {
+                    const proto::ProtoObject* src = evalArgc ? pAutomaticLocals[fnSlot + 1] : PROTO_NONE;
+                    evalResult = performEval(pContext, module, argCount, varCount, evalScope,
+                                             src, thisObj, pGlobalRoot);
+                } else {
+                    const proto::ProtoList* evalArgs = pContext->newList();
+                    for (unsigned i = 0; i < evalArgc; ++i)
+                        evalArgs = evalArgs->appendLast(pContext,
+                            pContext->getAutomaticLocals()[fnSlot + 1 + i]);
+                    evalResult = callJSFunction(pContext, evalFn, PROTO_NONE, evalArgs);
+                }
+                REFRESH_INTERP_STATE();
+                _PF().stackTop -= evalArgc + 1u;
+                stackPush(pContext, evalResult);
+                DISPATCH();
+            }
+            L_OP_apply_eval: {
+                // DEF(apply_eval, 3, 2, 1, u16): u16 scope.
+                //   stack [..., fn, argsArray] -> [..., result]
+                // eval(...xs): a direct eval of the first element when fn is
+                // %eval%, otherwise fn(...xs).
+                if (pc + 2 > len || _PF().stackTop < 2) MALFORMED_BYTECODE();
+                const int evalScope = static_cast<int>(get_u16(buf + pc));
+                pc += 2;
+                const unsigned fnSlot = currentStackBase + _PF().stackTop - 2;
+                const proto::ProtoObject* evalFn = pAutomaticLocals[fnSlot];
+                const proto::ProtoObject* argsArr = pAutomaticLocals[fnSlot + 1];
+                const proto::ProtoList* els = (argsArr && argsArr != PROTO_NONE)
+                    ? protojs::getArrayElements(pContext, argsArr) : nullptr;
+                const proto::ProtoObject* evalResult;
+                if (isIntrinsicEval(pContext, evalFn)) {
+                    const proto::ProtoObject* src = (els && els->getSize(pContext) > 0)
+                        ? els->getAt(pContext, 0) : PROTO_NONE;
+                    evalResult = performEval(pContext, module, argCount, varCount, evalScope,
+                                             src, thisObj, pGlobalRoot);
+                } else {
+                    evalResult = callJSFunction(pContext, evalFn, PROTO_NONE,
+                                                els ? els : pContext->newList());
+                }
+                REFRESH_INTERP_STATE();
+                _PF().stackTop -= 2;
+                stackPush(pContext, evalResult);
                 DISPATCH();
             }
             L_OP_init_ctor: {
@@ -9625,19 +10476,30 @@ static const proto::ProtoObject* runBytecodeImpl(proto::ProtoContext* pContext,
                 DISPATCH();
             }
             L_OP_check_brand: {
-                // Private brand check — minimal impl: skip.
-                if (stackSize(pContext) >= 2) {
-                    stackPop(pContext);
-                    stackPop(pContext);
-                }
+                // DEF(check_brand, 1, 2, 2, none): [obj func] -> [obj func].
+                // `func` is a private method or accessor; obj must carry the
+                // brand of its home object (the class), else TypeError.
+                if (_PF().stackTop < 2) MALFORMED_BYTECODE();
+                const proto::ProtoObject* bObj = stackAt(pContext, 1);
+                const proto::ProtoObject* bFunc = stackAt(pContext, 0);
+                if (!privateBrandCheck(pContext, bObj, bFunc))
+                    throwJS(pContext, makeError(pContext, "TypeError",
+                        "Receiver must be an instance of the class that declared the private method",
+                        pGlobalRoot));
                 DISPATCH();
             }
             L_OP_add_brand: {
-                // Private brand registration — minimal impl: skip.
-                if (stackSize(pContext) >= 2) {
-                    stackPop(pContext);
-                    stackPop(pContext);
-                }
+                // DEF(add_brand, 1, 2, 0, none): [obj home] -> [].  Gives the
+                // class (home object) its brand on first use and stamps it on
+                // obj, the instance being constructed (or the class itself for
+                // static private methods).
+                if (_PF().stackTop < 2) MALFORMED_BYTECODE();
+                const proto::ProtoObject* bObj = stackAt(pContext, 1);
+                const proto::ProtoObject* bHome = stackAt(pContext, 0);
+                privateAddBrand(pContext, bObj, bHome, pGlobalRoot);
+                REFRESH_INTERP_STATE();
+                stackPop(pContext);
+                stackPop(pContext);
                 DISPATCH();
             }
             L_OP_set_home_object: {
@@ -9736,99 +10598,84 @@ static const proto::ProtoObject* runBytecodeImpl(proto::ProtoContext* pContext,
                 DISPATCH();
             }
             L_OP_get_private_field: {
-                // DEF(get_private_field, 1, 2, 1, none)
-                // Stack [..., obj, private_symbol] → [..., obj[private_symbol]]
-                // Minimal impl: read by symbol's __name__ as if it were a
-                // regular attribute.  Private semantics (brand checks)
-                // are not yet enforced.
-                if (stackSize(pContext) < 2) DISPATCH();
-                const proto::ProtoObject* sym = stackTop(pContext); stackPop(pContext);
-                const proto::ProtoObject* o   = stackTop(pContext); stackPop(pContext);
-                const proto::ProtoString* name = nullptr;
-                if (sym && sym != PROTO_NONE) {
-                    const proto::ProtoObject* nko = pContext->fromUTF8String("__name__");
-                    const proto::ProtoString* nk = nko ? nko->asString(pContext) : nullptr;
-                    if (nk) {
-                        const proto::ProtoObject* nv = sym->getAttribute(pContext, nk, false);
-                        if (nv && nv != PROTO_NONE) name = nv->asString(pContext);
-                    }
-                }
-                const proto::ProtoObject* val = (o && o != PROTO_NONE && name)
-                    ? o->getAttribute(pContext, name, true) : PROTO_NONE;
-                stackPush(pContext, val ? val : PROTO_NONE);
+                // DEF(get_private_field, 1, 2, 1, none): [obj sym] -> [value]
+                if (_PF().stackTop < 2) MALFORMED_BYTECODE();
+                const proto::ProtoObject* pSym = stackAt(pContext, 0);
+                const proto::ProtoObject* pObj = stackAt(pContext, 1);
+                const proto::ProtoString* pKey = privateFieldKey(pContext, pSym);
+                if (!pKey) MALFORMED_BYTECODE();
+                const proto::ProtoObject* v = privateOwn(pContext, pObj, pKey);
+                if (!v) throwPrivateNotFound(pContext, pSym, "read", pGlobalRoot);
+                stackPop(pContext);
+                pAutomaticLocals[currentStackBase + _PF().stackTop - 1] = v;
                 DISPATCH();
             }
             L_OP_put_private_field: {
-                // DEF(put_private_field, 1, 3, 1, none)
-                // Stack [..., obj, value, private_symbol] → [..., obj]
-                // (n_pop=3 n_push=1: obj is preserved underneath).
-                if (stackSize(pContext) < 3) DISPATCH();
-                const proto::ProtoObject* sym = stackTop(pContext); stackPop(pContext);
-                const proto::ProtoObject* val = stackTop(pContext); stackPop(pContext);
-                const proto::ProtoObject* o   = stackTop(pContext);
-                const proto::ProtoString* name = nullptr;
-                if (sym && sym != PROTO_NONE) {
-                    const proto::ProtoObject* nko = pContext->fromUTF8String("__name__");
-                    const proto::ProtoString* nk = nko ? nko->asString(pContext) : nullptr;
-                    if (nk) {
-                        const proto::ProtoObject* nv = sym->getAttribute(pContext, nk, false);
-                        if (nv && nv != PROTO_NONE) name = nv->asString(pContext);
-                    }
-                }
-                if (o && o != PROTO_NONE && name) {
-                    const proto::ProtoObject* no = o->setAttribute(pContext, name, val ? val : PROTO_NONE);
-                    if (no && no != o) {
-                        updateMapping(pContext, o, no);
-                        pAutomaticLocals[currentStackBase + _PF().stackTop - 1] = no;
-                    }
-                }
+                // DEF(put_private_field, 1, 3, 0, none): [obj value sym] -> []
+                if (_PF().stackTop < 3) MALFORMED_BYTECODE();
+                const proto::ProtoObject* pSym = stackAt(pContext, 0);
+                const proto::ProtoObject* pVal = stackAt(pContext, 1);
+                const proto::ProtoObject* pObj = stackAt(pContext, 2);
+                const proto::ProtoString* pKey = privateFieldKey(pContext, pSym);
+                if (!pKey) MALFORMED_BYTECODE();
+                if (!privateOwn(pContext, pObj, pKey))
+                    throwPrivateNotFound(pContext, pSym, "write", pGlobalRoot);
+                privateStore(pContext, pObj, pKey, pVal);
+                REFRESH_INTERP_STATE();
+                _PF().stackTop -= 3;
                 DISPATCH();
             }
             L_OP_define_private_field: {
-                // DEF(define_private_field, 1, 3, 1, none)
-                // Same shape as put_private_field but for the initial
-                // definition (no brand check needed even when enforced).
-                if (stackSize(pContext) < 3) DISPATCH();
-                const proto::ProtoObject* sym = stackTop(pContext); stackPop(pContext);
-                const proto::ProtoObject* val = stackTop(pContext); stackPop(pContext);
-                const proto::ProtoObject* o   = stackTop(pContext);
-                const proto::ProtoString* name = nullptr;
-                if (sym && sym != PROTO_NONE) {
-                    const proto::ProtoObject* nko = pContext->fromUTF8String("__name__");
-                    const proto::ProtoString* nk = nko ? nko->asString(pContext) : nullptr;
-                    if (nk) {
-                        const proto::ProtoObject* nv = sym->getAttribute(pContext, nk, false);
-                        if (nv && nv != PROTO_NONE) name = nv->asString(pContext);
-                    }
+                // DEF(define_private_field, 1, 3, 1, none): [obj sym value] -> [obj]
+                if (_PF().stackTop < 3) MALFORMED_BYTECODE();
+                const proto::ProtoObject* pVal = stackAt(pContext, 0);
+                const proto::ProtoObject* pSym = stackAt(pContext, 1);
+                const proto::ProtoObject* pObj = stackAt(pContext, 2);
+                const proto::ProtoString* pKey = privateFieldKey(pContext, pSym);
+                if (!pKey) MALFORMED_BYTECODE();
+                if (!jsIsObject(pContext, pObj))
+                    throwJS(pContext, makeError(pContext, "TypeError",
+                        "Cannot define a private field on a non-object", pGlobalRoot));
+                if (privateOwn(pContext, pObj, pKey)) {
+                    std::string msg = "Cannot initialize " + privateName(pContext, pSym)
+                        + " twice on the same object";
+                    throwJS(pContext, makeError(pContext, "TypeError", msg.c_str(), pGlobalRoot));
                 }
-                if (o && o != PROTO_NONE && name) {
-                    const proto::ProtoObject* no = o->setAttribute(pContext, name, val ? val : PROTO_NONE);
-                    if (no && no != o) {
-                        updateMapping(pContext, o, no);
-                        pAutomaticLocals[currentStackBase + _PF().stackTop - 1] = no;
-                    }
-                }
+                const proto::ProtoObject* stored = privateStore(pContext, pObj, pKey, pVal);
+                REFRESH_INTERP_STATE();
+                _PF().stackTop -= 2;
+                pAutomaticLocals[currentStackBase + _PF().stackTop - 1] = stored;
+                DISPATCH();
+            }
+            L_OP_private_in: {
+                // DEF(private_in, 1, 2, 1, none): [obj x] -> [bool], for
+                // `#x in obj`.  x is a private field's symbol, or a private
+                // method / accessor (then the class brand decides).
+                if (_PF().stackTop < 2) MALFORMED_BYTECODE();
+                const proto::ProtoObject* pX = stackAt(pContext, 0);
+                const proto::ProtoObject* pObj = stackAt(pContext, 1);
+                if (!jsIsObject(pContext, pObj))
+                    throwJS(pContext, makeError(pContext, "TypeError",
+                        "Cannot use 'in' operator to search for a private member in a non-object",
+                        pGlobalRoot));
+                const proto::ProtoString* pKey = privateFieldKey(pContext, pX);
+                const bool has = pKey ? privateOwn(pContext, pObj, pKey) != nullptr
+                                      : privateBrandCheck(pContext, pObj, pX);
+                stackPop(pContext);
+                pAutomaticLocals[currentStackBase + _PF().stackTop - 1] = has ? PROTO_TRUE : PROTO_FALSE;
                 DISPATCH();
             }
             L_OP_private_symbol: {
-                // DEF(private_symbol, 5, 0, 1, atom)
-                // Push a fresh private-symbol value for the given atom.
-                // Minimal impl: push a unique object marked
-                // __is_private_symbol__ + __name__ from the atom name.
-                if (pc + 4 > len) return PROTO_NONE;
+                // DEF(private_symbol, 5, 0, 1, atom): a new private name for
+                // one evaluation of a class: an object holding the unique
+                // attribute key its fields are stored under, and the source
+                // name (`#x`) for messages.
+                if (pc + 4 > len) MALFORMED_BYTECODE();
                 uint32_t atomIndex = get_u32(buf + pc);
                 pc += 4;
                 const proto::ProtoString* name = resolveAtom(mod, pContext, atomIndex);
-                const proto::ProtoObject* sym = pContext->newObject(true);
-                if (name && sym) {
-                    const proto::ProtoObject* ko = pContext->fromUTF8String("__is_private_symbol__");
-                    const proto::ProtoString* k = ko ? ko->asString(pContext) : nullptr;
-                    if (k) sym = sym->setAttribute(pContext, k, PROTO_TRUE);
-                    const proto::ProtoObject* nko = pContext->fromUTF8String("__name__");
-                    const proto::ProtoString* nk = nko ? nko->asString(pContext) : nullptr;
-                    if (nk) sym = sym->setAttribute(pContext, nk, name->asObject(pContext));
-                }
-                stackPush(pContext, sym ? sym : PROTO_NONE);
+                const proto::ProtoObject* sym = newPrivateName(pContext, name);
+                stackPush(pContext, sym);
                 DISPATCH();
             }
             L_OP_set_proto: {
@@ -9897,13 +10744,13 @@ static const proto::ProtoObject* runBytecodeImpl(proto::ProtoContext* pContext,
                 // stamp.  We reuse it directly as the ctor — augmenting
                 // with .prototype and .name only.
                 bool isComputed = (opcode == OP_define_class_computed);
-                if (pc + 5 > len) return PROTO_NONE;
+                if (pc + 5 > len) MALFORMED_BYTECODE();
                 uint32_t classAtom = get_u32(buf + pc);
                 pc += 4;
                 uint8_t classFlags = buf[pc++];
                 bool hasHeritage = (classFlags & 1) != 0;
                 size_t need = isComputed ? 3 : 2;
-                if (stackSize(pContext) < need) return PROTO_NONE;
+                if (stackSize(pContext) < need) MALFORMED_BYTECODE();
                 const proto::ProtoObject* bfunc =
                     stackAt(pContext, 0);
                 const proto::ProtoObject* parentClass =
@@ -10121,14 +10968,14 @@ static const proto::ProtoObject* runBytecodeImpl(proto::ProtoContext* pContext,
                 DISPATCH();
             }
             L_OP_return: {
-                if (stackEmpty(pContext)) return PROTO_NONE;
+                if (stackEmpty(pContext)) MALFORMED_BYTECODE();
                 const proto::ProtoObject* result = stackTop(pContext);
                 return result;
             }
             L_OP_return_undef: ;
                 return PROTO_NONE;
             L_OP_throw: {
-                if (stackEmpty(pContext)) return PROTO_NONE;
+                if (stackEmpty(pContext)) MALFORMED_BYTECODE();
                 const proto::ProtoObject* exObj = stackTop(pContext);
                 stackPop(pContext);
                 if (!exObj) exObj = PROTO_NONE;
@@ -10157,18 +11004,18 @@ static const proto::ProtoObject* runBytecodeImpl(proto::ProtoContext* pContext,
                 DISPATCH();
             }
             L_OP_nip: ;
-                if (stackSize(pContext) < 2) return PROTO_NONE;
+                if (stackSize(pContext) < 2) MALFORMED_BYTECODE();
                 { const proto::ProtoObject* top = stackTop(pContext); stackPop(pContext); stackPop(pContext); stackPush(pContext, top); }
                 DISPATCH();
             L_OP_nip1: ;
-                if (stackSize(pContext) < 3) return PROTO_NONE;
+                if (stackSize(pContext) < 3) MALFORMED_BYTECODE();
                 { const proto::ProtoObject* c = stackTop(pContext); stackPop(pContext); const proto::ProtoObject* b = stackTop(pContext); stackPop(pContext); stackPop(pContext); stackPush(pContext, b); stackPush(pContext, c); }
                 DISPATCH();
             L_OP_dup: ;
                 if (!stackEmpty(pContext)) stackPush(pContext, stackTop(pContext));
                 DISPATCH();
             L_OP_dup1: ;
-                if (stackSize(pContext) < 2) return PROTO_NONE;
+                if (stackSize(pContext) < 2) MALFORMED_BYTECODE();
                 // DEF(dup1, 1, 2, 3, none): a b -> a a b.  Pre-fix this
                 // pushed `a b` on top (a b a b, which is dup2), leaving
                 // one stray slot behind.  QuickJS emits dup1 to write the
@@ -10182,18 +11029,18 @@ static const proto::ProtoObject* runBytecodeImpl(proto::ProtoContext* pContext,
                   stackPush(pContext, second); stackPush(pContext, top); }
                 DISPATCH();
             L_OP_dup2: ;
-                if (stackSize(pContext) < 2) return PROTO_NONE;
+                if (stackSize(pContext) < 2) MALFORMED_BYTECODE();
                 stackPush(pContext, stackAt(pContext, 1));
                 stackPush(pContext, stackAt(pContext, 1));
                 DISPATCH();
             L_OP_dup3: ;
-                if (stackSize(pContext) < 3) return PROTO_NONE;
+                if (stackSize(pContext) < 3) MALFORMED_BYTECODE();
                 stackPush(pContext, stackAt(pContext, 2));
                 stackPush(pContext, stackAt(pContext, 2));
                 stackPush(pContext, stackAt(pContext, 2));
                 DISPATCH();
             L_OP_insert2: ;
-                if (stackSize(pContext) < 2) return PROTO_NONE;
+                if (stackSize(pContext) < 2) MALFORMED_BYTECODE();
                 // obj a -> a obj a
                 {
                     const proto::ProtoObject* a = stackTop(pContext);
@@ -10206,7 +11053,7 @@ static const proto::ProtoObject* runBytecodeImpl(proto::ProtoContext* pContext,
                 }
                 DISPATCH();
             L_OP_insert3: ;
-                if (stackSize(pContext) < 3) return PROTO_NONE;
+                if (stackSize(pContext) < 3) MALFORMED_BYTECODE();
                 // obj prop a -> a obj prop a
                 {
                     const proto::ProtoObject* a = stackTop(pContext);
@@ -10222,7 +11069,7 @@ static const proto::ProtoObject* runBytecodeImpl(proto::ProtoContext* pContext,
                 }
                 DISPATCH();
             L_OP_insert4: ;
-                if (stackSize(pContext) < 4) return PROTO_NONE;
+                if (stackSize(pContext) < 4) MALFORMED_BYTECODE();
                 // this obj prop a -> a this obj prop a
                 {
                     const proto::ProtoObject* a = stackTop(pContext);
@@ -10241,7 +11088,7 @@ static const proto::ProtoObject* runBytecodeImpl(proto::ProtoContext* pContext,
                 }
                 DISPATCH();
             L_OP_perm3: ;
-                if (stackSize(pContext) < 3) return PROTO_NONE;
+                if (stackSize(pContext) < 3) MALFORMED_BYTECODE();
                 // obj a b -> a obj b
                 {
                     const proto::ProtoObject* b = stackTop(pContext);
@@ -10256,7 +11103,7 @@ static const proto::ProtoObject* runBytecodeImpl(proto::ProtoContext* pContext,
                 }
                 DISPATCH();
             L_OP_perm4: ;
-                if (stackSize(pContext) < 4) return PROTO_NONE;
+                if (stackSize(pContext) < 4) MALFORMED_BYTECODE();
                 // obj prop a b -> a obj prop b
                 {
                     const proto::ProtoObject* b = stackTop(pContext);
@@ -10274,7 +11121,7 @@ static const proto::ProtoObject* runBytecodeImpl(proto::ProtoContext* pContext,
                 }
                 DISPATCH();
             L_OP_perm5: ;
-                if (stackSize(pContext) < 5) return PROTO_NONE;
+                if (stackSize(pContext) < 5) MALFORMED_BYTECODE();
                 // this obj prop a b -> a this obj prop b
                 {
                     const proto::ProtoObject* b = stackTop(pContext);
@@ -10295,11 +11142,11 @@ static const proto::ProtoObject* runBytecodeImpl(proto::ProtoContext* pContext,
                 }
                 DISPATCH();
             L_OP_swap: ;
-                if (stackSize(pContext) < 2) return PROTO_NONE;
+                if (stackSize(pContext) < 2) MALFORMED_BYTECODE();
                 { const proto::ProtoObject* a = stackTop(pContext); stackPop(pContext); const proto::ProtoObject* b = stackTop(pContext); stackPop(pContext); stackPush(pContext, a); stackPush(pContext, b); }
                 DISPATCH();
             L_OP_swap2: ;
-                if (stackSize(pContext) < 4) return PROTO_NONE;
+                if (stackSize(pContext) < 4) MALFORMED_BYTECODE();
                 // a b c d -> c d a b
                 {
                     const proto::ProtoObject* d = stackTop(pContext);
@@ -10317,7 +11164,7 @@ static const proto::ProtoObject* runBytecodeImpl(proto::ProtoContext* pContext,
                 }
                 DISPATCH();
             L_OP_rot3l: ;
-                if (stackSize(pContext) < 3) return PROTO_NONE;
+                if (stackSize(pContext) < 3) MALFORMED_BYTECODE();
                 // x a b -> a b x
                 {
                     const proto::ProtoObject* b = stackTop(pContext);
@@ -10332,7 +11179,7 @@ static const proto::ProtoObject* runBytecodeImpl(proto::ProtoContext* pContext,
                 }
                 DISPATCH();
             L_OP_rot3r: ;
-                if (stackSize(pContext) < 3) return PROTO_NONE;
+                if (stackSize(pContext) < 3) MALFORMED_BYTECODE();
                 // a b x -> x a b
                 {
                     const proto::ProtoObject* x = stackTop(pContext);
@@ -10347,7 +11194,7 @@ static const proto::ProtoObject* runBytecodeImpl(proto::ProtoContext* pContext,
                 }
                 DISPATCH();
             L_OP_rot4l: ;
-                if (stackSize(pContext) < 4) return PROTO_NONE;
+                if (stackSize(pContext) < 4) MALFORMED_BYTECODE();
                 // x a b c -> a b c x
                 {
                     const proto::ProtoObject* c = stackTop(pContext);
@@ -10365,7 +11212,7 @@ static const proto::ProtoObject* runBytecodeImpl(proto::ProtoContext* pContext,
                 }
                 DISPATCH();
             L_OP_rot5l: ;
-                if (stackSize(pContext) < 5) return PROTO_NONE;
+                if (stackSize(pContext) < 5) MALFORMED_BYTECODE();
                 // x a b c d -> a b c d x
                 {
                     const proto::ProtoObject* d = stackTop(pContext);
@@ -10386,7 +11233,7 @@ static const proto::ProtoObject* runBytecodeImpl(proto::ProtoContext* pContext,
                 }
                 DISPATCH();
             L_OP_push_const: {
-                if (pc + 4 > len) return PROTO_NONE;
+                if (pc + 4 > len) MALFORMED_BYTECODE();
                 uint32_t idx = get_u32(buf + pc);
                 pc += 4;
                 if (cpool && idx < cpool->getSize(pContext))
@@ -10398,7 +11245,7 @@ static const proto::ProtoObject* runBytecodeImpl(proto::ProtoContext* pContext,
             L_OP_push_atom_value: {
                 /* QuickJS semantics: push the atom's string representation as a string literal.
                  * This is JS_AtomToString(ctx, atom) — NOT a variable lookup in globalObj. */
-                if (pc + 4 > len) return PROTO_NONE;
+                if (pc + 4 > len) MALFORMED_BYTECODE();
                 uint32_t atomIndex = get_u32(buf + pc);
                 pc += 4;
                 const proto::ProtoString* key = resolveAtom(mod, pContext, atomIndex);
@@ -10412,7 +11259,7 @@ static const proto::ProtoObject* runBytecodeImpl(proto::ProtoContext* pContext,
             }
             // Short local/arg accessors (loc8/arg8 and loc0-3/arg0-3)
             L_OP_get_loc8: {
-                if (pc + 1 > len) return PROTO_NONE;
+                if (pc + 1 > len) MALFORMED_BYTECODE();
                 uint8_t locIndex = buf[pc++];
                 if (locIndex < varCount && (argCount + locIndex) < (argCount + varCount)) {
                     const proto::ProtoObject* slotVal = getSlot(pContext, argCount + locIndex);
@@ -10422,7 +11269,7 @@ static const proto::ProtoObject* runBytecodeImpl(proto::ProtoContext* pContext,
                 DISPATCH();
             }
             L_OP_put_loc8: {
-                if (pc + 1 > len || stackEmpty(pContext)) return PROTO_NONE;
+                if (pc + 1 > len || stackEmpty(pContext)) MALFORMED_BYTECODE();
                 uint8_t locIndex = buf[pc++];
                 const proto::ProtoObject* val = stackTop(pContext);
                 stackPop(pContext);
@@ -10434,7 +11281,7 @@ static const proto::ProtoObject* runBytecodeImpl(proto::ProtoContext* pContext,
                 DISPATCH();
             }
             L_OP_set_loc8: {
-                if (pc + 1 > len || stackEmpty(pContext)) return PROTO_NONE;
+                if (pc + 1 > len || stackEmpty(pContext)) MALFORMED_BYTECODE();
                 uint8_t locIndex = buf[pc++];
                 const proto::ProtoObject* val = stackTop(pContext);
                 if (locIndex < varCount && (argCount + locIndex) < (argCount + varCount)) {
@@ -10459,7 +11306,7 @@ static const proto::ProtoObject* runBytecodeImpl(proto::ProtoContext* pContext,
             L_OP_put_arg1: ;
             L_OP_put_arg2: ;
             L_OP_put_arg3: {
-                if (stackEmpty(pContext)) return PROTO_NONE;
+                if (stackEmpty(pContext)) MALFORMED_BYTECODE();
                 unsigned idx = static_cast<unsigned>(opcode - OP_put_arg0);
                 const proto::ProtoObject* val = stackTop(pContext);
                 stackPop(pContext);
@@ -10475,7 +11322,7 @@ static const proto::ProtoObject* runBytecodeImpl(proto::ProtoContext* pContext,
             L_OP_set_arg1: ;
             L_OP_set_arg2: ;
             L_OP_set_arg3: {
-                if (stackEmpty(pContext)) return PROTO_NONE;
+                if (stackEmpty(pContext)) MALFORMED_BYTECODE();
                 unsigned idx = static_cast<unsigned>(opcode - OP_set_arg0);
                 const proto::ProtoObject* val = stackTop(pContext);
                 if (idx < argCount && idx < (argCount + varCount)) {
@@ -10488,12 +11335,13 @@ static const proto::ProtoObject* runBytecodeImpl(proto::ProtoContext* pContext,
             }
             L_OP_get_var_undef: ;
             L_OP_get_var: {
-                if (pc + 2 > len) return PROTO_NONE;
+                if (pc + 2 > len) MALFORMED_BYTECODE();
                 uint16_t idx = get_u16(buf + pc);
                 pc += 2;
                 const proto::ProtoObject* val = PROTO_NONE;
-                bool isLexical = (opcode == OP_get_var) &&
-                                 static_cast<size_t>(idx) < module->closureVarIsLexical.size() &&
+                // A declared lexical global in its TDZ throws for typeof too
+                // (OP_get_var_undef): only undeclared names read undefined.
+                bool isLexical = static_cast<size_t>(idx) < module->closureVarIsLexical.size() &&
                                  module->closureVarIsLexical[idx];
                 /* Read from *pGlobalRoot (the live global, updated by OP_put_var_init via setAttribute)
                  * rather than from the stale globalObj snapshot passed at call time. */
@@ -10582,7 +11430,7 @@ static const proto::ProtoObject* runBytecodeImpl(proto::ProtoContext* pContext,
             }
             L_OP_put_var_init: ;
             L_OP_put_var: {
-                if (pc + 2 > len || stackEmpty(pContext)) return PROTO_NONE;
+                if (pc + 2 > len || stackEmpty(pContext)) MALFORMED_BYTECODE();
                 uint16_t idx = get_u16(buf + pc);
                 pc += 2;
                 const proto::ProtoObject* val = stackTop(pContext);
@@ -10608,6 +11456,21 @@ static const proto::ProtoObject* runBytecodeImpl(proto::ProtoContext* pContext,
                         && module->closureVarIsConst[idx]) {
                         throwJS(pContext, constAssignmentError(pContext, name, pGlobalRoot));
                         DISPATCH();
+                    }
+
+                    // §9.1.1.1.5 SetMutableBinding: assigning a lexical global
+                    // (let / const / class) before its declaration ran is a
+                    // ReferenceError; the binding is absent until then.
+                    if (opcode == OP_put_var && isLexical && closureSymbols
+                        && static_cast<size_t>(idx) < closureSymbols->getSize(pContext)) {
+                        const proto::ProtoString* tk =
+                            closureSymbols->getAt(pContext, static_cast<int>(idx))->asString(pContext);
+                        REFRESH_GLOBAL_OBJ();
+                        if (tk && globalObj && globalObj != PROTO_NONE
+                            && globalObj->hasAttribute(pContext, tk) != PROTO_TRUE) {
+                            std::string msg = "Cannot access '" + name + "' before initialization";
+                            throwJS(pContext, makeError(pContext, "ReferenceError", msg.c_str(), pGlobalRoot));
+                        }
                     }
 
                     // Global assignment to `undefined` should throw instead of mutating.
@@ -10658,7 +11521,7 @@ static const proto::ProtoObject* runBytecodeImpl(proto::ProtoContext* pContext,
             L_OP_put_var_ref1: ;
             L_OP_put_var_ref2: ;
             L_OP_put_var_ref3: {
-                if (stackEmpty(pContext)) return PROTO_NONE;
+                if (stackEmpty(pContext)) MALFORMED_BYTECODE();
                 uint16_t refIndex = static_cast<uint16_t>(opcode - OP_put_var_ref0);
                 const proto::ProtoObject* val = stackTop(pContext);
                 stackPop(pContext);
@@ -10709,7 +11572,7 @@ static const proto::ProtoObject* runBytecodeImpl(proto::ProtoContext* pContext,
             L_OP_set_var_ref1: ;
             L_OP_set_var_ref2: ;
             L_OP_set_var_ref3: {
-                if (stackEmpty(pContext)) return PROTO_NONE;
+                if (stackEmpty(pContext)) MALFORMED_BYTECODE();
                 uint16_t refIndex = static_cast<uint16_t>(opcode - OP_set_var_ref0);
                 const proto::ProtoObject* val = stackTop(pContext);
                 const proto::ProtoObject* slotVal = getSlot(pContext, argCount + varCount + refIndex);
@@ -10751,7 +11614,7 @@ static const proto::ProtoObject* runBytecodeImpl(proto::ProtoContext* pContext,
                 DISPATCH();
             }
             L_OP_get_var_ref: {
-                if (pc + 2 > len) return PROTO_NONE;
+                if (pc + 2 > len) MALFORMED_BYTECODE();
                 uint16_t refIndex = get_u16(buf + pc);
                 pc += 2;
                 const proto::ProtoObject* slotVal = getSlot(pContext, argCount + varCount + refIndex);
@@ -10775,7 +11638,7 @@ static const proto::ProtoObject* runBytecodeImpl(proto::ProtoContext* pContext,
                  * cell; otherwise update the slot directly AND publish
                  * to the global (hoisted GLOBAL_DECL / function decl
                  * path; QuickJS emits OP_put_var_ref on these). */
-                if (pc + 2 > len || stackEmpty(pContext)) return PROTO_NONE;
+                if (pc + 2 > len || stackEmpty(pContext)) MALFORMED_BYTECODE();
                 uint16_t refIndex = get_u16(buf + pc);
                 pc += 2;
                 const proto::ProtoObject* val = stackTop(pContext);
@@ -10819,7 +11682,7 @@ static const proto::ProtoObject* runBytecodeImpl(proto::ProtoContext* pContext,
                 DISPATCH();
             }
             L_OP_set_var_ref: {
-                if (pc + 2 > len || stackEmpty(pContext)) return PROTO_NONE;
+                if (pc + 2 > len || stackEmpty(pContext)) MALFORMED_BYTECODE();
                 uint16_t refIndex = get_u16(buf + pc);
                 pc += 2;
                 const proto::ProtoObject* val = stackTop(pContext);
@@ -10862,7 +11725,7 @@ static const proto::ProtoObject* runBytecodeImpl(proto::ProtoContext* pContext,
                 DISPATCH();
             }
             L_OP_get_var_ref_check: {
-                if (pc + 2 > len) return PROTO_NONE;
+                if (pc + 2 > len) MALFORMED_BYTECODE();
                 uint16_t refIndex = get_u16(buf + pc);
                 pc += 2;
                 {
@@ -10882,13 +11745,24 @@ static const proto::ProtoObject* runBytecodeImpl(proto::ProtoContext* pContext,
             }
             L_OP_put_var_ref_check: ;
             L_OP_put_var_ref_check_init: {
-                if (pc + 2 > len || stackEmpty(pContext)) return PROTO_NONE;
+                if (pc + 2 > len || stackEmpty(pContext)) MALFORMED_BYTECODE();
                 uint16_t refIndex = get_u16(buf + pc);
                 pc += 2;
                 const proto::ProtoObject* val = stackTop(pContext);
                 stackPop(pContext);
                 const proto::ProtoObject* slotVal = getSlot(pContext, argCount + varCount + refIndex);
                 if (isCell(pContext, slotVal)) {
+                    // put_var_ref_check: ReferenceError in the TDZ.
+                    // put_var_ref_check_init (the captured `this` of a derived
+                    // constructor, set by super()): ReferenceError unless it
+                    // is still in the TDZ.
+                    const bool inTdz = readCell(pContext, slotVal) == tdzSentinel;
+                    if (opcode == OP_put_var_ref_check && inTdz)
+                        throwJS(pContext, makeError(pContext, "ReferenceError",
+                            "Cannot access before initialization", pGlobalRoot));
+                    if (opcode == OP_put_var_ref_check_init && !inTdz)
+                        throwJS(pContext, makeError(pContext, "ReferenceError",
+                            "'this' can be initialized only once", pGlobalRoot));
                     writeCell(pContext, slotVal, val);
                 } else {
                     setSlot(pContext, argCount + varCount + refIndex, val);
@@ -10925,7 +11799,7 @@ static const proto::ProtoObject* runBytecodeImpl(proto::ProtoContext* pContext,
                  * carries on with a plain value and the next OP_fclosure
                  * that captures this local promotes a fresh cell -- a new
                  * binding, as the next iteration or block entry requires. */
-                if (pc + 2 > len) return PROTO_NONE;
+                if (pc + 2 > len) MALFORMED_BYTECODE();
                 uint16_t locIndex = get_u16(buf + pc);
                 pc += 2;
                 if (locIndex < varCount) {
@@ -10951,7 +11825,7 @@ static const proto::ProtoObject* runBytecodeImpl(proto::ProtoContext* pContext,
             L_OP_put_loc1: ;
             L_OP_put_loc2: ;
             L_OP_put_loc3: {
-                if (stackEmpty(pContext)) return PROTO_NONE;
+                if (stackEmpty(pContext)) MALFORMED_BYTECODE();
                 unsigned idx = static_cast<unsigned>(opcode - OP_put_loc0);
                 const proto::ProtoObject* val = stackTop(pContext);
                 stackPop(pContext);
@@ -10966,7 +11840,7 @@ static const proto::ProtoObject* runBytecodeImpl(proto::ProtoContext* pContext,
             L_OP_set_loc1: ;
             L_OP_set_loc2: ;
             L_OP_set_loc3: {
-                if (stackEmpty(pContext)) return PROTO_NONE;
+                if (stackEmpty(pContext)) MALFORMED_BYTECODE();
                 unsigned idx = static_cast<unsigned>(opcode - OP_set_loc0);
                 const proto::ProtoObject* val = stackTop(pContext);
                 if (idx < varCount && (argCount + idx) < (argCount + varCount)) {
@@ -10978,7 +11852,7 @@ static const proto::ProtoObject* runBytecodeImpl(proto::ProtoContext* pContext,
             }
             // --- Locals, arguments, and variable references ---
             L_OP_get_loc: {
-                if (pc + 2 > len) return PROTO_NONE;
+                if (pc + 2 > len) MALFORMED_BYTECODE();
                 uint16_t locIndex = get_u16(buf + pc);
                 pc += 2;
                 if (locIndex < varCount && (argCount + locIndex) < (argCount + varCount)) {
@@ -10989,7 +11863,7 @@ static const proto::ProtoObject* runBytecodeImpl(proto::ProtoContext* pContext,
                 DISPATCH();
             }
             L_OP_put_loc: {
-                if (pc + 2 > len || stackEmpty(pContext)) return PROTO_NONE;
+                if (pc + 2 > len || stackEmpty(pContext)) MALFORMED_BYTECODE();
                 uint16_t locIndex = get_u16(buf + pc);
                 pc += 2;
                 const proto::ProtoObject* val = stackTop(pContext);
@@ -11002,7 +11876,7 @@ static const proto::ProtoObject* runBytecodeImpl(proto::ProtoContext* pContext,
                 DISPATCH();
             }
             L_OP_set_loc: {
-                if (pc + 2 > len || stackEmpty(pContext)) return PROTO_NONE;
+                if (pc + 2 > len || stackEmpty(pContext)) MALFORMED_BYTECODE();
                 uint16_t locIndex = get_u16(buf + pc);
                 pc += 2;
                 const proto::ProtoObject* val = stackTop(pContext);
@@ -11014,7 +11888,7 @@ static const proto::ProtoObject* runBytecodeImpl(proto::ProtoContext* pContext,
                 DISPATCH();
             }
             L_OP_get_arg: {
-                if (pc + 2 > len) return PROTO_NONE;
+                if (pc + 2 > len) MALFORMED_BYTECODE();
                 uint16_t argIndex = get_u16(buf + pc);
                 pc += 2;
                 if (argIndex < argCount && argIndex < (argCount + varCount))
@@ -11024,7 +11898,7 @@ static const proto::ProtoObject* runBytecodeImpl(proto::ProtoContext* pContext,
                 DISPATCH();
             }
             L_OP_put_arg: {
-                if (pc + 2 > len || stackEmpty(pContext)) return PROTO_NONE;
+                if (pc + 2 > len || stackEmpty(pContext)) MALFORMED_BYTECODE();
                 uint16_t argIndex = get_u16(buf + pc);
                 pc += 2;
                 const proto::ProtoObject* val = stackTop(pContext);
@@ -11038,7 +11912,7 @@ static const proto::ProtoObject* runBytecodeImpl(proto::ProtoContext* pContext,
                 DISPATCH();
             }
             L_OP_set_arg: {
-                if (pc + 2 > len || stackEmpty(pContext)) return PROTO_NONE;
+                if (pc + 2 > len || stackEmpty(pContext)) MALFORMED_BYTECODE();
                 uint16_t argIndex = get_u16(buf + pc);
                 pc += 2;
                 const proto::ProtoObject* val = stackTop(pContext);
@@ -11051,7 +11925,7 @@ static const proto::ProtoObject* runBytecodeImpl(proto::ProtoContext* pContext,
                 DISPATCH();
             }
             L_OP_set_loc_uninitialized: {
-                if (pc + 2 > len) return PROTO_NONE;
+                if (pc + 2 > len) MALFORMED_BYTECODE();
                 uint16_t locIndex = get_u16(buf + pc);
                 pc += 2;
                 if (locIndex < varCount && (argCount + locIndex) < (argCount + varCount)) {
@@ -11069,7 +11943,7 @@ static const proto::ProtoObject* runBytecodeImpl(proto::ProtoContext* pContext,
                 DISPATCH();
             }
             L_OP_get_loc_check: {
-                if (pc + 2 > len) return PROTO_NONE;
+                if (pc + 2 > len) MALFORMED_BYTECODE();
                 uint16_t locIndex = get_u16(buf + pc);
                 pc += 2;
                 if (locIndex < varCount && (argCount + locIndex) < (argCount + varCount)) {
@@ -11097,28 +11971,25 @@ static const proto::ProtoObject* runBytecodeImpl(proto::ProtoContext* pContext,
                 }
                 DISPATCH();
             }
-            L_OP_put_loc_check: {
-                if (pc + 2 > len || stackEmpty(pContext)) return PROTO_NONE;
+            L_OP_put_loc_check: ;
+            L_OP_set_loc_check: {
+                // Assignment to a lexical local: ReferenceError while the
+                // binding is in its TDZ (the slot, or its closure cell,
+                // holds the sentinel).  put_ pops the value, set_ keeps it.
+                if (pc + 2 > len || stackEmpty(pContext)) MALFORMED_BYTECODE();
                 uint16_t locIndex = get_u16(buf + pc);
                 pc += 2;
                 const proto::ProtoObject* val = stackTop(pContext);
-                stackPop(pContext);
+                if (opcode == OP_put_loc_check) stackPop(pContext);
                 if (locIndex < varCount && (argCount + locIndex) < (argCount + varCount)) {
                     // Respect closure cells — see L_OP_set_loc_uninitialized.
                     const proto::ProtoObject* slotVal = getSlot(pContext, argCount + locIndex);
-                    if (isCell(pContext, slotVal)) writeCell(pContext, slotVal, val);
-                    else setSlot(pContext, argCount + locIndex, val);
-                }
-                DISPATCH();
-            }
-            L_OP_set_loc_check: {
-                if (pc + 2 > len || stackEmpty(pContext)) return PROTO_NONE;
-                uint16_t locIndex = get_u16(buf + pc);
-                pc += 2;
-                const proto::ProtoObject* val = stackTop(pContext);
-                if (locIndex < varCount && (argCount + locIndex) < (argCount + varCount)) {
-                    const proto::ProtoObject* slotVal = getSlot(pContext, argCount + locIndex);
-                    if (isCell(pContext, slotVal)) writeCell(pContext, slotVal, val);
+                    const bool cell = isCell(pContext, slotVal);
+                    if ((cell ? readCell(pContext, slotVal) : slotVal) == tdzSentinel) {
+                        throwJS(pContext, makeError(pContext, "ReferenceError",
+                            "Cannot access before initialization", pGlobalRoot));
+                    }
+                    if (cell) writeCell(pContext, slotVal, val);
                     else setSlot(pContext, argCount + locIndex, val);
                 }
                 DISPATCH();
@@ -11134,20 +12005,25 @@ static const proto::ProtoObject* runBytecodeImpl(proto::ProtoContext* pContext,
                 // Pre-fix: this branch unconditionally wrote, so chained
                 // super() calls succeeded and the spec violation slipped
                 // through.
-                if (pc + 2 > len || stackEmpty(pContext)) return PROTO_NONE;
+                if (pc + 2 > len || stackEmpty(pContext)) MALFORMED_BYTECODE();
                 uint16_t locIndex = get_u16(buf + pc);
                 pc += 2;
                 const proto::ProtoObject* val = stackTop(pContext);
                 stackPop(pContext);
                 if (locIndex < varCount && (argCount + locIndex) < (argCount + varCount)) {
-                    const proto::ProtoObject* cur = getSlot(pContext, argCount + locIndex);
+                    // The slot holds a cell when an arrow function created
+                    // before super() captured `this`: test the cell's value.
+                    const proto::ProtoObject* slotVal = getSlot(pContext, argCount + locIndex);
+                    const bool cell = isCell(pContext, slotVal);
+                    const proto::ProtoObject* cur = cell ? readCell(pContext, slotVal) : slotVal;
                     if (cur && cur != tdzSentinel) {
                         throwJS(pContext, makeError(pContext, "ReferenceError",
                             "'this' can be initialized only once",
                             pGlobalRoot));
                         DISPATCH();
                     }
-                    setSlot(pContext, argCount + locIndex, val);
+                    if (cell) writeCell(pContext, slotVal, val);
+                    else setSlot(pContext, argCount + locIndex, val);
                 }
                 DISPATCH();
             }
@@ -11158,11 +12034,12 @@ static const proto::ProtoObject* runBytecodeImpl(proto::ProtoContext* pContext,
                 // must throw ReferenceError.  QuickJS represents this by
                 // seeding the slot with the TDZ sentinel at function entry
                 // and clearing it on super() return.
-                if (pc + 2 > len) return PROTO_NONE;
+                if (pc + 2 > len) MALFORMED_BYTECODE();
                 uint16_t locIndex = get_u16(buf + pc);
                 pc += 2;
                 if (locIndex < varCount && (argCount + locIndex) < (argCount + varCount)) {
-                    const proto::ProtoObject* val = getSlot(pContext, argCount + locIndex);
+                    // Cell-aware: an arrow that captured `this` promoted the slot.
+                    const proto::ProtoObject* val = readCell(pContext, getSlot(pContext, argCount + locIndex));
                     if (val == tdzSentinel) {
                         throwJS(pContext, makeError(pContext, "ReferenceError",
                             "this is not initialized - super() must be called first",
@@ -11176,7 +12053,7 @@ static const proto::ProtoObject* runBytecodeImpl(proto::ProtoContext* pContext,
                 DISPATCH();
             }
             L_OP_get_field: {
-                if (_PF().stackTop < 1) return PROTO_NONE;
+                if (_PF().stackTop < 1) MALFORMED_BYTECODE();
                 const proto::ProtoObject* obj = pAutomaticLocals[currentStackBase + --_PF().stackTop];
 
                 uint32_t atomIndex = (uint32_t)buf[pc] | ((uint32_t)buf[pc+1] << 8) |
@@ -11311,7 +12188,7 @@ static const proto::ProtoObject* runBytecodeImpl(proto::ProtoContext* pContext,
                 DISPATCH();
             }
             L_OP_get_field2: {
-                if (pc + 4 > len || stackEmpty(pContext)) return PROTO_NONE;
+                if (pc + 4 > len || stackEmpty(pContext)) MALFORMED_BYTECODE();
                 uint32_t atomIndex = get_u32(buf + pc);
                 pc += 4;
                 const proto::ProtoObject* obj = stackTop(pContext);
@@ -11407,7 +12284,7 @@ static const proto::ProtoObject* runBytecodeImpl(proto::ProtoContext* pContext,
                 // A write of a run published once (markPutFieldGroups; see
                 // "Write groups" above runBytecode).  Operands: group (u16),
                 // position (u16).  The first write checks the run once.
-                if (pc + 4 > len || stackSize(pContext) < 2) return PROTO_NONE;
+                if (pc + 4 > len || stackSize(pContext) < 2) MALFORMED_BYTECODE();
                 const uint16_t gid = get_u16(buf + pc);
                 const uint16_t gpos = get_u16(buf + pc + 2);
                 pc += 4;
@@ -11429,7 +12306,7 @@ static const proto::ProtoObject* runBytecodeImpl(proto::ProtoContext* pContext,
                 goto put_field_body;
             }
             L_OP_proto_put_field_group_end: {
-                if (pc + 4 > len || stackSize(pContext) < 2) return PROTO_NONE;
+                if (pc + 4 > len || stackSize(pContext) < 2) MALFORMED_BYTECODE();
                 const uint16_t gid = get_u16(buf + pc);
                 const uint16_t gpos = get_u16(buf + pc + 2);
                 pc += 4;
@@ -11449,11 +12326,11 @@ static const proto::ProtoObject* runBytecodeImpl(proto::ProtoContext* pContext,
                 // Pops obj (second) and val (top), sets obj[key]=val. Pushes NOTHING.
                 // QuickJS peephole-optimizes "insert2 + put_field + drop" → "put_field" so
                 // the result value is never on the stack here.
-                if (pc + 4 > len) return PROTO_NONE;
+                if (pc + 4 > len) MALFORMED_BYTECODE();
                 putFieldAtom = get_u32(buf + pc);
                 pc += 4;
             put_field_body: {
-                if (stackSize(pContext) < 2) return PROTO_NONE;
+                if (stackSize(pContext) < 2) MALFORMED_BYTECODE();
                 uint32_t atomIndex = putFieldAtom;
                 const proto::ProtoObject* val = stackTop(pContext);
                 stackPop(pContext);
@@ -11753,7 +12630,7 @@ static const proto::ProtoObject* runBytecodeImpl(proto::ProtoContext* pContext,
                 DISPATCH();
             }
             L_OP_define_field: {
-                if (pc + 4 > len || stackSize(pContext) < 2) return PROTO_NONE;
+                if (pc + 4 > len || stackSize(pContext) < 2) MALFORMED_BYTECODE();
                 uint32_t atomIndex = get_u32(buf + pc);
                 pc += 4;
                 const proto::ProtoObject* value = stackTop(pContext);
@@ -12432,24 +13309,31 @@ static const proto::ProtoObject* runBytecodeImpl(proto::ProtoContext* pContext,
                 DISPATCH();
             }
             L_OP_to_propkey: {
-                // Converts TOS to a canonical property key (string, integer, or symbol).
-                // In our protoCore world the value on stack is already a ProtoObject that
-                // can be used directly as an attribute key via asString(), with one
-                // exception: undefined held as PROTO_NONE (a local, a parameter, the
-                // value a generator resumes with) was dropped by the define paths, so
-                // `{[u]: 9}` inside a function gave {}. It becomes the undefined
-                // sentinel, which they key as "undefined", as at top level.
-                if (!stackEmpty(pContext) && stackTop(pContext) == PROTO_NONE) {
-                    stackPop(pContext);
-                    stackPush(pContext, getUndefinedSentinel());
+                // DEF(to_propkey, 1, 1, 1, none): ToPropertyKey (§7.1.19) of
+                // a computed key, where the program evaluates it: before the
+                // value of `{[k]: v}` and once for `o[k] += v`.  An integer, a
+                // string or a Symbol stays as is; an object goes through
+                // ToPrimitive with hint string (a Symbol result stays a
+                // Symbol), anything else becomes its ToString.  Undefined held
+                // as PROTO_NONE becomes the undefined sentinel, which the
+                // define paths key as "undefined".
+                if (stackEmpty(pContext)) MALFORMED_BYTECODE();
+                const proto::ProtoObject* rawKey = stackTop(pContext);
+                if (rawKey == PROTO_NONE) {
+                    pAutomaticLocals[currentStackBase + _PF().stackTop - 1] = getUndefinedSentinel();
+                    DISPATCH();
                 }
+                if (proto::isSmallInt(rawKey) || rawKey->isString(pContext)) DISPATCH();
+                const proto::ProtoObject* converted = toPropertyKeyValue(pContext, rawKey);
+                REFRESH_INTERP_STATE();
+                pAutomaticLocals[currentStackBase + _PF().stackTop - 1] = converted;
                 DISPATCH();
             }
             L_OP_define_method: {
                 // DEF(define_method, 6, 2, 1, atom_u8)
                 // Format: 4-byte atomIndex, 1-byte op_flags. Stack: [..., obj, method] → [..., obj].
                 // The work is in defineMethodNamed, outside this frame.
-                if (pc + 5 > len || stackSize(pContext) < 2) return PROTO_NONE;
+                if (pc + 5 > len || stackSize(pContext) < 2) MALFORMED_BYTECODE();
                 uint32_t atomIndex = get_u32(buf + pc);
                 pc += 4;
                 uint8_t op_flags = buf[pc++];
@@ -12468,7 +13352,7 @@ static const proto::ProtoObject* runBytecodeImpl(proto::ProtoContext* pContext,
                 // DEF(define_method_computed, 2, 3, 1, u8)
                 // Format: 1 byte op_flags. Stack: [..., obj, key, method] → [..., obj].
                 // The work is in defineMethodComputed, outside this frame.
-                if (pc + 1 > len || stackSize(pContext) < 3) { if (pc + 1 <= len) pc++; return PROTO_NONE; }
+                if (pc + 1 > len || stackSize(pContext) < 3) MALFORMED_BYTECODE();
                 uint8_t op_flags = buf[pc++];
                 const proto::ProtoObject* methodVal = stackTop(pContext); stackPop(pContext);
                 const proto::ProtoObject* keyVal    = stackTop(pContext); stackPop(pContext);
@@ -12527,7 +13411,7 @@ static const proto::ProtoObject* runBytecodeImpl(proto::ProtoContext* pContext,
             L_OP_set_name: {
                 /* Sets the .name property of TOS (function/value) to the given atom string.
                  * Format: atom (4 bytes). n_pop=1, n_push=1. */
-                if (pc + 4 > len || stackEmpty(pContext)) return PROTO_NONE;
+                if (pc + 4 > len || stackEmpty(pContext)) MALFORMED_BYTECODE();
                 uint32_t atomIndex = get_u32(buf + pc);
                 pc += 4;
                 const proto::ProtoObject* func = stackTop(pContext);
@@ -12578,7 +13462,7 @@ static const proto::ProtoObject* runBytecodeImpl(proto::ProtoContext* pContext,
                 DISPATCH();
             }
             L_OP_proto_define_field_last: {
-                if (pc + 4 > len || stackSize(pContext) < 2) return PROTO_NONE;
+                if (pc + 4 > len || stackSize(pContext) < 2) MALFORMED_BYTECODE();
                 uint32_t atomIndex = get_u32(buf + pc);
                 pc += 4;
                 const proto::ProtoObject* value = stackTop(pContext);
@@ -12597,7 +13481,7 @@ static const proto::ProtoObject* runBytecodeImpl(proto::ProtoContext* pContext,
             }
             // --- Array element helpers (implemented via property semantics) ---
             L_OP_get_array_el: {
-                if (_PF().stackTop < 2) return PROTO_NONE;
+                if (_PF().stackTop < 2) MALFORMED_BYTECODE();
                 const proto::ProtoObject* index = pAutomaticLocals[currentStackBase + --_PF().stackTop];
                 const proto::ProtoObject* obj = pAutomaticLocals[currentStackBase + --_PF().stackTop];
                 // No zeroing for obj as result will overwrite it.
@@ -13098,7 +13982,7 @@ static const proto::ProtoObject* runBytecodeImpl(proto::ProtoContext* pContext,
                 // method-style chained access where the next op needs
                 // `obj` as the `this` binding (e.g. `obj[k]()` first
                 // does get_array_el2 then call_method).
-                if (_PF().stackTop < 2) return PROTO_NONE;
+                if (_PF().stackTop < 2) MALFORMED_BYTECODE();
                 const proto::ProtoObject* index = pAutomaticLocals[currentStackBase + _PF().stackTop - 1];
                 const proto::ProtoObject* obj = pAutomaticLocals[currentStackBase + _PF().stackTop - 2];
                 // Throw TypeError for null/undefined receiver, before the key
@@ -13189,7 +14073,7 @@ static const proto::ProtoObject* runBytecodeImpl(proto::ProtoContext* pContext,
                 // n_pop=2, n_push=3 — net +1 stack delta.  Used in
                 // chained-then-calls where the next op needs `obj`,
                 // `prop`, and `value` (e.g. some super/method paths).
-                if (_PF().stackTop < 2) return PROTO_NONE;
+                if (_PF().stackTop < 2) MALFORMED_BYTECODE();
                 const proto::ProtoObject* index = pAutomaticLocals[currentStackBase + _PF().stackTop - 1];
                 const proto::ProtoObject* obj = pAutomaticLocals[currentStackBase + _PF().stackTop - 2];
                 // Throw TypeError for null/undefined receiver, before the key
@@ -13257,7 +14141,7 @@ static const proto::ProtoObject* runBytecodeImpl(proto::ProtoContext* pContext,
                 // and silently corrupts subsequent property writes
                 // (they end up on a stack slot rather than reaching
                 // setAttribute).
-                if (_PF().stackTop < 3) return PROTO_NONE;
+                if (_PF().stackTop < 3) MALFORMED_BYTECODE();
                 const proto::ProtoObject* value = pAutomaticLocals[currentStackBase + --_PF().stackTop];
                 const proto::ProtoObject* index = pAutomaticLocals[currentStackBase + --_PF().stackTop];
                 const proto::ProtoObject* obj = pAutomaticLocals[currentStackBase + --_PF().stackTop];
@@ -13584,25 +14468,25 @@ static const proto::ProtoObject* runBytecodeImpl(proto::ProtoContext* pContext,
                 DISPATCH();
             // --- Control flow ---
             L_OP_goto: {
-                if (pc + 4 > len) return PROTO_NONE;
+                if (pc + 4 > len) MALFORMED_BYTECODE();
                 int32_t diff = static_cast<int32_t>(get_u32(buf + pc));
                 pc += diff;
                 DISPATCH();
             }
             L_OP_goto16: {
-                if (pc + 2 > len) return PROTO_NONE;
+                if (pc + 2 > len) MALFORMED_BYTECODE();
                 int16_t diff = static_cast<int16_t>(get_u16(buf + pc));
                 pc += diff;
                 DISPATCH();
             }
             L_OP_goto8: {
-                if (pc + 1 > len) return PROTO_NONE;
+                if (pc + 1 > len) MALFORMED_BYTECODE();
                 int8_t diff = static_cast<int8_t>(buf[pc]);
                 pc += diff;
                 DISPATCH();
             }
             L_OP_if_true: {
-                if (pc + 4 > len || _PF().stackTop == 0) return PROTO_NONE;
+                if (pc + 4 > len || _PF().stackTop == 0) MALFORMED_BYTECODE();
                 const proto::ProtoObject* cond = pAutomaticLocals[currentStackBase + --_PF().stackTop];
                 int32_t diff = static_cast<int32_t>(get_u32(buf + pc));
                 pc += 4;
@@ -13612,7 +14496,7 @@ static const proto::ProtoObject* runBytecodeImpl(proto::ProtoContext* pContext,
                 DISPATCH();
             }
             L_OP_if_false: {
-                if (pc + 4 > len || _PF().stackTop == 0) return PROTO_NONE;
+                if (pc + 4 > len || _PF().stackTop == 0) MALFORMED_BYTECODE();
                 const proto::ProtoObject* cond = pAutomaticLocals[currentStackBase + --_PF().stackTop];
                 int32_t diff = static_cast<int32_t>(get_u32(buf + pc));
                 pc += 4;
@@ -13622,7 +14506,7 @@ static const proto::ProtoObject* runBytecodeImpl(proto::ProtoContext* pContext,
                 DISPATCH();
             }
             L_OP_if_true8: {
-                if (pc + 1 > len || _PF().stackTop == 0) return PROTO_NONE;
+                if (pc + 1 > len || _PF().stackTop == 0) MALFORMED_BYTECODE();
                 const proto::ProtoObject* cond = pAutomaticLocals[currentStackBase + --_PF().stackTop];
                 int8_t off = static_cast<int8_t>(buf[pc]);
                 if (toBool(pContext, cond)) {
@@ -13633,7 +14517,7 @@ static const proto::ProtoObject* runBytecodeImpl(proto::ProtoContext* pContext,
                 DISPATCH();
             }
             L_OP_if_false8: {
-                if (pc + 1 > len || _PF().stackTop == 0) return PROTO_NONE;
+                if (pc + 1 > len || _PF().stackTop == 0) MALFORMED_BYTECODE();
                 const proto::ProtoObject* cond = pAutomaticLocals[currentStackBase + --_PF().stackTop];
                 int8_t off = static_cast<int8_t>(buf[pc]);
                 if (!toBool(pContext, cond)) {
@@ -13644,7 +14528,7 @@ static const proto::ProtoObject* runBytecodeImpl(proto::ProtoContext* pContext,
                 DISPATCH();
             }
             L_OP_add: {
-                if (_PF().stackTop < 2) return PROTO_NONE;
+                if (_PF().stackTop < 2) MALFORMED_BYTECODE();
                 const proto::ProtoObject* b = pAutomaticLocals[currentStackBase + --_PF().stackTop];
                 const proto::ProtoObject* a = pAutomaticLocals[currentStackBase + --_PF().stackTop];
                 // Integer fast path; everything else is addValues (the popped
@@ -13662,7 +14546,7 @@ static const proto::ProtoObject* runBytecodeImpl(proto::ProtoContext* pContext,
                 DISPATCH();
             }
             L_OP_mul: {
-                if (_PF().stackTop < 2) return PROTO_NONE;
+                if (_PF().stackTop < 2) MALFORMED_BYTECODE();
                 const proto::ProtoObject* b = pAutomaticLocals[currentStackBase + --_PF().stackTop];
                 const proto::ProtoObject* a = pAutomaticLocals[currentStackBase + --_PF().stackTop];
 
@@ -13714,7 +14598,7 @@ static const proto::ProtoObject* runBytecodeImpl(proto::ProtoContext* pContext,
                 DISPATCH();
             }
             L_OP_div: {
-                if (_PF().stackTop < 2) return PROTO_NONE;
+                if (_PF().stackTop < 2) MALFORMED_BYTECODE();
                 const proto::ProtoObject* b_raw = pAutomaticLocals[currentStackBase + --_PF().stackTop];
                 // BigInt division: integer divide (no Infinity / NaN; a zero
                 // divisor is a RangeError), dispatched before the Number path.
@@ -13768,7 +14652,7 @@ static const proto::ProtoObject* runBytecodeImpl(proto::ProtoContext* pContext,
                 DISPATCH();
             }
             L_OP_sub: {
-                if (_PF().stackTop < 2) return PROTO_NONE;
+                if (_PF().stackTop < 2) MALFORMED_BYTECODE();
                 const proto::ProtoObject* b = pAutomaticLocals[currentStackBase + --_PF().stackTop];
                 const proto::ProtoObject* a = pAutomaticLocals[currentStackBase + --_PF().stackTop];
 
@@ -13814,7 +14698,7 @@ static const proto::ProtoObject* runBytecodeImpl(proto::ProtoContext* pContext,
                 DISPATCH();
             }
             L_OP_mod: {
-                if (_PF().stackTop < 2) return PROTO_NONE;
+                if (_PF().stackTop < 2) MALFORMED_BYTECODE();
                 const proto::ProtoObject* b = pAutomaticLocals[currentStackBase + --_PF().stackTop];
                 const proto::ProtoObject* a = pAutomaticLocals[currentStackBase + --_PF().stackTop];
 
@@ -13863,22 +14747,39 @@ static const proto::ProtoObject* runBytecodeImpl(proto::ProtoContext* pContext,
             }
             L_OP_eq: ;
             L_OP_neq: {
-                if (_PF().stackTop < 2) return PROTO_NONE;
+                if (_PF().stackTop < 2) MALFORMED_BYTECODE();
                 const proto::ProtoObject* b = pAutomaticLocals[currentStackBase + --_PF().stackTop];
                 const proto::ProtoObject* a = pAutomaticLocals[currentStackBase + --_PF().stackTop];
-                const proto::ProtoObject* pa = toPrimIfObject(a);
-                REFRESH_INTERP_STATE();
-                (void)0;
-                const proto::ProtoObject* pb = toPrimIfObject(b);
-                REFRESH_INTERP_STATE();
-                (void)0;
-                bool eq = jsAbstractEquals(pContext, pa, pb);
+                // §7.2.14 IsLooselyEqual: two objects are equal only when they
+                // are the same object, and an object never equals null or
+                // undefined; ToPrimitive runs only for an object compared
+                // with a primitive that is neither.
+                const bool aObj = jsIsObject(pContext, a);
+                const bool bObj = jsIsObject(pContext, b);
+                bool eq;
+                if (aObj && bObj) {
+                    eq = (a == b);
+                } else if (aObj || bObj) {
+                    const proto::ProtoObject* other = aObj ? b : a;
+                    if (!other || other == PROTO_NONE || other == t_nullSentinel
+                        || other == getUndefinedSentinel() || other->isNone(pContext)) {
+                        eq = false;
+                    } else {
+                        const proto::ProtoObject* pa = aObj ? toPrimIfObject(a) : a;
+                        REFRESH_INTERP_STATE();
+                        const proto::ProtoObject* pb = bObj ? toPrimIfObject(b) : b;
+                        REFRESH_INTERP_STATE();
+                        eq = jsAbstractEquals(pContext, pa, pb);
+                    }
+                } else {
+                    eq = jsAbstractEquals(pContext, a, b);
+                }
                 REFRESH_INTERP_STATE();
                 pAutomaticLocals[currentStackBase + _PF().stackTop++] = ((opcode == OP_eq ? eq : !eq) ? PROTO_TRUE : PROTO_FALSE);
                 DISPATCH();
             }
             L_OP_strict_eq: {
-                if (_PF().stackTop < 2) return PROTO_NONE;
+                if (_PF().stackTop < 2) MALFORMED_BYTECODE();
                 const proto::ProtoObject* b = pAutomaticLocals[currentStackBase + --_PF().stackTop];
                 const proto::ProtoObject* a = pAutomaticLocals[currentStackBase + --_PF().stackTop];
                 // §7.2.16 IsStrictlyEqual on BigInt: different types
@@ -13928,7 +14829,7 @@ static const proto::ProtoObject* runBytecodeImpl(proto::ProtoContext* pContext,
                 DISPATCH();
             }
             L_OP_strict_neq: {
-                if (_PF().stackTop < 2) return PROTO_NONE;
+                if (_PF().stackTop < 2) MALFORMED_BYTECODE();
                 const proto::ProtoObject* b = pAutomaticLocals[currentStackBase + --_PF().stackTop];
                 const proto::ProtoObject* a = pAutomaticLocals[currentStackBase + --_PF().stackTop];
                 // §7.2.16 IsStrictlyEqual on BigInt: inverse of strict_eq.
@@ -13974,7 +14875,7 @@ static const proto::ProtoObject* runBytecodeImpl(proto::ProtoContext* pContext,
                 DISPATCH();
             }
             L_OP_lt: {
-                if (_PF().stackTop < 2) return PROTO_NONE;
+                if (_PF().stackTop < 2) MALFORMED_BYTECODE();
                 const proto::ProtoObject* b = pAutomaticLocals[currentStackBase + --_PF().stackTop];
                 const proto::ProtoObject* a = pAutomaticLocals[currentStackBase + --_PF().stackTop];
                 BIGINT_REL_DISPATCH(PROTO_TRUE, PROTO_FALSE, PROTO_FALSE);
@@ -14024,7 +14925,7 @@ static const proto::ProtoObject* runBytecodeImpl(proto::ProtoContext* pContext,
                 DISPATCH();
             }
             L_OP_lte: {
-                if (_PF().stackTop < 2) return PROTO_NONE;
+                if (_PF().stackTop < 2) MALFORMED_BYTECODE();
                 const proto::ProtoObject* b = pAutomaticLocals[currentStackBase + --_PF().stackTop];
                 const proto::ProtoObject* a = pAutomaticLocals[currentStackBase + --_PF().stackTop];
                 BIGINT_REL_DISPATCH(PROTO_TRUE, PROTO_TRUE, PROTO_FALSE);
@@ -14064,7 +14965,7 @@ static const proto::ProtoObject* runBytecodeImpl(proto::ProtoContext* pContext,
                 DISPATCH();
             }
             L_OP_gt: {
-                if (_PF().stackTop < 2) return PROTO_NONE;
+                if (_PF().stackTop < 2) MALFORMED_BYTECODE();
                 const proto::ProtoObject* b = pAutomaticLocals[currentStackBase + --_PF().stackTop];
                 const proto::ProtoObject* a = pAutomaticLocals[currentStackBase + --_PF().stackTop];
                 BIGINT_REL_DISPATCH(PROTO_FALSE, PROTO_FALSE, PROTO_TRUE);
@@ -14103,7 +15004,7 @@ static const proto::ProtoObject* runBytecodeImpl(proto::ProtoContext* pContext,
                 DISPATCH();
             }
             L_OP_gte: {
-                if (_PF().stackTop < 2) return PROTO_NONE;
+                if (_PF().stackTop < 2) MALFORMED_BYTECODE();
                 const proto::ProtoObject* b = pAutomaticLocals[currentStackBase + --_PF().stackTop];
                 const proto::ProtoObject* a = pAutomaticLocals[currentStackBase + --_PF().stackTop];
                 BIGINT_REL_DISPATCH(PROTO_FALSE, PROTO_TRUE, PROTO_TRUE);
@@ -14143,7 +15044,7 @@ static const proto::ProtoObject* runBytecodeImpl(proto::ProtoContext* pContext,
             }
             L_OP_and: {
                 // Bitwise AND: ToInt32(a) & ToInt32(b)
-                if (_PF().stackTop < 2) return PROTO_NONE;
+                if (_PF().stackTop < 2) MALFORMED_BYTECODE();
                 // Peek raw operands BEFORE toPrimIfObject so the BigInt
                 // chain marker is still visible on the wrappers (the
                 // ToPrimitive dance routes BigInt wrappers through
@@ -14162,7 +15063,7 @@ static const proto::ProtoObject* runBytecodeImpl(proto::ProtoContext* pContext,
                 DISPATCH();
             }
             L_OP_or: {
-                if (_PF().stackTop < 2) return PROTO_NONE;
+                if (_PF().stackTop < 2) MALFORMED_BYTECODE();
                 const proto::ProtoObject* b = pAutomaticLocals[currentStackBase + --_PF().stackTop];
                 const proto::ProtoObject* a = pAutomaticLocals[currentStackBase + --_PF().stackTop];
                 a = unwrapBigIntWrapper(pContext, a);
@@ -14177,7 +15078,7 @@ static const proto::ProtoObject* runBytecodeImpl(proto::ProtoContext* pContext,
                 DISPATCH();
             }
             L_OP_xor: {
-                if (_PF().stackTop < 2) return PROTO_NONE;
+                if (_PF().stackTop < 2) MALFORMED_BYTECODE();
                 const proto::ProtoObject* b = pAutomaticLocals[currentStackBase + --_PF().stackTop];
                 const proto::ProtoObject* a = pAutomaticLocals[currentStackBase + --_PF().stackTop];
                 a = unwrapBigIntWrapper(pContext, a);
@@ -14193,7 +15094,7 @@ static const proto::ProtoObject* runBytecodeImpl(proto::ProtoContext* pContext,
             }
             L_OP_shl: {
                 // Left shift: ToInt32(a) << (ToUint32(b) & 0x1F)
-                if (_PF().stackTop < 2) return PROTO_NONE;
+                if (_PF().stackTop < 2) MALFORMED_BYTECODE();
                 // Peek raw operands so the BigInt chain marker survives
                 // (see L_OP_and for the rationale on ordering).
                 const proto::ProtoObject* b = pAutomaticLocals[currentStackBase + --_PF().stackTop];
@@ -14236,7 +15137,7 @@ static const proto::ProtoObject* runBytecodeImpl(proto::ProtoContext* pContext,
                 DISPATCH();
             }
             L_OP_sar: {
-                if (_PF().stackTop < 2) return PROTO_NONE;
+                if (_PF().stackTop < 2) MALFORMED_BYTECODE();
                 const proto::ProtoObject* b = pAutomaticLocals[currentStackBase + --_PF().stackTop];
                 const proto::ProtoObject* a = pAutomaticLocals[currentStackBase + --_PF().stackTop];
                 a = unwrapBigIntWrapper(pContext, a);
@@ -14276,7 +15177,7 @@ static const proto::ProtoObject* runBytecodeImpl(proto::ProtoContext* pContext,
                 DISPATCH();
             }
             L_OP_shr: {
-                if (_PF().stackTop < 2) return PROTO_NONE;
+                if (_PF().stackTop < 2) MALFORMED_BYTECODE();
                 const proto::ProtoObject* b = pAutomaticLocals[currentStackBase + --_PF().stackTop];
                 const proto::ProtoObject* a = pAutomaticLocals[currentStackBase + --_PF().stackTop];
                 a = unwrapBigIntWrapper(pContext, a);
@@ -14310,7 +15211,7 @@ static const proto::ProtoObject* runBytecodeImpl(proto::ProtoContext* pContext,
                 DISPATCH();
             }
             L_OP_not: {
-                if (_PF().stackTop == 0) return PROTO_NONE;
+                if (_PF().stackTop == 0) MALFORMED_BYTECODE();
                 const proto::ProtoObject* a = pAutomaticLocals[currentStackBase + --_PF().stackTop];
                 // §6.1.6.2.6 BigInt::bitwiseNOT — protoCore's bitwiseNot
                 // implements the bignum two's complement form on
@@ -14338,7 +15239,7 @@ static const proto::ProtoObject* runBytecodeImpl(proto::ProtoContext* pContext,
                 // Unary minus: -ToNumber(a).  Same ToNumber rules as
                 // L_OP_plus — pre-numerify null and the boolean
                 // singletons so `-null` becomes -0 (not -NaN).
-                if (_PF().stackTop == 0) return PROTO_NONE;
+                if (_PF().stackTop == 0) MALFORMED_BYTECODE();
                 const proto::ProtoObject* a = pAutomaticLocals[currentStackBase + --_PF().stackTop];
                 if (a == PROTO_TRUE) {
                     pAutomaticLocals[currentStackBase + _PF().stackTop++] = proto::makeSmallInt(-1);
@@ -14382,14 +15283,14 @@ static const proto::ProtoObject* runBytecodeImpl(proto::ProtoContext* pContext,
             }
             L_OP_lnot: {
                 // Logical NOT: !ToBoolean(a)
-                if (_PF().stackTop == 0) return PROTO_NONE;
+                if (_PF().stackTop == 0) MALFORMED_BYTECODE();
                 const proto::ProtoObject* a = pAutomaticLocals[currentStackBase + --_PF().stackTop];
                 pAutomaticLocals[currentStackBase + _PF().stackTop++] = (toBool(pContext, a) ? PROTO_FALSE : PROTO_TRUE);
                 DISPATCH();
             }
             L_OP_inc: {
                 // Prefix increment: ToNumber(a) + 1; BigInt → x + 1n.
-                if (_PF().stackTop == 0) return PROTO_NONE;
+                if (_PF().stackTop == 0) MALFORMED_BYTECODE();
                 const proto::ProtoObject* a = pAutomaticLocals[currentStackBase + --_PF().stackTop];
                 if (proto::isSmallInt(a)) {
                     long long val = proto::asSmallInt(a) + 1;
@@ -14421,7 +15322,7 @@ static const proto::ProtoObject* runBytecodeImpl(proto::ProtoContext* pContext,
             }
             L_OP_dec: {
                 // Prefix decrement: ToNumber(a) - 1; BigInt → x - 1n.
-                if (_PF().stackTop == 0) return PROTO_NONE;
+                if (_PF().stackTop == 0) MALFORMED_BYTECODE();
                 const proto::ProtoObject* a = pAutomaticLocals[currentStackBase + --_PF().stackTop];
                 if (proto::isSmallInt(a)) {
                     long long val = proto::asSmallInt(a) - 1;
@@ -14452,7 +15353,7 @@ static const proto::ProtoObject* runBytecodeImpl(proto::ProtoContext* pContext,
             }
             L_OP_post_inc: {
                 // Post-increment: pushes original value then incremented value.
-                if (_PF().stackTop == 0) return PROTO_NONE;
+                if (_PF().stackTop == 0) MALFORMED_BYTECODE();
                 const proto::ProtoObject* a = pAutomaticLocals[currentStackBase + --_PF().stackTop];
                 if (proto::isSmallInt(a)) {
                     long long val = proto::asSmallInt(a);
@@ -14488,7 +15389,7 @@ static const proto::ProtoObject* runBytecodeImpl(proto::ProtoContext* pContext,
             }
             L_OP_post_dec: {
                 // Post-decrement: pushes original value then decremented value.
-                if (_PF().stackTop == 0) return PROTO_NONE;
+                if (_PF().stackTop == 0) MALFORMED_BYTECODE();
                 const proto::ProtoObject* a = pAutomaticLocals[currentStackBase + --_PF().stackTop];
                 if (proto::isSmallInt(a)) {
                     long long val = proto::asSmallInt(a);
@@ -14531,7 +15432,7 @@ static const proto::ProtoObject* runBytecodeImpl(proto::ProtoContext* pContext,
                 // get_loc / put_loc layout would silently overwrite
                 // stack temporaries and leave the var at its original
                 // value, causing infinite for(;;i--) loops to lock up.
-                if (pc + 1 > len) return PROTO_NONE;
+                if (pc + 1 > len) MALFORMED_BYTECODE();
                 uint8_t locIndex = buf[pc++];
                 if (locIndex < varCount) {
                     const proto::ProtoObject* cur = getSlot(pContext, argCount + locIndex);
@@ -14566,7 +15467,7 @@ static const proto::ProtoObject* runBytecodeImpl(proto::ProtoContext* pContext,
                 // QuickJS's peephole turns `get_loc;post_inc;put_loc;drop`
                 // into `inc_loc`, so this fast path must end with the
                 // var slot updated, NOT a stack slot.
-                if (pc + 1 > len) return PROTO_NONE;
+                if (pc + 1 > len) MALFORMED_BYTECODE();
                 uint8_t locIndex = buf[pc++];
                 if (locIndex < varCount) {
                     const proto::ProtoObject* cur = getSlot(pContext, argCount + locIndex);
@@ -14597,7 +15498,7 @@ static const proto::ProtoObject* runBytecodeImpl(proto::ProtoContext* pContext,
             }
                 L_OP_add_loc: {
                 // add_loc loc8: pops TOS and adds it to a local variable. Format: loc8 (1 byte).
-                if (pc + 1 > len || _PF().stackTop == 0) return PROTO_NONE;
+                if (pc + 1 > len || _PF().stackTop == 0) MALFORMED_BYTECODE();
                 uint8_t locIndex = buf[pc++];
                 const proto::ProtoObject* val = pAutomaticLocals[currentStackBase + --_PF().stackTop];
                 if (locIndex < varCount) {
@@ -14724,7 +15625,7 @@ static const proto::ProtoObject* runBytecodeImpl(proto::ProtoContext* pContext,
             }
             L_OP_pow: {
                 // Exponentiation: a ** b
-                if (_PF().stackTop < 2) return PROTO_NONE;
+                if (_PF().stackTop < 2) MALFORMED_BYTECODE();
                 // §6.1.6.2.3 BigInt::exponentiate — repeated multiplication
                 // when both operands are BigInt.  Negative exponents
                 // RangeError (no fractional BigInt result).  Must run
@@ -14791,7 +15692,7 @@ static const proto::ProtoObject* runBytecodeImpl(proto::ProtoContext* pContext,
                 // Both undefined representations (PROTO_NONE and heap
                 // sentinel) plus the null sentinel must qualify — see
                 // L_OP_is_undefined for the two-representation rationale.
-                if (_PF().stackTop == 0) return PROTO_NONE;
+                if (_PF().stackTop == 0) MALFORMED_BYTECODE();
                 const proto::ProtoObject* val = pAutomaticLocals[currentStackBase + --_PF().stackTop];
                 bool nullish = (!val || val == PROTO_NONE || val == t_nullSentinel ||
                                 val == getUndefinedSentinel() ||
@@ -14804,7 +15705,7 @@ static const proto::ProtoObject* runBytecodeImpl(proto::ProtoContext* pContext,
                 DISPATCH();
             L_OP_get_length: {
                 // Push the .length property of TOS.
-                if (_PF().stackTop == 0) return PROTO_NONE;
+                if (_PF().stackTop == 0) MALFORMED_BYTECODE();
                 const proto::ProtoObject* obj = pAutomaticLocals[currentStackBase + --_PF().stackTop];
 
                 // Fast path: string.length — bypass the full prototype-chain
@@ -14929,7 +15830,7 @@ static const proto::ProtoObject* runBytecodeImpl(proto::ProtoContext* pContext,
             L_OP_to_object: {
                 // ToObject: null and undefined are not object-coercible — throw TypeError.
                 // For any other value, push unchanged (primitives wrap lazily).
-                if (stackEmpty(pContext)) return PROTO_NONE;
+                if (stackEmpty(pContext)) MALFORMED_BYTECODE();
                 const proto::ProtoObject* val = stackTop(pContext); stackPop(pContext);
                 if (!val || val == PROTO_NONE || val == t_nullSentinel) {
                     const bool isNull = (val == t_nullSentinel);
@@ -14945,7 +15846,7 @@ static const proto::ProtoObject* runBytecodeImpl(proto::ProtoContext* pContext,
             L_OP_throw_error: {
                 // throw_error atom u8: throw a TypeError/ReferenceError etc. with message from atom.
                 // Format: atom(4), u8(1). n_pop=0, n_push=0 (throws).
-                if (pc + 5 > len) return PROTO_NONE;
+                if (pc + 5 > len) MALFORMED_BYTECODE();
                 uint32_t atomIndex = get_u32(buf + pc);
                 uint8_t errorType = buf[pc + 4];
                 pc += 5;
@@ -14957,7 +15858,7 @@ static const proto::ProtoObject* runBytecodeImpl(proto::ProtoContext* pContext,
                 // The sentinel's stack position IS the "catch frame" marker, mirroring how QuickJS
                 // stores a JS_TAG_CATCH_OFFSET integer on the value stack.
                 // placeholder_stack_pos is the index the sentinel will occupy (stackSize before push).
-                if (pc + 4 > len) return PROTO_NONE;
+                if (pc + 4 > len) MALFORMED_BYTECODE();
                 int32_t diff = static_cast<int32_t>(get_u32(buf + pc));
                 int handler_pc = pc + diff;
                 pc += 4;
@@ -14980,6 +15881,31 @@ static const proto::ProtoObject* runBytecodeImpl(proto::ProtoContext* pContext,
                 //   while (sp[-1] != JS_TAG_CATCH_OFFSET) { free(*--sp); }
                 //   sp[-1] = ret_val;
                 // We know the sentinel's position from placeholder_stack_pos.
+                //
+                // A for-of loop's record [wrapper next catch] holds a catch
+                // offset of its own (QuickJS pushes it; `return` inside the
+                // loop body emits nip_catch; rot3r; undefined;
+                // iterator_close).  When such a record is above the innermost
+                // try frame, nip_catch applies to it: the value replaces the
+                // record's catch slot and the try frame stays.
+                {
+                    const unsigned floor = catch_stack.empty()
+                        ? 0u : static_cast<unsigned>(catch_stack.back().placeholder_stack_pos) + 1u;
+                    const unsigned top = _PF().stackTop;
+                    long long recAt = -1;
+                    for (unsigned i = top >= 3 ? top - 3 : 0; top >= 4 && i-- > floor; ) {
+                        if (iteratorRecordSlot(pContext, pAutomaticLocals[currentStackBase + i]) >= 0) {
+                            recAt = i;
+                            break;
+                        }
+                    }
+                    if (recAt >= 0) {
+                        const proto::ProtoObject* ret_val = pAutomaticLocals[currentStackBase + top - 1];
+                        _PF().stackTop = static_cast<unsigned>(recAt) + 3u;
+                        pAutomaticLocals[currentStackBase + recAt + 2] = ret_val;
+                        DISPATCH();
+                    }
+                }
                 if (!catch_stack.empty()) {
                     proto::proto_ulong placeholder_pos = catch_stack.back().placeholder_stack_pos;
                     catch_stack.pop_back();
@@ -15000,7 +15926,7 @@ static const proto::ProtoObject* runBytecodeImpl(proto::ProtoContext* pContext,
             L_OP_gosub: {
                 // gosub label(4): call a finally block.
                 // Push the return address (instruction after gosub) as an integer, then jump.
-                if (pc + 4 > len) return PROTO_NONE;
+                if (pc + 4 > len) MALFORMED_BYTECODE();
                 int32_t diff = static_cast<int32_t>(get_u32(buf + pc));
                 int return_pc = pc + 4;
                 stackPush(pContext, pContext->fromInteger(static_cast<long long>(return_pc)));
@@ -15010,11 +15936,11 @@ static const proto::ProtoObject* runBytecodeImpl(proto::ProtoContext* pContext,
             L_OP_ret: {
                 // ret: return from a finally block.
                 // Pop the return address pushed by gosub and jump there.
-                if (stackEmpty(pContext)) return PROTO_NONE;
+                if (stackEmpty(pContext)) MALFORMED_BYTECODE();
                 const proto::ProtoObject* addr_obj = stackTop(pContext);
                 stackPop(pContext);
                 if (!addr_obj || addr_obj == PROTO_NONE || !addr_obj->isInteger(pContext))
-                    return PROTO_NONE;
+                    MALFORMED_BYTECODE();
                 pc = static_cast<int>(addr_obj->asLong(pContext));
                 DISPATCH();
             }
@@ -15026,7 +15952,7 @@ static const proto::ProtoObject* runBytecodeImpl(proto::ProtoContext* pContext,
                 // primitives, so `+null` → NaN, `+true` → 1, `+false`
                 // → 0 (the boolean cases happened to work via a
                 // different fallback).
-                if (stackEmpty(pContext)) return PROTO_NONE;
+                if (stackEmpty(pContext)) MALFORMED_BYTECODE();
                 const proto::ProtoObject* a = stackTop(pContext); stackPop(pContext);
                 if (a == PROTO_TRUE) { stackPush(pContext, proto::makeSmallInt(1)); DISPATCH(); }
                 if (a == PROTO_FALSE || a == t_nullSentinel) { stackPush(pContext, proto::makeSmallInt(0)); DISPATCH(); }
@@ -15045,7 +15971,7 @@ static const proto::ProtoObject* runBytecodeImpl(proto::ProtoContext* pContext,
                 DISPATCH();
             }
             L_OP_typeof: {
-                if (stackEmpty(pContext)) return PROTO_NONE;
+                if (stackEmpty(pContext)) MALFORMED_BYTECODE();
                 const proto::ProtoObject* v = stackTop(pContext);
                 stackPop(pContext);
                 const char* typeStr = "undefined";
@@ -15140,7 +16066,7 @@ static const proto::ProtoObject* runBytecodeImpl(proto::ProtoContext* pContext,
                 DISPATCH();
             }
             L_OP_instanceof: {
-                if (stackSize(pContext) < 2) return PROTO_NONE;
+                if (stackSize(pContext) < 2) MALFORMED_BYTECODE();
                 const proto::ProtoObject* func = stackTop(pContext);
                 stackPop(pContext);
                 const proto::ProtoObject* obj = stackTop(pContext);
@@ -15235,7 +16161,7 @@ static const proto::ProtoObject* runBytecodeImpl(proto::ProtoContext* pContext,
                 DISPATCH();
             }
             L_OP_in: {
-                if (stackSize(pContext) < 2) return PROTO_NONE;
+                if (stackSize(pContext) < 2) MALFORMED_BYTECODE();
                 // QuickJS pushes: key first, then object. Stack top = object, second = key.
                 const proto::ProtoObject* obj    = stackTop(pContext);
                 stackPop(pContext);
@@ -15264,111 +16190,13 @@ static const proto::ProtoObject* runBytecodeImpl(proto::ProtoContext* pContext,
                     const proto::ProtoObject* keyObj = toString(pContext, keyVal);
                     key = keyObj ? keyObj->asString(pContext) : nullptr;
                 }
-                protojs::materializeLazyPrototypeForKey(pContext, obj, key);  // LazyPrototype.h
-                // Proxy receiver → dispatch to handler.has.
-                if (key && protojs::isProxy(pContext, obj)) {
-                    const proto::ProtoObject* r = protojs::proxyDispatchHas(pContext, obj, key);
-                    (void)0;
-                    stackPush(pContext, r);
-                    DISPATCH();
-                }
-                // Array index fast path: indices live in __elements__,
-                // not as data keys, so the regular hasAttribute walk
-                // misses them.  Pre-fix `0 in [10,20]` returned false.
-                // Handles both numeric and numeric-string keys.
-                long long arrIdxIn = -1;
-                if (keyVal && keyVal->isInteger(pContext)) {
-                    arrIdxIn = keyVal->asLong(pContext);
-                } else if (key) {
-                    std::string ks;
-                    key->toUTF8String(pContext, ks);
-                    if (!ks.empty()) {
-                        bool allDigits = true;
-                        for (char c : ks) if (c < '0' || c > '9') { allDigits = false; break; }
-                        if (allDigits) {
-                            try { arrIdxIn = std::stoll(ks); } catch (...) { arrIdxIn = -1; }
-                        }
-                    }
-                }
-                // A typed array has exactly its in-bounds integer indices
-                // (§10.4.5.2 [[HasProperty]]); its elements are bytes of
-                // its buffer, so neither the list nor the attributes
-                // below know them.
-                if (arrIdxIn >= 0) {
-                    const uint8_t taTypeIn = getTypedArrayElementType(pContext, obj);
-                    if (taTypeIn != 0xFF) {
-                        stackPush(pContext, arrIdxIn < static_cast<long long>(getTypedArrayLength(pContext, obj))
-                            ? PROTO_TRUE : PROTO_FALSE);
-                        DISPATCH();
-                    }
-                }
-                if (arrIdxIn >= 0) {
-                    const proto::ProtoList* els = protojs::getArrayElements(pContext, obj);
-                    if (els && arrIdxIn < static_cast<long long>(els->getSize(pContext))) {
-                        const proto::ProtoObject* v = els->getAt(pContext, static_cast<int>(arrIdxIn));
-                        if (v && v != PROTO_NONE) {
-                            stackPush(pContext, PROTO_TRUE);
-                            DISPATCH();
-                        }
-                    }
-                }
-                // IMPORTANT: hasAttribute returns PROTO_TRUE or PROTO_FALSE (both are non-null
-                // pointers), so must compare against PROTO_TRUE — never cast to bool directly.
-                // Check data key first.
-                const proto::ProtoObject* hasResult = (key) ? obj->hasAttribute(pContext, key) : PROTO_FALSE;
-                // Also check accessor sidecars (__get_<N>__, __set_<N>__) — when a property is
-                // defined via Object.defineProperty as an accessor, there is no data key (it is
-                // removed during definition).  The property still exists and 'in' must return true.
-                if (hasResult != PROTO_TRUE && key) {
-                    std::string keyStr;
-                    key->toUTF8String(pContext, keyStr);
-                    for (const char* prefix : {"__get_", "__set_"}) {
-                        std::string sk = std::string(prefix) + keyStr + "__";
-                        const proto::ProtoObject* sko = pContext->fromUTF8String(sk.c_str());
-                        const proto::ProtoString* sks = sko ? sko->asString(pContext) : nullptr;
-                        if (sks && obj->hasAttribute(pContext, sks) == PROTO_TRUE) {
-                            hasResult = PROTO_TRUE;
-                            break;
-                        }
-                    }
-                }
-                // A key of the property dictionary of obj or of a prototype
-                // (runtime/PropertyDictionary.h).
-                if (hasResult != PROTO_TRUE && key
-                    && protojs::dict::findInChain(pContext, obj, key)) {
-                    hasResult = PROTO_TRUE;
-                }
-                // §10.1.7.1 OrdinaryHasProperty step 5: when not found
-                // on own attrs, recurse into the [[Prototype]] chain
-                // via [[HasProperty]].  A Proxy ancestor must dispatch
-                // its `has` trap; the protoCore parent walk that
-                // hasAttribute uses skips trap dispatch entirely.
-                // Pre-fix `'attr' in Object.create(new Proxy({}, {has}))`
-                // returned false without ever firing the trap (test262
-                // Proxy/has/call-{in-prototype,object-create}.js).
-                if (hasResult != PROTO_TRUE && key) {
-                    auto advance = [&](const proto::ProtoObject* o) -> const proto::ProtoObject* {
-                        const proto::ProtoObject* over = protojs::getJSProtoOverride(pContext, o);
-                        if (over) return over;
-                        return o->getPrototype(pContext);
-                    };
-                    const proto::ProtoObject* cur = advance(obj);
-                    while (cur && cur != PROTO_NONE && cur != t_nullSentinel) {
-                        if (protojs::isProxy(pContext, cur)) {
-                            const proto::ProtoObject* r =
-                                protojs::proxyDispatchHas(pContext, cur, key);
-                            REFRESH_INTERP_STATE();
-                            stackPush(pContext, r == PROTO_TRUE ? PROTO_TRUE : PROTO_FALSE);
-                            DISPATCH();
-                        }
-                        cur = advance(cur);
-                    }
-                }
-                stackPush(pContext, hasResult == PROTO_TRUE ? PROTO_TRUE : PROTO_FALSE);
+                const bool inResult = hasPropertyJS(pContext, obj, keyVal, key);
+                REFRESH_INTERP_STATE();
+                stackPush(pContext, inResult ? PROTO_TRUE : PROTO_FALSE);
                 DISPATCH();
             }
             L_OP_delete: {
-                if (stackSize(pContext) < 2) return PROTO_NONE;
+                if (stackSize(pContext) < 2) MALFORMED_BYTECODE();
                 const proto::ProtoObject* keyVal = stackTop(pContext);
                 stackPop(pContext);
                 const proto::ProtoObject* obj = stackTop(pContext);
@@ -15528,10 +16356,10 @@ static const proto::ProtoObject* runBytecodeImpl(proto::ProtoContext* pContext,
             L_OP_call_method: ;
             L_OP_tail_call_method: {
                 // Stack (top = index 0): arg0, ..., arg(n-1), func, this. QuickJS: call_argv = sp - argc, call_argv[-1] = func, call_argv[-2] = this.
-                if (pc + 2 > len || stackEmpty(pContext)) return PROTO_NONE;
+                if (pc + 2 > len || stackEmpty(pContext)) MALFORMED_BYTECODE();
                 uint32_t argc = get_u16(buf + pc);
                 pc += 2;
-                if (stackSize(pContext) < argc + 2) return PROTO_NONE;
+                if (stackSize(pContext) < argc + 2) MALFORMED_BYTECODE();
                 const proto::ProtoObject* func = stackAt(pContext, argc);
                 const proto::ProtoObject* thisVal = stackAt(pContext, argc + 1);
                 // §10.5.12 [[Call]] on a Proxy receiver — dispatch the
@@ -15610,6 +16438,14 @@ static const proto::ProtoObject* runBytecodeImpl(proto::ProtoContext* pContext,
                 // lookup was a measurable fraction of dispatch cost, even
                 // though it always returned -1.  Skip it when we can.
                 const bool funcIsNative = func && func->isMethod(pContext);
+                // §10.2.1 [[Call]] step 2: a class constructor called as a
+                // method (`({C}).C()`) is a TypeError, as in OP_call.
+                if (!funcIsNative && func && func != PROTO_NONE && !proto::isSmallInt(func)) {
+                    const proto::ProtoString* icck = JSSymbols::isClassCtor(pContext);
+                    if (icck && func->getOwnAttributeDirect(pContext, icck) == PROTO_TRUE)
+                        throwJS(pContext, makeError(pContext, "TypeError",
+                            "Class constructor cannot be invoked without 'new'", pGlobalRoot));
+                }
                 int bcId = funcIsNative ? -1 : getBytecodeId(pContext, func);
                 // Method calls consult the closure's own module like every other
                 // dispatch site.  Pre-fix this site looked only at the running
@@ -15693,14 +16529,9 @@ static const proto::ProtoObject* runBytecodeImpl(proto::ProtoContext* pContext,
                     t_activeFunc = func;
                     t_activeNewTgt = nullptr;
                     t_activeArgs = argsList;
-                    const proto::ProtoObject* childEx = PROTO_NONE;
                     const proto::ProtoObject* result =
                         runBytecode(&childCtx, &nf, effectiveThis, argsList, pGlobalRoot);
-                    anchorCallOutcome(childCtx, result, childEx);
-                    if (childEx && childEx != PROTO_NONE) {
-                        throwJS(pContext, childEx);
-                        DISPATCH();
-                    }
+                    anchorCallOutcome(childCtx, result, nullptr);
                     // Tail-call: caller's return value IS the callee's result.
                     // Don't push to the stack — propagate up via early return.
                     if (opcode == OP_tail_call_method)
@@ -15786,7 +16617,11 @@ static const proto::ProtoObject* runBytecodeImpl(proto::ProtoContext* pContext,
                             mergedMethArgs = mergedMethArgs->appendLast(pContext,
                                 callSiteMethArgs->getAt(pContext, ci));
                         const proto::ProtoObject* result = callJSFunction(pContext, bfMethTarget, boundThisMeth, mergedMethArgs);
-                        if (opcode != OP_tail_call_method) stackPush(pContext, result ? result : PROTO_NONE);
+                        REFRESH_INTERP_STATE();
+                        // Tail call: the callee's result is this function's.
+                        if (opcode == OP_tail_call_method)
+                            return result ? result : PROTO_NONE;
+                        stackPush(pContext, result ? result : PROTO_NONE);
                     } else {
                         for (uint32_t i = 0; i < argc + 2; i++) stackPop(pContext);
                         // ECMA-262 §7.3.13 step 2: if IsCallable(func) is
@@ -15810,10 +16645,10 @@ static const proto::ProtoObject* runBytecodeImpl(proto::ProtoContext* pContext,
                 DISPATCH();
             }
             L_OP_call_constructor: {
-                if (pc + 2 > len || stackEmpty(pContext)) return PROTO_NONE;
+                if (pc + 2 > len || stackEmpty(pContext)) MALFORMED_BYTECODE();
                 uint32_t argc = get_u16(buf + pc);
                 pc += 2;
-                if (stackSize(pContext) < argc + 2) return PROTO_NONE;
+                if (stackSize(pContext) < argc + 2) MALFORMED_BYTECODE();
 
                 const proto::ProtoObject* func = stackAt(pContext, argc + 1);
                 const proto::ProtoObject* newTarget = stackAt(pContext, argc);
@@ -16124,13 +16959,8 @@ static const proto::ProtoObject* runBytecodeImpl(proto::ProtoContext* pContext,
                     }
                     populateClosureCellsFromInstance(&childCtx, func, nf);
 
-                    const proto::ProtoObject* childEx = PROTO_NONE;
                     result = runBytecode(&childCtx, &nf, newObj, argsList, pGlobalRoot);
-                    anchorCallOutcome(childCtx, result, childEx);
-                    if (childEx && childEx != PROTO_NONE) {
-                        throwJS(pContext, childEx);
-                        DISPATCH();
-                    }
+                    anchorCallOutcome(childCtx, result, nullptr);
                 } else if (func && func->isMethod(pContext)) {
                     // Raw protoCore methods (Math.abs, Math.sign, JSON.parse,
                     // String.fromCharCode, every built-in instance method,
@@ -16464,11 +17294,11 @@ static const proto::ProtoObject* runBytecodeImpl(proto::ProtoContext* pContext,
                 if (opcode >= OP_call0 && opcode <= OP_call3) {
                     argc = static_cast<uint32_t>(opcode - OP_call0);
                 } else {
-                    if (pc + 2 > len || stackEmpty(pContext)) return PROTO_NONE;
+                    if (pc + 2 > len || stackEmpty(pContext)) MALFORMED_BYTECODE();
                     argc = get_u16(buf + pc);
                     pc += 2;
                 }
-                if (stackEmpty(pContext) || stackSize(pContext) < argc + 1) return PROTO_NONE;
+                if (stackEmpty(pContext) || stackSize(pContext) < argc + 1) MALFORMED_BYTECODE();
                 const proto::ProtoObject* func = stackAt(pContext, argc);
 
                 // Proxy callable target — dispatch through handler.apply
@@ -16588,8 +17418,12 @@ static const proto::ProtoObject* runBytecodeImpl(proto::ProtoContext* pContext,
                     // built a new rope every dispatch.  Interned key →
                     // AttributeCache hit → zero cells per call after the
                     // first.
+                    // Own attribute only: a closure created inside a class
+                    // constructor has the constructor's frame on its parent
+                    // chain, and must stay callable.
                     const proto::ProtoString* icck = JSSymbols::isClassCtor(pContext);
-                    if (icck && func->getAttribute(pContext, icck, false) == PROTO_TRUE) {
+                    if (icck && !proto::isSmallInt(func)
+                        && func->getOwnAttributeDirect(pContext, icck) == PROTO_TRUE) {
                         throwJS(pContext, makeError(pContext, "TypeError",
                             "Class constructor cannot be invoked without 'new'",
                             pGlobalRoot));
@@ -16680,15 +17514,10 @@ static const proto::ProtoObject* runBytecodeImpl(proto::ProtoContext* pContext,
                     t_activeFunc = func;
                     t_activeNewTgt = nullptr;
                     t_activeArgs = argsList;
-                    const proto::ProtoObject* childEx = PROTO_NONE;
                     const proto::ProtoObject* result =
                         runBytecode(&childCtx, &nf, callThisVal, argsList, pGlobalRoot);
                     REFRESH_INTERP_STATE();
-                    anchorCallOutcome(childCtx, result, childEx);
-                    if (childEx && childEx != PROTO_NONE) {
-                        throwJS(pContext, childEx);
-                        DISPATCH();
-                    }
+                    anchorCallOutcome(childCtx, result, nullptr);
                     if (is_tail_call) return result ? result : PROTO_NONE;
                     stackPush(pContext, result ? result : PROTO_NONE);
                 } else if (func && func->isMethod(pContext)) {
@@ -17003,7 +17832,7 @@ static const proto::ProtoObject* runBytecodeImpl(proto::ProtoContext* pContext,
                 DISPATCH();
             }
     L_OP_fclosure8: {
-                if (pc + 1 > len) return PROTO_NONE;
+                if (pc + 1 > len) MALFORMED_BYTECODE();
                 uint8_t idx = buf[pc++];
                 const proto::ProtoObject* rawFn = (cpool && idx < cpool->getSize(pContext)) ? cpool->getAt(pContext, static_cast<int>(idx)) : PROTO_NONE;
                 int fnBcId8 = getBytecodeId(pContext, rawFn);
@@ -17167,7 +17996,7 @@ static const proto::ProtoObject* runBytecodeImpl(proto::ProtoContext* pContext,
                 DISPATCH();
             }
             L_OP_fclosure: {
-                if (pc + 4 > len) return PROTO_NONE;
+                if (pc + 4 > len) MALFORMED_BYTECODE();
                 uint32_t idx = get_u32(buf + pc);
                 pc += 4;
                 const proto::ProtoObject* rawFn2 = (cpool && idx < cpool->getSize(pContext)) ? cpool->getAt(pContext, static_cast<int>(idx)) : PROTO_NONE;
@@ -17402,7 +18231,7 @@ static const proto::ProtoObject* runBytecodeImpl(proto::ProtoContext* pContext,
                 // QuickJS compiles to OP_push_undef / get_var undefined +
                 // OP_is_undefined) returned false because the global
                 // `undefined` resolves to the heap sentinel, not PROTO_NONE.
-                if (stackEmpty(pContext)) return PROTO_NONE;
+                if (stackEmpty(pContext)) MALFORMED_BYTECODE();
                 const proto::ProtoObject* val = stackTop(pContext);
                 stackPop(pContext);
                 bool isUndef = (!val || val == PROTO_NONE ||
@@ -17413,7 +18242,7 @@ static const proto::ProtoObject* runBytecodeImpl(proto::ProtoContext* pContext,
             }
             L_OP_is_null: {
                 // Pops one value; pushes true if it is null (t_nullSentinel only).
-                if (stackEmpty(pContext)) return PROTO_NONE;
+                if (stackEmpty(pContext)) MALFORMED_BYTECODE();
                 const proto::ProtoObject* val = stackTop(pContext);
                 stackPop(pContext);
                 stackPush(pContext, (val == t_nullSentinel) ? PROTO_TRUE : PROTO_FALSE);
@@ -17421,7 +18250,7 @@ static const proto::ProtoObject* runBytecodeImpl(proto::ProtoContext* pContext,
             }
             L_OP_typeof_is_undefined: {
                 // Pops one value; pushes true if typeof is "undefined".
-                if (stackEmpty(pContext)) return PROTO_NONE;
+                if (stackEmpty(pContext)) MALFORMED_BYTECODE();
                 const proto::ProtoObject* val = stackTop(pContext);
                 stackPop(pContext);
                 stackPush(pContext, (!val || val == PROTO_NONE || val == t_undefinedSentinel) ? PROTO_TRUE : PROTO_FALSE);
@@ -17429,7 +18258,7 @@ static const proto::ProtoObject* runBytecodeImpl(proto::ProtoContext* pContext,
             }
             L_OP_typeof_is_function: {
                 // Pops one value; pushes true if typeof is "function".
-                if (stackEmpty(pContext)) return PROTO_NONE;
+                if (stackEmpty(pContext)) MALFORMED_BYTECODE();
                 const proto::ProtoObject* val = stackTop(pContext);
                 stackPop(pContext);
                 int bcId = getBytecodeId(pContext, val);
@@ -17478,7 +18307,7 @@ static const proto::ProtoObject* runBytecodeImpl(proto::ProtoContext* pContext,
             // DEF(array_from, 3, 0, 1, npop) — 1 opcode + 2-byte element count
             // ---------------------------------------------------------------
             L_OP_array_from: {
-                if (pc + 2 > len) return PROTO_NONE;
+                if (pc + 2 > len) MALFORMED_BYTECODE();
                 uint16_t count = get_u16(buf + pc);
                 pc += 2;
                 // Create a mutable array that inherits from Array.prototype so that
@@ -17565,7 +18394,7 @@ static const proto::ProtoObject* runBytecodeImpl(proto::ProtoContext* pContext,
             //   (B) Array/TypedArray with numeric .length — use the slot-based index loop.
             //   Otherwise returns PROTO_NONE (vacuous pass for unsupported iterables).
             L_OP_for_of_start: {
-                if (stackEmpty(pContext)) return PROTO_NONE;
+                if (stackEmpty(pContext)) MALFORMED_BYTECODE();
                 if (isYieldStarStart(buf, len, pc)) {
                     if (yieldStarStartOp(pContext, pGlobalRoot, pending_exception) == kAsyncOpThrow)
                         throwJS(pContext, pending_exception);
@@ -17610,7 +18439,7 @@ static const proto::ProtoObject* runBytecodeImpl(proto::ProtoContext* pContext,
                         // (idx checks read stale values).  REFRESH HERE.
                         REFRESH_INTERP_STATE();
                         const proto::ProtoObject* iterObj = pContext->newObject(false);
-                        if (!iterObj) return PROTO_NONE;
+                        if (!iterObj) MALFORMED_BYTECODE();
                         const proto::ProtoString* slotKey2 = JSSymbols::iterSlot(pContext);
                         if (slotKey2)
                             iterObj = iterObj->setAttribute(pContext, slotKey2,
@@ -17631,14 +18460,16 @@ static const proto::ProtoObject* runBytecodeImpl(proto::ProtoContext* pContext,
                     // printf("L_OP_for_of_start: Case C (Symbol.iterator)\n");
                     const proto::ProtoList* emptyArgs2 = pContext->newList();
                     const proto::ProtoObject* iterator = callJSFunction(pContext, iterFn, iterable, emptyArgs2);
-                    if (!iterator || iterator == PROTO_NONE) return PROTO_NONE;
+                    if (!iterator || iterator == PROTO_NONE || !jsIsObject(pContext, iterator))
+                        throwJS(pContext, makeError(pContext, "TypeError",
+                            "Result of the Symbol.iterator method is not an object", pGlobalRoot));
                     uint32_t baseSlotC = forOfStateSlot(pContext, module, pc - 1);
                     setSlot(pContext, baseSlotC,     iterator);
                     setSlot(pContext, baseSlotC + 1, pContext->fromInteger(-1LL)); // sentinel: next()-based
                     setSlot(pContext, baseSlotC + 2, pContext->fromInteger(0LL));  // done flag
                     REFRESH_INTERP_STATE(); // setSlot past the frame resized automaticLocals — see Case A comment.
                     const proto::ProtoObject* iterObjC = pContext->newObject(false);
-                    if (!iterObjC) return PROTO_NONE;
+                    if (!iterObjC) MALFORMED_BYTECODE();
                     const proto::ProtoString* slotKeyC = JSSymbols::iterSlot(pContext);
                     if (slotKeyC)
                         iterObjC = iterObjC->setAttribute(pContext, slotKeyC,
@@ -17684,7 +18515,7 @@ static const proto::ProtoObject* runBytecodeImpl(proto::ProtoContext* pContext,
             }
 
             L_OP_for_of_next: {
-                if (pc + 1 > len) return PROTO_NONE;
+                if (pc + 1 > len) MALFORMED_BYTECODE();
                 uint8_t rawOffset = buf[pc++];
 
                 // QuickJS semantics: the u8 byte is the depth of extra
@@ -17704,7 +18535,7 @@ static const proto::ProtoObject* runBytecodeImpl(proto::ProtoContext* pContext,
                 // array+idx sit above the iterator state) it corrupted
                 // the iterator state, so the rest array ended up empty.
                 if (stackSize(pContext) < static_cast<proto::proto_ulong>(rawOffset) + PROTO_UL(3))
-                    return PROTO_NONE;
+                    MALFORMED_BYTECODE();
                 const proto::ProtoObject* catch_off =
                     stackAt(pContext, static_cast<proto::proto_ulong>(rawOffset));
                 const proto::ProtoObject* next_meth =
@@ -17859,7 +18690,7 @@ static const proto::ProtoObject* runBytecodeImpl(proto::ProtoContext* pContext,
             // OP_iterator_get_value_done: DEF(iterator_get_value_done, 1, 2, 3, none)
             // Stack before: [..., catch_0, result_obj]  → after: [..., new_catch_0, value, done]
             L_OP_iterator_get_value_done: {
-                if (stackSize(pContext) < 2) return PROTO_NONE;
+                if (stackSize(pContext) < 2) MALFORMED_BYTECODE();
                 const proto::ProtoObject* result_obj = stackTop(pContext); stackPop(pContext);
                 stackPop(pContext); // discard catch_0
                 const proto::ProtoString* valueKey = JSSymbols::value(pContext);
@@ -17908,60 +18739,10 @@ static const proto::ProtoObject* runBytecodeImpl(proto::ProtoContext* pContext,
                     iterObjCL = stackTop(pContext);
                     stackPop(pContext); // iterObj wrapper
                 }
-                // If this was a native iterator (sentinel -1), call .return() for cleanup.
-                if (iterObjCL && iterObjCL != PROTO_NONE) {
-                    const proto::ProtoString* slotKeyCL = JSSymbols::iterSlot(pContext);
-                    const proto::ProtoObject* slotValCL =
-                        slotKeyCL ? iterObjCL->getAttribute(pContext, slotKeyCL, false) : PROTO_NONE;
-                    if (slotValCL && slotValCL != PROTO_NONE && slotValCL->isInteger(pContext)) {
-                        uint32_t bsCL = static_cast<uint32_t>(slotValCL->asLong(pContext));
-                        const proto::ProtoObject* actualIterCL = getSlot(pContext, bsCL);
-                        const proto::ProtoObject* idxObjCL     = getSlot(pContext, bsCL + 1);
-                        long long idxCL = (idxObjCL && idxObjCL->isInteger(pContext))
-                                          ? idxObjCL->asLong(pContext) : 0LL;
-                        // Determine whether the iterator was already exhausted.
-                        // Spec: IteratorClose only calls return() if iteratorRecord.[[done]] is false.
-                        bool iterAlreadyDone = false;
-                        if (idxCL == -1LL) {
-                            // Native iterator: check done flag in slot bsCL+2 (0=not done, 1=done).
-                            const proto::ProtoObject* doneFlagCL = getSlot(pContext, bsCL + 2);
-                            iterAlreadyDone = (doneFlagCL && doneFlagCL->isInteger(pContext)
-                                               && doneFlagCL->asLong(pContext) == 1LL);
-                        } else {
-                            // Array/TypedArray: exhausted if idx >= length.
-                            const proto::ProtoString* lenKeyCL2 = JSSymbols::length(pContext);
-                            const proto::ProtoObject* lenValCL  = lenKeyCL2
-                                ? actualIterCL->getAttribute(pContext, lenKeyCL2, false) : PROTO_NONE;
-                            long long arrLenCL = (lenValCL && lenValCL->isInteger(pContext))
-                                                 ? lenValCL->asLong(pContext) : 0LL;
-                            iterAlreadyDone = (idxCL >= arrLenCL);
-                        }
-                        if (idxCL == -1LL && !iterAlreadyDone && actualIterCL && actualIterCL != PROTO_NONE) {
-                            const proto::ProtoObject* retKeyObj =
-                                pContext->fromUTF8String("return");
-                            const proto::ProtoString* retKey =
-                                retKeyObj ? retKeyObj->asString(pContext) : nullptr;
-                            const proto::ProtoObject* retFn = retKey
-                                ? actualIterCL->getAttribute(pContext, retKey, false) : PROTO_NONE;
-                            if (retFn && retFn != PROTO_NONE) {
-                                // Closing is best-effort: what return() raises is dropped.
-                                try {
-                                    debughooks::CatchingNative catching;
-                                    if (retFn->isMethod(pContext)) {
-                                        proto::ProtoMethod nativeRet = retFn->asMethod(pContext);
-                                        if (nativeRet)
-                                            nativeRet(pContext, actualIterCL, nullptr, nullptr, nullptr);
-                                    } else {
-                                        const proto::ProtoList* emptyRetArgs = pContext->newList();
-                                        callJSFunction(pContext, retFn, actualIterCL, emptyRetArgs);
-                                    }
-                                } catch (const proto::ProtoException&) {
-                                }
-                                REFRESH_INTERP_STATE();
-                            }
-                        }
-                    }
-                }
+                // IteratorClose with a normal completion: return()'s
+                // exceptions propagate (closeIteratorRecord).
+                closeIteratorRecord(pContext, iteratorRecordSlot(pContext, iterObjCL), false, pGlobalRoot);
+                REFRESH_INTERP_STATE();
                 DISPATCH();
             }
 
@@ -17971,7 +18752,7 @@ static const proto::ProtoObject* runBytecodeImpl(proto::ProtoContext* pContext,
             // result_obj is a ProtoObject with "value" and "done" attributes.
             // Used by array/object destructuring patterns: const [a,b] = expr.
             L_OP_iterator_next: {
-                if (stackSize(pContext) < 4) return PROTO_NONE;
+                if (stackSize(pContext) < 4) MALFORMED_BYTECODE();
                 // A plain iterator record (yield* in an async generator).
                 {
                     const int r = iteratorNextPlainOp(pContext, pending_exception);
@@ -18115,11 +18896,10 @@ static const proto::ProtoObject* runBytecodeImpl(proto::ProtoContext* pContext,
             // flags=1: collect remaining iterator values into a rest array, done=false.
             // flags=0: iterator.return() cleanup path, value=undefined, done=true.
             L_OP_iterator_call: {
-                if (pc + 1 > len) return PROTO_NONE;
+                if (pc + 1 > len) MALFORMED_BYTECODE();
                 uint8_t icFlags = buf[pc++];
                 if (stackSize(pContext) < 4) {
-                    stackPush(pContext, PROTO_NONE);
-                    return PROTO_NONE;
+                    MALFORMED_BYTECODE();
                 }
                 // A plain iterator record (yield* in an async generator).
                 {
@@ -18641,7 +19421,7 @@ static const proto::ProtoObject* runBytecodeImpl(proto::ProtoContext* pContext,
                 const proto::ProtoObject* iterObj = iterParent
                     ? iterParent->newChild(pContext, true)
                     : pContext->newObject(true);
-                if (!iterObj) return PROTO_NONE;
+                if (!iterObj) MALFORMED_BYTECODE();
 
                 // Helper lambdas: set attributes on iterObj.
                 auto setA = [&](const char* name, const proto::ProtoObject* val) {
@@ -18717,7 +19497,7 @@ static const proto::ProtoObject* runBytecodeImpl(proto::ProtoContext* pContext,
             // OP_yield: DEF(yield, 1, 1, 2, none)
             // Suspends the generator and yields a value to the outer caller.
             L_OP_yield: {
-                if (stackEmpty(pContext)) return PROTO_NONE;
+                if (stackEmpty(pContext)) MALFORMED_BYTECODE();
                 // Async generator: §27.6.3.8 AsyncGeneratorYield.
                 if (asyncKind == kAsyncGenerator) {
                     const int r = asyncYieldOp(pContext, asyncOwner, mod, pc, thisObj, args,
@@ -18747,7 +19527,7 @@ static const proto::ProtoObject* runBytecodeImpl(proto::ProtoContext* pContext,
             // loop on what it took for the inner iterator -- it was the result
             // object -- so yield* produced nothing or failed.
             L_OP_yield_star: {
-                if (stackEmpty(pContext)) return PROTO_NONE;
+                if (stackEmpty(pContext)) MALFORMED_BYTECODE();
                 const proto::ProtoObject* innerResult = stackTop(pContext);
                 stackPop(pContext);
                 if (!suspendGenerator(pContext, pc, catch_stack)) return PROTO_NONE;
@@ -18764,23 +19544,14 @@ static const proto::ProtoObject* runBytecodeImpl(proto::ProtoContext* pContext,
                     stackPop(pContext);
                 }
                 if (!retVal) retVal = PROTO_NONE;
-                // Async function / async generator: the activation completes
-                // with this value; runBytecode (or resumeContinuation) settles
-                // the owner.
-                if (asyncKind != kAsyncNone) return retVal;
-                // QuickJS emits OP_return_async at the end of both async-function
-                // and sync-generator bodies.  For sync generators (isGenerator &&
-                // !isAsync) the surrounding resumeGenerator() already wraps the
-                // raw return value in {value, done:true}; wrapping it here in a
-                // Promise produces {value:Promise{99}, done:true} instead of
-                // {value:99, done:true}.  Match L_OP_return's behaviour (return
-                // raw) for sync generators, and keep the Promise wrap only for
-                // genuine async function returns.
-                if (module && module->isGenerator && !module->isAsync) {
-                    return retVal;
-                }
-                // Wrap in Promise.resolve(retVal) for async functions.
-                return makeResolvedPromise(pContext, retVal);
+                // QuickJS emits OP_return_async at the end of async-function,
+                // async-generator and sync-generator bodies.  An async
+                // activation (asyncKind set; every call of an async function
+                // goes through startAsyncActivation) completes with the raw
+                // value and runBytecode / resumeContinuation settles its
+                // owner; a sync generator's resumeGenerator wraps it in
+                // {value, done: true}.  Both return it unchanged.
+                return retVal;
             }
 
             // OP_await: DEF(await, 1, 1, 1, none)
@@ -18832,10 +19603,9 @@ static const proto::ProtoObject* runBytecodeImpl(proto::ProtoContext* pContext,
             }
 
             L_default: {
-                // Unknown opcode: log for diagnostics; execution cannot continue safely.
-                std::fprintf(stderr, "[ProtoInterpreter] unsupported opcode 0x%02x at byte offset %d\n",
-                    static_cast<unsigned>(opcode), static_cast<int>(pc - 1));
-                return PROTO_NONE;
+                // An opcode without a handler: a clear error, never a silent
+                // return (the function would look as if it returned undefined).
+                throwUnsupportedOpcode(pContext, opcode, pc - 1, pGlobalRoot);
             }
 
             // The dispatch table as a switch. Every DISPATCH() comes here
@@ -18860,6 +19630,7 @@ static const proto::ProtoObject* runBytecodeImpl(proto::ProtoContext* pContext,
         return PROTO_NONE;
     }
     #undef DISPATCH
+    #undef MALFORMED_BYTECODE
     #undef PROTOJS_DISPATCH_JUMP
     #undef PROTOJS_DISPATCH_TARGETS
     return PROTO_NONE;
@@ -20104,7 +20875,6 @@ const proto::ProtoObject* callJSFunction(
         // built from the descriptor, young in ctx for the call.
         const proto::ProtoList* argsList =
             (args && nf.usesArguments) ? args->asList(ctx) : nullptr;
-        const proto::ProtoObject* childEx = PROTO_NONE;
         if (debugBindEnabled()) {
             printf("[DEBUG] callJSFunction (dispatching to %d): this=%p argc=%u\n", bcId, effectiveThis, argc);
         }
@@ -20119,10 +20889,9 @@ const proto::ProtoObject* callJSFunction(
         t_activeArgs = argsList;
         const proto::ProtoObject* result =
             runBytecode(&childCtx, &nf, effectiveThis, argsList, globalRoot);
-        anchorCallOutcome(childCtx, result, childEx);
+        anchorCallOutcome(childCtx, result, nullptr);
         // The callee's exception propagates to the native caller as a C++
         // exception.
-        if (childEx && childEx != PROTO_NONE) throwJS(ctx, childEx);
         return result ? result : PROTO_NONE;
     }
 

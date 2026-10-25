@@ -21,6 +21,12 @@ struct ProtoBytecodeModule {
     /** Compile context for atom resolution (JS_AtomToCString). */
     JSContext* jsContext{nullptr};
 
+    /** The QuickJS JSFunctionBytecode this module was loaded from.  QuickJS
+     *  keeps every compiled function alive for the life of the runtime
+     *  (ProtoCompileOnly.cpp); a direct eval compiles its source against it
+     *  (protojs_compile_direct_eval). */
+    void* quickjsBytecode{nullptr};
+
     /** Native bytecode storage (GC-managed by protoCore). */
     const proto::ProtoByteBuffer* pBytecode{nullptr};
 
