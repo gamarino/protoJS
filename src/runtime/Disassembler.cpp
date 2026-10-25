@@ -28,9 +28,9 @@ enum Fmt : uint8_t {
 #include "quickjs-opcode.h"
 #undef def
 #undef DEF
-    F_loc8_loc8,             // 244: two u8 locals
-    F_loc8_loc8_rel32,       // 245: two u8 locals, i32 offset from the instruction's end
-    F_loc8_varref_rel32,     // 246: u8 local, u16 closure var, i32 offset from the end
+    F_loc8_loc8,             // 244: two u8 locals, u8 skip
+    F_loc8_loc8_rel32,       // 245: two u8 locals, u8 skip, i32 offset from the header's end
+    F_loc8_varref_rel32,     // 246: u8 local, u16 closure var, u8 skip, i32 offset from the end
     F_group,                 // 249, 250: u16 group, u16 position
 };
 
@@ -57,9 +57,9 @@ const OpInfo* opTable() {
         };
         const size_t n = sizeof(qjs) / sizeof(qjs[0]);
         for (size_t i = 0; i < n && i < 256; ++i) table[i] = qjs[i];
-        table[244] = {"proto_acc_loc8_loc8", 3, F_loc8_loc8};
-        table[245] = {"proto_lt_loc8_loc8_jfalse", 7, F_loc8_loc8_rel32};
-        table[246] = {"proto_lt_loc_var_jfalse", 8, F_loc8_varref_rel32};
+        table[244] = {"proto_acc_loc8_loc8", kFusedAccLength, F_loc8_loc8};
+        table[245] = {"proto_lt_loc8_loc8_jfalse", kFusedLtLength, F_loc8_loc8_rel32};
+        table[246] = {"proto_lt_loc_var_jfalse", kFusedLtVarLength, F_loc8_varref_rel32};
         table[247] = {"proto_object_imm", 1, F_none};
         table[248] = {"proto_define_field_last", 5, F_atom};
         table[OP_PROTO_PUT_FIELD_GROUP] = {"proto_put_field_group", 5, F_group};
@@ -489,18 +489,23 @@ private:
                 target(pc + 1 + (int32_t)u32(p));
                 break;
             case F_loc8_loc8:
-                o << (unsigned)p[0] << " " << (unsigned)p[1];
-                c << localName(qjs, mod, p[0]) << " += " << localName(qjs, mod, p[1]);
+                o << (unsigned)p[0] << " " << (unsigned)p[1] << " " << (unsigned)p[2];
+                c << localName(qjs, mod, p[0]) << " += " << localName(qjs, mod, p[1])
+                  << "; fast path skips to " << pc + kFusedAccLength + p[2];
                 break;
             case F_loc8_loc8_rel32:
-                o << (unsigned)p[0] << " " << (unsigned)p[1] << " " << (int32_t)u32(p + 2);
+                o << (unsigned)p[0] << " " << (unsigned)p[1] << " " << (unsigned)p[2] << " "
+                  << (int32_t)u32(p + 3);
                 c << "if !(" << localName(qjs, mod, p[0]) << " < " << localName(qjs, mod, p[1]) << ") ";
-                target(pc + 7 + (int32_t)u32(p + 2));
+                target(pc + kFusedLtLength + (int32_t)u32(p + 3));
+                c << "; fast path skips to " << pc + kFusedLtLength + p[2];
                 break;
             case F_loc8_varref_rel32:
-                o << (unsigned)p[0] << " " << u16(p + 1) << " " << (int32_t)u32(p + 3);
+                o << (unsigned)p[0] << " " << u16(p + 1) << " " << (unsigned)p[3] << " "
+                  << (int32_t)u32(p + 4);
                 c << "if !(" << localName(qjs, mod, p[0]) << " < " << varRefName(mod, u16(p + 1)) << ") ";
-                target(pc + 8 + (int32_t)u32(p + 3));
+                target(pc + kFusedLtVarLength + (int32_t)u32(p + 4));
+                c << "; fast path skips to " << pc + kFusedLtVarLength + p[3];
                 break;
             case F_group: {
                 const uint16_t g = u16(p), pos = u16(p + 2);

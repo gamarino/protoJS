@@ -138,8 +138,8 @@ source --compileToBytecodeWithFlags (QuickJS, compile only)--> JSFunctionBytecod
   `goto8`, `goto16`, `if_true`, `if_false` (and their 8-bit forms),
   `catch` and `gosub`; `with_*` carry their label after a 4-byte atom
   (`target = address + 5 + offset`). The fused opcodes 245 and 246 count
-  from the **end** of the instruction (`address + 7 + offset` and
-  `address + 8 + offset`). The disassembler prints the absolute target.
+  from the **end** of the instruction (`address + 8 + offset` and
+  `address + 9 + offset`). The disassembler prints the absolute target.
 - **Operands that name things.**
   - *Atoms* (property names, string literals) are 32-bit QuickJS atom
     indices; the loader resolves each to an interned protoCore string
@@ -163,8 +163,8 @@ source --compileToBytecodeWithFlags (QuickJS, compile only)--> JSFunctionBytecod
 ### 1.3 Loader rewrites
 
 `loadBytecodeRecursive` runs four passes over each function, in this order.
-Only the specialiser in compact mode moves code; the other three keep every
-instruction's size, so no jump changes.
+Only the specialiser moves code; the other three keep every instruction's
+size, so no jump changes.
 
 1. **`markObjectLiterals`** (`PROTOJS_LITERAL_BUILD=off` disables it). An
    object literal `{a: x, b: y}` is compiled by QuickJS as `object` followed
@@ -189,23 +189,31 @@ instruction's size, so no jump changes.
    path. The run's description (names, operands to check) is stored in the
    module (`putFieldGroups`), and the frame's stack size grows by the values
    the run keeps.
-3. **`specialise`** (`PROTOJS_SPECIALISER=off|nop|compact`; **compact is
-   the default**, and the debugger forces off). A peephole pass that fuses
-   loop shapes into single instructions with SmallInteger fast paths:
+3. **`specialise`** (`PROTOJS_SPECIALISER=on|off`; **on is the default**,
+   and the debugger forces off). A peephole pass that puts a fused
+   instruction with a SmallInteger fast path in front of three loop shapes:
    - `get_loc dst; get_loc src; add; put_loc dst` (and QuickJS's
-     `get_loc src; add_loc dst`) becomes `proto_acc_loc8_loc8 dst src` (244):
-     `s += i`.
-   - `get_loc a; get_loc b; lt; if_false T` becomes
-     `proto_lt_loc8_loc8_jfalse a b T` (245): `i < n` as a loop test.
-   - `get_loc a; get_var v; lt; if_false T` becomes
-     `proto_lt_loc_var_jfalse a v T` (246): `i < N` with `N` a global.
+     `get_loc src; add_loc dst`) gets `proto_acc_loc8_loc8 dst src skip`
+     (244): `s += i`.
+   - `get_loc a; get_loc b; lt; if_false T` gets
+     `proto_lt_loc8_loc8_jfalse a b skip T` (245): `i < n` as a loop test.
+   - `get_loc a; get_var v; lt; if_false T` gets
+     `proto_lt_loc_var_jfalse a v skip T` (246): `i < N` with `N` a global.
 
    `get_loc` here means any of `get_loc0`..`3`, `get_loc8`, `get_loc` (index
-   up to 255) and `get_loc_check`. In compact mode the pass writes a shorter
-   buffer and re-encodes the relative jumps through an old-to-new offset
-   table; in nop mode it writes the fused instruction in place and pads with
-   `nop`. Example 06 shows a fused accumulator. The fused opcodes do not
-   reproduce every case of the instructions they replace (section 6).
+   up to 255) and `get_loc_check`. The fused instruction is a **guarded
+   header**: the original instructions stay right after it. When both
+   operands are SmallIntegers (read through closure cells; for 246 the
+   global object's own property, which is what `get_var` reads first) the
+   header computes the result and skips them (`skip` bytes) or takes the
+   jump; otherwise execution falls through into the original instructions,
+   so BigInts, objects, strings, doubles, TDZ and undeclared globals keep
+   their exact semantics. The buffer grows, so every code offset is
+   re-encoded through an old-to-new offset table: jumps, `catch` handlers,
+   `gosub` targets and `with_*` labels. A sequence with a jump target
+   inside it is not fused, and a function whose short jump can no longer
+   reach its target is left unspecialised. Example 06 shows a fused
+   accumulator.
 4. **`lowerClassConstructorPush`**. QuickJS emits a class as
    `push_const <constructor>; define_class`, and its `define_class` builds the
    constructor closure itself. protoJS's `define_class` expects a closure, so
@@ -507,7 +515,7 @@ root".
 | `goto16` | 235 | 3 | i16 offset | `->` | | short form |
 | `gosub` | 108 | 5 | i32 offset | `-> ret` | Pushes the offset of the next instruction as an integer and jumps to a `finally` block. | every exit through a `finally` |
 | `ret` | 109 | 1 | none | `ret ->` | Pops the integer and jumps to it. | end of a `finally` block |
-| `nop` | 177 | 1 | none | `->` | | QuickJS leftovers; padding of the specialiser's nop mode |
+| `nop` | 177 | 1 | none | `->` | | QuickJS leftovers |
 
 Falsy values (`toBool`): `undefined` (both forms), `null`, `false`, 0, -0,
 `NaN`, `""`. Everything else is truthy, **including `0n`** (section 6).
@@ -581,7 +589,7 @@ and ToNumber. The slow paths run JS and allocate.
 | `inc`, `dec` | 141, 140 | 1 | `a -> a±1` | |
 | `post_inc`, `post_dec` | 143, 142 | 1 | `a -> old new` | Pushes `ToNumeric(a)` and `a±1`. |
 | `inc_loc`, `dec_loc` | 145, 144 | 2 | `->` | u8 local updated in place (through its cell). No BigInt path. Emitted by QuickJS's peephole for `i++` / `i--` statements. |
-| `add_loc` | 146 | 2 | `v ->` | u8 local `+= v` in place. No BigInt path and no ToPrimitive (section 6). Emitted by QuickJS's peephole for `x += e`. |
+| `add_loc` | 146 | 2 | `v ->` | u8 local `+= v` in place, with the semantics of `add` (SmallInteger fast path, then the same `addValues` helper). Emitted by QuickJS's peephole for `x += e`. |
 | `not` | 147 | 1 | `a -> ~a` | |
 | `lnot` | 148 | 1 | `a -> !a` | `!toBool(a)`. |
 | `typeof` | 149 | 1 | `v -> string` | `"symbol"` also for a string whose text starts with `Symbol(` or `Symbol.` (section 6); a callable Proxy is `"object"`. |
@@ -680,9 +688,9 @@ QuickJS never emits these; the loader passes of section 1.3 create them.
 
 | Op | # | Size | Operands | Stack | Semantics | Created by |
 |---|---|---|---|---|---|---|
-| `proto_acc_loc8_loc8` | 244 | 3 | u8 dst, u8 src locals | `->` | `local[dst] = local[dst] + local[src]` through cells; TDZ checked. SmallInteger fast path; otherwise string concatenation if either is a string, else `ToNumber` addition: no ToPrimitive, no BigInt (section 6). | `specialise` |
-| `proto_lt_loc8_loc8_jfalse` | 245 | 7 | u8 a, u8 b, i32 offset from the end | `->` | Jumps when `!(local[a] < local[b])`. SmallInteger fast path; BigInt operands throw (section 6). | `specialise` |
-| `proto_lt_loc_var_jfalse` | 246 | 8 | u8 local, u16 closure var, i32 offset from the end | `->` | As 245 with a global on the right; an undeclared global reads as `undefined` instead of throwing ReferenceError (section 6). | `specialise` |
+| `proto_acc_loc8_loc8` | 244 | 4 | u8 dst, u8 src locals, u8 skip | `->` | Header in front of `s += i`: when both locals (through cells) are SmallIntegers and the sum fits, stores it and skips `skip` bytes; otherwise falls through into the original instructions. | `specialise` |
+| `proto_lt_loc8_loc8_jfalse` | 245 | 8 | u8 a, u8 b, u8 skip, i32 offset from the end | `->` | Header in front of `i < n; if_false`: with two SmallIntegers, jumps when `!(local[a] < local[b])` and skips the original instructions otherwise; any other operand falls through into them. | `specialise` |
+| `proto_lt_loc_var_jfalse` | 246 | 9 | u8 local, u16 closure var, u8 skip, i32 offset from the end | `->` | As 245 with a global on the right, read as the global object's own property; an absent or non-SmallInteger global falls through to `get_var`. | `specialise` |
 | `proto_object_imm` | 247 | 1 | none | `-> obj` | A new **immutable** child of `Object.prototype`. | `markObjectLiterals` |
 | `proto_define_field_last` | 248 | 5 | u32 atom | `obj v -> obj'` | Defines the field, then makes the object mutable with one clone. | `markObjectLiterals` |
 | `proto_put_field_group` | 249 | 5 | u16 group, u16 position | `recv v -> v` (group active) or `recv v ->` | Position 0 checks once whether the group applies (`putFieldGroupApplies`); if it does, the value stays on the stack for the final publication; if not, `put_field`. | `markPutFieldGroups` |
@@ -1088,15 +1096,19 @@ function 0 sum: args 1, locals 2, closure vars 0, stack 2, constructor
      10  get_loc_check             1           ; i
      13  get_arg0                              ; n
      14  lt
-     15  if_false8                 14          ; -> 30
-     17  proto_acc_loc8_loc8       0 1         ; s += i
-     20  get_loc_check             1           ; i
-     23  post_inc
-     24  put_loc_check             1           ; i
-     27  drop
-     28  goto8                     -19         ; -> 10
-     30  get_loc_check             0           ; s
-     33  return
+     15  if_false8                 25          ; -> 41
+     17  proto_acc_loc8_loc8       0 1 10      ; s += i; fast path skips to 31
+     21  get_loc_check             0           ; s
+     24  get_loc_check             1           ; i
+     27  add
+     28  put_loc_check             0           ; s
+     31  get_loc_check             1           ; i
+     34  post_inc
+     35  put_loc_check             1           ; i
+     38  drop
+     39  goto8                     -30         ; -> 10
+     41  get_loc_check             0           ; s
+     44  return
 
 function 1 countdown: args 1, locals 1, closure vars 0, stack 2, constructor
   slots:
@@ -1122,12 +1134,14 @@ function 1 countdown: args 1, locals 1, closure vars 0, stack 2, constructor
      26  return
 ```
 
-- `s += i` became `proto_acc_loc8_loc8 0 1` (the specialiser, 1.3): QuickJS's
-  `get_loc_check s; get_loc_check i; add; put_loc_check s`, 10 bytes, is now 3.
+- `s += i` got the header `proto_acc_loc8_loc8 0 1 10` (the specialiser,
+  1.3) in front of QuickJS's `get_loc_check s; get_loc_check i; add;
+  put_loc_check s` (10 bytes). With SmallIntegers the header does the
+  addition and skips the 10 bytes; otherwise those instructions run.
   The loop test `i < n` compares a local with an *argument*, which no fused
   pattern covers, so it stays `get_loc_check; get_arg0; lt; if_false8`.
-- In compact mode the jumps were re-encoded: `goto8 -19` at 28 goes back to
-  the test at 10.
+- The jumps were re-encoded for the 4 inserted bytes: `goto8 -30` at 39
+  goes back to the test at 10, and `if_false8` at 15 leaves the loop at 41.
 - `i++` is `get_loc_check; post_inc; put_loc_check; drop`: `post_inc` pushes
   the old and the new value.
 - In `countdown`, `n--` on a parameter is `get_arg0; dec; put_arg0`, and
@@ -2278,17 +2292,18 @@ is `proto_put_field_group` (249). Every place to touch, in order:
    ```cpp
    constexpr uint8_t OP_PROTO_PUT_FIELD_GROUP = 249;
    ```
-2. **Both size tables**: `getOpSizes` in `ProtoBytecodeLoader.cpp` and
-   `getOpcodeSizes` in `BytecodeSpecialiser.cpp`. A missing size (0) stops
+2. **The size table**: `getOpcodeSizes` in `BytecodeSpecialiser.cpp`,
+   which the loader and the disassembler share (`bytecodeOpcodeSizes`). A
+   missing size (0) stops
    every walker at that byte: the loader stops resolving atoms, the
    specialiser leaves the function alone, and `forOfStartPcs` is cleared.
 3. **The pass that emits it**, in `BytecodeSpecialiser.cpp`, called from
    `loadBytecodeRecursive`. A pass that keeps instruction sizes (as
    `markPutFieldGroups` does: `put_field` and the new opcode are both 5
    bytes) needs no jump fix-up. A pass that changes sizes must remap jumps
-   as the compact specialiser does, and must also re-encode `catch` and
-   `gosub` (the specialiser does not, section 6). A pass must not match
-   across a jump target; collect the targets with `jumpTarget` first.
+   as the specialiser does, including `catch`, `gosub` and the `with_*`
+   labels (`jumpTarget` / `writeJumpTarget`). A pass must not match across
+   a jump target; collect the targets with `jumpTarget` first.
 4. **Atoms**: if the opcode carries an atom, add it to the list in
    `preResolveAllAtoms` (`ProtoBytecodeLoader.cpp`); otherwise the
    interpreter's atom lookup fails at run time (`resolveAtom: atom N not in
@@ -2316,8 +2331,8 @@ is `proto_put_field_group` (249). Every place to touch, in order:
        DISPATCH();
    }
    ```
-6. **Jumps**: if it is a jump, teach `jumpTarget` and the compact
-   specialiser's pass 2 about it, and the debugger if it walks code.
+6. **Jumps**: if it is a jump, teach `jumpTarget` and `writeJumpTarget`
+   (`BytecodeSpecialiser.cpp`) about it, and the debugger if it walks code.
 7. **The disassembler**: an entry in `opTable` in
    `src/runtime/Disassembler.cpp`, with an operand format; add a format and
    its case in `Lister::decode` if none fits. An opcode it does not know is
@@ -2442,20 +2457,6 @@ that added this document.
    `tail_call_method`'s bound-function branch neither pushes nor returns the
    result. `const o = {m: f.bind(null, 41)}; function h() { return o.m(); }`
    gives `undefined` (expected 42); `const r = o.m(); return r;` gives 42.
-6. **Specialiser (default compact mode)**:
-   - it fuses across jump targets: `while ((x ? i : n) < n)` ran 0 times
-     instead of 4, and `s = (c ? a : s) + i` in a loop gave 3 instead of
-     102;
-   - it does not re-encode `catch` offsets: `try { for (let i = 0; i < 3;
-     i++) { r += i; } throw new Error("x"); } catch (e) { r += 100; }` prints
-     `unsupported opcode 0x00` and returns `undefined` (expected 103);
-     `gosub` has the same gap;
-   - the fused opcodes diverge from the instructions they replace: `s += o`
-     with `Symbol.toPrimitive`, `s += [2]` (3 instead of `"12"`), BigInt
-     `+=` and `<` (TypeError), and a loop test against an undeclared global
-     (zero iterations instead of ReferenceError).
-
-   `PROTOJS_SPECIALISER=off` avoids all of these.
 7. **Equality and truthiness**: `({}) == ({})` and `[] == []` are true (`eq`
    converts objects to primitives first); `0n` is truthy; `typeof
    "Symbol(x)"` is `"symbol"`.
@@ -2469,8 +2470,7 @@ that added this document.
     a global name (`get_var` does not call accessors).
 11. **`arguments`** is never mapped to the parameters and has no `callee`.
 12. **Operators**: `1 ** Infinity` is 1 (expected `NaN`) and `**` converts
-    its right operand first; `var x = 1n, y = 2n; x += y` throws
-    (`add_loc` has no BigInt path); `undefined < obj` does not call
+    its right operand first; `undefined < obj` does not call
     `obj.valueOf`; `'x' in undefined` is false and `delete null.x` is true
     (both should throw); `instanceof` ignores `Symbol.hasInstance` and bound
     functions.
@@ -2498,16 +2498,6 @@ that added this document.
 
 ### Oddities (from reading the code)
 
-- **Stale comments about the specialiser's default.**
-  `ProtoBytecodeLoader.cpp` (the comment above the `specialise` call) and
-  `BytecodeSpecialiser.h` (`getSpecialiseMode`) say the default is `Off`;
-  `getSpecialiseMode` returns `Compact` when `PROTOJS_SPECIALISER` is unset.
-  The header's pattern list describes `loc8` operands only; the matcher also
-  accepts `get_loc0`..`3`, `get_loc` and `get_loc_check`.
-  `BytecodeSpecialiser.cpp`'s P3 comment says `get_var_undef` is accepted;
-  only `get_var` is.
-- **Two size tables** (`getOpSizes` in the loader, `getOpcodeSizes` in the
-  specialiser) must be kept in sync by hand.
 - **Silent aborts on malformed bytecode.** Handlers return `undefined` from
   the function on a truncated operand or a stack underflow, and `L_default`
   does the same for an unknown opcode, instead of raising an internal error.

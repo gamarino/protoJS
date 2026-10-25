@@ -13,51 +13,9 @@
 
 namespace protojs {
 
-/**
- * Build opcode total-size table indexed by opcode byte value.
- * Must match QuickJS's OPCodeEnum (DEF-only, no def): sizes[byte] = total
- * instruction size (opcode + operands) for final-bytecode opcodes.
- * def() opcodes are phase-1 temporaries and never appear in final bytecode.
- */
-static const uint8_t* getOpSizes() {
-    // Full 256-entry table.  QuickJS DEF opcodes occupy bytes 0..OP_COUNT-1
-    // (244 entries); bytes 244..255 hold sizes for the BytecodeSpecialiser's
-    // fused super-instructions emitted at runtime.  Pre-fix, accessing
-    // sizes[244] read past the end of the QuickJS-derived array, which made
-    // `preResolveAllAtoms` (and any other consumer that walks the bytecode
-    // instruction-by-instruction) lose alignment after a fused opcode and
-    // miss every atom-carrying instruction that followed.
-    static uint8_t sizes[256] = {};
-    static bool inited = false;
-    if (!inited) {
-        static const uint8_t qjs[] = {
-#define FMT(f)
-#define DEF(id, size, n_pop, n_push, f) (uint8_t)(size),
-#define def(id, size, n_pop, n_push, f)
-#include "quickjs-opcode.h"
-#undef def
-#undef DEF
-#undef FMT
-            0 /* sentinel */
-        };
-        const size_t qjs_count = (sizeof(qjs) / sizeof(qjs[0])) - 1;
-        const size_t n = qjs_count < 256 ? qjs_count : 256;
-        for (size_t i = 0; i < n; ++i) sizes[i] = qjs[i];
-        // BytecodeSpecialiser fused opcodes — must stay in sync with
-        // BytecodeSpecialiser.cpp (OP_PROTO_ACC_LOC8_LOC8 = 244 / 3 B,
-        // OP_PROTO_LT_LOC8_LOC8_JFALSE = 245 / 7 B,
-        // OP_PROTO_LT_LOC_VAR_JFALSE = 246 / 8 B).
-        sizes[244] = 3;
-        sizes[245] = 7;
-        sizes[246] = 8;
-        sizes[247] = 1;  // OP_PROTO_OBJECT_IMM
-        sizes[248] = 5;  // OP_PROTO_DEFINE_FIELD_LAST (atom)
-        sizes[OP_PROTO_PUT_FIELD_GROUP] = 5;      // group (u16), position (u16)
-        sizes[OP_PROTO_PUT_FIELD_GROUP_END] = 5;
-        inited = true;
-    }
-    return sizes;
-}
+/// Instruction size of every opcode byte; the table is shared with the
+/// specialiser and the disassembler (BytecodeSpecialiser.h).
+static const uint8_t* getOpSizes() { return bytecodeOpcodeSizes(); }
 
 /**
  * Pre-resolve all atom operands in the bytecode into the module's atomToProto cache.
@@ -251,15 +209,10 @@ static bool loadBytecodeRecursive(JSContext* ctx,
     int len = protojs_bytecode_len(quickjsBytecode);
     if (!buf || len <= 0) return false;
 
-    // Sprint-11 port — run BytecodeSpecialiser over the freshly-extracted
-    // QuickJS bytecode.  Default mode is `Off` (pass-through identity);
-    // `PROTOJS_SPECIALISER=nop` rewrites in place with OP_nop padding;
-    // `PROTOJS_SPECIALISER=compact` emits a shorter buffer and remaps
-    // every relative-jump target through the translation table built
-    // during the pass.  See BytecodeSpecialiser.cpp for the rationale
-    // and the two implementations.  When the pass returns the input
-    // unchanged the resulting `specBuf` is a byte-identical copy, so
-    // the loader downstream paths see the same bytes either way.
+    // The loader's rewrites, in order: object literals, write groups, the
+    // specialiser (on by default; see BytecodeSpecialiser.h), and the class
+    // constructor push.  Only the specialiser changes instruction offsets,
+    // and it re-encodes every code offset it moves.
     // Object literals are built immutable and made mutable once
     // (markObjectLiterals); the pass needs QuickJS's stack levels, so it
     // runs on the unmodified bytecode, before the specialiser.

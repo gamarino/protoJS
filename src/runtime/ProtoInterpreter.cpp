@@ -8288,6 +8288,78 @@ static const proto::ProtoObject* runBytecodeImpl(proto::ProtoContext* pContext,
         return (c < 0) ? -1 : (c > 0) ? 1 : 0;
     };
 
+    /* The `+` operator on two values (§13.15.3 ApplyStringOrNumericBinaryOperator):
+     * BigInt + BigInt, numbers, ToPrimitive of objects (left first) with a
+     * BigInt result finishing as a BigInt addition, string concatenation.
+     * OP_add uses it after its SmallInteger fast path, and OP_add_loc for
+     * every case its fast path does not cover, so `x += y` on a local gives
+     * what `x = x + y` gives.  The operands must be rooted by the caller (an
+     * operand-stack or local slot); the callers refresh their slot pointer
+     * afterwards, since a valueOf or toString may run JavaScript. */
+    auto addValues = [&](const proto::ProtoObject* a,
+                         const proto::ProtoObject* b) -> const proto::ProtoObject* {
+        {
+            const proto::ProtoObject* bigOut = nullptr;
+            const int st = bigIntBinaryOp(pContext, a, b, kBigAdd, true, bigOut);
+            if (st == kBigOpResult) return bigOut;
+            if (st == kBigOpThrow) throwJS(pContext, bigOut);
+        }
+        // Numerify booleans and null only when neither operand is a string:
+        // `'x' + null` is "xnull".
+        const bool aIsStr0 = a && a->asString(pContext);
+        const bool bIsStr0 = b && b->asString(pContext);
+        if (!aIsStr0 && !bIsStr0) {
+            if (a == PROTO_TRUE)  a = proto::makeSmallInt(1);
+            else if (a == PROTO_FALSE || a == t_nullSentinel) a = proto::makeSmallInt(0);
+            if (b == PROTO_TRUE)  b = proto::makeSmallInt(1);
+            else if (b == PROTO_FALSE || b == t_nullSentinel) b = proto::makeSmallInt(0);
+        }
+        if (proto::isSmallInt(a) && proto::isSmallInt(b)) {
+            const long long r = proto::asSmallInt(a) + proto::asSmallInt(b);
+            if (proto::smallIntInRange(r)) return proto::makeSmallInt(r);
+        }
+        // Both numbers: the sum as a double in canonical form (JSNumber.h);
+        // protoCore's Integer::add would promote to an exact LargeInteger,
+        // which is not a JavaScript value (2**53 + 1 must round to 2**53).
+        {
+            double da, db;
+            if (numberToDouble(pContext, a, da) && numberToDouble(pContext, b, db))
+                return makeNumber(pContext, da + db);
+        }
+        // A value of a module written outside JavaScript has no toString /
+        // valueOf to call: its string form, as String(value) answers.
+        if (isForeignObject(pContext, a)) a = foreignObjectString(pContext, a);
+        if (isForeignObject(pContext, b)) b = foreignObjectString(pContext, b);
+        const proto::ProtoObject* pa = toPrimIfObject(a);
+        const proto::ProtoObject* pb = toPrimIfObject(b);
+        {   // A wrapper's ToPrimitive may answer a BigInt.
+            const proto::ProtoObject* bigOut = nullptr;
+            const int st = bigIntBinaryOp(pContext, pa, pb, kBigAdd, false, bigOut);
+            if (st == kBigOpResult) return bigOut;
+            if (st == kBigOpThrow) throwJS(pContext, bigOut);
+        }
+        const bool aIsStr = pa && pa != PROTO_NONE && pa->isString(pContext);
+        const bool bIsStr = pb && pb != PROTO_NONE && pb->isString(pContext);
+        if (aIsStr || bIsStr) {
+            const proto::ProtoObject* ra = toString(pContext, pa);
+            const proto::ProtoObject* rb = toString(pContext, pb);
+            const proto::ProtoString* sa = ra ? ra->asString(pContext) : nullptr;
+            const proto::ProtoString* sb = rb ? rb->asString(pContext) : nullptr;
+            if (sa && sb) {
+                const proto::ProtoString* concat = sa->appendLast(pContext, sb);
+                return concat ? concat->asObject(pContext) : PROTO_NONE;
+            }
+            return sa ? ra : (sb ? rb : PROTO_NONE);
+        }
+        const proto::ProtoObject* ra = toNumber(pContext, pa);
+        const proto::ProtoObject* rb = toNumber(pContext, pb);
+        double da, db;
+        if (numberToDouble(pContext, ra, da) && numberToDouble(pContext, rb, db))
+            return makeNumber(pContext, da + db);
+        const proto::ProtoObject* res = ra ? canonicalNumber(pContext, ra->add(pContext, rb)) : PROTO_NONE;
+        return res ? res : PROTO_NONE;
+    };
+
     /* P-JS-1 accessor lookup cache.
      *
      * `__get_<name>__` and `__set_<name>__` are sidecar attributes used by
@@ -13575,25 +13647,8 @@ static const proto::ProtoObject* runBytecodeImpl(proto::ProtoContext* pContext,
                 if (_PF().stackTop < 2) return PROTO_NONE;
                 const proto::ProtoObject* b = pAutomaticLocals[currentStackBase + --_PF().stackTop];
                 const proto::ProtoObject* a = pAutomaticLocals[currentStackBase + --_PF().stackTop];
-
-                // §13.15.3 + on BigInt — see BIGINT_BIN_DISPATCH macro.
-                BIGINT_BIN_DISPATCH_IMPL(kBigAdd, true);
-
-                // Numerify booleans and null ONLY when neither operand is a
-                // string — otherwise `'x' + null` would coerce null to 0
-                // before the concat path saw it, producing 'x0' instead
-                // of the spec-correct 'xnull' (the string + concat path
-                // uses toString, which renders null as the literal 'null').
-                bool aIsStr0 = a && a->asString(pContext);
-                bool bIsStr0 = b && b->asString(pContext);
-                if (!aIsStr0 && !bIsStr0) {
-                    if (a == PROTO_TRUE)  a = proto::makeSmallInt(1);
-                    else if (a == PROTO_FALSE || a == t_nullSentinel) a = proto::makeSmallInt(0);
-                    if (b == PROTO_TRUE)  b = proto::makeSmallInt(1);
-                    else if (b == PROTO_FALSE || b == t_nullSentinel) b = proto::makeSmallInt(0);
-                }
-
-                // Integer fast-path
+                // Integer fast path; everything else is addValues (the popped
+                // operands stay rooted in their slots until the push).
                 if (proto::isSmallInt(a) && proto::isSmallInt(b)) {
                     long long resVal = proto::asSmallInt(a) + proto::asSmallInt(b);
                     if (proto::smallIntInRange(resVal)) {
@@ -13601,57 +13656,9 @@ static const proto::ProtoObject* runBytecodeImpl(proto::ProtoContext* pContext,
                         DISPATCH();
                     }
                 }
-                // Number fast path: both operands are numbers (a double, or
-                // a sum outside the SmallInteger range).  JavaScript numbers
-                // are doubles, so the sum is computed as one and stored in
-                // canonical form (JSNumber.h); protoCore's Integer::add would
-                // instead promote to an exact LargeInteger, which is not a
-                // JavaScript value (2**53 + 1 must round to 2**53).
-                {
-                    double da, db;
-                    if (numberToDouble(pContext, a, da) && numberToDouble(pContext, b, db)) {
-                        pAutomaticLocals[currentStackBase + _PF().stackTop++] = makeNumber(pContext, da + db);
-                        DISPATCH();
-                    }
-                }
-
-                // Fallback: ToPrimitive.  A value of a module written outside
-                // JavaScript has no toString / valueOf to call: its string
-                // form, as String(value) answers (isForeignObject).
-                if (isForeignObject(pContext, a)) a = foreignObjectString(pContext, a);
-                if (isForeignObject(pContext, b)) b = foreignObjectString(pContext, b);
-                BIGINT_AFTER_TOPRIM(kBigAdd);
-                const proto::ProtoObject* pa = toPrimIfObject(a);
-                const proto::ProtoObject* pb = toPrimIfObject(b);
+                const proto::ProtoObject* res = addValues(a, b);
                 REFRESH_INTERP_STATE();
-                (void)0;
-
-                bool aIsStr = pa && pa != PROTO_NONE && pa->isString(pContext);
-                bool bIsStr = pb && pb != PROTO_NONE && pb->isString(pContext);
-                const proto::ProtoObject* res;
-                if (aIsStr || bIsStr) {
-                    const proto::ProtoObject* ra = toString(pContext, pa);
-                    const proto::ProtoObject* rb = toString(pContext, pb);
-                    REFRESH_INTERP_STATE();
-                    const proto::ProtoString* sa = ra ? ra->asString(pContext) : nullptr;
-                    const proto::ProtoString* sb = rb ? rb->asString(pContext) : nullptr;
-                    if (sa && sb) {
-                        const proto::ProtoString* concat = sa->appendLast(pContext, sb);
-                        res = concat ? concat->asObject(pContext) : PROTO_NONE;
-                    } else {
-                        res = sa ? ra : (sb ? rb : PROTO_NONE);
-                    }
-                } else {
-                    const proto::ProtoObject* ra = toNumber(pContext, pa);
-                    const proto::ProtoObject* rb = toNumber(pContext, pb);
-                    REFRESH_INTERP_STATE();
-                    double da, db;
-                    if (numberToDouble(pContext, ra, da) && numberToDouble(pContext, rb, db))
-                        res = makeNumber(pContext, da + db);
-                    else
-                        res = ra ? canonicalNumber(pContext, ra->add(pContext, rb)) : PROTO_NONE;
-                }
-                pAutomaticLocals[currentStackBase + _PF().stackTop++] = (res ? res : PROTO_NONE);
+                pAutomaticLocals[currentStackBase + _PF().stackTop++] = res;
                 DISPATCH();
             }
             L_OP_mul: {
@@ -14615,286 +14622,103 @@ static const proto::ProtoObject* runBytecodeImpl(proto::ProtoContext* pContext,
                             DISPATCH();
                         }
                     }
-                    // JS + semantics: string concat or numeric add.
-                    bool curIsStr = cur && cur != PROTO_NONE && cur->asString(pContext);
-                    bool valIsStr = val && val != PROTO_NONE && val->asString(pContext);
-                    const proto::ProtoObject* nv;
-                    if (curIsStr || valIsStr) {
-                        const proto::ProtoObject* sc = toString(pContext, cur);
-                        const proto::ProtoObject* sv = toString(pContext, val);
-                        const proto::ProtoString* sa = sc ? sc->asString(pContext) : nullptr;
-                        const proto::ProtoString* sb = sv ? sv->asString(pContext) : nullptr;
-                        if (sa && sb) { const proto::ProtoString* cat = sa->appendLast(pContext, sb); nv = cat ? cat->asObject(pContext) : PROTO_NONE; }
-                        else nv = sc ? sc : (sv ? sv : PROTO_NONE);
-                    } else {
-                        const proto::ProtoObject* nc = toNumber(pContext, cur);
-                        const proto::ProtoObject* nval = toNumber(pContext, val);
-                        nv = nc ? numberAdd(pContext, nc, nval) : PROTO_NONE;
-                    }
+                    // Everything else: the `+` operator itself, so `x += y`
+                    // gives what `x = x + y` gives (BigInt, ToPrimitive, ...).
+                    const proto::ProtoObject* nv = addValues(cur, val);
+                    REFRESH_INTERP_STATE();
                     if (addCell) writeCell(pContext, addCell, nv);
                     else setSlot(pContext, argCount + locIndex, nv);
                 }
                 DISPATCH();
             }
             // ────────────────────────────────────────────────────────
-            // Sprint-11 port (protoPython → protoJS) — fused
-            // super-instructions emitted by BytecodeSpecialiser.
+            // Fused loop instructions (BytecodeSpecialiser.h).  Each is a
+            // guarded header in front of the instructions it stands for,
+            // which follow it unchanged.  The fast path runs only when both
+            // operands are SmallIntegers (read through closure cells) and
+            // then skips those instructions (`skip` bytes) or takes the
+            // jump; anything else -- BigInt, objects, strings, doubles, the
+            // TDZ sentinel, an undeclared global, an overflowing sum --
+            // falls through into the original instructions, which give the
+            // exact semantics.
             //
-            // L_OP_proto_acc_loc8_loc8 dst src — local[dst] += local[src]
-            //   Fuses get_loc8 dst; get_loc8 src; add; put_loc8 dst (7B → 3B).
-            //   SmallInt path inlined; mirrors L_OP_add_loc for the slow
-            //   path so JS `+` semantics (string concat, BigInt, etc.)
-            //   stay 1:1 when the locals aren't both tagged SmallInts.
+            // L_OP_proto_acc_loc8_loc8 dst src skip: local[dst] += local[src]
             // ────────────────────────────────────────────────────────
             L_OP_proto_acc_loc8_loc8: {
-                if (pc + 2 > len) return PROTO_NONE;
-                uint8_t dstIdx = buf[pc];
-                uint8_t srcIdx = buf[pc + 1];
-                pc += 2;
-                if (dstIdx >= varCount || srcIdx >= varCount) DISPATCH();
-
-                const proto::ProtoObject* dst = getSlot(pContext, argCount + dstIdx);
-                const proto::ProtoObject* src = getSlot(pContext, argCount + srcIdx);
-                // Locals captured by a closure hold cells: read through them,
-                // and write the sum back through dst's (see L_OP_put_loc).
-                const proto::ProtoObject* dstCell = nullptr;
-                if (!proto::isSmallInt(dst) && isCell(pContext, dst)) {
-                    dstCell = dst;
-                    dst = readCell(pContext, dst);
-                }
-                if (!proto::isSmallInt(src) && isCell(pContext, src))
-                    src = readCell(pContext, src);
-                // TDZ semantics for `let`/`const` locals: when the matcher
-                // accepted a `get_loc_check` / `put_loc_check` source the
-                // sentinel can still be live on the read.  Single
-                // pointer-compare on each side; passes unconditionally
-                // after the loop's first init, costs ~1 ns when it does.
-                if (dst == tdzSentinel || src == tdzSentinel) {
-                    throwJS(pContext, makeError(pContext, "ReferenceError",
-                        "Cannot access before initialization", pGlobalRoot));
-                    DISPATCH();
-                }
-                if (proto::isSmallInt(dst) && proto::isSmallInt(src)) {
-                    long long sum = proto::asSmallInt(dst) + proto::asSmallInt(src);
-                    if (proto::smallIntInRange(sum)) {
-                        if (dstCell) writeCell(pContext, dstCell, proto::makeSmallInt(sum));
-                        else setSlot(pContext, argCount + dstIdx, proto::makeSmallInt(sum));
-                        DISPATCH();
+                const uint8_t dstIdx = buf[pc];
+                const uint8_t srcIdx = buf[pc + 1];
+                const uint8_t skip = buf[pc + 2];
+                pc += 3;
+                if (__builtin_expect(dstIdx < varCount && srcIdx < varCount, 1)) {
+                    const proto::ProtoObject* dstSlot = getSlot(pContext, argCount + dstIdx);
+                    const proto::ProtoObject* dst = dstSlot;
+                    const proto::ProtoObject* dstCell = nullptr;
+                    if (!proto::isSmallInt(dst) && isCell(pContext, dst)) {
+                        dstCell = dst;
+                        dst = readCell(pContext, dst);
+                    }
+                    const proto::ProtoObject* src = getSlot(pContext, argCount + srcIdx);
+                    if (!proto::isSmallInt(src)) src = readCell(pContext, src);
+                    if (proto::isSmallInt(dst) && proto::isSmallInt(src)) {
+                        const long long sum = proto::asSmallInt(dst) + proto::asSmallInt(src);
+                        if (proto::smallIntInRange(sum)) {
+                            if (dstCell) writeCell(pContext, dstCell, proto::makeSmallInt(sum));
+                            else setSlot(pContext, argCount + dstIdx, proto::makeSmallInt(sum));
+                            pc += skip;
+                        }
                     }
                 }
-                // Slow path — semantics match L_OP_add_loc (which is the
-                // QuickJS fused form for `s += <stack-top>`).  We materialise
-                // `src` from the local instead of popping it, then go through
-                // the same string/numeric branch as add_loc.
-                bool dstStr = dst && dst != PROTO_NONE && dst->asString(pContext);
-                bool srcStr = src && src != PROTO_NONE && src->asString(pContext);
-                const proto::ProtoObject* nv;
-                if (dstStr || srcStr) {
-                    const proto::ProtoObject* sd = toString(pContext, dst);
-                    const proto::ProtoObject* ss = toString(pContext, src);
-                    const proto::ProtoString* sa = sd ? sd->asString(pContext) : nullptr;
-                    const proto::ProtoString* sb = ss ? ss->asString(pContext) : nullptr;
-                    if (sa && sb) {
-                        const proto::ProtoString* cat = sa->appendLast(pContext, sb);
-                        nv = cat ? cat->asObject(pContext) : PROTO_NONE;
-                    } else {
-                        nv = sd ? sd : (ss ? ss : PROTO_NONE);
-                    }
-                } else {
-                    const proto::ProtoObject* nd = toNumber(pContext, dst);
-                    const proto::ProtoObject* ns = toNumber(pContext, src);
-                    nv = nd ? numberAdd(pContext, nd, ns) : PROTO_NONE;
-                }
-                if (dstCell) writeCell(pContext, dstCell, nv);
-                else setSlot(pContext, argCount + dstIdx, nv);
                 DISPATCH();
             }
 
-            // ────────────────────────────────────────────────────────
-            // L_OP_proto_lt_loc8_loc8_jfalse a b offset32
-            //   Fuses get_loc8 a; get_loc8 b; lt; if_false TARGET (10B → 7B).
-            //   `offset` is signed 32-bit, semantics MATCH OP_if_false's
-            //   encoding so the existing remap pipeline reuses the same
-            //   relative-jump arithmetic.  When `local[a] < local[b]` we
-            //   fall through to the next instruction; otherwise pc += offset
-            //   (with the same +4/-4 idiom the original if_false handler
-            //   uses; see L_OP_if_false above).
-            // ────────────────────────────────────────────────────────
+            // L_OP_proto_lt_loc8_loc8_jfalse a b skip offset32:
+            //   if !(local[a] < local[b]) goto end + offset.
             L_OP_proto_lt_loc8_loc8_jfalse: {
-                if (pc + 6 > len) return PROTO_NONE;
-                uint8_t locA = buf[pc];
-                uint8_t locB = buf[pc + 1];
-                int32_t diff = static_cast<int32_t>(get_u32(buf + pc + 2));
-                pc += 6;
-
-                const proto::ProtoObject* a = (locA < varCount)
-                    ? readCell(pContext, getSlot(pContext, argCount + locA)) : PROTO_NONE;
-                const proto::ProtoObject* b = (locB < varCount)
-                    ? readCell(pContext, getSlot(pContext, argCount + locB)) : PROTO_NONE;
-                // TDZ check — same rationale as L_OP_proto_acc_loc8_loc8.
-                if (a == tdzSentinel || b == tdzSentinel) {
-                    throwJS(pContext, makeError(pContext, "ReferenceError",
-                        "Cannot access before initialization", pGlobalRoot));
-                    DISPATCH();
-                }
-
-                bool ltResult;
-                if (proto::isSmallInt(a) && proto::isSmallInt(b)) {
-                    ltResult = (proto::asSmallInt(a) < proto::asSmallInt(b));
-                } else {
-                    // Slow path — same numerify / undefined / toPrim logic
-                    // as L_OP_lt.  Note: we DON'T need BIGINT_REL_DISPATCH
-                    // here (the locals can carry BigInts; this is best-effort
-                    // for the bench — flip PROTOJS_SPECIALISER=off and let
-                    // the original opcodes run if you hit a corner case).
-                    auto isUndefForCmp = [&](const proto::ProtoObject* x) {
-                        return !x || x == PROTO_NONE ||
-                               x == getUndefinedSentinel() ||
-                               (x && x->isNone(pContext));
-                    };
-                    if (isUndefForCmp(a) || isUndefForCmp(b)) {
-                        // ECMA §7.2.13 step 3.b — NaN comparisons are false,
-                        // and if_false takes the jump.
-                        pc += diff;
-                        DISPATCH();
+                const uint8_t locA = buf[pc];
+                const uint8_t locB = buf[pc + 1];
+                const uint8_t skip = buf[pc + 2];
+                const int32_t diff = static_cast<int32_t>(get_u32(buf + pc + 3));
+                pc += 7;
+                if (__builtin_expect(locA < varCount && locB < varCount, 1)) {
+                    const proto::ProtoObject* a = getSlot(pContext, argCount + locA);
+                    if (!proto::isSmallInt(a)) a = readCell(pContext, a);
+                    const proto::ProtoObject* b = getSlot(pContext, argCount + locB);
+                    if (!proto::isSmallInt(b)) b = readCell(pContext, b);
+                    if (proto::isSmallInt(a) && proto::isSmallInt(b)) {
+                        pc += (proto::asSmallInt(a) < proto::asSmallInt(b)) ? skip : diff;
                     }
-                    auto numerifyBool = [&](const proto::ProtoObject* x) -> const proto::ProtoObject* {
-                        if (x == PROTO_TRUE)  return proto::makeSmallInt(1);
-                        if (x == PROTO_FALSE) return proto::makeSmallInt(0);
-                        if (x == t_nullSentinel) return proto::makeSmallInt(0);
-                        return x;
-                    };
-                    const proto::ProtoObject* na = numerifyBool(a);
-                    const proto::ProtoObject* nb = numerifyBool(b);
-                    if (proto::isSmallInt(na) && proto::isSmallInt(nb)) {
-                        ltResult = (proto::asSmallInt(na) < proto::asSmallInt(nb));
-                    } else {
-                        const proto::ProtoObject* pa = toPrimIfObject(na);
-                        REFRESH_INTERP_STATE();
-                        (void)0;
-                        const proto::ProtoObject* pb = toPrimIfObject(nb);
-                        REFRESH_INTERP_STATE();
-                        (void)0;
-                        int cmp = relCmpAfterPrim(pa, pb);
-                        ltResult = (cmp == -1);
-                    }
-                }
-
-                if (!ltResult) {
-                    pc += diff;
                 }
                 DISPATCH();
             }
 
-            // ────────────────────────────────────────────────────────
-            // L_OP_proto_lt_loc_var_jfalse loc varIdx_u16 offset32
-            //   Fuses `get_loc[_check] loc; get_var varIdx; lt;
-            //   if_false[8] T` (the typical `for (let i = 0; i < INNER;
-            //   i++)` shape where INNER is a module-level const captured
-            //   into the closure-symbol list).  Same offset encoding
-            //   as L_OP_proto_lt_loc8_loc8_jfalse — diff is signed
-            //   32-bit relative to the end of our 8-byte instruction.
-            //
-            //   The var-side resolution mirrors L_OP_get_var: read the
-            //   key from closureSymbols[varIdx], then liveGlobal->
-            //   getAttribute(key, /*chain=*/false), falling back to
-            //   the dedicated closure-var slot at argCount + varCount
-            //   + varIdx when the global has no entry yet.  protoCore's
-            //   per-thread AttributeCache makes the global lookup a
-            //   single cache hit after the first call.  We do NOT
-            //   implement the OP_get_var TDZ "absent name throws
-            //   ReferenceError" branch — that path matters only for
-            //   `OP_get_var` on a non-declared name, which the
-            //   BytecodeSpecialiser's matcher refuses to fuse anyway
-            //   (lexical-or-not is recorded per closure-var, not on
-            //   the opcode itself, so we'd need the matcher to consult
-            //   the module's `closureVarIsLexical` table to be safe;
-            //   that's a follow-up).
-            // ────────────────────────────────────────────────────────
+            // L_OP_proto_lt_loc_var_jfalse loc var_u16 skip offset32:
+            //   if !(local[loc] < GLOBAL) goto end + offset.  The global is
+            //   read as OP_get_var reads it first: the live global object's
+            //   own property named by closureSymbols[var].  An absent or
+            //   non-SmallInteger property falls through to OP_get_var.
             L_OP_proto_lt_loc_var_jfalse: {
-                if (pc + 7 > len) return PROTO_NONE;
-                uint8_t locIdx = buf[pc];
-                uint16_t varIdx = (uint16_t)buf[pc + 1] | ((uint16_t)buf[pc + 2] << 8);
-                int32_t diff = static_cast<int32_t>(get_u32(buf + pc + 3));
-                pc += 7;
-
-                // Local read with TDZ check (same shape as
-                // L_OP_proto_acc_loc8_loc8 / lt_loc8_loc8_jfalse).
-                const proto::ProtoObject* a = (locIdx < varCount)
-                    ? readCell(pContext, getSlot(pContext, argCount + locIdx)) : PROTO_NONE;
-                if (a == tdzSentinel) {
-                    throwJS(pContext, makeError(pContext, "ReferenceError",
-                        "Cannot access before initialization", pGlobalRoot));
-                    DISPATCH();
-                }
-
-                // Var-ref read — mirrors L_OP_get_var's fast path.
-                const proto::ProtoObject* b = PROTO_NONE;
-                const proto::ProtoObject* liveGlobal =
-                    (pGlobalRoot && *pGlobalRoot) ? *pGlobalRoot : globalObj;
-                if (liveGlobal && liveGlobal != PROTO_NONE
-                    && closureSymbols
-                    && static_cast<size_t>(varIdx) < closureSymbols->getSize(pContext)) {
-                    const proto::ProtoString* key =
-                        closureSymbols->getAt(pContext, static_cast<int>(varIdx))
-                            ->asString(pContext);
-                    if (key) {
-                        const proto::ProtoObject* rv =
-                            liveGlobal->getAttribute(pContext, key, false);
-                        if (rv) b = rv;
+                const uint8_t locIdx = buf[pc];
+                const uint16_t varIdx = (uint16_t)buf[pc + 1] | ((uint16_t)buf[pc + 2] << 8);
+                const uint8_t skip = buf[pc + 3];
+                const int32_t diff = static_cast<int32_t>(get_u32(buf + pc + 4));
+                pc += 8;
+                if (__builtin_expect(locIdx < varCount, 1)) {
+                    const proto::ProtoObject* a = getSlot(pContext, argCount + locIdx);
+                    if (!proto::isSmallInt(a)) a = readCell(pContext, a);
+                    const proto::ProtoObject* liveGlobal =
+                        (pGlobalRoot && *pGlobalRoot) ? *pGlobalRoot : globalObj;
+                    if (proto::isSmallInt(a) && liveGlobal && liveGlobal != PROTO_NONE
+                        && closureSymbols
+                        && static_cast<size_t>(varIdx) < closureSymbols->getSize(pContext)) {
+                        const proto::ProtoString* key =
+                            closureSymbols->getAt(pContext, static_cast<int>(varIdx))
+                                ->asString(pContext);
+                        const proto::ProtoObject* b =
+                            key ? liveGlobal->getAttribute(pContext, key, false) : nullptr;
+                        if (b && proto::isSmallInt(b)) {
+                            pc += (proto::asSmallInt(a) < proto::asSmallInt(b)) ? skip : diff;
+                        }
                     }
-                }
-                if ((!b || b == PROTO_NONE)
-                    && argCount + varCount + varIdx < (unsigned)len) {
-                    const proto::ProtoObject* sv =
-                        getSlot(pContext, argCount + varCount + varIdx);
-                    if (sv && sv != PROTO_NONE) b = sv;
-                }
-                if (b == tdzSentinel) {
-                    throwJS(pContext, makeError(pContext, "ReferenceError",
-                        "Cannot access before initialization", pGlobalRoot));
-                    DISPATCH();
-                }
-
-                // SmallInt fast path identical to L_OP_lt; same slow-
-                // path skeleton too.
-                bool ltResult;
-                if (proto::isSmallInt(a) && proto::isSmallInt(b)) {
-                    ltResult = (proto::asSmallInt(a) < proto::asSmallInt(b));
-                } else {
-                    auto isUndefForCmp = [&](const proto::ProtoObject* x) {
-                        return !x || x == PROTO_NONE ||
-                               x == getUndefinedSentinel() ||
-                               (x && x->isNone(pContext));
-                    };
-                    if (isUndefForCmp(a) || isUndefForCmp(b)) {
-                        pc += diff;
-                        DISPATCH();
-                    }
-                    auto numerifyBool = [&](const proto::ProtoObject* x) -> const proto::ProtoObject* {
-                        if (x == PROTO_TRUE)  return proto::makeSmallInt(1);
-                        if (x == PROTO_FALSE) return proto::makeSmallInt(0);
-                        if (x == t_nullSentinel) return proto::makeSmallInt(0);
-                        return x;
-                    };
-                    const proto::ProtoObject* na = numerifyBool(a);
-                    const proto::ProtoObject* nb = numerifyBool(b);
-                    if (proto::isSmallInt(na) && proto::isSmallInt(nb)) {
-                        ltResult = (proto::asSmallInt(na) < proto::asSmallInt(nb));
-                    } else {
-                        const proto::ProtoObject* pa = toPrimIfObject(na);
-                        REFRESH_INTERP_STATE();
-                        (void)0;
-                        const proto::ProtoObject* pb = toPrimIfObject(nb);
-                        REFRESH_INTERP_STATE();
-                        (void)0;
-                        int cmp = relCmpAfterPrim(pa, pb);
-                        ltResult = (cmp == -1);
-                    }
-                }
-
-                if (!ltResult) {
-                    pc += diff;
                 }
                 DISPATCH();
             }

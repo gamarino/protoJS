@@ -397,6 +397,7 @@ foreach(js_test
         basic/super_property_accessors
         basic/dictionary_keys
         basic/dictionary_shadowing
+        basic/specialiser_correctness
         deferred/dictionary_keys_shared
         deferred/result_is_shared
         workers/dictionary_keys_message

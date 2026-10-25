@@ -41,7 +41,7 @@ protojs [options] -e "<code>"
 | Variable | Read by | Effect |
 |----------|---------|--------|
 | `PROTOJS_NO_FALLBACK` | `src/JSContext.cpp` | When the protoCore compile step fails, `protojs` normally prints `[protojs] compile failed, fallback to QuickJS eval` and evaluates the code with QuickJS. Set to `1` to report the error instead. |
-| `PROTOJS_SPECIALISER` | `src/runtime/BytecodeSpecialiser.cpp` | Bytecode specialiser mode: `compact` (default), `nop` or `off`. |
+| `PROTOJS_SPECIALISER` | `src/runtime/BytecodeSpecialiser.cpp` | Bytecode specialiser: on by default (`on`; the former names `compact` and `nop` also mean on), `off` disables it. |
 | `PROTOCORE_GC_CONTEXT_THRESHOLD` | protoCore | Per-context allocation threshold used by protoCore's garbage collector trigger. |
 | `PROTOJS_EXIT_TIMEOUT_SECONDS` | `src/main.cpp` | After the main script, `protojs` runs while work is pending, without a time limit (Node's behaviour). A positive value makes it stop waiting after that many seconds, printing `Warning: Event loop timeout reached`. Until 2026-10-03 a fixed 180-second limit applied. |
 | `PROTOJS_LITERAL_BUILD` | `src/runtime/BytecodeSpecialiser.cpp` | Object literals are built immutable and made mutable once, after their last field (`markObjectLiterals`). Set to `off` to build them field by field on a mutable object, as before 2026-10-02. |

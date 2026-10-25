@@ -40,15 +40,19 @@ function 0 sum: args 1, locals 2, closure vars 0, stack 2, constructor
      10  get_loc_check             1           ; i
      13  get_arg0                              ; n
      14  lt
-     15  if_false8                 14          ; -> 30
-     17  proto_acc_loc8_loc8       0 1         ; s += i
-     20  get_loc_check             1           ; i
-     23  post_inc
-     24  put_loc_check             1           ; i
-     27  drop
-     28  goto8                     -19         ; -> 10
-     30  get_loc_check             0           ; s
-     33  return
+     15  if_false8                 25          ; -> 41
+     17  proto_acc_loc8_loc8       0 1 10      ; s += i; fast path skips to 31
+     21  get_loc_check             0           ; s
+     24  get_loc_check             1           ; i
+     27  add
+     28  put_loc_check             0           ; s
+     31  get_loc_check             1           ; i
+     34  post_inc
+     35  put_loc_check             1           ; i
+     38  drop
+     39  goto8                     -30         ; -> 10
+     41  get_loc_check             0           ; s
+     44  return
 
 function 1 countdown: args 1, locals 1, closure vars 0, stack 2, constructor
   slots:

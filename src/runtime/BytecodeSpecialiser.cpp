@@ -17,35 +17,29 @@ namespace protojs {
 // ProtoInterpreter.cpp's dispatch_table[] population.
 // ─────────────────────────────────────────────────────────────────
 
-/// `OP_proto_acc_loc8_loc8 dst src`  (3 bytes)
-/// Fused form of:
-///   OP_get_loc8 dst
-///   OP_get_loc8 src
-///   OP_add
-///   OP_put_loc8 dst
-/// Semantics: `local[dst] = local[dst] + local[src]`.  No stack
-/// effect — the value never reaches the operand stack.  SmallInt
-/// fast path inlined; falls back to OP_add otherwise.
+/// The three fused opcodes are guarded headers placed in front of the
+/// instructions they stand for, which stay in the bytecode (see
+/// specialiseGuarded).  `skip` is the length of those instructions; the fast
+/// path jumps over them, every other case falls through into them.
+///
+/// `OP_proto_acc_loc8_loc8 dst src skip`  (4 bytes) in front of
+///   get_loc dst; get_loc src; add; put_loc dst   or   get_loc src; add_loc dst
+/// Fast path: both locals SmallIntegers and the sum in range:
+/// `local[dst] = local[dst] + local[src]`.
 constexpr uint8_t OP_PROTO_ACC_LOC8_LOC8 = 244;
 
-/// `OP_proto_lt_loc8_loc8_jfalse a b target` (7 bytes: 1 + 1 + 1 + 4)
-/// Fused form of:
-///   OP_get_loc8 a
-///   OP_get_loc8 b
-///   OP_lt
-///   OP_if_false target          (5 bytes, target is signed 32-bit
-///                                relative offset)
-/// Semantics: if `local[a] < local[b]` continue; else jump to
-/// `pc + 7 + target`.  SmallInt fast path inlined.
+/// `OP_proto_lt_loc8_loc8_jfalse a b skip offset32` (8 bytes) in front of
+///   get_loc a; get_loc b; lt; if_false[8] target
+/// Fast path: both locals SmallIntegers; jumps to `end + offset` when
+/// `local[a] < local[b]` is false (`end` is the address after the header),
+/// otherwise skips the original instructions.
 constexpr uint8_t OP_PROTO_LT_LOC8_LOC8_JFALSE = 245;
 
-/// `OP_PROTO_LT_LOC_VAR_JFALSE locIdx varIdx_u16 offset_s32` (8 bytes)
-/// Fuses the *closure-or-global* form of the loop test:
-///     get_loc_check locIdx ; get_var varIdx ; lt ; if_false[8] target
-/// `varIdx` is the closure-symbol / global-var index (u16, the format
-/// QuickJS emits for `OP_get_var`).  Stored offset is 32-bit signed
-/// even when the source used `if_false8` — widened at match time so
-/// the dispatched handler stays uniform.
+/// `OP_proto_lt_loc_var_jfalse loc var_u16 skip offset32` (9 bytes) in front of
+///   get_loc loc; get_var var; lt; if_false[8] target
+/// `var` is the closure-variable index of OP_get_var.  Fast path: the local
+/// and the global's own property (the value OP_get_var reads first) are
+/// SmallIntegers.
 constexpr uint8_t OP_PROTO_LT_LOC_VAR_JFALSE = 246;
 
 /// Object literals built in one immutable step (markObjectLiterals):
@@ -57,15 +51,16 @@ constexpr uint8_t OP_PROTO_LT_LOC_VAR_JFALSE = 246;
 constexpr uint8_t OP_PROTO_OBJECT_IMM = 247;
 constexpr uint8_t OP_PROTO_DEFINE_FIELD_LAST = 248;
 
-constexpr int FUSED_ACC_LEN = 3;
-constexpr int FUSED_LT_JF_LEN = 7;
-constexpr int FUSED_LT_LOC_VAR_JF_LEN = 8;
+constexpr int FUSED_ACC_LEN = kFusedAccLength;
+constexpr int FUSED_LT_JF_LEN = kFusedLtLength;
+constexpr int FUSED_LT_LOC_VAR_JF_LEN = kFusedLtVarLength;
 
 // ─────────────────────────────────────────────────────────────────
-// QuickJS opcode size table.  Hand-rolled from quickjs-opcode.h
-// keeping only the opcodes the peephole walker has to skip past.
-// Anything not listed uses kDefaultSize and the walker bails (no
-// rewrite for that function).  Padded conservatively.
+// Instruction sizes: QuickJS's final opcodes from quickjs-opcode.h and
+// protoJS's opcodes 244..250.  The loader and the disassembler use this
+// table too (bytecodeOpcodeSizes), so there is one table to keep current.
+// A size of 0 marks a byte that is not a final opcode; a walker that meets
+// one stops.
 // ─────────────────────────────────────────────────────────────────
 
 namespace {
@@ -319,14 +314,6 @@ inline int32_t readLE32(const uint8_t* p) {
     return (int32_t)u;
 }
 
-// ─────────────────────────────────────────────────────────────────
-// Form A — NOP-pad rewrite.  Bytecode length stays identical; every
-// existing jump offset in the rest of the buffer remains valid.
-// The candidate slot has the fused opcode first, then `OP_nop` for
-// the remaining bytes.  Each NOP costs one dispatch but is otherwise
-// free — and there is zero risk of breaking a jump target landing
-// inside the fused region (it lands on a NOP and walks forward).
-// ─────────────────────────────────────────────────────────────────
 // Attempt to fuse at `pc` using both the "naive" accumulator pattern
 // (P1a) and the QuickJS-peephole-optimised one (P1b).  Returns the
 // matched source-byte span (0 = no match) and fills outDst / outSrc.
@@ -337,420 +324,223 @@ int tryMatchAcc(const uint8_t* buf, int pc, int len,
     return matchAccPatternAddLoc(buf, pc, len, outDst, outSrc);
 }
 
-std::vector<uint8_t> specialiseNopPad(const uint8_t* buf, int len) {
-    std::vector<uint8_t> out(buf, buf + len);
-    int hitsAcc = 0, hitsLtJf = 0;
-    if (std::getenv("PROTOJS_SPECIALISER_DUMP")) {
-        fprintf(stderr, "[specialiser] dump (%d bytes):", len);
-        for (int i = 0; i < len && i < 80; ++i) fprintf(stderr, " %02x", buf[i]);
-        fprintf(stderr, "\n");
+// Absolute target of the jump instruction at `pc`, or -1 if it is not a
+// jump.  Covers every QuickJS opcode that carries a code offset: the
+// conditional and unconditional jumps, `catch` (the handler of a try
+// range), `gosub` (a finally block) and the five `with_*` opcodes, whose
+// label follows a 4-byte atom.
+int jumpTarget(const uint8_t* buf, int pc) {
+    auto rel32 = [&](int off) {
+        int32_t d = (int32_t)((uint32_t)buf[pc + off] | ((uint32_t)buf[pc + off + 1] << 8)
+                    | ((uint32_t)buf[pc + off + 2] << 16) | ((uint32_t)buf[pc + off + 3] << 24));
+        return pc + off + d;
+    };
+    switch (buf[pc]) {
+        case OP_if_false: case OP_if_true: case OP_goto: case OP_catch: case OP_gosub:
+            return rel32(1);
+        case OP_if_false8: case OP_if_true8: case OP_goto8:
+            return pc + 1 + (int8_t)buf[pc + 1];
+        case OP_goto16:
+            return pc + 1 + (int16_t)(uint16_t)(buf[pc + 1] | (buf[pc + 2] << 8));
+        case OP_with_get_var: case OP_with_put_var: case OP_with_delete_var:
+        case OP_with_make_ref: case OP_with_get_ref:
+            return rel32(5);
+        default:
+            return -1;
     }
+}
 
-    int pc = 0;
-    while (pc < len) {
-        uint8_t op = out[pc];
-
-        // ── ACC pattern ──
-        uint8_t dst, src;
-        int accSpan = tryMatchAcc(out.data(), pc, len, dst, src);
-        // Fused form is 3 bytes; the NOP-pad scheme only works when
-        // the source span is at least that.  In practice the smallest
-        // QuickJS form is `get_locN + add_loc M` = 3 bytes (loc 0-3)
-        // or 4 bytes (loc8) so the >= test never rejects.
-        if (accSpan >= FUSED_ACC_LEN) {
-            hitsAcc++;
-            out[pc + 0] = OP_PROTO_ACC_LOC8_LOC8;
-            out[pc + 1] = dst;
-            out[pc + 2] = src;
-            for (int k = FUSED_ACC_LEN; k < accSpan; ++k) out[pc + k] = OP_nop;
-            pc += accSpan;
-            continue;
+// Writes `target` into the offset operand of the jump instruction at
+// `newPc` of `out` (the same encoding jumpTarget reads).  Returns false
+// when the new offset does not fit the instruction's operand width.
+bool writeJumpTarget(std::vector<uint8_t>& out, int newPc, int target) {
+    auto put32 = [&](int off) {
+        writeLE32(&out[newPc + off], (int32_t)(target - (newPc + off)));
+        return true;
+    };
+    switch (out[newPc]) {
+        case OP_if_false: case OP_if_true: case OP_goto: case OP_catch: case OP_gosub:
+            return put32(1);
+        case OP_if_false8: case OP_if_true8: case OP_goto8: {
+            const int d = target - (newPc + 1);
+            if (d < -128 || d > 127) return false;
+            out[newPc + 1] = (uint8_t)(int8_t)d;
+            return true;
         }
-
-        // ── LT-JF pattern ──
-        // P3: loc < global-var (closure / module-level const).
-        // Matched FIRST because its source span overlaps with the
-        // loc-loc form's prefix (`get_loc` is common); if the second
-        // operand is a `get_var` we want this fused opcode, not a
-        // mis-match against P2.
-        {
-            uint8_t locA; uint16_t varB;
-            int32_t storedOffsetV; bool isShortJfV;
-            int spanV = matchLtLocVarJfPattern(out.data(), pc, len,
-                                                locA, varB,
-                                                storedOffsetV, isShortJfV);
-            if (spanV >= FUSED_LT_LOC_VAR_JF_LEN) {
-                hitsLtJf++;
-                int jfSize = isShortJfV ? 2 : 5;
-                int origIfFalsePc = pc + spanV - jfSize;
-                int32_t diff = (int32_t)(
-                    origIfFalsePc + 1 + storedOffsetV
-                    - (pc + FUSED_LT_LOC_VAR_JF_LEN));
-                out[pc + 0] = OP_PROTO_LT_LOC_VAR_JFALSE;
-                out[pc + 1] = locA;
-                out[pc + 2] = (uint8_t)(varB & 0xFF);
-                out[pc + 3] = (uint8_t)((varB >> 8) & 0xFF);
-                writeLE32(&out[pc + 4], diff);
-                for (int k = FUSED_LT_LOC_VAR_JF_LEN; k < spanV; ++k)
-                    out[pc + k] = OP_nop;
-                pc += spanV;
-                continue;
-            }
+        case OP_goto16: {
+            const int d = target - (newPc + 1);
+            if (d < -32768 || d > 32767) return false;
+            const uint16_t u = (uint16_t)(int16_t)d;
+            out[newPc + 1] = (uint8_t)(u & 0xff);
+            out[newPc + 2] = (uint8_t)(u >> 8);
+            return true;
         }
-
-        uint8_t a, b;
-        int32_t storedOffset;
-        bool isShortJf;
-        int ltSpan = matchLtCmpJfPattern(out.data(), pc, len,
-                                          a, b, storedOffset, isShortJf);
-        if (ltSpan >= FUSED_LT_JF_LEN) {
-            hitsLtJf++;
-            // In the NOP-pad form the new opcode sits where the
-            // original first byte was; targets in the rest of the
-            // buffer continue to point at the SAME pc values.  So
-            // we just need to convert the original stored offset
-            // into the equivalent value our fused handler expects.
-            //
-            //   Original if_false at origIfFalsePc = pc + (ltSpan - jfSize)
-            //   Original semantics: target = origIfFalsePc + 1 + storedOffset
-            //                              (or +1 byte for if_false8)
-            //   Our handler: target = (pc + FUSED_LT_JF_LEN) + diff
-            //   ⇒ diff = origIfFalsePc + 1 + storedOffset - (pc + 7)
-            //
-            // For if_false (5B): origIfFalsePc = pc + ltSpan - 5;
-            //   diff = (pc + ltSpan - 5) + 1 + storedOffset - (pc + 7)
-            //        = storedOffset + ltSpan - 11
-            //   (e.g. ltSpan=10 → diff = storedOffset - 1, matches the
-            //    original derivation in the comment-block we replaced.)
-            //
-            // For if_false8 (2B): origIfFalsePc = pc + ltSpan - 2;
-            //   diff = (pc + ltSpan - 2) + 1 + storedOffset - (pc + 7)
-            //        = storedOffset + ltSpan - 8
-            int jfSize = isShortJf ? 2 : 5;
-            int origIfFalsePc = pc + ltSpan - jfSize;
-            int32_t diff = (int32_t)(
-                origIfFalsePc + 1 + storedOffset - (pc + FUSED_LT_JF_LEN));
-            out[pc + 0] = OP_PROTO_LT_LOC8_LOC8_JFALSE;
-            out[pc + 1] = a;
-            out[pc + 2] = b;
-            writeLE32(&out[pc + 3], diff);
-            for (int k = FUSED_LT_JF_LEN; k < ltSpan; ++k) out[pc + k] = OP_nop;
-            pc += ltSpan;
-            continue;
-        }
-
-        // Skip past this opcode based on its declared size.
-        const uint8_t* sizes = getOpcodeSizes();
-        uint8_t sz = sizes[op];
-        if (sz == 0) {
-            // Unknown opcode — abandon further specialisation in this
-            // function rather than risk misalignment.
-            if (std::getenv("PROTOJS_SPECIALISER_DIAG")) {
-                fprintf(stderr, "[specialiser] nop-pad aborted at pc=%d op=0x%02x len=%d hits acc=%d ltjf=%d\n",
-                        pc, op, len, hitsAcc, hitsLtJf);
-            }
-            break;
-        }
-        pc += sz;
+        case OP_with_get_var: case OP_with_put_var: case OP_with_delete_var:
+        case OP_with_make_ref: case OP_with_get_ref:
+            return put32(5);
+        default:
+            return true;
     }
-    if (std::getenv("PROTOJS_SPECIALISER_DIAG") && (hitsAcc + hitsLtJf) > 0) {
-        fprintf(stderr, "[specialiser] nop-pad: %d ACC + %d LT_JF rewrites in %d-byte function\n",
-                hitsAcc, hitsLtJf, len);
-    }
-    return out;
 }
 
 // ─────────────────────────────────────────────────────────────────
-// Form B — Compact rewrite + jump-target remap.  Emit a shorter
-// buffer where each matched sequence collapses to its fused form;
-// build a translation table `old_pc → new_pc`; then walk the new
-// buffer once more rewriting every relative-jump operand
-// (`if_false`/`if_true`/`goto`/`goto8`/`goto16`/`if_false8`/
-// `if_true8`) so it points at the equivalent new offset.
+// The rewrite: guarded super-instructions in front of the code they
+// replace.
 //
-// This is the form CPython 3.11+ uses for its "quickening", and
-// the protoPython sprint-11 sketch the user asked us to port.
-// Trade-off vs NopPad: tighter dispatch (no per-iter NOPs to retire)
-// at the cost of needing every relative-jump opcode in the rewriter.
+// Each matched sequence keeps its original instructions; a fused header
+// is inserted in front of them:
+//
+//     <header: fused opcode, operands, skip, [jump offset]>
+//     <the original instructions, unchanged>
+//
+// The header's handler runs the fast path only when it can prove the
+// result equals what the original instructions would compute: both
+// operands SmallIntegers (read through closure cells), and for P3 the
+// global read the same `get_var` performs.  It then skips the original
+// instructions (`skip` bytes) or takes the jump.  In every other case
+// (BigInt, objects with valueOf / Symbol.toPrimitive, strings, doubles,
+// the TDZ sentinel, an undeclared global, an overflowing sum) it does
+// nothing and execution falls through into the original instructions,
+// which give the exact semantics by construction.  The fused handlers
+// therefore have no slow path of their own to keep in sync with `add`,
+// `lt`, `get_var` and the TDZ checks.
+//
+// Jumps: the buffer grows, so every code offset is re-encoded through an
+// old-to-new offset table: the jumps, `catch` handlers, `gosub` targets
+// and the `with_*` labels (jumpTarget).  A jump to the first instruction
+// of a sequence lands on its header.  A sequence with a jump target inside
+// it is not fused (the code is still correct if it were, since the
+// original instructions are kept, but the header would then be entered
+// only part of the times the sequence runs).  If a short jump can no
+// longer reach its target, the function is left unspecialised.
 // ─────────────────────────────────────────────────────────────────
-std::vector<uint8_t> specialiseCompact(const uint8_t* buf, int len) {
+std::vector<uint8_t> specialiseGuarded(const uint8_t* buf, int len) {
     const uint8_t* sizes = getOpcodeSizes();
+    const std::vector<uint8_t> unchanged(buf, buf + len);
 
-    // Pass 1: emit fused bytecode, recording the source-pc / dest-pc
-    // mapping.  remap[srcPc] = dstPc for every legal instruction
-    // boundary; -1 elsewhere.
+    // Pass 0: validate the stream and mark every jump target.
+    std::vector<uint8_t> isTarget(static_cast<size_t>(len) + 1, 0);
+    for (int pc = 0; pc < len; ) {
+        const uint8_t sz = sizes[buf[pc]];
+        if (sz == 0 || pc + sz > len) return unchanged;
+        const int t = jumpTarget(buf, pc);
+        if (t != -1) {
+            if (t < 0 || t > len) return unchanged;
+            isTarget[t] = 1;
+        }
+        pc += sz;
+    }
+    auto interiorIsTarget = [&](int pc, int span) {
+        for (int k = pc + 1; k < pc + span; ++k)
+            if (isTarget[k]) return true;
+        return false;
+    };
+
+    // Pass 1: emit headers and copy every instruction, recording the new
+    // offset of each original instruction boundary.
     std::vector<uint8_t> out;
-    out.reserve(len);
-    std::vector<int> remap(len + 1, -1);  // +1 for end-of-buffer label
+    out.reserve(static_cast<size_t>(len) + len / 4 + 16);
+    std::vector<int> remap(static_cast<size_t>(len) + 1, -1);
+    struct Copied { int newPc; int origPc; };
+    std::vector<Copied> copied;
+    // A header whose jump offset Pass 2 fills: where it is, where its
+    // offset operand is, and the original target.
+    struct Header { int newPc; int offsetAt; int length; int origTarget; };
+    std::vector<Header> headers;
+    int fused = 0;
+
+    auto copySpan = [&](int from, int span) {
+        for (int pc = from; pc < from + span; ) {
+            const uint8_t sz = sizes[buf[pc]];
+            if (pc != from) remap[pc] = (int)out.size();
+            copied.push_back({(int)out.size(), pc});
+            out.insert(out.end(), buf + pc, buf + pc + sz);
+            pc += sz;
+        }
+    };
+    // The original target of the if_false / if_false8 ending a matched
+    // comparison span.
+    auto ifFalseTarget = [&](int pc, int span, bool isShort) {
+        return jumpTarget(buf, pc + span - (isShort ? 2 : 5));
+    };
 
     int pc = 0;
     while (pc < len) {
         remap[pc] = (int)out.size();
-        uint8_t op = buf[pc];
 
         uint8_t dst, src;
-        int accSpan = tryMatchAcc(buf, pc, len, dst, src);
-        if (accSpan >= FUSED_ACC_LEN) {
+        const int accSpan = tryMatchAcc(buf, pc, len, dst, src);
+        if (accSpan > 0 && accSpan <= 0xff && !interiorIsTarget(pc, accSpan)) {
             out.push_back(OP_PROTO_ACC_LOC8_LOC8);
             out.push_back(dst);
             out.push_back(src);
-            // Map the interior bytes of the original span to the SAME
-            // new dst pc — they were sub-instruction boundaries that
-            // no legal jump targeted, but defining the mapping keeps
-            // the invertibility we rely on in Pass 2.
-            for (int k = 1; k < accSpan; ++k) remap[pc + k] = (int)out.size() - 3;
+            out.push_back((uint8_t)accSpan);
+            copySpan(pc, accSpan);
+            ++fused;
             pc += accSpan;
             continue;
         }
 
-        // P3 (compact form): loc < var ; if_false[8] T
-        // Matched BEFORE the loc-loc form for the same reason as in
-        // the NOP-pad pass — the prefix overlap.
+        // P3 is tried before P2: both start with a local read.
         {
-            uint8_t locA; uint16_t varB;
-            int32_t storedOffsetV; bool isShortJfV;
-            int spanV = matchLtLocVarJfPattern(buf, pc, len,
-                                                locA, varB,
-                                                storedOffsetV, isShortJfV);
-            if (spanV >= FUSED_LT_LOC_VAR_JF_LEN) {
+            uint8_t locA; uint16_t varB; int32_t stored; bool isShort;
+            const int span = matchLtLocVarJfPattern(buf, pc, len, locA, varB, stored, isShort);
+            if (span > 0 && span <= 0xff && !interiorIsTarget(pc, span)) {
+                const int hdr = (int)out.size();
                 out.push_back(OP_PROTO_LT_LOC_VAR_JFALSE);
                 out.push_back(locA);
-                out.push_back((uint8_t)(varB & 0xFF));
-                out.push_back((uint8_t)((varB >> 8) & 0xFF));
-                const size_t off = out.size();
-                out.resize(off + 4);
-                // Pack storedOffset (low 24 bits, signed) + ltSpan
-                // (bits 24..30, 7 bits) + isShortJf (bit 31).  Same
-                // scheme as the loc-loc variant; Pass 2 dispatches on
-                // the opcode to pick the right unpacking.
-                uint32_t packed =
-                    ((uint32_t)(storedOffsetV & 0xFFFFFF))
-                    | (((uint32_t)(uint8_t)spanV & 0x7F) << 24)
-                    | (isShortJfV ? 0x80000000u : 0);
-                writeLE32(&out[off], (int32_t)packed);
-                for (int k = 1; k < spanV; ++k)
-                    remap[pc + k] = (int)out.size() - FUSED_LT_LOC_VAR_JF_LEN;
-                pc += spanV;
+                out.push_back((uint8_t)(varB & 0xff));
+                out.push_back((uint8_t)(varB >> 8));
+                out.push_back((uint8_t)span);
+                out.resize(out.size() + 4);
+                headers.push_back({hdr, hdr + 5, FUSED_LT_LOC_VAR_JF_LEN,
+                                   ifFalseTarget(pc, span, isShort)});
+                copySpan(pc, span);
+                ++fused;
+                pc += span;
+                continue;
+            }
+        }
+        {
+            uint8_t a, b; int32_t stored; bool isShort;
+            const int span = matchLtCmpJfPattern(buf, pc, len, a, b, stored, isShort);
+            if (span > 0 && span <= 0xff && !interiorIsTarget(pc, span)) {
+                const int hdr = (int)out.size();
+                out.push_back(OP_PROTO_LT_LOC8_LOC8_JFALSE);
+                out.push_back(a);
+                out.push_back(b);
+                out.push_back((uint8_t)span);
+                out.resize(out.size() + 4);
+                headers.push_back({hdr, hdr + 4, FUSED_LT_JF_LEN,
+                                   ifFalseTarget(pc, span, isShort)});
+                copySpan(pc, span);
+                ++fused;
+                pc += span;
                 continue;
             }
         }
 
-        uint8_t a, b;
-        int32_t storedOffset;
-        bool isShortJf;
-        int ltSpan = matchLtCmpJfPattern(buf, pc, len, a, b, storedOffset, isShortJf);
-        if (ltSpan >= FUSED_LT_JF_LEN) {
-            // Stash a placeholder for the relative offset; Pass 2 fills
-            // it in once `remap[]` is populated.  The stash carries
-            // enough info to recover the original target: we keep BOTH
-            // the original stored offset value AND a flag (encoded as
-            // the high bit of one of the loc bytes? – no, we just keep
-            // it in side-table-form via origIfFalsePc reconstruction
-            // from invRemap[newPc] in Pass 2; the stored 32-bit slot
-            // here holds the original `storedOffset` widened, with the
-            // jfSize recoverable from `(span - 1 byte for the loc8
-            // form, etc.)` — but for simplicity we encode jfSize as
-            // either 0 (5-byte if_false) or 1 (2-byte if_false8)
-            // packed into the MSB of the placeholder.  Pass 2 unpacks.
-            out.push_back(OP_PROTO_LT_LOC8_LOC8_JFALSE);
-            out.push_back(a);
-            out.push_back(b);
-            const size_t off = out.size();
-            out.resize(off + 4);
-            // Pack storedOffset (low 24 bits, signed) + jfSize marker
-            // (bit 31) + ltSpan (bits 24..30) so Pass 2 can recover
-            // the original target.  Signed 24-bit covers ±8 MiB —
-            // way more than any if_false target in practice.
-            uint32_t packed =
-                ((uint32_t)(storedOffset & 0xFFFFFF))
-                | (((uint32_t)(uint8_t)ltSpan & 0x7F) << 24)
-                | (isShortJf ? 0x80000000u : 0);
-            writeLE32(&out[off], (int32_t)packed);
-            for (int k = 1; k < ltSpan; ++k) remap[pc + k] = (int)out.size() - 7;
-            pc += ltSpan;
-            continue;
-        }
-
-        // Copy this opcode + operands verbatim.
-        uint8_t sz = sizes[op];
-        if (sz == 0) {
-            // Unknown opcode in the stream — bail.  Return the input
-            // untouched so the caller's bytecode runs unchanged.
-            return std::vector<uint8_t>(buf, buf + len);
-        }
-        if (pc + sz > len) {
-            // Truncated stream — same bail.
-            return std::vector<uint8_t>(buf, buf + len);
-        }
-        for (int k = 0; k < sz; ++k) out.push_back(buf[pc + k]);
-        pc += sz;
+        copySpan(pc, sizes[buf[pc]]);
+        pc += sizes[buf[pc]];
     }
-    remap[len] = (int)out.size();  // end label
+    remap[len] = (int)out.size();
+    if (fused == 0) return unchanged;
 
-    // Pass 2: walk the rewritten buffer and patch every jump operand.
-    // For each jump opcode in `out`, we know:
-    //   - the original-source-pc of THIS jump instruction (it's the
-    //     unique src whose remap[src] == this dst position)
-    //   - the original-source-pc of its target = origSrc + origSize
-    //     + storedOffset (the if_false / if_true / goto encoding)
-    //   - the new-dest-pc of its target = remap[origTargetPc]
-    //   - the new operand should be `newTargetPc - (this dst + size)`
-    //
-    // To recover the original src pc cheaply we keep an inverse
-    // mapping built during Pass 1.
-    std::vector<int> invRemap(out.size() + 1, -1);
-    for (int s = 0; s <= len; ++s) {
-        if (remap[s] >= 0 && invRemap[remap[s]] < 0) invRemap[remap[s]] = s;
+    // Pass 2: re-encode every code offset.
+    for (const Copied& c : copied) {
+        const int t = jumpTarget(buf, c.origPc);
+        if (t == -1) continue;
+        if (t < 0 || t > len || remap[t] < 0) return unchanged;
+        if (!writeJumpTarget(out, c.newPc, remap[t])) return unchanged;
+    }
+    for (const Header& h : headers) {
+        if (h.origTarget < 0 || h.origTarget > len || remap[h.origTarget] < 0) return unchanged;
+        writeLE32(&out[h.offsetAt], (int32_t)(remap[h.origTarget] - (h.newPc + h.length)));
     }
 
-    int newPc = 0;
-    while (newPc < (int)out.size()) {
-        uint8_t op = out[newPc];
-        uint8_t sz = sizes[op];
-        if (sz == 0 || newPc + sz > (int)out.size()) break;
-
-        // For every QuickJS relative-jump opcode (goto / if_false /
-        // if_true and their 8/16-bit variants), the offset is stored
-        // **relative to the operand start**: `target_pc = operand_start
-        // + storedOffset`.  goto reads `diff` then `pc += diff`
-        // directly; if_false / if_true do `pc += 4; pc += diff - 4`,
-        // which is the same net `pc <- operand_start + diff`.  Both
-        // forms therefore round-trip if we resolve the original target
-        // via `origSrcPc + operandOffset + storedOffset` and re-emit
-        // via `newOffset = newTargetPc - (newPc + operandOffset)`.
-        // (NB: this is the protoCpp-style "operand-relative" idiom.
-        // Don't confuse it with the "end-of-instruction-relative" form
-        // some other ISAs use.)
-        auto patchRel32 = [&](int operandOffset) {
-            int origSrcPc = invRemap[newPc];
-            if (origSrcPc < 0) return;
-            int32_t storedOffset = readLE32(buf + origSrcPc + operandOffset);
-            int origTargetPc = origSrcPc + operandOffset + storedOffset;
-            if (origTargetPc < 0 || origTargetPc > len) return;
-            int newTargetPc = remap[origTargetPc];
-            if (newTargetPc < 0) return;
-            int32_t newOffset = newTargetPc - (newPc + operandOffset);
-            writeLE32(&out[newPc + operandOffset], newOffset);
-        };
-        auto patchRel8 = [&](int operandOffset) {
-            int origSrcPc = invRemap[newPc];
-            if (origSrcPc < 0) return;
-            int8_t storedOffset = (int8_t)buf[origSrcPc + operandOffset];
-            int origTargetPc = origSrcPc + operandOffset + storedOffset;
-            if (origTargetPc < 0 || origTargetPc > len) return;
-            int newTargetPc = remap[origTargetPc];
-            if (newTargetPc < 0) return;
-            int delta = newTargetPc - (newPc + operandOffset);
-            if (delta < -128 || delta > 127) {
-                // Out of int8_t range — the fused buffer brought the
-                // target out of reach of the original short-form
-                // jump.  We could widen here to the matching 32-bit
-                // variant, but that grows the buffer and breaks our
-                // monotone remap invariant; punt cleanly back to the
-                // NopPad form (no width change, no remap, no risk).
-                std::vector<uint8_t> fallback = specialiseNopPad(buf, len);
-                out = std::move(fallback);
-                newPc = (int)out.size();
-                return;
-            }
-            out[newPc + operandOffset] = (uint8_t)delta;
-        };
-        auto patchRel16 = [&](int operandOffset) {
-            int origSrcPc = invRemap[newPc];
-            if (origSrcPc < 0) return;
-            int16_t storedOffset = (int16_t)(uint16_t)(
-                  (uint16_t)buf[origSrcPc + operandOffset]
-                | ((uint16_t)buf[origSrcPc + operandOffset + 1] << 8));
-            int origTargetPc = origSrcPc + operandOffset + storedOffset;
-            if (origTargetPc < 0 || origTargetPc > len) return;
-            int newTargetPc = remap[origTargetPc];
-            if (newTargetPc < 0) return;
-            int delta = newTargetPc - (newPc + operandOffset);
-            if (delta < -32768 || delta > 32767) {
-                std::vector<uint8_t> fallback = specialiseNopPad(buf, len);
-                out = std::move(fallback);
-                newPc = (int)out.size();
-                return;
-            }
-            uint16_t u = (uint16_t)(int16_t)delta;
-            out[newPc + operandOffset]     = (uint8_t)(u & 0xff);
-            out[newPc + operandOffset + 1] = (uint8_t)((u >> 8) & 0xff);
-        };
-
-        switch (op) {
-            case OP_if_false:
-            case OP_if_true:
-            case OP_goto:
-                patchRel32(1);
-                break;
-            case OP_if_false8:
-            case OP_if_true8:
-            case OP_goto8:
-                patchRel8(1);
-                break;
-            case OP_goto16:
-                patchRel16(1);
-                break;
-            case OP_PROTO_LT_LOC8_LOC8_JFALSE: {
-                // Our fused jump uses a signed 32-bit offset interpreted
-                // as `pc += diff` from the END of our 7-byte instruction
-                // (see L_OP_proto_lt_loc8_loc8_jfalse for the dispatch).
-                //
-                // Pass 1 stashed a PACKED 32-bit blob here, not the
-                // original stored offset directly:
-                //   bits 0..23  : sign-extended 24-bit storedOffset
-                //   bits 24..30 : original ltSpan (so we can locate
-                //                 the if_false byte within the matched
-                //                 source span)
-                //   bit  31     : 1 ⇒ if_false8 (1-byte offset), else
-                //                 5-byte if_false
-                // Unpack, recover the original target, look it up in
-                // `remap`, and write the final relative offset.
-                int origSrcPc = invRemap[newPc];
-                if (origSrcPc < 0) break;
-                uint32_t packed = (uint32_t)readLE32(&out[newPc + 3]);
-                int32_t storedOffset = (int32_t)(packed & 0xFFFFFF);
-                if (storedOffset & 0x800000) storedOffset |= ~0xFFFFFF;  // sign-extend
-                int ltSpan = (int)((packed >> 24) & 0x7F);
-                bool isShortJf = (packed & 0x80000000u) != 0;
-                int jfSize = isShortJf ? 2 : 5;
-                int origIfFalsePc = origSrcPc + ltSpan - jfSize;
-                int origTargetPc = origIfFalsePc + 1 + storedOffset;
-                if (origTargetPc < 0 || origTargetPc > len) break;
-                int newTargetPc = remap[origTargetPc];
-                if (newTargetPc < 0) break;
-                int32_t newOffset = newTargetPc - (newPc + FUSED_LT_JF_LEN);
-                writeLE32(&out[newPc + 3], newOffset);
-                break;
-            }
-            case OP_PROTO_LT_LOC_VAR_JFALSE: {
-                // Same packed-blob unpack as the loc-loc variant
-                // above; only the fused-opcode length differs.  Offset
-                // bytes live at newPc + 4 (after op + loc + u16 var).
-                int origSrcPc = invRemap[newPc];
-                if (origSrcPc < 0) break;
-                uint32_t packed = (uint32_t)readLE32(&out[newPc + 4]);
-                int32_t storedOffset = (int32_t)(packed & 0xFFFFFF);
-                if (storedOffset & 0x800000) storedOffset |= ~0xFFFFFF;
-                int ltSpan = (int)((packed >> 24) & 0x7F);
-                bool isShortJf = (packed & 0x80000000u) != 0;
-                int jfSize = isShortJf ? 2 : 5;
-                int origIfFalsePc = origSrcPc + ltSpan - jfSize;
-                int origTargetPc = origIfFalsePc + 1 + storedOffset;
-                if (origTargetPc < 0 || origTargetPc > len) break;
-                int newTargetPc = remap[origTargetPc];
-                if (newTargetPc < 0) break;
-                int32_t newOffset = newTargetPc - (newPc + FUSED_LT_LOC_VAR_JF_LEN);
-                writeLE32(&out[newPc + 4], newOffset);
-                break;
-            }
-            default:
-                break;
-        }
-
-        newPc += sz;
-    }
-
+    if (std::getenv("PROTOJS_SPECIALISER_DIAG"))
+        fprintf(stderr, "[specialiser] %d fused sequence(s) in a %d-byte function (now %zu bytes)\n",
+                fused, len, out.size());
     return out;
 }
 
@@ -824,28 +614,6 @@ int qjsPops(const uint8_t* buf, int pc) {
     else if (oi.fmt == QF_npopx)
         n += op - OP_call0;
     return n;
-}
-
-// Absolute target of a jump instruction at `pc`, or -1 if it is not a jump.
-int jumpTarget(const uint8_t* buf, int pc) {
-    auto rel32 = [&](int off) {
-        int32_t d = (int32_t)((uint32_t)buf[pc + off] | ((uint32_t)buf[pc + off + 1] << 8)
-                    | ((uint32_t)buf[pc + off + 2] << 16) | ((uint32_t)buf[pc + off + 3] << 24));
-        return pc + off + d;
-    };
-    switch (buf[pc]) {
-        case OP_if_false: case OP_if_true: case OP_goto: case OP_catch: case OP_gosub:
-            return rel32(1);
-        case OP_if_false8: case OP_if_true8: case OP_goto8:
-            return pc + 1 + (int8_t)buf[pc + 1];
-        case OP_goto16:
-            return pc + 1 + (int16_t)(uint16_t)(buf[pc + 1] | (buf[pc + 2] << 8));
-        case OP_with_get_var: case OP_with_put_var: case OP_with_delete_var:
-        case OP_with_make_ref: case OP_with_get_ref:
-            return rel32(5);
-        default:
-            return -1;
-    }
 }
 
 bool literalBuildEnabled() {
@@ -1210,23 +978,22 @@ SpecialiseMode getSpecialiseMode() {
     if (debughooks::enabled()) return SpecialiseMode::Off;
     static SpecialiseMode cached = []() {
         const char* v = std::getenv("PROTOJS_SPECIALISER");
-        // Default is `compact` — the form that produces the biggest
-        // wins on TDZ-checked accumulator loops once `decodeGetLoc`
-        // accepts the `get_loc_check` / `put_loc_check` variants
-        // (commit landing this change).  Set PROTOJS_SPECIALISER=off
-        // to disable; `nop` for the alternate NOP-pad form.
-        if (!v || !v[0]) return SpecialiseMode::Compact;
-        if (!std::strcmp(v, "off"))      return SpecialiseMode::Off;
-        if (!std::strcmp(v, "nop"))      return SpecialiseMode::NopPad;
-        if (!std::strcmp(v, "compact"))  return SpecialiseMode::Compact;
+        // On by default.  "compact" and "nop", the names of the two
+        // layouts the pass had before the guarded one, still mean on.
+        if (!v || !v[0]) return SpecialiseMode::On;
+        if (!std::strcmp(v, "off")) return SpecialiseMode::Off;
+        if (!std::strcmp(v, "on") || !std::strcmp(v, "compact") || !std::strcmp(v, "nop"))
+            return SpecialiseMode::On;
         fprintf(stderr,
                 "protojs: unknown PROTOJS_SPECIALISER value '%s' "
-                "(want off|nop|compact) — defaulting to off\n",
+                "(want on|off) -- the specialiser is off\n",
                 v);
         return SpecialiseMode::Off;
     }();
     return cached;
 }
+
+const uint8_t* bytecodeOpcodeSizes() { return getOpcodeSizes(); }
 
 std::vector<uint8_t> specialise(const uint8_t* buf, int len,
                                 SpecialiseMode mode) {
@@ -1234,10 +1001,8 @@ std::vector<uint8_t> specialise(const uint8_t* buf, int len,
     switch (mode) {
         case SpecialiseMode::Off:
             return std::vector<uint8_t>(buf, buf + len);
-        case SpecialiseMode::NopPad:
-            return specialiseNopPad(buf, len);
-        case SpecialiseMode::Compact:
-            return specialiseCompact(buf, len);
+        case SpecialiseMode::On:
+            return specialiseGuarded(buf, len);
     }
     return std::vector<uint8_t>(buf, buf + len);
 }
