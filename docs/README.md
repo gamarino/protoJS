@@ -23,6 +23,7 @@ Index of the documentation in this repository. Start with the [project README](.
 - [TESTING_STRATEGY.md](../TESTING_STRATEGY.md) — testing strategy: C++ unit tests, JavaScript integration tests, benchmarks, demonstration scripts and success criteria.
 - [GC_BRIDGING.md](GC_BRIDGING.md) — rules for keeping protoCore objects alive across asynchronous, thread and native-call boundaries.
 - [MIGRATION_QUICKJS_TO_PROTOCORE.md](MIGRATION_QUICKJS_TO_PROTOCORE.md) — status of moving bindings from the QuickJS-side global to the protoCore-native global, the migration pattern, and the remaining steps.
+- [VM.md](VM.md) — the bytecode virtual machine for new contributors: reading order through the source, frames and calling conventions, every opcode, worked examples from `protojs --disasm`, how to add an opcode or a native method, known issues.
 - [src/runtime/README.md](../src/runtime/README.md) — the protoCore-native bytecode interpreter: compile, specialise, load and run, execution state, components, and threads.
 - [TEST262_STATUS.md](TEST262_STATUS.md) — **protoJS's one authoritative Test262 figure**, with its denominator, corpus commit, reproduction command and exclusion policy. Start here for any conformance question.
 - [CONFORMANCE_JS.md](../CONFORMANCE_JS.md) — Test262 **subset** measurements (subordinate to the figure above), runner methodology and the history of conformance fixes.

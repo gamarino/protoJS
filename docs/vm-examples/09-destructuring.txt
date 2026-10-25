@@ -1,0 +1,81 @@
+<script>: args 0, locals 1, closure vars 2, stack 6
+  slots:
+    loc 0   <ret>
+  constants:
+    #0   function  function 0 demo
+  closure vars:
+    #0   demo  (global decl)
+    #1   console  (global)
+  code:
+      0  fclosure8                 0           ; function 0 demo
+      2  put_var_ref0                          ; demo
+      3  get_var                   1           ; console
+      6  get_field2                            ; log
+     11  get_var                   0           ; demo
+     14  push_1                                ; 1
+     15  push_2                                ; 2
+     16  array_from                2           ; 2 elements
+     19  proto_object_imm
+     20  push_3                                ; 3
+     21  proto_define_field_last               ; x
+     26  call2                                 ; 2 args
+     27  call_method               1           ; 1 arg
+     30  set_loc0                              ; <ret>
+     31  return
+
+function 0 demo: args 2, locals 4, closure vars 0, stack 5, constructor
+  slots:
+    arg 0   pair
+    arg 1   opts
+    loc 0   a
+    loc 1   b
+    loc 2   x
+    loc 3   y
+  code:
+      0  set_loc_uninitialized     3           ; y
+      3  set_loc_uninitialized     2           ; x
+      6  set_loc_uninitialized     1           ; b
+      9  set_loc_uninitialized     0           ; a
+     12  undefined
+     13  dup
+     14  is_undefined
+     15  if_true8                  13          ; -> 29
+     17  for_of_start
+     18  for_of_next               0           ; depth 0
+     20  drop
+     21  put_loc0                              ; a
+     22  for_of_next               0           ; depth 0
+     24  drop
+     25  put_loc1                              ; b
+     26  iterator_close
+     27  goto8                     5           ; -> 33
+     29  drop
+     30  get_arg0                              ; pair
+     31  goto8                     -15         ; -> 17
+     33  undefined
+     34  dup
+     35  is_undefined
+     36  if_true8                  24          ; -> 61
+     38  to_object
+     39  get_field2                            ; x
+     44  put_loc2                              ; x
+     45  get_field2                            ; y
+     50  dup
+     51  is_undefined
+     52  if_false8                 4           ; -> 57
+     54  drop
+     55  push_i8                   10
+     57  put_loc3                              ; y
+     58  drop
+     59  goto8                     5           ; -> 65
+     61  drop
+     62  get_arg1                              ; opts
+     63  goto8                     -26         ; -> 38
+     65  get_loc_check             0           ; a
+     68  get_loc_check             1           ; b
+     71  add
+     72  get_loc_check             2           ; x
+     75  add
+     76  get_loc_check             3           ; y
+     79  add
+     80  return

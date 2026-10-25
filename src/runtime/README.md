@@ -5,6 +5,8 @@ This directory contains the protoJS execution pipeline: QuickJS parses and compi
 - **ES modules** (`--input-type=module`) are evaluated by the QuickJS module evaluator.
 - **Compile failures:** if the protoCore compile step fails, `JSContextWrapper::eval` retries with QuickJS `JS_Eval` unless `PROTOJS_NO_FALLBACK=1` is set.
 
+The opcode reference, frame layout, calling conventions and worked examples are in [docs/VM.md](../../docs/VM.md); `protojs --disasm file.js` prints the bytecode the interpreter runs for a script.
+
 ## Pipeline
 
 1. **Compile.** `ProtoCompileOnly.cpp` calls `JS_Eval(..., JS_EVAL_FLAG_COMPILE_ONLY)` (`compileToBytecode`, `compileToBytecodeWithFlags`) and extracts the top-level `JSFunctionBytecode*` with `protojs_get_function_bytecode()`, which is added to the vendored `deps/quickjs/quickjs.c`.
@@ -47,6 +49,7 @@ iterator object).
 | `ProtoBytecodeModule.h` | The loaded module: bytecode copy, `protoCpool`, nested functions, atom cache, function metadata. |
 | `ProtoBytecodeLoader.cpp` | `loadBytecode`: fills a `ProtoBytecodeModule`. |
 | `QuickJSOpcodeEnum.h` | Opcode enumeration matching QuickJS, used for dispatch. |
+| `Disassembler.h/.cpp` | `protojs --disasm`: prints a loaded module (after the loader rewrites) with decoded operands; the listings in `docs/VM.md` are its output (ctest `docs/vm-examples`). |
 | `ProtoInterpreter.h/.cpp` | `runBytecode` and the helpers that call JavaScript functions from native code, including from event-loop callbacks. |
 | `GeneratorFrame.h` | Definitions shared by `runBytecode` and the generator protocol (for example the catch-frame record). |
 | `BehaviorRegistry.h/.cpp` | Polymorphic object behaviours; the default delegates to protoCore `getAttribute` / `setAttribute`. |

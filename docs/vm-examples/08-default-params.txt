@@ -1,0 +1,49 @@
+<script>: args 0, locals 1, closure vars 2, stack 6
+  slots:
+    loc 0   <ret>
+  constants:
+    #0   function  function 0 greet
+  closure vars:
+    #0   greet  (global decl)
+    #1   console  (global)
+  code:
+      0  fclosure8                 0           ; function 0 greet
+      2  put_var_ref0                          ; greet
+      3  get_var                   1           ; console
+      6  get_field2                            ; log
+     11  get_var                   0           ; greet
+     14  push_atom_value                       ; "Ada"
+     19  call1                                 ; 1 arg
+     20  get_var                   0           ; greet
+     23  push_atom_value                       ; "Alan"
+     28  push_atom_value                       ; "Hi"
+     33  call2                                 ; 2 args
+     34  call_method               2           ; 2 args
+     37  set_loc0                              ; <ret>
+     38  return
+
+function 0 greet: args 2, locals 2, closure vars 0, stack 2, constructor
+  slots:
+    arg 0   name
+    arg 1   greeting
+    loc 0   name
+    loc 1   greeting
+  code:
+      0  set_loc_uninitialized     1           ; greeting
+      3  set_loc_uninitialized     0           ; name
+      6  get_arg0                              ; name
+      7  put_loc0                              ; name
+      8  get_arg1                              ; greeting
+      9  dup
+     10  is_undefined
+     11  if_false8                 8           ; -> 20
+     13  drop
+     14  push_atom_value                       ; "Hello"
+     19  set_arg1                              ; greeting
+     20  put_loc1                              ; greeting
+     21  get_arg1                              ; greeting
+     22  push_atom_value                       ; ", "
+     27  add
+     28  get_arg0                              ; name
+     29  add
+     30  return

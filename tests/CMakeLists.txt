@@ -70,6 +70,15 @@ else()
     set(PROTOJS_PYTHON python3)
 endif()
 
+# The bytecode listings of docs/VM.md: every docs/vm-examples/NN-name.js is
+# disassembled with `protojs --disasm` and compared with its golden listing and
+# with VM.md's copy, so a compiler, loader or specialiser change that alters the
+# bytecode fails here until the documentation is regenerated (--update) and
+# reviewed.
+add_test(NAME docs/vm-examples
+    COMMAND ${PROTOJS_PYTHON} -I "${CMAKE_SOURCE_DIR}/docs/vm-examples/disasm_examples.py"
+            "$<TARGET_FILE:protojs>" --check)
+
 # Proves the Test262 regression gate can go red. Needs no protojs binary and no
 # corpus: it feeds the gate synthetic snapshots, which is what lets it assert the
 # cases a real run cannot produce on demand -- notably a commit that repairs one

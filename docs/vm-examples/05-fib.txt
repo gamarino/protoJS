@@ -1,0 +1,44 @@
+<script>: args 0, locals 1, closure vars 2, stack 4
+  slots:
+    loc 0   <ret>
+  constants:
+    #0   function  function 0 fib
+  closure vars:
+    #0   fib  (global decl)
+    #1   console  (global)
+  code:
+      0  fclosure8                 0           ; function 0 fib
+      2  put_var_ref0                          ; fib
+      3  get_var                   1           ; console
+      6  get_field2                            ; log
+     11  get_var                   0           ; fib
+     14  push_i8                   10
+     16  call1                                 ; 1 arg
+     17  call_method               1           ; 1 arg
+     20  set_loc0                              ; <ret>
+     21  return
+
+function 0 fib: args 1, locals 0, closure vars 1, stack 4, constructor
+  slots:
+    arg 0   n
+  closure vars:
+    #0   fib  (global ref)
+  code:
+      0  get_arg0                              ; n
+      1  push_2                                ; 2
+      2  lt
+      3  if_false8                 3           ; -> 7
+      5  get_arg0                              ; n
+      6  return
+      7  get_var                   0           ; fib
+     10  get_arg0                              ; n
+     11  push_1                                ; 1
+     12  sub
+     13  call1                                 ; 1 arg
+     14  get_var                   0           ; fib
+     17  get_arg0                              ; n
+     18  push_2                                ; 2
+     19  sub
+     20  call1                                 ; 1 arg
+     21  add
+     22  return

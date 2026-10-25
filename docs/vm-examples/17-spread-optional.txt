@@ -1,0 +1,94 @@
+<script>: args 0, locals 1, closure vars 3, stack 8
+  slots:
+    loc 0   <ret>
+  constants:
+    #0   function  function 0 f
+    #1   function  function 1 g
+  closure vars:
+    #0   f  (global decl)
+    #1   g  (global decl)
+    #2   console  (global)
+  code:
+      0  fclosure8                 0           ; function 0 f
+      2  put_var_ref0                          ; f
+      3  fclosure8                 1           ; function 1 g
+      5  put_var_ref1                          ; g
+      6  get_var                   2           ; console
+      9  get_field2                            ; log
+     14  get_var                   1           ; g
+     17  proto_object_imm
+     18  push_1                                ; 1
+     19  push_2                                ; 2
+     20  array_from                2           ; 2 elements
+     23  proto_define_field_last               ; items
+     28  push_1                                ; 1
+     29  push_2                                ; 2
+     30  push_3                                ; 3
+     31  array_from                3           ; 3 elements
+     34  call2                                 ; 2 args
+     35  get_var                   1           ; g
+     38  null
+     39  push_0                                ; 0
+     40  push_0                                ; 0
+     41  push_0                                ; 0
+     42  array_from                3           ; 3 elements
+     45  call2                                 ; 2 args
+     46  call_method               2           ; 2 args
+     49  set_loc0                              ; <ret>
+     50  return
+
+function 0 f: args 3, locals 0, closure vars 0, stack 2, constructor
+  slots:
+    arg 0   a
+    arg 1   b
+    arg 2   c
+  code:
+      0  get_arg0                              ; a
+      1  get_arg1                              ; b
+      2  add
+      3  get_arg2                              ; c
+      4  add
+      5  return
+
+function 1 g: args 2, locals 1, closure vars 1, stack 4, constructor
+  slots:
+    arg 0   o
+    arg 1   xs
+    loc 0   len
+  closure vars:
+    #0   f  (global ref)
+  code:
+      0  set_loc_uninitialized     0           ; len
+      3  get_arg0                              ; o
+      4  dup
+      5  is_undefined_or_null
+      6  if_false8                 5           ; -> 12
+      8  drop
+      9  undefined
+     10  goto8                     15          ; -> 26
+     12  get_field                             ; items
+     17  dup
+     18  is_undefined_or_null
+     19  if_false8                 5           ; -> 25
+     21  drop
+     22  undefined
+     23  goto8                     2           ; -> 26
+     25  get_length
+     26  dup
+     27  is_undefined_or_null
+     28  if_false8                 3           ; -> 32
+     30  drop
+     31  push_0                                ; 0
+     32  put_loc0                              ; len
+     33  get_var                   0           ; f
+     36  array_from                0           ; 0 elements
+     39  push_0                                ; 0
+     40  get_arg1                              ; xs
+     41  append
+     42  drop
+     43  undefined
+     44  swap
+     45  apply                     0           ; call
+     48  get_loc_check             0           ; len
+     51  add
+     52  return

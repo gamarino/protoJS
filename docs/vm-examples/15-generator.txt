@@ -1,0 +1,66 @@
+<script>: args 0, locals 2, closure vars 3, stack 5
+  slots:
+    loc 0   <ret>
+    loc 1   v
+  constants:
+    #0   function  function 0 range
+  closure vars:
+    #0   range  (global decl)
+    #1   s  (global decl, lexical)
+    #2   console  (global)
+  code:
+      0  fclosure8                 0           ; function 0 range
+      2  put_var_ref0                          ; range
+      3  push_0                                ; 0
+      4  put_var_init              1           ; s
+      7  undefined
+      8  put_loc0                              ; <ret>
+      9  set_loc_uninitialized     1           ; v
+     12  get_var                   0           ; range
+     15  push_4                                ; 4
+     16  call1                                 ; 1 arg
+     17  for_of_start
+     18  goto8                     14          ; -> 33
+     20  put_loc1                              ; v
+     21  get_var                   1           ; s
+     24  get_loc_check             1           ; v
+     27  add
+     28  dup
+     29  put_var                   1           ; s
+     32  put_loc0                              ; <ret>
+     33  for_of_next               0           ; depth 0
+     35  if_false8                 -16         ; -> 20
+     37  drop
+     38  iterator_close
+     39  get_var                   2           ; console
+     42  get_field2                            ; log
+     47  get_var                   1           ; s
+     50  call_method               1           ; 1 arg
+     53  set_loc0                              ; <ret>
+     54  return
+
+function 0 range: args 1, locals 1, closure vars 0, stack 2, generator
+  slots:
+    arg 0   n
+    loc 0   i
+  code:
+      0  initial_yield
+      1  set_loc_uninitialized     0           ; i
+      4  push_0                                ; 0
+      5  put_loc0                              ; i
+      6  get_loc_check             0           ; i
+      9  get_arg0                              ; n
+     10  lt
+     11  if_false8                 19          ; -> 31
+     13  get_loc_check             0           ; i
+     16  yield
+     17  if_false8                 2           ; -> 20
+     19  return_async
+     20  drop
+     21  get_loc_check             0           ; i
+     24  post_inc
+     25  put_loc_check             0           ; i
+     28  drop
+     29  goto8                     -24         ; -> 6
+     31  undefined
+     32  return_async

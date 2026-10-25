@@ -1,0 +1,44 @@
+<script>: args 0, locals 1, closure vars 2, stack 6
+  slots:
+    loc 0   <ret>
+  constants:
+    #0   function  function 0 total
+  closure vars:
+    #0   total  (global decl)
+    #1   console  (global)
+  code:
+      0  fclosure8                 0           ; function 0 total
+      2  put_var_ref0                          ; total
+      3  get_var                   1           ; console
+      6  get_field2                            ; log
+     11  get_var                   0           ; total
+     14  push_1                                ; 1
+     15  push_2                                ; 2
+     16  push_3                                ; 3
+     17  array_from                3           ; 3 elements
+     20  call1                                 ; 1 arg
+     21  call_method               1           ; 1 arg
+     24  set_loc0                              ; <ret>
+     25  return
+
+function 0 total: args 1, locals 0, closure vars 0, stack 4, constructor
+  slots:
+    arg 0   xs
+  constants:
+    #0   function  function 0.0 <anonymous>
+  code:
+      0  get_arg0                              ; xs
+      1  get_field2                            ; reduce
+      6  fclosure8                 0           ; function 0.0 <anonymous>
+      8  push_0                                ; 0
+      9  tail_call_method          2           ; 2 args
+
+function 0.0 <anonymous>: args 2, locals 0, closure vars 0, stack 2, arrow
+  slots:
+    arg 0   acc
+    arg 1   x
+  code:
+      0  get_arg0                              ; acc
+      1  get_arg1                              ; x
+      2  add
+      3  return

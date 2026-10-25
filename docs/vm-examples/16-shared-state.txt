@@ -1,0 +1,38 @@
+<script>: args 0, locals 1, closure vars 3, stack 3
+  slots:
+    loc 0   <ret>
+  constants:
+    #0   function  function 0 hit
+  closure vars:
+    #0   counter  (global decl, const)
+    #1   hit  (global decl)
+    #2   console  (global)
+  code:
+      0  fclosure8                 0           ; function 0 hit
+      2  put_var_ref1                          ; hit
+      3  proto_object_imm
+      4  push_0                                ; 0
+      5  proto_define_field_last               ; hits
+     10  put_var_init              0           ; counter
+     13  get_var                   1           ; hit
+     16  call0                                 ; 0 args
+     17  put_loc0                              ; <ret>
+     18  get_var                   2           ; console
+     21  get_field2                            ; log
+     26  get_var                   1           ; hit
+     29  call0                                 ; 0 args
+     30  call_method               1           ; 1 arg
+     33  set_loc0                              ; <ret>
+     34  return
+
+function 0 hit: args 0, locals 0, closure vars 1, stack 2, constructor
+  closure vars:
+    #0   counter  (global ref, const)
+  code:
+      0  get_var                   0           ; counter
+      3  get_field2                            ; hits
+      8  inc
+      9  put_field                             ; hits
+     14  get_var                   0           ; counter
+     17  get_field                             ; hits
+     22  return

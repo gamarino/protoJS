@@ -1,0 +1,82 @@
+<script>: args 0, locals 1, closure vars 3, stack 8
+  slots:
+    loc 0   <ret>
+  constants:
+    #0   function  function 0 classify
+    #1   function  function 1 day
+  closure vars:
+    #0   classify  (global decl)
+    #1   day  (global decl)
+    #2   console  (global)
+  code:
+      0  fclosure8                 0           ; function 0 classify
+      2  put_var_ref0                          ; classify
+      3  fclosure8                 1           ; function 1 day
+      5  put_var_ref1                          ; day
+      6  get_var                   2           ; console
+      9  get_field2                            ; log
+     14  get_var                   0           ; classify
+     17  push_minus1                           ; -1
+     18  call1                                 ; 1 arg
+     19  get_var                   0           ; classify
+     22  push_0                                ; 0
+     23  call1                                 ; 1 arg
+     24  get_var                   0           ; classify
+     27  push_7                                ; 7
+     28  call1                                 ; 1 arg
+     29  get_var                   1           ; day
+     32  push_6                                ; 6
+     33  call1                                 ; 1 arg
+     34  get_var                   1           ; day
+     37  push_3                                ; 3
+     38  call1                                 ; 1 arg
+     39  call_method               5           ; 5 args
+     42  set_loc0                              ; <ret>
+     43  return
+
+function 0 classify: args 1, locals 0, closure vars 0, stack 2, constructor
+  slots:
+    arg 0   n
+  code:
+      0  get_arg0                              ; n
+      1  push_0                                ; 0
+      2  lt
+      3  if_false8                 7           ; -> 11
+      5  push_atom_value                       ; "negative"
+     10  return
+     11  get_arg0                              ; n
+     12  push_0                                ; 0
+     13  strict_eq
+     14  if_false8                 7           ; -> 22
+     16  push_atom_value                       ; "zero"
+     21  return
+     22  get_arg0                              ; n
+     23  push_2                                ; 2
+     24  mod
+     25  push_0                                ; 0
+     26  strict_eq
+     27  if_false8                 7           ; -> 35
+     29  push_atom_value                       ; "even"
+     34  return
+     35  push_atom_value                       ; "odd"
+     40  return
+
+function 1 day: args 1, locals 0, closure vars 0, stack 3, constructor
+  slots:
+    arg 0   d
+  code:
+      0  get_arg0                              ; d
+      1  dup
+      2  push_0                                ; 0
+      3  strict_eq
+      4  if_false8                 7           ; -> 12
+      6  push_atom_value                       ; "Sun"
+     11  return
+     12  dup
+     13  push_6                                ; 6
+     14  strict_eq
+     15  if_false8                 7           ; -> 23
+     17  push_atom_value                       ; "Sat"
+     22  return
+     23  push_atom_value                       ; "weekday"
+     28  return

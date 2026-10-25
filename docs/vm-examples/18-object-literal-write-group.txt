@@ -1,0 +1,63 @@
+<script>: args 0, locals 1, closure vars 3, stack 7
+  slots:
+    loc 0   <ret>
+  constants:
+    #0   function  function 0 make
+    #1   function  function 1 Vec
+  closure vars:
+    #0   make  (global decl)
+    #1   Vec  (global decl)
+    #2   console  (global)
+  code:
+      0  fclosure8                 0           ; function 0 make
+      2  put_var_ref0                          ; make
+      3  fclosure8                 1           ; function 1 Vec
+      5  put_var_ref1                          ; Vec
+      6  get_var                   2           ; console
+      9  get_field2                            ; log
+     14  get_var                   0           ; make
+     17  push_1                                ; 1
+     18  push_2                                ; 2
+     19  call2                                 ; 2 args
+     20  get_field                             ; sum
+     25  get_var                   1           ; Vec
+     28  dup
+     29  push_3                                ; 3
+     30  push_4                                ; 4
+     31  call_constructor          2           ; 2 args
+     34  get_field                             ; y
+     39  call_method               2           ; 2 args
+     42  set_loc0                              ; <ret>
+     43  return
+
+function 0 make: args 2, locals 0, closure vars 0, stack 3, constructor
+  slots:
+    arg 0   x
+    arg 1   y
+  code:
+      0  proto_object_imm
+      1  get_arg0                              ; x
+      2  define_field                          ; x
+      7  get_arg1                              ; y
+      8  define_field                          ; y
+     13  get_arg0                              ; x
+     14  get_arg1                              ; y
+     15  add
+     16  proto_define_field_last               ; sum
+     21  return
+
+function 1 Vec: args 2, locals 1, closure vars 0, stack 3, constructor
+  slots:
+    arg 0   x
+    arg 1   y
+    loc 0   this
+  code:
+      0  push_this
+      1  put_loc0                              ; this
+      2  get_loc0                              ; this
+      3  get_arg0                              ; x
+      4  proto_put_field_group     0 0         ; x, write 1 of 2
+      9  get_loc0                              ; this
+     10  get_arg1                              ; y
+     11  proto_put_field_group_end 0 1         ; y, write 2 of 2
+     16  return_undef

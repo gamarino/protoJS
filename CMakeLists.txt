@@ -309,6 +309,7 @@ add_library(protojs_core STATIC
     src/runtime/NativeStackGuard.cpp
     src/runtime/BehaviorRegistry.cpp
     src/runtime/BytecodeSpecialiser.cpp
+    src/runtime/Disassembler.cpp
     # Native modules
     src/native/DynamicLibraryLoader.cpp
     src/native/NativeModuleWrapper.cpp

@@ -35,6 +35,7 @@
 #include "debugging/IntegratedDebugger.h"
 #include "dap/DapSession.h"
 #include "repl/REPL.h"
+#include "runtime/Disassembler.h"
 #include "platform/ProcessExit.h"
 #include "platform/SizedThread.h"
 #include "quickjs.h"
@@ -344,6 +345,7 @@ void printUsage(const char* programName) {
     std::cerr << "  -e \"code\"            Execute code directly" << std::endl;
     std::cerr << "  -p, --print          Print result of -e" << std::endl;
     std::cerr << "  -c, --check          Syntax check only (parse without executing)" << std::endl;
+    std::cerr << "  --disasm file.js     Print the bytecode the interpreter runs for file.js, without running it (docs/VM.md)" << std::endl;
     std::cerr << "  --dap                Run as a Debug Adapter Protocol server on stdin/stdout (VS Code)" << std::endl;
     std::cerr << "  -v, --version        Show version" << std::endl;
     std::cerr << "  --input-type=module  Treat input as ES module" << std::endl;
@@ -413,6 +415,7 @@ static int runMain(int argc, char** argv) {
     bool executeCode = false;
     bool printResult = false;
     bool syntaxCheck = false;
+    bool disassemble = false;
     bool showVersion = false;
     bool inputTypeModule = false;
     bool minimalInit = false;
@@ -437,6 +440,8 @@ static int runMain(int argc, char** argv) {
             printResult = true;
         } else if (arg == "-c" || arg == "--check") {
             syntaxCheck = true;
+        } else if (arg == "--disasm") {
+            disassemble = true;
         } else if (arg == "-v" || arg == "--version") {
             showVersion = true;
         } else if (arg == "--input-type=module") {
@@ -497,6 +502,19 @@ static int runMain(int argc, char** argv) {
     if (showVersion) {
         std::cout << "protoJS v0.2.0" << std::endl;
         return 0;
+    }
+
+    // `--disasm file.js`: compile and load the script as `protojs file.js`
+    // would, print its bytecode (src/runtime/Disassembler.h) and exit; the
+    // script is not run.
+    if (disassemble) {
+        if (executeCode || code.empty() || inputTypeModule) {
+            std::cerr << "protojs: --disasm takes a script file (not -e or --input-type=module)" << std::endl;
+            return 9;
+        }
+        protojs::JSContextWrapper wrapper(cpuThreads, ioThreads, ioFactor);
+        return protojs::disassembleSource(wrapper.getJSContext(), wrapper.getProtoContext(),
+                                          code, filename, std::cout, std::cerr);
     }
 
     // Syntax check (`-c` / `--check`): parse the input and exit.  This runs

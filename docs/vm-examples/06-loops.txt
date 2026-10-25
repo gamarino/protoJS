@@ -1,0 +1,74 @@
+<script>: args 0, locals 1, closure vars 3, stack 5
+  slots:
+    loc 0   <ret>
+  constants:
+    #0   function  function 0 sum
+    #1   function  function 1 countdown
+  closure vars:
+    #0   sum  (global decl)
+    #1   countdown  (global decl)
+    #2   console  (global)
+  code:
+      0  fclosure8                 0           ; function 0 sum
+      2  put_var_ref0                          ; sum
+      3  fclosure8                 1           ; function 1 countdown
+      5  put_var_ref1                          ; countdown
+      6  get_var                   2           ; console
+      9  get_field2                            ; log
+     14  get_var                   0           ; sum
+     17  push_i8                   10
+     19  call1                                 ; 1 arg
+     20  get_var                   1           ; countdown
+     23  push_3                                ; 3
+     24  call1                                 ; 1 arg
+     25  call_method               2           ; 2 args
+     28  set_loc0                              ; <ret>
+     29  return
+
+function 0 sum: args 1, locals 2, closure vars 0, stack 2, constructor
+  slots:
+    arg 0   n
+    loc 0   s
+    loc 1   i
+  code:
+      0  set_loc_uninitialized     0           ; s
+      3  push_0                                ; 0
+      4  put_loc0                              ; s
+      5  set_loc_uninitialized     1           ; i
+      8  push_0                                ; 0
+      9  put_loc1                              ; i
+     10  get_loc_check             1           ; i
+     13  get_arg0                              ; n
+     14  lt
+     15  if_false8                 14          ; -> 30
+     17  proto_acc_loc8_loc8       0 1         ; s += i
+     20  get_loc_check             1           ; i
+     23  post_inc
+     24  put_loc_check             1           ; i
+     27  drop
+     28  goto8                     -19         ; -> 10
+     30  get_loc_check             0           ; s
+     33  return
+
+function 1 countdown: args 1, locals 1, closure vars 0, stack 2, constructor
+  slots:
+    arg 0   n
+    loc 0   steps
+  code:
+      0  set_loc_uninitialized     0           ; steps
+      3  push_0                                ; 0
+      4  put_loc0                              ; steps
+      5  get_arg0                              ; n
+      6  push_0                                ; 0
+      7  gt
+      8  if_false8                 14          ; -> 23
+     10  get_arg0                              ; n
+     11  dec
+     12  put_arg0                              ; n
+     13  get_loc_check             0           ; steps
+     16  post_inc
+     17  put_loc_check             0           ; steps
+     20  drop
+     21  goto8                     -17         ; -> 5
+     23  get_loc_check             0           ; steps
+     26  return

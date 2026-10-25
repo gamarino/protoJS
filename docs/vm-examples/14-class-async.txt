@@ -1,0 +1,172 @@
+<script>: args 0, locals 5, closure vars 5, stack 6
+  slots:
+    loc 0   <ret>
+    loc 1   Point
+    loc 2   <class_fields_init>
+    loc 3   Point3
+    loc 4   <class_fields_init>
+  constants:
+    #0   function  function 0 <anonymous>
+    #1   function  function 1 <anonymous>
+    #2   function  function 2 <anonymous>
+    #3   function  function 3 later
+    #4   function  function 4 <anonymous>
+  closure vars:
+    #0   Point  (global decl, lexical)
+    #1   Point3  (global decl, lexical)
+    #2   later  (global decl)
+    #3   Math  (global)
+    #4   console  (global)
+  code:
+      0  fclosure8                 3           ; function 3 later
+      2  put_var_ref2                          ; later
+      3  set_loc_uninitialized     1           ; Point
+      6  undefined
+      7  set_loc_uninitialized     2           ; <class_fields_init>
+     10  fclosure8                 0           ; function 0 <anonymous>
+     12  define_class              0           ; Point
+     18  fclosure8                 1           ; function 1 <anonymous>
+     20  define_method             0           ; norm1
+     26  undefined
+     27  put_loc2                              ; <class_fields_init>
+     28  drop
+     29  set_loc1                              ; Point
+     30  close_loc                 2           ; <class_fields_init>
+     33  put_var_init              0           ; Point
+     36  set_loc_uninitialized     3           ; Point3
+     39  get_var                   0           ; Point
+     42  set_loc_uninitialized     4           ; <class_fields_init>
+     45  fclosure8                 2           ; function 2 <anonymous>
+     47  define_class              1           ; Point3
+     53  undefined
+     54  put_loc8                  4           ; <class_fields_init>
+     56  drop
+     57  set_loc3                              ; Point3
+     58  close_loc                 4           ; <class_fields_init>
+     61  put_var_init              1           ; Point3
+     64  get_var                   2           ; later
+     67  get_var                   1           ; Point3
+     70  dup
+     71  push_1                                ; 1
+     72  push_i8                   -2
+     74  push_3                                ; 3
+     75  call_constructor          3           ; 3 args
+     78  get_field2                            ; norm1
+     83  call_method               0           ; 0 args
+     86  call1                                 ; 1 arg
+     87  get_field2                            ; then
+     92  fclosure8                 4           ; function 4 <anonymous>
+     94  call_method               1           ; 1 arg
+     97  set_loc0                              ; <ret>
+     98  return
+
+function 0 <anonymous>: args 2, locals 1, closure vars 1, stack 3, strict, constructor
+  slots:
+    arg 0   x
+    arg 1   y
+    loc 0   this
+  closure vars:
+    #0   <class_fields_init>  (parent local 2, const)
+  code:
+      0  push_this
+      1  put_loc0                              ; this
+      2  check_ctor
+      3  get_var_ref_check         0           ; <class_fields_init>
+      6  dup
+      7  if_false8                 6           ; -> 14
+      9  get_loc0                              ; this
+     10  swap
+     11  call_method               0           ; 0 args
+     14  drop
+     15  get_loc0                              ; this
+     16  get_arg0                              ; x
+     17  proto_put_field_group     0 0         ; x, write 1 of 2
+     22  get_loc0                              ; this
+     23  get_arg1                              ; y
+     24  proto_put_field_group_end 0 1         ; y, write 2 of 2
+     29  return_undef
+
+function 1 <anonymous>: args 0, locals 1, closure vars 1, stack 4, strict
+  slots:
+    loc 0   this
+  closure vars:
+    #0   Math  (global ref)
+  code:
+      0  push_this
+      1  put_loc0                              ; this
+      2  get_var                   0           ; Math
+      5  get_field2                            ; abs
+     10  get_loc0                              ; this
+     11  get_field                             ; x
+     16  call_method               1           ; 1 arg
+     19  get_var                   0           ; Math
+     22  get_field2                            ; abs
+     27  get_loc0                              ; this
+     28  get_field                             ; y
+     33  call_method               1           ; 1 arg
+     36  add
+     37  return
+
+function 2 <anonymous>: args 3, locals 3, closure vars 1, stack 4, strict, constructor
+  slots:
+    arg 0   x
+    arg 1   y
+    arg 2   z
+    loc 0   this.active_func
+    loc 1   new.target
+    loc 2   this
+  closure vars:
+    #0   <class_fields_init>  (parent local 4, const)
+  code:
+      0  special_object            2           ; this function
+      2  put_loc0                              ; this.active_func
+      3  special_object            3           ; new.target
+      5  put_loc1                              ; new.target
+      6  set_loc_uninitialized     2           ; this
+      9  check_ctor
+     10  get_loc0                              ; this.active_func
+     11  get_super
+     12  get_loc1                              ; new.target
+     13  get_arg0                              ; x
+     14  get_arg1                              ; y
+     15  call_constructor          2           ; 2 args
+     18  dup
+     19  put_loc_check_init        2           ; this
+     22  get_var_ref_check         0           ; <class_fields_init>
+     25  dup
+     26  if_false8                 8           ; -> 35
+     28  get_loc_check             2           ; this
+     31  swap
+     32  call_method               0           ; 0 args
+     35  drop
+     36  drop
+     37  get_loc_check             2           ; this
+     40  get_arg2                              ; z
+     41  put_field                             ; z
+     46  get_loc_checkthis         2           ; this
+     49  return
+
+function 3 later: args 1, locals 1, closure vars 0, stack 2, async
+  slots:
+    arg 0   v
+    loc 0   r
+  code:
+      0  set_loc_uninitialized     0           ; r
+      3  get_arg0                              ; v
+      4  await
+      5  put_loc0                              ; r
+      6  get_loc_check             0           ; r
+      9  push_1                                ; 1
+     10  add
+     11  return_async
+
+function 4 <anonymous>: args 1, locals 0, closure vars 1, stack 3, arrow
+  slots:
+    arg 0   v
+  closure vars:
+    #0   console  (global ref)
+  code:
+      0  get_var                   0           ; console
+      3  get_field2                            ; log
+      8  get_arg0                              ; v
+      9  tail_call_method          1           ; 1 arg

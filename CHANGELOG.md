@@ -6,6 +6,24 @@ All notable changes to protoJS are documented in this file.
 
 **Requires protoCore 3.1.0** (untagged master, commit 267b9fc9; SOVERSION 4). CI builds protoCore 3.2.0 (commit bb2d581a, what the installers ship) on Linux, macOS and Windows, and 3.1.0 in the Windows floor job.
 
+### Added — VM documentation and `protojs --disasm` (2026-10-25)
+
+- **docs/VM.md** describes the bytecode virtual machine for contributors: a
+  reading order through the source (QuickJS compile-only front end, loader
+  and rewrite passes, interpreter, built-ins), the instruction encoding, the
+  frame layout (one `ProtoContext` per activation of a bytecode function;
+  native methods run in the caller's context), the calling conventions,
+  safepoints, exceptions, generators and async functions; all 251 opcode
+  values (235 handled, 16 without a handler) with operands, stack effect,
+  semantics and the construct that emits them; 18 worked examples; how to
+  add an opcode and a native method; and the known issues found on the way.
+- **`protojs --disasm file.js`** compiles and loads a script as `protojs
+  file.js` would and prints the bytecode the interpreter runs, nested
+  functions included, without running it (`src/runtime/Disassembler.cpp`).
+  Every listing in VM.md is its output: the sources and golden listings are
+  in `docs/vm-examples/`, and the ctest `docs/vm-examples` fails when a
+  listing, or VM.md's copy of it, drifts.
+
 ### Fixed — tests whose premise depended on one protoCore's cell accounting (2026-10-25)
 
 - **cli/toplevel-bindings-survive-gc** sizes its workload at run time: each

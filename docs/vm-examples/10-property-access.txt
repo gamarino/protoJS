@@ -1,0 +1,63 @@
+<script>: args 0, locals 1, closure vars 3, stack 7
+  slots:
+    loc 0   <ret>
+  constants:
+    #0   function  function 0 read
+    #1   function  function 1 write
+  closure vars:
+    #0   read  (global decl)
+    #1   write  (global decl)
+    #2   console  (global)
+  code:
+      0  fclosure8                 0           ; function 0 read
+      2  put_var_ref0                          ; read
+      3  fclosure8                 1           ; function 1 write
+      5  put_var_ref1                          ; write
+      6  get_var                   2           ; console
+      9  get_field2                            ; log
+     14  get_var                   0           ; read
+     17  proto_object_imm
+     18  push_atom_value                       ; "a"
+     23  define_field                          ; name
+     28  push_atom_value                       ; "c"
+     33  proto_define_field_last               ; b
+     38  push_atom_value                       ; "b"
+     43  call2                                 ; 2 args
+     44  get_var                   1           ; write
+     47  object
+     48  push_atom_value                       ; "z"
+     53  push_2                                ; 2
+     54  call3                                 ; 3 args
+     55  get_field                             ; z
+     60  call_method               2           ; 2 args
+     63  set_loc0                              ; <ret>
+     64  return
+
+function 0 read: args 2, locals 0, closure vars 0, stack 3, constructor
+  slots:
+    arg 0   o
+    arg 1   k
+  code:
+      0  get_arg0                              ; o
+      1  get_field                             ; name
+      6  get_arg0                              ; o
+      7  get_arg1                              ; k
+      8  get_array_el
+      9  add
+     10  return
+
+function 1 write: args 3, locals 0, closure vars 0, stack 3, constructor
+  slots:
+    arg 0   o
+    arg 1   k
+    arg 2   v
+  code:
+      0  get_arg0                              ; o
+      1  push_1                                ; 1
+      2  put_field                             ; count
+      7  get_arg0                              ; o
+      8  get_arg1                              ; k
+      9  get_arg2                              ; v
+     10  put_array_el
+     11  get_arg0                              ; o
+     12  return

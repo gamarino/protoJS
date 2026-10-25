@@ -252,6 +252,8 @@ protoCore
 
 For details, see [ARCHITECTURE.md](ARCHITECTURE.md) and [src/runtime/README.md](src/runtime/README.md).
 
+New contributors: [docs/VM.md](docs/VM.md) is a guided tour of the bytecode virtual machine, with a reading order through the source, every opcode, worked examples from `protojs --disasm`, and how to add an opcode or a native method.
+
 ---
 
 ## 📊 Conformance and Performance
