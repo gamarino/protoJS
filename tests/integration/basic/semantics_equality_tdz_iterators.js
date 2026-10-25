@@ -217,6 +217,36 @@ check("a generator's finally runs when the for-of body throws", function () {
     return log.join(",");
 }, "finally,caught");
 
+check("next() throwing does not call return()", function () {
+    var log = [];
+    var iterable = {};
+    iterable[Symbol.iterator] = function () {
+        return {
+            next: function () { throw new SyntaxError("next"); },
+            return: function () { log.push("return"); return {}; }
+        };
+    };
+    try { for (var v of iterable) { } } catch (e) { log.push(e.name); }
+    try { var [a] = iterable; } catch (e) { log.push(e.name); }
+    return log.join(",");
+}, "SyntaxError,SyntaxError");
+check("a throwing value getter does not call return()", function () {
+    var log = [];
+    var iterable = {};
+    iterable[Symbol.iterator] = function () {
+        return {
+            next: function () { return { done: false, get value() { throw new EvalError("v"); } }; },
+            return: function () { log.push("return"); return {}; }
+        };
+    };
+    try { for (var v of iterable) { } } catch (e) { log.push(e.name); }
+    return log.join(",");
+}, "EvalError");
+check("a built-in constructor called as a method", function () {
+    var o = { f: Object, g: Array };
+    return typeof o.f() + ":" + o.g(3).length;
+}, "object:3");
+
 if (failures.length) {
     console.log("semantics_equality_tdz_iterators: " + failures.length + " check(s) failed");
     for (var f = 0; f < failures.length; f++) {

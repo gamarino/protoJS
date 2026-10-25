@@ -59865,6 +59865,15 @@ int protojs_bytecode_closure_var_is_const(void *bytecode, uint16_t idx) {
     return b->closure_var[idx].is_const ? 1 : 0;
 }
 
+/* protoJS: 1 when the closure variable is a global function declaration
+   (JS_VAR_GLOBAL_FUNCTION_DECL), which CanDeclareGlobalFunction checks. */
+int protojs_bytecode_closure_var_is_function_decl(void *bytecode, uint16_t idx) {
+    JSFunctionBytecode *b = (JSFunctionBytecode *)bytecode;
+    if (idx >= (uint16_t)b->closure_var_count)
+        return 0;
+    return b->closure_var[idx].var_kind == JS_VAR_GLOBAL_FUNCTION_DECL ? 1 : 0;
+}
+
 int protojs_bytecode_closure_var_type(void *bytecode, uint16_t idx) {
     JSFunctionBytecode *b = (JSFunctionBytecode *)bytecode;
     if (idx >= (uint16_t)b->closure_var_count)

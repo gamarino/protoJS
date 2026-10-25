@@ -59,6 +59,7 @@ int protojs_bytecode_closure_var_is_lexical(void* bytecode, uint16_t idx);
 
 /** Return 1 if closure var at idx is a `const` binding, 0 otherwise. */
 int protojs_bytecode_closure_var_is_const(void* bytecode, uint16_t idx);
+int protojs_bytecode_closure_var_is_function_decl(void* bytecode, uint16_t idx);
 
 /** Return the JSClosureTypeEnum value for closure var at idx.
  *  0=LOCAL (parent local var), 1=ARG (parent arg), 2=REF (parent closure var),

@@ -329,6 +329,8 @@ static bool loadBytecodeRecursive(JSContext* ctx,
     out->closureVarIsConst.reserve(static_cast<size_t>(closureVarCount));
     out->closureVarIsDeclared.clear();
     out->closureVarIsDeclared.reserve(static_cast<size_t>(closureVarCount));
+    out->closureVarIsFunctionDecl.clear();
+    out->closureVarIsFunctionDecl.reserve(static_cast<size_t>(closureVarCount));
     out->closureVarTypes.clear();
     out->closureVarTypes.reserve(static_cast<size_t>(closureVarCount));
     out->closureVarIndices.clear();
@@ -349,6 +351,8 @@ static bool loadBytecodeRecursive(JSContext* ctx,
             protojs_bytecode_closure_var_is_const(quickjsBytecode, static_cast<uint16_t>(i)) != 0);
         int ctype = protojs_bytecode_closure_var_type(quickjsBytecode, static_cast<uint16_t>(i));
         out->closureVarIsDeclared.push_back(ctype == 4 /* JS_CLOSURE_GLOBAL_DECL */);
+        out->closureVarIsFunctionDecl.push_back(
+            protojs_bytecode_closure_var_is_function_decl(quickjsBytecode, static_cast<uint16_t>(i)) != 0);
         out->closureVarTypes.push_back(ctype);
         out->closureVarIndices.push_back(
             protojs_bytecode_closure_var_idx(quickjsBytecode, static_cast<uint16_t>(i)));

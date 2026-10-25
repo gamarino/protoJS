@@ -12,6 +12,10 @@
 
 var failures = [];
 
+function errorNameOf(run) {
+    try { run(); return "no exception"; } catch (e) { return e && e.name; }
+}
+
 function check(name, run, expected) {
     var actual;
     try {
@@ -99,6 +103,10 @@ check("indirect eval declares a global var", function () {
     return globalThis.declaredByIndirect;
 }, 8);
 check("indirect eval returns the completion value", function () { return (0, eval)("2 * 21"); }, 42);
+check("a let in an indirect eval stays in the eval", function () {
+    (0, eval)("let letInIndirectEval = 1;");
+    return typeof letInIndirectEval;
+}, "undefined");
 
 // --- with --------------------------------------------------------------------
 
@@ -173,6 +181,22 @@ check("with: for-in target in the object", function () {
     return o.k;
 }, "p");
 
+check("with (undefined) throws TypeError", function () {
+    return errorNameOf(function () { with (undefined) { } });
+}, "TypeError");
+check("with: a method call falls back to a global function", function () {
+    var o = {};
+    with (o) { return typeof Object(); }
+}, "object");
+// EvalDeclarationInstantiation checks every declaration before making any
+// (§19.2.1.3; test262 eval-code/indirect/non-definable-function-with-
+// function.js).  Node 22 defines the first function before throwing.
+check("an eval declaring a function over a non-configurable global throws TypeError", function () {
+    var r;
+    try { (0, eval)("function definedByEval_x() {} function NaN() {}"); r = "no exception"; }
+    catch (e) { r = e.name; }
+    return r + ":" + typeof globalThis.definedByEval_x;
+}, "TypeError:undefined");
 // --- delete of a global ------------------------------------------------------
 
 globalThis.deletableGlobal = 1;

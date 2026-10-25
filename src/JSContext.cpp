@@ -953,7 +953,7 @@ const void* JSContextWrapper::loadEvalModule(JSContext* quickjsCtx, void* caller
         ? protojs_compile_direct_eval(qctx, callerBytecode, scopeOperand, source.c_str(),
                                       source.size(), "<eval>")
         : protojs::compileToBytecodeWithFlags(qctx, source.c_str(), source.size(), "<eval>",
-                                              JS_EVAL_TYPE_GLOBAL, nullptr);
+                                              JS_EVAL_TYPE_INDIRECT, nullptr);
     if (!bytecode) {
         JSValue exc = JS_GetException(qctx);
         error = "Invalid eval source";

@@ -3338,6 +3338,62 @@ static const proto::ProtoObject* captureClosureVars(proto::ProtoContext* ctx,
     return scope;
 }
 
+// EvalDeclarationInstantiation's checks of the global declarations an eval
+// makes (§19.2.1.3 steps 3, 8 and 10; QuickJS JS_CheckDefineGlobalVar): a
+// var or function name that is a lexical global is a SyntaxError, a lexical
+// name whose global property is not configurable is a SyntaxError, and a
+// function whose global property is not configurable must be a writable,
+// enumerable data property (TypeError otherwise).  Runs before any of the
+// eval code does, so a failing eval declares nothing.
+static PROTOJS_NOINLINE void checkEvalGlobalDeclarations(proto::ProtoContext* ctx,
+                                                         const ProtoBytecodeModule& nf,
+                                                         const proto::ProtoObject** globalRoot) {
+    if (!globalRoot || !*globalRoot || !nf.closureSymbols) return;
+    const proto::ProtoObject* root = *globalRoot;
+    const proto::ProtoObject* gobj = globalObjectForRoot(ctx, root);
+    const bool split = gobj && gobj != root;
+    const proto::proto_ulong n = nf.closureSymbols->getSize(ctx);
+    for (size_t i = 0; i < nf.closureVarTypes.size() && i < n; ++i) {
+        if (nf.closureVarTypes[i] != 4 /* JS_CLOSURE_GLOBAL_DECL */) continue;
+        const proto::ProtoString* key = nf.closureSymbols->getAt(ctx, static_cast<int>(i))->asString(ctx);
+        if (!key) continue;
+        const std::string& name = nf.closureVarNames[i];
+        const bool lexical = i < nf.closureVarIsLexical.size() && nf.closureVarIsLexical[i];
+        const bool func = i < nf.closureVarIsFunctionDecl.size() && nf.closureVarIsFunctionDecl[i];
+        if (split && root->hasOwnAttribute(ctx, key) == PROTO_TRUE) {
+            const std::string msg = "Identifier '" + name + "' has already been declared";
+            throwJS(ctx, makeError(ctx, "SyntaxError", msg.c_str(), globalRoot));
+        }
+        if (!gobj || gobj->hasOwnAttribute(ctx, key) != PROTO_TRUE) {
+            const std::string getterName = "__get_" + name + "__";
+            const proto::ProtoObject* go = ctx->fromUTF8String(getterName.c_str());
+            const proto::ProtoString* gk = go ? go->asString(ctx) : nullptr;
+            if (!gobj || !gk || gobj->hasOwnAttribute(ctx, gk) != PROTO_TRUE) continue;
+        }
+        long long bits = 0x7;  // no descriptor sidecar: writable, configurable, enumerable
+        const std::string pdName = "__pd_" + name + "__";
+        const proto::ProtoObject* po = ctx->fromUTF8String(pdName.c_str());
+        const proto::ProtoString* pk = po ? po->asString(ctx) : nullptr;
+        // The descriptor sidecars of the global object's built-in constants
+        // (NaN, Infinity, undefined) were written before the binding scope
+        // was split off it: look them up from the root, through its chain.
+        const proto::ProtoObject* pv = pk ? root->getAttribute(ctx, pk) : nullptr;
+        if (pv && pv != PROTO_NONE && pv->isInteger(ctx)) bits = pv->asLong(ctx);
+        const std::string getterName = "__get_" + name + "__";
+        const proto::ProtoObject* go = ctx->fromUTF8String(getterName.c_str());
+        const proto::ProtoString* gk = go ? go->asString(ctx) : nullptr;
+        const bool accessor = gk && gobj->hasOwnAttribute(ctx, gk) == PROTO_TRUE;
+        if (lexical && !(bits & 0x2)) {
+            const std::string msg = "Identifier '" + name + "' has already been declared";
+            throwJS(ctx, makeError(ctx, "SyntaxError", msg.c_str(), globalRoot));
+        }
+        if (!lexical && func && !(bits & 0x2) && (accessor || (bits & 0x5) != 0x5)) {
+            const std::string msg = "cannot define variable '" + name + "'";
+            throwJS(ctx, makeError(ctx, "TypeError", msg.c_str(), globalRoot));
+        }
+    }
+}
+
 // ECMA-262 PerformEval (§19.2.1.1).  A non-string argument is the result.
 // `caller` is the module running OP_eval / OP_apply_eval for a direct eval
 // (its frame is `ctx`, with the given argument and local counts), or nullptr
@@ -3365,6 +3421,7 @@ static PROTOJS_NOINLINE const proto::ProtoObject* performEval(
         scopeOperand, text, error));
     if (!mod) throwJS(ctx, makeError(ctx, "SyntaxError", error.c_str(), globalRoot));
     const ProtoBytecodeModule& nf = *mod;
+    checkEvalGlobalDeclarations(ctx, nf, globalRoot);
     const size_t closureCount = nf.closureSymbols ? nf.closureSymbols->getSize(ctx) : 0;
     const size_t totalSlots = nf.argCount() + nf.varCount() + closureCount + nf.stackSize() + 16;
     proto::ProtoContext childCtx(ctx->space, ctx, nullptr, nullptr, nullptr, nullptr, totalSlots, nullptr);
@@ -3583,7 +3640,22 @@ static PROTOJS_NOINLINE bool objectEnvironmentHasBinding(proto::ProtoContext* ct
                                                          bool isWith) {
     if (!bindingHas(ctx, obj, key)) return false;
     if (!isWith) return true;
-    const proto::ProtoObject* unscopables = jsGetProperty(ctx, obj, "Symbol.unscopables");
+    // obj[@@unscopables], with the well-known Symbol itself as the key, so
+    // a Proxy's get trap sees the Symbol.
+    const proto::ProtoObject* unscopables = nullptr;
+    {
+        const proto::ProtoObject* symKey = nullptr;
+        const proto::ProtoObject** gr = t_currentGlobalRoot;
+        const proto::ProtoObject* so = ctx->fromUTF8String("Symbol");
+        const proto::ProtoObject* uo = ctx->fromUTF8String("unscopables");
+        const proto::ProtoObject* symCtor = (gr && *gr && so && so->asString(ctx))
+            ? (*gr)->getAttribute(ctx, so->asString(ctx), true) : nullptr;
+        if (symCtor && symCtor != PROTO_NONE && uo && uo->asString(ctx))
+            symKey = symCtor->getAttribute(ctx, uo->asString(ctx), true);
+        if (!symKey || symKey == PROTO_NONE) symKey = ctx->fromUTF8String("Symbol.unscopables");
+        const proto::ProtoList* args = ctx->newList()->appendLast(ctx, obj)->appendLast(ctx, symKey);
+        unscopables = reflectGet(ctx, nullptr, nullptr, argsView(proto::ProtoListArguments(ctx, args)), nullptr);
+    }
     if (!unscopables || unscopables == PROTO_NONE || !jsIsObject(ctx, unscopables)) return true;
     return !jsToBoolean(ctx, bindingGet(ctx, unscopables, key));
 }
@@ -15832,7 +15904,8 @@ static const proto::ProtoObject* runBytecodeImpl(proto::ProtoContext* pContext,
                 // For any other value, push unchanged (primitives wrap lazily).
                 if (stackEmpty(pContext)) MALFORMED_BYTECODE();
                 const proto::ProtoObject* val = stackTop(pContext); stackPop(pContext);
-                if (!val || val == PROTO_NONE || val == t_nullSentinel) {
+                if (!val || val == PROTO_NONE || val == t_nullSentinel
+                    || val == getUndefinedSentinel() || val->isNone(pContext)) {
                     const bool isNull = (val == t_nullSentinel);
                     throwJS(pContext, makeError(pContext, "TypeError",
                         isNull ? "Cannot convert null to object"
@@ -16619,6 +16692,21 @@ static const proto::ProtoObject* runBytecodeImpl(proto::ProtoContext* pContext,
                         const proto::ProtoObject* result = callJSFunction(pContext, bfMethTarget, boundThisMeth, mergedMethArgs);
                         REFRESH_INTERP_STATE();
                         // Tail call: the callee's result is this function's.
+                        if (opcode == OP_tail_call_method)
+                            return result ? result : PROTO_NONE;
+                        stackPush(pContext, result ? result : PROTO_NONE);
+                    } else if (jsIsCallable(pContext, func)) {
+                        // A callable the paths above do not take -- a
+                        // built-in constructor called as a function through
+                        // a member (`o.f = Object; o.f()`, `with (env)
+                        // Object()`): the generic dispatcher, which OP_call's
+                        // fallbacks also use.
+                        const proto::ProtoList* cmArgs = pContext->newList();
+                        for (uint32_t i = 0; i < argc; i++)
+                            cmArgs = cmArgs->appendLast(pContext, stackAt(pContext, argc - 1 - i));
+                        const proto::ProtoObject* result = callJSFunction(pContext, func, thisVal, cmArgs);
+                        REFRESH_INTERP_STATE();
+                        for (uint32_t i = 0; i < argc + 2; i++) stackPop(pContext);
                         if (opcode == OP_tail_call_method)
                             return result ? result : PROTO_NONE;
                         stackPush(pContext, result ? result : PROTO_NONE);
@@ -18583,6 +18671,11 @@ static const proto::ProtoObject* runBytecodeImpl(proto::ProtoContext* pContext,
                         stackPush(pContext, stepDone ? PROTO_TRUE : PROTO_FALSE);
                         DISPATCH();
                     }
+                    // The record counts as done while next() and the reads of
+                    // its result run: an exception there leaves the iterator
+                    // done (§7.4.4 IteratorStep), and IteratorClose must not
+                    // call return() for it.
+                    setSlot(pContext, bs + 2, pContext->fromInteger(1LL));
                     if (nextFnFO && nextFnFO != PROTO_NONE) {
                         if (nextFnFO->isMethod(pContext)) {
                             proto::ProtoMethod nativeFnFO = nextFnFO->asMethod(pContext);
@@ -18644,7 +18737,8 @@ static const proto::ProtoObject* runBytecodeImpl(proto::ProtoContext* pContext,
                         if (gv && gv != PROTO_NONE) valueFO = gv;
                     }
                     const bool isDone = (doneFO && doneFO != PROTO_NONE) ? toBool(pContext, doneFO) : false;
-                    if (isDone) setSlot(pContext, bs + 2, pContext->fromInteger(1LL));
+                    setSlot(pContext, bs + 2, pContext->fromInteger(isDone ? 1LL : 0LL));
+                    REFRESH_INTERP_STATE();
 
                     // Iterator state stays in-place — push value+done on top.
                     stackPush(pContext, valueFO ? valueFO : PROTO_NONE);

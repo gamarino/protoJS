@@ -85,6 +85,9 @@ struct ProtoBytecodeModule {
     std::vector<bool> closureVarIsConst;
     /** Whether each closure var is a declared global. */
     std::vector<bool> closureVarIsDeclared;
+    /** Whether each closure var is a global function declaration (its
+     *  global property must be definable: CanDeclareGlobalFunction). */
+    std::vector<bool> closureVarIsFunctionDecl;
     /** Full closure type for each closure var. */
     std::vector<int> closureVarTypes;
     /** Index into the parent function's corresponding slot array. */
