@@ -40,6 +40,19 @@
 # really ran: a run that passes without a cycle exercised nothing and counts as a
 # failed premise.
 #
+# THE WORKLOAD IS SIZED AT RUN TIME. Each program allocates string garbage until
+# protoCore.gcStats() shows that at least one collection cycle completed since the
+# allocation began (in `after`: since the callback started), and only then reads
+# the bindings back -- at least the original 200,000 iterations, in chunks of
+# 10,000, up to 20,000,000. A fixed count tuned to one protoCore stops meeting the
+# premise when the kernel's cell accounting changes: protoCore 3.2.0 stores a
+# heap string as its rope root, one cell instead of two, and the original
+# 200,000-iteration `after` loop then filled the 500,000-cell ceiling without a
+# single cycle (cycles=0; protoCore 3.1.0 ran 1, reclaiming about 450,000 cells,
+# and each cycle on 3.2.0 still reclaims about as much). A program that reaches
+# the cap without a cycle prints "no-cycle" and fails. The exit-time census must
+# still show a cycle as well.
+#
 # The failure was intermittent on Linux, so one run proves little: `inside` runs
 # RUNS times (default 50), `after` a fifth as many, and every run must pass.
 #
@@ -55,17 +68,26 @@ mkdir -p "$SCRATCH" || exit 1
 LIMIT=500000   # cells; the 200k-iteration loops below must collect under it
 DEADLINE=60    # seconds per run; a working run takes well under one
 
-# ("garbage-" + i).length is 8 plus the digits of i, so 200,000 iterations give
-# exactly 2,688,890.
+# Each program checks its own arithmetic too: ("garbage-" + i).length is 8 plus
+# the digits of i, recomputed in closed form from the number of iterations it ran ("sum-ok").
 cat > "$SCRATCH/inside.js" <<'EOF'
 var v = {a: 1};
 let l = {b: 2};
 const c = 3;
 let acc = 0;
-for (let i = 0; i < 200000; i++) { acc += ("garbage-" + i).length; }
+let n = 0;
+const start = protoCore.gcStats().cycles;
+while (n < 200000 || (protoCore.gcStats().cycles === start && n < 20000000)) {
+  for (const end = n + 10000; n < end; n++) { acc += ("garbage-" + n).length; }
+}
+// 8 + the digits of i, summed in closed form over 0 <= i < n.
+let expect = 8 * n;
+for (let d = 1, lo = 0, hi = 10; lo < n; d++, lo = hi, hi *= 10) expect += d * (Math.min(n, hi) - lo);
 console.log('inside ' + [typeof v === 'object' ? v.a : typeof v,
                          typeof l === 'object' ? l.b : typeof l,
-                         c].join(',') + ' ' + acc);
+                         c].join(',') + ' ' +
+            (acc === expect ? 'sum-ok' : 'sum-wrong') + ' ' +
+            (protoCore.gcStats().cycles > start ? 'cycled' : 'no-cycle after ' + n));
 EOF
 
 cat > "$SCRATCH/after.js" <<'EOF'
@@ -74,10 +96,18 @@ let l = {b: 2};
 const c = 3;
 setImmediate(function () {
   let acc = 0;
-  for (let i = 0; i < 200000; i++) { acc += ("garbage-" + i).length; }
+  let n = 0;
+  const start = protoCore.gcStats().cycles;
+  while (n < 200000 || (protoCore.gcStats().cycles === start && n < 20000000)) {
+    for (const end = n + 10000; n < end; n++) { acc += ("garbage-" + n).length; }
+  }
+  let expect = 8 * n;
+  for (let d = 1, lo = 0, hi = 10; lo < n; d++, lo = hi, hi *= 10) expect += d * (Math.min(n, hi) - lo);
   console.log('after ' + [typeof v === 'object' ? v.a : typeof v,
                           typeof l === 'object' ? l.b : typeof l,
-                          c].join(',') + ' ' + acc);
+                          c].join(',') + ' ' +
+              (acc === expect ? 'sum-ok' : 'sum-wrong') + ' ' +
+              (protoCore.gcStats().cycles > start ? 'cycled' : 'no-cycle after ' + n));
 });
 EOF
 
@@ -86,7 +116,7 @@ total=0
 
 # $1 program name (also the first word of its expected line), $2 runs
 run_case() {
-    local name="$1" runs="$2" expected="$1 1,2,3 2688890"
+    local name="$1" runs="$2" expected="$1 1,2,3 sum-ok cycled"
     local run out rc reason cycles
     for run in $(seq 1 "$runs"); do
         total=$((total + 1))
@@ -98,7 +128,7 @@ run_case() {
         if [ $rc -ne 0 ]; then
             reason="exited $rc"
         elif ! printf '%s\n' "$out" | grep -qxF "$expected"; then
-            reason="a top-level binding was lost (expected '$expected')"
+            reason="a binding was lost or no cycle ran during the workload (expected '$expected')"
         else
             cycles=$(printf '%s\n' "$out" | grep -F 'protojs gc:' | tail -1 \
                          | sed -n 's/.*cycles=\([0-9]*\).*/\1/p')

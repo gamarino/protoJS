@@ -14,7 +14,10 @@
 #
 # Cases (each must load its module exactly once):
 #   cjs-symlink   require('./lib/counter.js') and require('./alias/counter.js'),
-#                 where alias is a symbolic link to lib
+#                 where alias is a symbolic link to lib (on Windows without the
+#                 privilege to create one -- Developer Mode off, not elevated --
+#                 a directory junction, which needs none: both are reparse
+#                 points that GetFinalPathNameByHandleW resolves)
 #   esm-symlink   the same for import
 #   cjs-case      (Windows only) require('./LIB/Counter.js')
 #   esm-case      (Windows only) import './LIB/M.mjs'
@@ -48,16 +51,24 @@ export const n = (globalThis.__eloads = (globalThis.__eloads || 0) + 1);
 EOF
 
 # A real symbolic link on every platform. Git for Windows' ln copies the
-# directory unless told to make a native link; the runners may create them.
+# directory unless told to make a native link; the CI runners may create them.
+# Without the privilege (SeCreateSymbolicLinkPrivilege: Developer Mode off and
+# not elevated) Windows refuses, and a directory junction (mklink /J), which any
+# user may create, stands in for it.
+LINK_KIND="symbolic link"
 if [ "$IS_WINDOWS" -eq 1 ]; then
-    MSYS=winsymlinks:nativestrict ln -s lib alias
+    if ! MSYS=winsymlinks:nativestrict ln -s lib alias 2>/dev/null; then
+        LINK_KIND="directory junction (no privilege to create a symbolic link)"
+        cmd //c "mklink /J alias lib" > /dev/null
+    fi
 else
     ln -s lib alias
 fi
-if [ ! -L alias ]; then
-    echo "FAIL: could not create the symbolic link alias -> lib"
+if [ ! -L alias ] || [ ! -f alias/counter.js ]; then
+    echo "FAIL: could not create a link alias -> lib ($LINK_KIND)"
     exit 1
 fi
+echo "alias -> lib is a $LINK_KIND"
 
 FAILED=0
 
