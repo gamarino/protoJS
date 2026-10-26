@@ -18,6 +18,14 @@ function check(name, actual, expected) {
         failures.push(name + " -- got " + String(actual) + ", expected " + String(expected));
 }
 
+// Runs `run` and checks its result; an exception is a failure that names the
+// check instead of ending the script.
+function checkRun(name, run, expected) {
+    var actual;
+    try { actual = run(); } catch (e) { actual = "exception " + (e && e.name) + ": " + (e && e.message); }
+    check(name, actual, expected);
+}
+
 var junk = [];
 function churn(tag, n) {
     // Distinct sources (each compiles and evicts) and garbage (collections).
@@ -60,9 +68,11 @@ check("methods after eviction", methods.m() + methods.g + methods.c1(), "mgc1");
 
 // --- A closure made by eval code made by eval code ---------------------------
 
-var inner = eval("(function () { return eval('(function (z) { return z + 1; })'); })")();
-churn(2000, 500);
-check("nested eval closure", inner(41), 42);
+checkRun("nested eval closure", function () {
+    var inner = eval("(function () { return eval('(function (z) { return z + 1; })'); })")();
+    churn(2000, 500);
+    return inner(41);
+}, 42);
 
 // --- Evals that run while others evict them ----------------------------------
 
@@ -70,9 +80,11 @@ function nested(k) {
     // Each level evals a distinct source that evals 100 more distinct sources.
     return eval("var r = 0; for (var j = 0; j < 100; j++) r += eval('j + " + k + "'); r");
 }
-var nestedSum = 0;
-for (var n = 0; n < 20; n++) nestedSum += nested(n);
-check("nested evals", nestedSum, 20 * 4950 + 100 * (19 * 20) / 2);
+checkRun("nested evals", function () {
+    var nestedSum = 0;
+    for (var n = 0; n < 20; n++) nestedSum += nested(n);
+    return nestedSum;
+}, 20 * 4950 + 100 * (19 * 20) / 2);
 
 function recurse(depth) {
     // 70 distinct evals active at once: more than the 64 the cache holds.
@@ -81,7 +93,18 @@ function recurse(depth) {
     // with MSVC, whose interpreter frames are larger.)
     return depth === 0 ? 0 : eval("recurse(" + (depth - 1) + ") + 1");
 }
-check("recursive evals deeper than the cache", recurse(70), 70);
+checkRun("recursive evals deeper than the cache", function () {
+    try {
+        return recurse(70);
+    } catch (e) {
+        // Report how deep this build can nest evals, then fail.
+        var depth = 0;
+        for (var d = 5; d <= 70; d += 5) {
+            try { recurse(d); depth = d; } catch (e2) { break; }
+        }
+        throw new Error(String(e && e.message) + " (nests " + depth + " evals)");
+    }
+}, 70);
 
 // --- Repeated source: one compilation, same results ---------------------------
 
@@ -90,7 +113,7 @@ function repeated(n) {
     for (var i = 0; i < n; i++) s += eval("i * 2");
     return s;
 }
-check("repeated eval", repeated(20000), 20000 * 19999);
+checkRun("repeated eval", function () { return repeated(20000); }, 20000 * 19999);
 check("indirect eval", (0, eval)("typeof globalThis"), "object");
 
 // --- Async functions made by eval, resumed after eviction ---------------------
