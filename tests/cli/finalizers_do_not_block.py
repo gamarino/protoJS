@@ -63,8 +63,8 @@ import re
 import sys
 import os
 
-# (file, finalizer). protoJS has exactly five ProtoExternalPointer finalizers that
-# carry cross-thread state; the count is asserted, so adding a sixth is a deliberate
+# (file, finalizer). protoJS has exactly six audited ProtoExternalPointer finalizers that
+# carry cross-thread state; the count is asserted, so adding a seventh is a deliberate
 # edit here rather than a silent gap.
 FINALIZERS = [
     ("src/modules/net/NetModule.cpp", "freeServerState"),
@@ -72,6 +72,9 @@ FINALIZERS = [
     ("src/modules/http/HTTPModule.cpp", "freeServerState"),
     ("src/modules/http/HTTPModule.cpp", "freeClientRequestState"),
     ("src/modules/worker_threads/WorkerThreadsModule.cpp", "freeWorkerState"),
+    # An eval module's lifetime token: flips an atomic state; the module is
+    # released by EvalModuleCache::sweep on a mutator thread.
+    ("src/runtime/EvalModuleCache.cpp", "finalizeToken"),
 ]
 
 FORBIDDEN = [
@@ -195,8 +198,8 @@ def main():
             print("  ok [%s:%s]: no blocking call and no protoCore API, transitively"
                   % (rel, func))
 
-    if checked != 5:
-        print("FAIL: audited %d finalizers, expected 5." % checked)
+    if checked != 6:
+        print("FAIL: audited %d finalizers, expected 6." % checked)
         print("      An audit that silently covers fewer sites than it claims is the")
         print("      failure mode this line exists to prevent.")
         return 1

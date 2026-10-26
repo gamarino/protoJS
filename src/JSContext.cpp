@@ -940,14 +940,14 @@ const proto::ProtoObject* JSContextWrapper::evalIsolatedToProto(
     return result;
 }
 
-const void* JSContextWrapper::loadEvalModule(JSContext* quickjsCtx, void* callerBytecode,
-                                            int scopeOperand, const std::string& source,
-                                            std::string& error) {
-    JSContext* qctx = quickjsCtx ? quickjsCtx : ctx;
-    const auto key = std::make_pair(std::make_pair(callerBytecode, scopeOperand), source);
-    const auto hit = evalModuleCache_.find(key);
-    if (hit != evalModuleCache_.end()) return hit->second;
+protojs::EvalModuleCache::Lease JSContextWrapper::loadEvalModule(
+        proto::ProtoContext* pctx, JSContext* quickjsCtx,
+        const protojs::ProtoBytecodeModule* caller, int scopeOperand,
+        const std::string& source, std::string& error) {
+    void* callerBytecode = caller ? caller->quickjsBytecode : nullptr;
+    if (auto hit = evalModules_.find(callerBytecode, scopeOperand, source)) return hit;
 
+    JSContext* qctx = quickjsCtx ? quickjsCtx : ctx;
     if (JS_HasException(qctx)) JS_FreeValue(qctx, JS_GetException(qctx));
     void* bytecode = callerBytecode
         ? protojs_compile_direct_eval(qctx, callerBytecode, scopeOperand, source.c_str(),
@@ -964,22 +964,24 @@ const void* JSContextWrapper::loadEvalModule(JSContext* quickjsCtx, void* caller
         }
         JS_FreeValue(qctx, msgVal);
         JS_FreeValue(qctx, exc);
-        return nullptr;
+        return {};
     }
-    proto::ProtoContext* baseCtx = getProtoContext();
-    proto::ProtoContext loadCtx(pSpace_, baseCtx, nullptr, nullptr, nullptr, nullptr);
+    // The module is loaded in the eval code's activation context (`pctx`,
+    // chained to the caller's frame). It used to be loaded in a context of
+    // its own chained to the wrapper's root context, which became the
+    // thread's current context and hid every interpreter frame below the eval
+    // from a collection during the load: the caller's variables were
+    // collected and reused under heap pressure (js/basic/eval_module_lifetime,
+    // the churn sums).
     auto modulePtr = std::make_unique<protojs::ProtoBytecodeModule>();
-    protojs::ProtoBytecodeModule* modPtr = modulePtr.get();
-    if (!protojs::loadBytecode(qctx, bytecode, &loadCtx, modPtr)) {
+    if (!protojs::loadBytecode(qctx, bytecode, pctx, modulePtr.get())) {
         error = "eval: the compiled source could not be loaded";
-        return nullptr;
+        return {};
     }
-    // The module's metadata roots its constant pool and nested functions for
-    // as long as the module is kept, which is the wrapper's lifetime.
-    if (proto::ProtoRootSet* rs = getRootSet()) subEvalHandles_.push_back(rs->add(modPtr->metadata));
-    subEvalModules_.push_back(std::move(modulePtr));
-    evalModuleCache_.emplace(key, modPtr);
-    return modPtr;
+    // The cache gives the module its lifetime token (which roots its metadata)
+    // and publishes the entry on its pinned holder.
+    return evalModules_.insert(pctx, getRootSet(), std::move(modulePtr), qctx, ctx, bytecode,
+                               caller, callerBytecode, scopeOperand, source);
 }
 
 JSValue JSContextWrapper::evalPreload(const std::string& code, const std::string& filename) {

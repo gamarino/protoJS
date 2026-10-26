@@ -291,6 +291,18 @@ add_test(NAME cli/dynamic-keys-bounded-memory
             "${CMAKE_CURRENT_BINARY_DIR}/cli-scratch/dynamic-keys-bounded-memory")
 set_tests_properties(cli/dynamic-keys-bounded-memory PROPERTIES TIMEOUT 900)
 
+# 100,000 distinct eval() sources (direct, top-level and indirect, keeping a
+# closure of every thousandth) under a small heap ceiling: the resident set
+# must stay flat, and an eval of a repeated source must still hit the cache.
+# Eval modules live in a bounded cache and while closures or activations need
+# them (src/runtime/EvalModuleCache.h); before, every one was kept for good.
+# About 10 s.
+add_test(NAME cli/eval-bounded-memory
+    COMMAND ${PROTOJS_PYTHON} "${CMAKE_CURRENT_SOURCE_DIR}/cli/eval_bounded_memory.py"
+            "$<TARGET_FILE:protojs>"
+            "${CMAKE_CURRENT_BINARY_DIR}/cli-scratch/eval-bounded-memory")
+set_tests_properties(cli/eval-bounded-memory PROPERTIES TIMEOUT 900)
+
 # The default heap ceiling is 75 % of physical memory (or of a smaller cgroup
 # limit), and PROTOCORE_HEAP_LIMIT_CELLS overrides it (src/HeapLimit.h).
 add_test(NAME cli/heap-limit-default
@@ -419,6 +431,18 @@ add_test(NAME js/deferred/adaptive_heap_budget
             "${CMAKE_CURRENT_SOURCE_DIR}/integration/deferred/adaptive_heap_budget.js")
 set_tests_properties(js/deferred/adaptive_heap_budget PROPERTIES
     ENVIRONMENT "PROTOCORE_HEAP_LIMIT_CELLS=4000000")
+
+# eval()'s modules under a small heap ceiling: closures of every kind made by
+# eval code outlive the eviction of their module from the bounded eval cache
+# (src/runtime/EvalModuleCache.h), and evals nested and recursive past the
+# cache's capacity keep their modules while they run. Collections run during
+# the loads, which before 2026-10-25 hid the caller's frames from the
+# collector (wrong sums).
+add_test(NAME js/basic/eval_module_lifetime
+    COMMAND "$<TARGET_FILE:protojs>"
+            "${CMAKE_CURRENT_SOURCE_DIR}/integration/basic/eval_module_lifetime.js")
+set_tests_properties(js/basic/eval_module_lifetime PROPERTIES
+    ENVIRONMENT "PROTOCORE_HEAP_LIMIT_CELLS=300000" TIMEOUT 300)
 
 # Many Deferreds under a small heap budget: collections run while the pool
 # allocates, results arrive intact, the kept ones survive, one ProtoSpace.

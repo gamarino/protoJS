@@ -62,8 +62,16 @@ struct ProtoBytecodeModule {
      *  Set once by loadBytecode after the table has stopped growing, and never
      *  mutated afterwards.  It points at the root ProtoBytecodeModule, which is
      *  owned by a unique_ptr in JSContextWrapper (rootModuleStorage_ or
-     *  subEvalModules_) and therefore does not move. */
+     *  subEvalModules_) or by an EvalModuleCache record, and therefore does
+     *  not move. */
     const ProtoBytecodeModule* ownerRoot{nullptr};
+
+    /** The lifetime token of an eval module's root (runtime/EvalModuleCache.h),
+     *  null for every other module. OP_fclosure stamps it, instead of the
+     *  table's address, as `__closure_module__` on the closures it creates, so
+     *  the collector keeps the module while any of them is reachable. Set once
+     *  when the module is cached, before any of its code runs. */
+    const proto::ProtoObject* lifetimeToken{nullptr};
 
     /** The module whose `nestedFunctions` this module's bytecode IDs index.
      *  Resolving through this, rather than through the thread-local current /

@@ -103,6 +103,7 @@ const proto::ProtoString* stringCtor(proto::ProtoContext* ctx);     // "__string
 const proto::ProtoString* primitiveValue(proto::ProtoContext* ctx); // "__primitive_value__"
 const proto::ProtoString* arrowThis(proto::ProtoContext* ctx);      // "__arrow_this__"
 const proto::ProtoString* closureModule(proto::ProtoContext* ctx);  // "__closure_module__"
+const proto::ProtoString* evalCacheEntries(proto::ProtoContext* ctx);  // "__eval_cache__"
 const proto::ProtoString* argCount(proto::ProtoContext* ctx);       // "__arg_count__"
 const proto::ProtoString* varCount(proto::ProtoContext* ctx);       // "__var_count__"
 const proto::ProtoString* stackSize(proto::ProtoContext* ctx);      // "__stack_size__"

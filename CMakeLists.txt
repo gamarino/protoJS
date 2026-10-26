@@ -305,6 +305,7 @@ add_library(protojs_core STATIC
     src/runtime/LazyPrototype.cpp
     src/runtime/PinnedBuiltin.cpp
     src/runtime/PropertyDictionary.cpp
+    src/runtime/EvalModuleCache.cpp
     src/runtime/ThreadIdentity.cpp
     src/runtime/NativeStackGuard.cpp
     src/runtime/BehaviorRegistry.cpp

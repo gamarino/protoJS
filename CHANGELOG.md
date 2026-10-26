@@ -6,6 +6,29 @@ All notable changes to protoJS are documented in this file.
 
 **Requires protoCore 3.1.0** (untagged master, commit 267b9fc9; SOVERSION 4). CI builds protoCore 3.2.0 (commit bb2d581a, what the installers ship) on Linux, macOS and Windows, and 3.1.0 in the Windows floor job.
 
+### Fixed — eval modules bounded and GC-safe (2026-10-25)
+
+- **Bounded eval cache**: `eval()` kept every module it compiled for the life
+  of the process, each pinned with its own `ProtoRootSet` handle, and cached
+  every (caller, scope, source) forever; under a 1,000,000-cell heap ceiling
+  a loop of distinct evals ran out of memory before 80,000 evals. The new
+  `EvalModuleCache` (`src/runtime/EvalModuleCache.h`) caches at most 64
+  compilations (least recently used out; an entry in use is never evicted),
+  roots its entries through one pinned holder, and frees a module once the
+  collector finalizes its lifetime token: the token is stamped as
+  `__closure_module__` on every closure the eval code creates and kept by its
+  generator objects and async continuations. 100,000 distinct evals now run in
+  flat memory (80 MB resident from the 20,000th to the 100,000th) and faster
+  than before; a repeated source still compiles once (about 4 us per eval
+  against 27 us for a distinct one). Capacity 64 is an agent decision,
+  pending review. (`cli/eval-bounded-memory`, `js/basic/eval_module_lifetime`)
+- **Collections during an eval's compilation**: the module was loaded in a
+  context chained to the wrapper's root context, which became the thread's
+  current context and hid every interpreter frame below the eval from the
+  collector; under heap pressure the caller's variables were collected and
+  reused (a loop summing distinct evals gave wrong totals). It is now loaded
+  in the eval code's own activation context.
+
 ### Documented — own-key order stays protoCore's (2026-10-25)
 
 - The maintainer confirmed that own string keys enumerate in protoCore's

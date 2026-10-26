@@ -31,6 +31,9 @@ static constexpr const char* kGenSlots    = "__gen_slots__";   // automaticLocal
 static constexpr const char* kGenStackTop = "__gen_stack_top__"; // value-stack depth at suspension
 static constexpr const char* kGenThis     = "__gen_this__";
 static constexpr const char* kGenMod      = "__gen_mod__";
+// The lifetime token of an eval module (runtime/EvalModuleCache.h): keeps the
+// module that kGenMod names alive while the generator object is reachable.
+static constexpr const char* kGenModToken = "__gen_mod_token__";
 static constexpr const char* kGenState    = "__gen_state__";   // 0=suspended, 1=completed
 static constexpr const char* kGenNcc      = "__gen_ncc__";     // number of catch frames
 // Individual catch frame keys: __gen_cc_N_pc__ and __gen_cc_N_sp__

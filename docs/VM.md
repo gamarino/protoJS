@@ -534,7 +534,7 @@ Falsy values (`toBool`): `undefined` (both forms), `null`, `false`, 0, -0,
 | `call_constructor` | 33 | 3 | u16 argc | `f newTarget a1..an -> obj` | `new` and `super(...)`: creates the object from `newTarget.prototype`, runs the constructor, keeps its result if it is an object. TypeError `function is not a constructor` (arrows, methods, generators, async); the Proxy `construct` trap errors; RangeError `Invalid array length` (Array). | Allocates. The whole handler runs inside a critical section on the caller's context; the body runs in a child context. | `new F(args)`, `super(args)` |
 | `apply` | 39 | 3 | u16 magic (bit 0: construct) | `f this array -> r` | Spread call: `callJSFunction(f, this, elements)`; with magic 1 the middle operand is the new.target, as in QuickJS (`f` for `new F(...xs)`, the running constructor's new.target for `super(...xs)`): the object is created from its `prototype`. | Runs JS. | `f(...xs)`, `new F(...xs)`, `super(...xs)` (example 17) |
 | `array_from` | 38 | 3 | u16 count | `e1..en -> array` | An Array of the values; `PROTO_NONE` becomes the undefined singleton. | Allocates. | array literals; argument arrays of spread calls |
-| `eval` | 50 | 5 | u16 argc, u16 scope | `f a1..an -> r` | When `f` is %eval%, a direct eval (`performEval`): a string argument is compiled against the calling function's QuickJS bytecode at `scope` (`protojs_compile_direct_eval`), cached per (caller, scope, source), and run in a child context whose closure variables are the caller's variables (as cells); any other argument is the result. Otherwise an ordinary call with `this` undefined. Calling %eval% itself is an indirect eval (global code). | Runs JS. Allocates. | `eval(...)` |
+| `eval` | 50 | 5 | u16 argc, u16 scope | `f a1..an -> r` | When `f` is %eval%, a direct eval (`performEval`): a string argument is compiled against the calling function's QuickJS bytecode at `scope` (`protojs_compile_direct_eval`), cached per (caller, scope, source) in a bounded cache (`EvalModuleCache`), and run in a child context whose closure variables are the caller's variables (as cells); any other argument is the result. Otherwise an ordinary call with `this` undefined. Calling %eval% itself is an indirect eval (global code). | Runs JS. Allocates. | `eval(...)` |
 | `apply_eval` | 51 | 3 | u16 scope | `f array -> r` | `eval(...xs)`: as `eval` with the array's first element. | Runs JS. | `eval(...xs)` |
 | `import` | 54 | 1 | none | | **No handler**: SyntaxError `protoJS does not support dynamic import()` (section 6). | | dynamic `import()` |
 | `return` | 40 | 1 | none | `v ->` | Returns `v` from the activation (from every nested level). | | `return e` |
@@ -2426,8 +2426,10 @@ then (CHANGELOG); what remains is listed here.
 Decisions taken by the agent that fixed them, pending the maintainer's
 review: dynamic `import()` raises a SyntaxError where it is reached rather
 than returning a rejected promise (issue 1); `eval(...xs)` is a direct eval
-as the specification says, although Node 22 treats it as indirect; direct
-eval compilations are cached for the life of the process (issue 10); the
+as the specification says, although Node 22 treats it as indirect; the
+eval cache keeps at most 64 compilations, least recently used out, and a
+module lives while a closure, a suspended activation or a running eval needs
+it (`src/runtime/EvalModuleCache.h`, 2026-10-25); the
 specialiser keeps the instructions it fuses after a guarded header instead
 of replacing them (1.3).
 
@@ -2470,12 +2472,11 @@ of replacing them (1.3).
    from inside the running generator recurses until RangeError instead of
    TypeError; for-in visits keys deleted during the loop and does not list
    integer keys first.
-10. **Direct eval caches its compilations**: each distinct (calling
-    function, scope, source text) is compiled once and kept for the life of
-    the process (`JSContextWrapper::loadEvalModule`), so a program that
-    evaluates an unbounded number of different strings grows without
-    bound. Interned private-name keys (one per evaluation of a class with
-    private members) are kept the same way.
+10. **Interned private-name keys** (one per evaluation of a class with
+    private members) are interned symbols, kept for the life of the
+    process, so a program that evaluates an unbounded number of different
+    class sources grows without bound. (The eval modules themselves are
+    bounded since 2026-10-25: `src/runtime/EvalModuleCache.h`.)
 11. **`with` and Proxies**: a Proxy used as a `with` object sees
     `Symbol.unscopables` as the string key `"Symbol.unscopables"` in its
     traps (protoJS carries well-known Symbols as strings), and an

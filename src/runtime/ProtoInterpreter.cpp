@@ -3398,7 +3398,7 @@ static PROTOJS_NOINLINE void checkEvalGlobalDeclarations(proto::ProtoContext* ct
 // `caller` is the module running OP_eval / OP_apply_eval for a direct eval
 // (its frame is `ctx`, with the given argument and local counts), or nullptr
 // for an indirect eval, which runs the source as global code.  The source is
-// compiled once per (caller, scope, text) (JSContextWrapper::loadEvalModule);
+// compiled once per (caller, scope, text) while cached (JSContextWrapper::loadEvalModule);
 // a direct eval's closure variables are the caller's arguments, locals and
 // closure variables, captured as cells exactly as OP_fclosure captures them,
 // so the eval code reads and writes the caller's bindings and a sloppy-mode
@@ -3416,15 +3416,21 @@ static PROTOJS_NOINLINE const proto::ProtoObject* performEval(
     std::string text;
     source->asString(ctx)->toUTF8String(ctx, text);
     std::string error;
-    const auto* mod = static_cast<const ProtoBytecodeModule*>(wrapper->loadEvalModule(
-        caller ? caller->jsContext : nullptr, caller ? caller->quickjsBytecode : nullptr,
-        scopeOperand, text, error));
-    if (!mod) throwJS(ctx, makeError(ctx, "SyntaxError", error.c_str(), globalRoot));
-    const ProtoBytecodeModule& nf = *mod;
+    // The eval code's activation context, made first so that a compilation
+    // loads its module here: the load's cells end with the activation (the
+    // cache roots what it keeps) instead of piling up in a caller that evals
+    // in a loop. Its slots are sized once the module is known.
+    proto::ProtoContext childCtx(ctx->space, ctx, nullptr, nullptr, nullptr, nullptr, 0, nullptr);
+    // The lease keeps the module (and its cache entry) alive for the whole
+    // activation, also when nested evals push it out of the cache.
+    const EvalModuleCache::Lease lease = wrapper->loadEvalModule(
+        &childCtx, caller ? caller->jsContext : nullptr, caller, scopeOperand, text, error);
+    if (!lease) throwJS(ctx, makeError(ctx, "SyntaxError", error.c_str(), globalRoot));
+    const ProtoBytecodeModule& nf = *lease.module();
     checkEvalGlobalDeclarations(ctx, nf, globalRoot);
     const size_t closureCount = nf.closureSymbols ? nf.closureSymbols->getSize(ctx) : 0;
     const size_t totalSlots = nf.argCount() + nf.varCount() + closureCount + nf.stackSize() + 16;
-    proto::ProtoContext childCtx(ctx->space, ctx, nullptr, nullptr, nullptr, nullptr, totalSlots, nullptr);
+    childCtx.resizeAutomaticLocals(static_cast<unsigned>(totalSlots));
     childCtx.currentFileName = ctx->currentFileName;
     childCtx.currentLineNumber = ctx->currentLineNumber;
     if (caller) {
@@ -4823,7 +4829,9 @@ static const ProtoBytecodeModule* getClosureModule(
     const proto::ProtoString* key = JSSymbols::closureModule(pContext);
     if (!key) return nullptr;
     const proto::ProtoObject* val = fn->getAttribute(pContext, key, false);
-    if (!val || val == PROTO_NONE || !val->isInteger(pContext)) return nullptr;
+    if (!val || val == PROTO_NONE) return nullptr;
+    // eval code stamps its module's lifetime token (runtime/EvalModuleCache.h).
+    if (!val->isInteger(pContext)) return EvalModuleCache::moduleOfToken(pContext, val);
     uintptr_t ptr = static_cast<uintptr_t>(val->asLong(pContext));
     return ptr ? reinterpret_cast<const ProtoBytecodeModule*>(ptr) : nullptr;
 }
@@ -6455,6 +6463,9 @@ enum AsyncCompletion { kCompletionNormal = 0, kCompletionReturn = 1, kCompletion
 enum ContinuationField {
     kContKind, kContOwner, kContModule, kContPc, kContSite, kContSlots, kContHighSlots,
     kContStackTop, kContCatch, kContThis, kContFunc, kContArgs, kContClosureLocals,
+    // The lifetime token of an eval module (runtime/EvalModuleCache.h), which
+    // keeps the module kContModule names alive; PROTO_NONE otherwise.
+    kContModuleToken,
     kContFieldCount
 };
 
@@ -6578,6 +6589,8 @@ static PROTOJS_NOINLINE const proto::ProtoObject* makeContinuation(proto::ProtoC
         t_activeFunc ? t_activeFunc : PROTO_NONE,
         args ? args->asObject(ctx) : PROTO_NONE,
         ctx->closureLocals ? ctx->closureLocals->asObject(ctx) : PROTO_NONE,
+        (mod && mod->functionTable()->lifetimeToken) ? mod->functionTable()->lifetimeToken
+                                                     : PROTO_NONE,
     };
     return ctx->newList(kContFieldCount, items)->asObject(ctx);
 }
@@ -18021,7 +18034,8 @@ static const proto::ProtoObject* runBytecodeImpl(proto::ProtoContext* pContext,
                         const proto::ProtoString* cmKey8 = JSSymbols::closureModule(pContext);
                         if (cmKey8)
                             fnInst = fnInst->setAttribute(pContext, cmKey8,
-                                pContext->fromInteger(static_cast<long long>(
+                                ownerTable8->lifetimeToken ? ownerTable8->lifetimeToken
+                                : pContext->fromInteger(static_cast<long long>(
                                     reinterpret_cast<uintptr_t>(ownerTable8))));
                     }
                     if (nm8Ptr) {
@@ -18234,7 +18248,8 @@ static const proto::ProtoObject* runBytecodeImpl(proto::ProtoContext* pContext,
                         const proto::ProtoString* cmKey2 = JSSymbols::closureModule(pContext);
                         if (cmKey2)
                             fnInst2 = fnInst2->setAttribute(pContext, cmKey2,
-                                pContext->fromInteger(static_cast<long long>(
+                                ownerTable2->lifetimeToken ? ownerTable2->lifetimeToken
+                                : pContext->fromInteger(static_cast<long long>(
                                     reinterpret_cast<uintptr_t>(ownerTable2))));
                     }
                     
@@ -19556,8 +19571,11 @@ static const proto::ProtoObject* runBytecodeImpl(proto::ProtoContext* pContext,
                 // Save thisObj.
                 setA(kGenThis, thisObj ? thisObj : PROTO_NONE);
 
-                // Save module pointer as integer (raw pointer; module lifetime >= program).
+                // Save the module pointer as an integer; an eval module's
+                // lifetime token keeps that module alive for the generator.
                 setI(kGenMod, (long long)(uintptr_t)mod);
+                if (const proto::ProtoObject* modToken = mod->functionTable()->lifetimeToken)
+                    setA(kGenModToken, modToken);
 
                 // Save closureLocals snapshot (GC-safe: stored as attribute on iterObj).
                 const proto::ProtoObject* savedLoc = pContext->closureLocals
