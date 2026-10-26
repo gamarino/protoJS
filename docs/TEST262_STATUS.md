@@ -296,8 +296,13 @@ reported in insertion order after the named keys
 writes its keys as literals, which are vocabulary, so its key-order tests are
 not affected.
 
-On Linux and macOS the order is the same from run to run, so the per-commit
-gate's Linux baseline gates both. On Windows it is not -- most likely because
+On Linux the order is the same from run to run. On macOS it was too until
+October 2026, when two runs of the same commit (CI runs 40237571147 and
+40238979889) failed `defineProperties/15.2.3.7-6-a-93-1` and `-93-3`
+respectively; those two tests are skipped in the gate since, with the reason
+in `skip_proto_eval.json` and the deviation entry in
+[API_REFERENCE.md](API_REFERENCE.md#property-enumeration-order). On Windows it
+is not either -- most likely because
 Windows randomises where each OS allocation lands, so the relative order of
 protoCore's memory chunks changes per process (an inference; not traced) --
 and the tests that observe key order

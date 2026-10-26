@@ -430,10 +430,14 @@ The January 2026 guides for these components are archived in [archive/PHASE6_MOD
 
 ### Property enumeration order
 
-`Object.keys`, `Object.getOwnPropertyNames`, `for-in`, `Object.entries`,
-`Object.assign`, `JSON.stringify` and `util.inspect` report an object's
-string-keyed properties in the order protoCore walks the object's attributes,
-not in insertion order as ECMA-262 (OrdinaryOwnPropertyKeys) requires:
+`Object.keys`, `Object.values`, `Object.entries`, `Object.getOwnPropertyNames`,
+`Object.getOwnPropertyDescriptors`, `Reflect.ownKeys`, `for-in`,
+`Object.assign`, `Object.defineProperties`, object spread and rest
+(`{...o}`, `const {a, ...r} = o`), `JSON.stringify` and `util.inspect` report
+an object's string-keyed properties in the order protoCore walks the object's
+attributes -- the order of the addresses of the interned key names -- not in
+insertion order as ECMA-262 (OrdinaryOwnPropertyKeys, section 10.1.11.1)
+requires:
 
 ```js
 const o = {};
@@ -442,9 +446,10 @@ Object.keys(o);   // Node: ['zeta', 'alpha', 'mid']; protoJS on Linux: ['mid', '
 ```
 
 The order is unspecified: it follows the addresses of the interned key names,
-so it can differ between platforms and, on Windows, between two runs of the
-same program. Integer-like keys and symbol keys are not affected (array indices
-first in ascending order; symbols after the string keys, by creation).
+so it can differ between platforms and between two runs of the same program
+(observed on Windows and, in October 2026, on macOS). Integer-like keys and
+symbol keys are not affected (array indices first in ascending order; symbols
+after the string keys, by creation).
 
 Keys that are data rather than program vocabulary (see
 [Property keys that are data](#property-keys-that-are-data)) live in the
@@ -474,7 +479,15 @@ const m = new Map([['zeta', 1], ['alpha', 2], ['mid', 3]]);
 ```
 
 Test262 tests that observe key order fail for this reason; see
-[TEST262_STATUS.md](TEST262_STATUS.md#property-enumeration-order).
+[TEST262_STATUS.md](TEST262_STATUS.md#property-enumeration-order). Two of
+them are skipped in the per-commit gate (`tests/test262/config/skip_proto_eval.json`)
+because their verdict changes from run to run with the key addresses:
+`built-ins/Object/defineProperties/15.2.3.7-6-a-93-1.js` and
+`built-ins/Object/defineProperties/15.2.3.7-6-a-93-3.js`. Both define
+`property` and then `property1` and expect the first to be applied before
+the second throws; macOS CI runs 40237571147 and 40238979889 of the same code
+failed one each. The maintainer confirmed the deviation on 2026-10-25: the key
+order belongs to protoCore's object model and is not changed.
 
 ### Module error types and `instanceof`
 

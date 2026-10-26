@@ -2491,8 +2491,13 @@ of replacing them (1.3).
   unreachable.
 - **String length and indexing** count code points, not UTF-16 code units:
   `"\u{1F600}".length` is 1.
-- **For-in key order** of named properties is protoCore's attribute order,
-  a documented deviation (`src/runtime/PropertyDictionary.h`).
+- **Own-key order** of named properties (for-in, `Object.keys`,
+  `Reflect.ownKeys`, `defineProperties`, spread, `JSON.stringify`, ...) is
+  protoCore's attribute order, not insertion order: a deliberate deviation
+  confirmed by the maintainer on 2026-10-25, with the two Test262 tests it
+  makes nondeterministic, in
+  [API_REFERENCE.md](API_REFERENCE.md#property-enumeration-order)
+  (`src/runtime/PropertyDictionary.h` for the keys that are data).
 - **`fclosure8` vs `fclosure`**: only the long form stamps `__metadata__`
   on the closure.
 - **Phase-1 opcode values overlap short opcodes** (178 to 196): a stray

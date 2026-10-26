@@ -6,6 +6,15 @@ All notable changes to protoJS are documented in this file.
 
 **Requires protoCore 3.1.0** (untagged master, commit 267b9fc9; SOVERSION 4). CI builds protoCore 3.2.0 (commit bb2d581a, what the installers ship) on Linux, macOS and Windows, and 3.1.0 in the Windows floor job.
 
+### Documented — own-key order stays protoCore's (2026-10-25)
+
+- The maintainer confirmed that own string keys enumerate in protoCore's
+  attribute order, not insertion order: a deliberate deviation. Its entry in
+  `docs/API_REFERENCE.md` (Deliberate deviations) now lists every affected
+  path and the two Test262 tests skipped for it,
+  `built-ins/Object/defineProperties/15.2.3.7-6-a-93-1.js` and `-93-3.js`,
+  whose verdict changed between two macOS runs of the same commit.
+
 ### Fixed — the VM bugs found while documenting it (2026-10-25)
 
 The known issues of docs/VM.md section 6, each with an asserting test under
