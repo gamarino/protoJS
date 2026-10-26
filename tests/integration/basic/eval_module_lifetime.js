@@ -75,12 +75,13 @@ for (var n = 0; n < 20; n++) nestedSum += nested(n);
 check("nested evals", nestedSum, 20 * 4950 + 100 * (19 * 20) / 2);
 
 function recurse(depth) {
-    // 120 distinct evals active at once: more than the cache holds. (Deeper
-    // recursion through eval reaches QuickJS's 1 MB parser stack check, on
-    // master as well, at about 145 levels.)
+    // 70 distinct evals active at once: more than the 64 the cache holds.
+    // (Recursion through eval reaches QuickJS's 1 MB parser stack check, on
+    // master as well: at about 145 levels with GCC on Linux, and below 120
+    // with MSVC, whose interpreter frames are larger.)
     return depth === 0 ? 0 : eval("recurse(" + (depth - 1) + ") + 1");
 }
-check("recursive evals deeper than the cache", recurse(120), 120);
+check("recursive evals deeper than the cache", recurse(70), 70);
 
 // --- Repeated source: one compilation, same results ---------------------------
 
