@@ -2484,6 +2484,17 @@ of replacing them (1.3).
     SetMutableBinding (test262 `language/statements/with/*-with-proxy-env`).
     There are no proper tail calls (`tco-*` tests exhaust the stack).
 
+12. **Nested evals and QuickJS's parser stack check**: QuickJS compiles each
+    eval on the native stack the interpreter is using, and its parser
+    refuses to run below 1 MB under the stack top it recorded when the
+    runtime was created (`js_check_stack_overflow`, the default
+    `JS_DEFAULT_STACK_SIZE`), whatever stack the thread really has. A chain
+    of evals that call functions that eval again therefore ends with
+    `SyntaxError: stack overflow` at about 145 levels with GCC on Linux and
+    within the first few levels with MSVC on Windows (CI run 40263224916,
+    `js/basic/eval_module_lifetime`), although the Windows main thread has
+    a 256 MB stack. Found 2026-10-26; not fixed.
+
 ### Oddities (from reading the code)
 
 - **Stale comments in `ProtoInterpreter.cpp`**: the `iterator_next` /
