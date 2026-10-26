@@ -91,19 +91,19 @@ concurrency:
 
 env:
   PROTOCORE_REPO: numaes/protoCore
-  # protoCore 3.2.0 (untagged master, commit bb2d581a: a heap string is its
-  # rope root, what users install), SOVERSION 4, except on the nightly
+  # protoCore 3.3.1 (tag v3.3.1, commit 5a8cd7c7: the release users
+  # install), SOVERSION 4, except on the nightly
   # schedule, which builds protoCore master.  Bump deliberately.  protoJS's
   # floor is 3.1.0 (commit 267b9fc9: one space per process, dead mutable
   # states retired, ProtoSpace::liveSpaceCount), built by the floor Windows
   # job in cross-platform.yml: Deferreds and workers run in the
   # main space and the tests assert it through liveSpaceCount
   # (PROTOCORE_MIN_VERSION in CMakeLists.txt); cross-platform.yml builds the
-  # same 3.2.0 commit on macOS and the first Windows job.  The adaptive heap controller runs
+  # same 3.3.1 commit on macOS and the first Windows job.  The adaptive heap controller runs
   # from a space's first Deferred (src/JSContext.cpp, "Memory policy").
   # protoJS declares PROTOCORE_ABI_SOVERSION 4 in CMakeLists.txt and the ldd
   # step below asserts the library actually loaded is this tree's.
-  PROTOCORE_REF: ${{ github.event_name == 'schedule' && 'master' || 'bb2d581a9e52a796c0c2dd1f682e0c75dc61d2d1' }}
+  PROTOCORE_REF: ${{ github.event_name == 'schedule' && 'master' || '5a8cd7c7aae68edbb34720445736b14685efae6f' }}
   TEST262_REPO: tc39/test262
   # The corpus commit every published protoJS figure was measured against
   # (docs/TEST262_STATUS.md, tests/test262/config/regression_gate_baseline.json).

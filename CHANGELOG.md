@@ -4,7 +4,7 @@ All notable changes to protoJS are documented in this file.
 
 ## [Unreleased]
 
-**Requires protoCore 3.1.0** (untagged master, commit 267b9fc9; SOVERSION 4). CI builds protoCore 3.2.0 (commit bb2d581a, what the installers ship) on Linux, macOS and Windows, and 3.1.0 in the Windows floor job.
+**Requires protoCore 3.1.0** (untagged master, commit 267b9fc9; SOVERSION 4). CI builds protoCore 3.3.1 (tag v3.3.1, commit 5a8cd7c7, what the installers ship) on Linux, macOS and Windows, and 3.1.0 in the Windows floor job.
 
 ### Fixed — eval modules bounded and GC-safe (2026-10-25)
 
