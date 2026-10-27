@@ -1,4 +1,5 @@
 #include "../../ProtoCoreTypes.h"
+#include "../../runtime/JSStringBytes.h"
 #include "../../runtime/PinnedBuiltin.h"
 #include "NetModule.h"
 #include "../../ProtoNativeModule.h"
@@ -492,7 +493,7 @@ const proto::ProtoObject* socketAddressImpl(
         ctx->fromUTF8String("IPv4"));
     obj->setAttribute(ctx,
         ctx->fromUTF8String("address")->asString(ctx),
-        ctx->fromUTF8String(s->localAddress.c_str()));
+        protojs::jsStringFromUTF8(ctx, s->localAddress));
     return obj;
 }
 
@@ -705,7 +706,7 @@ const proto::ProtoObject* serverAddressImpl(
         ctx->fromUTF8String("IPv4"));
     obj->setAttribute(ctx,
         ctx->fromUTF8String("address")->asString(ctx),
-        ctx->fromUTF8String(s->host.c_str()));
+        protojs::jsStringFromUTF8(ctx, s->host));
     return obj;
 }
 

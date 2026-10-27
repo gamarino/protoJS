@@ -1,4 +1,5 @@
 #include "IOModule.h"
+#include "../runtime/JSStringBytes.h"
 #include "../ProtoNativeModule.h"
 #include "../JSContext.h"
 #include "../ProtoDeferred.h"
@@ -38,7 +39,7 @@ const proto::ProtoObject* ioReadFile(
             proto::ProtoContext::UnmanagedScope u(ctx);
             content = future.get();
         }
-        return ctx->fromUTF8String(content.c_str());
+        return protojs::jsStringFromUTF8(ctx, content);
     } catch (...) {
         return PROTO_NONE;
     }
@@ -106,10 +107,10 @@ const proto::ProtoObject* ioReadFileAsync(
             if (!d) { if (rs) rs->remove(pin); return; }
             if (!err.empty()) {
                 ProtoDeferred::rejectFromAsync(c, d,
-                    c->fromUTF8String(err.c_str()), wrapper);
+                    protojs::jsStringFromUTF8(c, err), wrapper);
             } else {
                 ProtoDeferred::resolveFromAsync(c, d,
-                    c->fromUTF8String(content.c_str()), wrapper);
+                    protojs::jsStringFromUTF8(c, content), wrapper);
             }
             if (rs) rs->remove(pin);
         });
@@ -153,7 +154,7 @@ const proto::ProtoObject* ioWriteFileAsync(
             if (!d) { if (rs) rs->remove(pin); return; }
             if (!err.empty()) {
                 ProtoDeferred::rejectFromAsync(c, d,
-                    c->fromUTF8String(err.c_str()), wrapper);
+                    protojs::jsStringFromUTF8(c, err), wrapper);
             } else {
                 ProtoDeferred::resolveFromAsync(c, d,
                     ok ? PROTO_TRUE : PROTO_FALSE, wrapper);

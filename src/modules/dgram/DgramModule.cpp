@@ -1,4 +1,5 @@
 #include "DgramModule.h"
+#include "../../runtime/JSStringBytes.h"
 #include "../../runtime/PinnedBuiltin.h"
 #include "../../ProtoNativeModule.h"
 #include "../../FunctionPrototype.h"
@@ -271,7 +272,7 @@ const proto::ProtoObject* createSocketImpl(
         ? proto->newChild(ctx, /*mutable=*/true)
         : ctx->newObject(/*mutable=*/true);
     sock->setAttribute(ctx, fdKey(ctx), ctx->fromInteger(fd));
-    sock->setAttribute(ctx, typeKey(ctx), ctx->fromUTF8String(type.c_str()));
+    sock->setAttribute(ctx, typeKey(ctx), protojs::jsStringFromUTF8(ctx, type));
     return sock;
 }
 

@@ -1,4 +1,5 @@
 #include "../ProtoCoreTypes.h"
+#include "../runtime/JSStringBytes.h"
 #include "CommonJSLoader.h"
 #include "../ProtoDeferred.h"
 #include "ModuleResolver.h"
@@ -176,7 +177,7 @@ const proto::ProtoObject* requireCacheObject(proto::ProtoContext* pCtx) {
 const proto::ProtoObject* loadNativeAddon(proto::ProtoContext* pCtx,
                                            const std::string& filePath) {
     const proto::ProtoObject* cache = requireCacheObject(pCtx);
-    const proto::ProtoObject* keyObj = pCtx->fromUTF8String(filePath.c_str());
+    const proto::ProtoObject* keyObj = protojs::jsStringFromUTF8(pCtx, filePath);
     const proto::ProtoString* cacheKey = keyObj ? keyObj->asString(pCtx) : nullptr;
     if (cache && cacheKey) {
         const proto::ProtoObject* cached = cache->getAttribute(pCtx, cacheKey, false);
@@ -201,8 +202,8 @@ const proto::ProtoObject* loadNativeAddon(proto::ProtoContext* pCtx,
         return PROTO_NONE;
     }
     setAttr(pCtx, moduleObj, "exports", exportsObj);
-    setAttr(pCtx, moduleObj, "id", pCtx->fromUTF8String(filePath.c_str()));
-    setAttr(pCtx, moduleObj, "filename", pCtx->fromUTF8String(filePath.c_str()));
+    setAttr(pCtx, moduleObj, "id", protojs::jsStringFromUTF8(pCtx, filePath));
+    setAttr(pCtx, moduleObj, "filename", protojs::jsStringFromUTF8(pCtx, filePath));
     setAttr(pCtx, moduleObj, "loaded", PROTO_FALSE);
     setAttr(pCtx, moduleObj, "parent", PROTO_NONE);
 
@@ -278,7 +279,7 @@ static const proto::ProtoObject* requireResolveProtoMethod(
     if (resolveBuiltinModule(pCtx, specifier)) {
         std::string bare = specifier;
         if (bare.rfind("node:", 0) == 0) bare = bare.substr(5);
-        return pCtx->fromUTF8String(bare.c_str());
+        return protojs::jsStringFromUTF8(pCtx, bare);
     }
 
     JSContextWrapper* wrapper = JSContextWrapper::current();
@@ -628,7 +629,7 @@ static const proto::ProtoObject* executeFileModuleNative(
     if (!pCtx || !wrapper) return PROTO_NONE;
 
     const proto::ProtoObject* cache = requireCacheObject(pCtx);
-    const proto::ProtoObject* keyObj = pCtx->fromUTF8String(filePath.c_str());
+    const proto::ProtoObject* keyObj = protojs::jsStringFromUTF8(pCtx, filePath);
     const proto::ProtoString* cacheKey = keyObj ? keyObj->asString(pCtx) : nullptr;
 
     // A second require returns the very same exports object, as in Node.
@@ -665,8 +666,8 @@ static const proto::ProtoObject* executeFileModuleNative(
     const proto::ProtoObject* moduleObj = pCtx->newObject(/*mutable=*/true);
     if (!exportsObj || !moduleObj) return PROTO_NONE;
     setAttr(pCtx, moduleObj, "exports", exportsObj);
-    setAttr(pCtx, moduleObj, "id", pCtx->fromUTF8String(filePath.c_str()));
-    setAttr(pCtx, moduleObj, "filename", pCtx->fromUTF8String(filePath.c_str()));
+    setAttr(pCtx, moduleObj, "id", protojs::jsStringFromUTF8(pCtx, filePath));
+    setAttr(pCtx, moduleObj, "filename", protojs::jsStringFromUTF8(pCtx, filePath));
     setAttr(pCtx, moduleObj, "loaded", PROTO_FALSE);
     setAttr(pCtx, moduleObj, "parent", PROTO_NONE);
     if (cache && cacheKey) cache->setAttribute(pCtx, cacheKey, moduleObj);
@@ -733,8 +734,8 @@ static const proto::ProtoObject* executeFileModuleNative(
     argsList = argsList->appendLast(pCtx, exportsObj);
     argsList = argsList->appendLast(pCtx, requireFn ? requireFn : PROTO_NONE);
     argsList = argsList->appendLast(pCtx, moduleObj);
-    argsList = argsList->appendLast(pCtx, pCtx->fromUTF8String(filePath.c_str()));
-    argsList = argsList->appendLast(pCtx, pCtx->fromUTF8String(dirName.c_str()));
+    argsList = argsList->appendLast(pCtx, protojs::jsStringFromUTF8(pCtx, filePath));
+    argsList = argsList->appendLast(pCtx, protojs::jsStringFromUTF8(pCtx, dirName));
 
     try {
         callJSFunction(pCtx, wrapperFn, PROTO_NONE, argsList);
@@ -917,7 +918,7 @@ JSValue CommonJSLoader::executeModule(
         proto::ProtoContext childCtx(pContext->space, &frameCtx, nullptr, nullptr, nullptr, nullptr);
         for (int i = 0; i < 5; i++) {
             std::string s = std::to_string(i);
-            const proto::ProtoObject* o = childCtx.fromUTF8String(s.c_str());
+            const proto::ProtoObject* o = protojs::jsStringFromUTF8(&childCtx, s);
             const proto::ProtoString* ps = o ? o->asString(&childCtx) : nullptr;
             proto::proto_ulong slotK = ps ? static_cast<proto::proto_ulong>(ps->getHash(&childCtx)) : 0;
             const proto::ProtoObject* arg = argsList->getAt(&childCtx, i);

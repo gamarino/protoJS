@@ -1,4 +1,5 @@
 #include "ProcessModule.h"
+#include "../runtime/JSStringBytes.h"
 #include "../ProtoNativeModule.h"
 #include "../ArrayElementsStorage.h"
 #include "../ArrayPrototype.h"
@@ -93,7 +94,7 @@ const proto::ProtoObject* processCwd(
     if (wchar_t* wd = ::_wgetcwd(nullptr, 0)) {
         const std::string cwd = platform::narrow(wd);
         std::free(wd);
-        return ctx->fromUTF8String(cwd.c_str());
+        return protojs::jsStringFromUTF8(ctx, cwd);
     }
 #else
     char buf[PATH_MAX];
@@ -111,7 +112,7 @@ const proto::ProtoObject* processPlatform(
     const proto::ProtoArguments* /*args*/,
     const proto::ProtoKeywordArguments*) {
     if (!ctx) return PROTO_NONE;
-    return ctx->fromUTF8String(cachedPlatform().c_str());
+    return protojs::jsStringFromUTF8(ctx, cachedPlatform());
 }
 
 const proto::ProtoObject* processArch(
@@ -121,7 +122,7 @@ const proto::ProtoObject* processArch(
     const proto::ProtoArguments* /*args*/,
     const proto::ProtoKeywordArguments*) {
     if (!ctx) return PROTO_NONE;
-    return ctx->fromUTF8String(cachedArch().c_str());
+    return protojs::jsStringFromUTF8(ctx, cachedArch());
 }
 
 const proto::ProtoObject* processExit(
@@ -190,7 +191,7 @@ const proto::ProtoObject* buildEnvObject(proto::ProtoContext* ctx) {
         std::string val = entry.substr(eq + 1);
         const proto::ProtoString* k =
             ctx->fromUTF8String(key.c_str())->asString(ctx);
-        if (k) env->setAttribute(ctx, k, ctx->fromUTF8String(val.c_str()));
+        if (k) env->setAttribute(ctx, k, protojs::jsStringFromUTF8(ctx, val));
     }
     return env;
 }

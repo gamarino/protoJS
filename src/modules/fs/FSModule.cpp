@@ -1,4 +1,5 @@
 #include "FSModule.h"
+#include "../../runtime/JSStringBytes.h"
 #include "../IOModule.h"
 #include "../../ProtoNativeModule.h"
 #include "../../IOThreadPool.h"
@@ -137,7 +138,7 @@ const proto::ProtoObject* promisesReadFile(
         std::string content = IOModule::readFileSync(path);
         return [content = std::move(content)](proto::ProtoContext* c)
             -> const proto::ProtoObject* {
-            return c->fromUTF8String(content.c_str());
+            return protojs::jsStringFromUTF8(c, content);
         };
     });
 }
@@ -177,7 +178,7 @@ const proto::ProtoObject* promisesReaddir(
             const proto::ProtoObject* arr = createNewArray(c, nullptr);
             const proto::ProtoList* els = c->newList();
             for (const auto& s : entries) {
-                els = els->appendLast(c, c->fromUTF8String(s.c_str()));
+                els = els->appendLast(c, protojs::jsStringFromUTF8(c, s));
             }
             setArrayElements(c, arr, els);
             return arr;
@@ -241,7 +242,7 @@ const proto::ProtoObject* readFileSyncImpl(
     std::string path;
     if (!argString(ctx, args, 0, path)) return PROTO_NONE;
     try {
-        return ctx->fromUTF8String(IOModule::readFileSync(path).c_str());
+        return protojs::jsStringFromUTF8(ctx, IOModule::readFileSync(path));
     } catch (...) {
         return PROTO_NONE;
     }
@@ -277,7 +278,7 @@ const proto::ProtoObject* readdirSyncImpl(
     try {
         for (const auto& e : fs::directory_iterator(path)) {
             els = els->appendLast(ctx,
-                ctx->fromUTF8String(e.path().filename().string().c_str()));
+                protojs::jsStringFromUTF8(ctx, e.path().filename().string()));
         }
     } catch (...) {
         return PROTO_NONE;
@@ -470,9 +471,9 @@ const proto::ProtoObject* makeFsError(proto::ProtoContext* ctx, const FsResult& 
     if (!err) return PROTO_NONE;
     setProp(ctx, err, "errno", ctx->fromInteger(-static_cast<long long>(r.err)));
     setProp(ctx, err, "code", ctx->fromUTF8String(code));
-    setProp(ctx, err, "syscall", ctx->fromUTF8String(r.syscall.c_str()));
+    setProp(ctx, err, "syscall", protojs::jsStringFromUTF8(ctx, r.syscall));
     if (!r.path.empty())
-        setProp(ctx, err, "path", ctx->fromUTF8String(r.path.c_str()));
+        setProp(ctx, err, "path", protojs::jsStringFromUTF8(ctx, r.path));
     return err;
 }
 
@@ -588,18 +589,18 @@ const proto::ProtoObject* runWithCallback(proto::ProtoContext* ctx,
                     switch (result->kind) {
                     case FsResult::Kind::Text:
                         cbArgs = cbArgs->appendLast(c,
-                            c->fromUTF8String(result->text.c_str()));
+                            protojs::jsStringFromUTF8(c, result->text));
                         break;
                     case FsResult::Kind::OptionalText:
                         cbArgs = cbArgs->appendLast(c, result->hasText
-                            ? c->fromUTF8String(result->text.c_str())
+                            ? protojs::jsStringFromUTF8(c, result->text)
                             : getUndefinedSentinel());
                         break;
                     case FsResult::Kind::Names: {
                         const proto::ProtoObject* arr = createNewArray(c, nullptr);
                         const proto::ProtoList* els = c->newList();
                         for (const std::string& name : result->names)
-                            els = els->appendLast(c, c->fromUTF8String(name.c_str()));
+                            els = els->appendLast(c, protojs::jsStringFromUTF8(c, name));
                         setArrayElements(c, arr, els);
                         cbArgs = cbArgs->appendLast(c, arr);
                         break;
@@ -832,7 +833,7 @@ const proto::ProtoObject* createReadStreamImpl(
     if (!argString(ctx, args, 0, path)) return PROTO_NONE;
     const proto::ProtoObject* obj = ctx->newObject(/*mutable=*/true);
     const proto::ProtoString* k = ctx->fromUTF8String("_path")->asString(ctx);
-    if (k) obj->setAttribute(ctx, k, ctx->fromUTF8String(path.c_str()));
+    if (k) obj->setAttribute(ctx, k, protojs::jsStringFromUTF8(ctx, path));
     return obj;
 }
 

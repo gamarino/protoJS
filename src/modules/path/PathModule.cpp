@@ -15,6 +15,7 @@
  * the file system, and does not follow symbolic links -- as in Node.
  */
 #include "PathModule.h"
+#include "../../runtime/JSStringBytes.h"
 #include "PathAlgorithms.h"
 #include "../../ProtoNativeModule.h"
 #include "../../ArrayElementsStorage.h"
@@ -158,7 +159,7 @@ bool requireString(proto::ProtoContext* ctx, const proto::ProtoObject* v, const 
 }
 
 const proto::ProtoObject* str(proto::ProtoContext* ctx, const std::string& s) {
-    return ctx->fromUTF8String(s.c_str());
+    return protojs::jsStringFromUTF8(ctx, s);
 }
 
 const proto::ProtoString* key(proto::ProtoContext* ctx, const char* name) {

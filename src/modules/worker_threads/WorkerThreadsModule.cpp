@@ -1,4 +1,5 @@
 #include "../../ProtoCoreTypes.h"
+#include "../../runtime/JSStringBytes.h"
 #include "../../runtime/PropertyDictionary.h"
 #include "../../runtime/PinnedBuiltin.h"
 #include "WorkerThreadsModule.h"
@@ -566,8 +567,8 @@ void emitOnWorker(JSContextWrapper* mainWrapper,
                 rs ? rs->resolve(pin) : nullptr;
             if (!worker || worker == PROTO_NONE) return;
             const proto::ProtoList* a = mctx->newList()
-                ->appendLast(mctx, mctx->fromUTF8String(eventName.c_str()));
-            if (!arg.empty()) a = a->appendLast(mctx, mctx->fromUTF8String(arg.c_str()));
+                ->appendLast(mctx, protojs::jsStringFromUTF8(mctx, eventName));
+            if (!arg.empty()) a = a->appendLast(mctx, protojs::jsStringFromUTF8(mctx, arg));
             invokeEEMethodFromAsync(mainWrapper, worker, "emit", a);
         });
 }

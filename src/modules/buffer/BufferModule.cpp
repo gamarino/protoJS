@@ -1,4 +1,5 @@
 #include "../../ProtoCoreTypes.h"
+#include "../../runtime/JSStringBytes.h"
 #include "../../runtime/PinnedBuiltin.h"
 #include "BufferModule.h"
 #include "../../ProtoNativeModule.h"
@@ -51,8 +52,19 @@ bool argString(proto::ProtoContext* ctx, const proto::ProtoArguments* args,
 std::vector<uint8_t> decodeString(const std::string& str,
                                     const std::string& encoding) {
     std::vector<uint8_t> out;
-    if (encoding == "utf8" || encoding == "utf-8" ||
-        encoding == "ascii" || encoding == "latin1") {
+    if (encoding == "latin1" || encoding == "binary") {
+        // One byte per code point: its low eight bits (Node.js).
+        for (size_t i = 0; i < str.size();) {
+            const unsigned char c = static_cast<unsigned char>(str[i]);
+            uint32_t cp = c;
+            int n = c < 0x80 ? 1 : c < 0xE0 ? 2 : c < 0xF0 ? 3 : 4;
+            if (n > 1) cp = c & (0xFF >> (n + 1));
+            for (int j = 1; j < n && i + j < str.size(); ++j)
+                cp = (cp << 6) | (static_cast<unsigned char>(str[i + j]) & 0x3F);
+            out.push_back(static_cast<uint8_t>(cp & 0xFF));
+            i += n;
+        }
+    } else if (encoding == "utf8" || encoding == "utf-8" || encoding == "ascii") {
         out.assign(str.begin(), str.end());
     } else if (encoding == "hex") {
         for (size_t i = 0; i + 1 < str.size(); i += 2) {
@@ -85,8 +97,23 @@ std::vector<uint8_t> decodeString(const std::string& str,
 
 std::string encodeBytes(const char* data, size_t len,
                          const std::string& encoding) {
-    if (encoding == "utf8" || encoding == "utf-8" ||
-        encoding == "latin1" || encoding == "ascii") {
+    if (encoding == "latin1" || encoding == "binary") {
+        // Each byte is the code point of the same value (Node.js); it was
+        // copied as UTF-8, which dropped every byte above 0x7F.
+        std::string s;
+        s.reserve(len * 2);
+        for (size_t i = 0; i < len; ++i) {
+            const unsigned char c = static_cast<unsigned char>(data[i]);
+            if (c < 0x80) {
+                s += static_cast<char>(c);
+            } else {
+                s += static_cast<char>(0xC0 | (c >> 6));
+                s += static_cast<char>(0x80 | (c & 0x3F));
+            }
+        }
+        return s;
+    }
+    if (encoding == "utf8" || encoding == "utf-8" || encoding == "ascii") {
         std::string s(data, len);
         if (encoding == "ascii") {
             for (auto& c : s) c = static_cast<char>(c & 0x7F);
@@ -376,7 +403,7 @@ const proto::ProtoObject* bufferToString(
     std::string out = encodeBytes(src + start,
                                     static_cast<size_t>(end - start),
                                     encoding);
-    return ctx->fromUTF8String(out.c_str());
+    return protojs::jsStringFromUTF8(ctx, out);
 }
 
 const proto::ProtoObject* bufferSlice(

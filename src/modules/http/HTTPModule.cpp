@@ -1,4 +1,5 @@
 #include "../../ProtoCoreTypes.h"
+#include "../../runtime/JSStringBytes.h"
 #include "../../runtime/PropertyDictionary.h"
 #include "../../runtime/PinnedBuiltin.h"
 #include "HTTPModule.h"
@@ -207,7 +208,7 @@ const proto::ProtoObject* makeHeadersObject(
         // the property dictionary (runtime/PropertyDictionary.h) instead of
         // being interned for the life of the process.
         if (sk) obj = dict::createDataProperty(ctx, obj, sk,
-                                               ctx->fromUTF8String(v.c_str()));
+                                               protojs::jsStringFromUTF8(ctx, v));
     }
     return obj;
 }
@@ -291,7 +292,7 @@ const proto::ProtoObject* responseWrite(
     }
     body += chunk;
     self->setAttribute(ctx, keyBody(ctx),
-                        ctx->fromUTF8String(body.c_str()));
+                        protojs::jsStringFromUTF8(ctx, body));
     return PROTO_TRUE;
 }
 
@@ -460,20 +461,20 @@ void dispatchRequest(JSContextWrapper* wrapper,
         ? incomingProto->newChild(ctx, /*mutable=*/true)
         : ctx->newObject(/*mutable=*/true);
     incoming->setAttribute(ctx, keyMethod(ctx),
-        ctx->fromUTF8String(req.method.c_str()));
+        protojs::jsStringFromUTF8(ctx, req.method));
     incoming->setAttribute(ctx, keyURL(ctx),
-        ctx->fromUTF8String(req.url.c_str()));
+        protojs::jsStringFromUTF8(ctx, req.url));
     incoming->setAttribute(ctx, keyHeaders(ctx),
         makeHeadersObject(ctx, req.headers));
     incoming->setAttribute(ctx, keyBody(ctx),
-        ctx->fromUTF8String(req.body.c_str()));
+        protojs::jsStringFromUTF8(ctx, req.body));
     // Public fields the original exposed.
     incoming->setAttribute(ctx,
         ctx->fromUTF8String("method")->asString(ctx),
-        ctx->fromUTF8String(req.method.c_str()));
+        protojs::jsStringFromUTF8(ctx, req.method));
     incoming->setAttribute(ctx,
         ctx->fromUTF8String("url")->asString(ctx),
-        ctx->fromUTF8String(req.url.c_str()));
+        protojs::jsStringFromUTF8(ctx, req.url));
 
     // Build ServerResponse
     const proto::ProtoObject* responseProto = getResponseProto(ctx);
@@ -740,7 +741,7 @@ void dispatchClientResponse(JSContextWrapper* wrapper,
     if (scKey) response->setAttribute(ctx, scKey, ctx->fromInteger(resp.statusCode));
 
     response->setAttribute(ctx, keyHeaders(ctx), makeHeadersObject(ctx, resp.headers));
-    response->setAttribute(ctx, keyBody(ctx), ctx->fromUTF8String(resp.body.c_str()));
+    response->setAttribute(ctx, keyBody(ctx), protojs::jsStringFromUTF8(ctx, resp.body));
 
     // Storage for .on() handlers
     const proto::ProtoString* lisKey =
@@ -772,7 +773,7 @@ void dispatchClientResponse(JSContextWrapper* wrapper,
     };
 
     if (!resp.body.empty())
-        fireEvent("data", ctx->fromUTF8String(resp.body.c_str()));
+        fireEvent("data", protojs::jsStringFromUTF8(ctx, resp.body));
     fireEvent("end", PROTO_NONE);
 }
 

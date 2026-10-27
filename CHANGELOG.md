@@ -70,6 +70,11 @@ All notable changes to protoJS are documented in this file.
   yield: 13.0 -> 8.6 us per yield (200,000 yields of a for-of, default
   heap). The rest is the state itself, about eight attribute writes and a
   slot snapshot per yield. (`js/basic/generator_state_keys`)
+- **Modules** (`src/modules`): strings built from `std::string` data (file
+  contents, HTTP bodies, `Buffer.toString`, paths, hashes) no longer stop at
+  a NUL byte. `Buffer` `latin1` / `binary` map each byte to the code point
+  of the same value (bytes above 0x7F were dropped). (`js/basic/
+  modules_nul`)
 
 ### Fixed — string bugs found by the string-cells work (2026-10-27)
 

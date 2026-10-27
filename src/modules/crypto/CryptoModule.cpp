@@ -1,4 +1,5 @@
 #include "../../ProtoCoreTypes.h"
+#include "../../runtime/JSStringBytes.h"
 #include "../../runtime/PinnedBuiltin.h"
 #include "CryptoModule.h"
 #include "../../ProtoNativeModule.h"
@@ -135,12 +136,12 @@ const proto::ProtoObject* hashDigestImpl(
     std::string encoding = "hex";
     argString(ctx, args, 0, encoding);
     if (encoding == "hex") {
-        return ctx->fromUTF8String(hexOf(digest, len).c_str());
+        return protojs::jsStringFromUTF8(ctx, hexOf(digest, len));
     }
     // Fallback: raw bytes as latin1 string (matches the previous module
     // when no encoding was given).
-    return ctx->fromUTF8String(
-        std::string(reinterpret_cast<const char*>(digest), len).c_str());
+    return protojs::jsStringFromUTF8(ctx, 
+        std::string(reinterpret_cast<const char*>(digest), len));
 }
 
 const proto::ProtoObject* createHash(
@@ -225,7 +226,7 @@ const proto::ProtoObject* randomBytesImpl(
     if (RAND_bytes(buf.data(), static_cast<int>(n)) != 1) return PROTO_NONE;
     // Returned as a hex-encoded string; richer Buffer support comes
     // when the Buffer module migrates.
-    return ctx->fromUTF8String(hexOf(buf.data(), buf.size()).c_str());
+    return protojs::jsStringFromUTF8(ctx, hexOf(buf.data(), buf.size()));
 }
 
 // ---- Cipher state -------------------------------------------------------
@@ -305,11 +306,11 @@ const proto::ProtoObject* cipherUpdateImpl(
     if (rc != 1) return ctx->fromUTF8String("");
     if (c->enc) {
         // encrypt output -> hex string
-        return ctx->fromUTF8String(hexOf(out.data(), static_cast<size_t>(outLen)).c_str());
+        return protojs::jsStringFromUTF8(ctx, hexOf(out.data(), static_cast<size_t>(outLen)));
     } else {
         // decrypt output -> plaintext string
-        return ctx->fromUTF8String(
-            std::string(reinterpret_cast<char*>(out.data()), static_cast<size_t>(outLen)).c_str());
+        return protojs::jsStringFromUTF8(ctx, 
+            std::string(reinterpret_cast<char*>(out.data()), static_cast<size_t>(outLen)));
     }
 }
 
@@ -332,10 +333,10 @@ const proto::ProtoObject* cipherFinalImpl(
         return PROTO_NONE;
     }
     if (c->enc) {
-        return ctx->fromUTF8String(hexOf(out, static_cast<size_t>(outLen)).c_str());
+        return protojs::jsStringFromUTF8(ctx, hexOf(out, static_cast<size_t>(outLen)));
     } else {
-        return ctx->fromUTF8String(
-            std::string(reinterpret_cast<char*>(out), static_cast<size_t>(outLen)).c_str());
+        return protojs::jsStringFromUTF8(ctx, 
+            std::string(reinterpret_cast<char*>(out), static_cast<size_t>(outLen)));
     }
 }
 
@@ -581,7 +582,7 @@ const proto::ProtoObject* signFinalImpl(
             "sign.sign: EVP_DigestSignFinal failed"));
         return PROTO_NONE;
     }
-    return ctx->fromUTF8String(hexOf(sig.data(), sigLen).c_str());
+    return protojs::jsStringFromUTF8(ctx, hexOf(sig.data(), sigLen));
 }
 
 // verify.update(data) — buffer data for later feeding into the keyed operation
@@ -827,8 +828,8 @@ const proto::ProtoObject* generateKeyPairImpl(
         ctx->fromUTF8String("publicKey")->asString(ctx);
     const proto::ProtoString* privK =
         ctx->fromUTF8String("privateKey")->asString(ctx);
-    if (pubK)  obj->setAttribute(ctx, pubK,  ctx->fromUTF8String(pubPem.c_str()));
-    if (privK) obj->setAttribute(ctx, privK, ctx->fromUTF8String(privPem.c_str()));
+    if (pubK)  obj->setAttribute(ctx, pubK,  protojs::jsStringFromUTF8(ctx, pubPem));
+    if (privK) obj->setAttribute(ctx, privK, protojs::jsStringFromUTF8(ctx, privPem));
     return obj;
 }
 

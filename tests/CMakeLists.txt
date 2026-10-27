@@ -388,6 +388,7 @@ foreach(js_test
         basic/array_from_of_this
         basic/escape_unescape
         basic/generator_state_keys
+        basic/modules_nul
         basic/generator_for_of_yield
         basic/generator_resumption
         basic/typed_array_construction

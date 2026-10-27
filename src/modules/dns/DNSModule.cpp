@@ -1,4 +1,5 @@
 #include "DNSModule.h"
+#include "../../runtime/JSStringBytes.h"
 #include "../../ProtoNativeModule.h"
 #include "../../ArrayElementsStorage.h"
 #include "../../ArrayPrototype.h"
@@ -54,7 +55,7 @@ const proto::ProtoObject* makeIpArray(proto::ProtoContext* ctx,
     if (!arr) return PROTO_NONE;
     const proto::ProtoList* els = ctx->newList();
     for (const auto& ip : ips) {
-        els = els->appendLast(ctx, ctx->fromUTF8String(ip.c_str()));
+        els = els->appendLast(ctx, protojs::jsStringFromUTF8(ctx, ip));
     }
     setArrayElements(ctx, arr, els);
     return arr;
@@ -208,13 +209,13 @@ const proto::ProtoObject* dnsLookup(
 
             const proto::ProtoList* cbArgs = c->newList();
             if (err != 0) {
-                cbArgs = cbArgs->appendLast(c, c->fromUTF8String(errMsg.c_str()));
+                cbArgs = cbArgs->appendLast(c, protojs::jsStringFromUTF8(c, errMsg));
             } else {
                 // Node passes null, not undefined, as the error of a
                 // successful lookup.
                 cbArgs = cbArgs
                     ->appendLast(c, getNullSentinel())
-                    ->appendLast(c, c->fromUTF8String(ipStr.c_str()))
+                    ->appendLast(c, protojs::jsStringFromUTF8(c, ipStr))
                     ->appendLast(c, c->fromInteger(fam));
             }
             const ProtoBytecodeModule* mod =
