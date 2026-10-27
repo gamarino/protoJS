@@ -73,9 +73,16 @@ static const proto::ProtoObject* regexpStringIteratorNext(
     const proto::ProtoObject* strObj = self->getAttribute(ctx, JSSymbols::iterStr(ctx), false);
     if (!reObj || reObj == PROTO_NONE || !strObj || strObj == PROTO_NONE) return doneResult;
 
-    std::string str = objToStrLocal(ctx, strObj);
+    // The iterator keeps S as a string (made once by matchAll); hand it to
+    // exec as it is.  Converting it to UTF-8 and back built a whole new rope
+    // for every step: about 5,600 cells per match for a 100 KB subject.
+    const proto::ProtoObject* subject = strObj;
+    if (!proto::ProtoObject::isStringTagFast(subject)) {
+        std::string str = objToStrLocal(ctx, strObj);
+        subject = ctx->fromUTF8String(str.c_str());
+    }
     const proto::ProtoList* execArgs = ctx->newList();
-    execArgs = execArgs->appendLast(ctx, ctx->fromUTF8String(str.c_str()));
+    execArgs = execArgs->appendLast(ctx, subject);
 
     const proto::ProtoListArguments execArguments(ctx, execArgs);
     const proto::ProtoObject* match = regexpExec(ctx, reObj, nullptr, &execArguments, nullptr);
@@ -90,7 +97,7 @@ static const proto::ProtoObject* regexpStringIteratorNext(
     // under /u or /v and the walk always moves on.
     const proto::ProtoObject* m0 = match->getAttribute(ctx, JSSymbols::indexKey(ctx, 0), false);
     std::string m0str = objToStrLocal(ctx, m0);
-    if (m0str.empty()) regexpAdvanceAfterEmptyMatch(ctx, reObj, str);
+    if (m0str.empty()) regexpAdvanceAfterEmptyMatch(ctx, reObj, objToStrLocal(ctx, subject));
 
     const proto::ProtoObject* result = ctx->newObject(true);
     result = result->setAttribute(ctx, JSSymbols::value(ctx), match);

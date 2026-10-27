@@ -267,8 +267,16 @@ const proto::ProtoObject* regexpExec(
     // §22.2.7.2 step 4 ToString(S).  A missing arg means S is undefined,
     // which ToString-coerces to the literal "undefined" (test262 A12).
     std::string input;
+    // The match's `input` is S itself when the argument already is a string
+    // primitive (ToString(S) is S).  Building it again from the UTF-8 copy
+    // allocated a whole new rope for every match: about 5,600 cells per exec
+    // for a 100 KB subject, 112 M cells for a global replace or match with
+    // 20,000 matches.
+    const proto::ProtoObject* inputString = nullptr;
     if (args && args->getSize(ctx) > 0) {
-        input = objToStr(ctx, args->getAt(ctx, 0));
+        const proto::ProtoObject* arg = args->getAt(ctx, 0);
+        if (proto::ProtoObject::isStringTagFast(arg)) inputString = arg;
+        input = objToStr(ctx, arg);
     } else {
         input = "undefined";
     }
@@ -355,7 +363,7 @@ const proto::ProtoObject* regexpExec(
         result = result->setAttribute(ctx, JSSymbols::index(ctx),
                                       ctx->fromInteger(static_cast<long long>(matchStart)));
         result = result->setAttribute(ctx, JSSymbols::input(ctx),
-                                      ctx->fromUTF8String(input.c_str()));
+            inputString ? inputString : ctx->fromUTF8String(input.c_str()));
         result = result->setAttribute(ctx, JSSymbols::length(ctx),
                                       ctx->fromInteger(capture_count));
 
