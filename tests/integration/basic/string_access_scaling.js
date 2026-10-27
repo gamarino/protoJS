@@ -9,22 +9,22 @@
 //     converted the whole subject to UTF-16, and so did every empty match of
 //     a matchAll walk).
 //
-// The check is a ratio, robust on a loaded CI machine: each operation runs
-// over a string of n and of 4n characters, best of three runs each. Linear
-// work grows about 4x (5x with the log factor); quadratic work grows 16x. A
-// ratio above 10 fails. Runs too short to time (under 15 ms at 4n) pass.
+// The check is a ratio, robust on a loaded CI machine and with a coarse
+// clock (Windows ticks every 15.6 ms): each operation runs over a string of n
+// and of 4n characters, repeated until at least 60 ms have passed, and the
+// time per run is the best of three such samples. Linear work grows about 4x
+// (5x with the log factor); quadratic work grows 16x. A ratio above 10 fails.
 // Asserting test: exits 1 on any failure.
 
 var failures = [];
 var N = 12000;
 
-function best(f, s) {
+function perRun(f, s) {
     var b = Infinity;
     for (var r = 0; r < 3; r++) {
-        var t0 = Date.now();
-        f(s);
-        var t = Date.now() - t0;
-        if (t < b) b = t;
+        var runs = 0, t0 = Date.now(), t;
+        do { f(s); runs++; t = Date.now() - t0; } while (t < 60);
+        if (t / runs < b) b = t / runs;
     }
     return b;
 }
@@ -35,10 +35,10 @@ function scales(name, f) {
     var expectedSmall = f(small), expectedLarge = f(large);
     if (expectedLarge === expectedSmall && typeof expectedSmall === "number" && expectedSmall !== 0)
         failures.push(name + ": same result for n and 4n (" + expectedSmall + ")");
-    var ts = best(f, small), tl = best(f, large);
-    var ratio = tl / Math.max(ts, 1);
-    if (tl >= 15 && ratio > 10)
-        failures.push(name + ": " + ts + " ms for n, " + tl + " ms for 4n (ratio " + ratio.toFixed(1) + ")");
+    var ts = perRun(f, small), tl = perRun(f, large);
+    var ratio = tl / ts;
+    if (ratio > 10)
+        failures.push(name + ": " + ts.toFixed(2) + " ms for n, " + tl.toFixed(2) + " ms for 4n (ratio " + ratio.toFixed(1) + ")");
 }
 
 scales("charCodeAt", function (s) { var x = 0; for (var i = 0; i < s.length; i++) x += s.charCodeAt(i); return x; });
