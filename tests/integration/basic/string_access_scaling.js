@@ -14,19 +14,32 @@
 // and of 4n characters, repeated until at least 60 ms have passed, and the
 // time per run is the best of three such samples. Linear work grows about 4x
 // (5x with the log factor); quadratic work grows 16x. A ratio above 10 fails.
+//
+// The samples of n and 4n alternate, after one run over 4n: both sizes are
+// timed with the heap at the same size and the collector in the same phase.
+// Timing every n sample first let a heap growth or a collection that only the
+// 4n samples met push a linear operation past the bound (16.6 on macOS, for
+// Array.prototype.slice.call). A ratio above the bound is measured once more
+// and fails only if it is reproduced; a quadratic path always is.
 // Asserting test: exits 1 on any failure.
 
 var failures = [];
 var N = 12000;
 
-function perRun(f, s) {
-    var b = Infinity;
+function sample(f, s) {
+    var runs = 0, t0 = Date.now(), t;
+    do { f(s); runs++; t = Date.now() - t0; } while (t < 60);
+    return t / runs;
+}
+
+function measure(f, small, large) {
+    f(large);
+    var ts = Infinity, tl = Infinity;
     for (var r = 0; r < 3; r++) {
-        var runs = 0, t0 = Date.now(), t;
-        do { f(s); runs++; t = Date.now() - t0; } while (t < 60);
-        if (t / runs < b) b = t / runs;
+        ts = Math.min(ts, sample(f, small));
+        tl = Math.min(tl, sample(f, large));
     }
-    return b;
+    return { ts: ts, tl: tl, ratio: tl / ts };
 }
 
 function scales(name, f) {
@@ -35,10 +48,10 @@ function scales(name, f) {
     var expectedSmall = f(small), expectedLarge = f(large);
     if (expectedLarge === expectedSmall && typeof expectedSmall === "number" && expectedSmall !== 0)
         failures.push(name + ": same result for n and 4n (" + expectedSmall + ")");
-    var ts = perRun(f, small), tl = perRun(f, large);
-    var ratio = tl / ts;
-    if (ratio > 10)
-        failures.push(name + ": " + ts.toFixed(2) + " ms for n, " + tl.toFixed(2) + " ms for 4n (ratio " + ratio.toFixed(1) + ")");
+    var m = measure(f, small, large);
+    if (m.ratio > 10) m = measure(f, small, large);
+    if (m.ratio > 10)
+        failures.push(name + ": " + m.ts.toFixed(2) + " ms for n, " + m.tl.toFixed(2) + " ms for 4n (ratio " + m.ratio.toFixed(1) + ")");
 }
 
 scales("charCodeAt", function (s) { var x = 0; for (var i = 0; i < s.length; i++) x += s.charCodeAt(i); return x; });
