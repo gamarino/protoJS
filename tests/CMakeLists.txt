@@ -377,6 +377,7 @@ foreach(js_test
         basic/array_map_filter
         basic/regexp_global_advance
         basic/regexp_register_slots
+        basic/string_cells_bounded
         basic/generator_for_of_yield
         basic/generator_resumption
         basic/typed_array_construction
@@ -503,6 +504,17 @@ add_test(NAME js/modules/process_argv_memory
 # Allocation is measured with no collection in between (the test checks it).
 set_tests_properties(js/basic/put_field_group_cells PROPERTIES
     ENVIRONMENT "PROTOCORE_HEAP_LIMIT_CELLS=100000000")
+
+# A 100 KB string iterated, spread, passed to Array.from, destructured, indexed
+# and run through global regular expressions, under a fixed heap with the
+# adaptive controller off.  Measured by heap-limit bisection on Linux
+# (2026-10-27): this file needs about 16,000 cells now; before, it ran out of
+# this limit (Array.from(string) alone needed about 12 M cells, the 1,000
+# matches of each global regular expression about 5.6 M).  The limit leaves a
+# wide margin for other platforms' heap accounting.
+set_tests_properties(js/basic/string_cells_bounded PROPERTIES
+    ENVIRONMENT "PROTOCORE_ADAPTIVE_HEAP=0;PROTOCORE_HEAP_LIMIT_CELLS=1000000"
+    TIMEOUT 120)
 
 # A quadratic Map.set / Set.add would not finish within this limit.
 set_tests_properties(js/collections/map_set_scaling PROPERTIES TIMEOUT 60)

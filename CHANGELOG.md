@@ -6,6 +6,30 @@ All notable changes to protoJS are documented in this file.
 
 **Requires protoCore 3.1.0** (untagged master, commit 267b9fc9; SOVERSION 4). CI builds protoCore 3.3.1 (tag v3.3.1, commit 5a8cd7c7, what the installers ship) on Linux, macOS and Windows, and 3.1.0 in the Windows floor job.
 
+### Fixed — strings no longer exploded per character (2026-10-27)
+
+Measured over a flat 100 KB string as the smallest fixed heap that runs the
+path (`PROTOCORE_ADAPTIVE_HEAP=0`, bisection of `PROTOCORE_HEAP_LIMIT_CELLS`).
+
+- **UTF-8 conversions**: `TypeBridge::toJS`, `ErrorHandler`'s error fields and
+  `Logger::log` read a string through `ProtoString::asList`, a new list of
+  every character (about 2.27 M cells for 100,000 characters per
+  conversion); they use `ProtoString::toUTF8String` (2 cells).
+  (`tests/unit/test_string_conversion_cells.cpp`)
+- **Iteration and indexing**: a String Iterator step and `s[i]` converted the
+  whole string to UTF-8 per call, so loops over a string were O(n^2) (for-of,
+  spread, `Array.from` about 11-20 s for 100 KB, now 0.1-0.2 s). They read the
+  code point with `ProtoString::getAt`. for-of, destructuring, array spread and
+  `Array.from` step the built-in iterator without a `{value, done}` object per
+  character, and `Array.from(string)` into a plain Array stores its elements
+  as an array literal does: 12.35 M -> 2.61 M cells (`[...s]` 5.63 M -> 2.61 M;
+  the rest is the list's own build).
+- **RegExp `input`**: every match result stored a new copy of the subject as
+  `input` (about 5,600 cells per match for 100 KB); a global replace or match
+  with 20,000 matches needed 114 M cells, now 1.4-1.8 M. The matchAll
+  iterator no longer rebuilds its subject at each step.
+  (`js/basic/string_cells_bounded`, under a 1,000,000-cell heap)
+
 ### Fixed — eval modules bounded and GC-safe (2026-10-25)
 
 - **Bounded eval cache**: `eval()` kept every module it compiled for the life
