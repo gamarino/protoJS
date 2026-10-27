@@ -386,6 +386,7 @@ foreach(js_test
         basic/array_bulk_scaling
         basic/array_push_length
         basic/array_from_of_this
+        basic/escape_unescape
         basic/generator_for_of_yield
         basic/generator_resumption
         basic/typed_array_construction

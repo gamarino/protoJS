@@ -3205,6 +3205,77 @@ static const proto::ProtoObject* uriDecode(proto::ProtoContext* ctx, const proto
     return protojs::jsStringFromUtf16(ctx, out);
 }
 
+// escape / unescape (Annex B, §B.2.1.1 and §B.2.1.2), over UTF-16 code
+// units: a unit below 256 outside the unescaped set is %XX, any other unit is
+// %uXXXX; unescape reverses both forms and keeps any other "%" as it is.
+static const proto::ProtoObject* globalEscape(
+    proto::ProtoContext* ctx, const proto::ProtoObject*,
+    const proto::ParentLink*, const proto::ProtoArguments* args, const proto::ProtoKeywordArguments*)
+{
+    static const char kUnescaped[] =
+        "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789@*_+-./";
+    static const char kHex[] = "0123456789ABCDEF";
+    const std::u16string u = uriArgumentUnits(ctx, args);
+    std::string out;
+    out.reserve(u.size());
+    for (char16_t c : u) {
+        if (c < 0x80 && c != 0 && std::strchr(kUnescaped, static_cast<char>(c))) {
+            out += static_cast<char>(c);
+        } else if (c < 256) {
+            out += '%';
+            out += kHex[c >> 4];
+            out += kHex[c & 0xF];
+        } else {
+            out += "%u";
+            out += kHex[(c >> 12) & 0xF];
+            out += kHex[(c >> 8) & 0xF];
+            out += kHex[(c >> 4) & 0xF];
+            out += kHex[c & 0xF];
+        }
+    }
+    return protojs::jsStringFromUTF8(ctx, out);
+}
+
+static const proto::ProtoObject* globalUnescape(
+    proto::ProtoContext* ctx, const proto::ProtoObject*,
+    const proto::ParentLink*, const proto::ProtoArguments* args, const proto::ProtoKeywordArguments*)
+{
+    const std::u16string u = uriArgumentUnits(ctx, args);
+    auto hexVal = [](char16_t h) -> int {
+        if (h >= u'0' && h <= u'9') return h - u'0';
+        if (h >= u'a' && h <= u'f') return h - u'a' + 10;
+        if (h >= u'A' && h <= u'F') return h - u'A' + 10;
+        return -1;
+    };
+    std::u16string out;
+    out.reserve(u.size());
+    const size_t n = u.size();
+    for (size_t k = 0; k < n; ++k) {
+        const char16_t c = u[k];
+        if (c == u'%') {
+            if (k + 5 < n && u[k + 1] == u'u') {
+                const int a = hexVal(u[k + 2]), b = hexVal(u[k + 3]),
+                          d = hexVal(u[k + 4]), e = hexVal(u[k + 5]);
+                if (a >= 0 && b >= 0 && d >= 0 && e >= 0) {
+                    out += static_cast<char16_t>((a << 12) | (b << 8) | (d << 4) | e);
+                    k += 5;
+                    continue;
+                }
+            }
+            if (k + 2 < n) {
+                const int a = hexVal(u[k + 1]), b = hexVal(u[k + 2]);
+                if (a >= 0 && b >= 0) {
+                    out += static_cast<char16_t>((a << 4) | b);
+                    k += 2;
+                    continue;
+                }
+            }
+        }
+        out += c;
+    }
+    return protojs::jsStringFromUtf16(ctx, out);
+}
+
 static const proto::ProtoObject* globalEncodeURIComponent(
     proto::ProtoContext* ctx, const proto::ProtoObject*,
     const proto::ParentLink*, const proto::ProtoArguments* args, const proto::ProtoKeywordArguments*)
@@ -8644,6 +8715,8 @@ static const proto::ProtoObject* runBytecodeImpl(proto::ProtoContext* pContext,
         ensureGlobalFn("isFinite",            globalIsFinite,           1);
         ensureGlobalFn("encodeURI",           globalEncodeURI,          1);
         ensureGlobalFn("encodeURIComponent",  globalEncodeURIComponent, 1);
+        ensureGlobalFn("escape",              globalEscape,             1);
+        ensureGlobalFn("unescape",            globalUnescape,           1);
         ensureGlobalFn("decodeURI",           globalDecodeURI,          1);
         ensureGlobalFn("decodeURIComponent",  globalDecodeURIComponent, 1);
         // §21.1.2.12 / §21.1.2.13: Number.parseInt === parseInt and

@@ -35,6 +35,8 @@ All notable changes to protoJS are documented in this file.
   throw URIError on a lone surrogate; `decodeURI` / `decodeURIComponent`
   reject malformed and overlong UTF-8 and encoded surrogates with URIError,
   and `decodeURI` keeps the escapes of reserved characters.
+- **`escape` / `unescape`** (Annex B) are implemented. (`js/basic/
+  escape_unescape`)
 - **`new String(s).charAt(i)`** converted the whole string on every call
   (O(n) per call, 8.5 s for a loop over 48,000 characters); it reads the
   primitive value through the same view now.
