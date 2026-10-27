@@ -507,13 +507,13 @@ set_tests_properties(js/basic/put_field_group_cells PROPERTIES
 
 # A 100 KB string iterated, spread, passed to Array.from, destructured, indexed
 # and run through global regular expressions, under a fixed heap with the
-# adaptive controller off.  Measured by heap-limit bisection on Linux
-# (2026-10-27): this file needs about 16,000 cells now; before, it ran out of
-# this limit (Array.from(string) alone needed about 12 M cells, the 1,000
-# matches of each global regular expression about 5.6 M).  The limit leaves a
-# wide margin for other platforms' heap accounting.
+# adaptive controller off. The largest path needs 2.66 M cells on Linux
+# (measurements in the file); before the string fixes Array.from and the
+# global replace and match ran out of this limit. A 1,000,000-cell limit
+# passed on Linux and failed on Windows (2026-10-27): it was below what the
+# array-building paths need, and only collection timing let them through.
 set_tests_properties(js/basic/string_cells_bounded PROPERTIES
-    ENVIRONMENT "PROTOCORE_ADAPTIVE_HEAP=0;PROTOCORE_HEAP_LIMIT_CELLS=1000000"
+    ENVIRONMENT "PROTOCORE_ADAPTIVE_HEAP=0;PROTOCORE_HEAP_LIMIT_CELLS=6000000"
     TIMEOUT 120)
 
 # A quadratic Map.set / Set.add would not finish within this limit.

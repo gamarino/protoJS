@@ -1,18 +1,22 @@
 // A 100 KB string used the common ways fits a small fixed heap.
 //
 // tests/CMakeLists.txt runs this file with the adaptive heap controller off
-// and a fixed PROTOCORE_HEAP_LIMIT_CELLS (the value and the measurements
-// behind it are next to the test there). Before the fixes it covers:
+// and PROTOCORE_HEAP_LIMIT_CELLS=6000000. Smallest fixed heap per path on
+// Linux (bisection, three runs per probe; `protojs this-file.js <path>` runs
+// one path): spread and arrayFrom 2.66 M cells (the 100,000-element list's
+// own build), destructure 0.33 M, every other path below 1,000. Before the
+// fixes, at the same limit:
 //
-//   * every match of a global replace / match / matchAll / exec loop stored a
-//     new copy of the whole subject as the match's `input` (about 5,600 cells
-//     per match for 100 KB): 5.6 M cells for the 1,000 matches below, about
-//     114 M for a replace with a match per word;
-//   * Array.from(string) wrote an index attribute and a __pd_<i>__
-//     descriptor per character (about 12 M cells for 100 KB), and spreading
-//     or destructuring a string built a {value, done} object per character;
-//   * each String Iterator step, and each s[i], converted the whole string
-//     to UTF-8, so a loop over a string was O(n^2) (seconds for 100 KB).
+//   * arrayFrom and arrayFromMapped ran out of memory: Array.from wrote an
+//     index attribute and a __pd_<i>__ descriptor per character (12.35 M
+//     cells for 100 KB);
+//   * replaceGlobal and matchGlobal ran out of memory: every match stored a
+//     new copy of the whole subject as its `input` (about 5,600 cells per
+//     match, 11 M for the 2,000 matches here);
+//   * the other paths fitted; their cost was time: a String Iterator step and
+//     s[i] converted the whole string to UTF-8 (O(n^2) loops, about 12 s each
+//     for 100 KB), and spread built a {value, done} object per character
+//     (5.63 M cells, just under the limit).
 //
 // Asserting test: prints the failures and exits 1 when anything is wrong.
 
@@ -28,46 +32,65 @@ var N = 100000;
 var s = "word ".repeat(N / 5).toUpperCase().toLowerCase();
 check("length", s.length, N);
 
-// Iteration.
-var count = 0;
-for (var ch of s) count++;
-check("for-of", count, N);
-var spread = [...s];
-check("spread length", spread.length, N);
-check("spread element", spread[N - 2], "d");
-var from = Array.from(s);
-check("Array.from length", from.length, N);
-check("Array.from element", from[1], "o");
-var mapped = Array.from(s, function (c, i) { return i === 0 ? c.toUpperCase() : c; });
-check("Array.from with mapFn", mapped[0] + mapped[1], "Wo");
-var [first, second, ...rest] = s;
-check("destructuring", first + second + rest.length, "wo" + (N - 2));
-spread = from = mapped = rest = null;
-
-// Indexed reads.
-var ws = 0;
-for (var i = 0; i < N; i++) if (s[i] === "w") ws++;
-check("s[i]", ws, N / 5);
-
-// Global regular expressions. A match every 20 words (1,000 matches) keeps
+// Each path runs in its own function, so what it built is garbage once it
+// returns and the heap limit bounds one path at a time.
+function iterate() {
+    var count = 0;
+    for (var ch of s) count++;
+    check("for-of", count, N);
+}
+function spread() {
+    var a = [...s];
+    check("spread length", a.length, N);
+    check("spread element", a[N - 2], "d");
+}
+function arrayFrom() {
+    var a = Array.from(s);
+    check("Array.from length", a.length, N);
+    check("Array.from element", a[1], "o");
+}
+function arrayFromMapped() {
+    var a = Array.from(s, function (c, i) { return i === 0 ? c.toUpperCase() : c; });
+    check("Array.from with mapFn", a[0] + a[1], "Wo");
+}
+function destructure() {
+    var [first, second, ...rest] = s;
+    check("destructuring", first + second + rest.length, "wo" + (N - 2));
+}
+function index() {
+    var ws = 0;
+    for (var i = 0; i < N; i++) if (s[i] === "w") ws++;
+    check("s[i]", ws, N / 5);
+}
+// Global regular expressions. A match every 10 words (2,000 matches) keeps
 // the run short: each match still converts the whole subject to UTF-16, a
 // time cost this test does not cover.
-var replaced = s.replace(/(word ){20}/g, "W");
-check("replace /g", replaced, "W".repeat(1000));
-replaced = null;
-var matches = s.match(/(word ){20}/g);
-check("match /g", matches.length, 1000);
-matches = null;
-var all = 0, inputOk = true;
-for (var m of s.matchAll(/(word ){20}/g)) {
-    all++;
-    if (m.input !== s) inputOk = false;
+function replaceGlobal() {
+    check("replace /g", s.replace(/(word ){10}/g, "W"), "W".repeat(2000));
 }
-check("matchAll", all, 1000);
-check("matchAll input", inputOk, true);
-var re = /(word ){20}/g, execs = 0, r;
-while ((r = re.exec(s)) !== null) execs++;
-check("exec loop", execs, 1000);
+function matchGlobal() {
+    check("match /g", s.match(/(word ){10}/g).length, 2000);
+}
+function matchAll() {
+    var all = 0, inputOk = true;
+    for (var m of s.matchAll(/(word ){10}/g)) {
+        all++;
+        if (m.input !== s) inputOk = false;
+    }
+    check("matchAll", all, 2000);
+    check("matchAll input", inputOk, true);
+}
+function execLoop() {
+    var re = /(word ){10}/g, execs = 0;
+    while (re.exec(s) !== null) execs++;
+    check("exec loop", execs, 2000);
+}
+
+var paths = [iterate, spread, arrayFrom, arrayFromMapped, destructure, index,
+             replaceGlobal, matchGlobal, matchAll, execLoop];
+var only = process.argv.length > 2 ? process.argv[2] : null;  // one path, for measuring
+for (var p = 0; p < paths.length; p++)
+    if (!only || paths[p].name === only) paths[p]();
 
 if (failures.length) {
     console.log("FAILED:\n  " + failures.join("\n  "));

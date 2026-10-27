@@ -28,7 +28,7 @@ path (`PROTOCORE_ADAPTIVE_HEAP=0`, bisection of `PROTOCORE_HEAP_LIMIT_CELLS`).
   `input` (about 5,600 cells per match for 100 KB); a global replace or match
   with 20,000 matches needed 114 M cells, now 1.4-1.8 M. The matchAll
   iterator no longer rebuilds its subject at each step.
-  (`js/basic/string_cells_bounded`, under a 1,000,000-cell heap)
+  (`js/basic/string_cells_bounded`, under a 6,000,000-cell heap)
 
 ### Fixed — eval modules bounded and GC-safe (2026-10-25)
 
