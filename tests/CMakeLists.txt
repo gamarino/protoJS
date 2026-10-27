@@ -380,6 +380,7 @@ foreach(js_test
         basic/string_cells_bounded
         basic/string_nul
         basic/array_from_large
+        basic/for_in_strings
         basic/generator_for_of_yield
         basic/generator_resumption
         basic/typed_array_construction

@@ -3362,11 +3362,10 @@ void BuildStringPrototype(proto::ProtoSpace* space, proto::ProtoContext* ctx,
     reg("toWellFormed",      stringToWellFormed,  0);
     reg("matchAll",          stringMatchAll,      1);
 
-    // String[Symbol.iterator] — yields each Unicode codepoint (UTF-16
-    // code unit pair handled correctly for BMP-only strings).
-    // The iterator is returned as a fresh object carrying __str__ and
-    // __idx__ markers plus a .next method that advances the index.
-    reg("stringIterNext",    stringIteratorNext,  0);
+    // String[Symbol.iterator] — yields each Unicode codepoint. The
+    // iterator's next is %StringIteratorPrototype%.next; String.prototype
+    // has no "stringIterNext" property (it was an enumerable one, listed
+    // by every for-in over a string).
     {
         const proto::ProtoObject* siko = ctx->fromUTF8String("Symbol.iterator");
         const proto::ProtoString* sik = siko ? siko->asString(ctx) : nullptr;

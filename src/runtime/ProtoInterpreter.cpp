@@ -19324,36 +19324,36 @@ static const proto::ProtoObject* runBytecodeImpl(proto::ProtoContext* pContext,
                         }
                     }
 
-                    // \xc2\xa722.1.4 String-exotic objects: char indices '0'..'n-1'
-                    // are own enumerable properties resolved from
-                    // __primitive_value__, not as own attributes.  Pre-fix
-                    // for-in on \`new String('abc')\` produced no entries
-                    // (built-ins/String/numeric-properties.js verifyProperty
-                    // -> isEnumerable's for-in probe failed).  Synthesise
-                    // the indices before walking own attributes so they
-                    // appear ahead of any user-added named properties.
+                    // §10.4.3 String exotic objects: the indices '0'..'n-1'
+                    // of the string value are own enumerable properties,
+                    // listed before every other own key (§10.4.3.3
+                    // [[OwnPropertyKeys]]). They are not attributes: they
+                    // come from __primitive_value__ for a String object, and
+                    // from the value itself for a string primitive, which
+                    // for-in converts with ToObject (§14.7.5.6 step 6.b).
+                    // Pre-fix a primitive yielded none of them, and a String
+                    // object counted UTF-16 units while s.length and s[i]
+                    // count code points, so "a\u{1F600}b" listed 0, 1, 3.
+                    // The keys are code-point indices, as length and
+                    // indexing are in protoJS (docs/VM.md, section 6).
                     {
-                        const proto::ProtoString* pvKey = JSSymbols::primitiveValue(pContext);
-                        const proto::ProtoObject* pv = pvKey
-                            ? fiObj->getAttribute(pContext, pvKey, false) : nullptr;
-                        if (pv && pv != PROTO_NONE && pv->isString(pContext)) {
-                            const proto::ProtoString* ps = pv->asString(pContext);
-                            if (ps) {
-                                std::string s8;
-                                ps->toUTF8String(pContext, s8);
-                                size_t i = 0;
-                                proto::proto_ulong u16 = 0;
-                                while (i < s8.size()) {
-                                    unsigned char c = static_cast<unsigned char>(s8[i]);
-                                    size_t cl = (c < 0x80) ? 1 : (c < 0xE0) ? 2 : (c < 0xF0) ? 3 : 4;
-                                    if (i + cl > s8.size()) break;
-                                    std::string k = std::to_string(u16);
-                                    if (!fiSeen.count(k)) {
-                                        fiSeen.insert(k);
-                                        addFiKey(k);
-                                    }
-                                    u16 += (cl == 4) ? 2 : 1;
-                                    i += cl;
+                        const proto::ProtoObject* pv = nullptr;
+                        if (fiObj->isString(pContext)) {
+                            pv = fiObj;
+                        } else {
+                            const proto::ProtoString* pvKey = JSSymbols::primitiveValue(pContext);
+                            pv = pvKey ? fiObj->getAttribute(pContext, pvKey, false) : nullptr;
+                        }
+                        const proto::ProtoString* ps =
+                            (pv && pv != PROTO_NONE && pv->isString(pContext))
+                                ? pv->asString(pContext) : nullptr;
+                        if (ps) {
+                            const proto::proto_ulong n = ps->getSize(pContext);
+                            for (proto::proto_ulong i = 0; i < n; ++i) {
+                                std::string k = std::to_string(i);
+                                if (!fiSeen.count(k)) {
+                                    fiSeen.insert(k);
+                                    addFiKey(k);
                                 }
                             }
                         }
