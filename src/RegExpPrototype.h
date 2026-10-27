@@ -37,13 +37,14 @@ const proto::ProtoObject* regexpExec(
     const proto::ProtoKeywordArguments* kwargs);
 
 /**
- * After an empty match of a global walk over `input` (UTF-8): set re.lastIndex
- * to AdvanceStringIndex(input, lastIndex, fullUnicode) (ECMA-262 §22.2.7.3),
- * i.e. one code point on with /u or /v, one code unit otherwise.
+ * After an empty match of a global walk over `subject` (a string): set
+ * re.lastIndex to AdvanceStringIndex(subject, lastIndex, fullUnicode)
+ * (ECMA-262 §22.2.7.3), i.e. one code point on with /u or /v, one code unit
+ * otherwise.
  */
 void regexpAdvanceAfterEmptyMatch(proto::ProtoContext* ctx,
                                   const proto::ProtoObject* re,
-                                  const std::string& input);
+                                  const proto::ProtoObject* subject);
 
 } // namespace protojs
 

@@ -9,6 +9,7 @@
 #include "JSContext.h"
 #include "TypeBridge.h"
 #include "runtime/ProtoInterpreter.h"
+#include "runtime/GcScopedCache.h"
 #include "protoCore.h"
 extern "C" {
 #include "libregexp.h"
@@ -18,6 +19,7 @@ extern "C" {
 #include <cstdlib>
 #include <cstring>
 #include <iostream>
+#include <memory>
 #include <string>
 #include <vector>
 
@@ -218,22 +220,54 @@ static int parseFlags(const std::string& f) {
 
 } // anonymous namespace
 
+// The UTF-8 and UTF-16 forms of an exec subject. Every exec of a global walk
+// (String.prototype.replace / match / matchAll / split with a regexp, or a
+// `while (re.exec(s))` loop) runs on the same subject string; converting the
+// whole of it on each call made a walk with m matches over an n-unit subject
+// O(n * m). The view of a string primitive is memoised per thread by its
+// address, in a GcScopedCache: emptied whenever a collection starts, before a
+// keyed string can be freed and its address reused (GcScopedCache.h). A few
+// subjects are kept; the oldest go first when the memo is full.
+struct ExecSubject {
+    std::string utf8;
+    std::vector<uint16_t> u16;
+};
+
+static std::shared_ptr<const ExecSubject> execSubjectOf(proto::ProtoContext* ctx,
+                                                        const proto::ProtoObject* str) {
+    constexpr std::size_t kSubjects = 4;
+    static thread_local GcScopedCache<const proto::ProtoObject*,
+                                      std::shared_ptr<const ExecSubject>> s_subjects;
+    auto& map = s_subjects.get(ctx);
+    auto it = map.find(str);
+    if (it != map.end()) return it->second;
+    auto view = std::make_shared<ExecSubject>();
+    str->asString(ctx)->toUTF8String(ctx, view->utf8);
+    view->u16 = utf8ToUTF16(view->utf8);
+    if (map.size() >= kSubjects) map.clear();
+    map.emplace(str, view);
+    return view;
+}
+
 void regexpAdvanceAfterEmptyMatch(proto::ProtoContext* ctx,
                                   const proto::ProtoObject* re,
-                                  const std::string& input) {
-    if (!ctx || !re || re == PROTO_NONE) return;
+                                  const proto::ProtoObject* subject) {
+    if (!ctx || !re || re == PROTO_NONE || !subject || !subject->asString(ctx)) return;
     bool unicode = false;
     const proto::ProtoObject* bcObj = re->getAttribute(ctx, JSSymbols::reBytecode(ctx), false);
     if (bcObj && bcObj != PROTO_NONE) {
         const auto* buf = reinterpret_cast<const proto::ProtoByteBuffer*>(bcObj);
         unicode = isFullUnicode(lre_get_flags(reinterpret_cast<const uint8_t*>(buf->getBuffer(ctx))));
     }
-    advanceAfterEmptyMatch(ctx, re, utf8ToUTF16(input), unicode);
+    // The subject's UTF-16 form is the one exec memoised: an empty match no
+    // longer converts the whole subject again.
+    advanceAfterEmptyMatch(ctx, re, execSubjectOf(ctx, subject)->u16, unicode);
 }
 
 // ---------------------------------------------------------------------------
 // RegExp.prototype method implementations
 // ---------------------------------------------------------------------------
+
 
 const proto::ProtoObject* regexpExec(
     proto::ProtoContext* ctx, const proto::ProtoObject* self,
@@ -267,22 +301,33 @@ const proto::ProtoObject* regexpExec(
 
     // §22.2.7.2 step 4 ToString(S).  A missing arg means S is undefined,
     // which ToString-coerces to the literal "undefined" (test262 A12).
-    std::string input;
     // The match's `input` is S itself when the argument already is a string
     // primitive (ToString(S) is S).  Building it again from the UTF-8 copy
     // allocated a whole new rope for every match: about 5,600 cells per exec
     // for a 100 KB subject, 112 M cells for a global replace or match with
-    // 20,000 matches.
+    // 20,000 matches.  Its UTF-16 form comes from the per-thread memo
+    // (execSubjectOf), converted once per subject, not once per exec.
     const proto::ProtoObject* inputString = nullptr;
+    std::shared_ptr<const ExecSubject> subject;
     if (args && args->getSize(ctx) > 0) {
         const proto::ProtoObject* arg = args->getAt(ctx, 0);
-        if (proto::ProtoObject::isStringTagFast(arg)) inputString = arg;
-        input = objToStr(ctx, arg);
+        if (proto::ProtoObject::isStringTagFast(arg) && arg->asString(ctx)) {
+            inputString = arg;
+            subject = execSubjectOf(ctx, arg);
+        } else {
+            auto view = std::make_shared<ExecSubject>();
+            view->utf8 = objToStr(ctx, arg);
+            view->u16 = utf8ToUTF16(view->utf8);
+            subject = std::move(view);
+        }
     } else {
-        input = "undefined";
+        auto view = std::make_shared<ExecSubject>();
+        view->utf8 = "undefined";
+        view->u16 = utf8ToUTF16(view->utf8);
+        subject = std::move(view);
     }
-
-    auto u16 = utf8ToUTF16(input);
+    const std::string& input = subject->utf8;
+    const std::vector<uint16_t>& u16 = subject->u16;
     int capture_count = lre_get_capture_count(bc);
     // lre_exec uses this array for the capture pointers AND, after them, for
     // the registers of loop counters and position checks, so it must hold
@@ -349,22 +394,22 @@ const proto::ProtoObject* regexpExec(
             uint8_t* end_ptr = captures[2 * i + 1];
             
             if (start_ptr && end_ptr) {
-                size_t start = (start_ptr - reinterpret_cast<uint8_t*>(u16.data())) / 2;
-                size_t end = (end_ptr - reinterpret_cast<uint8_t*>(u16.data())) / 2;
+                size_t start = (start_ptr - reinterpret_cast<const uint8_t*>(u16.data())) / 2;
+                size_t end = (end_ptr - reinterpret_cast<const uint8_t*>(u16.data())) / 2;
                 std::string match = utf16ToUTF8(u16, start, end);
                 const proto::ProtoString* k = JSSymbols::indexKey(ctx, i);
-                result = result->setAttribute(ctx, k, ctx->fromUTF8String(match.c_str()));
+                result = result->setAttribute(ctx, k, protojs::jsStringFromUTF8(ctx, match));
             } else {
                 const proto::ProtoString* k = JSSymbols::indexKey(ctx, i);
                 result = result->setAttribute(ctx, k, PROTO_NONE);
             }
         }
         
-        const size_t matchStart = (captures[0] - reinterpret_cast<uint8_t*>(u16.data())) / 2;
+        const size_t matchStart = (captures[0] - reinterpret_cast<const uint8_t*>(u16.data())) / 2;
         result = result->setAttribute(ctx, JSSymbols::index(ctx),
                                       ctx->fromInteger(static_cast<long long>(matchStart)));
         result = result->setAttribute(ctx, JSSymbols::input(ctx),
-            inputString ? inputString : ctx->fromUTF8String(input.c_str()));
+            inputString ? inputString : protojs::jsStringFromUTF8(ctx, input));
         result = result->setAttribute(ctx, JSSymbols::length(ctx),
                                       ctx->fromInteger(capture_count));
 
@@ -375,8 +420,8 @@ const proto::ProtoObject* regexpExec(
                 uint8_t* ep = captures[2 * i + 1];
                 const proto::ProtoString* ik = JSSymbols::indexKey(ctx, static_cast<uint32_t>(i));
                 if (sp && ep) {
-                    size_t s = (sp - reinterpret_cast<uint8_t*>(u16.data())) / 2;
-                    size_t e = (ep - reinterpret_cast<uint8_t*>(u16.data())) / 2;
+                    size_t s = (sp - reinterpret_cast<const uint8_t*>(u16.data())) / 2;
+                    size_t e = (ep - reinterpret_cast<const uint8_t*>(u16.data())) / 2;
                     const proto::ProtoObject* pair = createNewArray(ctx, nullptr);
                     pair = pair->setAttribute(ctx, JSSymbols::indexKey(ctx, 0), ctx->fromInteger(static_cast<long long>(s)));
                     pair = pair->setAttribute(ctx, JSSymbols::indexKey(ctx, 1), ctx->fromInteger(static_cast<long long>(e)));
@@ -392,7 +437,7 @@ const proto::ProtoObject* regexpExec(
 
         if (lre_get_flags(bc) & (LRE_FLAG_GLOBAL | LRE_FLAG_STICKY)) {
             uint8_t* end = captures[1];
-            long long newLastIndex = (end - reinterpret_cast<uint8_t*>(u16.data())) / 2;
+            long long newLastIndex = (end - reinterpret_cast<const uint8_t*>(u16.data())) / 2;
             self->setAttribute(ctx, lastIndexKey, ctx->fromInteger(newLastIndex));
         }
 
@@ -913,8 +958,8 @@ const proto::ProtoObject* regexpSymbolSplit(
             continue;
         }
 
-        size_t matchStart = (captures[0] - reinterpret_cast<uint8_t*>(u16.data())) / 2;
-        size_t matchEnd   = (captures[1] - reinterpret_cast<uint8_t*>(u16.data())) / 2;
+        size_t matchStart = (captures[0] - reinterpret_cast<const uint8_t*>(u16.data())) / 2;
+        size_t matchEnd   = (captures[1] - reinterpret_cast<const uint8_t*>(u16.data())) / 2;
 
         if (matchEnd == lastEnd && matchStart == lastEnd) {
             pos = advanceStringIndex(u16, pos, unicodeMatching);
@@ -931,10 +976,10 @@ const proto::ProtoObject* regexpSymbolSplit(
             uint8_t* ce = captures[2 * i + 1];
             const proto::ProtoObject* capVal = PROTO_NONE;
             if (cs && ce) {
-                size_t cs16 = (cs - reinterpret_cast<uint8_t*>(u16.data())) / 2;
-                size_t ce16 = (ce - reinterpret_cast<uint8_t*>(u16.data())) / 2;
+                size_t cs16 = (cs - reinterpret_cast<const uint8_t*>(u16.data())) / 2;
+                size_t ce16 = (ce - reinterpret_cast<const uint8_t*>(u16.data())) / 2;
                 std::string capStr = utf16ToUTF8(u16, cs16, ce16);
-                capVal = ctx->fromUTF8String(capStr.c_str());
+                capVal = protojs::jsStringFromUTF8(ctx, capStr);
             }
             result = result->setAttribute(ctx, JSSymbols::indexKey(ctx, static_cast<uint32_t>(resultLen++)),
                                           capVal);

@@ -14,6 +14,7 @@
 #include "TypeBridge.h"
 #include "protoCore.h"
 #include "runtime/ProtoInterpreter.h"
+#include "runtime/GcScopedCache.h"
 #include <algorithm>
 #include <cctype>
 #include <cmath>
@@ -779,43 +780,17 @@ const proto::ProtoObject* stringCharCodeAt(
     if (!requireStringThis(ctx, self)) return PROTO_NONE;
     long long idx = getIntArg(ctx, args, 0, 0);
 
-    // Rope-aware O(log N) fast path for idx == 0.  The unconditional
-    // objToStr + utf8ToUTF16 below materialises the full rope into a
-    // contiguous buffer just to read one code unit — under the
-    // `s = s + s` doubling benchmark (262K-char ropes) profile showed
-    // ~60% of cycles in toUTF8String + RopeCharacterIterator::next +
-    // memmove driven by this single line.  ProtoString::getAt walks
-    // the AVL tree to the requested codepoint in O(log N).  Limiting
-    // the fast path to idx == 0 keeps semantics trivially correct:
-    // UTF-16 code unit 0 always matches codepoint 0, regardless of
-    // whether later codepoints are supplementary (which would shift
-    // the UTF-16 index away from the codepoint index for idx > 0).
-    // Fast path only fires when self is a true primitive ProtoString;
-    // for Number/String/Boolean wrappers asString returns null and we
-    // fall through to the slow path that runs ToString via objToStr
-    // (S15.5.4.5_A1_T1/T2/T6: `new Object(42).charCodeAt(false) === 52`
-    // and friends require that coercion).
-    if (idx == 0) {
-        const proto::ProtoString* str = self->asString(ctx);
-        if (str) {
-            proto::proto_ulong size = str->getSize(ctx);
-            if (size == 0) {
-                return makeNumber(ctx, std::numeric_limits<double>::quiet_NaN());
-            }
-            // getAt returns a ProtoObject tagged as EMBEDDED_UNICODE_CHAR
-            // whose value bits encode the codepoint directly; asLong
-            // reads those bits without allocation or flattening
-            // (Integer.cpp:150 — UNICODE_CHAR → unicodeValue).
-            const proto::ProtoObject* charObj = str->getAt(ctx, 0);
-            if (charObj) {
-                uint32_t cp = static_cast<uint32_t>(charObj->asLong(ctx));
-                long long codeUnit = (cp < 0x10000u)
-                    ? static_cast<long long>(cp)
-                    : static_cast<long long>(0xD800u + ((cp - 0x10000u) >> 10));
-                return ctx->fromInteger(codeUnit);
-            }
-        }
-        // else fall through to slow path for ToString-coerced wrappers
+    // A string primitive: read the one code unit with utf16UnitAt, O(log n)
+    // (StringPrototype.h). The path below converts the whole string to UTF-16
+    // first, O(n) per call, so a loop over a string was O(n^2) (about 6 s for
+    // 40,000 calls); it remains for wrappers and other receivers, which need
+    // ToString(this) -- `new Object(42).charCodeAt(false) === 52`
+    // (S15.5.4.5_A1_T1/T2/T6).
+    if (const proto::ProtoString* str = self->asString(ctx)) {
+        uint16_t unit = 0;
+        if (!utf16UnitAt(ctx, str, idx, unit))
+            return makeNumber(ctx, std::numeric_limits<double>::quiet_NaN());
+        return ctx->fromInteger(static_cast<long long>(unit));
     }
 
     std::string s = objToStr(ctx, self);
@@ -831,6 +806,22 @@ const proto::ProtoObject* stringCodePointAt(
     const proto::ProtoKeywordArguments*)
 {
     if (!requireStringThis(ctx, self)) return PROTO_NONE;
+    // A string primitive: the code unit at idx, combined with the next one
+    // when they form a surrogate pair (§22.1.3.4 CodePointAt), each read in
+    // O(log n) by utf16UnitAt instead of a whole-string conversion per call.
+    if (const proto::ProtoString* str = self->asString(ctx)) {
+        long long pidx = getIntArg(ctx, args, 0, 0);
+        uint16_t h = 0;
+        if (!utf16UnitAt(ctx, str, pidx, h)) return PROTO_NONE;
+        uint16_t l = 0;
+        if (h >= 0xD800 && h <= 0xDBFF && utf16UnitAt(ctx, str, pidx + 1, l)
+                && l >= 0xDC00 && l <= 0xDFFF) {
+            const uint32_t cp = 0x10000u + (static_cast<uint32_t>(h - 0xD800) << 10)
+                                         + (l - 0xDC00);
+            return ctx->fromInteger(static_cast<long long>(cp));
+        }
+        return ctx->fromInteger(static_cast<long long>(h));
+    }
     std::string s = objToStr(ctx, self);
     auto u16 = utf8ToUTF16(s);
     long long idx = getIntArg(ctx, args, 0, 0);
@@ -3098,10 +3089,13 @@ const proto::ProtoObject* codePointStringAt(proto::ProtoContext* ctx,
     if (!str || index < 0 || index >= static_cast<long long>(str->getSize(ctx)))
         return nullptr;
     const proto::ProtoObject* cpObj = str->getAt(ctx, static_cast<int>(index));
-    const uint32_t cp = static_cast<uint32_t>(cpObj ? cpObj->asLong(ctx) : 0);
+    return stringOfCodePoint(ctx, static_cast<uint32_t>(cpObj ? cpObj->asLong(ctx) : 0));
+}
+
+const proto::ProtoObject* stringOfCodePoint(proto::ProtoContext* ctx, uint32_t cp) {
     // UTF-8, as toUTF8String writes it: a lone surrogate is three bytes like
-    // any other BMP code point.  A NUL code point gives the empty string, as
-    // the byte-walking code this replaces did through c_str().
+    // any other BMP code point.  A NUL code point is the one-byte string
+    // "\0": the length is explicit.
     char utf8[5] = {0, 0, 0, 0, 0};
     if (cp < 0x80) {
         utf8[0] = static_cast<char>(cp);

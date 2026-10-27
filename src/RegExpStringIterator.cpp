@@ -98,7 +98,7 @@ static const proto::ProtoObject* regexpStringIteratorNext(
     // under /u or /v and the walk always moves on.
     const proto::ProtoObject* m0 = match->getAttribute(ctx, JSSymbols::indexKey(ctx, 0), false);
     std::string m0str = objToStrLocal(ctx, m0);
-    if (m0str.empty()) regexpAdvanceAfterEmptyMatch(ctx, reObj, objToStrLocal(ctx, subject));
+    if (m0str.empty()) regexpAdvanceAfterEmptyMatch(ctx, reObj, subject);
 
     const proto::ProtoObject* result = ctx->newObject(true);
     result = result->setAttribute(ctx, JSSymbols::value(ctx), match);

@@ -3,6 +3,8 @@
 
 #include "protoCore.h"
 
+#include <cstdint>
+
 namespace protojs {
 
 /**
@@ -39,6 +41,29 @@ void ensureStringConstructor(proto::ProtoContext* ctx,
 const proto::ProtoObject* codePointStringAt(proto::ProtoContext* ctx,
                                             const proto::ProtoString* str,
                                             long long index);
+
+/**
+ * The one-code-point string of `cp` (a lone surrogate is a code point of its
+ * own, as protoCore stores it). An inline string: no cell is allocated.
+ */
+const proto::ProtoObject* stringOfCodePoint(proto::ProtoContext* ctx, uint32_t cp);
+
+/**
+ * The number of UTF-16 code units of `str` (protoCore counts code points:
+ * a code point above U+FFFF is two units). O(log n) after the first call on a
+ * string (see utf16UnitAt).
+ */
+long long utf16Length(proto::ProtoContext* ctx, const proto::ProtoString* str);
+
+/**
+ * The UTF-16 code unit at `unitIndex` of `str` (a high or low surrogate for
+ * a code point above U+FFFF), as String.prototype.charCodeAt reads it.
+ * Answers false when the index is out of range. O(log n): one binary search
+ * over the positions of the string's supplementary code points, memoised per
+ * string until the next collection, and one ProtoString::getAt.
+ */
+bool utf16UnitAt(proto::ProtoContext* ctx, const proto::ProtoString* str,
+                 long long unitIndex, uint16_t& unit);
 
 /**
  * One step of a built-in String Iterator (String.prototype[Symbol.iterator])

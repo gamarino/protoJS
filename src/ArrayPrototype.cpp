@@ -31,76 +31,6 @@ static bool arrayThrowIfCreateDataPropertyFails(proto::ProtoContext* ctx, const 
 static const proto::ProtoObject* arrayCreateDataPropertyOrThrow(proto::ProtoContext* ctx, const proto::ProtoObject* obj, proto::proto_ulong idx, const proto::ProtoObject* val);
 
 // ---------------------------------------------------------------------------
-// Internal: compute UTF-16 code unit count from a UTF-8 std::string.
-// ---------------------------------------------------------------------------
-static size_t utf8ToUTF16Len(const std::string& s) {
-    size_t count = 0;
-    for (size_t i = 0; i < s.size(); ) {
-        auto c = static_cast<unsigned char>(s[i]);
-        int n;
-        if      (c < 0x80) { n = 1; }
-        else if (c < 0xE0) { n = 2; }
-        else if (c < 0xF0) { n = 3; }
-        else               { n = 4; }
-        count += (n == 4) ? 2 : 1;
-        i += static_cast<size_t>(n);
-    }
-    return count;
-}
-
-// Internal: return the idx-th UTF-16 code unit of a UTF-8 string as a
-// UTF-8-encoded string of that single code unit, or "" if out of range.
-static std::string utf16CharAt(const std::string& s, size_t idx) {
-    size_t pos = 0;
-    for (size_t i = 0; i < s.size(); ) {
-        auto c = static_cast<unsigned char>(s[i]);
-        int n;
-        uint32_t cp = 0;
-        if      (c < 0x80) { cp = c;        n = 1; }
-        else if (c < 0xE0) { cp = c & 0x1F; n = 2; }
-        else if (c < 0xF0) { cp = c & 0x0F; n = 3; }
-        else               { cp = c & 0x07; n = 4; }
-        for (int j = 1; j < n && i + (size_t)j < s.size(); j++)
-            cp = (cp << 6) | (static_cast<unsigned char>(s[i + (size_t)j]) & 0x3F);
-        i += static_cast<size_t>(n);
-        if (cp < 0x10000) {
-            if (pos == idx) {
-                std::string r;
-                if (cp < 0x80)       r += static_cast<char>(cp);
-                else if (cp < 0x800) { r += static_cast<char>(0xC0 | (cp >> 6));
-                                        r += static_cast<char>(0x80 | (cp & 0x3F)); }
-                else                 { r += static_cast<char>(0xE0 | (cp >> 12));
-                                        r += static_cast<char>(0x80 | ((cp >> 6) & 0x3F));
-                                        r += static_cast<char>(0x80 | (cp & 0x3F)); }
-                return r;
-            }
-            pos++;
-        } else {
-            cp -= 0x10000;
-            uint16_t hi = static_cast<uint16_t>(0xD800 + (cp >> 10));
-            uint16_t lo = static_cast<uint16_t>(0xDC00 + (cp & 0x3FF));
-            if (pos == idx) {
-                std::string r;
-                r += static_cast<char>(0xE0 | (hi >> 12));
-                r += static_cast<char>(0x80 | ((hi >> 6) & 0x3F));
-                r += static_cast<char>(0x80 | (hi & 0x3F));
-                return r;
-            }
-            pos++;
-            if (pos == idx) {
-                std::string r;
-                r += static_cast<char>(0xE0 | (lo >> 12));
-                r += static_cast<char>(0x80 | ((lo >> 6) & 0x3F));
-                r += static_cast<char>(0x80 | (lo & 0x3F));
-                return r;
-            }
-            pos++;
-        }
-    }
-    return "";
-}
-
-// ---------------------------------------------------------------------------
 // %Array.prototype% of each space, published by ensureArrayPrototype.
 // Every worker_threads worker has its own space and its own Array.prototype;
 // a process-wide static here once handed the main thread the prototype of the
@@ -222,13 +152,12 @@ static proto::proto_ulong arrLen(proto::ProtoContext* ctx,
         }
         return 0;
     }
-    // Handle primitive string — length = UTF-16 code unit count.
+    // Handle primitive string — length = UTF-16 code unit count, O(log n)
+    // after the first call on the string (utf16Length, StringPrototype.h).
     if (arr->isString(ctx)) {
         const proto::ProtoString* s = arr->asString(ctx);
         if (!s) return 0;
-        std::string sv;
-        s->toUTF8String(ctx, sv);
-        return static_cast<proto::proto_ulong>(utf8ToUTF16Len(sv));
+        return static_cast<proto::proto_ulong>(utf16Length(ctx, s));
     }
     // Handle String wrapper object — extract __primitive_value__.
     {
@@ -237,11 +166,7 @@ static proto::proto_ulong arrLen(proto::ProtoContext* ctx,
             const proto::ProtoObject* pv = arr->getAttribute(ctx, pvKey, false);
             if (pv && pv != PROTO_NONE && pv->isString(ctx)) {
                 const proto::ProtoString* s = pv->asString(ctx);
-                if (s) {
-                    std::string sv;
-                    s->toUTF8String(ctx, sv);
-                    return static_cast<proto::proto_ulong>(utf8ToUTF16Len(sv));
-                }
+                if (s) return static_cast<proto::proto_ulong>(utf16Length(ctx, s));
             }
         }
     }
@@ -496,31 +421,28 @@ static const proto::ProtoObject* arrGet(proto::ProtoContext* ctx,
         if (!key) return PROTO_NONE;
         return protojs::proxyDispatchGet(ctx, arr, key, arr);
     }
-    // Handle primitive string — return the character at the UTF-16 index.
-    if (arr->isString(ctx)) {
-        const proto::ProtoString* s = arr->asString(ctx);
-        if (!s) return PROTO_NONE;
-        std::string sv;
-        s->toUTF8String(ctx, sv);
-        std::string ch = utf16CharAt(sv, idx);
-        if (ch.empty()) return PROTO_NONE;
-        return ctx->fromUTF8String(ch.c_str());
-    }
-    // Handle String wrapper object — extract __primitive_value__ then index it.
+    // A string primitive or a String object: element idx is the string's
+    // UTF-16 code unit at idx, as a one-unit string (a surrogate half on its
+    // own for a code point above U+FFFF), the view arrLen's length counts.
+    // utf16UnitAt reads it in O(log n). Pre-fix every element read converted
+    // the whole string to UTF-8 and walked it to the index, so
+    // Array.prototype.map.call(s, f) and the like were O(n^2), and a NUL
+    // character read as a hole.
     {
-        const proto::ProtoString* pvKey = JSSymbols::primitiveValue(ctx);
-        if (pvKey) {
-            const proto::ProtoObject* pv = arr->getAttribute(ctx, pvKey, false);
-            if (pv && pv != PROTO_NONE && pv->isString(ctx)) {
-                const proto::ProtoString* s = pv->asString(ctx);
-                if (s) {
-                    std::string sv;
-                    s->toUTF8String(ctx, sv);
-                    std::string ch = utf16CharAt(sv, idx);
-                    if (ch.empty()) return PROTO_NONE;
-                    return ctx->fromUTF8String(ch.c_str());
-                }
+        const proto::ProtoString* s = arr->isString(ctx) ? arr->asString(ctx) : nullptr;
+        if (!s) {
+            const proto::ProtoString* pvKey = JSSymbols::primitiveValue(ctx);
+            const proto::ProtoObject* pv = pvKey ? arr->getAttribute(ctx, pvKey, false) : nullptr;
+            if (pv && pv != PROTO_NONE && pv->isString(ctx)) s = pv->asString(ctx);
+        }
+        if (s) {
+            uint16_t unit = 0;
+            if (idx <= static_cast<proto::proto_ulong>(0x7FFFFFFF)
+                    && utf16UnitAt(ctx, s, static_cast<long long>(idx), unit)) {
+                const proto::ProtoObject* ch = stringOfCodePoint(ctx, unit);
+                return ch ? ch : PROTO_NONE;
             }
+            if (arr->isString(ctx)) return PROTO_NONE;
         }
     }
     // Build accessor sidecar keys up-front so we can shadow the fast
@@ -2157,6 +2079,24 @@ static const proto::ProtoObject* arraySlice(
     end   = normalizeIdxClamp(end,   len);
 
     const proto::ProtoObject* result = arraySpeciesCreate(ctx, self, static_cast<proto::proto_ulong>(end - start));
+
+    // A string primitive: ArraySpeciesCreate made a plain Array (a string is
+    // not an Array, so no species applies), every index in [start, end) is
+    // present, and CreateDataPropertyOrThrow on the fresh Array can neither
+    // fail nor reach a setter. Build its elements directly, one code unit
+    // each (as arrGet reads them), instead of one CreateDataPropertyOrThrow
+    // per element.
+    if (self->isString(ctx)) {
+        const proto::ProtoString* str = self->asString(ctx);
+        const proto::ProtoList* els = ctx->newList();
+        for (long long i = start; str && i < end; i++) {
+            uint16_t unit = 0;
+            if (!utf16UnitAt(ctx, str, i, unit)) break;
+            els = els->appendLast(ctx, stringOfCodePoint(ctx, unit));
+        }
+        setArrayElements(ctx, result, els);
+        return arrSetLen(ctx, result, static_cast<proto::proto_ulong>(end - start));
+    }
 
     // Native fast path: real array, no accessors / no inherited setters
     // on EITHER source or destination, source has no holes in the
