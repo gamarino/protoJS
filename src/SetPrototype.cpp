@@ -1,4 +1,5 @@
 #include "ProtoCoreTypes.h"
+#include "runtime/JSStringBytes.h"
 #include "runtime/PinnedBuiltin.h"
 #include "SetPrototype.h"
 #include "ArrayPrototype.h"
@@ -761,7 +762,7 @@ static const proto::ProtoObject* setConstruct(
                         if (i + len > utf8.size()) break;
                         std::string single = utf8.substr(i, len);
                         const proto::ProtoObject* val =
-                            ctx->fromUTF8String(single.c_str());
+                            protojs::jsStringFromUTF8(ctx, single);
                         setAddValue(ctx, self, val);
                         i += len;
                     }
@@ -1092,7 +1093,7 @@ static bool getSetRecord(proto::ProtoContext* ctx,
         const proto::ProtoObject* v = obj->getAttribute(ctx, ks, true);
         if (!v || v == PROTO_NONE || v == getUndefinedSentinel()) {
             std::string gkStr = std::string("__get_") + key + "__";
-            const proto::ProtoObject* gko = ctx->fromUTF8String(gkStr.c_str());
+            const proto::ProtoObject* gko = protojs::jsStringFromUTF8(ctx, gkStr);
             const proto::ProtoString* gks = gko ? gko->asString(ctx) : nullptr;
             if (gks) {
                 const proto::ProtoObject* getter = obj->getAttribute(ctx, gks, true);

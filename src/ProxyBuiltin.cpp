@@ -1,4 +1,5 @@
 #include "ProtoCoreTypes.h"
+#include "runtime/JSStringBytes.h"
 #include "runtime/PropertyDictionary.h"
 #include "ProxyBuiltin.h"
 #include "runtime/LazyPrototype.h"
@@ -102,7 +103,7 @@ static const proto::ProtoObject* lookupTrap(
         // via hasCallException (test262 setPrototypeOf/return-abrupt-
         // from-get-trap.js).
         std::string gks = std::string("__get_") + trapName + "__";
-        const proto::ProtoObject* gko = ctx->fromUTF8String(gks.c_str());
+        const proto::ProtoObject* gko = protojs::jsStringFromUTF8(ctx, gks);
         const proto::ProtoString* gk = gko ? gko->asString(ctx) : nullptr;
         if (gk) {
             const proto::ProtoObject* getter = handler->getAttribute(ctx, gk, true);
@@ -168,7 +169,7 @@ static int probeDescriptorBits(proto::ProtoContext* ctx,
     // freshly created own data props that omit the descriptor have
     // ALL flags set.
     const std::string pdStr = "__pd_" + kstr + "__";
-    const proto::ProtoObject* pdo = ctx->fromUTF8String(pdStr.c_str());
+    const proto::ProtoObject* pdo = protojs::jsStringFromUTF8(ctx, pdStr);
     const proto::ProtoString* pdk = pdo ? pdo->asString(ctx) : nullptr;
     if (!pdk) return 0x7;
     if (target->hasOwnAttribute(ctx, pdk) != PROTO_TRUE) return 0x7;
@@ -187,8 +188,8 @@ static OwnDescriptor probeOwnDescriptor(proto::ProtoContext* ctx,
     // Accessor descriptor: own __get_<key>__ or __set_<key>__ present.
     const std::string gks = "__get_" + kstr + "__";
     const std::string sks = "__set_" + kstr + "__";
-    const proto::ProtoObject* gko = ctx->fromUTF8String(gks.c_str());
-    const proto::ProtoObject* sko = ctx->fromUTF8String(sks.c_str());
+    const proto::ProtoObject* gko = protojs::jsStringFromUTF8(ctx, gks);
+    const proto::ProtoObject* sko = protojs::jsStringFromUTF8(ctx, sks);
     const proto::ProtoString* gk = gko ? gko->asString(ctx) : nullptr;
     const proto::ProtoString* sk = sko ? sko->asString(ctx) : nullptr;
     bool hasOwnGetter = gk && target->hasOwnAttribute(ctx, gk) == PROTO_TRUE;
@@ -353,7 +354,7 @@ static const proto::ProtoObject* defaultGet(proto::ProtoContext* ctx,
     // when t had `get attr(){ return this }`.
     std::string ks; key->toUTF8String(ctx, ks);
     const std::string gks = "__get_" + ks + "__";
-    const proto::ProtoObject* gko = ctx->fromUTF8String(gks.c_str());
+    const proto::ProtoObject* gko = protojs::jsStringFromUTF8(ctx, gks);
     const proto::ProtoString* gk = gko ? gko->asString(ctx) : nullptr;
     if (gk) {
         const proto::ProtoObject* getter = target->getAttribute(ctx, gk, true);
@@ -405,7 +406,7 @@ static const proto::ProtoObject* defaultGet(proto::ProtoContext* ctx,
                                 size_t cl = (c < 0x80) ? 1 : (c < 0xE0) ? 2
                                           : (c < 0xF0) ? 3 : 4;
                                 if (bi + cl <= s.size())
-                                    return ctx->fromUTF8String(s.substr(bi, cl).c_str());
+                                    return protojs::jsStringFromUTF8(ctx, s.substr(bi, cl));
                             }
                         }
                     }
@@ -640,7 +641,7 @@ const proto::ProtoObject* proxyDispatchSet(proto::ProtoContext* ctx,
             if (od.hasSetter) {
                 std::string ks; propKey->toUTF8String(ctx, ks);
                 std::string sks = "__set_" + ks + "__";
-                const proto::ProtoObject* sko = ctx->fromUTF8String(sks.c_str());
+                const proto::ProtoObject* sko = protojs::jsStringFromUTF8(ctx, sks);
                 const proto::ProtoString* skKey = sko ? sko->asString(ctx) : nullptr;
                 const proto::ProtoObject* setter = skKey
                     ? target->getAttribute(ctx, skKey, true) : nullptr;
@@ -902,7 +903,7 @@ const proto::ProtoObject* proxyDispatchDelete(proto::ProtoContext* ctx,
         propKey->toUTF8String(ctx, kstr);
         for (const char* prefix : {"__get_", "__set_", "__pd_"}) {
             std::string sk = std::string(prefix) + kstr + "__";
-            const proto::ProtoObject* sko = ctx->fromUTF8String(sk.c_str());
+            const proto::ProtoObject* sko = protojs::jsStringFromUTF8(ctx, sk);
             const proto::ProtoString* sks = sko ? sko->asString(ctx) : nullptr;
             if (sks && target->hasOwnAttribute(ctx, sks) == PROTO_TRUE) {
                 const_cast<proto::ProtoObject*>(target)->setAttribute(ctx, sks, nullptr);
@@ -984,7 +985,7 @@ const proto::ProtoObject* proxyDispatchOwnKeys(
             kv = fastEls->getAt(ctx, static_cast<int>(i));
         } else {
             std::string idx = std::to_string(i);
-            const proto::ProtoObject* idxKey = ctx->fromUTF8String(idx.c_str());
+            const proto::ProtoObject* idxKey = protojs::jsStringFromUTF8(ctx, idx);
             const proto::ProtoString* ik = idxKey ? idxKey->asString(ctx) : nullptr;
             if (ik) kv = trapResult->getAttribute(ctx, ik, true);
         }
@@ -1679,8 +1680,8 @@ const proto::ProtoObject* proxyDispatchGetOwnPropertyDescriptor(
         std::string kstr; propKey->toUTF8String(ctx, kstr);
         const std::string gks = "__get_" + kstr + "__";
         const std::string sks = "__set_" + kstr + "__";
-        const proto::ProtoObject* gko = ctx->fromUTF8String(gks.c_str());
-        const proto::ProtoObject* sko = ctx->fromUTF8String(sks.c_str());
+        const proto::ProtoObject* gko = protojs::jsStringFromUTF8(ctx, gks);
+        const proto::ProtoObject* sko = protojs::jsStringFromUTF8(ctx, sks);
         const proto::ProtoString* gk = gko ? gko->asString(ctx) : nullptr;
         const proto::ProtoString* sk = sko ? sko->asString(ctx) : nullptr;
         putV("get",          gk ? target->getAttribute(ctx, gk, false) : nullptr);

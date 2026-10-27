@@ -1,4 +1,5 @@
 #include "ProtoCoreTypes.h"
+#include "runtime/JSStringBytes.h"
 #include "JSNumber.h"
 #include "MathBuiltin.h"
 #include "JSSymbols.h"
@@ -490,7 +491,7 @@ void ensureMathObject(proto::ProtoContext* ctx,
         // Math methods themselves carry the standard built-in descriptor
         // {writable:true, enumerable:false, configurable:true} → 0x3.
         std::string pd = std::string("__pd_") + name + "__";
-        const proto::ProtoObject* pko = ctx->fromUTF8String(pd.c_str());
+        const proto::ProtoObject* pko = protojs::jsStringFromUTF8(ctx, pd);
         const proto::ProtoString* pdk = pko ? pko->asString(ctx) : nullptr;
         if (pdk) math = math->setAttribute(ctx, pdk, ctx->fromInteger(0x3LL));
     };
@@ -505,7 +506,7 @@ void ensureMathObject(proto::ProtoContext* ctx,
         // so `delete Math.PI` returned true and Math.PI = 99 silently
         // overwrote the value.
         std::string pd = std::string("__pd_") + name + "__";
-        const proto::ProtoObject* pko = ctx->fromUTF8String(pd.c_str());
+        const proto::ProtoObject* pko = protojs::jsStringFromUTF8(ctx, pd);
         const proto::ProtoString* pdk = pko ? pko->asString(ctx) : nullptr;
         if (pdk) math = math->setAttribute(ctx, pdk, ctx->fromInteger(0LL));
         // Hot-path hint mirroring the constructor sweep in Round 12 —

@@ -1,4 +1,5 @@
 #include "PrototypeUtils.h"
+#include "runtime/JSStringBytes.h"
 #include "JSSymbols.h"
 #include <string>
 
@@ -73,7 +74,7 @@ const proto::ProtoObject* installNonEnumerableMethod(
     if (mk) {
         proto = proto->setAttribute(ctx, mk, methodObj);
         std::string pdStr = std::string("__pd_") + methodName + "__";
-        const proto::ProtoObject* pdko = ctx->fromUTF8String(pdStr.c_str());
+        const proto::ProtoObject* pdko = protojs::jsStringFromUTF8(ctx, pdStr);
         const proto::ProtoString* pdks = pdko ? pdko->asString(ctx) : nullptr;
         if (pdks) proto = proto->setAttribute(ctx, pdks, ctx->fromInteger(0x3LL));
     }

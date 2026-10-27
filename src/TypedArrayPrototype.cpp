@@ -1,4 +1,5 @@
 #include "ProtoCoreTypes.h"
+#include "runtime/JSStringBytes.h"
 #include "JSNumber.h"
 #include "TypedArrayPrototype.h"
 #include "ArrayBufferPrototype.h"
@@ -624,7 +625,7 @@ static const proto::ProtoObject* ta_join(
             }
         }
     }
-    return ctx->fromUTF8String(result.c_str());
+    return protojs::jsStringFromUTF8(ctx, result);
 }
 
 static const proto::ProtoObject* ta_reverse(
@@ -1761,7 +1762,7 @@ void ensureTypedArrayConstructors(proto::ProtoContext* ctx,
             "entries", "Symbol.iterator"};
         for (const char* m : kMethods) {
             const std::string pd = std::string("__pd_") + m + "__";
-            const proto::ProtoObject* ko = ctx->fromUTF8String(pd.c_str());
+            const proto::ProtoObject* ko = protojs::jsStringFromUTF8(ctx, pd);
             if (const proto::ProtoString* k = ko ? ko->asString(ctx) : nullptr)
                 baseProto = baseProto->setAttribute(ctx, k, ctx->fromInteger(0x3LL));
         }
@@ -1792,9 +1793,9 @@ void ensureTypedArrayConstructors(proto::ProtoContext* ctx,
             getter = getter->setAttribute(ctx, JSSymbols::hasNonWritableProps(ctx), PROTO_TRUE);
             const std::string gk = std::string("__get_") + g.key + "__";
             const std::string pd = std::string("__pd_") + g.key + "__";
-            baseProto = baseProto->setAttribute(ctx, ctx->fromUTF8String(gk.c_str())->asString(ctx), getter);
+            baseProto = baseProto->setAttribute(ctx, protojs::jsStringFromUTF8(ctx, gk)->asString(ctx), getter);
             baseProto = baseProto->setAttribute(ctx, ctx->fromUTF8String(g.key)->asString(ctx), PROTO_NONE);
-            baseProto = baseProto->setAttribute(ctx, ctx->fromUTF8String(pd.c_str())->asString(ctx),
+            baseProto = baseProto->setAttribute(ctx, protojs::jsStringFromUTF8(ctx, pd)->asString(ctx),
                                                 ctx->fromInteger(0x2LL));
         }
         baseProto = baseProto->setAttribute(ctx, JSSymbols::hasAccessorProps(ctx), PROTO_TRUE);

@@ -1,4 +1,5 @@
 #include "BigIntPrototype.h"
+#include "runtime/JSStringBytes.h"
 #include "runtime/ThreadIdentity.h"
 #include "JSContext.h"
 #include "JSSymbols.h"
@@ -711,7 +712,7 @@ static const proto::ProtoObject* installMethod(proto::ProtoContext* ctx,
         // §17: own methods on builtin prototype default to
         // {writable:true, enumerable:false, configurable:true} = 0x3.
         std::string pdStr = std::string("__pd_") + name + "__";
-        const proto::ProtoObject* pdko = ctx->fromUTF8String(pdStr.c_str());
+        const proto::ProtoObject* pdko = protojs::jsStringFromUTF8(ctx, pdStr);
         const proto::ProtoString* pdk = pdko ? pdko->asString(ctx) : nullptr;
         if (pdk) {
             const_cast<proto::ProtoObject*&>(proto) =

@@ -6,6 +6,7 @@
 #include "../JSSymbols.h"
 #include "../debugger/DebugHooks.h"
 #include "PropertyDictionary.h"
+#include "JSStringBytes.h"
 #include <cstring>
 #include "../TypeBridge.h"
 #include "quickjs.h"
@@ -36,19 +37,21 @@ static void preResolveAllAtoms(JSContext* ctx, ProtoBytecodeModule* mod,
     for (const PutFieldGroup& g : mod->putFieldGroups) {
         for (uint32_t atomIndex : g.atoms) {
             if (mod->atomToProto.find(atomIndex) != mod->atomToProto.end()) continue;
-            const char* str = JS_AtomToCString(ctx, (JSAtom)atomIndex);
+            size_t strLen = 0;
+            const char* str = JS_AtomToCStringLen(ctx, &strLen, (JSAtom)atomIndex);
             if (!str) continue;
-            const proto::ProtoString* ps = proto::ProtoString::createSymbol(pContext, str);
-            protojs::dict::noteVocabulary(str, std::strlen(str));  // program vocabulary
+            const proto::ProtoString* ps = protojs::jsSymbolFromUTF8(pContext, str, strLen);
+            protojs::dict::noteVocabulary(str, strLen);  // program vocabulary
             JS_FreeCString(ctx, str);
             if (ps) mod->atomToProto[atomIndex] = ps;
         }
         for (const auto& r : g.reads) {
             if (mod->atomToProto.find(r.atom) != mod->atomToProto.end()) continue;
-            const char* str = JS_AtomToCString(ctx, (JSAtom)r.atom);
+            size_t strLen = 0;
+            const char* str = JS_AtomToCStringLen(ctx, &strLen, (JSAtom)r.atom);
             if (!str) continue;
-            const proto::ProtoString* ps = proto::ProtoString::createSymbol(pContext, str);
-            protojs::dict::noteVocabulary(str, std::strlen(str));  // program vocabulary
+            const proto::ProtoString* ps = protojs::jsSymbolFromUTF8(pContext, str, strLen);
+            protojs::dict::noteVocabulary(str, strLen);  // program vocabulary
             JS_FreeCString(ctx, str);
             if (ps) mod->atomToProto[r.atom] = ps;
         }
@@ -83,10 +86,11 @@ static void preResolveAllAtoms(JSContext* ctx, ProtoBytecodeModule* mod,
             uint32_t atomIndex = (uint32_t)buf[pc+1] | ((uint32_t)buf[pc+2] << 8) |
                                  ((uint32_t)buf[pc+3] << 16) | ((uint32_t)buf[pc+4] << 24);
             if (mod->atomToProto.find(atomIndex) == mod->atomToProto.end()) {
-                const char* str = JS_AtomToCString(ctx, (JSAtom)atomIndex);
+                size_t strLen = 0;
+                const char* str = JS_AtomToCStringLen(ctx, &strLen, (JSAtom)atomIndex);
                 if (str) {
-                    const proto::ProtoString* ps = proto::ProtoString::createSymbol(pContext, str);
-                    protojs::dict::noteVocabulary(str, std::strlen(str));  // program vocabulary
+                    const proto::ProtoString* ps = protojs::jsSymbolFromUTF8(pContext, str, strLen);
+                    protojs::dict::noteVocabulary(str, strLen);  // program vocabulary
                     JS_FreeCString(ctx, str);
                     if (ps) mod->atomToProto[atomIndex] = ps;
                 }
@@ -191,9 +195,10 @@ static void lowerClassConstructorPush(std::vector<uint8_t>& code) {
 // code can name too (`o.__proto__`) and which the per-write path interprets.
 static bool putFieldGroupNameEligible(void* user, uint32_t atom) {
     JSContext* ctx = static_cast<JSContext*>(user);
-    const char* str = JS_AtomToCString(ctx, (JSAtom)atom);
+    size_t strLen = 0;
+    const char* str = JS_AtomToCStringLen(ctx, &strLen, (JSAtom)atom);
     if (!str) return false;
-    const std::string name(str);
+    const std::string name(str, strLen);
     JS_FreeCString(ctx, str);
     if (name.empty() || name == "length" || name == "prototype") return false;
     if (name.size() >= 2 && name[0] == '_' && name[1] == '_') return false;
@@ -433,11 +438,11 @@ static bool loadBytecodeRecursive(JSContext* ctx,
     // The function's name and source text as strings, made once here instead
     // of once per closure; the metadata keeps them alive.
     out->funcNameValue = out->funcName.empty()
-        ? nullptr : pContext->fromUTF8String(out->funcName.c_str());
+        ? nullptr : protojs::jsStringFromUTF8(pContext, out->funcName);
     if (out->funcNameValue)
         meta = meta->setAttribute(pContext, JSSymbols::name(pContext), out->funcNameValue);
     out->funcSourceValue = out->funcSource.empty()
-        ? nullptr : pContext->fromUTF8String(out->funcSource.c_str());
+        ? nullptr : protojs::jsStringFromUTF8(pContext, out->funcSource);
     if (out->funcSourceValue)
         meta = meta->setAttribute(pContext, JSSymbols::sourceText(pContext), out->funcSourceValue);
     out->metadata = meta;

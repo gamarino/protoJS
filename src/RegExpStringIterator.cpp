@@ -1,4 +1,5 @@
 #include "ProtoCoreTypes.h"
+#include "runtime/JSStringBytes.h"
 #include "runtime/PinnedBuiltin.h"
 #include "RegExpStringIterator.h"
 #include "RegExpPrototype.h"
@@ -79,7 +80,7 @@ static const proto::ProtoObject* regexpStringIteratorNext(
     const proto::ProtoObject* subject = strObj;
     if (!proto::ProtoObject::isStringTagFast(subject)) {
         std::string str = objToStrLocal(ctx, strObj);
-        subject = ctx->fromUTF8String(str.c_str());
+        subject = protojs::jsStringFromUTF8(ctx, str);
     }
     const proto::ProtoList* execArgs = ctx->newList();
     execArgs = execArgs->appendLast(ctx, subject);
@@ -247,12 +248,12 @@ const proto::ProtoObject* regexpSymbolMatchAll(
     const proto::ProtoObject* clone = ctx->newObject(true);
     clone = clone->setAttribute(ctx, JSSymbols::reBytecode(ctx),
         ctx->fromBuffer(static_cast<proto::proto_ulong>(bc_len), bcCopy, true));
-    clone = clone->setAttribute(ctx, JSSymbols::source(ctx),    ctx->fromUTF8String(patternStr.c_str()));
-    clone = clone->setAttribute(ctx, JSSymbols::flags(ctx),     ctx->fromUTF8String(flagsStr.c_str()));
+    clone = clone->setAttribute(ctx, JSSymbols::source(ctx),    protojs::jsStringFromUTF8(ctx, patternStr));
+    clone = clone->setAttribute(ctx, JSSymbols::flags(ctx),     protojs::jsStringFromUTF8(ctx, flagsStr));
     clone = clone->setAttribute(ctx, JSSymbols::lastIndex(ctx), ctx->fromInteger(0));
     clone = clone->setAttribute(ctx, JSSymbols::global(ctx),    PROTO_TRUE);
 
-    const proto::ProtoObject* strProtoObj = ctx->fromUTF8String(str.c_str());
+    const proto::ProtoObject* strProtoObj = protojs::jsStringFromUTF8(ctx, str);
     return makeRegExpStringIterator(ctx, clone, strProtoObj);
 }
 

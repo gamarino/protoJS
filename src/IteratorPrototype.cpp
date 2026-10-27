@@ -1,4 +1,5 @@
 #include "ProtoCoreTypes.h"
+#include "runtime/JSStringBytes.h"
 #include "runtime/PropertyDictionary.h"
 #include "runtime/PinnedBuiltin.h"
 #include "IteratorPrototype.h"
@@ -973,7 +974,7 @@ static void installHelper(proto::ProtoContext* ctx,
     if (mK) {
         *proto = (*proto)->setAttribute(ctx, mK, wrap);
         std::string pdName = std::string("__pd_") + name + "__";
-        const proto::ProtoObject* pdo = ctx->fromUTF8String(pdName.c_str());
+        const proto::ProtoObject* pdo = protojs::jsStringFromUTF8(ctx, pdName);
         const proto::ProtoString* pdK = pdo ? pdo->asString(ctx) : nullptr;
         if (pdK) *proto = (*proto)->setAttribute(ctx, pdK, ctx->fromInteger(0x3LL));
     }
@@ -1503,7 +1504,7 @@ static const proto::ProtoObject* iteratorZipKeyed(
                 closeGathered();
                 return PROTO_NONE;
             }
-            keysEls = keysEls->appendLast(ctx, ctx->fromUTF8String(ks.c_str()));
+            keysEls = keysEls->appendLast(ctx, protojs::jsStringFromUTF8(ctx, ks));
             itersEls = itersEls->appendLast(ctx, inner);
             count++;
         }
@@ -1577,7 +1578,7 @@ const proto::ProtoObject* installIteratorStatics(
         if (mK) {
             stub = stub->setAttribute(ctx, mK, wrap);
             std::string pdName = std::string("__pd_") + name + "__";
-            const proto::ProtoObject* pdo = ctx->fromUTF8String(pdName.c_str());
+            const proto::ProtoObject* pdo = protojs::jsStringFromUTF8(ctx, pdName);
             const proto::ProtoString* pdK = pdo ? pdo->asString(ctx) : nullptr;
             if (pdK) stub = stub->setAttribute(ctx, pdK, ctx->fromInteger(0x3LL));
         }

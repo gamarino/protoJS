@@ -15,6 +15,7 @@
 // mutable objects is formed (protoCore docs/MemoryModel.md §7).
 
 #include "PromisePrototype.h"
+#include "runtime/JSStringBytes.h"
 
 #include "ArrayElementsStorage.h"
 #include "ArrayPrototype.h"
@@ -807,7 +808,7 @@ bool getIterator(proto::ProtoContext* ctx, const proto::ProtoObject* obj, Iterat
             unsigned char c = static_cast<unsigned char>(s[i]);
             size_t len = c < 0x80 ? 1 : (c >> 5) == 0x6 ? 2 : (c >> 4) == 0xE ? 3 : 4;
             if (i + len > s.size()) len = s.size() - i;
-            items = items->appendLast(ctx, ctx->fromUTF8String(s.substr(i, len).c_str()));
+            items = items->appendLast(ctx, protojs::jsStringFromUTF8(ctx, s.substr(i, len)));
             i += len;
         }
         rec.stringItems = items;

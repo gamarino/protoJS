@@ -1,4 +1,5 @@
 #include "ProtoCoreTypes.h"
+#include "runtime/JSStringBytes.h"
 #include "RegExpPrototype.h"
 #include "runtime/ThreadIdentity.h"
 #include "RegExpStringIterator.h"
@@ -454,7 +455,7 @@ const proto::ProtoObject* regexpToString(
         k->toUTF8String(ctx, nameUtf8);
         std::string gkBuf = "__get_" + nameUtf8 + "__";
         const proto::ProtoString* gk =
-            ctx->fromUTF8String(gkBuf.c_str())->asString(ctx);
+            protojs::jsStringFromUTF8(ctx, gkBuf)->asString(ctx);
         const proto::ProtoObject* getter = gk
             ? self->getAttribute(ctx, gk, true) : PROTO_NONE;
         const proto::ProtoObject* val = nullptr;
@@ -469,7 +470,7 @@ const proto::ProtoObject* regexpToString(
     std::string flg = invoke(flgKey);
 
     if (src.empty()) src = "(?:)";
-    return ctx->fromUTF8String(("/" + src + "/" + flg).c_str());
+    return protojs::jsStringFromUTF8(ctx, "/" + src + "/" + flg);
 }
 
 // ---------------------------------------------------------------------------
@@ -567,8 +568,8 @@ const proto::ProtoObject* regexpConstructor(
         }
         if (escSrc.empty()) escSrc = "(?:)";
     }
-    obj = obj->setAttribute(ctx, srcKey, ctx->fromUTF8String(escSrc.c_str()));
-    obj = obj->setAttribute(ctx, flgKey, ctx->fromUTF8String(flags_str.c_str()));
+    obj = obj->setAttribute(ctx, srcKey, protojs::jsStringFromUTF8(ctx, escSrc));
+    obj = obj->setAttribute(ctx, flgKey, protojs::jsStringFromUTF8(ctx, flags_str));
     obj = obj->setAttribute(ctx, liKey, ctx->fromInteger(0));
     // §22.2.7.5 RegExp instance descriptors: every own data property
     // (lastIndex, source, flags, global, ignoreCase, multiline, dotAll,
@@ -586,7 +587,7 @@ const proto::ProtoObject* regexpConstructor(
                                "multiline","dotAll","unicode","sticky",
                                "hasIndices"}) {
             std::string pds = std::string("__pd_") + nm + "__";
-            const proto::ProtoObject* pdo = ctx->fromUTF8String(pds.c_str());
+            const proto::ProtoObject* pdo = protojs::jsStringFromUTF8(ctx, pds);
             const proto::ProtoString* pdss = pdo ? pdo->asString(ctx) : nullptr;
             if (pdss) obj = obj->setAttribute(ctx, pdss, ctx->fromInteger(0x3LL));
         }
@@ -668,7 +669,7 @@ const proto::ProtoObject* regexpSymbolReplace(
     const proto::ProtoObject* replaceValue = args->getAt(ctx, 1);
 
     const proto::ProtoObject* bcObj = self->getAttribute(ctx, JSSymbols::reBytecode(ctx), false);
-    if (!bcObj || bcObj == PROTO_NONE) return ctx->fromUTF8String(str.c_str());
+    if (!bcObj || bcObj == PROTO_NONE) return protojs::jsStringFromUTF8(ctx, str);
 
     const proto::ProtoByteBuffer* bcBuf = reinterpret_cast<const proto::ProtoByteBuffer*>(bcObj);
     const uint8_t* bc = reinterpret_cast<const uint8_t*>(bcBuf->getBuffer(ctx));
@@ -709,7 +710,12 @@ const proto::ProtoObject* regexpSymbolReplace(
     std::string result;
     size_t lastMatchEnd = 0;
 
-    const proto::ProtoObject* strArg = ctx->fromUTF8String(str.c_str());
+    // The subject itself when it is a string primitive: each exec of the walk
+    // then finds its UTF-16 form memoised (execSubjectOf).
+    const proto::ProtoObject* subjectArg = args->getAt(ctx, 0);
+    const proto::ProtoObject* strArg =
+        (proto::ProtoObject::isStringTagFast(subjectArg) && subjectArg->asString(ctx))
+            ? subjectArg : protojs::jsStringFromUTF8(ctx, str);
     const proto::ProtoList* execArgs = ctx->newList();
     execArgs = execArgs->appendLast(ctx, strArg);
 
@@ -768,7 +774,7 @@ const proto::ProtoObject* regexpSymbolReplace(
             // replacement, so every regex /.../ + function callback was a
             // no-op (Sputnik S15.5.4.11_A4_T1..4).
             const proto::ProtoList* callArgs = ctx->newList();
-            callArgs = callArgs->appendLast(ctx, ctx->fromUTF8String(fullMatch.c_str()));
+            callArgs = callArgs->appendLast(ctx, protojs::jsStringFromUTF8(ctx, fullMatch));
             // Walk numbered captures sequentially via indexKey(1..N).
             // Stop on the first absent slot — the match exposes captures
             // as own integer-indexed attrs starting at 1, with the
@@ -808,7 +814,7 @@ const proto::ProtoObject* regexpSymbolReplace(
     }
 
     result += utf16ToUTF8(u16, lastMatchEnd);
-    return ctx->fromUTF8String(result.c_str());
+    return protojs::jsStringFromUTF8(ctx, result);
 }
 
 const proto::ProtoObject* regexpSymbolSearch(
@@ -851,7 +857,7 @@ const proto::ProtoObject* regexpSymbolSplit(
     const proto::ProtoObject* bcObj = self->getAttribute(ctx, JSSymbols::reBytecode(ctx), false);
     if (!bcObj || bcObj == PROTO_NONE) {
         const proto::ProtoObject* r = createNewArray(ctx, nullptr);
-        r = r->setAttribute(ctx, JSSymbols::indexKey(ctx, 0), ctx->fromUTF8String(str.c_str()));
+        r = r->setAttribute(ctx, JSSymbols::indexKey(ctx, 0), protojs::jsStringFromUTF8(ctx, str));
         r = r->setAttribute(ctx, JSSymbols::length(ctx), ctx->fromInteger(1));
         return r;
     }
@@ -872,7 +878,7 @@ const proto::ProtoObject* regexpSymbolSplit(
                                      patternStr.c_str(), patternStr.size(), stickyFlags, opaque);
     if (!stickyBc) {
         const proto::ProtoObject* r = createNewArray(ctx, nullptr);
-        r = r->setAttribute(ctx, JSSymbols::indexKey(ctx, 0), ctx->fromUTF8String(str.c_str()));
+        r = r->setAttribute(ctx, JSSymbols::indexKey(ctx, 0), protojs::jsStringFromUTF8(ctx, str));
         r = r->setAttribute(ctx, JSSymbols::length(ctx), ctx->fromInteger(1));
         return r;
     }
@@ -917,7 +923,7 @@ const proto::ProtoObject* regexpSymbolSplit(
 
         std::string piece = utf16ToUTF8(u16, lastEnd, matchStart);
         result = result->setAttribute(ctx, JSSymbols::indexKey(ctx, static_cast<uint32_t>(resultLen++)),
-                                      ctx->fromUTF8String(piece.c_str()));
+                                      protojs::jsStringFromUTF8(ctx, piece));
         if (limit != -1 && resultLen >= limit) goto done;
 
         for (int i = 1; i < captureCount; i++) {
@@ -944,7 +950,7 @@ done:
     if (limit == -1 || resultLen < limit) {
         std::string tail = utf16ToUTF8(u16, lastEnd);
         result = result->setAttribute(ctx, JSSymbols::indexKey(ctx, static_cast<uint32_t>(resultLen++)),
-                                      ctx->fromUTF8String(tail.c_str()));
+                                      protojs::jsStringFromUTF8(ctx, tail));
     }
 
     result = result->setAttribute(ctx, JSSymbols::length(ctx), ctx->fromInteger(resultLen));
@@ -1064,7 +1070,7 @@ static const proto::ProtoObject* reFlagsGetter(
     probe(JSSymbols::unicode(ctx),    'u');
     // unicodeSets ("v") falls through silently; not all builds expose it.
     probe(JSSymbols::sticky(ctx),     'y');
-    return ctx->fromUTF8String(result.c_str());
+    return protojs::jsStringFromUTF8(ctx, result);
 }
 
 // §22.2.6.10 RegExp.prototype.source getter — returns the pattern text
@@ -1111,7 +1117,7 @@ static const proto::ProtoObject* installRegExpGetter(
     const proto::ProtoString* pdlk = pdlo ? pdlo->asString(ctx) : nullptr;
     if (pdlk) getter = getter->setAttribute(ctx, pdlk, ctx->fromInteger(0x2LL));
     std::string nm = std::string("get ") + nameStr;
-    getter = getter->setAttribute(ctx, JSSymbols::name(ctx), ctx->fromUTF8String(nm.c_str()));
+    getter = getter->setAttribute(ctx, JSSymbols::name(ctx), protojs::jsStringFromUTF8(ctx, nm));
     const proto::ProtoObject* pdno = ctx->fromUTF8String("__pd_name__");
     const proto::ProtoString* pdnk = pdno ? pdno->asString(ctx) : nullptr;
     if (pdnk) getter = getter->setAttribute(ctx, pdnk, ctx->fromInteger(0x2LL));
@@ -1122,13 +1128,13 @@ static const proto::ProtoObject* installRegExpGetter(
     // win on getOwnPropertyDescriptor(RegExp.prototype, name).
     std::string gkStr = "__get_" + std::string(nameStr) + "__";
     const proto::ProtoString* gk =
-        ctx->fromUTF8String(gkStr.c_str())->asString(ctx);
+        protojs::jsStringFromUTF8(ctx, gkStr)->asString(ctx);
     if (gk) sp = sp->setAttribute(ctx, gk, getter);
     const proto::ProtoString* nk = ctx->fromUTF8String(nameStr)->asString(ctx);
     if (nk) sp = sp->setAttribute(ctx, nk, PROTO_NONE);
     std::string pdStr = "__pd_" + std::string(nameStr) + "__";
     const proto::ProtoString* pdk =
-        ctx->fromUTF8String(pdStr.c_str())->asString(ctx);
+        protojs::jsStringFromUTF8(ctx, pdStr)->asString(ctx);
     if (pdk) sp = sp->setAttribute(ctx, pdk, ctx->fromInteger(0x2LL));
     return sp;
 }
@@ -1176,7 +1182,7 @@ const proto::ProtoObject* BuildRegExpPrototype(proto::ProtoSpace* space, proto::
         // Object/getOwnPropertyDescriptor/15.2.3.3-4-165.js).
         std::string pks = "__pd_" + std::string(name) + "__";
         const proto::ProtoObject* pko =
-            ctx->fromUTF8String(pks.c_str());
+            protojs::jsStringFromUTF8(ctx, pks);
         const proto::ProtoString* pksk = pko ? pko->asString(ctx) : nullptr;
         if (pksk) sp = sp->setAttribute(ctx, pksk, ctx->fromInteger(0x3LL));
     };

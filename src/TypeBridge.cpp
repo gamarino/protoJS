@@ -10,6 +10,7 @@
 #include "JSSymbols.h"
 #include "BigIntPrototype.h"
 #include "runtime/PropertyDictionary.h"
+#include "runtime/JSStringBytes.h"
 #include <cmath>
 #include <string>
 #include <vector>
@@ -35,7 +36,7 @@ const proto::ProtoObject* TypeBridge::fromJSON(JSContext* ctx, JSValue val, prot
         size_t len = 0;
         const char* str = JS_ToCStringLen(ctx, &len, val);
         if (!str) return PROTO_NONE;
-        const proto::ProtoObject* s = pContext->fromUTF8String(str);
+        const proto::ProtoObject* s = protojs::jsStringFromUTF8(pContext, str, len);
         JS_FreeCString(ctx, str);
         return s ? s : PROTO_NONE;
     }
@@ -78,10 +79,11 @@ const proto::ProtoObject* TypeBridge::fromJSON(JSContext* ctx, JSValue val, prot
         if (JS_GetOwnPropertyNames(ctx, &props, &count, val, JS_GPN_STRING_MASK) == 0) {
             for (uint32_t i = 0; i < count; i++) {
                 JSValue propVal = JS_GetProperty(ctx, val, props[i].atom);
-                const char* name = JS_AtomToCString(ctx, props[i].atom);
+                size_t nameLen = 0;
+                const char* name = JS_AtomToCStringLen(ctx, &nameLen, props[i].atom);
                 const proto::ProtoObject* pVal = fromJSON(ctx, propVal, pContext);
                 if (name) {
-                    const proto::ProtoObject* ko = pContext->fromUTF8String(name);
+                    const proto::ProtoObject* ko = protojs::jsStringFromUTF8(pContext, name, nameLen);
                     const proto::ProtoString* key = ko ? ko->asString(pContext) : nullptr;
                     if (key && dict::isDynamicKeyFor(pContext, objectProto, key)) {
                         dictionary.add(key, pVal);
@@ -137,8 +139,10 @@ const proto::ProtoObject* TypeBridge::fromJS(JSContext* ctx, JSValue val, proto:
     }
 
     if (JS_IsString(val)) {
-        const char* str = JS_ToCString(ctx, val);
-        const proto::ProtoString* pStr = proto::ProtoString::createSymbol(pContext, str);
+        size_t len = 0;
+        const char* str = JS_ToCStringLen(ctx, &len, val);
+        if (!str) return PROTO_NONE;
+        const proto::ProtoString* pStr = protojs::jsSymbolFromUTF8(pContext, str, len);
         JS_FreeCString(ctx, str);
         return pStr->asObject(pContext);
     }
@@ -232,18 +236,20 @@ const proto::ProtoObject* TypeBridge::fromJS(JSContext* ctx, JSValue val, proto:
                                    JS_GPN_STRING_MASK) == 0) {
             for (uint32_t pi = 0; pi < plen; ++pi) {
                 JSAtom atom = tab[pi].atom;
-                const char* keyName = JS_AtomToCString(ctx, atom);
+                size_t keyLen = 0;
+                const char* keyName = JS_AtomToCStringLen(ctx, &keyLen, atom);
                 if (keyName) {
-                    bool isIndex = (keyName[0] != '\0');
-                    for (const char* p = keyName; isIndex && *p; ++p)
-                        if (*p < '0' || *p > '9') isIndex = false;
-                    if (!isIndex && strcmp(keyName, "length") != 0) {
+                    bool isIndex = (keyLen != 0);
+                    for (size_t q = 0; isIndex && q < keyLen; ++q)
+                        if (keyName[q] < '0' || keyName[q] > '9') isIndex = false;
+                    const bool isLength = (keyLen == 6 && strcmp(keyName, "length") == 0);
+                    if (!isIndex && !isLength) {
                         JSValue propVal = JS_GetProperty(ctx, val, atom);
                         if (!JS_IsException(propVal)) {
                             const proto::ProtoObject* p =
                                 fromJS(ctx, propVal, pContext);
                             const proto::ProtoObject* ko =
-                                pContext->fromUTF8String(keyName);
+                                protojs::jsStringFromUTF8(pContext, keyName, keyLen);
                             const proto::ProtoString* ks =
                                 ko ? ko->asString(pContext) : nullptr;
                             if (ks)
@@ -489,10 +495,11 @@ const proto::ProtoObject* TypeBridge::fromJS(JSContext* ctx, JSValue val, proto:
         if (JS_GetOwnPropertyNames(ctx, &props, &prop_count, val, JS_GPN_STRING_MASK | JS_GPN_SYMBOL_MASK) == 0) {
             for (uint32_t i = 0; i < prop_count; i++) {
                 JSValue prop_val = JS_GetProperty(ctx, val, props[i].atom);
-                const char* prop_name = JS_AtomToCString(ctx, props[i].atom);
+                size_t propNameLen = 0;
+                const char* prop_name = JS_AtomToCStringLen(ctx, &propNameLen, props[i].atom);
 
                 const proto::ProtoObject* pVal = fromJS(ctx, prop_val, pContext);
-                const proto::ProtoString* pName = proto::ProtoString::createSymbol(pContext, prop_name);
+                const proto::ProtoString* pName = protojs::jsSymbolFromUTF8(pContext, prop_name, propNameLen);
 
                 if (pName) {
                     pObj = pObj->setAttribute(pContext, pName, pVal);
@@ -623,7 +630,7 @@ JSValue TypeBridge::toJS(JSContext* ctx, const proto::ProtoObject* obj, proto::P
         // flight) only to read it back.
         std::string result;
         obj->asString(pContext)->toUTF8String(pContext, result);
-        return JS_NewString(ctx, result.c_str());
+        return JS_NewStringLen(ctx, result.data(), result.size());
     }
 
     // Check for ProtoList

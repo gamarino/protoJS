@@ -1,4 +1,5 @@
 #include "ProtoNativeModule.h"
+#include "runtime/JSStringBytes.h"
 #include "JSSymbols.h"
 
 namespace protojs {
@@ -50,7 +51,7 @@ const proto::ProtoObject* ProtoNativeModule::addMethod(
     // ECMA-262 §17: built-in methods carry descriptor
     // {writable:true, enumerable:false, configurable:true} → 0x3.
     std::string pdStr = std::string("__pd_") + name + "__";
-    const proto::ProtoObject* pdo = ctx->fromUTF8String(pdStr.c_str());
+    const proto::ProtoObject* pdo = protojs::jsStringFromUTF8(ctx, pdStr);
     const proto::ProtoString* pdk = pdo ? pdo->asString(ctx) : nullptr;
     if (pdk) obj = obj->setAttribute(ctx, pdk, ctx->fromInteger(0x3LL));
     return obj;

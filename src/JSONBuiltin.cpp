@@ -1,4 +1,5 @@
 #include "ProtoCoreTypes.h"
+#include "runtime/JSStringBytes.h"
 #include "runtime/PropertyDictionary.h"
 #include <algorithm>
 #include "JSONBuiltin.h"
@@ -338,7 +339,7 @@ void stringifyRecursive(proto::ProtoContext* ctx,
                     // observed undefined.
                     const proto::ProtoList* tjArgs = ctx->newList();
                     tjArgs = tjArgs->appendLast(ctx,
-                        ctx->fromUTF8String(tlCurrentKey.c_str()));
+                        protojs::jsStringFromUTF8(ctx, tlCurrentKey));
                     const proto::ProtoObject* replaced =
                         callJSFunction(ctx, tjsFn, obj, tjArgs);
                     if (replaced != obj) {
@@ -467,7 +468,7 @@ void stringifyRecursive(proto::ProtoContext* ctx,
             if (!tlReplacerFn) return v;
             const proto::ProtoList* replArgs = ctx->newList();
             std::string ks = std::to_string(idx);
-            replArgs = replArgs->appendLast(ctx, ctx->fromUTF8String(ks.c_str()));
+            replArgs = replArgs->appendLast(ctx, protojs::jsStringFromUTF8(ctx, ks));
             replArgs = replArgs->appendLast(ctx, v ? v : PROTO_NONE);
             const proto::ProtoObject* r = callJSFunction(ctx, tlReplacerFn, obj, replArgs);
             return r ? r : PROTO_NONE;
@@ -629,7 +630,7 @@ void stringifyRecursive(proto::ProtoContext* ctx,
         bool first = true;
         for (const auto& key : iterKeys) {
             const proto::ProtoString* propKs =
-                ctx->fromUTF8String(key.c_str())->asString(ctx);
+                protojs::jsStringFromUTF8(ctx, key)->asString(ctx);
             const proto::ProtoObject* val = propKs
                 ? dict::getDataProperty(ctx, obj, propKs) : PROTO_NONE;
             // Accessor lookup: data attribute miss → check __get_<key>__
@@ -642,7 +643,7 @@ void stringifyRecursive(proto::ProtoContext* ctx,
             if (!val || val == PROTO_NONE || val == getUndefinedSentinel()) {
                 std::string gkStr = "__get_" + key + "__";
                 const proto::ProtoString* gks =
-                    ctx->fromUTF8String(gkStr.c_str())->asString(ctx);
+                    protojs::jsStringFromUTF8(ctx, gkStr)->asString(ctx);
                 if (gks) {
                     const proto::ProtoObject* getter = obj->getAttribute(ctx, gks, true);
                     if (getter && getter != PROTO_NONE) {
@@ -692,7 +693,7 @@ void stringifyRecursive(proto::ProtoContext* ctx,
                     }
                     if (tjCallable) {
                         const proto::ProtoList* tjArgs = ctx->newList();
-                        tjArgs = tjArgs->appendLast(ctx, ctx->fromUTF8String(key.c_str()));
+                        tjArgs = tjArgs->appendLast(ctx, protojs::jsStringFromUTF8(ctx, key));
                         const proto::ProtoObject* r = callJSFunction(ctx, fn, val, tjArgs);
                         if (r) val = r;
                     }
@@ -702,7 +703,7 @@ void stringifyRecursive(proto::ProtoContext* ctx,
                 ? val : getUndefinedSentinel();
             if (tlReplacerFn) {
                 const proto::ProtoList* replArgs = ctx->newList();
-                replArgs = replArgs->appendLast(ctx, ctx->fromUTF8String(key.c_str()));
+                replArgs = replArgs->appendLast(ctx, protojs::jsStringFromUTF8(ctx, key));
                 replArgs = replArgs->appendLast(ctx, outVal);
                 outVal = callJSFunction(ctx, tlReplacerFn, obj, replArgs);
                 if (!outVal || outVal == PROTO_NONE
@@ -810,7 +811,7 @@ const proto::ProtoObject* JSONBuiltin::stringify(proto::ProtoContext* ctx,
                     // §25.5.2 step 4.a uses [[Get]] which honours it.
                     if (!v || v == PROTO_NONE || v == getUndefinedSentinel()) {
                         std::string gkStr = "__get_" + std::to_string(i) + "__";
-                        const proto::ProtoObject* gko = ctx->fromUTF8String(gkStr.c_str());
+                        const proto::ProtoObject* gko = protojs::jsStringFromUTF8(ctx, gkStr);
                         const proto::ProtoString* gks = gko ? gko->asString(ctx) : nullptr;
                         if (gks) {
                             const proto::ProtoObject* getter = replacer->getAttribute(ctx, gks, true);
@@ -1181,7 +1182,7 @@ const proto::ProtoObject* JSONBuiltin::stringify(proto::ProtoContext* ctx,
         val = newVal;
     }
     stringifyRecursive(ctx, val, out, arrayProto, stack, rs, indentUnit, "");
-    return ctx->fromUTF8String(out.c_str());
+    return protojs::jsStringFromUTF8(ctx, out);
 }
 
 // Spec §25.5.1.1 InternalizeJSONProperty — recursively walks the
@@ -1383,7 +1384,7 @@ const proto::ProtoObject* JSONBuiltin::parse(proto::ProtoContext* ctx,
                 const proto::ProtoObject* fn = textObj->getAttribute(ctx, ks, true);
                 if (!fn || fn == PROTO_NONE || fn == getUndefinedSentinel()) {
                     std::string gkStr = std::string("__get_") + name + "__";
-                    const proto::ProtoObject* gko = ctx->fromUTF8String(gkStr.c_str());
+                    const proto::ProtoObject* gko = protojs::jsStringFromUTF8(ctx, gkStr);
                     const proto::ProtoString* gks = gko ? gko->asString(ctx) : nullptr;
                     if (gks) {
                         const proto::ProtoObject* getter = textObj->getAttribute(ctx, gks, true);
@@ -1612,7 +1613,7 @@ static const proto::ProtoObject* jsonRawJSON(proto::ProtoContext* ctx,
     if (!wrap) return PROTO_NONE;
     const proto::ProtoObject* rk = ctx->fromUTF8String("rawJSON");
     const proto::ProtoString* rks = rk ? rk->asString(ctx) : nullptr;
-    if (rks) wrap = wrap->setAttribute(ctx, rks, ctx->fromUTF8String(text.c_str()));
+    if (rks) wrap = wrap->setAttribute(ctx, rks, protojs::jsStringFromUTF8(ctx, text));
     const proto::ProtoObject* mk = ctx->fromUTF8String("__is_raw_json__");
     const proto::ProtoString* mks = mk ? mk->asString(ctx) : nullptr;
     if (mks) wrap = wrap->setAttribute(ctx, mks, PROTO_TRUE);

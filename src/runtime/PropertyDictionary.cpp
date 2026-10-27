@@ -1,4 +1,5 @@
 #include "../ProtoCoreTypes.h"
+#include "JSStringBytes.h"
 #include "PropertyDictionary.h"
 
 #include "../HashedCollection.h"
@@ -522,7 +523,7 @@ const proto::ProtoObject* evict(proto::ProtoContext* ctx, const proto::ProtoObje
         std::string ks;
         key->toUTF8String(ctx, ks);
         const std::string pd = "__pd_" + ks + "__";
-        const proto::ProtoString* pdk = proto::ProtoString::createSymbol(ctx, pd.c_str());
+        const proto::ProtoString* pdk = protojs::jsSymbolFromUTF8(ctx, pd);
         const bool frozen = (bits & kIntegrityFrozen) != 0;
         obj = obj->setAttribute(ctx, pdk, ctx->fromInteger(frozen ? 0x4LL : 0x5LL));
         if (frozen) obj = obj->setAttribute(ctx, JSSymbols::hasNonWritableProps(ctx), PROTO_TRUE);

@@ -378,6 +378,7 @@ foreach(js_test
         basic/regexp_global_advance
         basic/regexp_register_slots
         basic/string_cells_bounded
+        basic/string_nul
         basic/generator_for_of_yield
         basic/generator_resumption
         basic/typed_array_construction

@@ -1,4 +1,5 @@
 #include "ProtoCoreTypes.h"
+#include "runtime/JSStringBytes.h"
 #include "JSContext.h"
 #include "ArrayPrototype.h"
 #include "FunctionPrototype.h"
@@ -173,7 +174,7 @@ static const proto::ProtoObject* installScriptGlobals(
         const proto::ProtoString* k = pCtx->fromUTF8String(name)
             ? pCtx->fromUTF8String(name)->asString(pCtx) : nullptr;
         if (!k) return;
-        g = g->setAttribute(pCtx, k, pCtx->fromUTF8String(value.c_str()));
+        g = g->setAttribute(pCtx, k, protojs::jsStringFromUTF8(pCtx, value));
     };
     setStr("__filename", filename);
     size_t lastSlash = filename.find_last_of("/\\");

@@ -1,4 +1,5 @@
 #include "NumberPrototype.h"
+#include "runtime/JSStringBytes.h"
 #include "JSNumber.h"
 #include "FunctionPrototype.h"
 #include "JSSymbols.h"
@@ -254,7 +255,7 @@ const proto::ProtoObject* numberToString(
             }
         }
     }
-    return context->fromUTF8String(result.c_str());
+    return protojs::jsStringFromUTF8(context, result);
 }
 
 const proto::ProtoObject* numberToFixed(
@@ -525,7 +526,7 @@ const proto::ProtoObject* numberToPrecision(
         if (precision == 1) return context->fromUTF8String("0");
         std::string z = "0.";
         z.append(static_cast<size_t>(precision - 1), '0');
-        return context->fromUTF8String(z.c_str());
+        return protojs::jsStringFromUTF8(context, z);
     }
     // Spec §21.1.3.5 step 12 requires EXACTLY `precision` significant
     // digits — %g strips trailing zeros, so (3.14).toPrecision(5)
@@ -587,7 +588,7 @@ const proto::ProtoObject* numberToPrecision(
         result.append(mant);
     }
     if (negative) result.insert(0, "-");
-    return context->fromUTF8String(result.c_str());
+    return protojs::jsStringFromUTF8(context, result);
 }
 
 // ---------------------------------------------------------------------------
@@ -902,7 +903,7 @@ void ensureNumberConstructor(proto::ProtoContext* ctx,
             if (wrapped && wrapped != PROTO_NONE) {
                 ctor = ctor->setAttribute(ctx, key, wrapped);
                 std::string pdStr = std::string("__pd_") + name + "__";
-                const proto::ProtoObject* pdo = ctx->fromUTF8String(pdStr.c_str());
+                const proto::ProtoObject* pdo = protojs::jsStringFromUTF8(ctx, pdStr);
                 const proto::ProtoString* pdk = pdo ? pdo->asString(ctx) : nullptr;
                 if (pdk) ctor = ctor->setAttribute(ctx, pdk, ctx->fromInteger(0x3LL));
             }
@@ -933,7 +934,7 @@ void ensureNumberConstructor(proto::ProtoContext* ctx,
         std::string pdKeyStr = "__pd_";
         pdKeyStr += name;
         pdKeyStr += "__";
-        const proto::ProtoObject* pdko = ctx->fromUTF8String(pdKeyStr.c_str());
+        const proto::ProtoObject* pdko = protojs::jsStringFromUTF8(ctx, pdKeyStr);
         const proto::ProtoString* pdk = pdko ? pdko->asString(ctx) : nullptr;
         if (pdk) ctor = ctor->setAttribute(ctx, pdk, ctx->fromInteger(0x0));
     };

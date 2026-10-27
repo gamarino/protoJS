@@ -1,4 +1,5 @@
 #include "ProtoCoreTypes.h"
+#include "runtime/JSStringBytes.h"
 #include "JSNumber.h"
 #include "DatePrototype.h"
 #include "JSContext.h"
@@ -101,7 +102,7 @@ static const proto::ProtoObject* ordinaryToPrimitive(proto::ProtoContext* ctx,
         {
             const char* methodName = (stringFirst == (i == 0)) ? "toString" : "valueOf";
             std::string gkStr = std::string("__get_") + methodName + "__";
-            const proto::ProtoObject* gko = ctx->fromUTF8String(gkStr.c_str());
+            const proto::ProtoObject* gko = protojs::jsStringFromUTF8(ctx, gkStr);
             const proto::ProtoString* gk = gko ? gko->asString(ctx) : nullptr;
             if (gk) {
                 const proto::ProtoObject* getter = v->getAttribute(ctx, gk, true);
@@ -147,7 +148,7 @@ static const proto::ProtoObject* invokeByName(proto::ProtoContext* ctx,
     // to invoke.
     {
         std::string gkStr = std::string("__get_") + name + "__";
-        const proto::ProtoObject* gko = ctx->fromUTF8String(gkStr.c_str());
+        const proto::ProtoObject* gko = protojs::jsStringFromUTF8(ctx, gkStr);
         const proto::ProtoString* gk = gko ? gko->asString(ctx) : nullptr;
         if (gk) {
             const proto::ProtoObject* getter = obj->getAttribute(ctx, gk, true);
@@ -1961,7 +1962,7 @@ static void registerProtoMethod(proto::ProtoContext* ctx,
     if (!w) return;
     proto = proto->setAttribute(ctx, k, w);
     std::string pdStr = std::string("__pd_") + name + "__";
-    const proto::ProtoString* pdk = ctx->fromUTF8String(pdStr.c_str())->asString(ctx);
+    const proto::ProtoString* pdk = protojs::jsStringFromUTF8(ctx, pdStr)->asString(ctx);
     if (pdk) proto = proto->setAttribute(ctx, pdk, ctx->fromInteger(0x3LL));
 }
 

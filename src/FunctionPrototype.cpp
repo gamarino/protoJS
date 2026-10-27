@@ -1,4 +1,5 @@
 #include "ProtoCoreTypes.h"
+#include "runtime/JSStringBytes.h"
 #include "FunctionPrototype.h"
 #include "runtime/LazyPrototype.h"
 #include "JSContext.h"
@@ -260,7 +261,7 @@ static const proto::ProtoObject* fnApply(
             if (!av) {
                 std::string gks = "__get_" + std::to_string(i) + "__";
                 const proto::ProtoString* gk =
-                    ctx->fromUTF8String(gks.c_str())->asString(ctx);
+                    protojs::jsStringFromUTF8(ctx, gks)->asString(ctx);
                 if (gk) {
                     const proto::ProtoObject* getter = argsArray->getAttribute(ctx, gk, true);
                     if (getter && getter != PROTO_NONE) {
@@ -413,7 +414,7 @@ static const proto::ProtoObject* fnBind(
             if (ns) targetName = ns->toStdString(ctx);
         }
         std::string boundName = "bound " + targetName;
-        const proto::ProtoObject* bnVal = ctx->fromUTF8String(boundName.c_str());
+        const proto::ProtoObject* bnVal = protojs::jsStringFromUTF8(ctx, boundName);
         if (bnVal) bound = bound->setAttribute(ctx, nameKey2, bnVal);
         const proto::ProtoString* pdns = JSSymbols::pdName(ctx);
         if (pdns) bound = bound->setAttribute(ctx, pdns, ctx->fromInteger(0x2LL));
@@ -640,7 +641,7 @@ static const proto::ProtoObject* fnToString(
         result = "function [" + fnName + "]() { [native code] }";
     else
         result = "function () { [native code] }";
-    return ctx->fromUTF8String(result.c_str());
+    return protojs::jsStringFromUTF8(ctx, result);
 }
 
 // Native [[Call]] / [[Construct]] for the Function constructor.
@@ -865,7 +866,7 @@ void ensureFunctionPrototype(proto::ProtoContext* ctx,
 
         // Method descriptor: {writable:true, enumerable:false, configurable:true} → 0x3
         std::string pdStr = std::string("__pd_") + methodName + "__";
-        const proto::ProtoObject* pdko = ctx->fromUTF8String(pdStr.c_str());
+        const proto::ProtoObject* pdko = protojs::jsStringFromUTF8(ctx, pdStr);
         const proto::ProtoString* pdks = pdko ? pdko->asString(ctx) : nullptr;
         if (pdks) fp = fp->setAttribute(ctx, pdks, ctx->fromInteger(0x3LL));
     };

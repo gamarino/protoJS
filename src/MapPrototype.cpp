@@ -1,4 +1,5 @@
 #include "ProtoCoreTypes.h"
+#include "runtime/JSStringBytes.h"
 #include "runtime/PinnedBuiltin.h"
 #include "MapPrototype.h"
 #include "ArrayPrototype.h"
@@ -781,7 +782,7 @@ static const proto::ProtoObject* mapGroupBy(
             size_t cl = (c < 0x80) ? 1 : (c < 0xE0) ? 2 : (c < 0xF0) ? 3 : 4;
             if (i + cl > s.size()) break;
             std::string ch = s.substr(i, cl);
-            built = built->appendLast(ctx, ctx->fromUTF8String(ch.c_str()));
+            built = built->appendLast(ctx, protojs::jsStringFromUTF8(ctx, ch));
             i += cl;
         }
         items = built;
@@ -958,7 +959,7 @@ static const proto::ProtoObject* mapConstruct(
                 // second}-entry-returns-abrupt).
                 {
                     std::string gkStr = "__get_" + std::to_string(i) + "__";
-                    const proto::ProtoObject* gko = ctx->fromUTF8String(gkStr.c_str());
+                    const proto::ProtoObject* gko = protojs::jsStringFromUTF8(ctx, gkStr);
                     const proto::ProtoString* gks = gko ? gko->asString(ctx) : nullptr;
                     if (gks) {
                         const proto::ProtoObject* getter = arr->getAttribute(ctx, gks, true);
@@ -1652,12 +1653,12 @@ static const proto::ProtoObject* weakMapSet(
     // Search for existing key (identity comparison).
     for (long long i = 0; i < n; i++) {
         std::string kstr = "__wm_" + std::to_string(i) + "_key__";
-        const proto::ProtoObject* ko = ctx->fromUTF8String(kstr.c_str());
+        const proto::ProtoObject* ko = protojs::jsStringFromUTF8(ctx, kstr);
         const proto::ProtoString* ks = ko ? ko->asString(ctx) : nullptr;
         if (!ks) continue;
         if (self->getAttribute(ctx, ks, false) == key) {
             std::string vstr = "__wm_" + std::to_string(i) + "_val__";
-            const proto::ProtoObject* vo = ctx->fromUTF8String(vstr.c_str());
+            const proto::ProtoObject* vo = protojs::jsStringFromUTF8(ctx, vstr);
             const proto::ProtoString* vs = vo ? vo->asString(ctx) : nullptr;
             if (vs) self = self->setAttribute(ctx, vs, val ? val : PROTO_NONE);
             return const_cast<proto::ProtoObject*>(self);
@@ -1666,8 +1667,8 @@ static const proto::ProtoObject* weakMapSet(
     // New entry.
     std::string kstr = "__wm_" + std::to_string(n) + "_key__";
     std::string vstr = "__wm_" + std::to_string(n) + "_val__";
-    const proto::ProtoObject* ko = ctx->fromUTF8String(kstr.c_str());
-    const proto::ProtoObject* vo = ctx->fromUTF8String(vstr.c_str());
+    const proto::ProtoObject* ko = protojs::jsStringFromUTF8(ctx, kstr);
+    const proto::ProtoObject* vo = protojs::jsStringFromUTF8(ctx, vstr);
     const proto::ProtoString* ks = ko ? ko->asString(ctx) : nullptr;
     const proto::ProtoString* vs = vo ? vo->asString(ctx) : nullptr;
     if (ks) self = self->setAttribute(ctx, ks, key);
@@ -1691,12 +1692,12 @@ static const proto::ProtoObject* weakMapGet(
     long long n = wmGetCount(ctx, self);
     for (long long i = 0; i < n; i++) {
         std::string kstr = "__wm_" + std::to_string(i) + "_key__";
-        const proto::ProtoObject* ko = ctx->fromUTF8String(kstr.c_str());
+        const proto::ProtoObject* ko = protojs::jsStringFromUTF8(ctx, kstr);
         const proto::ProtoString* ks = ko ? ko->asString(ctx) : nullptr;
         if (!ks) continue;
         if (self->getAttribute(ctx, ks, false) == key) {
             std::string vstr = "__wm_" + std::to_string(i) + "_val__";
-            const proto::ProtoObject* vo = ctx->fromUTF8String(vstr.c_str());
+            const proto::ProtoObject* vo = protojs::jsStringFromUTF8(ctx, vstr);
             const proto::ProtoString* vs = vo ? vo->asString(ctx) : nullptr;
             return vs ? self->getAttribute(ctx, vs, false) : PROTO_NONE;
         }
@@ -1717,7 +1718,7 @@ static const proto::ProtoObject* weakMapHas(
     long long n = wmGetCount(ctx, self);
     for (long long i = 0; i < n; i++) {
         std::string kstr = "__wm_" + std::to_string(i) + "_key__";
-        const proto::ProtoObject* ko = ctx->fromUTF8String(kstr.c_str());
+        const proto::ProtoObject* ko = protojs::jsStringFromUTF8(ctx, kstr);
         const proto::ProtoString* ks = ko ? ko->asString(ctx) : nullptr;
         if (!ks) continue;
         if (self->getAttribute(ctx, ks, false) == key) return PROTO_TRUE;
@@ -1738,7 +1739,7 @@ static const proto::ProtoObject* weakMapDelete(
     long long n = wmGetCount(ctx, self);
     for (long long i = 0; i < n; i++) {
         std::string kstr = "__wm_" + std::to_string(i) + "_key__";
-        const proto::ProtoObject* ko = ctx->fromUTF8String(kstr.c_str());
+        const proto::ProtoObject* ko = protojs::jsStringFromUTF8(ctx, kstr);
         const proto::ProtoString* ks = ko ? ko->asString(ctx) : nullptr;
         if (!ks) continue;
         if (self->getAttribute(ctx, ks, false) == key) {
@@ -1748,9 +1749,9 @@ static const proto::ProtoObject* weakMapDelete(
                 std::string lkStr = "__wm_" + std::to_string(last) + "_key__";
                 std::string lvStr = "__wm_" + std::to_string(last) + "_val__";
                 std::string ivStr = "__wm_" + std::to_string(i) + "_val__";
-                const proto::ProtoObject* lko = ctx->fromUTF8String(lkStr.c_str());
-                const proto::ProtoObject* lvo = ctx->fromUTF8String(lvStr.c_str());
-                const proto::ProtoObject* ivo = ctx->fromUTF8String(ivStr.c_str());
+                const proto::ProtoObject* lko = protojs::jsStringFromUTF8(ctx, lkStr);
+                const proto::ProtoObject* lvo = protojs::jsStringFromUTF8(ctx, lvStr);
+                const proto::ProtoObject* ivo = protojs::jsStringFromUTF8(ctx, ivStr);
                 const proto::ProtoString* lks = lko ? lko->asString(ctx) : nullptr;
                 const proto::ProtoString* lvs = lvo ? lvo->asString(ctx) : nullptr;
                 const proto::ProtoString* ivs = ivo ? ivo->asString(ctx) : nullptr;
@@ -1762,7 +1763,7 @@ static const proto::ProtoObject* weakMapDelete(
                 if (lvs) self = self->setAttribute(ctx, lvs, PROTO_NONE);
             } else {
                 std::string vstr = "__wm_" + std::to_string(i) + "_val__";
-                const proto::ProtoObject* vo = ctx->fromUTF8String(vstr.c_str());
+                const proto::ProtoObject* vo = protojs::jsStringFromUTF8(ctx, vstr);
                 const proto::ProtoString* vs = vo ? vo->asString(ctx) : nullptr;
                 self = self->setAttribute(ctx, ks, PROTO_NONE);
                 if (vs) self = self->setAttribute(ctx, vs, PROTO_NONE);
@@ -1839,12 +1840,12 @@ static const proto::ProtoObject* weakMapGetOrInsert(
     long long n = wmGetCount(ctx, self);
     for (long long i = 0; i < n; i++) {
         std::string kstr = "__wm_" + std::to_string(i) + "_key__";
-        const proto::ProtoObject* ko = ctx->fromUTF8String(kstr.c_str());
+        const proto::ProtoObject* ko = protojs::jsStringFromUTF8(ctx, kstr);
         const proto::ProtoString* ks = ko ? ko->asString(ctx) : nullptr;
         if (!ks) continue;
         if (self->getAttribute(ctx, ks, false) == key) {
             std::string vstr = "__wm_" + std::to_string(i) + "_val__";
-            const proto::ProtoObject* vo = ctx->fromUTF8String(vstr.c_str());
+            const proto::ProtoObject* vo = protojs::jsStringFromUTF8(ctx, vstr);
             const proto::ProtoString* vs = vo ? vo->asString(ctx) : nullptr;
             return vs ? self->getAttribute(ctx, vs, false) : PROTO_NONE;
         }
@@ -1852,8 +1853,8 @@ static const proto::ProtoObject* weakMapGetOrInsert(
     // Insert (n, key, value).
     std::string kstr = "__wm_" + std::to_string(n) + "_key__";
     std::string vstr = "__wm_" + std::to_string(n) + "_val__";
-    const proto::ProtoObject* ko = ctx->fromUTF8String(kstr.c_str());
-    const proto::ProtoObject* vo = ctx->fromUTF8String(vstr.c_str());
+    const proto::ProtoObject* ko = protojs::jsStringFromUTF8(ctx, kstr);
+    const proto::ProtoObject* vo = protojs::jsStringFromUTF8(ctx, vstr);
     const proto::ProtoString* ks = ko ? ko->asString(ctx) : nullptr;
     const proto::ProtoString* vs = vo ? vo->asString(ctx) : nullptr;
     if (ks) self = self->setAttribute(ctx, ks, key);
@@ -1938,12 +1939,12 @@ static const proto::ProtoObject* weakMapGetOrInsertComputed(
     long long n = wmGetCount(ctx, self);
     for (long long i = 0; i < n; i++) {
         std::string kstr = "__wm_" + std::to_string(i) + "_key__";
-        const proto::ProtoObject* ko = ctx->fromUTF8String(kstr.c_str());
+        const proto::ProtoObject* ko = protojs::jsStringFromUTF8(ctx, kstr);
         const proto::ProtoString* ks = ko ? ko->asString(ctx) : nullptr;
         if (!ks) continue;
         if (self->getAttribute(ctx, ks, false) == key) {
             std::string vstr = "__wm_" + std::to_string(i) + "_val__";
-            const proto::ProtoObject* vo = ctx->fromUTF8String(vstr.c_str());
+            const proto::ProtoObject* vo = protojs::jsStringFromUTF8(ctx, vstr);
             const proto::ProtoString* vs = vo ? vo->asString(ctx) : nullptr;
             return vs ? self->getAttribute(ctx, vs, false) : PROTO_NONE;
         }
@@ -1956,13 +1957,13 @@ static const proto::ProtoObject* weakMapGetOrInsertComputed(
     n = wmGetCount(ctx, self);
     for (long long i = 0; i < n; i++) {
         std::string kstr = "__wm_" + std::to_string(i) + "_key__";
-        const proto::ProtoObject* ko = ctx->fromUTF8String(kstr.c_str());
+        const proto::ProtoObject* ko = protojs::jsStringFromUTF8(ctx, kstr);
         const proto::ProtoString* ks = ko ? ko->asString(ctx) : nullptr;
         if (!ks) continue;
         if (self->getAttribute(ctx, ks, false) == key) {
             // Mutate the existing slot to the new value (spec step 9.a.iii).
             std::string vstr = "__wm_" + std::to_string(i) + "_val__";
-            const proto::ProtoObject* vo = ctx->fromUTF8String(vstr.c_str());
+            const proto::ProtoObject* vo = protojs::jsStringFromUTF8(ctx, vstr);
             const proto::ProtoString* vs = vo ? vo->asString(ctx) : nullptr;
             if (vs) self->setAttribute(ctx, vs, value ? value : PROTO_NONE);
             return value ? value : PROTO_NONE;
@@ -1971,8 +1972,8 @@ static const proto::ProtoObject* weakMapGetOrInsertComputed(
     // Insert new entry.
     std::string kstr = "__wm_" + std::to_string(n) + "_key__";
     std::string vstr = "__wm_" + std::to_string(n) + "_val__";
-    const proto::ProtoObject* ko = ctx->fromUTF8String(kstr.c_str());
-    const proto::ProtoObject* vo = ctx->fromUTF8String(vstr.c_str());
+    const proto::ProtoObject* ko = protojs::jsStringFromUTF8(ctx, kstr);
+    const proto::ProtoObject* vo = protojs::jsStringFromUTF8(ctx, vstr);
     const proto::ProtoString* ks = ko ? ko->asString(ctx) : nullptr;
     const proto::ProtoString* vs = vo ? vo->asString(ctx) : nullptr;
     if (ks) self = self->setAttribute(ctx, ks, key);
@@ -2072,7 +2073,7 @@ static const proto::ProtoObject* weakMapConstruct(
                 // __get_<i>__ sidecar before reading the indexed slot.
                 {
                     std::string gkStr = "__get_" + std::to_string(i) + "__";
-                    const proto::ProtoObject* gko = ctx->fromUTF8String(gkStr.c_str());
+                    const proto::ProtoObject* gko = protojs::jsStringFromUTF8(ctx, gkStr);
                     const proto::ProtoString* gks = gko ? gko->asString(ctx) : nullptr;
                     if (gks) {
                         const proto::ProtoObject* getter = arr->getAttribute(ctx, gks, true);

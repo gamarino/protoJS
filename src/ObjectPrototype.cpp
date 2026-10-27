@@ -1,4 +1,5 @@
 #include "ProtoCoreTypes.h"
+#include "runtime/JSStringBytes.h"
 #include <exception>
 #include "ObjectPrototype.h"
 #include "runtime/LazyPrototype.h"
@@ -122,7 +123,7 @@ static void collectOwnKeys(
             if (i + charLen > s.size()) break;
             std::string ch = s.substr(i, charLen);
             keys.push_back(std::to_string(idx));
-            if (vals) vals->push_back(ctx->fromUTF8String(ch.c_str()));
+            if (vals) vals->push_back(protojs::jsStringFromUTF8(ctx, ch));
             i += charLen;
             // 4-byte UTF-8 → surrogate pair, counts as 2 UTF-16 units.
             idx += (charLen == 4) ? 2 : 1;
@@ -361,7 +362,7 @@ static void collectOwnKeys(
         // emerged in the result.  Always probe when filtering.
         if (!s->includeNonEnumerable) {
             std::string pdKeyStr = "__pd_" + kstr + "__";
-            const proto::ProtoObject* pko = cbCtx->fromUTF8String(pdKeyStr.c_str());
+            const proto::ProtoObject* pko = protojs::jsStringFromUTF8(cbCtx, pdKeyStr);
             const proto::ProtoString* pdk = pko ? pko->asString(cbCtx) : nullptr;
             if (pdk) {
                 // Own-only: the descriptor of an own property is never
@@ -384,7 +385,7 @@ static void collectOwnKeys(
             const proto::ProtoObject* getter = nullptr;
             if (s->mightHaveAccessors) {
                 std::string gkStr = "__get_" + kstr + "__";
-                const proto::ProtoObject* gko = cbCtx->fromUTF8String(gkStr.c_str());
+                const proto::ProtoObject* gko = protojs::jsStringFromUTF8(cbCtx, gkStr);
                 const proto::ProtoString* gk = gko ? gko->asString(cbCtx) : nullptr;
                 getter = (gk && s->obj->hasOwnAttribute(cbCtx, gk) == PROTO_TRUE)
                     ? s->obj->getAttribute(cbCtx, gk, false) : nullptr;
@@ -472,11 +473,11 @@ static void collectOwnKeys(
         proto::proto_ulong elsLen = elsList ? elsList->getSize(ctx) : 0;
         for (proto::proto_ulong idx : arrayIndexSet) {
             std::string kstr = std::to_string(idx);
-            const proto::ProtoObject* ko = ctx->fromUTF8String(kstr.c_str());
+            const proto::ProtoObject* ko = protojs::jsStringFromUTF8(ctx, kstr);
             const proto::ProtoString* propKey = ko ? ko->asString(ctx) : nullptr;
             if (!includeNonEnumerable) {
                 std::string pdKeyStr = "__pd_" + kstr + "__";
-                const proto::ProtoObject* pko = ctx->fromUTF8String(pdKeyStr.c_str());
+                const proto::ProtoObject* pko = protojs::jsStringFromUTF8(ctx, pdKeyStr);
                 const proto::ProtoString* pdk = pko ? pko->asString(ctx) : nullptr;
                 if (pdk) {
                     const proto::ProtoObject* pdv = obj->hasOwnAttribute(ctx, pdk) == PROTO_TRUE
@@ -492,7 +493,7 @@ static void collectOwnKeys(
                 const proto::ProtoObject* getter = nullptr;
                 if (mightHaveAccessors) {
                     std::string gkStr = "__get_" + kstr + "__";
-                    const proto::ProtoObject* gko = ctx->fromUTF8String(gkStr.c_str());
+                    const proto::ProtoObject* gko = protojs::jsStringFromUTF8(ctx, gkStr);
                     const proto::ProtoString* gk = gko ? gko->asString(ctx) : nullptr;
                     getter = (gk && obj->hasOwnAttribute(ctx, gk) == PROTO_TRUE)
                         ? obj->getAttribute(ctx, gk, false) : nullptr;
@@ -623,7 +624,7 @@ static const proto::ProtoObject* objectKeys(
         const proto::ProtoList* elsList = ctx->newList();
         proto::proto_ulong count = 0;
         for (const std::string& ks : targetKeys) {
-            const proto::ProtoObject* ko = ctx->fromUTF8String(ks.c_str());
+            const proto::ProtoObject* ko = protojs::jsStringFromUTF8(ctx, ks);
             const proto::ProtoString* kStr = ko ? ko->asString(ctx) : nullptr;
             if (!kStr) continue;
             const proto::ProtoObject* desc =
@@ -652,7 +653,7 @@ static const proto::ProtoObject* objectKeys(
     const proto::ProtoString* isArrKey2 = JSSymbols::isArray(ctx);
     const proto::ProtoList* elsList = ctx->newList();
     for (size_t i = 0; i < keys.size(); i++) {
-        const proto::ProtoObject* kv = ctx->fromUTF8String(keys[i].c_str());
+        const proto::ProtoObject* kv = protojs::jsStringFromUTF8(ctx, keys[i]);
         elsList = elsList->appendLast(ctx, kv ? kv : PROTO_NONE);
     }
     setArrayElements(ctx, result, elsList);
@@ -830,7 +831,7 @@ static const proto::ProtoObject* objectEntries(
         // storage just like Object.keys/values, so the result round-trips
         // through arrayTryFastGet and JSON.stringify cleanly.
         const proto::ProtoObject* pair = createNewArray(ctx, nullptr);
-        const proto::ProtoObject* kv = ctx->fromUTF8String(keys[i].c_str());
+        const proto::ProtoObject* kv = protojs::jsStringFromUTF8(ctx, keys[i]);
         const proto::ProtoList* pairEls = ctx->newList();
         pairEls = pairEls->appendLast(ctx, kv ? kv : PROTO_NONE);
         pairEls = pairEls->appendLast(ctx, vals[i] ? vals[i] : PROTO_NONE);
@@ -1094,7 +1095,7 @@ static const proto::ProtoObject* objectAssign(
                 std::string ch = sv.substr(bi, cl);
                 const proto::ProtoString* k = JSSymbols::indexKey(ctx, cpIdx);
                 if (k) target = target->setAttribute(ctx, k,
-                    ctx->fromUTF8String(ch.c_str()));
+                    protojs::jsStringFromUTF8(ctx, ch));
                 bi += cl;
                 ++cpIdx;
             }
@@ -1209,7 +1210,7 @@ static const proto::ProtoObject* objectAssign(
                 && keyStr[4]=='m' && keyStr[5]=='#';
             if (!isSymKeyStr && isInternalKey(ctx, propKey)) continue;
             std::string pdStr = std::string("__pd_") + keyStr + "__";
-            const proto::ProtoObject* pdo = ctx->fromUTF8String(pdStr.c_str());
+            const proto::ProtoObject* pdo = protojs::jsStringFromUTF8(ctx, pdStr);
             const proto::ProtoString* pdk = pdo ? pdo->asString(ctx) : nullptr;
             if (pdk) {
                 const proto::ProtoObject* pdv = src->getAttribute(ctx, pdk, false);
@@ -1225,7 +1226,7 @@ static const proto::ProtoObject* objectAssign(
             // call it on src. Pre-fix accessor properties were copied as
             // undefined.
             std::string gkStr = std::string("__get_") + keyStr + "__";
-            const proto::ProtoObject* gko = ctx->fromUTF8String(gkStr.c_str());
+            const proto::ProtoObject* gko = protojs::jsStringFromUTF8(ctx, gkStr);
             const proto::ProtoString* gk = gko ? gko->asString(ctx) : nullptr;
             const proto::ProtoObject* effective = val;
             if (gk) {
@@ -1256,7 +1257,7 @@ static const proto::ProtoObject* objectAssign(
                     // Probe accessor sidecars too — accessor-only slots
                     // are own properties even without a data key.
                     std::string gkStr = std::string("__get_") + tk + "__";
-                    const proto::ProtoObject* gko2 = ctx->fromUTF8String(gkStr.c_str());
+                    const proto::ProtoObject* gko2 = protojs::jsStringFromUTF8(ctx, gkStr);
                     const proto::ProtoString* gk2 = gko2 ? gko2->asString(ctx) : nullptr;
                     if (gk2 && target->hasOwnAttribute(ctx, gk2) == PROTO_TRUE)
                         targetHasOwn = true;
@@ -1315,7 +1316,7 @@ static const proto::ProtoObject* objectAssign(
                 // target-is-{frozen,sealed,non-extensible}-existing-
                 // accessor-property).
                 std::string setSkStr = std::string("__set_") + tk + "__";
-                const proto::ProtoObject* setSko = ctx->fromUTF8String(setSkStr.c_str());
+                const proto::ProtoObject* setSko = protojs::jsStringFromUTF8(ctx, setSkStr);
                 const proto::ProtoString* setSk = setSko ? setSko->asString(ctx) : nullptr;
                 bool targetIsAccessor = false;
                 if (setSk && target->hasAttribute(ctx, setSk) == PROTO_TRUE) {
@@ -1336,7 +1337,7 @@ static const proto::ProtoObject* objectAssign(
                     }
                 }
                 std::string getSkStr = std::string("__get_") + tk + "__";
-                const proto::ProtoObject* getSko = ctx->fromUTF8String(getSkStr.c_str());
+                const proto::ProtoObject* getSko = protojs::jsStringFromUTF8(ctx, getSkStr);
                 const proto::ProtoString* getSk = getSko ? getSko->asString(ctx) : nullptr;
                 if (!targetIsAccessor && getSk && target->hasAttribute(ctx, getSk) == PROTO_TRUE) {
                     const proto::ProtoObject* getter = target->getAttribute(ctx, getSk, true);
@@ -1349,7 +1350,7 @@ static const proto::ProtoObject* objectAssign(
                     }
                 }
                 std::string pdStr = std::string("__pd_") + tk + "__";
-                const proto::ProtoObject* pdo = ctx->fromUTF8String(pdStr.c_str());
+                const proto::ProtoObject* pdo = protojs::jsStringFromUTF8(ctx, pdStr);
                 const proto::ProtoString* pdk = pdo ? pdo->asString(ctx) : nullptr;
                 if (pdk && target->hasOwnAttribute(ctx, pdk) == PROTO_TRUE) {
                     const proto::ProtoObject* pdv = target->getAttribute(ctx, pdk, false);
@@ -1553,7 +1554,7 @@ static const proto::ProtoObject* objectCreate(
             collectOwnKeys(ctx, propsObj, keys, nullptr, /*includeNonEnumerable=*/false);
             for (const std::string& keyStr : keys) {
                 if (keyStr == "length") continue;
-                const proto::ProtoObject* keyObj = ctx->fromUTF8String(keyStr.c_str());
+                const proto::ProtoObject* keyObj = protojs::jsStringFromUTF8(ctx, keyStr);
                 const proto::ProtoString* propKey = keyObj ? keyObj->asString(ctx) : nullptr;
                 if (!propKey) continue;
                 // Get(props, key) — spec requires invoking any accessor getter
@@ -1568,7 +1569,7 @@ static const proto::ProtoObject* objectCreate(
                 // must be an object".
                 const proto::ProtoObject* descObj = nullptr;
                 std::string gkStr = "__get_" + keyStr + "__";
-                const proto::ProtoObject* gko = ctx->fromUTF8String(gkStr.c_str());
+                const proto::ProtoObject* gko = protojs::jsStringFromUTF8(ctx, gkStr);
                 const proto::ProtoString* gk = gko ? gko->asString(ctx) : nullptr;
                 if (gk && propsObj->hasOwnAttribute(ctx, gk) == PROTO_TRUE) {
                     const proto::ProtoObject* getter = propsObj->getAttribute(ctx, gk, false);
@@ -1726,7 +1727,7 @@ static const proto::ProtoObject* objectFreeze(
         for (size_t i = 0; i < kn; ++i) {
             const proto::ProtoObject* kObj = els
                 ? els->getAt(ctx, static_cast<int>(i))
-                : ctx->fromUTF8String(defaultKeys[i].c_str());
+                : protojs::jsStringFromUTF8(ctx, defaultKeys[i]);
             if (!kObj || kObj == PROTO_NONE) continue;
             const proto::ProtoString* kStr = kObj->asString(ctx);
             if (!kStr) continue;
@@ -1794,7 +1795,7 @@ static const proto::ProtoObject* objectFreeze(
             }
             for (const auto& ks : keysToUpdate) {
                 std::string pdStr = std::string("__pd_") + ks + "__";
-                const proto::ProtoObject* pdo = ctx->fromUTF8String(pdStr.c_str());
+                const proto::ProtoObject* pdo = protojs::jsStringFromUTF8(ctx, pdStr);
                 const proto::ProtoString* pdk = pdo ? pdo->asString(ctx) : nullptr;
                 if (!pdk) continue;
                 const proto::ProtoObject* cur = obj->getAttribute(ctx, pdk, false);
@@ -1818,7 +1819,7 @@ static const proto::ProtoObject* objectFreeze(
                 size_t n = els->getSize(ctx);
                 for (size_t i = 0; i < n; ++i) {
                     std::string pdStr = std::string("__pd_") + std::to_string(i) + "__";
-                    const proto::ProtoObject* pdo = ctx->fromUTF8String(pdStr.c_str());
+                    const proto::ProtoObject* pdo = protojs::jsStringFromUTF8(ctx, pdStr);
                     const proto::ProtoString* pdk = pdo ? pdo->asString(ctx) : nullptr;
                     if (!pdk) continue;
                     const proto::ProtoObject* cur = obj->getAttribute(ctx, pdk, false);
@@ -1894,7 +1895,7 @@ static const proto::ProtoObject* objectIsFrozen(
         for (size_t i = 0; i < kn; ++i) {
             const proto::ProtoObject* kObj = els
                 ? els->getAt(ctx, static_cast<int>(i))
-                : ctx->fromUTF8String(defaultKeys[i].c_str());
+                : protojs::jsStringFromUTF8(ctx, defaultKeys[i]);
             if (!kObj || kObj == PROTO_NONE) continue;
             const proto::ProtoString* kStr = kObj->asString(ctx);
             if (!kStr) continue;
@@ -1942,7 +1943,7 @@ static const proto::ProtoObject* objectIsFrozen(
                 std::string ks;
                 k->toUTF8String(ctx, ks);
                 std::string pdStr = std::string("__pd_") + ks + "__";
-                const proto::ProtoObject* pdo = ctx->fromUTF8String(pdStr.c_str());
+                const proto::ProtoObject* pdo = protojs::jsStringFromUTF8(ctx, pdStr);
                 const proto::ProtoString* pdk = pdo ? pdo->asString(ctx) : nullptr;
                 if (!pdk) { allFrozen = false; break; }
                 const proto::ProtoObject* pdv = obj->getAttribute(ctx, pdk, false);
@@ -2054,7 +2055,7 @@ static const proto::ProtoObject* objectSeal(
         for (size_t i = 0; i < kn; ++i) {
             const proto::ProtoObject* kObj = els
                 ? els->getAt(ctx, static_cast<int>(i))
-                : ctx->fromUTF8String(defaultKeys[i].c_str());
+                : protojs::jsStringFromUTF8(ctx, defaultKeys[i]);
             if (!kObj || kObj == PROTO_NONE) continue;
             const proto::ProtoString* kStr = kObj->asString(ctx);
             if (!kStr) continue;
@@ -2092,7 +2093,7 @@ static const proto::ProtoObject* objectSeal(
             }
             for (const auto& ks : keysToUpdate) {
                 std::string pdStr = std::string("__pd_") + ks + "__";
-                const proto::ProtoObject* pdo = ctx->fromUTF8String(pdStr.c_str());
+                const proto::ProtoObject* pdo = protojs::jsStringFromUTF8(ctx, pdStr);
                 const proto::ProtoString* pdk = pdo ? pdo->asString(ctx) : nullptr;
                 if (!pdk) continue;
                 const proto::ProtoObject* cur = obj->getAttribute(ctx, pdk, false);
@@ -2112,7 +2113,7 @@ static const proto::ProtoObject* objectSeal(
                 size_t n = els->getSize(ctx);
                 for (size_t i = 0; i < n; ++i) {
                     std::string pdStr = std::string("__pd_") + std::to_string(i) + "__";
-                    const proto::ProtoObject* pdo = ctx->fromUTF8String(pdStr.c_str());
+                    const proto::ProtoObject* pdo = protojs::jsStringFromUTF8(ctx, pdStr);
                     const proto::ProtoString* pdk = pdo ? pdo->asString(ctx) : nullptr;
                     if (!pdk) continue;
                     const proto::ProtoObject* cur = obj->getAttribute(ctx, pdk, false);
@@ -2184,7 +2185,7 @@ static const proto::ProtoObject* objectIsSealed(
         for (size_t i = 0; i < kn; ++i) {
             const proto::ProtoObject* kObj = els
                 ? els->getAt(ctx, static_cast<int>(i))
-                : ctx->fromUTF8String(defaultKeys[i].c_str());
+                : protojs::jsStringFromUTF8(ctx, defaultKeys[i]);
             if (!kObj || kObj == PROTO_NONE) continue;
             const proto::ProtoString* kStr = kObj->asString(ctx);
             if (!kStr) continue;
@@ -2449,7 +2450,7 @@ static const proto::ProtoObject* objectGetOwnPropertyNames(
     // `Object.keys(...)` rendered as '[]' under JSON.stringify.
     const proto::ProtoList* elsList = ctx->newList();
     for (size_t i = 0; i < keys.size(); i++) {
-        const proto::ProtoObject* kv = ctx->fromUTF8String(keys[i].c_str());
+        const proto::ProtoObject* kv = protojs::jsStringFromUTF8(ctx, keys[i]);
         elsList = elsList->appendLast(ctx, kv ? kv : PROTO_NONE);
     }
     setArrayElements(ctx, result, elsList);
@@ -2917,7 +2918,7 @@ static const proto::ProtoString* coercePropNameToKey(
         out = "[object Object]";
     }
 
-    return ctx->fromUTF8String(out.c_str())->asString(ctx);
+    return protojs::jsStringFromUTF8(ctx, out)->asString(ctx);
 }
 
 // ---------------------------------------------------------------------------
@@ -3250,7 +3251,7 @@ static const proto::ProtoObject* objectDefineProperty(
         }
     }
     std::string pdKeyStr = "__pd_" + kstr + "__";
-    const proto::ProtoObject* pko = ctx->fromUTF8String(pdKeyStr.c_str());
+    const proto::ProtoObject* pko = protojs::jsStringFromUTF8(ctx, pdKeyStr);
     const proto::ProtoString* pdk = pko ? pko->asString(ctx) : nullptr;
     
     const proto::ProtoObject* existingBitsObj = (pdk && propExists && target->hasOwnAttribute(ctx, pdk) == PROTO_TRUE) 
@@ -3276,7 +3277,7 @@ static const proto::ProtoObject* objectDefineProperty(
             // Accessor sidecar form.
             std::string nstr = name;
             std::string gkStr = "__get_" + nstr + "__";
-            const proto::ProtoObject* gko = ctx->fromUTF8String(gkStr.c_str());
+            const proto::ProtoObject* gko = protojs::jsStringFromUTF8(ctx, gkStr);
             const proto::ProtoString* gk = gko ? gko->asString(ctx) : nullptr;
             if (gk && desc->hasAttribute(ctx, gk) == PROTO_TRUE) return true;
             return false;
@@ -3352,7 +3353,7 @@ static const proto::ProtoObject* objectDefineProperty(
             // __set_<key>__ sidecars and compare.
             auto fetchExisting = [&](const std::string& prefix) -> const proto::ProtoObject* {
                 std::string sk = prefix + kstr + "__";
-                const proto::ProtoObject* sko = ctx->fromUTF8String(sk.c_str());
+                const proto::ProtoObject* sko = protojs::jsStringFromUTF8(ctx, sk);
                 const proto::ProtoString* sks = sko ? sko->asString(ctx) : nullptr;
                 if (!sks) return nullptr;
                 return target->getAttribute(ctx, sks, false);
@@ -3473,7 +3474,7 @@ static const proto::ProtoObject* objectDefineProperty(
                         for (long long i = oldLenArr - 1; i >= newLenArr; --i) {
                             std::string pdks = "__pd_" + std::to_string(i) + "__";
                             const proto::ProtoObject* pdko =
-                                ctx->fromUTF8String(pdks.c_str());
+                                protojs::jsStringFromUTF8(ctx, pdks);
                             const proto::ProtoString* pdkks =
                                 pdko ? pdko->asString(ctx) : nullptr;
                             if (pdkks
@@ -3504,7 +3505,7 @@ static const proto::ProtoObject* objectDefineProperty(
                             // Drop sparse own-attribute index entry for i.
                             std::string istr = std::to_string(i);
                             const proto::ProtoObject* ko =
-                                ctx->fromUTF8String(istr.c_str());
+                                protojs::jsStringFromUTF8(ctx, istr);
                             const proto::ProtoString* kk =
                                 ko ? ko->asString(ctx) : nullptr;
                             if (kk
@@ -3618,7 +3619,7 @@ static const proto::ProtoObject* objectDefineProperty(
                 std::string ks;
                 key->toUTF8String(ctx, ks);
                 std::string gkStr = "__get_" + ks + "__";
-                const proto::ProtoObject* gko = ctx->fromUTF8String(gkStr.c_str());
+                const proto::ProtoObject* gko = protojs::jsStringFromUTF8(ctx, gkStr);
                 const proto::ProtoString* gk = gko ? gko->asString(ctx) : nullptr;
                 
                 if (gk && curr->hasOwnAttribute(ctx, gk) == PROTO_TRUE) {
@@ -3771,10 +3772,10 @@ static const proto::ProtoObject* objectDefineProperty(
         bool propExistsAsAccessor = false;
         if (propExists && !descTouchesData) {
             std::string gkStr = "__get_" + kstr + "__";
-            const proto::ProtoObject* gko = ctx->fromUTF8String(gkStr.c_str());
+            const proto::ProtoObject* gko = protojs::jsStringFromUTF8(ctx, gkStr);
             const proto::ProtoString* gk = gko ? gko->asString(ctx) : nullptr;
             std::string skStr = "__set_" + kstr + "__";
-            const proto::ProtoObject* sko = ctx->fromUTF8String(skStr.c_str());
+            const proto::ProtoObject* sko = protojs::jsStringFromUTF8(ctx, skStr);
             const proto::ProtoString* sk = sko ? sko->asString(ctx) : nullptr;
             if ((gk && target->hasOwnAttribute(ctx, gk) == PROTO_TRUE)
                 || (sk && target->hasOwnAttribute(ctx, sk) == PROTO_TRUE)) {
@@ -3913,7 +3914,7 @@ static const proto::ProtoObject* objectDefineProperty(
                 for (long long i = oldLen - 1; i >= newLen; --i) {
                     std::string pdks = "__pd_" + std::to_string(i) + "__";
                     const proto::ProtoObject* pdko =
-                        ctx->fromUTF8String(pdks.c_str());
+                        protojs::jsStringFromUTF8(ctx, pdks);
                     const proto::ProtoString* pdkks =
                         pdko ? pdko->asString(ctx) : nullptr;
                     if (!pdkks
@@ -3974,7 +3975,7 @@ static const proto::ProtoObject* objectDefineProperty(
                         } catch (...) {}
                     }
                     for (const auto& ks : keysToDrop) {
-                        const proto::ProtoObject* ko = ctx->fromUTF8String(ks.c_str());
+                        const proto::ProtoObject* ko = protojs::jsStringFromUTF8(ctx, ks);
                         const proto::ProtoString* k = ko ? ko->asString(ctx) : nullptr;
                         if (k) target = target->removeAttribute(ctx, k);
                     }
@@ -4111,7 +4112,7 @@ static const proto::ProtoObject* objectGetOwnPropertyDescriptor(
                         size_t cl = (c < 0x80) ? 1 : (c < 0xE0) ? 2 : (c < 0xF0) ? 3 : 4;
                         std::string ch = sv.substr(i, cl);
                         const proto::ProtoObject* res = mk();
-                        setKV(res, "value",        ctx->fromUTF8String(ch.c_str()));
+                        setKV(res, "value",        protojs::jsStringFromUTF8(ctx, ch));
                         setKV(res, "writable",     PROTO_FALSE);
                         setKV(res, "enumerable",   PROTO_TRUE);
                         setKV(res, "configurable", PROTO_FALSE);
@@ -4173,7 +4174,7 @@ static const proto::ProtoObject* objectGetOwnPropertyDescriptor(
     // content, not interned: interning them made every descriptor query of
     // a computed key a perennial SymbolTable entry.
     auto sidecarKey = [&](const std::string& name) -> const proto::ProtoString* {
-        const proto::ProtoObject* o = ctx->fromUTF8String(name.c_str());
+        const proto::ProtoObject* o = protojs::jsStringFromUTF8(ctx, name);
         return o ? o->asString(ctx) : nullptr;
     };
     std::string gkStr = "__get_" + kstr + "__";
@@ -4275,7 +4276,7 @@ static const proto::ProtoObject* objectGetOwnPropertyDescriptor(
                                     unsigned char c = static_cast<unsigned char>(s[i]);
                                     size_t cl = (c < 0x80) ? 1 : (c < 0xE0) ? 2 : (c < 0xF0) ? 3 : 4;
                                     if (i + cl <= s.size()) {
-                                        val = ctx->fromUTF8String(s.substr(i, cl).c_str());
+                                        val = protojs::jsStringFromUTF8(ctx, s.substr(i, cl));
                                         found = true;
                                         // String index slots are non-writable, non-configurable, enumerable per §22.1.3.
                                         // Override bits explicitly.
@@ -4457,7 +4458,7 @@ static const proto::ProtoObject* objectGetOwnPropertyDescriptors(
         for (size_t i = 0; i < kn; ++i) {
             const proto::ProtoObject* kObj = els
                 ? els->getAt(ctx, static_cast<int>(i))
-                : ctx->fromUTF8String(defaultKeys[i].c_str());
+                : protojs::jsStringFromUTF8(ctx, defaultKeys[i]);
             if (!kObj || kObj == PROTO_NONE) continue;
             const proto::ProtoString* kStr = kObj->asString(ctx);
             if (!kStr) continue;
@@ -4481,13 +4482,13 @@ static const proto::ProtoObject* objectGetOwnPropertyDescriptors(
         // place.
         const proto::ProtoList* keyArgs = ctx->newList();
         keyArgs = keyArgs->appendLast(ctx, target);
-        keyArgs = keyArgs->appendLast(ctx, ctx->fromUTF8String(k.c_str()));
+        keyArgs = keyArgs->appendLast(ctx, protojs::jsStringFromUTF8(ctx, k));
         const proto::ProtoObject* desc =
             objectGetOwnPropertyDescriptor(ctx, nullptr, nullptr, argsView(proto::ProtoListArguments(ctx, keyArgs)), nullptr);
         if (!desc || desc == PROTO_NONE) continue;
         // The key as the source holds it: a dynamic key stays a collectable
         // string in the result's property dictionary.
-        const proto::ProtoObject* ko = ctx->fromUTF8String(k.c_str());
+        const proto::ProtoObject* ko = protojs::jsStringFromUTF8(ctx, k);
         const proto::ProtoString* kk = ko ? ko->asString(ctx) : nullptr;
         if (kk && !dict::wantsNewKey(ctx, result, kk))
             kk = proto::ProtoString::createSymbol(ctx, k);
@@ -4517,7 +4518,7 @@ static const proto::ProtoObject* objectGetOwnPropertyDescriptors(
                 continue;
             const proto::ProtoList* keyArgs = ctx->newList();
             keyArgs = keyArgs->appendLast(ctx, target);
-            keyArgs = keyArgs->appendLast(ctx, ctx->fromUTF8String(ks.c_str()));
+            keyArgs = keyArgs->appendLast(ctx, protojs::jsStringFromUTF8(ctx, ks));
             const proto::ProtoObject* desc =
                 objectGetOwnPropertyDescriptor(ctx, nullptr, nullptr, argsView(proto::ProtoListArguments(ctx, keyArgs)), nullptr);
             if (!desc || desc == PROTO_NONE) continue;
@@ -4634,7 +4635,7 @@ static const proto::ProtoObject* objectDefineProperties(
         for (size_t i = 0; i < kn; ++i) {
             const proto::ProtoObject* kObj = els
                 ? els->getAt(ctx, static_cast<int>(i))
-                : ctx->fromUTF8String(defaultKeys[i].c_str());
+                : protojs::jsStringFromUTF8(ctx, defaultKeys[i]);
             if (!kObj || kObj == PROTO_NONE) continue;
             const proto::ProtoString* kStr = kObj->asString(ctx);
             if (!kStr) continue;
@@ -4697,7 +4698,7 @@ static const proto::ProtoObject* objectDefineProperties(
             // spurious TypeError (built-ins/Object/defineProperties/
             // 15.2.3.7-3-7 covers the omission).
             std::string pdStr = std::string("__pd_") + keyStr + "__";
-            const proto::ProtoObject* pdo = ctx->fromUTF8String(pdStr.c_str());
+            const proto::ProtoObject* pdo = protojs::jsStringFromUTF8(ctx, pdStr);
             const proto::ProtoString* pdk = pdo ? pdo->asString(ctx) : nullptr;
             if (pdk) {
                 const proto::ProtoObject* pdv = propsObj->getAttribute(ctx, pdk, false);
@@ -4720,7 +4721,7 @@ static const proto::ProtoObject* objectDefineProperties(
             // and obj.prop ended up at the inherited value).
             {
                 std::string gkStr = std::string("__get_") + keyStr + "__";
-                const proto::ProtoObject* gko = ctx->fromUTF8String(gkStr.c_str());
+                const proto::ProtoObject* gko = protojs::jsStringFromUTF8(ctx, gkStr);
                 const proto::ProtoString* gk = gko ? gko->asString(ctx) : nullptr;
                 if (gk && propsObj->hasOwnAttribute(ctx, gk) == PROTO_TRUE) {
                     const proto::ProtoObject* getter =
@@ -4734,7 +4735,7 @@ static const proto::ProtoObject* objectDefineProperties(
             }
             const proto::ProtoList* dpArgs = ctx->newList();
             dpArgs = dpArgs->appendLast(ctx, target);
-            dpArgs = dpArgs->appendLast(ctx, ctx->fromUTF8String(keyStr.c_str()));
+            dpArgs = dpArgs->appendLast(ctx, protojs::jsStringFromUTF8(ctx, keyStr));
             dpArgs = dpArgs->appendLast(ctx, descObj);
             const proto::ProtoObject* newTarget = objectDefineProperty(ctx, nullptr, nullptr, argsView(proto::ProtoListArguments(ctx, dpArgs)), nullptr);
             if (newTarget && newTarget != PROTO_NONE) target = newTarget;
@@ -4782,7 +4783,7 @@ static const proto::ProtoObject* objectFromEntries(
         if (!arr || arr == PROTO_NONE) return PROTO_NONE;
         {
             std::string gkStr = "__get_" + std::to_string(i) + "__";
-            const proto::ProtoObject* gko = ctx->fromUTF8String(gkStr.c_str());
+            const proto::ProtoObject* gko = protojs::jsStringFromUTF8(ctx, gkStr);
             const proto::ProtoString* gks = gko ? gko->asString(ctx) : nullptr;
             if (gks) {
                 const proto::ProtoObject* getter = arr->getAttribute(ctx, gks, true);
@@ -4819,7 +4820,7 @@ static const proto::ProtoObject* objectFromEntries(
                         unsigned char c = static_cast<unsigned char>(s[bi]);
                         size_t cl = (c < 0x80) ? 1 : (c < 0xE0) ? 2 : (c < 0xF0) ? 3 : 4;
                         if (bi + cl <= s.size())
-                            return ctx->fromUTF8String(s.substr(bi, cl).c_str());
+                            return protojs::jsStringFromUTF8(ctx, s.substr(bi, cl));
                     }
                 }
             }
@@ -5069,7 +5070,7 @@ static const proto::ProtoObject* objectHasOwn(
     // defined via Object.defineProperty (the data key is removed on creation).
     for (const char* prefix : {"__get_", "__set_"}) {
         std::string sk = std::string(prefix) + keyStr + "__";
-        const proto::ProtoObject* sko = ctx->fromUTF8String(sk.c_str());
+        const proto::ProtoObject* sko = protojs::jsStringFromUTF8(ctx, sk);
         const proto::ProtoString* sks = sko ? sko->asString(ctx) : nullptr;
         if (sks && obj->hasOwnAttribute(ctx, sks) == PROTO_TRUE) return PROTO_TRUE;
     }
@@ -5133,7 +5134,7 @@ static const proto::ProtoObject* objectGroupBy(
             size_t cl = (c < 0x80) ? 1 : (c < 0xE0) ? 2 : (c < 0xF0) ? 3 : 4;
             if (i + cl > s.size()) break;
             std::string ch = s.substr(i, cl);
-            built = built->appendLast(ctx, ctx->fromUTF8String(ch.c_str()));
+            built = built->appendLast(ctx, protojs::jsStringFromUTF8(ctx, ch));
             i += cl;
         }
         els = built;
@@ -5322,7 +5323,7 @@ static const proto::ProtoObject* objectHasOwnProperty(
     k->toUTF8String(ctx, keyStr);
     for (const char* prefix : {"__get_", "__set_"}) {
         std::string sk = std::string(prefix) + keyStr + "__";
-        const proto::ProtoObject* sko = ctx->fromUTF8String(sk.c_str());
+        const proto::ProtoObject* sko = protojs::jsStringFromUTF8(ctx, sk);
         const proto::ProtoString* sks = sko ? sko->asString(ctx) : nullptr;
         if (sks && self->hasOwnAttribute(ctx, sks) == PROTO_TRUE) return PROTO_TRUE;
     }
@@ -5472,7 +5473,7 @@ static const proto::ProtoObject* objectPropertyIsEnumerable(
         bool found = false;
         for (const char* prefix : {"__get_", "__set_"}) {
             std::string sk = std::string(prefix) + keyStr + "__";
-            const proto::ProtoObject* sko = ctx->fromUTF8String(sk.c_str());
+            const proto::ProtoObject* sko = protojs::jsStringFromUTF8(ctx, sk);
             const proto::ProtoString* sks = sko ? sko->asString(ctx) : nullptr;
             if (sks && self->hasOwnAttribute(ctx, sks) == PROTO_TRUE) {
                 found = true;
@@ -5529,7 +5530,7 @@ static const proto::ProtoObject* objectPropertyIsEnumerable(
     k->toUTF8String(ctx, keyStr);
     // Check descriptor bit 0x4 (enumerable)
     std::string pdKeyStr = std::string("__pd_") + keyStr + "__";
-    const proto::ProtoObject* pdko = ctx->fromUTF8String(pdKeyStr.c_str());
+    const proto::ProtoObject* pdko = protojs::jsStringFromUTF8(ctx, pdKeyStr);
     const proto::ProtoString* pdks = pdko ? pdko->asString(ctx) : nullptr;
     if (pdks) {
         // Own-only, like the own-property check above: an inherited
@@ -5601,7 +5602,7 @@ static const proto::ProtoObject* objectToString(
                     if (tag.compare(0, 7, "Symbol.") != 0
                         && tag.compare(0, 7, "Symbol(") != 0) {
                         std::string out = "[object " + tag + "]";
-                        return ctx->fromUTF8String(out.c_str());
+                        return protojs::jsStringFromUTF8(ctx, out);
                     }
                 }
             }
@@ -5609,7 +5610,7 @@ static const proto::ProtoObject* objectToString(
         std::string out = "[object ";
         out += primitiveBuiltinTag;
         out += "]";
-        return ctx->fromUTF8String(out.c_str());
+        return protojs::jsStringFromUTF8(ctx, out);
     }
 
     // Function: JS closure (__bytecode_id__), native ProtoMethod, or wrapped
@@ -5759,7 +5760,7 @@ static const proto::ProtoObject* objectToString(
                 }
             }
             std::string out = "[object " + tag + "]";
-            return ctx->fromUTF8String(out.c_str());
+            return protojs::jsStringFromUTF8(ctx, out);
         }
     }
 
@@ -5850,7 +5851,7 @@ static const proto::ProtoObject* objectToString(
 
         if (!tag.empty()) {
             std::string tagResult = "[object " + tag + "]";
-            return ctx->fromUTF8String(tagResult.c_str());
+            return protojs::jsStringFromUTF8(ctx, tagResult);
         }
     }
 
@@ -5858,19 +5859,19 @@ static const proto::ProtoObject* objectToString(
         std::string out = "[object ";
         out += arrayBuiltinTag;
         out += "]";
-        return ctx->fromUTF8String(out.c_str());
+        return protojs::jsStringFromUTF8(ctx, out);
     }
     if (funcBuiltinTag) {
         std::string out = "[object ";
         out += funcBuiltinTag;
         out += "]";
-        return ctx->fromUTF8String(out.c_str());
+        return protojs::jsStringFromUTF8(ctx, out);
     }
     if (wrapperBuiltinTag) {
         std::string out = "[object ";
         out += wrapperBuiltinTag;
         out += "]";
-        return ctx->fromUTF8String(out.c_str());
+        return protojs::jsStringFromUTF8(ctx, out);
     }
     return ctx->fromUTF8String("[object Object]");
 }
@@ -6097,7 +6098,7 @@ static const proto::ProtoObject* objectLookupGetter(
     std::string keyStr;
     dataKey->toUTF8String(ctx, keyStr);
     std::string gkStr = "__get_" + keyStr + "__";
-    const proto::ProtoObject* gko = ctx->fromUTF8String(gkStr.c_str());
+    const proto::ProtoObject* gko = protojs::jsStringFromUTF8(ctx, gkStr);
     const proto::ProtoString* gk = gko ? gko->asString(ctx) : nullptr;
     if (!gk) return getUndefinedSentinel();
     // §B.2.2.4 step 4 walks the chain via [[GetOwnProperty]] /
@@ -6175,7 +6176,7 @@ static const proto::ProtoObject* objectLookupSetter(
     std::string keyStr;
     dataKey->toUTF8String(ctx, keyStr);
     std::string skStr = "__set_" + keyStr + "__";
-    const proto::ProtoObject* sko = ctx->fromUTF8String(skStr.c_str());
+    const proto::ProtoObject* sko = protojs::jsStringFromUTF8(ctx, skStr);
     const proto::ProtoString* sk = sko ? sko->asString(ctx) : nullptr;
     if (!sk) return getUndefinedSentinel();
     // §B.2.2.5 step 4 — same Proxy-aware walk shape as __lookupGetter__,
@@ -6492,7 +6493,7 @@ const proto::ProtoObject* installObjectInstanceMethods(
         if (key) {
             base = base->setAttribute(ctx, key, ctx->fromMethod(nullptr, fn));
             std::string pdKeyStr = std::string("__pd_") + name + "__";
-            const proto::ProtoObject* pko = ctx->fromUTF8String(pdKeyStr.c_str());
+            const proto::ProtoObject* pko = protojs::jsStringFromUTF8(ctx, pdKeyStr);
             const proto::ProtoString* pdk = pko ? pko->asString(ctx) : nullptr;
             if (pdk)
                 base = base->setAttribute(ctx, pdk,
@@ -6649,7 +6650,7 @@ const proto::ProtoObject* installObjectInstanceMethods(
                 return ictx->fromUTF8String(self->asBoolean(ictx) ? "true" : "false");
             if (self->isInteger(ictx)) {
                 const std::string tmp = std::to_string(self->asLong(ictx));
-                return ictx->fromUTF8String(tmp.c_str());
+                return protojs::jsStringFromUTF8(ictx, tmp);
             }
             if (self->isDouble(ictx) || self->isFloat(ictx)) {
                 char buf[64];
@@ -7340,7 +7341,7 @@ const proto::ProtoObject* pinnedRegistry(proto::ProtoContext* ctx, PinnedRegistr
 }
 
 const proto::ProtoString* internedKey(proto::ProtoContext* ctx, const std::string& key) {
-    return proto::ProtoString::createSymbol(ctx, key.c_str());
+    return protojs::jsSymbolFromUTF8(ctx, key);
 }
 
 }  // namespace

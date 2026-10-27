@@ -1,4 +1,5 @@
 #include "ProtoCoreTypes.h"
+#include "runtime/JSStringBytes.h"
 #include "GCBridge.h"
 #include "JSContext.h"
 #include "JSSymbols.h"
@@ -640,7 +641,7 @@ const proto::ProtoString* GCBridge::createJSValueKey(JSValue jsVal, proto::Proto
     uint64_t tag = getJSValueTag(jsVal);
     std::ostringstream oss;
     oss << "jsval:" << tag;
-    return pContext->fromUTF8String(oss.str().c_str())->asString(pContext);
+    return protojs::jsStringFromUTF8(pContext, oss.str())->asString(pContext);
 }
 
 proto::proto_ulong GCBridge::getProtoObjectKey(const proto::ProtoObject* protoObj, proto::ProtoContext* pContext) {

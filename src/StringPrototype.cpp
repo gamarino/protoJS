@@ -1,4 +1,5 @@
 #include "ProtoCoreTypes.h"
+#include "runtime/JSStringBytes.h"
 #include "JSNumber.h"
 #include "runtime/PinnedBuiltin.h"
 #include "StringPrototype.h"
@@ -177,7 +178,7 @@ static std::string objToStr(proto::ProtoContext* ctx, const proto::ProtoObject* 
             // trim / trimStart / replace tests caught this).
             const proto::ProtoObject* tpFn = obj->getAttribute(ctx, tpKey, true);
             std::string gkStr = "__get_Symbol.toPrimitive__";
-            const proto::ProtoObject* gko = ctx->fromUTF8String(gkStr.c_str());
+            const proto::ProtoObject* gko = protojs::jsStringFromUTF8(ctx, gkStr);
             const proto::ProtoString* gk = gko ? gko->asString(ctx) : nullptr;
             if (gk) {
                 const proto::ProtoObject* getter = obj->getAttribute(ctx, gk, true);
@@ -273,7 +274,7 @@ static std::string objToStr(proto::ProtoContext* ctx, const proto::ProtoObject* 
             // err and the parallel valueof- variants).
             {
                 std::string gkStr = "__get_toString__";
-                const proto::ProtoObject* gko = ctx->fromUTF8String(gkStr.c_str());
+                const proto::ProtoObject* gko = protojs::jsStringFromUTF8(ctx, gkStr);
                 const proto::ProtoString* gk = gko ? gko->asString(ctx) : nullptr;
                 if (gk) {
                     const proto::ProtoObject* getter = obj->getAttribute(ctx, gk, true);
@@ -394,7 +395,7 @@ static std::string objToStr(proto::ProtoContext* ctx, const proto::ProtoObject* 
             // step 5.a applies to "valueOf" as well.
             {
                 std::string gkStr = "__get_valueOf__";
-                const proto::ProtoObject* gko = ctx->fromUTF8String(gkStr.c_str());
+                const proto::ProtoObject* gko = protojs::jsStringFromUTF8(ctx, gkStr);
                 const proto::ProtoString* gk = gko ? gko->asString(ctx) : nullptr;
                 if (gk) {
                     const proto::ProtoObject* getter = obj->getAttribute(ctx, gk, true);
@@ -767,8 +768,7 @@ const proto::ProtoObject* stringCharAt(
     auto u16 = utf8ToUTF16(s);
     if (idx < 0 || static_cast<size_t>(idx) >= u16.size())
         return ctx->fromUTF8String("");
-    return ctx->fromUTF8String(
-        utf16ToUTF8(u16, static_cast<size_t>(idx), static_cast<size_t>(idx) + 1).c_str());
+    return protojs::jsStringFromUTF8(ctx, utf16ToUTF8(u16, static_cast<size_t>(idx), static_cast<size_t>(idx) + 1));
 }
 
 const proto::ProtoObject* stringCharCodeAt(
@@ -872,8 +872,7 @@ const proto::ProtoObject* stringAt(
     long long len = static_cast<long long>(u16.size());
     if (idx < 0) idx += len;
     if (idx < 0 || idx >= len) return PROTO_NONE;
-    return ctx->fromUTF8String(
-        utf16ToUTF8(u16, static_cast<size_t>(idx), static_cast<size_t>(idx) + 1).c_str());
+    return protojs::jsStringFromUTF8(ctx, utf16ToUTF8(u16, static_cast<size_t>(idx), static_cast<size_t>(idx) + 1));
 }
 
 const proto::ProtoObject* stringConcat(
@@ -893,7 +892,7 @@ const proto::ProtoObject* stringConcat(
     for (proto::proto_ulong i = 0; i < argc; i++) {
         result += objToStr(ctx, args->getAt(ctx, static_cast<int>(i)));
     }
-    return ctx->fromUTF8String(result.c_str());
+    return protojs::jsStringFromUTF8(ctx, result);
 }
 
 const proto::ProtoObject* stringIndexOf(
@@ -1064,8 +1063,7 @@ const proto::ProtoObject* stringSlice(
         }
     }
     if (end <= start) return ctx->fromUTF8String("");
-    return ctx->fromUTF8String(
-        utf16ToUTF8(u16, static_cast<size_t>(start), static_cast<size_t>(end)).c_str());
+    return protojs::jsStringFromUTF8(ctx, utf16ToUTF8(u16, static_cast<size_t>(start), static_cast<size_t>(end)));
 }
 
 const proto::ProtoObject* stringSubstring(
@@ -1122,8 +1120,7 @@ const proto::ProtoObject* stringSubstring(
     }
     // substring swaps start/end if start > end (unlike slice)
     if (start > end) std::swap(start, end);
-    return ctx->fromUTF8String(
-        utf16ToUTF8(u16, static_cast<size_t>(start), static_cast<size_t>(end)).c_str());
+    return protojs::jsStringFromUTF8(ctx, utf16ToUTF8(u16, static_cast<size_t>(start), static_cast<size_t>(end)));
 }
 
 /** Legacy substr(start, length) — not in the spec but widely used. */
@@ -1178,8 +1175,7 @@ const proto::ProtoObject* stringSubstr(
     }
     long long end = std::min(start + length, len);
     if (end <= start) return ctx->fromUTF8String("");
-    return ctx->fromUTF8String(
-        utf16ToUTF8(u16, static_cast<size_t>(start), static_cast<size_t>(end)).c_str());
+    return protojs::jsStringFromUTF8(ctx, utf16ToUTF8(u16, static_cast<size_t>(start), static_cast<size_t>(end)));
 }
 
 // UTF-8 aware case mapping for ASCII + Latin-1 supplement
@@ -1238,7 +1234,7 @@ const proto::ProtoObject* stringToLowerCase(
     if (!requireStringThis(ctx, self)) return PROTO_NONE;
     std::string s = objToStr(ctx, self);
     s = utf8CaseMap(s, /*upper=*/false);
-    return ctx->fromUTF8String(s.c_str());
+    return protojs::jsStringFromUTF8(ctx, s);
 }
 
 const proto::ProtoObject* stringToUpperCase(
@@ -1248,7 +1244,7 @@ const proto::ProtoObject* stringToUpperCase(
     if (!requireStringThis(ctx, self)) return PROTO_NONE;
     std::string s = objToStr(ctx, self);
     s = utf8CaseMap(s, /*upper=*/true);
-    return ctx->fromUTF8String(s.c_str());
+    return protojs::jsStringFromUTF8(ctx, s);
 }
 
 const proto::ProtoObject* stringRepeat(
@@ -1304,7 +1300,7 @@ const proto::ProtoObject* stringRepeat(
     std::string result;
     result.reserve(s.size() * static_cast<size_t>(count));
     for (long long i = 0; i < count; i++) result += s;
-    return ctx->fromUTF8String(result.c_str());
+    return protojs::jsStringFromUTF8(ctx, result);
 }
 
 const proto::ProtoObject* stringLocaleCompare(
@@ -1343,7 +1339,7 @@ const proto::ProtoObject* stringToLocaleString(
     }
     // Fall back to ToString.
     std::string s = objToStr(ctx, self);
-    return ctx->fromUTF8String(s.c_str());
+    return protojs::jsStringFromUTF8(ctx, s);
 }
 
 // ECMA-262 §22.1.3.32 WhiteSpace + LineTerminator: covers ASCII
@@ -1664,7 +1660,7 @@ const proto::ProtoObject* stringToWellFormed(
         }
     }
     std::string result = utf16ToUTF8(out);
-    return ctx->fromUTF8String(result.c_str());
+    return protojs::jsStringFromUTF8(ctx, result);
 }
 
 // ECMA-262 §22.1.3.13/14 — StringPad. Apply ToLength to maxLength;
@@ -1700,7 +1696,7 @@ static const proto::ProtoObject* stringPadCommon(
     if (dTarget < 0) dTarget = 0;
     long long targetLen = static_cast<long long>(dTarget);
     if (targetLen <= static_cast<long long>(su16.size()))
-        return ctx->fromUTF8String(s.c_str());
+        return protojs::jsStringFromUTF8(ctx, s);
     std::string padStr = " ";
     if (args && args->getSize(ctx) > 1) {
         const proto::ProtoObject* pa = args->getAt(ctx, 1);
@@ -1721,7 +1717,7 @@ static const proto::ProtoObject* stringPadCommon(
         }
     }
     auto padU16 = utf8ToUTF16(padStr);
-    if (padU16.empty()) return ctx->fromUTF8String(s.c_str());
+    if (padU16.empty()) return protojs::jsStringFromUTF8(ctx, s);
     long long needed = targetLen - static_cast<long long>(su16.size());
     // Cap on the output to avoid runaway allocations; legitimate
     // formatting fits well below.
@@ -1737,13 +1733,13 @@ static const proto::ProtoObject* stringPadCommon(
         for (long long i = 0; i < needed; i++)
             result.push_back(padU16[static_cast<size_t>(i) % padU16.size()]);
         result.insert(result.end(), su16.begin(), su16.end());
-        return ctx->fromUTF8String(utf16ToUTF8(result).c_str());
+        return protojs::jsStringFromUTF8(ctx, utf16ToUTF8(result));
     }
     std::vector<uint16_t> result(su16);
     result.reserve(static_cast<size_t>(targetLen));
     for (long long i = 0; i < needed; i++)
         result.push_back(padU16[static_cast<size_t>(i) % padU16.size()]);
-    return ctx->fromUTF8String(utf16ToUTF8(result).c_str());
+    return protojs::jsStringFromUTF8(ctx, utf16ToUTF8(result));
 }
 
 const proto::ProtoObject* stringPadStart(
@@ -1863,7 +1859,7 @@ const proto::ProtoObject* stringMatch(
             const proto::ProtoString* inK = JSSymbols::input(ctx);
             if (inK) {
                 std::string sv = objToStr(ctx, self);
-                arr = arr->setAttribute(ctx, inK, ctx->fromUTF8String(sv.c_str()));
+                arr = arr->setAttribute(ctx, inK, protojs::jsStringFromUTF8(ctx, sv));
             }
         }
         return arr;
@@ -1943,7 +1939,7 @@ const proto::ProtoObject* stringMatch(
         if (ixK) result = result->setAttribute(ctx, ixK, ctx->fromInteger(0LL));
         const proto::ProtoString* inK = JSSymbols::input(ctx);
         if (inK) result = result->setAttribute(ctx, inK,
-            ctx->fromUTF8String(s.c_str()));
+            protojs::jsStringFromUTF8(ctx, s));
         return result;
     }
     size_t pos = s.find(pat);
@@ -1952,7 +1948,7 @@ const proto::ProtoObject* stringMatch(
         return getNullSentinel();
     }
     const proto::ProtoList* els = ctx->newList();
-    els = els->appendLast(ctx, ctx->fromUTF8String(pat.c_str()));
+    els = els->appendLast(ctx, protojs::jsStringFromUTF8(ctx, pat));
     setArrayElements(ctx, result, els);
     if (lenKey) result = result->setAttribute(ctx, lenKey, ctx->fromInteger(1LL));
     // Attach .index and .input per spec.
@@ -1963,7 +1959,7 @@ const proto::ProtoObject* stringMatch(
             ctx->fromInteger(static_cast<long long>(pos)));
         const proto::ProtoObject* inObj = ctx->fromUTF8String("input");
         const proto::ProtoString* inK = inObj ? inObj->asString(ctx) : nullptr;
-        if (inK) result = result->setAttribute(ctx, inK, ctx->fromUTF8String(s.c_str()));
+        if (inK) result = result->setAttribute(ctx, inK, protojs::jsStringFromUTF8(ctx, s));
     }
     return result;
 }
@@ -2052,7 +2048,7 @@ const proto::ProtoObject* stringReplace(
             std::string replKeyName;
             replK->toUTF8String(ctx, replKeyName);
             std::string replGetSk = "__get_" + replKeyName + "__";
-            const proto::ProtoObject* replGetKObj = ctx->fromUTF8String(replGetSk.c_str());
+            const proto::ProtoObject* replGetKObj = protojs::jsStringFromUTF8(ctx, replGetSk);
             const proto::ProtoString* replGetK = replGetKObj ? replGetKObj->asString(ctx) : nullptr;
             const proto::ProtoObject* replacer = nullptr;
             if (replGetK) {
@@ -2088,7 +2084,7 @@ const proto::ProtoObject* stringReplace(
     // is found).
     if (!args || args->getSize(ctx) < 2) {
         std::string coerced = objToStr(ctx, self);
-        return ctx->fromUTF8String(coerced.c_str());
+        return protojs::jsStringFromUTF8(ctx, coerced);
     }
 
     // Per ECMA-262 §22.1.3.18 step 5: ToString(searchValue) — non-string
@@ -2123,9 +2119,9 @@ const proto::ProtoObject* stringReplace(
 
     auto callReplacement = [&](const std::string& matched, size_t offset) -> std::string {
         const proto::ProtoList* callArgs = ctx->newList();
-        callArgs = callArgs->appendLast(ctx, ctx->fromUTF8String(matched.c_str()));
+        callArgs = callArgs->appendLast(ctx, protojs::jsStringFromUTF8(ctx, matched));
         callArgs = callArgs->appendLast(ctx, ctx->fromInteger(static_cast<long long>(offset)));
-        callArgs = callArgs->appendLast(ctx, ctx->fromUTF8String(s.c_str()));
+        callArgs = callArgs->appendLast(ctx, protojs::jsStringFromUTF8(ctx, s));
         const proto::ProtoObject* res = callJSFunction(ctx, repObj, PROTO_NONE, callArgs);
         return objToStr(ctx, res);
     };
@@ -2133,20 +2129,18 @@ const proto::ProtoObject* stringReplace(
     if (repCallable) {
         if (pat.empty()) {
             // Empty pattern: replace at position 0 with cb("", 0, s).
-            return ctx->fromUTF8String((callReplacement("", 0) + s).c_str());
+            return protojs::jsStringFromUTF8(ctx, callReplacement("", 0) + s);
         }
         size_t pos = s.find(pat);
-        if (pos == std::string::npos) return ctx->fromUTF8String(s.c_str());
-        return ctx->fromUTF8String(
-            (s.substr(0, pos) + callReplacement(pat, pos) + s.substr(pos + pat.size())).c_str());
+        if (pos == std::string::npos) return protojs::jsStringFromUTF8(ctx, s);
+        return protojs::jsStringFromUTF8(ctx, (s.substr(0, pos) + callReplacement(pat, pos) + s.substr(pos + pat.size())));
     }
 
     std::string rep = objToStr(ctx, repObj);
-    if (pat.empty()) return ctx->fromUTF8String((applyStringReplacement(s, pat, rep, 0) + s).c_str());
+    if (pat.empty()) return protojs::jsStringFromUTF8(ctx, applyStringReplacement(s, pat, rep, 0) + s);
     size_t pos = s.find(pat);
-    if (pos == std::string::npos) return ctx->fromUTF8String(s.c_str());
-    return ctx->fromUTF8String(
-        (s.substr(0, pos) + applyStringReplacement(s, pat, rep, pos) + s.substr(pos + pat.size())).c_str());
+    if (pos == std::string::npos) return protojs::jsStringFromUTF8(ctx, s);
+    return protojs::jsStringFromUTF8(ctx, (s.substr(0, pos) + applyStringReplacement(s, pat, rep, pos) + s.substr(pos + pat.size())));
 }
 
 /** replaceAll(pattern, replacement) — string patterns only. */
@@ -2161,7 +2155,7 @@ const proto::ProtoObject* stringReplaceAll(
     const proto::ProtoObject* repObj = args->getAt(ctx, 1);
     if (!pattern || pattern == PROTO_NONE) {
         std::string sOnly = objToStr(ctx, self);
-        return ctx->fromUTF8String(sOnly.c_str());
+        return protojs::jsStringFromUTF8(ctx, sOnly);
     }
     // §22.1.3.20 step 2.a-b: IsRegExp + flags-must-contain-"g" check
     // runs BEFORE ToString(O) so a regex/poison receiver pair throws
@@ -2180,7 +2174,7 @@ const proto::ProtoObject* stringReplaceAll(
         std::string matchKeyName;
         matchK->toUTF8String(ctx, matchKeyName);
         std::string gkBuf = "__get_" + matchKeyName + "__";
-        const proto::ProtoObject* gkObj = ctx->fromUTF8String(gkBuf.c_str());
+        const proto::ProtoObject* gkObj = protojs::jsStringFromUTF8(ctx, gkBuf);
         const proto::ProtoString* gk = gkObj ? gkObj->asString(ctx) : nullptr;
         if (gk) {
             const proto::ProtoObject* getter = obj->getAttribute(ctx, gk, true);
@@ -2255,7 +2249,7 @@ const proto::ProtoObject* stringReplaceAll(
             std::string replKeyName;
             replK->toUTF8String(ctx, replKeyName);
             std::string replGetSk = "__get_" + replKeyName + "__";
-            const proto::ProtoObject* replGetKObj = ctx->fromUTF8String(replGetSk.c_str());
+            const proto::ProtoObject* replGetKObj = protojs::jsStringFromUTF8(ctx, replGetSk);
             const proto::ProtoString* replGetK = replGetKObj ? replGetKObj->asString(ctx) : nullptr;
             const proto::ProtoObject* replacer = nullptr;
             if (replGetK) {
@@ -2318,9 +2312,9 @@ const proto::ProtoObject* stringReplaceAll(
     }
     auto callReplacement = [&](const std::string& matched, size_t offset) -> std::string {
         const proto::ProtoList* callArgs = ctx->newList();
-        callArgs = callArgs->appendLast(ctx, ctx->fromUTF8String(matched.c_str()));
+        callArgs = callArgs->appendLast(ctx, protojs::jsStringFromUTF8(ctx, matched));
         callArgs = callArgs->appendLast(ctx, ctx->fromInteger(static_cast<long long>(offset)));
-        callArgs = callArgs->appendLast(ctx, ctx->fromUTF8String(s.c_str()));
+        callArgs = callArgs->appendLast(ctx, protojs::jsStringFromUTF8(ctx, s));
         const proto::ProtoObject* res = callJSFunction(ctx, repObj, PROTO_NONE, callArgs);
         return objToStr(ctx, res);
     };
@@ -2340,7 +2334,7 @@ const proto::ProtoObject* stringReplaceAll(
                 result += applyStringReplacement(s, pat, repCached, i + 1);
             }
         }
-        return ctx->fromUTF8String(result.c_str());
+        return protojs::jsStringFromUTF8(ctx, result);
     }
 
     std::string result;
@@ -2357,7 +2351,7 @@ const proto::ProtoObject* stringReplaceAll(
         pos = s.find(pat, lastPos);
     }
     result += s.substr(lastPos);
-    return ctx->fromUTF8String(result.c_str());
+    return protojs::jsStringFromUTF8(ctx, result);
 }
 
 const proto::ProtoObject* stringMatchAll(
@@ -2570,7 +2564,7 @@ const proto::ProtoObject* stringSplit(
 
     // No separator argument (or undefined): return array with entire string
     if (!args || args->getSize(ctx) == 0) {
-        els = els->appendLast(ctx, ctx->fromUTF8String(s.c_str()));
+        els = els->appendLast(ctx, protojs::jsStringFromUTF8(ctx, s));
         protojs::setArrayElements(ctx, result, els);
         if (lenKey) result = result->setAttribute(ctx, lenKey, ctx->fromInteger(1));
         return result;
@@ -2584,7 +2578,7 @@ const proto::ProtoObject* stringSplit(
     // string "undefined", so `"undefinedd".split(undefined)` returned
     // ["", "d"] instead of ["undefinedd"].
     if (!sepArg || sepArg == PROTO_NONE || sepArg == getUndefinedSentinel()) {
-        els = els->appendLast(ctx, ctx->fromUTF8String(s.c_str()));
+        els = els->appendLast(ctx, protojs::jsStringFromUTF8(ctx, s));
         protojs::setArrayElements(ctx, result, els);
         if (lenKey) result = result->setAttribute(ctx, lenKey, ctx->fromInteger(1));
         return result;
@@ -2605,7 +2599,7 @@ const proto::ProtoObject* stringSplit(
     if (se16.empty()) {
         for (size_t i = 0; i < su16.size() && count < limit; i++) {
             std::string ch = utf16ToUTF8(su16, i, i + 1);
-            els = els->appendLast(ctx, ctx->fromUTF8String(ch.c_str()));
+            els = els->appendLast(ctx, protojs::jsStringFromUTF8(ctx, ch));
             count++;
         }
         protojs::setArrayElements(ctx, result, els);
@@ -2626,7 +2620,7 @@ const proto::ProtoObject* stringSplit(
         }
         // Slice [pos, found) as a segment
         std::string segment = utf16ToUTF8(su16, pos, found);
-        els = els->appendLast(ctx, ctx->fromUTF8String(segment.c_str()));
+        els = els->appendLast(ctx, protojs::jsStringFromUTF8(ctx, segment));
         count++;
         if (found == su16.size()) break; // no more separators
         pos = found + se16.size();
@@ -2674,7 +2668,7 @@ const proto::ProtoObject* stringNormalize(
     }
     // Without ICU: return string as-is (identity for NFC on ASCII/Latin-1).
     std::string s = objToStr(ctx, self);
-    return ctx->fromUTF8String(s.c_str());
+    return protojs::jsStringFromUTF8(ctx, s);
 }
 
 // ---------------------------------------------------------------------------
@@ -2772,7 +2766,7 @@ const proto::ProtoObject* stringFromCodePoint(
         }
         result += utf16ToUTF8(tmp);
     }
-    return ctx->fromUTF8String(result.c_str());
+    return protojs::jsStringFromUTF8(ctx, result);
 }
 
 // Sentinel key used to mark that the prototype has been built.
@@ -2916,7 +2910,7 @@ const proto::ProtoObject* stringRaw(
             result += objToStr(ctx, sub);
         }
     }
-    return ctx->fromUTF8String(result.c_str());
+    return protojs::jsStringFromUTF8(ctx, result);
 }
 
 // String iterator next() — returns {value: char, done: bool}.
@@ -3041,7 +3035,7 @@ static const proto::ProtoObject* stringSymbolIterator(
             return PROTO_NONE;
         }
         std::string converted = objToStr(ctx, self);
-        strVal = ctx->fromUTF8String(converted.c_str());
+        strVal = protojs::jsStringFromUTF8(ctx, converted);
         if (!strVal) strVal = ctx->fromUTF8String("");
     }
     const proto::ProtoObject* protoParent = getStringIteratorProto(ctx);
@@ -3124,7 +3118,125 @@ const proto::ProtoObject* codePointStringAt(proto::ProtoContext* ctx,
         utf8[2] = static_cast<char>(0x80 | ((cp >> 6) & 0x3F));
         utf8[3] = static_cast<char>(0x80 | (cp & 0x3F));
     }
-    return ctx->fromUTF8String(utf8);
+    const std::size_t n = cp < 0x80 ? 1 : cp < 0x800 ? 2 : cp < 0x10000 ? 3 : 4;
+    return protojs::jsStringFromUTF8(ctx, utf8, n);
+}
+
+// ---------------------------------------------------------------------------
+// UTF-16 code-unit access to a code-point-indexed string
+// ---------------------------------------------------------------------------
+//
+// protoCore indexes a string by code point; charCodeAt and codePointAt take a
+// UTF-16 code-unit index. The two coincide until the first code point above
+// U+FFFF, which is two code units. The shape of a string is the code-point
+// indices of those supplementary code points, in order (empty for a BMP-only
+// string): with it, code unit u maps to a code point with one binary search
+// and one ProtoString::getAt, O(log n), instead of converting the whole
+// string to UTF-16 on every call (O(n) per call, O(n^2) for a loop).
+//
+// Shapes are memoised per thread by string. The key is the string's address,
+// so the memo is a GcScopedCache: it is emptied whenever a collection starts,
+// before any keyed cell can be freed and its address reused. Strings of at
+// most kUtf16DirectLimit code points are scanned directly instead.
+
+namespace {
+
+constexpr long long kUtf16DirectLimit = 32;
+constexpr std::size_t kUtf16ShapeCacheEntries = 64;
+
+using Utf16Shape = std::vector<uint32_t>;
+
+Utf16Shape buildUtf16Shape(proto::ProtoContext* ctx, const proto::ProtoString* str) {
+    // toUTF8String copies the rope's leaves and allocates no cell.
+    std::string utf8;
+    str->toUTF8String(ctx, utf8);
+    Utf16Shape shape;
+    uint32_t cpIndex = 0;
+    for (unsigned char c : utf8) {
+        if ((c & 0xC0) == 0x80) continue;   // continuation byte
+        if (c >= 0xF0) shape.push_back(cpIndex);
+        ++cpIndex;
+    }
+    return shape;
+}
+
+const Utf16Shape& utf16ShapeOf(proto::ProtoContext* ctx, const proto::ProtoString* str) {
+    static thread_local GcScopedCache<const proto::ProtoString*, Utf16Shape> s_shapes;
+    auto& map = s_shapes.get(ctx);
+    auto it = map.find(str);
+    if (it != map.end()) return it->second;
+    if (map.size() >= kUtf16ShapeCacheEntries) map.clear();
+    return map.emplace(str, buildUtf16Shape(ctx, str)).first->second;
+}
+
+uint32_t codePointAtIndex(proto::ProtoContext* ctx, const proto::ProtoString* str, long long cpIndex) {
+    const proto::ProtoObject* cpObj = str->getAt(ctx, static_cast<int>(cpIndex));
+    return static_cast<uint32_t>(cpObj ? cpObj->asLong(ctx) : 0);
+}
+
+uint16_t unitOf(uint32_t cp, int half) {
+    if (cp < 0x10000u) return static_cast<uint16_t>(cp);
+    cp -= 0x10000u;
+    return half == 0 ? static_cast<uint16_t>(0xD800u + (cp >> 10))
+                     : static_cast<uint16_t>(0xDC00u + (cp & 0x3FFu));
+}
+
+} // namespace
+
+long long utf16Length(proto::ProtoContext* ctx, const proto::ProtoString* str) {
+    if (!str) return 0;
+    const long long n = static_cast<long long>(str->getSize(ctx));
+    if (n <= kUtf16DirectLimit) {
+        long long units = 0;
+        for (long long i = 0; i < n; ++i)
+            units += codePointAtIndex(ctx, str, i) >= 0x10000u ? 2 : 1;
+        return units;
+    }
+    return n + static_cast<long long>(utf16ShapeOf(ctx, str).size());
+}
+
+bool utf16UnitAt(proto::ProtoContext* ctx, const proto::ProtoString* str,
+                 long long unitIndex, uint16_t& unit) {
+    if (!str || unitIndex < 0) return false;
+    const long long n = static_cast<long long>(str->getSize(ctx));
+    if (n <= kUtf16DirectLimit) {
+        long long u = 0;
+        for (long long i = 0; i < n; ++i) {
+            const uint32_t cp = codePointAtIndex(ctx, str, i);
+            const long long width = cp >= 0x10000u ? 2 : 1;
+            if (unitIndex < u + width) {
+                unit = unitOf(cp, static_cast<int>(unitIndex - u));
+                return true;
+            }
+            u += width;
+        }
+        return false;
+    }
+    const Utf16Shape& shape = utf16ShapeOf(ctx, str);
+    if (unitIndex >= n + static_cast<long long>(shape.size())) return false;
+    if (shape.empty()) {
+        unit = static_cast<uint16_t>(codePointAtIndex(ctx, str, unitIndex));
+        return true;
+    }
+    // The j-th supplementary code point (code-point index shape[j]) occupies
+    // code units shape[j] + j and shape[j] + j + 1. k is the number of them
+    // wholly before unitIndex.
+    std::size_t lo = 0, hi = shape.size();
+    while (lo < hi) {
+        const std::size_t mid = lo + (hi - lo) / 2;
+        if (static_cast<long long>(shape[mid]) + static_cast<long long>(mid) + 2 <= unitIndex) lo = mid + 1;
+        else hi = mid;
+    }
+    const std::size_t k = lo;
+    if (k < shape.size()) {
+        const long long start = static_cast<long long>(shape[k]) + static_cast<long long>(k);
+        if (start <= unitIndex) {
+            unit = unitOf(codePointAtIndex(ctx, str, shape[k]), static_cast<int>(unitIndex - start));
+            return true;
+        }
+    }
+    unit = static_cast<uint16_t>(codePointAtIndex(ctx, str, unitIndex - static_cast<long long>(k)));
+    return true;
 }
 
 void BuildStringPrototype(proto::ProtoSpace* space, proto::ProtoContext* ctx,
@@ -3452,7 +3564,7 @@ void ensureStringConstructor(proto::ProtoContext* ctx,
             if (mObj && mObj != PROTO_NONE) {
                 ctor = ctor->setAttribute(ctx, key, mObj);
                 std::string pdStr = std::string("__pd_") + name + "__";
-                const proto::ProtoObject* pdo = ctx->fromUTF8String(pdStr.c_str());
+                const proto::ProtoObject* pdo = protojs::jsStringFromUTF8(ctx, pdStr);
                 const proto::ProtoString* pdk = pdo ? pdo->asString(ctx) : nullptr;
                 if (pdk) ctor = ctor->setAttribute(ctx, pdk, ctx->fromInteger(0x3LL));
             }
