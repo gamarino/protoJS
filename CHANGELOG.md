@@ -38,6 +38,31 @@ All notable changes to protoJS are documented in this file.
 - **`new String(s).charAt(i)`** converted the whole string on every call
   (O(n) per call, 8.5 s for a loop over 48,000 characters); it reads the
   primitive value through the same view now.
+- **`Array.prototype.push`** did not update the `length` property on its
+  fast path (9f45980ad): `[...a]`, `f(...a)`, `f.apply(o, a)`,
+  `Reflect.get(a, "length")` and the property descriptor of an array built
+  by push saw its length before the first push (spread gave `[]`), and a
+  push after trailing holes (`new Array(3)`) wrote index 0.
+  (`js/basic/array_push_length`)
+- **`r.push(o.missing)`** stored a hole instead of `undefined`.
+- **Quadratic `slice` / `splice` / `flat`**: their bulk paths never ran.
+  `slice` looked for the accessor flag along the prototype chain, where
+  Object.prototype always carries it; `slice` and `splice` also required an
+  empty result list, and ArraySpeciesCreate leaves holes in it; `flat` had
+  none. The bulk paths now run for a result made by `%Array%` and a source
+  without holes; a species function or a subclass keeps the per-element
+  path, which interns a descriptor key per index in protoCore's symbol
+  table, whose lookup is linear in the number of symbols (still quadratic
+  there). 40,000 elements: `slice(1)` 2.0 s -> 0.04 s, a `splice` 6.6 s ->
+  0.08 s, `flat` 2.0 s -> 0.08 s. (`js/basic/array_bulk_scaling`)
+- **`Array.from` / `Array.of` with a class** as `this` construct it
+  (`MyA.from(x) instanceof MyA`); a class constructor was called instead,
+  giving a plain Array or a TypeError. ArraySpeciesCreate had the same bug:
+  `map`, `filter`, `slice`, `splice`, `flat` and `concat` of a subclass
+  instance gave a plain Array. (`js/basic/array_from_of_this`)
+- **`Object.hasOwn`** reported false for array elements
+  (`Object.hasOwn([1, 2, 3], "2")`); it is HasOwnProperty, as
+  `Object.prototype.hasOwnProperty` computes it.
 
 ### Fixed — string bugs found by the string-cells work (2026-10-27)
 

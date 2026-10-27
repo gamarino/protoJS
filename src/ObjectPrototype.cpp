@@ -4954,6 +4954,9 @@ static const proto::ProtoObject* objectFromEntries(
     return result;
 }
 
+static const proto::ProtoObject* objectHasOwnProperty(proto::ProtoContext*, const proto::ProtoObject*,
+    const proto::ParentLink*, const proto::ProtoArguments*, const proto::ProtoKeywordArguments*);
+
 // ---------------------------------------------------------------------------
 // Object.hasOwn(obj, key) — static version of hasOwnProperty
 // ---------------------------------------------------------------------------
@@ -4972,42 +4975,15 @@ static const proto::ProtoObject* objectHasOwn(
         ? args->getAt(ctx, 0) : PROTO_NONE;
     if (throwIfNullOrUndefined(ctx, obj, "Object.hasOwn"))
         return PROTO_NONE;
+    // Steps 2-3: ToPropertyKey(P), HasOwnProperty(O, key): what
+    // Object.prototype.hasOwnProperty does with O as its receiver (array
+    // elements, String indices, accessors, Proxies included). Until
+    // 2026-10-27 this was a separate probe of the attributes alone, and
+    // Object.hasOwn([1, 2, 3], "2") was false.
     const proto::ProtoObject* key = (args && args->getSize(ctx) > 1)
-        ? args->getAt(ctx, 1) : PROTO_NONE;
-    if (!key || key == PROTO_NONE) return PROTO_FALSE;
-
-    // §20.1.2.13 step 2 invokes ToPropertyKey(P), which routes through
-    // ToPrimitive (Symbol.toPrimitive → toString → valueOf).  Pre-fix
-    // hasOwn only honoured raw String / Integer keys — an object key
-    // whose @@toPrimitive coerced to a Symbol fell to the empty-key
-    // short-circuit (built-ins/Object/hasOwn/symbol_property_*).
-    const proto::ProtoString* strKey = coercePropNameToKey(ctx, key);
-    if (!strKey) return PROTO_FALSE;
-    materializeLazyPrototypeForKey(ctx, obj, strKey);  // runtime/LazyPrototype.h
-    // §20.1.2.13 step 3 HasOwnProperty -> [[GetOwnProperty]]: on a Proxy that
-    // is the getOwnPropertyDescriptor trap or its target, as
-    // Object.prototype.hasOwnProperty does. Pre-fix the probe ran on the
-    // proxy cell and reported false for every property of the target.
-    if (isProxy(ctx, obj)) {
-        const proto::ProtoObject* desc = proxyDispatchGetOwnPropertyDescriptor(ctx, obj, strKey);
-        return (desc && desc != PROTO_NONE && desc != getUndefinedSentinel()
-                && desc != getNullSentinel()) ? PROTO_TRUE : PROTO_FALSE;
-    }
-    std::string keyStr;
-    strKey->toUTF8String(ctx, keyStr);
-    // hasOwnAttribute returns PROTO_TRUE if own, PROTO_FALSE if inherited, nullptr if absent
-    const proto::ProtoObject* own = obj->hasOwnAttribute(ctx, strKey);
-    if (own == PROTO_TRUE) return PROTO_TRUE;
-    if (dict::hasOwn(ctx, obj, strKey)) return PROTO_TRUE;
-    // Also check accessor sidecars — accessor properties have no data key when
-    // defined via Object.defineProperty (the data key is removed on creation).
-    for (const char* prefix : {"__get_", "__set_"}) {
-        std::string sk = std::string(prefix) + keyStr + "__";
-        const proto::ProtoObject* sko = protojs::jsStringFromUTF8(ctx, sk);
-        const proto::ProtoString* sks = sko ? sko->asString(ctx) : nullptr;
-        if (sks && obj->hasOwnAttribute(ctx, sks) == PROTO_TRUE) return PROTO_TRUE;
-    }
-    return PROTO_FALSE;
+        ? args->getAt(ctx, 1) : getUndefinedSentinel();
+    const proto::ProtoList* keyArgs = ctx->newList()->appendLast(ctx, key ? key : getUndefinedSentinel());
+    return objectHasOwnProperty(ctx, obj, nullptr, argsView(proto::ProtoListArguments(ctx, keyArgs)), nullptr);
 }
 
 // ---------------------------------------------------------------------------

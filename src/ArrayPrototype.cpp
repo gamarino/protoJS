@@ -1070,15 +1070,19 @@ const proto::ProtoObject* createNewArray(proto::ProtoContext* ctx,
 static const proto::ProtoObject* arraySpeciesCreate(
     proto::ProtoContext* ctx,
     const proto::ProtoObject* originalArray,
-    proto::proto_ulong length)
+    proto::proto_ulong length,
+    bool* intrinsic)
 {
+    // *intrinsic: the result is a fresh Array made by %Array% itself, which
+    // no user code has seen (no species function or class constructor ran).
+    if (intrinsic) *intrinsic = false;
     if (!originalArray || originalArray == PROTO_NONE)
-        return arrSetLen(ctx, createNewArray(ctx, nullptr), length);
+        { if (intrinsic) *intrinsic = true; return arrSetLen(ctx, createNewArray(ctx, nullptr), length); }
 
     // IsArray check: per spec, species is only checked if originalArray is a real array.
     const proto::ProtoString* isArrayKey = JSSymbols::isArray(ctx);
     if (!isArrayKey || originalArray->hasOwnAttribute(ctx, isArrayKey) != PROTO_TRUE)
-        return arrSetLen(ctx, createNewArray(ctx, nullptr), length);
+        { if (intrinsic) *intrinsic = true; return arrSetLen(ctx, createNewArray(ctx, nullptr), length); }
 
     const proto::ProtoString* ctorKey = JSSymbols::constructor(ctx);
     // §22.1.3.1.1 step 4: Let C be ? Get(O, 'constructor').  Get walks
@@ -1163,7 +1167,7 @@ static const proto::ProtoObject* arraySpeciesCreate(
     }
 
     if (!C || C == PROTO_NONE)
-        return arrSetLen(ctx, createNewArray(ctx, nullptr), length);
+        { if (intrinsic) *intrinsic = true; return arrSetLen(ctx, createNewArray(ctx, nullptr), length); }
 
     // Step 8: Construct(C, [length]).  Accept BOTH:
     //   - native __construct__ method (Array, Map, etc.)
@@ -1177,16 +1181,16 @@ static const proto::ProtoObject* arraySpeciesCreate(
     // (built-ins/Array/prototype/slice/target-array-non-extensible,
     // target-array-with-non-configurable-property).
     const proto::ProtoString* constructKey = JSSymbols::construct(ctx);
-    const proto::ProtoObject* constructFn = (constructKey && C) ? C->getAttribute(ctx, constructKey, false) : nullptr;
+    // A bytecode closure with [[Construct]] (not an arrow, method, generator
+    // or async function) first: a class that extends Array inherits Array's
+    // native __construct__, which builds a plain Array. Until 2026-10-27 the
+    // native constructor won, and slice / map / filter / splice / flat / concat
+    // of a subclass instance gave a plain Array.
+    bool isBytecodeFn = C && isBytecodeConstructor(ctx, C);
+    const proto::ProtoObject* constructFn = (!isBytecodeFn && constructKey && C)
+        ? C->getAttribute(ctx, constructKey, false) : nullptr;
     bool hasNativeCtor = constructFn && constructFn != PROTO_NONE
         && constructFn->isMethod(ctx);
-
-    bool isBytecodeFn = false;
-    if (!hasNativeCtor && C) {
-        // A bytecode closure with [[Construct]] (not an arrow, method,
-        // generator or async function).
-        isBytecodeFn = isBytecodeConstructor(ctx, C);
-    }
 
     // §22.1.3.1.1 step 9: If IsConstructor(C) is false, throw TypeError.
     // A species that's callable but NOT a constructor (parseInt, isNaN,
@@ -1232,8 +1236,11 @@ static const proto::ProtoObject* arraySpeciesCreate(
         if (hasNativeCtor) {
             proto::ProtoMethod fn = constructFn->asMethod(ctx);
             res = fn(ctx, newObj, nullptr, argsView(proto::ProtoListArguments(ctx, args)), nullptr);
+            const proto::ProtoString* arrK = JSSymbols::arrayCtor(ctx);
+            if (intrinsic && arrK && C->hasOwnAttribute(ctx, arrK) == PROTO_TRUE) *intrinsic = true;
         } else {
-            res = callJSFunction(ctx, C, newObj, args);
+            // Construct(C, «length») (§10.4.2.3 step 8).
+            res = protojs::jsConstruct(ctx, C, args);
         }
 
         // If res is an Object, return it, else newObj.
@@ -1247,7 +1254,15 @@ static const proto::ProtoObject* arraySpeciesCreate(
     }
 
     // Default fallback
-    return arrSetLen(ctx, createNewArray(ctx, nullptr), length);
+    { if (intrinsic) *intrinsic = true; return arrSetLen(ctx, createNewArray(ctx, nullptr), length); }
+}
+
+
+static const proto::ProtoObject* arraySpeciesCreate(
+    proto::ProtoContext* ctx,
+    const proto::ProtoObject* originalArray,
+    proto::proto_ulong length) {
+    return arraySpeciesCreate(ctx, originalArray, length, nullptr);
 }
 
 // ---------------------------------------------------------------------------
@@ -1591,12 +1606,17 @@ static const proto::ProtoObject* arrayPush(
             && (self->hasAttribute(ctx, hisKey) == PROTO_TRUE)
             && (self->getAttribute(ctx, hisKey, true) == PROTO_TRUE);
 
-        if (!maybeHasIndexedSetters && argc > 0) {
+        const proto::ProtoList* fastList = (!maybeHasIndexedSetters && argc > 0)
+            ? getArrayElements(ctx, self) : nullptr;
+        if (!fastList && !maybeHasIndexedSetters && argc > 0 && len == 0) fastList = ctx->newList();
+        // The list holds every index below len (no trailing holes, as
+        // `new Array(3)` or `a.length = 5` leave): appending to it writes
+        // index len.
+        if (fastList && fastList->getSize(ctx) == len) {
             // NATIVE FAST PATH — direct ProtoList::appendLast calls.
             // No per-element getAttribute/setAttribute, no arrSet
             // ceremony, no indexKey probe.
-            const proto::ProtoList* list = getArrayElements(ctx, self);
-            if (!list) list = ctx->newList();
+            const proto::ProtoList* list = fastList;
             for (proto::proto_ulong i = 0; i < argc; i++) {
                 // A value read from a missing property arrives as
                 // PROTO_NONE, which __elements__ stores as a hole: push
@@ -1604,15 +1624,19 @@ static const proto::ProtoObject* arrayPush(
                 const proto::ProtoObject* item = args->getAt(ctx, static_cast<int>(i));
                 list = list->appendLast(ctx, (item && item != PROTO_NONE) ? item : getUndefinedSentinel());
             }
-            // Fast path: write ONLY __elements__.  OP_get_length has a
-            // dense-array fast path that synthesises length from
-            // __elements__.size(), so the per-push setAttribute on the
-            // `length` slot is redundant and the dominant cost on the
-            // array_literal bench (a second SparseList rebuild per push
-            // + a cache invalidation).  Save it.
-            const proto::ProtoString* ek = JSSymbols::arrayElements(ctx);
-            if (ek) self->setAttribute(ctx, ek, list->asObject(ctx));
-            return ctx->fromInteger(static_cast<long long>(len + argc));
+            // The elements and the length data property: every reader of
+            // `length` (a["length"], Reflect.get, the property
+            // descriptor, spread, apply, an object inheriting from the
+            // array) reads the property. Until 2026-10-27 this path wrote
+            // only __elements__ (9f45980ad) and those readers saw the
+            // length the array had before its first push: `[...a]` of an
+            // array built by push was empty. Both are written as one group
+            // (setAttributes: one publication, as the single write was).
+            const proto::ProtoObject* newLen = ctx->fromInteger(static_cast<long long>(len + argc));
+            const proto::ProtoString* names[2] = { JSSymbols::arrayElements(ctx), JSSymbols::length(ctx) };
+            const proto::ProtoObject* values[2] = { list->asObject(ctx), newLen };
+            if (names[0] && names[1]) self->setAttributes(ctx, 2, names, values);
+            return newLen;
         }
 
         // Slow path: inherited indexed setter exists, OR argc == 0
@@ -1683,6 +1707,18 @@ static const proto::ProtoList* nativeArrayList(proto::ProtoContext* ctx,
         ? self->getAttribute(ctx, isArrKey, true) : nullptr;
     if (isArrVal != PROTO_TRUE) return nullptr;
     return getArrayElements(ctx, self);
+}
+
+// Whether list[from, to) holds a hole (PROTO_NONE): the source of a bulk
+// copy must not, since a hole reads through to the prototype chain
+// (`Array.prototype[1] = 1; [0, ,].slice()` has an own 1 at index 1).
+static bool listHasHole(proto::ProtoContext* ctx, const proto::ProtoList* list,
+                        long long from, long long to) {
+    for (long long i = from; i < to; ++i) {
+        const proto::ProtoObject* v = list->getAt(ctx, static_cast<int>(i));
+        if (!v || v == PROTO_NONE) return true;
+    }
+    return false;
 }
 
 static const proto::ProtoObject* arrayPop(
@@ -2081,7 +2117,9 @@ static const proto::ProtoObject* arraySlice(
     start = normalizeIdxClamp(start, len);
     end   = normalizeIdxClamp(end,   len);
 
-    const proto::ProtoObject* result = arraySpeciesCreate(ctx, self, static_cast<proto::proto_ulong>(end - start));
+    bool intrinsicResult = false;
+    const proto::ProtoObject* result = arraySpeciesCreate(ctx, self, static_cast<proto::proto_ulong>(end - start),
+                                                          &intrinsicResult);
 
     // A string primitive: ArraySpeciesCreate made a plain Array (a string is
     // not an Array, so no species applies), every index in [start, end) is
@@ -2109,17 +2147,27 @@ static const proto::ProtoObject* arraySlice(
     {
         const proto::ProtoString* hisKey = JSSymbols::hasIndexedSetters(ctx);
         const proto::ProtoString* hapKey = JSSymbols::hasAccessorProps(ctx);
+        // Own flags only, as in splice: Object.prototype's __proto__
+        // accessor stamps __has_accessor_props__ on Object.prototype, so a
+        // chain walk found the flag on every array and this path never ran
+        // (until 2026-10-27).
         auto checkFlag = [&](const proto::ProtoObject* obj, const proto::ProtoString* k) {
-            return k && (obj->hasAttribute(ctx, k) == PROTO_TRUE)
-                     && (obj->getAttribute(ctx, k, true) == PROTO_TRUE);
+            return k && (obj->hasOwnAttribute(ctx, k) == PROTO_TRUE)
+                     && (obj->getAttribute(ctx, k, false) == PROTO_TRUE);
         };
         if (!checkFlag(self, hisKey) && !checkFlag(self, hapKey)
             && !checkFlag(result, hisKey) && !checkFlag(result, hapKey)) {
             const proto::ProtoList* srcList = nativeArrayList(ctx, self);
-            const proto::ProtoList* dstList = nativeArrayList(ctx, result);
-            if (srcList && dstList
+            // The result must be a fresh Array of %Array% (a species
+            // function or a class constructor may have defined or frozen
+            // properties on it), and the source range must have no hole.
+            // ArraySpeciesCreate(O, count) leaves count holes in the fresh
+            // Array; until 2026-10-27 only an empty list qualified, so
+            // every slice of a non-empty range took the per-element path
+            // (quadratic: 2 s for 40,000 elements).
+            if (srcList && intrinsicResult
                 && srcList->getSize(ctx) == static_cast<int>(len)
-                && dstList->getSize(ctx) == 0) {
+                && !listHasHole(ctx, srcList, start, end)) {
                 // No holes possible — __elements__ size == arrLen.
                 const proto::ProtoList* slice = srcList->getSlice(
                     ctx, static_cast<int>(start), static_cast<int>(end));
@@ -4556,6 +4604,28 @@ static void flatInto(proto::ProtoContext* ctx,
     }
 }
 
+// flatInto for a fresh Array of %Array% (ArraySpeciesCreate): the
+// flattened elements go to a list that the caller installs once, instead of
+// one CreateDataPropertyOrThrow per element (which made flat quadratic: 2 s
+// for 40,000 elements until 2026-10-27).
+static void flatIntoList(proto::ProtoContext* ctx,
+                         const proto::ProtoObject* src,
+                         const proto::ProtoList*& out,
+                         int depth) {
+    proto::proto_ulong len = arrLen(ctx, src);
+    const proto::ProtoString* isArrKey = JSSymbols::isArray(ctx);
+    for (proto::proto_ulong i = 0; i < len; i++) {
+        if (!arrHasProperty(ctx, src, i)) continue;
+        const proto::ProtoObject* elem = arrGet(ctx, src, i);
+        const proto::ProtoObject* isArrAttr = (elem && isArrKey)
+            ? elem->getAttribute(ctx, isArrKey, true) : PROTO_NONE;
+        if (isArrAttr == PROTO_TRUE && depth > 0)
+            flatIntoList(ctx, elem, out, depth - 1);
+        else
+            out = out->appendLast(ctx, (elem && elem != PROTO_NONE) ? elem : getUndefinedSentinel());
+    }
+}
+
 static const proto::ProtoObject* arrayFlat(
     proto::ProtoContext* ctx,
     const proto::ProtoObject* self,
@@ -4621,8 +4691,15 @@ static const proto::ProtoObject* arrayFlat(
     if (depth < 0) depth = 0;
     // §23.1.3.10 step 5: A = ArraySpeciesCreate(O, 0). This is where
     // a primitive .constructor throws TypeError, matching V8/SpiderMonkey.
-    const proto::ProtoObject* result = arraySpeciesCreate(ctx, self, 0);
+    bool intrinsicResult = false;
+    const proto::ProtoObject* result = arraySpeciesCreate(ctx, self, 0, &intrinsicResult);
     if (!result || result == PROTO_NONE) return PROTO_NONE;
+    if (intrinsicResult) {
+        const proto::ProtoList* out = ctx->newList();
+        flatIntoList(ctx, self, out, depth);
+        if (out->getSize(ctx) > 0) setArrayElements(ctx, result, out);
+        return result;
+    }
     proto::proto_ulong outIdx = 0;
     flatInto(ctx, self, result, outIdx, depth);
     return result;
@@ -4751,8 +4828,9 @@ static const proto::ProtoObject* arraySplice(
     // instance that CreateDataPropertyOrThrow must surface as
     // TypeError (built-ins/Array/prototype/splice/target-array-
     // non-extensible / target-array-with-non-configurable-property).
+    bool intrinsicRemoved = false;
     const proto::ProtoObject* removed =
-        arraySpeciesCreate(ctx, self, static_cast<proto::proto_ulong>(delCount));
+        arraySpeciesCreate(ctx, self, static_cast<proto::proto_ulong>(delCount), &intrinsicRemoved);
 
     long long insertCount = n >= 2 ? n - 2 : 0;
     long long newLen = len - delCount + insertCount;
@@ -4784,10 +4862,11 @@ static const proto::ProtoObject* arraySplice(
         if (!flagSet(self, hisKey) && !flagSet(self, hapKey)
             && !flagSet(removed, hisKey) && !flagSet(removed, hapKey)) {
             const proto::ProtoList* srcList = nativeArrayList(ctx, self);
-            const proto::ProtoList* dstList = nativeArrayList(ctx, removed);
-            if (srcList && dstList
+            // A fresh Array of %Array%, and a source without holes (a
+            // hole reads through the prototype chain).
+            if (srcList && intrinsicRemoved
                 && srcList->getSize(ctx) == static_cast<int>(len)
-                && dstList->getSize(ctx) == 0) {
+                && !listHasHole(ctx, srcList, 0, len)) {
                 // The removed/return array — slice of [start, start+delCount).
                 if (delCount > 0) {
                     const proto::ProtoList* removedSlice = srcList->getSlice(
@@ -4806,6 +4885,10 @@ static const proto::ProtoObject* arraySplice(
                 }
                 if (suffix) out = out->extend(ctx, suffix);
                 setArrayElements(ctx, self, out);
+                // setArrayElements only grows length; a splice that
+                // removes more than it inserts shrinks it.
+                if (const proto::ProtoString* lk = JSSymbols::length(ctx))
+                    self->setAttribute(ctx, lk, ctx->fromInteger(newLen));
                 return removed;
             }
         }
@@ -5233,14 +5316,15 @@ static const proto::ProtoObject* arrayFrom(
     bool isBytecodeFn = false;
     {
         const proto::ProtoString* constructKey = JSSymbols::construct(ctx);
-        if (self && self != PROTO_NONE && self != getUndefinedSentinel() && constructKey) {
+        // A bytecode constructor first: a class that extends Array
+        // inherits Array's native __construct__, which would build a
+        // plain Array.
+        if (self && self != PROTO_NONE && self != getUndefinedSentinel())
+            isBytecodeFn = isBytecodeConstructor(ctx, self);
+        if (!isBytecodeFn && self && self != PROTO_NONE && self != getUndefinedSentinel() && constructKey) {
             ctorFn = self->getAttribute(ctx, constructKey, false);
             if (ctorFn && ctorFn != PROTO_NONE && !ctorFn->isMethod(ctx))
                 ctorFn = nullptr;
-        }
-        if ((!ctorFn || ctorFn == PROTO_NONE)
-            && self && self != PROTO_NONE && self != getUndefinedSentinel()) {
-            isBytecodeFn = isBytecodeConstructor(ctx, self);
         }
     }
     bool hasCtor = (ctorFn && ctorFn != PROTO_NONE) || isBytecodeFn;
@@ -5260,7 +5344,12 @@ static const proto::ProtoObject* arrayFrom(
             proto::ProtoMethod fn = ctorFn->asMethod(ctx);
             if (fn) alt = fn(ctx, res, nullptr, argsView(proto::ProtoListArguments(ctx, ctorArgs)), nullptr);
         } else {
-            alt = callJSFunction(ctx, self, res, ctorArgs);
+            // Construct(C, args) (§7.3.15): a class constructor cannot be
+            // called, and a derived one (`class MyA extends Array`) gets
+            // its receiver from super(). Until 2026-10-27 C was called with
+            // a fresh receiver, so MyA.from(...) was a plain Array (or a
+            // TypeError for a base class).
+            return protojs::jsConstruct(ctx, self, ctorArgs);
         }
         if (alt && alt != PROTO_NONE
             && alt != getUndefinedSentinel() && alt != getNullSentinel()
@@ -5698,16 +5787,14 @@ static const proto::ProtoObject* arrayOf(
     proto::proto_ulong argc = args ? static_cast<proto::proto_ulong>(args->getSize(ctx)) : 0;
     const proto::ProtoObject* result = nullptr;
 
+    // Only a bytecode closure with [[Construct]] (§10.2.5); it is tried
+    // first, since a class that extends Array inherits Array's native
+    // __construct__.
+    bool isBytecodeFn = self && self != PROTO_NONE && isBytecodeConstructor(ctx, self);
     const proto::ProtoString* constructKey = JSSymbols::construct(ctx);
-    const proto::ProtoObject* constructFn = (constructKey && self && self != PROTO_NONE)
+    const proto::ProtoObject* constructFn = (!isBytecodeFn && constructKey && self && self != PROTO_NONE)
         ? self->getAttribute(ctx, constructKey, false) : nullptr;
     bool hasNativeCtor = constructFn && constructFn != PROTO_NONE && constructFn->isMethod(ctx);
-
-    bool isBytecodeFn = false;
-    if (self && self != PROTO_NONE) {
-        // Only a bytecode closure with [[Construct]] (§10.2.5).
-        isBytecodeFn = isBytecodeConstructor(ctx, self);
-    }
 
     if (hasNativeCtor || isBytecodeFn) {
         const proto::ProtoString* protoKey = JSSymbols::prototype(ctx);
@@ -5724,7 +5811,8 @@ static const proto::ProtoObject* arrayOf(
             proto::ProtoMethod fn = constructFn->asMethod(ctx);
             res = fn(ctx, result, nullptr, argsView(proto::ProtoListArguments(ctx, ctorArgs)), nullptr);
         } else {
-            res = callJSFunction(ctx, self, result, ctorArgs);
+            // Construct(C, «len») (§23.1.2.3 step 4.a), as in Array.from.
+            res = protojs::jsConstruct(ctx, self, ctorArgs);
         }
         // §10.1.13 OrdinaryCallEvaluateBody: Object result wins, else
         // the freshly allocated receiver.

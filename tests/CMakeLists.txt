@@ -383,6 +383,9 @@ foreach(js_test
         basic/for_in_strings
         basic/string_access_scaling
         basic/string_utf16_units
+        basic/array_bulk_scaling
+        basic/array_push_length
+        basic/array_from_of_this
         basic/generator_for_of_yield
         basic/generator_resumption
         basic/typed_array_construction
@@ -525,6 +528,7 @@ set_tests_properties(js/basic/string_cells_bounded PROPERTIES
 set_tests_properties(js/basic/array_from_large PROPERTIES TIMEOUT 300)
 # Times each string access for n and 4n characters and checks the ratio.
 set_tests_properties(js/basic/string_access_scaling PROPERTIES TIMEOUT 300)
+set_tests_properties(js/basic/array_bulk_scaling PROPERTIES TIMEOUT 300)
 
 # A quadratic Map.set / Set.add would not finish within this limit.
 set_tests_properties(js/collections/map_set_scaling PROPERTIES TIMEOUT 60)
