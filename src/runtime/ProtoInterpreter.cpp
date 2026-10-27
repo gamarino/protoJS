@@ -1,5 +1,6 @@
 #include "../ProtoCoreTypes.h"
 #include "JSStringBytes.h"
+#include "JSStringUnits.h"
 #include "../JSNumber.h"
 #include "ProtoInterpreter.h"
 #include "QuickJSOpcodeEnum.h"
@@ -1755,7 +1756,7 @@ static const proto::ProtoObject* reflectOwnKeys(
             const proto::ProtoObject* pv = target->getAttribute(ctx, pvKey, false);
             if (pv && pv != PROTO_NONE && pv->isString(ctx)) {
                 if (const proto::ProtoString* ps = pv->asString(ctx)) {
-                    long long sz = (long long)ps->getSize(ctx);
+                    long long sz = protojs::utf16Length(ctx, ps);
                     for (long long i = 0; i < sz; ++i)
                         idxKeys.push_back(static_cast<uint32_t>(i));
                     targetIsStringWrapper = true;
@@ -3090,104 +3091,146 @@ static const proto::ProtoObject* globalIsFinite(
     return PROTO_FALSE;
 }
 
-// Percent-encode a character as %XX
-static std::string pctEncode(unsigned char c) {
-    char buf[4]; snprintf(buf, sizeof(buf), "%%%02X", c); return buf;
+// encodeURI / encodeURIComponent / decodeURI / decodeURIComponent
+// (§19.2.6.5 Encode, §19.2.6.6 Decode). They work on the UTF-16 code units of
+// ToString(argument): a lone surrogate cannot be encoded (URIError), and a
+// decoded sequence must be well-formed UTF-8 of a scalar value (URIError
+// otherwise: an overlong form, an encoded surrogate, a truncated sequence).
+
+static std::u16string uriArgumentUnits(proto::ProtoContext* ctx, const proto::ProtoArguments* args) {
+    const proto::ProtoObject* v = (args && args->getSize(ctx) > 0) ? args->getAt(ctx, 0) : PROTO_NONE;
+    const proto::ProtoObject* sv = toString(ctx, v);
+    std::u16string units;
+    protojs::utf16Units(ctx, sv ? sv->asString(ctx) : nullptr, units);
+    return units;
+}
+
+[[noreturn]] static void throwURIError(proto::ProtoContext* ctx) {
+    signalNativeException(makeNativeError(ctx, "URIError", "URI malformed"));
+}
+
+static const proto::ProtoObject* uriEncode(proto::ProtoContext* ctx, const proto::ProtoArguments* args,
+                                           const char* extraUnescaped) {
+    static const char kUnreserved[] =
+        "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789-_.!~*'()";
+    const std::u16string u = uriArgumentUnits(ctx, args);
+    std::string out;
+    out.reserve(u.size());
+    static const char kHex[] = "0123456789ABCDEF";
+    for (size_t k = 0; k < u.size(); ++k) {
+        const char16_t c = u[k];
+        if (c < 0x80 && c != 0 && (std::strchr(kUnreserved, static_cast<char>(c))
+                || std::strchr(extraUnescaped, static_cast<char>(c)))) {
+            out += static_cast<char>(c);
+            continue;
+        }
+        uint32_t cp = c;
+        if (c >= 0xDC00 && c <= 0xDFFF) throwURIError(ctx);
+        if (c >= 0xD800 && c <= 0xDBFF) {
+            if (k + 1 >= u.size() || u[k + 1] < 0xDC00 || u[k + 1] > 0xDFFF) throwURIError(ctx);
+            cp = 0x10000u + ((static_cast<uint32_t>(c) - 0xD800u) << 10) + (u[k + 1] - 0xDC00u);
+            ++k;
+        }
+        unsigned char bytes[4];
+        int n;
+        if (cp < 0x80) { bytes[0] = static_cast<unsigned char>(cp); n = 1; }
+        else if (cp < 0x800) { bytes[0] = 0xC0 | (cp >> 6); bytes[1] = 0x80 | (cp & 0x3F); n = 2; }
+        else if (cp < 0x10000) { bytes[0] = 0xE0 | (cp >> 12); bytes[1] = 0x80 | ((cp >> 6) & 0x3F); bytes[2] = 0x80 | (cp & 0x3F); n = 3; }
+        else { bytes[0] = 0xF0 | (cp >> 18); bytes[1] = 0x80 | ((cp >> 12) & 0x3F); bytes[2] = 0x80 | ((cp >> 6) & 0x3F); bytes[3] = 0x80 | (cp & 0x3F); n = 4; }
+        for (int i = 0; i < n; ++i) {
+            out += '%';
+            out += kHex[bytes[i] >> 4];
+            out += kHex[bytes[i] & 0xF];
+        }
+    }
+    return protojs::jsStringFromUTF8(ctx, out);
+}
+
+static const proto::ProtoObject* uriDecode(proto::ProtoContext* ctx, const proto::ProtoArguments* args,
+                                           const char* preserveEscapeSet) {
+    const std::u16string u = uriArgumentUnits(ctx, args);
+    auto hexVal = [](char16_t h) -> int {
+        if (h >= u'0' && h <= u'9') return h - u'0';
+        if (h >= u'a' && h <= u'f') return h - u'a' + 10;
+        if (h >= u'A' && h <= u'F') return h - u'A' + 10;
+        return -1;
+    };
+    // The byte encoded at u[k..k+2] ("%XY"); URIError when it is not one.
+    auto byteAt = [&](size_t k) -> uint32_t {
+        if (k + 2 >= u.size()) throwURIError(ctx);
+        if (u[k] != u'%') throwURIError(ctx);
+        const int h = hexVal(u[k + 1]), l = hexVal(u[k + 2]);
+        if (h < 0 || l < 0) throwURIError(ctx);
+        return static_cast<uint32_t>(h * 16 + l);
+    };
+    std::u16string out;
+    out.reserve(u.size());
+    for (size_t k = 0; k < u.size(); ++k) {
+        if (u[k] != u'%') { out += u[k]; continue; }
+        const size_t start = k;
+        if (k + 2 >= u.size()) throwURIError(ctx);
+        const uint32_t b = byteAt(k);
+        k += 2;
+        if (b < 0x80) {
+            if (b != 0 && std::strchr(preserveEscapeSet, static_cast<char>(b)))
+                out.append(u, start, 3);
+            else
+                out += static_cast<char16_t>(b);
+            continue;
+        }
+        int n;
+        uint32_t cp;
+        if ((b & 0xE0) == 0xC0) { n = 2; cp = b & 0x1F; }
+        else if ((b & 0xF0) == 0xE0) { n = 3; cp = b & 0x0F; }
+        else if ((b & 0xF8) == 0xF0) { n = 4; cp = b & 0x07; }
+        else throwURIError(ctx);
+        if (k + 3 * static_cast<size_t>(n - 1) >= u.size()) throwURIError(ctx);
+        for (int j = 1; j < n; ++j) {
+            const uint32_t cb = byteAt(k + 1);
+            if ((cb & 0xC0) != 0x80) throwURIError(ctx);
+            cp = (cp << 6) | (cb & 0x3F);
+            k += 3;
+        }
+        // Shortest form, no surrogate, at most U+10FFFF.
+        static const uint32_t kMin[5] = {0, 0, 0x80, 0x800, 0x10000};
+        if (cp < kMin[n] || cp > 0x10FFFF || (cp >= 0xD800 && cp <= 0xDFFF)) throwURIError(ctx);
+        if (cp < 0x10000) {
+            out += static_cast<char16_t>(cp);
+        } else {
+            cp -= 0x10000;
+            out += static_cast<char16_t>(0xD800 + (cp >> 10));
+            out += static_cast<char16_t>(0xDC00 + (cp & 0x3FF));
+        }
+    }
+    return protojs::jsStringFromUtf16(ctx, out);
 }
 
 static const proto::ProtoObject* globalEncodeURIComponent(
     proto::ProtoContext* ctx, const proto::ProtoObject*,
     const proto::ParentLink*, const proto::ProtoArguments* args, const proto::ProtoKeywordArguments*)
 {
-    if (!args || args->getSize(ctx) == 0) return ctx->fromUTF8String("undefined");
-    const proto::ProtoObject* v = args->getAt(ctx, 0);
-    std::string s;
-    if (v && v != PROTO_NONE && v->isString(ctx)) {
-        const proto::ProtoString* ps = v->asString(ctx); if (ps) ps->toUTF8String(ctx, s);
-    } else if (v && v != PROTO_NONE) {
-        if (v->isInteger(ctx)) s = std::to_string(v->asLong(ctx));
-        else if (v->isDouble(ctx)) { char buf[64]; snprintf(buf,sizeof(buf),"%.15g",v->asDouble(ctx)); s=buf; }
-    }
-    // Unreserved chars: A-Z a-z 0-9 - _ . ! ~ * ' ( )
-    static const char unreserved[] = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789-_.!~*'()";
-    std::string result;
-    for (size_t k = 0; k < s.size(); k++) {
-        unsigned char c = static_cast<unsigned char>(s[k]);
-        if (c != 0 && std::strchr(unreserved, static_cast<char>(c))) result += static_cast<char>(c);
-        else result += pctEncode(c);
-    }
-    return protojs::jsStringFromUTF8(ctx, result);
+    return uriEncode(ctx, args, "");
 }
 
 static const proto::ProtoObject* globalEncodeURI(
     proto::ProtoContext* ctx, const proto::ProtoObject*,
     const proto::ParentLink*, const proto::ProtoArguments* args, const proto::ProtoKeywordArguments*)
 {
-    if (!args || args->getSize(ctx) == 0) return ctx->fromUTF8String("undefined");
-    const proto::ProtoObject* v = args->getAt(ctx, 0);
-    std::string s;
-    if (v && v != PROTO_NONE && v->isString(ctx)) {
-        const proto::ProtoString* ps = v->asString(ctx); if (ps) ps->toUTF8String(ctx, s);
-    } else if (v && v != PROTO_NONE) {
-        if (v->isInteger(ctx)) s = std::to_string(v->asLong(ctx));
-        else if (v->isDouble(ctx)) { char buf[64]; snprintf(buf,sizeof(buf),"%.15g",v->asDouble(ctx)); s=buf; }
-    }
-    // URI allowed unescaped: unreserved + reserved (; , / ? : @ & = + $ #)
-    static const char allowed[] = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789-_.!~*'();,/?:@&=+$#";
-    std::string result;
-    for (size_t k = 0; k < s.size(); k++) {
-        unsigned char c = static_cast<unsigned char>(s[k]);
-        if (c != 0 && std::strchr(allowed, static_cast<char>(c))) result += static_cast<char>(c);
-        else result += pctEncode(c);
-    }
-    return protojs::jsStringFromUTF8(ctx, result);
+    return uriEncode(ctx, args, ";/?:@&=+$,#");
 }
 
 static const proto::ProtoObject* globalDecodeURIComponent(
     proto::ProtoContext* ctx, const proto::ProtoObject*,
     const proto::ParentLink*, const proto::ProtoArguments* args, const proto::ProtoKeywordArguments*)
 {
-    if (!args || args->getSize(ctx) == 0) return ctx->fromUTF8String("undefined");
-    const proto::ProtoObject* v = args->getAt(ctx, 0);
-    std::string s;
-    if (v && v != PROTO_NONE && v->isString(ctx)) {
-        const proto::ProtoString* ps = v->asString(ctx); if (ps) ps->toUTF8String(ctx, s);
-    }
-    std::string result;
-    for (size_t k = 0; k < s.size(); ) {
-        if (s[k] == '%') {
-            // ECMA-262 §19.2.6.2 step 2.h: a "%" must be followed by
-            // exactly two hexadecimal digits — otherwise URIError.
-            if (k + 2 >= s.size()) {
-                signalNativeException(makeNativeError(ctx, "URIError",
-                    "URI malformed"));
-                return PROTO_NONE;
-            }
-            char c1 = s[k+1], c2 = s[k+2];
-            auto isHex = [](char c) {
-                return (c>='0'&&c<='9')||(c>='a'&&c<='f')||(c>='A'&&c<='F');
-            };
-            if (!isHex(c1) || !isHex(c2)) {
-                signalNativeException(makeNativeError(ctx, "URIError",
-                    "URI malformed"));
-                return PROTO_NONE;
-            }
-            char hex[3] = { c1, c2, 0 };
-            char* end = nullptr;
-            proto::proto_ulong val = std::strtoul(hex, &end, 16);
-            if (end == hex + 2) { result += static_cast<char>(val); k += 3; continue; }
-        }
-        result += s[k++];
-    }
-    return protojs::jsStringFromUTF8(ctx, result);
+    return uriDecode(ctx, args, "");
 }
 
 static const proto::ProtoObject* globalDecodeURI(
     proto::ProtoContext* ctx, const proto::ProtoObject*,
     const proto::ParentLink*, const proto::ProtoArguments* args, const proto::ProtoKeywordArguments*)
 {
-    // Reserved chars in URI should not be decoded; for simplicity decode everything.
-    return globalDecodeURIComponent(ctx, nullptr, nullptr, args, nullptr);
+    return uriDecode(ctx, args, ";/?:@&=+$,#");
 }
 
 // =====================================================================
@@ -3509,6 +3552,15 @@ static PROTOJS_NOINLINE bool hasPropertyJS(proto::ProtoContext* ctx,
         if (taTypeIn != 0xFF) {
             return arrIdxIn < static_cast<long long>(getTypedArrayLength(ctx, obj));
         }
+    }
+    // A String object has its in-bounds code-unit indices
+    // (§10.4.3.1 StringGetOwnProperty).
+    if (arrIdxIn >= 0) {
+        const proto::ProtoString* pvKey = JSSymbols::primitiveValue(ctx);
+        const proto::ProtoObject* pv = pvKey ? obj->getAttribute(ctx, pvKey, false) : nullptr;
+        if (pv && pv != PROTO_NONE && pv->isString(ctx)
+            && arrIdxIn < protojs::utf16Length(ctx, pv->asString(ctx)))
+            return true;
     }
     if (arrIdxIn >= 0) {
         const proto::ProtoList* els = protojs::getArrayElements(ctx, obj);
@@ -5758,7 +5810,7 @@ static bool putKeyIsStringIndex(proto::ProtoContext* ctx, const proto::ProtoObje
         idx = idx * 10 + static_cast<unsigned long long>(c - '0');
     }
     const proto::ProtoString* str = s->asString(ctx);
-    return str && idx < static_cast<unsigned long long>(str->getSize(ctx));
+    return str && idx < static_cast<unsigned long long>(protojs::utf16Length(ctx, str));
 }
 
 // Answers false when `base` is an object and the caller's ordinary write
@@ -8937,7 +8989,8 @@ static const proto::ProtoObject* runBytecodeImpl(proto::ProtoContext* pContext,
         bool aS = pa->isString(pContext);
         bool bS = pb->isString(pContext);
         if (aS && bS) {
-            int c = pa->compare(pContext, pb);
+            // §7.2.13 step 3: strings compare by UTF-16 code units.
+            const int c = protojs::utf16Compare(pContext, pa->asString(pContext), pb->asString(pContext));
             return (c < 0) ? -1 : (c > 0) ? 1 : 0;
         }
         const proto::ProtoObject* na = toNumber(pContext, pa);
@@ -9012,7 +9065,9 @@ static const proto::ProtoObject* runBytecodeImpl(proto::ProtoContext* pContext,
             const proto::ProtoString* sa = ra ? ra->asString(pContext) : nullptr;
             const proto::ProtoString* sb = rb ? rb->asString(pContext) : nullptr;
             if (sa && sb) {
-                const proto::ProtoString* concat = sa->appendLast(pContext, sb);
+                // jsConcatStrings joins a split surrogate pair into one
+                // code point: "\uD83D" + "\uDE00" === "\u{1F600}".
+                const proto::ProtoString* concat = protojs::jsConcatStrings(pContext, sa, sb);
                 return concat ? concat->asObject(pContext) : PROTO_NONE;
             }
             return sa ? ra : (sb ? rb : PROTO_NONE);
@@ -10540,7 +10595,7 @@ static const proto::ProtoObject* runBytecodeImpl(proto::ProtoContext* pContext,
                             long long slenI = 0;
                             if (pv && pv->isString(pContext)) {
                                 const proto::ProtoString* ps = pv->asString(pContext);
-                                if (ps) slenI = static_cast<long long>(ps->getSize(pContext));
+                                if (ps) slenI = protojs::utf16Length(pContext, ps);
                             }
                             const proto::ProtoString* lenKeyI = JSSymbols::length(pContext);
                             if (lenKeyI)
@@ -13632,15 +13687,13 @@ static const proto::ProtoObject* runBytecodeImpl(proto::ProtoContext* pContext,
                 // returned undefined for numeric indices because strings
                 // don't store their codepoints as own attributes.
                 if (arrIdxFast >= 0 && obj && obj->isString(pContext)) {
+                    // The code unit at the index (JSStringUnits.h): O(1)
+                    // through the string's memoised UTF-16 view, no cell.
+                    // Past the end it is undefined (not PROTO_NONE, which
+                    // an array stores as a hole).
                     const proto::ProtoString* ps = obj->asString(pContext);
-                    if (ps) {
-                        long long sz = static_cast<long long>(ps->getSize(pContext));
-                        // O(log n) rope walk, no cell (StringPrototype.h);
-                        // converting the whole string to UTF-8 per read made
-                        // a loop over s[i] O(n^2).
-                        if (arrIdxFast < sz) val = protojs::codePointStringAt(pContext, ps, arrIdxFast);
-                    }
-                    if (!val) val = PROTO_NONE;
+                    if (ps) val = protojs::utf16CharAt(pContext, ps, arrIdxFast);
+                    if (!val) val = t_undefinedSentinel;
                     pAutomaticLocals[currentStackBase + _PF().stackTop++] = val;
                     DISPATCH();
                 }
@@ -13660,7 +13713,7 @@ static const proto::ProtoObject* runBytecodeImpl(proto::ProtoContext* pContext,
                         const proto::ProtoString* ps = pvV->asString(pContext);
                         if (ps) {
                             const proto::ProtoObject* cv =
-                                protojs::codePointStringAt(pContext, ps, arrIdxFast);
+                                protojs::utf16CharAt(pContext, ps, arrIdxFast);
                             if (cv) {
                                 pAutomaticLocals[currentStackBase + _PF().stackTop++] = cv;
                                 DISPATCH();
@@ -13826,7 +13879,7 @@ static const proto::ProtoObject* runBytecodeImpl(proto::ProtoContext* pContext,
                             const proto::ProtoString* ps = obj->asString(pContext);
                             if (ps) {
                                 pAutomaticLocals[currentStackBase + _PF().stackTop++] =
-                                    pContext->fromInteger(static_cast<long long>(ps->getSize(pContext)));
+                                    pContext->fromInteger(protojs::utf16Length(pContext, ps));
                                 DISPATCH();
                             }
                         }
@@ -15788,27 +15841,11 @@ static const proto::ProtoObject* runBytecodeImpl(proto::ProtoContext* pContext,
                 if (_PF().stackTop == 0) MALFORMED_BYTECODE();
                 const proto::ProtoObject* obj = pAutomaticLocals[currentStackBase + --_PF().stackTop];
 
-                // Fast path: string.length — bypass the full prototype-chain
-                // walk that getAttribute would do.  protoCore's ProtoString
-                // already stores the codepoint count in the rope-node header
-                // (total_chars / char_count) and answers getSize() in O(1)
-                // for both leaf and internal node forms; for inline strings
-                // it walks the few inline UTF-8 bytes (≤ 7 chars).
-                //
-                // Pre-this-fast-path: `s.length` returned `undefined` because
-                // length was never installed on the JS-side String.prototype
-                // by BuildStringPrototype.  Every benchmark using
-                // `for (var i = 0; i < s.length; i++)` looped zero times.
-                //
-                // Caveat: returns codepoint count, not the spec's UTF-16
-                // code-unit count.  These match for BMP characters (almost
-                // all JS string content); non-BMP characters are off-by-one
-                // per surrogate pair, which a future pass can correct by
-                // counting code units explicitly.  Not paying that cost on
-                // every .length read for now.
+                // Fast path: string.length, the number of UTF-16 code
+                // units (JSStringUnits.h): O(1) once the string's view is
+                // memoised, one scan the first time.
                 if (obj && obj != PROTO_NONE && obj->isString(pContext)) {
-                    long long n = static_cast<long long>(
-                        obj->asString(pContext)->getSize(pContext));
+                    long long n = protojs::utf16Length(pContext, obj->asString(pContext));
                     pAutomaticLocals[currentStackBase + _PF().stackTop++] =
                         pContext->fromInteger(n);
                     DISPATCH();
@@ -17287,7 +17324,7 @@ static const proto::ProtoObject* runBytecodeImpl(proto::ProtoContext* pContext,
                         long long slen = 0;
                         if (pv && pv->isString(pContext)) {
                             const proto::ProtoString* ps = pv->asString(pContext);
-                            if (ps) slen = static_cast<long long>(ps->getSize(pContext));
+                            if (ps) slen = protojs::utf16Length(pContext, ps);
                         }
                         const proto::ProtoString* lenKey = JSSymbols::length(pContext);
                         if (lenKey)
@@ -19334,8 +19371,7 @@ static const proto::ProtoObject* runBytecodeImpl(proto::ProtoContext* pContext,
                     // Pre-fix a primitive yielded none of them, and a String
                     // object counted UTF-16 units while s.length and s[i]
                     // count code points, so "a\u{1F600}b" listed 0, 1, 3.
-                    // The keys are code-point indices, as length and
-                    // indexing are in protoJS (docs/VM.md, section 6).
+                    // The keys are the UTF-16 code-unit indices (§10.4.3.3).
                     {
                         const proto::ProtoObject* pv = nullptr;
                         if (fiObj->isString(pContext)) {
@@ -19348,7 +19384,8 @@ static const proto::ProtoObject* runBytecodeImpl(proto::ProtoContext* pContext,
                             (pv && pv != PROTO_NONE && pv->isString(pContext))
                                 ? pv->asString(pContext) : nullptr;
                         if (ps) {
-                            const proto::proto_ulong n = ps->getSize(pContext);
+                            const proto::proto_ulong n =
+                                static_cast<proto::proto_ulong>(protojs::utf16Length(pContext, ps));
                             for (proto::proto_ulong i = 0; i < n; ++i) {
                                 std::string k = std::to_string(i);
                                 if (!fiSeen.count(k)) {

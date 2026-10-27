@@ -1,4 +1,5 @@
 #include "ProtoCoreTypes.h"
+#include "runtime/JSStringUnits.h"
 #include "runtime/JSStringBytes.h"
 #include "runtime/PropertyDictionary.h"
 #include "ProxyBuiltin.h"
@@ -420,8 +421,7 @@ static const proto::ProtoObject* defaultGet(proto::ProtoContext* ctx,
                 const proto::ProtoObject* pv = target->getAttribute(ctx, pvK, false);
                 if (pv && pv != PROTO_NONE && pv->isString(ctx)) {
                     const proto::ProtoString* ps = pv->asString(ctx);
-                    if (ps) return ctx->fromInteger(
-                        static_cast<long long>(ps->getSize(ctx)));
+                    if (ps) return ctx->fromInteger(protojs::utf16Length(ctx, ps));
                 }
             }
         }
@@ -774,7 +774,7 @@ const proto::ProtoObject* proxyDispatchHas(proto::ProtoContext* ctx,
                 ? target->getAttribute(ctx, pvKey, false) : nullptr;
             if (pv && pv != PROTO_NONE && pv->isString(ctx)) {
                 const proto::ProtoString* ps = pv->asString(ctx);
-                if (ps && idx < ps->getSize(ctx)) return PROTO_TRUE;
+                if (ps && static_cast<long long>(idx) < protojs::utf16Length(ctx, ps)) return PROTO_TRUE;
             }
         }
     }

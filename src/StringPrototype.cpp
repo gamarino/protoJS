@@ -1,5 +1,6 @@
 #include "ProtoCoreTypes.h"
 #include "runtime/JSStringBytes.h"
+#include "runtime/JSStringUnits.h"
 #include "JSNumber.h"
 #include "runtime/PinnedBuiltin.h"
 #include "StringPrototype.h"
@@ -19,11 +20,27 @@
 #include <cctype>
 #include <cmath>
 #include <cstdio>
+#include <cstdlib>
 #include <cstring>
 #include <iostream>
 #include <limits>
 #include <string>
 #include <vector>
+
+// QuickJS's libunicode (deps/quickjs/libunicode.h), declared rather than
+// included: the header carries C-only inline helpers.
+extern "C" int lre_case_conv(uint32_t* res, uint32_t c, int conv_type);
+extern "C" int lre_is_cased(uint32_t c);
+extern "C" int lre_is_case_ignorable(uint32_t c);
+// UnicodeNormalizationEnum is an int-sized C enum: NFC, NFD, NFKC, NFKD.
+extern "C" int unicode_normalize(uint32_t** pdst, const uint32_t* src, int src_len,
+                                 int n_type, void* opaque,
+                                 void* (*realloc_func)(void* opaque, void* ptr, size_t size));
+
+static void* normalizeRealloc(void*, void* ptr, size_t size) {
+    if (size == 0) { std::free(ptr); return nullptr; }
+    return std::realloc(ptr, size);
+}
 
 namespace protojs {
 
@@ -731,45 +748,48 @@ const proto::ProtoObject* stringToString(
     return PROTO_NONE;
 }
 
+/** ToString(this) as a protoCore string (§22.1.3 step 2 of most methods).
+ *  A string primitive or a String object answers its own string, so a
+ *  method on `new String(s)` reads s through the same O(1) UTF-16 view as on
+ *  the primitive (JSStringUnits.h); any other receiver is converted. */
+static const proto::ProtoString* thisStringValue(proto::ProtoContext* ctx,
+                                                 const proto::ProtoObject* self) {
+    if (self && self != PROTO_NONE) {
+        if (const proto::ProtoString* s = self->asString(ctx)) return s;
+        const proto::ProtoString* pvKey = JSSymbols::primitiveValue(ctx);
+        const proto::ProtoObject* pv = pvKey ? self->getAttribute(ctx, pvKey, false) : nullptr;
+        if (pv && pv != PROTO_NONE && pv->isString(ctx)) return pv->asString(ctx);
+    }
+    const proto::ProtoObject* o = protojs::jsStringFromUTF8(ctx, objToStr(ctx, self));
+    return o ? o->asString(ctx) : ctx->fromUTF8String("")->asString(ctx);
+}
+
+/** ToString of argument `idx` with full ToString semantics (undefined is
+ *  "undefined"), as a protoCore string. */
+static const proto::ProtoString* argStringWithUndef(proto::ProtoContext* ctx,
+                                                    const proto::ProtoArguments* args,
+                                                    unsigned idx) {
+    const proto::ProtoObject* a = (args && args->getSize(ctx) > idx)
+        ? args->getAt(ctx, static_cast<int>(idx)) : nullptr;
+    if (a && a != PROTO_NONE && a->isString(ctx)) return a->asString(ctx);
+    const proto::ProtoObject* o = protojs::jsStringFromUTF8(ctx, getStrArgWithUndef(ctx, args, idx));
+    return o ? o->asString(ctx) : ctx->fromUTF8String("")->asString(ctx);
+}
+
+static const proto::ProtoObject* emptyString(proto::ProtoContext* ctx) {
+    return ctx->fromUTF8String("");
+}
+
 const proto::ProtoObject* stringCharAt(
     proto::ProtoContext* ctx, const proto::ProtoObject* self,
     const proto::ParentLink*, const proto::ProtoArguments* args,
     const proto::ProtoKeywordArguments*)
 {
     if (!requireStringThis(ctx, self)) return PROTO_NONE;
-    long long idx = getIntArg(ctx, args, 0, 0);
-
-    // Rope-aware O(log N) fast path.  The unconditional objToStr +
-    // utf8ToUTF16 below flattens the entire rope into a contiguous
-    // UTF-16 buffer just to return a 1-codepoint substring — under
-    // string_processing's CSV parse loop, profile showed 22% of
-    // cycles in toUTF8String + 22% in RopeCharacterIterator::next
-    // driven by charAt/substring calls in tight loops.  getSlice
-    // walks the AVL tree in O(log N) and shares the resulting nodes
-    // with the source rope.  Limitations: protoCore indexes by
-    // codepoint, JS indexes by UTF-16 code unit — these coincide for
-    // BMP-only strings (~all real-world code; the bench cases are
-    // pure ASCII).  Strings containing supplementary characters
-    // could return a different result for indices that fall inside
-    // a surrogate pair; the slow path below preserves the spec
-    // behaviour for wrappers (asString==null) and for the rare cases
-    // where the caller has already coerced.
-    if (self) {
-        const proto::ProtoString* str = self->asString(ctx);
-        if (str) {
-            long long size = static_cast<long long>(str->getSize(ctx));
-            if (idx < 0 || idx >= size) return ctx->fromUTF8String("");
-            const proto::ProtoString* sliced = str->getSlice(
-                ctx, static_cast<int>(idx), static_cast<int>(idx) + 1);
-            return sliced ? sliced->asObject(ctx) : ctx->fromUTF8String("");
-        }
-    }
-
-    std::string s = objToStr(ctx, self);
-    auto u16 = utf8ToUTF16(s);
-    if (idx < 0 || static_cast<size_t>(idx) >= u16.size())
-        return ctx->fromUTF8String("");
-    return protojs::jsStringFromUTF8(ctx, utf16ToUTF8(u16, static_cast<size_t>(idx), static_cast<size_t>(idx) + 1));
+    const proto::ProtoString* str = thisStringValue(ctx, self);
+    const long long idx = getIntArg(ctx, args, 0, 0);
+    const proto::ProtoObject* c = utf16CharAt(ctx, str, idx);
+    return c ? c : emptyString(ctx);
 }
 
 const proto::ProtoObject* stringCharCodeAt(
@@ -778,26 +798,12 @@ const proto::ProtoObject* stringCharCodeAt(
     const proto::ProtoKeywordArguments*)
 {
     if (!requireStringThis(ctx, self)) return PROTO_NONE;
-    long long idx = getIntArg(ctx, args, 0, 0);
-
-    // A string primitive: read the one code unit with utf16UnitAt, O(log n)
-    // (StringPrototype.h). The path below converts the whole string to UTF-16
-    // first, O(n) per call, so a loop over a string was O(n^2) (about 6 s for
-    // 40,000 calls); it remains for wrappers and other receivers, which need
-    // ToString(this) -- `new Object(42).charCodeAt(false) === 52`
-    // (S15.5.4.5_A1_T1/T2/T6).
-    if (const proto::ProtoString* str = self->asString(ctx)) {
-        uint16_t unit = 0;
-        if (!utf16UnitAt(ctx, str, idx, unit))
-            return makeNumber(ctx, std::numeric_limits<double>::quiet_NaN());
-        return ctx->fromInteger(static_cast<long long>(unit));
-    }
-
-    std::string s = objToStr(ctx, self);
-    auto u16 = utf8ToUTF16(s);
-    if (idx < 0 || static_cast<size_t>(idx) >= u16.size())
+    const proto::ProtoString* str = thisStringValue(ctx, self);
+    const long long idx = getIntArg(ctx, args, 0, 0);
+    uint16_t unit = 0;
+    if (!utf16UnitAt(ctx, str, idx, unit))
         return makeNumber(ctx, std::numeric_limits<double>::quiet_NaN());
-    return ctx->fromInteger(static_cast<long long>(u16[static_cast<size_t>(idx)]));
+    return ctx->fromInteger(static_cast<long long>(unit));
 }
 
 const proto::ProtoObject* stringCodePointAt(
@@ -806,36 +812,11 @@ const proto::ProtoObject* stringCodePointAt(
     const proto::ProtoKeywordArguments*)
 {
     if (!requireStringThis(ctx, self)) return PROTO_NONE;
-    // A string primitive: the code unit at idx, combined with the next one
-    // when they form a surrogate pair (§22.1.3.4 CodePointAt), each read in
-    // O(log n) by utf16UnitAt instead of a whole-string conversion per call.
-    if (const proto::ProtoString* str = self->asString(ctx)) {
-        long long pidx = getIntArg(ctx, args, 0, 0);
-        uint16_t h = 0;
-        if (!utf16UnitAt(ctx, str, pidx, h)) return PROTO_NONE;
-        uint16_t l = 0;
-        if (h >= 0xD800 && h <= 0xDBFF && utf16UnitAt(ctx, str, pidx + 1, l)
-                && l >= 0xDC00 && l <= 0xDFFF) {
-            const uint32_t cp = 0x10000u + (static_cast<uint32_t>(h - 0xD800) << 10)
-                                         + (l - 0xDC00);
-            return ctx->fromInteger(static_cast<long long>(cp));
-        }
-        return ctx->fromInteger(static_cast<long long>(h));
-    }
-    std::string s = objToStr(ctx, self);
-    auto u16 = utf8ToUTF16(s);
-    long long idx = getIntArg(ctx, args, 0, 0);
-    if (idx < 0 || static_cast<size_t>(idx) >= u16.size())
-        return PROTO_NONE;
-    uint16_t h = u16[static_cast<size_t>(idx)];
-    size_t next = static_cast<size_t>(idx) + 1;
-    if (h >= 0xD800 && h <= 0xDBFF && next < u16.size() &&
-            u16[next] >= 0xDC00 && u16[next] <= 0xDFFF) {
-        uint32_t cp = 0x10000u + (static_cast<uint32_t>(h - 0xD800) << 10)
-                                + (u16[next] - 0xDC00);
-        return ctx->fromInteger(static_cast<long long>(cp));
-    }
-    return ctx->fromInteger(static_cast<long long>(h));
+    const proto::ProtoString* str = thisStringValue(ctx, self);
+    const long long idx = getIntArg(ctx, args, 0, 0);
+    uint32_t cp = 0;
+    if (!utf16CodePointAt(ctx, str, idx, cp)) return getUndefinedSentinel();
+    return ctx->fromInteger(static_cast<long long>(cp));
 }
 
 const proto::ProtoObject* stringAt(
@@ -844,26 +825,11 @@ const proto::ProtoObject* stringAt(
     const proto::ProtoKeywordArguments*)
 {
     if (!requireStringThis(ctx, self)) return PROTO_NONE;
+    const proto::ProtoString* str = thisStringValue(ctx, self);
     long long idx = getIntArg(ctx, args, 0, 0);
-
-    if (self) {
-        const proto::ProtoString* str = self->asString(ctx);
-        if (str) {
-            long long len = static_cast<long long>(str->getSize(ctx));
-            if (idx < 0) idx += len;
-            if (idx < 0 || idx >= len) return PROTO_NONE;
-            const proto::ProtoString* sliced = str->getSlice(
-                ctx, static_cast<int>(idx), static_cast<int>(idx) + 1);
-            return sliced ? sliced->asObject(ctx) : PROTO_NONE;
-        }
-    }
-
-    std::string s = objToStr(ctx, self);
-    auto u16 = utf8ToUTF16(s);
-    long long len = static_cast<long long>(u16.size());
-    if (idx < 0) idx += len;
-    if (idx < 0 || idx >= len) return PROTO_NONE;
-    return protojs::jsStringFromUTF8(ctx, utf16ToUTF8(u16, static_cast<size_t>(idx), static_cast<size_t>(idx) + 1));
+    if (idx < 0) idx += utf16Length(ctx, str);
+    const proto::ProtoObject* c = utf16CharAt(ctx, str, idx);
+    return c ? c : getUndefinedSentinel();
 }
 
 const proto::ProtoObject* stringConcat(
@@ -872,18 +838,28 @@ const proto::ProtoObject* stringConcat(
     const proto::ProtoKeywordArguments*)
 {
     if (!requireStringThis(ctx, self)) return PROTO_NONE;
-    // §22.1.3.4 step 2 sequencing: ToString(this) runs BEFORE any arg
-    // ToString.  Pre-fix the loop kept appending after a throwing
-    // self.toString, so an abrupt in arg[0].toString surfaced first
-    // (Sputnik S15.5.4.6_A4_T2 expected 'intostring' from self but
-    // saw 'infirstarg' from arg[0] because the abrupt from self was
-    // silently dropped).
-    std::string result = objToStr(ctx, self);
+    // §22.1.3.5 step 2 sequencing: ToString(this) runs BEFORE any arg
+    // ToString (Sputnik S15.5.4.6_A4_T2). The pieces are joined with
+    // jsConcatStrings, which shares their ropes and repairs a surrogate
+    // pair split across a seam.
+    const proto::ProtoString* result = thisStringValue(ctx, self);
     proto::proto_ulong argc = args ? static_cast<proto::proto_ulong>(args->getSize(ctx)) : 0;
     for (proto::proto_ulong i = 0; i < argc; i++) {
-        result += objToStr(ctx, args->getAt(ctx, static_cast<int>(i)));
+        const proto::ProtoObject* a = args->getAt(ctx, static_cast<int>(i));
+        const proto::ProtoString* piece = (a && a != PROTO_NONE && a->isString(ctx))
+            ? a->asString(ctx)
+            : protojs::jsStringFromUTF8(ctx, objToStr(ctx, a))->asString(ctx);
+        result = jsConcatStrings(ctx, result, piece);
     }
-    return protojs::jsStringFromUTF8(ctx, result);
+    return result->asObject(ctx);
+}
+
+/** The first index >= from of `needle` in `hay`, both UTF-16, or -1. */
+static long long u16Find(const std::u16string& hay, const std::u16string& needle, long long from) {
+    if (from < 0) from = 0;
+    if (static_cast<size_t>(from) > hay.size()) return needle.empty() ? static_cast<long long>(hay.size()) : -1;
+    const size_t p = hay.find(needle, static_cast<size_t>(from));
+    return p == std::u16string::npos ? -1 : static_cast<long long>(p);
 }
 
 const proto::ProtoObject* stringIndexOf(
@@ -892,31 +868,18 @@ const proto::ProtoObject* stringIndexOf(
     const proto::ProtoKeywordArguments*)
 {
     if (!requireStringThis(ctx, self)) return PROTO_NONE;
-    std::string s    = objToStr(ctx, self);
-    // Spec §22.1.3.7: ToString on searchString; undefined coerces to
-    // the literal "undefined". Pre-fix `"abc".indexOf()` returned 0
-    // because the missing arg defaulted to "".  §22.1.3.7 step 4
-    // ToString(searchString) precedes step 5 ToIntegerOrInfinity(position) —
-    // a throwing searchString.toString must abort before position's
-    // valueOf can fire (Sputnik S15.5.4.7_A4_T4 surfaced 'intoint'
-    // from position instead of the spec-required 'intostr' from
-    // searchString).
-    std::string srch = getStrArgWithUndef(ctx, args, 0);
-    auto su16 = utf8ToUTF16(s);
-    auto se16 = utf8ToUTF16(srch);
+    const proto::ProtoString* str = thisStringValue(ctx, self);
+    // §22.1.3.9 step 4 ToString(searchString) precedes step 5
+    // ToIntegerOrInfinity(position) (Sputnik S15.5.4.7_A4_T4); a missing
+    // searchString is "undefined".
+    const proto::ProtoString* srch = argStringWithUndef(ctx, args, 0);
     long long fromIdx = getIntArg(ctx, args, 1, 0);
+    std::u16string su16, se16;
+    utf16Units(ctx, str, su16);
+    utf16Units(ctx, srch, se16);
     if (fromIdx < 0) fromIdx = 0;
-    size_t pos = static_cast<size_t>(fromIdx);
-    if (se16.empty()) {
-        if (pos > su16.size()) return ctx->fromInteger(static_cast<long long>(su16.size()));
-        return ctx->fromInteger(static_cast<long long>(pos));
-    }
-    if (pos + se16.size() > su16.size()) return ctx->fromInteger(-1LL);
-    for (size_t i = pos; i + se16.size() <= su16.size(); i++) {
-        if (std::equal(se16.begin(), se16.end(), su16.begin() + i))
-            return ctx->fromInteger(static_cast<long long>(i));
-    }
-    return ctx->fromInteger(-1LL);
+    if (fromIdx > static_cast<long long>(su16.size())) fromIdx = static_cast<long long>(su16.size());
+    return ctx->fromInteger(u16Find(su16, se16, fromIdx));
 }
 
 const proto::ProtoObject* stringLastIndexOf(
@@ -925,26 +888,16 @@ const proto::ProtoObject* stringLastIndexOf(
     const proto::ProtoKeywordArguments*)
 {
     if (!requireStringThis(ctx, self)) return PROTO_NONE;
-    std::string s    = objToStr(ctx, self);
-    // §21.1.3.10 step 4 ToString(searchString) — applies the full
-    // ToString algorithm, so a missing/undefined arg becomes literal
-    // "undefined" (S15.5.4.8_A1_T8: "undefined".lastIndexOf(void 0) === 0).
-    // Pre-fix getStrArg short-circuited undefined to "" and the search
-    // emptied out, returning str.length instead of locating "undefined".
-    std::string srch = getStrArgWithUndef(ctx, args, 0);
-    // §21.1.3.10 step 4 is also an abrupt-completion site that MUST
-    // precede the ToNumber(position) work. Pre-fix the method swallowed
-    // a throwing toString and proceeded to position, surfacing "intoint"
-    // before the spec-required "intostr" (Sputnik S15.5.4.8_A4_T4
-    // verified the ordering).
-    auto su16 = utf8ToUTF16(s);
-    auto se16 = utf8ToUTF16(srch);
-    // §21.1.3.10 lastIndexOf step 5: numPos = ToNumber(position); NaN →
-    // +Infinity; otherwise pos = ToIntegerOrInfinity(numPos). The pre-
-    // fix branch only inspected primitive integers/doubles and treated
-    // NaN-valued primitives as 0, so "ABBABABAB".lastIndexOf("AB",
-    // {valueOf(){return NaN;}}) started at 0 and returned -1 instead of
-    // the spec's 7 (search from string length backwards).
+    const proto::ProtoString* str = thisStringValue(ctx, self);
+    // §22.1.3.11 step 4 ToString(searchString) -- undefined is "undefined"
+    // (S15.5.4.8_A1_T8) -- before step 5 ToNumber(position)
+    // (S15.5.4.8_A4_T4).
+    const proto::ProtoString* srch = argStringWithUndef(ctx, args, 0);
+    std::u16string su16, se16;
+    utf16Units(ctx, str, su16);
+    utf16Units(ctx, srch, se16);
+    // Step 5-6: numPos = ToNumber(position); NaN is +Infinity, otherwise
+    // ToIntegerOrInfinity.
     long long fromIdx = static_cast<long long>(su16.size());
     if (args && args->getSize(ctx) > 1) {
         const proto::ProtoObject* fa = args->getAt(ctx, 1);
@@ -962,9 +915,7 @@ const proto::ProtoObject* stringLastIndexOf(
                 if (std::isnan(d)) {
                     fromIdx = static_cast<long long>(su16.size());
                 } else if (std::isinf(d)) {
-                    fromIdx = d > 0
-                        ? static_cast<long long>(su16.size())
-                        : 0;
+                    fromIdx = d > 0 ? static_cast<long long>(su16.size()) : 0;
                 } else {
                     fromIdx = static_cast<long long>(d);
                 }
@@ -973,19 +924,12 @@ const proto::ProtoObject* stringLastIndexOf(
     }
     if (fromIdx < 0) fromIdx = 0;
     if (se16.empty()) {
-        size_t cap = static_cast<size_t>(
-            std::min(fromIdx, static_cast<long long>(su16.size())));
-        return ctx->fromInteger(static_cast<long long>(cap));
+        return ctx->fromInteger(std::min(fromIdx, static_cast<long long>(su16.size())));
     }
     if (su16.size() < se16.size()) return ctx->fromInteger(-1LL);
-    long long maxStart = static_cast<long long>(
-        std::min(static_cast<size_t>(fromIdx), su16.size() - se16.size()));
-    for (long long i = maxStart; i >= 0; i--) {
-        if (std::equal(se16.begin(), se16.end(),
-                       su16.begin() + static_cast<ptrdiff_t>(i)))
-            return ctx->fromInteger(i);
-    }
-    return ctx->fromInteger(-1LL);
+    const size_t maxStart = std::min(static_cast<size_t>(fromIdx), su16.size() - se16.size());
+    const size_t p = su16.rfind(se16, maxStart);
+    return ctx->fromInteger(p == std::u16string::npos ? -1LL : static_cast<long long>(p));
 }
 
 const proto::ProtoObject* stringSlice(
@@ -994,67 +938,26 @@ const proto::ProtoObject* stringSlice(
     const proto::ProtoKeywordArguments*)
 {
     if (!requireStringThis(ctx, self)) return PROTO_NONE;
-
-    // Rope-aware O(log N) fast path — see stringCharAt above for the
-    // motivation (string_insert_middle.js spends most of its time in
-    // utf8ToUTF16-based slicing).  Limitation: protoCore indexes by
-    // codepoint; JS by UTF-16 code unit.  For BMP-only strings (the
-    // overwhelming majority including the bench inputs) the two
-    // coincide.  Strings with supplementary chars can mis-slice when
-    // a boundary falls inside a surrogate pair; the slow path
-    // preserves spec behaviour for non-primitive receivers.
-    if (self) {
-        const proto::ProtoString* str = self->asString(ctx);
-        if (str) {
-            long long len = static_cast<long long>(str->getSize(ctx));
-            long long start = 0, end = len;
-            if (args && args->getSize(ctx) >= 1) {
-                start = getIntArg(ctx, args, 0, 0);
-                // §22.1.3.18 slice step 4: ToIntegerOrInfinity on `start`
-                // precedes the coercion of `end`. Pre-fix getIntArg
-                // swallowed abrupt completions and returned the default,
-                // so an abrupt valueOf on `start` lost to a later abrupt
-                // on `end` (test262
-                // String/prototype/slice/S15.5.4.13_A1_T11.js).
-                if (start < 0) start = std::max(len + start, 0LL);
-                else           start = std::min(start, len);
-            }
-            if (args && args->getSize(ctx) >= 2) {
-                const proto::ProtoObject* ea = args->getAt(ctx, 1);
-                // §22.1.3.18 slice: when end is undefined, default to len.
-                if (ea && ea != PROTO_NONE && ea != getUndefinedSentinel()) {
-                    end = getIntArg(ctx, args, 1, len);
-                    if (end < 0) end = std::max(len + end, 0LL);
-                    else         end = std::min(end, len);
-                }
-            }
-            if (end <= start) return ctx->fromUTF8String("");
-            const proto::ProtoString* sliced = str->getSlice(
-                ctx, static_cast<int>(start), static_cast<int>(end));
-            return sliced ? sliced->asObject(ctx) : ctx->fromUTF8String("");
-        }
-    }
-
-    std::string s = objToStr(ctx, self);
-    auto u16 = utf8ToUTF16(s);
-    long long len = static_cast<long long>(u16.size());
+    const proto::ProtoString* str = thisStringValue(ctx, self);
+    const long long len = utf16Length(ctx, str);
     long long start = 0, end = len;
-
     if (args && args->getSize(ctx) >= 1) {
+        // §22.1.3.22 step 4: ToIntegerOrInfinity(start) precedes the
+        // coercion of end (String/prototype/slice/S15.5.4.13_A1_T11.js).
         start = getIntArg(ctx, args, 0, 0);
         if (start < 0) start = std::max(len + start, 0LL);
         else           start = std::min(start, len);
     }
     if (args && args->getSize(ctx) >= 2) {
         const proto::ProtoObject* ea = args->getAt(ctx, 1);
-        if (ea && ea != PROTO_NONE) {
+        if (ea && ea != PROTO_NONE && ea != getUndefinedSentinel()) {
             end = getIntArg(ctx, args, 1, len);
             if (end < 0) end = std::max(len + end, 0LL);
             else         end = std::min(end, len);
         }
     }
-    if (end <= start) return ctx->fromUTF8String("");
-    return protojs::jsStringFromUTF8(ctx, utf16ToUTF8(u16, static_cast<size_t>(start), static_cast<size_t>(end)));
+    if (end <= start) return emptyString(ctx);
+    return utf16Slice(ctx, str, start, end)->asObject(ctx);
 }
 
 const proto::ProtoObject* stringSubstring(
@@ -1063,157 +966,113 @@ const proto::ProtoObject* stringSubstring(
     const proto::ProtoKeywordArguments*)
 {
     if (!requireStringThis(ctx, self)) return PROTO_NONE;
-
-    // Rope-aware O(log N) fast path; see stringCharAt for caveats.
-    if (self) {
-        const proto::ProtoString* str = self->asString(ctx);
-        if (str) {
-            long long len = static_cast<long long>(str->getSize(ctx));
-            long long start = 0, end = len;
-            if (args && args->getSize(ctx) >= 1) {
-                start = getIntArg(ctx, args, 0, 0);
-                start = std::max(0LL, std::min(start, len));
-            }
-            if (args && args->getSize(ctx) >= 2) {
-                const proto::ProtoObject* ea = args->getAt(ctx, 1);
-                // §22.1.3.20 substring: when `end` is undefined, default
-                // to length.  Pre-fix the undefined sentinel went through
-                // getIntArg, which coerced to NaN→0 and produced an
-                // empty substring (S15.5.4.15_A1_T7 et al).
-                if (ea && ea != PROTO_NONE && ea != getUndefinedSentinel()) {
-                    end = getIntArg(ctx, args, 1, len);
-                    end = std::max(0LL, std::min(end, len));
-                }
-            }
-            if (start > end) std::swap(start, end);
-            if (end <= start) return ctx->fromUTF8String("");
-            const proto::ProtoString* sliced = str->getSlice(
-                ctx, static_cast<int>(start), static_cast<int>(end));
-            return sliced ? sliced->asObject(ctx) : ctx->fromUTF8String("");
-        }
-    }
-
-    std::string s = objToStr(ctx, self);
-    auto u16 = utf8ToUTF16(s);
-    long long len = static_cast<long long>(u16.size());
+    const proto::ProtoString* str = thisStringValue(ctx, self);
+    const long long len = utf16Length(ctx, str);
     long long start = 0, end = len;
-
     if (args && args->getSize(ctx) >= 1) {
-        start = getIntArg(ctx, args, 0, 0);   // NaN → 0
+        start = getIntArg(ctx, args, 0, 0);
         start = std::max(0LL, std::min(start, len));
     }
     if (args && args->getSize(ctx) >= 2) {
         const proto::ProtoObject* ea = args->getAt(ctx, 1);
-        if (ea && ea != PROTO_NONE) {
+        // §22.1.3.25: an undefined end is the length (S15.5.4.15_A1_T7).
+        if (ea && ea != PROTO_NONE && ea != getUndefinedSentinel()) {
             end = getIntArg(ctx, args, 1, len);
             end = std::max(0LL, std::min(end, len));
         }
     }
-    // substring swaps start/end if start > end (unlike slice)
     if (start > end) std::swap(start, end);
-    return protojs::jsStringFromUTF8(ctx, utf16ToUTF8(u16, static_cast<size_t>(start), static_cast<size_t>(end)));
+    if (end <= start) return emptyString(ctx);
+    return utf16Slice(ctx, str, start, end)->asObject(ctx);
 }
 
-/** Legacy substr(start, length) — not in the spec but widely used. */
+/** Annex B substr(start, length). */
 const proto::ProtoObject* stringSubstr(
     proto::ProtoContext* ctx, const proto::ProtoObject* self,
     const proto::ParentLink*, const proto::ProtoArguments* args,
     const proto::ProtoKeywordArguments*)
 {
     if (!requireStringThis(ctx, self)) return PROTO_NONE;
-
-    // Rope-aware O(log N) fast path; see stringCharAt for caveats.
-    if (self) {
-        const proto::ProtoString* str = self->asString(ctx);
-        if (str) {
-            long long len = static_cast<long long>(str->getSize(ctx));
-            long long start = getIntArg(ctx, args, 0, 0);
-            if (start < 0) start = std::max(len + start, 0LL);
-            else           start = std::min(start, len);
-
-            long long length = len - start;
-            if (args && args->getSize(ctx) >= 2) {
-                const proto::ProtoObject* la = args->getAt(ctx, 1);
-                // §B.2.3.1 substr: undefined length means "to end of
-                // string" (default).
-                if (la && la != PROTO_NONE && la != getUndefinedSentinel()) {
-                    length = getIntArg(ctx, args, 1, length);
-                    if (length < 0) length = 0;
-                }
-            }
-            long long end = std::min(start + length, len);
-            if (end <= start) return ctx->fromUTF8String("");
-            const proto::ProtoString* sliced = str->getSlice(
-                ctx, static_cast<int>(start), static_cast<int>(end));
-            return sliced ? sliced->asObject(ctx) : ctx->fromUTF8String("");
-        }
-    }
-
-    std::string s = objToStr(ctx, self);
-    auto u16 = utf8ToUTF16(s);
-    long long len = static_cast<long long>(u16.size());
+    const proto::ProtoString* str = thisStringValue(ctx, self);
+    const long long len = utf16Length(ctx, str);
     long long start = getIntArg(ctx, args, 0, 0);
     if (start < 0) start = std::max(len + start, 0LL);
     else           start = std::min(start, len);
-
     long long length = len - start;
     if (args && args->getSize(ctx) >= 2) {
         const proto::ProtoObject* la = args->getAt(ctx, 1);
-        if (la && la != PROTO_NONE) {
+        // §B.2.2.1: an undefined length is "to the end of the string".
+        if (la && la != PROTO_NONE && la != getUndefinedSentinel()) {
             length = getIntArg(ctx, args, 1, length);
             if (length < 0) length = 0;
         }
     }
-    long long end = std::min(start + length, len);
-    if (end <= start) return ctx->fromUTF8String("");
-    return protojs::jsStringFromUTF8(ctx, utf16ToUTF8(u16, static_cast<size_t>(start), static_cast<size_t>(end)));
+    const long long end = length > len - start ? len : start + length;
+    if (end <= start) return emptyString(ctx);
+    return utf16Slice(ctx, str, start, end)->asObject(ctx);
 }
 
-// UTF-8 aware case mapping for ASCII + Latin-1 supplement
-// (U+0080-U+00FF). Higher planes are passed through unchanged.
-// Pre-fix std::transform walked bytes one-by-one, so 'café' (UTF-8
-// bytes 0x63 0x61 0x66 0xC3 0xA9) had std::toupper applied to the
-// trailing 0xC3 / 0xA9 individually, leaving them unchanged. As a
-// result 'café'.toUpperCase() returned 'CAFé' instead of 'CAFÉ'.
+// Full Unicode case mapping (§22.1.3.28 / .30, the Unicode Default Case
+// Conversion algorithm) with QuickJS's libunicode tables, the same algorithm
+// as QuickJS's own js_string_toLowerCase: SpecialCasing expansions (U+00DF
+// becomes "SS"), supplementary code points (U+10400 <-> U+10428) and the
+// final-sigma rule. A lone surrogate maps to itself. An ASCII string takes a
+// byte loop.
 static std::string utf8CaseMap(const std::string& s, bool upper) {
+    bool ascii = true;
+    for (unsigned char c : s) if (c >= 0x80) { ascii = false; break; }
     std::string out;
     out.reserve(s.size());
-    size_t i = 0;
-    while (i < s.size()) {
-        unsigned char c = static_cast<unsigned char>(s[i]);
-        if (c < 0x80) {
+    if (ascii) {
+        for (unsigned char c : s)
             out.push_back(static_cast<char>(upper ? std::toupper(c) : std::tolower(c)));
-            ++i;
-            continue;
-        }
-        if ((c & 0xE0) == 0xC0 && i + 1 < s.size()) {
-            unsigned char c1 = static_cast<unsigned char>(s[i + 1]);
-            unsigned cp = ((c & 0x1F) << 6) | (c1 & 0x3F);
-            unsigned mapped = cp;
-            if (upper) {
-                // Latin-1 lowercase 0x00E0..0x00FE except 0x00F7 → upper
-                if (cp >= 0xE0 && cp <= 0xFE && cp != 0xF7) mapped = cp - 0x20;
-                // ÿ (0x00FF) maps to Ÿ (0x0178) — keep simple Latin-1
-                // surface and pass through unchanged to avoid the BMP
-                // jump that needs 2-byte → 3-byte expansion.
-            } else {
-                if (cp >= 0xC0 && cp <= 0xDE && cp != 0xD7) mapped = cp + 0x20;
-            }
-            if (mapped != cp) {
-                out.push_back(static_cast<char>(0xC0 | (mapped >> 6)));
-                out.push_back(static_cast<char>(0x80 | (mapped & 0x3F)));
-            } else {
-                out.push_back(s[i]);
-                out.push_back(s[i + 1]);
-            }
-            i += 2;
-            continue;
-        }
-        // Pass through 3- and 4-byte sequences unchanged.
-        size_t len = (c < 0xE0) ? 2 : (c < 0xF0) ? 3 : 4;
-        if (len > s.size() - i) len = s.size() - i;
-        for (size_t j = 0; j < len; ++j) out.push_back(s[i + j]);
+        return out;
+    }
+    std::vector<uint32_t> cps;
+    cps.reserve(s.size());
+    for (size_t i = 0; i < s.size();) {
+        const unsigned char c = static_cast<unsigned char>(s[i]);
+        uint32_t cp;
+        size_t len;
+        if (c < 0x80)      { cp = c;        len = 1; }
+        else if (c < 0xE0) { cp = c & 0x1F; len = 2; }
+        else if (c < 0xF0) { cp = c & 0x0F; len = 3; }
+        else               { cp = c & 0x07; len = 4; }
+        for (size_t j = 1; j < len && i + j < s.size(); ++j)
+            cp = (cp << 6) | (static_cast<unsigned char>(s[i + j]) & 0x3F);
+        cps.push_back(cp);
         i += len;
+    }
+    // Final sigma: U+03A3 preceded by a cased letter and not followed by one,
+    // skipping case-ignorable code points on both sides.
+    auto finalSigma = [&](size_t at) {
+        size_t k = at;
+        uint32_t c1 = 0;
+        bool found = false;
+        while (k > 0) {
+            c1 = cps[--k];
+            if (!lre_is_case_ignorable(c1)) { found = true; break; }
+        }
+        if (!found || !lre_is_cased(c1)) return false;
+        for (k = at + 1; k < cps.size(); ++k) {
+            c1 = cps[k];
+            if (!lre_is_case_ignorable(c1)) return !lre_is_cased(c1);
+        }
+        return true;
+    };
+    uint32_t res[3];
+    for (size_t i = 0; i < cps.size(); ++i) {
+        const uint32_t c = cps[i];
+        int l;
+        if (c == 0x3A3 && !upper && finalSigma(i)) { res[0] = 0x3C2; l = 1; }
+        else l = lre_case_conv(res, c, upper ? 0 : 1);
+        for (int j = 0; j < l; ++j) {
+            const uint32_t cp = res[j];
+            if (cp < 0x80) out += static_cast<char>(cp);
+            else if (cp < 0x800) { out += static_cast<char>(0xC0 | (cp >> 6)); out += static_cast<char>(0x80 | (cp & 0x3F)); }
+            else if (cp < 0x10000) { out += static_cast<char>(0xE0 | (cp >> 12)); out += static_cast<char>(0x80 | ((cp >> 6) & 0x3F)); out += static_cast<char>(0x80 | (cp & 0x3F)); }
+            else { out += static_cast<char>(0xF0 | (cp >> 18)); out += static_cast<char>(0x80 | ((cp >> 12) & 0x3F)); out += static_cast<char>(0x80 | ((cp >> 6) & 0x3F)); out += static_cast<char>(0x80 | (cp & 0x3F)); }
+        }
     }
     return out;
 }
@@ -1465,15 +1324,15 @@ const proto::ProtoObject* stringStartsWith(
     // ProtoStrings.  protoCore's getSlice walks the AVL spine in
     // O(log N) and cmp_to_string then character-walks the M-char
     // window in place, avoiding the full receiver-rope flatten that
-    // the slow path pays even when M << N.  Same BMP-only caveat as
-    // stringCharAt.
+    // the slow path pays even when M << N.  Positions and lengths are
+    // UTF-16 code units (JSStringUnits.h).
     if (self && args && args->getSize(ctx) > 0) {
         const proto::ProtoString* str = self->asString(ctx);
         const proto::ProtoObject* searchArg = args->getAt(ctx, 0);
         const proto::ProtoString* srch = searchArg ? searchArg->asString(ctx) : nullptr;
         if (str && srch) {
-            long long sLen = static_cast<long long>(str->getSize(ctx));
-            long long mLen = static_cast<long long>(srch->getSize(ctx));
+            long long sLen = utf16Length(ctx, str);
+            long long mLen = utf16Length(ctx, srch);
             long long pos = getIntArg(ctx, args, 1, 0);
             if (pos < 0) pos = 0;
             // §22.1.3.18 step 12: start = min(max(pos, 0), len).
@@ -1486,8 +1345,7 @@ const proto::ProtoObject* stringStartsWith(
             if (pos > sLen) pos = sLen;
             if (mLen == 0) return PROTO_TRUE;
             if (pos + mLen > sLen) return PROTO_FALSE;
-            const proto::ProtoString* slice = str->getSlice(
-                ctx, static_cast<int>(pos), static_cast<int>(pos + mLen));
+            const proto::ProtoString* slice = utf16Slice(ctx, str, pos, pos + mLen);
             return (slice && slice->cmp_to_string(ctx, srch) == 0)
                 ? PROTO_TRUE : PROTO_FALSE;
         }
@@ -1529,8 +1387,8 @@ const proto::ProtoObject* stringEndsWith(
         const proto::ProtoObject* searchArg = args->getAt(ctx, 0);
         const proto::ProtoString* srch = searchArg ? searchArg->asString(ctx) : nullptr;
         if (str && srch) {
-            long long sLen = static_cast<long long>(str->getSize(ctx));
-            long long mLen = static_cast<long long>(srch->getSize(ctx));
+            long long sLen = utf16Length(ctx, str);
+            long long mLen = utf16Length(ctx, srch);
             long long endPos = sLen;
             if (args->getSize(ctx) > 1) {
                 const proto::ProtoObject* ep = args->getAt(ctx, 1);
@@ -1542,8 +1400,7 @@ const proto::ProtoObject* stringEndsWith(
             if (mLen > endPos) return PROTO_FALSE;
             if (mLen == 0) return PROTO_TRUE;
             long long start = endPos - mLen;
-            const proto::ProtoString* slice = str->getSlice(
-                ctx, static_cast<int>(start), static_cast<int>(endPos));
+            const proto::ProtoString* slice = utf16Slice(ctx, str, start, endPos);
             return (slice && slice->cmp_to_string(ctx, srch) == 0)
                 ? PROTO_TRUE : PROTO_FALSE;
         }
@@ -1749,33 +1606,47 @@ const proto::ProtoObject* stringPadEnd(
     return stringPadCommon(ctx, self, args, /*atStart=*/false);
 }
 
-static std::string applyStringReplacement(const std::string& s, const std::string& pat, const std::string& rep, size_t pos) {
-    std::string result;
+/** The number of UTF-16 code units in the first `bytes` bytes of `s`: the
+ *  JavaScript index of a byte position found by std::string::find. */
+static long long unitsInUTF8Prefix(const std::string& s, size_t bytes) {
+    long long u = 0;
+    for (size_t i = 0; i < bytes && i < s.size(); ++i) {
+        const unsigned char c = static_cast<unsigned char>(s[i]);
+        if ((c & 0xC0) == 0x80) continue;
+        u += c >= 0xF0 ? 2 : 1;
+    }
+    return u;
+}
+
+/** GetSubstitution (§22.1.3.19.1) for a string pattern, in UTF-16 code
+ *  units: `s` the subject, the match at `pos` of `matchLen` units. A string
+ *  pattern has no captures, so $<digit> and $< stay literal. */
+static std::u16string substitutionU16(const std::u16string& s, size_t pos, size_t matchLen,
+                                      const std::u16string& rep) {
+    std::u16string result;
     for (size_t i = 0; i < rep.size(); i++) {
-        if (rep[i] == '$' && i + 1 < rep.size()) {
-            char next = rep[i + 1];
-            if (next == '$') {
-                result += '$';
-                i++;
-            } else if (next == '&') {
-                result += pat;
-                i++;
-            } else if (next == '`') {
-                result += s.substr(0, pos);
-                i++;
-            } else if (next == '\'') {
-                result += s.substr(pos + pat.size());
-                i++;
-            } else if (std::isdigit(next)) {
-                result += '$';
-            } else {
-                result += '$';
-            }
-        } else {
-            result += rep[i];
+        if (rep[i] == u'$' && i + 1 < rep.size()) {
+            const char16_t next = rep[i + 1];
+            if (next == u'$') { result += u'$'; i++; continue; }
+            if (next == u'&') { result.append(s, pos, matchLen); i++; continue; }
+            if (next == u'`') { result.append(s, 0, pos); i++; continue; }
+            if (next == u'\'') { result.append(s, pos + matchLen, std::u16string::npos); i++; continue; }
         }
+        result += rep[i];
     }
     return result;
+}
+
+static std::u16string toU16(const std::string& utf8) {
+    std::u16string out;
+    appendUTF8AsUtf16(out, utf8.data(), utf8.size());
+    return out;
+}
+
+static std::string fromU16(const std::u16string& u) {
+    std::string out;
+    appendUtf16AsUTF8(out, u.data(), u.size());
+    return out;
 }
 
 /** Helper to detect if an object is a RegExp by looking for the Symbol.match surrogate. */
@@ -1947,7 +1818,7 @@ const proto::ProtoObject* stringMatch(
         const proto::ProtoObject* ixObj = ctx->fromUTF8String("index");
         const proto::ProtoString* ixK = ixObj ? ixObj->asString(ctx) : nullptr;
         if (ixK) result = result->setAttribute(ctx, ixK,
-            ctx->fromInteger(static_cast<long long>(pos)));
+            ctx->fromInteger(unitsInUTF8Prefix(s, pos)));
         const proto::ProtoObject* inObj = ctx->fromUTF8String("input");
         const proto::ProtoString* inK = inObj ? inObj->asString(ctx) : nullptr;
         if (inK) result = result->setAttribute(ctx, inK, protojs::jsStringFromUTF8(ctx, s));
@@ -1997,7 +1868,7 @@ const proto::ProtoObject* stringSearch(
     if (pat.empty()) return ctx->fromInteger(0LL);
     size_t pos = s.find(pat);
     return ctx->fromInteger(pos == std::string::npos
-        ? -1LL : static_cast<long long>(pos));
+        ? -1LL : unitsInUTF8Prefix(s, pos));
 }
 
 /** replace(pattern, replacement) — handles string patterns only.
@@ -2103,35 +1974,31 @@ const proto::ProtoObject* stringReplace(
         return false;
     };
     bool repCallable = isCallable(repObj);
-    if (!repCallable && repObj && !repObj->isString(ctx)
-        && !repObj->isInteger(ctx) && !repObj->isDouble(ctx)) {
-        // Coerce primitives via objToStr (covers null/boolean/etc.).
-    }
+    // Step 6: a replacement that is not callable is ToString'd before the
+    // search, whether or not the pattern occurs.
+    const std::string repStr = repCallable ? std::string() : objToStr(ctx, repObj);
 
-    auto callReplacement = [&](const std::string& matched, size_t offset) -> std::string {
+    // The search and the positions are in UTF-16 code units: a pattern may
+    // be a lone surrogate that matches half of a pair, and the offset passed
+    // to a replacer function is a JavaScript index.
+    const std::u16string s16 = toU16(s), pat16 = toU16(pat);
+    const size_t pos = s16.find(pat16);
+    if (pos == std::u16string::npos) return protojs::jsStringFromUTF8(ctx, s);
+    std::u16string replacement;
+    if (repCallable) {
         const proto::ProtoList* callArgs = ctx->newList();
-        callArgs = callArgs->appendLast(ctx, protojs::jsStringFromUTF8(ctx, matched));
-        callArgs = callArgs->appendLast(ctx, ctx->fromInteger(static_cast<long long>(offset)));
+        callArgs = callArgs->appendLast(ctx, protojs::jsStringFromUtf16(ctx, pat16));
+        callArgs = callArgs->appendLast(ctx, ctx->fromInteger(static_cast<long long>(pos)));
         callArgs = callArgs->appendLast(ctx, protojs::jsStringFromUTF8(ctx, s));
         const proto::ProtoObject* res = callJSFunction(ctx, repObj, PROTO_NONE, callArgs);
-        return objToStr(ctx, res);
-    };
-
-    if (repCallable) {
-        if (pat.empty()) {
-            // Empty pattern: replace at position 0 with cb("", 0, s).
-            return protojs::jsStringFromUTF8(ctx, callReplacement("", 0) + s);
-        }
-        size_t pos = s.find(pat);
-        if (pos == std::string::npos) return protojs::jsStringFromUTF8(ctx, s);
-        return protojs::jsStringFromUTF8(ctx, (s.substr(0, pos) + callReplacement(pat, pos) + s.substr(pos + pat.size())));
+        replacement = toU16(objToStr(ctx, res));
+    } else {
+        replacement = substitutionU16(s16, pos, pat16.size(), toU16(repStr));
     }
-
-    std::string rep = objToStr(ctx, repObj);
-    if (pat.empty()) return protojs::jsStringFromUTF8(ctx, applyStringReplacement(s, pat, rep, 0) + s);
-    size_t pos = s.find(pat);
-    if (pos == std::string::npos) return protojs::jsStringFromUTF8(ctx, s);
-    return protojs::jsStringFromUTF8(ctx, (s.substr(0, pos) + applyStringReplacement(s, pat, rep, pos) + s.substr(pos + pat.size())));
+    std::u16string out = s16.substr(0, pos);
+    out += replacement;
+    out.append(s16, pos + pat16.size(), std::u16string::npos);
+    return protojs::jsStringFromUtf16(ctx, out);
 }
 
 /** replaceAll(pattern, replacement) — string patterns only. */
@@ -2301,48 +2168,35 @@ const proto::ProtoObject* stringReplaceAll(
     if (!repCallable) {
         repCached = objToStr(ctx, repObj);
     }
-    auto callReplacement = [&](const std::string& matched, size_t offset) -> std::string {
+    // Positions in UTF-16 code units (see stringReplace).
+    const std::u16string s16 = toU16(s), pat16 = toU16(pat);
+    const std::u16string rep16 = repCallable ? std::u16string() : toU16(repCached);
+    auto replacementAt = [&](size_t pos) -> std::u16string {
+        if (!repCallable) return substitutionU16(s16, pos, pat16.size(), rep16);
         const proto::ProtoList* callArgs = ctx->newList();
-        callArgs = callArgs->appendLast(ctx, protojs::jsStringFromUTF8(ctx, matched));
-        callArgs = callArgs->appendLast(ctx, ctx->fromInteger(static_cast<long long>(offset)));
+        callArgs = callArgs->appendLast(ctx, protojs::jsStringFromUtf16(ctx, pat16));
+        callArgs = callArgs->appendLast(ctx, ctx->fromInteger(static_cast<long long>(pos)));
         callArgs = callArgs->appendLast(ctx, protojs::jsStringFromUTF8(ctx, s));
         const proto::ProtoObject* res = callJSFunction(ctx, repObj, PROTO_NONE, callArgs);
-        return objToStr(ctx, res);
+        return toU16(objToStr(ctx, res));
     };
-
-    if (pat.empty()) {
-        std::string result;
-        if (repCallable) {
-            result += callReplacement("", 0);
-            for (size_t i = 0; i < s.size(); i++) {
-                result += s[i];
-                result += callReplacement("", i + 1);
-            }
-        } else {
-            result += applyStringReplacement(s, pat, repCached, 0);
-            for (size_t i = 0; i < s.size(); i++) {
-                result += s[i];
-                result += applyStringReplacement(s, pat, repCached, i + 1);
-            }
-        }
-        return protojs::jsStringFromUTF8(ctx, result);
+    // §22.1.3.20 steps 9-11: the match positions are found first (an empty
+    // pattern matches at every index, AdvanceStringIndex by one unit), then
+    // replaced in order.
+    std::vector<size_t> positions;
+    const size_t advanceBy = std::max<size_t>(1, pat16.size());
+    for (size_t pos = s16.find(pat16); pos != std::u16string::npos;
+         pos = pos + advanceBy <= s16.size() ? s16.find(pat16, pos + advanceBy) : std::u16string::npos)
+        positions.push_back(pos);
+    std::u16string result;
+    size_t endOfLast = 0;
+    for (size_t p : positions) {
+        result.append(s16, endOfLast, p - endOfLast);
+        result += replacementAt(p);
+        endOfLast = p + pat16.size();
     }
-
-    std::string result;
-    size_t lastPos = 0;
-    size_t pos = s.find(pat, lastPos);
-    while (pos != std::string::npos) {
-        result += s.substr(lastPos, pos - lastPos);
-        if (repCallable) {
-            result += callReplacement(pat, pos);
-        } else {
-            result += applyStringReplacement(s, pat, repCached, pos);
-        }
-        lastPos = pos + pat.size();
-        pos = s.find(pat, lastPos);
-    }
-    result += s.substr(lastPos);
-    return protojs::jsStringFromUTF8(ctx, result);
+    if (endOfLast < s16.size()) result.append(s16, endOfLast, std::u16string::npos);
+    return protojs::jsStringFromUtf16(ctx, result);
 }
 
 const proto::ProtoObject* stringMatchAll(
@@ -2629,6 +2483,7 @@ const proto::ProtoObject* stringNormalize(
     const proto::ProtoKeywordArguments*)
 {
     if (!requireStringThis(ctx, self)) return PROTO_NONE;
+    int formIndex = 0;   // NFC
     // ECMA-262 §22.1.3.14 step 4: form must be one of "NFC", "NFD",
     // "NFKC", "NFKD", or undefined (defaults to "NFC"). Anything else
     // throws RangeError.
@@ -2655,11 +2510,50 @@ const proto::ProtoObject* stringNormalize(
                     "Invalid normalization form"));
                 return PROTO_NONE;
             }
+            formIndex = form == "NFC" ? 0 : form == "NFD" ? 1 : form == "NFKC" ? 2 : 3;
         }
     }
-    // Without ICU: return string as-is (identity for NFC on ASCII/Latin-1).
-    std::string s = objToStr(ctx, self);
-    return protojs::jsStringFromUTF8(ctx, s);
+    // The Unicode normalization algorithm with QuickJS's libunicode tables
+    // (UNICODE_NFC..NFKD are 0..3). An ASCII string is its own normal form.
+    const proto::ProtoString* str = thisStringValue(ctx, self);
+    std::string s;
+    str->toUTF8String(ctx, s);
+    bool ascii = true;
+    for (unsigned char c : s) if (c >= 0x80) { ascii = false; break; }
+    if (ascii) return str->asObject(ctx);
+    std::vector<uint32_t> cps;
+    cps.reserve(s.size());
+    for (size_t i = 0; i < s.size();) {
+        const unsigned char c = static_cast<unsigned char>(s[i]);
+        uint32_t cp;
+        size_t len;
+        if (c < 0x80)      { cp = c;        len = 1; }
+        else if (c < 0xE0) { cp = c & 0x1F; len = 2; }
+        else if (c < 0xF0) { cp = c & 0x0F; len = 3; }
+        else               { cp = c & 0x07; len = 4; }
+        for (size_t j = 1; j < len && i + j < s.size(); ++j)
+            cp = (cp << 6) | (static_cast<unsigned char>(s[i + j]) & 0x3F);
+        cps.push_back(cp);
+        i += len;
+    }
+    uint32_t* out = nullptr;
+    const int n = unicode_normalize(&out, cps.data(), static_cast<int>(cps.size()), formIndex,
+                                    nullptr, &normalizeRealloc);
+    if (n < 0 || !out) {
+        std::free(out);
+        signalNativeException(makeNativeError(ctx, "RangeError", "Out of memory in normalize"));
+    }
+    std::string bytes;
+    bytes.reserve(static_cast<size_t>(n));
+    for (int i = 0; i < n; ++i) {
+        const uint32_t cp = out[i];
+        if (cp < 0x80) bytes += static_cast<char>(cp);
+        else if (cp < 0x800) { bytes += static_cast<char>(0xC0 | (cp >> 6)); bytes += static_cast<char>(0x80 | (cp & 0x3F)); }
+        else if (cp < 0x10000) { bytes += static_cast<char>(0xE0 | (cp >> 12)); bytes += static_cast<char>(0x80 | ((cp >> 6) & 0x3F)); bytes += static_cast<char>(0x80 | (cp & 0x3F)); }
+        else { bytes += static_cast<char>(0xF0 | (cp >> 18)); bytes += static_cast<char>(0x80 | ((cp >> 12) & 0x3F)); bytes += static_cast<char>(0x80 | ((cp >> 6) & 0x3F)); bytes += static_cast<char>(0x80 | (cp & 0x3F)); }
+    }
+    std::free(out);
+    return protojs::jsStringFromUTF8(ctx, bytes);
 }
 
 // ---------------------------------------------------------------------------
@@ -3114,128 +3008,6 @@ const proto::ProtoObject* stringOfCodePoint(proto::ProtoContext* ctx, uint32_t c
     }
     const std::size_t n = cp < 0x80 ? 1 : cp < 0x800 ? 2 : cp < 0x10000 ? 3 : 4;
     return protojs::jsStringFromUTF8(ctx, utf8, n);
-}
-
-// ---------------------------------------------------------------------------
-// UTF-16 code-unit access to a code-point-indexed string
-// ---------------------------------------------------------------------------
-//
-// protoCore indexes a string by code point; charCodeAt and codePointAt take a
-// UTF-16 code-unit index. The two coincide until the first code point above
-// U+FFFF, which is two code units. The shape of a string is the code-point
-// indices of those supplementary code points, in order (empty for a BMP-only
-// string): with it, code unit u maps to a code point with one binary search
-// and one ProtoString::getAt, O(log n), instead of converting the whole
-// string to UTF-16 on every call (O(n) per call, O(n^2) for a loop).
-//
-// Shapes are memoised per thread by string. The key is the string's address,
-// so the memo is a GcScopedCache: it is emptied whenever a collection starts,
-// before any keyed cell can be freed and its address reused. Strings of at
-// most kUtf16DirectLimit code points, and code units below that index, are
-// read by a direct scan instead.
-
-namespace {
-
-constexpr long long kUtf16DirectLimit = 32;
-constexpr std::size_t kUtf16ShapeCacheEntries = 64;
-
-using Utf16Shape = std::vector<uint32_t>;
-
-Utf16Shape buildUtf16Shape(proto::ProtoContext* ctx, const proto::ProtoString* str) {
-    // toUTF8String copies the rope's leaves and allocates no cell.
-    std::string utf8;
-    str->toUTF8String(ctx, utf8);
-    Utf16Shape shape;
-    uint32_t cpIndex = 0;
-    for (unsigned char c : utf8) {
-        if ((c & 0xC0) == 0x80) continue;   // continuation byte
-        if (c >= 0xF0) shape.push_back(cpIndex);
-        ++cpIndex;
-    }
-    return shape;
-}
-
-const Utf16Shape& utf16ShapeOf(proto::ProtoContext* ctx, const proto::ProtoString* str) {
-    static thread_local GcScopedCache<const proto::ProtoString*, Utf16Shape> s_shapes;
-    auto& map = s_shapes.get(ctx);
-    auto it = map.find(str);
-    if (it != map.end()) return it->second;
-    if (map.size() >= kUtf16ShapeCacheEntries) map.clear();
-    return map.emplace(str, buildUtf16Shape(ctx, str)).first->second;
-}
-
-uint32_t codePointAtIndex(proto::ProtoContext* ctx, const proto::ProtoString* str, long long cpIndex) {
-    const proto::ProtoObject* cpObj = str->getAt(ctx, static_cast<int>(cpIndex));
-    return static_cast<uint32_t>(cpObj ? cpObj->asLong(ctx) : 0);
-}
-
-uint16_t unitOf(uint32_t cp, int half) {
-    if (cp < 0x10000u) return static_cast<uint16_t>(cp);
-    cp -= 0x10000u;
-    return half == 0 ? static_cast<uint16_t>(0xD800u + (cp >> 10))
-                     : static_cast<uint16_t>(0xDC00u + (cp & 0x3FFu));
-}
-
-} // namespace
-
-long long utf16Length(proto::ProtoContext* ctx, const proto::ProtoString* str) {
-    if (!str) return 0;
-    const long long n = static_cast<long long>(str->getSize(ctx));
-    if (n <= kUtf16DirectLimit) {
-        long long units = 0;
-        for (long long i = 0; i < n; ++i)
-            units += codePointAtIndex(ctx, str, i) >= 0x10000u ? 2 : 1;
-        return units;
-    }
-    return n + static_cast<long long>(utf16ShapeOf(ctx, str).size());
-}
-
-bool utf16UnitAt(proto::ProtoContext* ctx, const proto::ProtoString* str,
-                 long long unitIndex, uint16_t& unit) {
-    if (!str || unitIndex < 0) return false;
-    const long long n = static_cast<long long>(str->getSize(ctx));
-    // A short string, or a unit near the start (s.charCodeAt(0) on a long
-    // rope): scan the code points from the start. Each is at least one unit,
-    // so at most unitIndex + 1 are read and no shape is built; building one
-    // would make a single early read of a fresh long string O(n).
-    if (n <= kUtf16DirectLimit || unitIndex < kUtf16DirectLimit) {
-        long long u = 0;
-        for (long long i = 0; i < n; ++i) {
-            const uint32_t cp = codePointAtIndex(ctx, str, i);
-            const long long width = cp >= 0x10000u ? 2 : 1;
-            if (unitIndex < u + width) {
-                unit = unitOf(cp, static_cast<int>(unitIndex - u));
-                return true;
-            }
-            u += width;
-        }
-        return false;
-    }
-    const Utf16Shape& shape = utf16ShapeOf(ctx, str);
-    if (unitIndex >= n + static_cast<long long>(shape.size())) return false;
-    if (shape.empty()) {
-        unit = static_cast<uint16_t>(codePointAtIndex(ctx, str, unitIndex));
-        return true;
-    }
-    // The j-th supplementary code point (code-point index shape[j]) occupies
-    // code units shape[j] + j and shape[j] + j + 1. k is the number of them
-    // wholly before unitIndex.
-    std::size_t lo = 0, hi = shape.size();
-    while (lo < hi) {
-        const std::size_t mid = lo + (hi - lo) / 2;
-        if (static_cast<long long>(shape[mid]) + static_cast<long long>(mid) + 2 <= unitIndex) lo = mid + 1;
-        else hi = mid;
-    }
-    const std::size_t k = lo;
-    if (k < shape.size()) {
-        const long long start = static_cast<long long>(shape[k]) + static_cast<long long>(k);
-        if (start <= unitIndex) {
-            unit = unitOf(codePointAtIndex(ctx, str, shape[k]), static_cast<int>(unitIndex - start));
-            return true;
-        }
-    }
-    unit = static_cast<uint16_t>(codePointAtIndex(ctx, str, unitIndex - static_cast<long long>(k)));
-    return true;
 }
 
 void BuildStringPrototype(proto::ProtoSpace* space, proto::ProtoContext* ctx,

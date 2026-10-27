@@ -382,6 +382,7 @@ foreach(js_test
         basic/array_from_large
         basic/for_in_strings
         basic/string_access_scaling
+        basic/string_utf16_units
         basic/generator_for_of_yield
         basic/generator_resumption
         basic/typed_array_construction

@@ -11,6 +11,11 @@
 // length, and is interned with ProtoString::intern (protoCore 3.2.0 and later)
 // when a symbol is needed.
 //
+// Both helpers also keep the canonical form of JSStringUnits.h: the three-byte
+// encodings of a high surrogate followed by a low one (ED A0..AF xx ED B0..BF
+// yy, as QuickJS hands over "😀") become the four-byte encoding of
+// the code point they make. A buffer without the byte 0xED skips this.
+//
 // The helpers are out of line (JSStringBytes.cpp): a call site costs one call,
 // as the fromUTF8String call it replaced did. Inlined, the NUL test and both
 // constructor paths at the 88 sites of runBytecodeImpl moved its hot loop and

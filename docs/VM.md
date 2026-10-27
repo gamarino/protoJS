@@ -625,7 +625,7 @@ top. A missing property is `undefined`.
 | `get_array_el2` | 68 | 1 | none | `obj key -> obj v` | As `get_array_el`, keeping the object. No Proxy dispatch (section 6). | Runs JS. | `o[k](...)` |
 | `get_array_el3` | 69 | 1 | none | `obj key -> obj key v` | As `get_array_el`, keeping both (the raw key, not the converted one). | Runs JS. | `o[k] op= v`, `o[k]++` |
 | `put_array_el` | 70 | 1 | none | `obj key v ->` | `[[Set]]` with a computed key. | Runs JS. Allocates. | `o[k] = v` |
-| `get_length` | 231 | 1 | none | `obj -> n` | `length`: code points of a string (not UTF-16 units), the element count of an array, else the property. Returns `undefined` for a `null` / `undefined` receiver instead of throwing (section 6). | Runs JS (getter). | `x.length` |
+| `get_length` | 231 | 1 | none | `obj -> n` | `length`: the UTF-16 code units of a string (`src/runtime/JSStringUnits.h`), the element count of an array, else the property. Returns `undefined` for a `null` / `undefined` receiver instead of throwing (section 6). | Runs JS (getter). | `x.length` |
 | `define_field` | 73 | 5 | u32 atom | `obj v -> obj'` | Defines an own data property (no setter call) and pushes the new version. | Allocates. | object literal fields; class fields |
 | `set_name` | 74 | 5 | u32 atom | `fn -> fn` | Sets the function's `name`. | Allocates. | anonymous functions assigned to a name |
 | `set_name_computed` | 75 | 1 | none | `key fn -> key fn` | `name` from a computed key; a Symbol key gives `Symbol(d)` instead of `[d]` in object literals (section 6). | Runs JS. | `{[k]: function () {}}` |
@@ -2433,6 +2433,32 @@ it (`src/runtime/EvalModuleCache.h`, 2026-10-25); the
 specialiser keeps the instructions it fuses after a guarded header instead
 of replacing them (1.3).
 
+Decisions of the agent that moved strings to UTF-16 code units
+(2026-10-27), pending the maintainer's review
+(`src/runtime/JSStringUnits.h`): protoCore keeps strings as UTF-8 indexed by
+code point, and every JavaScript index and length goes through a UTF-16 view
+of it. A lone surrogate is stored as the code point of the same value; a
+string never holds a lone high surrogate followed by a lone low one, which is
+the supplementary code point they encode, so `"\uD83D" + "\uDE00" ===
+"\u{1F600}"` (concatenation repairs the seam, and every string built from
+UTF-8 combines such a pair). The view of a string longer than 32 code points
+(its code units and the unit positions of its supplementary characters) is
+built by one scan and memoised per thread, keyed by the string's address:
+at most 64 strings and 2^24 units, cleared when a GC cycle starts (the
+`GcScopedCache` rule) instead of pinning the strings. Shorter strings are
+decoded on each access. A direct-mapped table of 4096 entries per thread
+(cleared with the memo) keeps the UTF-16 length, the absence of
+supplementary characters and the first and last units of short strings and
+of the strings made by concatenation and slicing, derived from their
+operands, so `while (s.length < n) s += x` and `s = s.slice(1)` loops do
+not scan each new string, and a BMP-only derived string is read through
+protoCore's `getAt` until it has been read 64 times. Its price: a
+concatenation of short strings costs 11-15 % more cycles than the bare
+`appendLast` (a micro-benchmark of 200,000 `+=`), because an operand
+missing from the table is converted to UTF-8 to learn its length. A
+UTF-16 unit count per rope node in protoCore would remove both the table
+and that cost.
+
 ### Unhandled opcodes
 
 1. **Dynamic `import()` is not supported**: the `import` opcode has no
@@ -2501,12 +2527,6 @@ of replacing them (1.3).
   `iterator_call` comments describe destructuring and rest collection, but
   QuickJS emits them only for `yield*`, and their slot-record paths look
   unreachable.
-- **String length and indexing** count code points, not UTF-16 code units:
-  `"\u{1F600}".length` is 1, and `s[i]`, `charAt`, `at`, for-in's keys and
-  the String Iterator follow it. `charCodeAt` and `codePointAt` take a UTF-16
-  code-unit index, as do the Array.prototype methods called on a string
-  (their length is the UTF-16 length): the two views agree on BMP-only
-  strings only.
 - **Own-key order** of named properties (for-in, `Object.keys`,
   `Reflect.ownKeys`, `defineProperties`, spread, `JSON.stringify`, ...) is
   protoCore's attribute order, not insertion order: a deliberate deviation

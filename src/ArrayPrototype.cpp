@@ -1598,8 +1598,11 @@ static const proto::ProtoObject* arrayPush(
             const proto::ProtoList* list = getArrayElements(ctx, self);
             if (!list) list = ctx->newList();
             for (proto::proto_ulong i = 0; i < argc; i++) {
+                // A value read from a missing property arrives as
+                // PROTO_NONE, which __elements__ stores as a hole: push
+                // stores undefined (`r.push(o.missing); 0 in r` is true).
                 const proto::ProtoObject* item = args->getAt(ctx, static_cast<int>(i));
-                list = list->appendLast(ctx, item ? item : PROTO_NONE);
+                list = list->appendLast(ctx, (item && item != PROTO_NONE) ? item : getUndefinedSentinel());
             }
             // Fast path: write ONLY __elements__.  OP_get_length has a
             // dense-array fast path that synthesises length from
@@ -1616,7 +1619,7 @@ static const proto::ProtoObject* arrayPush(
         // (still needs arrSetLen for the non-writable-length probe).
         for (proto::proto_ulong i = 0; i < argc; i++) {
             const proto::ProtoObject* item = args->getAt(ctx, static_cast<int>(i));
-            arrSet(ctx, self, len + i, item ? item : PROTO_NONE);
+            arrSet(ctx, self, len + i, (item && item != PROTO_NONE) ? item : getUndefinedSentinel());
         }
         proto::proto_ulong newLen = len + argc;
         arrSetLen(ctx, self, newLen);
@@ -1986,7 +1989,7 @@ static const proto::ProtoObject* arrayUnshift(
             if (list && list->getSize(ctx) == static_cast<int>(len)) {
                 for (long long i = static_cast<long long>(argc) - 1; i >= 0; i--) {
                     const proto::ProtoObject* v = args->getAt(ctx, static_cast<int>(i));
-                    list = list->appendFirst(ctx, v ? v : PROTO_NONE);
+                    list = list->appendFirst(ctx, (v && v != PROTO_NONE) ? v : getUndefinedSentinel());
                 }
                 setArrayElements(ctx, self, list);
                 return ctx->fromInteger(static_cast<long long>(len + argc));
@@ -4456,8 +4459,9 @@ static const proto::ProtoObject* arraySort(
             if (res->isDouble(ctx) || res->isFloat(ctx)) return res->asDouble(ctx) < 0.0;
             return false;
         }
-        // Default: lexicographic by ToString(x) — invokes obj.toString() if available.
-        return sortKey(ctx, a) < sortKey(ctx, b);
+        // Default: ToString(x) < ToString(y) by UTF-16 code units
+        // (§23.1.3.30.2 SortCompare, §7.2.13 IsLessThan).
+        return utf16CompareUTF8(sortKey(ctx, a), sortKey(ctx, b)) < 0;
     };
 
     std::stable_sort(defined.begin(), defined.end(), less);

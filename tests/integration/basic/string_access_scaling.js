@@ -58,6 +58,16 @@ scales("charCodeAt", function (s) { var x = 0; for (var i = 0; i < s.length; i++
 scales("codePointAt", function (s) { var x = 0; for (var i = 0; i < s.length; i++) x += s.codePointAt(i); return x; });
 scales("charAt", function (s) { var x = 0; for (var i = 0; i < s.length; i++) x += s.charAt(i) === "a" ? 1 : 0; return x; });
 scales("at", function (s) { var x = 0; for (var i = 0; i < s.length; i++) x += s.at(i) === "b" ? 1 : 0; return x; });
+scales("s[i]", function (s) { var x = 0; for (var i = 0; i < s.length; i++) x += s[i] === "c" ? 1 : 0; return x; });
+scales("slice(i, i + 1)", function (s) { var x = 0; for (var i = 0; i < s.length; i++) x += s.slice(i, i + 1) === "d" ? 1 : 0; return x; });
+// A String object reads its primitive value through the same view (it used
+// to convert the whole string on every charAt / charCodeAt).
+scales("new String(s).charAt", function (s) { var o = new String(s), x = 0; for (var i = 0; i < o.length; i++) x += o.charAt(i) === "a" ? 1 : 0; return x; });
+scales("new String(s).charCodeAt", function (s) { var o = new String(s), x = 0; for (var i = 0; i < o.length; i++) x += o.charCodeAt(i); return x; });
+scales("new String(s)[i]", function (s) { var o = new String(s), x = 0; for (var i = 0; i < o.length; i++) x += o[i] === "e" ? 1 : 0; return x; });
+// The same reads over a string with supplementary characters.
+scales("s[i] with pairs", function (s) { s = s + "\u{1F600}"; var x = 0; for (var i = 0; i < s.length; i++) x += s[i] === "f" ? 1 : 0; return x; });
+scales("charCodeAt with pairs", function (s) { s = "\u{1F600}" + s; var x = 0; for (var i = 0; i < s.length; i++) x += s.charCodeAt(i); return x; });
 scales("Array.prototype.map.call", function (s) { return Array.prototype.map.call(s, function (c) { return c; }).length; });
 scales("Array.prototype.join.call", function (s) { return Array.prototype.join.call(s, "").length; });
 scales("Array.prototype.indexOf.call", function (s) { return Array.prototype.indexOf.call(s, "z") + s.length; });
@@ -70,6 +80,17 @@ scales("match /g", function (s) { return s.match(/a/g).length; });
 scales("exec loop", function (s) { var re = /b/g, c = 0; while (re.exec(s)) c++; return c; });
 scales("matchAll", function (s) { return [...s.matchAll(/c/g)].length; });
 scales("matchAll with empty matches", function (s) { var c = 0; for (var m of s.matchAll(/x*/g)) c++; return c; });
+
+// Loops that build a new string per iteration and read its length or a unit
+// of it: the length of every new string must not cost a scan of it (the view
+// of JSStringUnits.h is keyed by string, and each iteration makes another one).
+scales("length after +=", function (s) { var t = "", n = s.length; while (t.length < n) t += "ab"; return t.length; });
+scales("length after concat()", function (s) { var t = "", n = s.length; while (t.length < n) t = t.concat("ab"); return t.length; });
+scales("length after template", function (s) { var t = "", n = s.length; while (t.length < n) t = `${t}ab`; return t.length; });
+scales("length after prepend", function (s) { var t = "", n = s.length; while (t.length < n) t = "x" + t; return t.length; });
+scales("length after slice(1)", function (s) { var t = s, k = 0; while (t.length > 0) { t = t.slice(1); k++; } return k; });
+scales("length after substring", function (s) { var t = s, k = 0; while (t.length > 1) { t = t.substring(0, t.length - 1); k++; } return k; });
+scales("length after += emoji", function (s) { var t = "", n = s.length; while (t.length < n) t += "\u{1F600}"; return t.length; });
 
 // The fast paths keep the results.
 var e = "a\u{1F600}b";

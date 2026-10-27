@@ -6,6 +6,39 @@ All notable changes to protoJS are documented in this file.
 
 **Requires protoCore 3.1.0** (untagged master, commit 267b9fc9; SOVERSION 4). CI builds protoCore 3.3.1 (tag v3.3.1, commit 5a8cd7c7, what the installers ship) on Linux, macOS and Windows, and 3.1.0 in the Windows floor job.
 
+### Fixed — strings are UTF-16 code units (2026-10-27)
+
+- **String length and indices** now count UTF-16 code units, as ECMA-262
+  §6.1.4 requires: `"a\u{1F600}b".length` is 4 (it was 3), `s[1]` is the
+  lone high surrogate, and `charAt`, `at`, `slice`, `substring`, `substr`,
+  `indexOf` / `lastIndexOf` / `includes` / `startsWith` / `endsWith`, `split`,
+  `padStart` / `padEnd`, the string forms of `replace` / `replaceAll` /
+  `match` / `search`, for-in, `Object.keys`, property descriptors and String
+  objects agree with Node.js. protoCore keeps strings as UTF-8 indexed by
+  code point; `src/runtime/JSStringUnits.h` presents the code-unit view
+  (memoised per string, decoded directly for strings of up to 32 code
+  points; the length of a string made by concatenation or slicing is
+  derived from its operands, so `while (s.length < n) s += x` stays
+  linear; `js/basic/string_access_scaling`). A concatenation of short
+  strings costs 11-15 % more cycles than before (the operands' UTF-16
+  lengths are tracked outside protoCore). `"\uD83D" + "\uDE00"` is the string `"\u{1F600}"` (same
+  length, `===`, same key): concatenation and every string built from UTF-8
+  keep one canonical form. Relational comparison and the default sort
+  compare code units. (`js/basic/string_utf16_units`: 360 cases checked
+  against Node.js 22; 148 failed before.)
+- **Unicode case mapping and normalisation**: `toUpperCase` /
+  `toLowerCase` use the full Unicode mappings, special casing and final
+  sigma included (`"straße".toUpperCase()` is `"STRASSE"`, it kept the
+  `ß`); `normalize` implements NFC, NFD, NFKC and NFKD (it returned the
+  string unchanged).
+- **URI functions**: `encodeURI` / `encodeURIComponent` encode code units and
+  throw URIError on a lone surrogate; `decodeURI` / `decodeURIComponent`
+  reject malformed and overlong UTF-8 and encoded surrogates with URIError,
+  and `decodeURI` keeps the escapes of reserved characters.
+- **`new String(s).charAt(i)`** converted the whole string on every call
+  (O(n) per call, 8.5 s for a loop over 48,000 characters); it reads the
+  primitive value through the same view now.
+
 ### Fixed — string bugs found by the string-cells work (2026-10-27)
 
 - **NUL characters**: `"a\0b"`, `"a\u0000b"` and template literals with a NUL

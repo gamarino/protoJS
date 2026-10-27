@@ -1,4 +1,5 @@
 #include "ProtoCoreTypes.h"
+#include "runtime/JSStringUnits.h"
 #include "runtime/JSStringBytes.h"
 #include <exception>
 #include "ObjectPrototype.h"
@@ -111,22 +112,12 @@ static void collectOwnKeys(
     // as keys.
     // Helper to enumerate a UTF-8 string's chars as UTF-16 indexed keys.
     auto emitStringChars = [&](const std::string& s) {
-        size_t i = 0;
-        size_t idx = 0;
-        while (i < s.size()) {
-            size_t charLen = 1;
-            unsigned char c = static_cast<unsigned char>(s[i]);
-            if      ((c & 0x80) == 0x00) charLen = 1;
-            else if ((c & 0xE0) == 0xC0) charLen = 2;
-            else if ((c & 0xF0) == 0xE0) charLen = 3;
-            else if ((c & 0xF8) == 0xF0) charLen = 4;
-            if (i + charLen > s.size()) break;
-            std::string ch = s.substr(i, charLen);
+        // One key per UTF-16 code unit (§10.4.3.3); a surrogate pair is two.
+        std::u16string units;
+        protojs::appendUTF8AsUtf16(units, s.data(), s.size());
+        for (size_t idx = 0; idx < units.size(); ++idx) {
             keys.push_back(std::to_string(idx));
-            if (vals) vals->push_back(protojs::jsStringFromUTF8(ctx, ch));
-            i += charLen;
-            // 4-byte UTF-8 → surrogate pair, counts as 2 UTF-16 units.
-            idx += (charLen == 4) ? 2 : 1;
+            if (vals) vals->push_back(protojs::jsStringFromUtf16(ctx, &units[idx], 1));
         }
     };
 
@@ -1084,20 +1075,13 @@ static const proto::ProtoObject* objectAssign(
         if (src->isString(ctx)) {
             // §22.1.4 String exotic: own enumerable data properties
             // "0".."len-1" expose each UTF-16 code unit as a 1-char
-            // string. Walk the UTF-8 buffer codepoint-by-codepoint.
-            std::string sv;
-            src->asString(ctx)->toUTF8String(ctx, sv);
-            uint32_t cpIdx = 0;
-            for (size_t bi = 0; bi < sv.size(); ) {
-                unsigned char c = static_cast<unsigned char>(sv[bi]);
-                size_t cl = (c < 0x80) ? 1 : (c < 0xE0) ? 2 : (c < 0xF0) ? 3 : 4;
-                if (bi + cl > sv.size()) break;
-                std::string ch = sv.substr(bi, cl);
-                const proto::ProtoString* k = JSSymbols::indexKey(ctx, cpIdx);
-                if (k) target = target->setAttribute(ctx, k,
-                    protojs::jsStringFromUTF8(ctx, ch));
-                bi += cl;
-                ++cpIdx;
+            // string.
+            const proto::ProtoString* srcStr = src->asString(ctx);
+            const long long n = protojs::utf16Length(ctx, srcStr);
+            for (long long ui = 0; ui < n; ++ui) {
+                const proto::ProtoString* k = JSSymbols::indexKey(ctx, static_cast<uint32_t>(ui));
+                const proto::ProtoObject* ch = protojs::utf16CharAt(ctx, srcStr, ui);
+                if (k && ch) target = target->setAttribute(ctx, k, ch);
             }
             continue;
         }
@@ -1286,7 +1270,7 @@ static const proto::ProtoObject* objectAssign(
                         if (end && *end == '\0' && iv >= 0
                             && std::to_string(iv) == tk) {
                             const proto::ProtoString* ps = pv->asString(ctx);
-                            if (ps && (size_t)iv < ps->getSize(ctx)) {
+                            if (ps && iv < protojs::utf16Length(ctx, ps)) {
                                 signalNativeException(makeNativeError(ctx, "TypeError",
                                     "Cannot assign to read only property "
                                     "on a String wrapper"));
@@ -4068,16 +4052,7 @@ static const proto::ProtoObject* objectGetOwnPropertyDescriptor(
         std::string kstr2;
         k->toUTF8String(ctx, kstr2);
         const proto::ProtoString* ps = target->asString(ctx);
-        std::string sv;
-        if (ps) ps->toUTF8String(ctx, sv);
-        proto::proto_ulong len = 0;
-        for (size_t bi = 0; bi < sv.size(); ) {
-            unsigned char c = static_cast<unsigned char>(sv[bi]);
-            size_t cl = (c < 0x80) ? 1 : (c < 0xE0) ? 2 : (c < 0xF0) ? 3 : 4;
-            if (bi + cl > sv.size()) break;
-            len += (cl == 4) ? 2 : 1;
-            bi += cl;
-        }
+        const proto::proto_ulong len = static_cast<proto::proto_ulong>(protojs::utf16Length(ctx, ps));
         JSContextWrapper* w = JSContextWrapper::current();
         const proto::ProtoObject* op = w ? w->getJSObjectPrototype() : nullptr;
         auto mk = [&](){ return op ? op->newChild(ctx, true) : ctx->newObject(true); };
@@ -4099,20 +4074,11 @@ static const proto::ProtoObject* objectGetOwnPropertyDescriptor(
             try {
                 proto::proto_ulong idx = std::stoul(kstr2);
                 if (idx < len) {
-                    size_t i = 0; proto::proto_ulong pos = 0;
-                    while (i < sv.size() && pos < idx) {
-                        unsigned char c = static_cast<unsigned char>(sv[i]);
-                        size_t cl = (c < 0x80) ? 1 : (c < 0xE0) ? 2 : (c < 0xF0) ? 3 : 4;
-                        if (i + cl > sv.size()) break;
-                        i += cl;
-                        pos += (cl == 4) ? 2 : 1;
-                    }
-                    if (pos == idx && i < sv.size()) {
-                        unsigned char c = static_cast<unsigned char>(sv[i]);
-                        size_t cl = (c < 0x80) ? 1 : (c < 0xE0) ? 2 : (c < 0xF0) ? 3 : 4;
-                        std::string ch = sv.substr(i, cl);
+                    const proto::ProtoObject* ch =
+                        protojs::utf16CharAt(ctx, ps, static_cast<long long>(idx));
+                    if (ch) {
                         const proto::ProtoObject* res = mk();
-                        setKV(res, "value",        protojs::jsStringFromUTF8(ctx, ch));
+                        setKV(res, "value",        ch);
                         setKV(res, "writable",     PROTO_FALSE);
                         setKV(res, "enumerable",   PROTO_TRUE);
                         setKV(res, "configurable", PROTO_FALSE);
@@ -4259,30 +4225,14 @@ static const proto::ProtoObject* objectGetOwnPropertyDescriptor(
                         try {
                             proto::proto_ulong idx = std::stoul(kstr);
                             const proto::ProtoString* ps = pv->asString(ctx);
-                            if (ps) {
-                                std::string s;
-                                ps->toUTF8String(ctx, s);
-                                // Walk UTF-16 code units.
-                                size_t i = 0;
-                                proto::proto_ulong pos = 0;
-                                while (i < s.size() && pos < idx) {
-                                    unsigned char c = static_cast<unsigned char>(s[i]);
-                                    size_t cl = (c < 0x80) ? 1 : (c < 0xE0) ? 2 : (c < 0xF0) ? 3 : 4;
-                                    if (i + cl > s.size()) break;
-                                    i += cl;
-                                    pos += (cl == 4) ? 2 : 1;
-                                }
-                                if (pos == idx && i < s.size()) {
-                                    unsigned char c = static_cast<unsigned char>(s[i]);
-                                    size_t cl = (c < 0x80) ? 1 : (c < 0xE0) ? 2 : (c < 0xF0) ? 3 : 4;
-                                    if (i + cl <= s.size()) {
-                                        val = protojs::jsStringFromUTF8(ctx, s.substr(i, cl));
-                                        found = true;
-                                        // String index slots are non-writable, non-configurable, enumerable per §22.1.3.
-                                        // Override bits explicitly.
-                                        if (!hasPd) bitsObj = ctx->fromInteger(0x4LL);
-                                    }
-                                }
+                            const proto::ProtoObject* ch = ps
+                                ? protojs::utf16CharAt(ctx, ps, static_cast<long long>(idx)) : nullptr;
+                            if (ch) {
+                                val = ch;
+                                found = true;
+                                // String index slots are non-writable, non-configurable, enumerable per §22.1.3.
+                                // Override bits explicitly.
+                                if (!hasPd) bitsObj = ctx->fromInteger(0x4LL);
                             }
                         } catch (...) {}
                     }
@@ -4805,23 +4755,8 @@ static const proto::ProtoObject* objectFromEntries(
             if (pv && pv != PROTO_NONE && pv->isString(ctx)) {
                 const proto::ProtoString* ps = pv->asString(ctx);
                 if (ps) {
-                    std::string s;
-                    ps->toUTF8String(ctx, s);
-                    size_t bi = 0;
-                    long long cpIdx = 0;
-                    while (bi < s.size() && cpIdx < i) {
-                        unsigned char c = static_cast<unsigned char>(s[bi]);
-                        size_t cl = (c < 0x80) ? 1 : (c < 0xE0) ? 2 : (c < 0xF0) ? 3 : 4;
-                        if (bi + cl > s.size()) break;
-                        bi += cl;
-                        cpIdx++;
-                    }
-                    if (cpIdx == i && bi < s.size()) {
-                        unsigned char c = static_cast<unsigned char>(s[bi]);
-                        size_t cl = (c < 0x80) ? 1 : (c < 0xE0) ? 2 : (c < 0xF0) ? 3 : 4;
-                        if (bi + cl <= s.size())
-                            return protojs::jsStringFromUTF8(ctx, s.substr(bi, cl));
-                    }
+                    const proto::ProtoObject* ch = protojs::utf16CharAt(ctx, ps, i);
+                    if (ch) return ch;
                 }
             }
         }
@@ -5395,7 +5330,7 @@ static const proto::ProtoObject* objectHasOwnProperty(
                 if (end && *end == '\0' && iv >= 0
                     && std::to_string(iv) == keyStr) {
                     const proto::ProtoString* ps = pv->asString(ctx);
-                    if (ps && (size_t)iv < ps->getSize(ctx)) return PROTO_TRUE;
+                    if (ps && iv < protojs::utf16Length(ctx, ps)) return PROTO_TRUE;
                 }
             }
         }
@@ -5515,7 +5450,7 @@ static const proto::ProtoObject* objectPropertyIsEnumerable(
                     ? self->getAttribute(ctx, pvKey, false) : nullptr;
                 if (pv && pv != PROTO_NONE && pv->isString(ctx)) {
                     const proto::ProtoString* ps = pv->asString(ctx);
-                    if (ps && idx < (long long)ps->getSize(ctx))
+                    if (ps && idx < protojs::utf16Length(ctx, ps))
                         return PROTO_TRUE;
                 }
             }
