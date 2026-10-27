@@ -12,37 +12,11 @@ namespace protojs {
 static const char* protoStringToCString(JSContext* ctx, const proto::ProtoString* str, proto::ProtoContext* pContext) {
     if (!str) return nullptr;
     
-    // Convert ProtoString to UTF-8 C string
-    // We need to iterate over characters and build UTF-8 string
-    const proto::ProtoList* charList = str->asList(pContext);
+    // Read the rope's UTF-8 bytes directly: no cell is allocated (asList
+    // would build a ProtoList of every character first).
     std::string result;
-    result.reserve(str->getSize(pContext) * 4);
-    
-    proto::proto_ulong size = charList->getSize(pContext);
-    for (proto::proto_ulong i = 0; i < size; i++) {
-        // getAt takes an int index; a string's length is far below INT_MAX.
-        const proto::ProtoObject* charObj = charList->getAt(pContext, static_cast<int>(i));
-        // A code point (0..0x10FFFF) always fits in 32 bits.
-        const unsigned int unicodeChar = static_cast<unsigned int>(charObj->asLong(pContext));
-        
-        // Convert Unicode to UTF-8
-        if (unicodeChar < 0x80) {
-            result += static_cast<char>(unicodeChar);
-        } else if (unicodeChar < 0x800) {
-            result += static_cast<char>(0xC0 | (unicodeChar >> 6));
-            result += static_cast<char>(0x80 | (unicodeChar & 0x3F));
-        } else if (unicodeChar < 0x10000) {
-            result += static_cast<char>(0xE0 | (unicodeChar >> 12));
-            result += static_cast<char>(0x80 | ((unicodeChar >> 6) & 0x3F));
-            result += static_cast<char>(0x80 | (unicodeChar & 0x3F));
-        } else {
-            result += static_cast<char>(0xF0 | (unicodeChar >> 18));
-            result += static_cast<char>(0x80 | ((unicodeChar >> 12) & 0x3F));
-            result += static_cast<char>(0x80 | ((unicodeChar >> 6) & 0x3F));
-            result += static_cast<char>(0x80 | (unicodeChar & 0x3F));
-        }
-    }
-    
+    str->toUTF8String(pContext, result);
+
     // Allocate C string using QuickJS (will be freed by JS_FreeCString)
     JSValue jsStr = JS_NewString(ctx, result.c_str());
     if (JS_IsString(jsStr)) {

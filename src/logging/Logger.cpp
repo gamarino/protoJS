@@ -71,36 +71,11 @@ void Logger::log(proto::ProtoContext* pContext, Level level, const proto::ProtoS
     // Format log entry using protoCore
     const proto::ProtoString* formatted = formatText(pContext, level, message, context);
     
-    // Convert ProtoString to C string for output (necessary for std::ostream)
-    // This is the only conversion needed for I/O
-    const proto::ProtoList* charList = formatted->asList(pContext);
+    // Convert ProtoString to C string for output (necessary for std::ostream).
+    // toUTF8String copies the rope's leaves and allocates no cell; asList,
+    // used before, built a ProtoList of every character first.
     std::string outputStr;
-    outputStr.reserve(formatted->getSize(pContext) * 4);
-    
-    proto::proto_ulong size = charList->getSize(pContext);
-    for (proto::proto_ulong i = 0; i < size; i++) {
-        // getAt takes an int index; a string's length is far below INT_MAX.
-        const proto::ProtoObject* charObj = charList->getAt(pContext, static_cast<int>(i));
-        // A code point (0..0x10FFFF) always fits in 32 bits.
-        const unsigned int unicodeChar = static_cast<unsigned int>(charObj->asLong(pContext));
-        
-        // Convert Unicode to UTF-8
-        if (unicodeChar < 0x80) {
-            outputStr += static_cast<char>(unicodeChar);
-        } else if (unicodeChar < 0x800) {
-            outputStr += static_cast<char>(0xC0 | (unicodeChar >> 6));
-            outputStr += static_cast<char>(0x80 | (unicodeChar & 0x3F));
-        } else if (unicodeChar < 0x10000) {
-            outputStr += static_cast<char>(0xE0 | (unicodeChar >> 12));
-            outputStr += static_cast<char>(0x80 | ((unicodeChar >> 6) & 0x3F));
-            outputStr += static_cast<char>(0x80 | (unicodeChar & 0x3F));
-        } else {
-            outputStr += static_cast<char>(0xF0 | (unicodeChar >> 18));
-            outputStr += static_cast<char>(0x80 | ((unicodeChar >> 12) & 0x3F));
-            outputStr += static_cast<char>(0x80 | ((unicodeChar >> 6) & 0x3F));
-            outputStr += static_cast<char>(0x80 | (unicodeChar & 0x3F));
-        }
-    }
+    formatted->toUTF8String(pContext, outputStr);
     
     // Write to output (std::ostream is external, necessary for I/O)
     *outputStream << outputStr << std::endl;

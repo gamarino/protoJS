@@ -617,40 +617,12 @@ JSValue TypeBridge::toJS(JSContext* ctx, const proto::ProtoObject* obj, proto::P
     }
 
     if (obj->isString(pContext)) {
-        // Convert ProtoString to UTF-8 string
-        // Use asList to iterate over characters
-        const proto::ProtoString* pStr = obj->asString(pContext);
-        const proto::ProtoList* charList = pStr->asList(pContext);
-
+        // ProtoString::toUTF8String copies the rope's leaves into the buffer
+        // and allocates no cell. ProtoString::asList, used here before, built
+        // a new ProtoList of every character (about 16 cells per character in
+        // flight) only to read it back.
         std::string result;
-        result.reserve(pStr->getSize(pContext) * 4); // Reserve space for UTF-8
-
-        proto::proto_ulong size = charList->getSize(pContext);
-        for (proto::proto_ulong i = 0; i < size; i++) {
-            // getAt takes an int index; a string's length is far below INT_MAX.
-            const proto::ProtoObject* charObj = charList->getAt(pContext, static_cast<int>(i));
-            // Character is stored as UnicodeChar (unsigned int)
-            // A code point (0..0x10FFFF) always fits in 32 bits.
-            const unsigned int unicodeChar = static_cast<unsigned int>(charObj->asLong(pContext));
-
-            // Convert Unicode to UTF-8
-            if (unicodeChar < 0x80) {
-                result += static_cast<char>(unicodeChar);
-            } else if (unicodeChar < 0x800) {
-                result += static_cast<char>(0xC0 | (unicodeChar >> 6));
-                result += static_cast<char>(0x80 | (unicodeChar & 0x3F));
-            } else if (unicodeChar < 0x10000) {
-                result += static_cast<char>(0xE0 | (unicodeChar >> 12));
-                result += static_cast<char>(0x80 | ((unicodeChar >> 6) & 0x3F));
-                result += static_cast<char>(0x80 | (unicodeChar & 0x3F));
-            } else {
-                result += static_cast<char>(0xF0 | (unicodeChar >> 18));
-                result += static_cast<char>(0x80 | ((unicodeChar >> 12) & 0x3F));
-                result += static_cast<char>(0x80 | ((unicodeChar >> 6) & 0x3F));
-                result += static_cast<char>(0x80 | (unicodeChar & 0x3F));
-            }
-        }
-
+        obj->asString(pContext)->toUTF8String(pContext, result);
         return JS_NewString(ctx, result.c_str());
     }
 
