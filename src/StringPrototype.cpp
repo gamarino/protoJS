@@ -2920,9 +2920,9 @@ const proto::ProtoObject* stringRaw(
 }
 
 // String iterator next() — returns {value: char, done: bool}.
-// The iterator object holds __str__ (the string) and __idx__ (current
-// UTF-16 code-unit index).  Advancing reads one Unicode codepoint
-// (surrogate pair coalesced) and bumps __idx__.
+// The iterator object holds __str__ (the string) and __idx__ (the index of
+// the next code point; protoCore indexes strings by code point).  Advancing
+// reads one code point and bumps __idx__ (stringIteratorStep).
 static const proto::ProtoObject* stringIteratorNext(
     proto::ProtoContext* ctx, const proto::ProtoObject* self,
     const proto::ParentLink*,
@@ -2936,36 +2936,9 @@ static const proto::ProtoObject* stringIteratorNext(
         if (dk) r = r->setAttribute(ctx, dk, done ? PROTO_TRUE : PROTO_FALSE);
         return r;
     };
-    if (!self || self == PROTO_NONE) return makeResult(PROTO_NONE, true);
-    const proto::ProtoObject* strKo = ctx->fromUTF8String("__str__");
-    const proto::ProtoString* strKey = strKo ? strKo->asString(ctx) : nullptr;
-    const proto::ProtoObject* idxKo = ctx->fromUTF8String("__idx__");
-    const proto::ProtoString* idxKey = idxKo ? idxKo->asString(ctx) : nullptr;
-    if (!strKey || !idxKey) return makeResult(PROTO_NONE, true);
-    const proto::ProtoObject* sObj = self->getAttribute(ctx, strKey, false);
-    const proto::ProtoObject* iObj = self->getAttribute(ctx, idxKey, false);
-    if (!sObj || !sObj->isString(ctx)) return makeResult(PROTO_NONE, true);
-    long long idx = (iObj && iObj->isInteger(ctx)) ? iObj->asLong(ctx) : 0;
-    std::string utf8;
-    sObj->asString(ctx)->toUTF8String(ctx, utf8);
-    // Walk to byte offset for idx (UTF-8 byte sequence count).
-    long long byteOffset = 0;
-    long long cps = 0;
-    while (byteOffset < (long long)utf8.size() && cps < idx) {
-        unsigned char c = static_cast<unsigned char>(utf8[byteOffset]);
-        size_t step = (c < 0x80) ? 1 : (c < 0xE0) ? 2 : (c < 0xF0) ? 3 : 4;
-        byteOffset += step;
-        cps++;
-    }
-    if (byteOffset >= (long long)utf8.size())
-        return makeResult(PROTO_NONE, true);
-    unsigned char c = static_cast<unsigned char>(utf8[byteOffset]);
-    size_t step = (c < 0x80) ? 1 : (c < 0xE0) ? 2 : (c < 0xF0) ? 3 : 4;
-    std::string single = utf8.substr(byteOffset, step);
-    const proto::ProtoObject* charObj = ctx->fromUTF8String(single.c_str());
-    // Advance the iterator's idx in-place (mutable object).
-    self->setAttribute(ctx, idxKey, ctx->fromInteger(idx + 1));
-    return makeResult(charObj, false);
+    const proto::ProtoObject* value = PROTO_NONE;
+    const bool done = stringIteratorStep(ctx, self, value);
+    return makeResult(done ? PROTO_NONE : value, done);
 }
 
 // %StringIteratorPrototype% — shared parent for the iterators returned
@@ -3089,6 +3062,70 @@ static const proto::ProtoObject* stringSymbolIterator(
 // ---------------------------------------------------------------------------
 // Public API
 // ---------------------------------------------------------------------------
+
+bool stringIteratorStep(proto::ProtoContext* ctx, const proto::ProtoObject* iterator,
+                        const proto::ProtoObject*& value) {
+    value = PROTO_NONE;
+    if (!iterator || iterator == PROTO_NONE) return true;
+    // The iterator's string and the code-point index of its next step
+    // (stringSymbolIterator sets both).
+    static const proto::ProtoString* const strKey =
+        proto::ProtoString::createSymbol(ctx, "__str__");
+    static const proto::ProtoString* const idxKey =
+        proto::ProtoString::createSymbol(ctx, "__idx__");
+    const proto::ProtoObject* sObj = iterator->getAttribute(ctx, strKey, false);
+    if (!sObj || !sObj->isString(ctx)) return true;
+    const proto::ProtoObject* iObj = iterator->getAttribute(ctx, idxKey, false);
+    const long long idx = (iObj && iObj->isInteger(ctx)) ? iObj->asLong(ctx) : 0;
+    // The step used to convert the whole string to UTF-8 and walk the bytes
+    // up to idx, so iterating an n-character string cost O(n^2).
+    const proto::ProtoObject* ch = codePointStringAt(ctx, sObj->asString(ctx), idx);
+    if (!ch) return true;
+    // Advance the iterator's idx in place (mutable object).
+    iterator->setAttribute(ctx, idxKey, ctx->fromInteger(idx + 1));
+    value = ch;
+    return false;
+}
+
+bool isStringIteratorNext(proto::ProtoContext* ctx, const proto::ProtoObject* fn) {
+    if (!fn || fn == PROTO_NONE) return false;
+    if (fn->isMethod(ctx)) return fn->asMethod(ctx) == &stringIteratorNext;
+    // %StringIteratorPrototype%.next is a function wrapper holding the
+    // native method (getStringIteratorProto).
+    const proto::ProtoString* nfKey = JSSymbols::nativeFn(ctx);
+    const proto::ProtoObject* nf = nfKey ? fn->getAttribute(ctx, nfKey, false) : nullptr;
+    return nf && nf != PROTO_NONE && nf->isMethod(ctx)
+        && nf->asMethod(ctx) == &stringIteratorNext;
+}
+
+const proto::ProtoObject* codePointStringAt(proto::ProtoContext* ctx,
+                                            const proto::ProtoString* str,
+                                            long long index) {
+    if (!str || index < 0 || index >= static_cast<long long>(str->getSize(ctx)))
+        return nullptr;
+    const proto::ProtoObject* cpObj = str->getAt(ctx, static_cast<int>(index));
+    const uint32_t cp = static_cast<uint32_t>(cpObj ? cpObj->asLong(ctx) : 0);
+    // UTF-8, as toUTF8String writes it: a lone surrogate is three bytes like
+    // any other BMP code point.  A NUL code point gives the empty string, as
+    // the byte-walking code this replaces did through c_str().
+    char utf8[5] = {0, 0, 0, 0, 0};
+    if (cp < 0x80) {
+        utf8[0] = static_cast<char>(cp);
+    } else if (cp < 0x800) {
+        utf8[0] = static_cast<char>(0xC0 | (cp >> 6));
+        utf8[1] = static_cast<char>(0x80 | (cp & 0x3F));
+    } else if (cp < 0x10000) {
+        utf8[0] = static_cast<char>(0xE0 | (cp >> 12));
+        utf8[1] = static_cast<char>(0x80 | ((cp >> 6) & 0x3F));
+        utf8[2] = static_cast<char>(0x80 | (cp & 0x3F));
+    } else {
+        utf8[0] = static_cast<char>(0xF0 | (cp >> 18));
+        utf8[1] = static_cast<char>(0x80 | ((cp >> 12) & 0x3F));
+        utf8[2] = static_cast<char>(0x80 | ((cp >> 6) & 0x3F));
+        utf8[3] = static_cast<char>(0x80 | (cp & 0x3F));
+    }
+    return ctx->fromUTF8String(utf8);
+}
 
 void BuildStringPrototype(proto::ProtoSpace* space, proto::ProtoContext* ctx,
                           const proto::ProtoObject* objectProto) {

@@ -13,6 +13,7 @@
 #include "debugger/DebugHooks.h"
 #include "runtime/LazyPrototype.h"
 #include "JSSymbols.h"
+#include "StringPrototype.h"
 #include "protoCore.h"
 #include <algorithm>
 #include <cmath>
@@ -5447,6 +5448,35 @@ static const proto::ProtoObject* arrayFrom(
                 } catch (const proto::ProtoException&) {
                 }
             };
+            // Array.from(string) into a plain Array, with the built-in
+            // String Iterator: step the iterator without a {value, done}
+            // object per code point (StringPrototype.h) and store the
+            // elements the way an array literal does, in __elements__ alone.
+            // The general path below also writes an index attribute and a
+            // __pd_<i>__ descriptor per element, about 120 cells per
+            // character for a 100 KB string. A constructor other than the
+            // intrinsic Array (a subclass, or any `this`) keeps that path:
+            // its result is not a fresh Array.
+            const proto::ProtoString* arrayCtorKey = JSSymbols::arrayCtor(ctx);
+            const bool intoPlainArray = !hasCtor
+                || (arrayCtorKey && self->hasOwnAttribute(ctx, arrayCtorKey) == PROTO_TRUE);
+            if (intoPlainArray && isStringIteratorNext(ctx, nextFn)) {
+                const proto::ProtoObject* ch = PROTO_NONE;
+                while (!stringIteratorStep(ctx, iter, ch)) {
+                    const proto::ProtoObject* mapped = nullptr;
+                    try {
+                        mapped = applyMap(ch, idx);
+                    } catch (const proto::ProtoException&) {
+                        closeIteratorPre();
+                        throw;
+                    }
+                    resultEls = resultEls->appendLast(ctx, mapped ? mapped : PROTO_NONE);
+                    idx++;
+                }
+                setArrayElements(ctx, result, resultEls);
+                arrSetLen(ctx, result, static_cast<proto::proto_ulong>(idx));
+                return result;
+            }
             while (nextFn && nextFn != PROTO_NONE) {
                 const proto::ProtoList* nArgs = ctx->newList();
                 const proto::ProtoObject* res = callJSFunction(ctx, nextFn, iter, nArgs);

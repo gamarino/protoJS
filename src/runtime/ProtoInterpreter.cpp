@@ -13158,6 +13158,16 @@ static const proto::ProtoObject* runBytecodeImpl(proto::ProtoContext* pContext,
                             // Loop: call next() until done.
                             const proto::ProtoString* apDoneKey  = JSSymbols::done(pContext);
                             const proto::ProtoString* apValKey   = JSSymbols::value(pContext);
+                            // The built-in String Iterator: step it without
+                            // building a {value, done} object per code point
+                            // (StringPrototype.h).
+                            if (protojs::isStringIteratorNext(pContext, apNextFn)) {
+                                const proto::ProtoObject* apCh = PROTO_NONE;
+                                while (!protojs::stringIteratorStep(pContext, apIter, apCh)) {
+                                    apEls = apEls->appendLast(pContext, apCh);
+                                    apIdx++;
+                                }
+                            }
                             while (!apError) {
                                 const proto::ProtoList* noArgs = pContext->newList();
                                 const proto::ProtoObject* apResult = callJSFunction(
@@ -13619,35 +13629,10 @@ static const proto::ProtoObject* runBytecodeImpl(proto::ProtoContext* pContext,
                     const proto::ProtoString* ps = obj->asString(pContext);
                     if (ps) {
                         long long sz = static_cast<long long>(ps->getSize(pContext));
-                        if (arrIdxFast < sz) {
-                            // Extract the codepoint at arrIdxFast.
-                            // ProtoString lacks a direct charAt API exposed here;
-                            // use the existing string method via prototype lookup
-                            // would be heavy, so dispatch through asString +
-                            // substring would also be heavy.  Use the
-                            // string substring API directly.
-                            std::string utf8;
-                            ps->toUTF8String(pContext, utf8);
-                            // UTF-8 walk to the arrIdxFast-th codepoint.
-                            size_t i = 0;
-                            long long codepointsSeen = 0;
-                            while (i < utf8.size() && codepointsSeen < arrIdxFast) {
-                                unsigned char c = static_cast<unsigned char>(utf8[i]);
-                                if (c < 0x80) i += 1;
-                                else if (c < 0xE0) i += 2;
-                                else if (c < 0xF0) i += 3;
-                                else i += 4;
-                                codepointsSeen++;
-                            }
-                            if (i < utf8.size()) {
-                                unsigned char c = static_cast<unsigned char>(utf8[i]);
-                                size_t len = (c < 0x80) ? 1 : (c < 0xE0) ? 2 : (c < 0xF0) ? 3 : 4;
-                                if (i + len <= utf8.size()) {
-                                    std::string single = utf8.substr(i, len);
-                                    val = pContext->fromUTF8String(single.c_str());
-                                }
-                            }
-                        }
+                        // O(log n) rope walk, no cell (StringPrototype.h);
+                        // converting the whole string to UTF-8 per read made
+                        // a loop over s[i] O(n^2).
+                        if (arrIdxFast < sz) val = protojs::codePointStringAt(pContext, ps, arrIdxFast);
                     }
                     if (!val) val = PROTO_NONE;
                     pAutomaticLocals[currentStackBase + _PF().stackTop++] = val;
@@ -13668,32 +13653,11 @@ static const proto::ProtoObject* runBytecodeImpl(proto::ProtoContext* pContext,
                     if (pvV && pvV != PROTO_NONE && pvV->isString(pContext)) {
                         const proto::ProtoString* ps = pvV->asString(pContext);
                         if (ps) {
-                            long long sz = (long long)ps->getSize(pContext);
-                            if (arrIdxFast < sz) {
-                                std::string utf8;
-                                ps->toUTF8String(pContext, utf8);
-                                size_t i = 0;
-                                long long seen = 0;
-                                while (i < utf8.size() && seen < arrIdxFast) {
-                                    unsigned char c = (unsigned char)utf8[i];
-                                    if (c < 0x80) i += 1;
-                                    else if (c < 0xE0) i += 2;
-                                    else if (c < 0xF0) i += 3;
-                                    else i += 4;
-                                    seen++;
-                                }
-                                if (i < utf8.size()) {
-                                    unsigned char c = (unsigned char)utf8[i];
-                                    size_t lenc = (c < 0x80) ? 1 : (c < 0xE0) ? 2 : (c < 0xF0) ? 3 : 4;
-                                    if (i + lenc <= utf8.size()) {
-                                        std::string single = utf8.substr(i, lenc);
-                                        const proto::ProtoObject* cv =
-                                            pContext->fromUTF8String(single.c_str());
-                                        pAutomaticLocals[currentStackBase + _PF().stackTop++] =
-                                            cv ? cv : PROTO_NONE;
-                                        DISPATCH();
-                                    }
-                                }
+                            const proto::ProtoObject* cv =
+                                protojs::codePointStringAt(pContext, ps, arrIdxFast);
+                            if (cv) {
+                                pAutomaticLocals[currentStackBase + _PF().stackTop++] = cv;
+                                DISPATCH();
                             }
                         }
                     }
@@ -18705,6 +18669,16 @@ static const proto::ProtoObject* runBytecodeImpl(proto::ProtoContext* pContext,
                         && protojs::isArrayIteratorNext(nextFnFO->asMethod(pContext))) {
                         const proto::ProtoObject* stepVal = PROTO_NONE;
                         const bool stepDone = protojs::arrayIteratorStep(pContext, arrObj, stepVal);
+                        REFRESH_INTERP_STATE();
+                        if (stepDone) setSlot(pContext, bs + 2, pContext->fromInteger(1LL));
+                        stackPush(pContext, stepDone ? PROTO_NONE : stepVal);
+                        stackPush(pContext, stepDone ? PROTO_TRUE : PROTO_FALSE);
+                        DISPATCH();
+                    }
+                    // The built-in String Iterator next(), likewise.
+                    if (protojs::isStringIteratorNext(pContext, nextFnFO)) {
+                        const proto::ProtoObject* stepVal = PROTO_NONE;
+                        const bool stepDone = protojs::stringIteratorStep(pContext, arrObj, stepVal);
                         REFRESH_INTERP_STATE();
                         if (stepDone) setSlot(pContext, bs + 2, pContext->fromInteger(1LL));
                         stackPush(pContext, stepDone ? PROTO_NONE : stepVal);
