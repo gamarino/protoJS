@@ -8,7 +8,8 @@
 // the byte count explicitly. A buffer without a NUL byte (nearly every string)
 // takes the same constructor as before, so its result is unchanged; one that
 // carries a NUL is built with ProtoString::fromUTF8Buffer, which honours the
-// length, and is interned with ProtoString::intern when a symbol is needed.
+// length, and is interned with ProtoString::intern (protoCore 3.2.0 and later)
+// when a symbol is needed.
 
 #include <protoCore.h>
 
@@ -38,6 +39,20 @@ inline const proto::ProtoObject* jsStringFromUTF8(proto::ProtoContext* ctx,
     return jsStringFromUTF8(ctx, utf8.c_str(), utf8.size());
 }
 
+namespace detail {
+// ProtoString::intern exists since protoCore 3.2.0. Before it (the 3.1.0 floor)
+// the string is used as it is: attribute lookups compare a non-symbol string
+// key by content.
+template <typename S>
+auto internString(proto::ProtoContext* ctx, const S* s, int) -> decltype(s->intern(ctx)) {
+    return s->intern(ctx);
+}
+template <typename S>
+const S* internString(proto::ProtoContext*, const S* s, long) {
+    return s;
+}
+}  // namespace detail
+
 // The interned symbol whose UTF-8 encoding is bytes[0, len); bytes[len] must
 // be a NUL.
 inline const proto::ProtoString* jsSymbolFromUTF8(proto::ProtoContext* ctx,
@@ -47,7 +62,7 @@ inline const proto::ProtoString* jsSymbolFromUTF8(proto::ProtoContext* ctx,
         return proto::ProtoString::createSymbol(ctx, bytes);
     const proto::ProtoObject* o = jsStringFromUTF8(ctx, bytes, len);
     const proto::ProtoString* s = o ? o->asString(ctx) : nullptr;
-    return s ? s->intern(ctx) : proto::ProtoString::createSymbol(ctx, "");
+    return s ? detail::internString(ctx, s, 0) : proto::ProtoString::createSymbol(ctx, "");
 }
 
 inline const proto::ProtoString* jsSymbolFromUTF8(proto::ProtoContext* ctx,
