@@ -65,6 +65,11 @@ All notable changes to protoJS are documented in this file.
 - **`Object.hasOwn`** reported false for array elements
   (`Object.hasOwn([1, 2, 3], "2")`); it is HasOwnProperty, as
   `Object.prototype.hasOwnProperty` computes it.
+- **Generators**: the names of the suspended state are interned once per
+  thread instead of being rebuilt and looked up in the symbol table on every
+  yield: 13.0 -> 8.6 us per yield (200,000 yields of a for-of, default
+  heap). The rest is the state itself, about eight attribute writes and a
+  slot snapshot per yield. (`js/basic/generator_state_keys`)
 
 ### Fixed — string bugs found by the string-cells work (2026-10-27)
 

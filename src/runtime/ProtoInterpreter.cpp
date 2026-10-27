@@ -6459,24 +6459,64 @@ static const proto::ProtoString* genHighSlotsKey(proto::ProtoContext* ctx) {
     return k;
 }
 
+/** The interned symbol of a generator-state attribute name (kGenPc, ...,
+ *  "__gen_cc_<i>_pc__"). Symbols are perennial, so the per-thread memo never
+ *  goes stale. Until 2026-10-27 every read and write of the state built a heap
+ *  string from the name, which getAttribute then looked up in the symbol
+ *  table: about a third of the cost of a yield. */
+namespace {
+struct GenKeyHash {
+    using is_transparent = void;
+    std::size_t operator()(std::string_view v) const { return std::hash<std::string_view>{}(v); }
+};
+}  // namespace
+static const proto::ProtoString* genKey(proto::ProtoContext* ctx, std::string_view name) {
+    static thread_local std::unordered_map<std::string, const proto::ProtoString*,
+                                           GenKeyHash, std::equal_to<>> t_keys;
+    auto it = t_keys.find(name);
+    if (it != t_keys.end()) return it->second;
+    const std::string spelled(name);
+    const proto::ProtoString* k = protojs::jsSymbolFromUTF8(ctx, spelled);
+    if (k) t_keys.emplace(spelled, k);
+    return k;
+}
+
+/** The key of catch frame `index`'s handler pc (pc) or stack slot (!pc). */
+static const proto::ProtoString* genCatchKey(proto::ProtoContext* ctx, std::size_t index, bool pc) {
+    static thread_local std::vector<const proto::ProtoString*> t_pc, t_sp;
+    std::vector<const proto::ProtoString*>& v = pc ? t_pc : t_sp;
+    if (index < v.size() && v[index]) return v[index];
+    const proto::ProtoString* k = genKey(ctx,
+        "__gen_cc_" + std::to_string(index) + (pc ? "_pc__" : "_sp__"));
+    if (index >= v.size()) v.resize(index + 1, nullptr);
+    v[index] = k;
+    return k;
+}
+
+static long long genGetInt(proto::ProtoContext* ctx, const proto::ProtoObject* iter,
+                           const proto::ProtoString* k, long long defaultVal = -1LL) {
+    if (!iter || iter == PROTO_NONE || !k) return defaultVal;
+    const proto::ProtoObject* v = iter->getAttribute(ctx, k, false);
+    return (v && v != PROTO_NONE && v->isInteger(ctx)) ? v->asLong(ctx) : defaultVal;
+}
+
+static const proto::ProtoObject* genSetInt(proto::ProtoContext* ctx,
+                                            const proto::ProtoObject* iter,
+                                            const proto::ProtoString* k, long long val) {
+    return (k && iter) ? iter->setAttribute(ctx, k, ctx->fromInteger(val)) : iter;
+}
+
 /** Read a long long attribute from iter by name. Returns defaultVal if absent. */
 static long long genGetInt(proto::ProtoContext* ctx, const proto::ProtoObject* iter,
                             const char* name, long long defaultVal = -1LL) {
-    if (!iter || iter == PROTO_NONE) return defaultVal;
-    const proto::ProtoObject* ko = ctx->fromUTF8String(name);
-    const proto::ProtoString* k  = ko ? ko->asString(ctx) : nullptr;
-    if (!k) return defaultVal;
-    const proto::ProtoObject* v = iter->getAttribute(ctx, k, false);
-    return (v && v != PROTO_NONE && v->isInteger(ctx)) ? v->asLong(ctx) : defaultVal;
+    return genGetInt(ctx, iter, genKey(ctx, name), defaultVal);
 }
 
 /** Set a long long attribute on iter; returns the updated iter pointer. */
 static const proto::ProtoObject* genSetInt(proto::ProtoContext* ctx,
                                             const proto::ProtoObject* iter,
                                             const char* name, long long val) {
-    const proto::ProtoObject* ko = ctx->fromUTF8String(name);
-    const proto::ProtoString* k  = ko ? ko->asString(ctx) : nullptr;
-    return (k && iter) ? iter->setAttribute(ctx, k, ctx->fromInteger(val)) : iter;
+    return genSetInt(ctx, iter, genKey(ctx, name), val);
 }
 
 /** Set a ProtoObject attribute on iter; returns the updated iter pointer. */
@@ -6484,8 +6524,7 @@ static const proto::ProtoObject* genSetObj(proto::ProtoContext* ctx,
                                             const proto::ProtoObject* iter,
                                             const char* name,
                                             const proto::ProtoObject* val) {
-    const proto::ProtoObject* ko = ctx->fromUTF8String(name);
-    const proto::ProtoString* k  = ko ? ko->asString(ctx) : nullptr;
+    const proto::ProtoString* k = genKey(ctx, name);
     return (k && iter) ? iter->setAttribute(ctx, k, val ? val : PROTO_NONE) : iter;
 }
 
@@ -7160,10 +7199,9 @@ static PROTOJS_NOINLINE bool suspendGenerator(proto::ProtoContext* pContext, int
     }
     updIter = genSetInt(pContext, updIter, kGenNcc, (long long)catch_stack.size());
     for (size_t ci = 0; ci < catch_stack.size(); ci++) {
-        std::string kpc = "__gen_cc_" + std::to_string(ci) + "_pc__";
-        std::string ksp = "__gen_cc_" + std::to_string(ci) + "_sp__";
-        updIter = genSetInt(pContext, updIter, kpc.c_str(), (long long)catch_stack[ci].handler_pc);
-        updIter = genSetInt(pContext, updIter, ksp.c_str(),
+        updIter = genSetInt(pContext, updIter, genCatchKey(pContext, ci, true),
+                            (long long)catch_stack[ci].handler_pc);
+        updIter = genSetInt(pContext, updIter, genCatchKey(pContext, ci, false),
                             (long long)catch_stack[ci].placeholder_stack_pos);
     }
     updIter = genSetInt(pContext, updIter, kGenState, 0LL); // still suspended
@@ -7414,8 +7452,7 @@ static const proto::ProtoObject* runBytecodeImpl(proto::ProtoContext* pContext,
         // empty slots and arguments default-bound at first invocation
         // (default params, destructured patterns) come back as undefined.
         if (t_genIterator) {
-            const proto::ProtoString* sk = pContext->fromUTF8String(kGenSlots)
-                ? pContext->fromUTF8String(kGenSlots)->asString(pContext) : nullptr;
+            const proto::ProtoString* sk = genKey(pContext, kGenSlots);
             if (sk) {
                 const proto::ProtoObject* sv = t_genIterator->getAttribute(pContext, sk, false);
                 if (sv && sv != PROTO_NONE) {
@@ -7506,8 +7543,7 @@ static const proto::ProtoObject* runBytecodeImpl(proto::ProtoContext* pContext,
         if (t_asyncResumeCont) {
             if (t_asyncResumeStackTop <= reservedStack) initialStackTop = t_asyncResumeStackTop;
         } else if (pc != 0 && t_genIterator) {
-            const proto::ProtoString* tk = pContext->fromUTF8String(kGenStackTop)
-                ? pContext->fromUTF8String(kGenStackTop)->asString(pContext) : nullptr;
+            const proto::ProtoString* tk = genKey(pContext, kGenStackTop);
             if (tk) {
                 const proto::ProtoObject* tv =
                     t_genIterator->getAttribute(pContext, tk, false);
@@ -19685,9 +19721,7 @@ static const proto::ProtoObject* runBytecodeImpl(proto::ProtoContext* pContext,
                         snapshotAutomaticLocals(pContext, snapCount);
                     if (slotList) {
                         const proto::ProtoString* sk =
-                            pContext->fromUTF8String(kGenSlots)
-                                ? pContext->fromUTF8String(kGenSlots)->asString(pContext)
-                                : nullptr;
+                            genKey(pContext, kGenSlots);
                         if (sk) iterObj = iterObj->setAttribute(
                             pContext, sk, slotList->asObject(pContext));
                     }
@@ -19908,23 +19942,19 @@ static const proto::ProtoObject* resumeGenerator(proto::ProtoContext* ctx,
     }
 
     // Recover closureLocals.
-    const proto::ProtoObject* ko = ctx->fromUTF8String(kGenLocals);
-    const proto::ProtoString* lk = ko ? ko->asString(ctx) : nullptr;
+    const proto::ProtoString* lk = genKey(ctx, kGenLocals);
     const proto::ProtoObject* savedLocObj = lk ? iter->getAttribute(ctx, lk, false) : nullptr;
 
     // Recover thisObj.
-    const proto::ProtoObject* tok = ctx->fromUTF8String(kGenThis);
-    const proto::ProtoString* tk2 = tok ? tok->asString(ctx) : nullptr;
+    const proto::ProtoString* tk2 = genKey(ctx, kGenThis);
     const proto::ProtoObject* genThis = tk2 ? iter->getAttribute(ctx, tk2, false) : PROTO_NONE;
 
     // Recover catch stack.
     long long ncc = genGetInt(ctx, iter, kGenNcc, 0LL);
     std::vector<CatchFrame> restoredCatch;
     for (long long ci = 0; ci < ncc; ci++) {
-        std::string kpc = "__gen_cc_" + std::to_string(ci) + "_pc__";
-        std::string ksp = "__gen_cc_" + std::to_string(ci) + "_sp__";
-        restoredCatch.push_back({(int)genGetInt(ctx, iter, kpc.c_str()),
-                                  (proto::proto_ulong)genGetInt(ctx, iter, ksp.c_str())});
+        restoredCatch.push_back({(int)genGetInt(ctx, iter, genCatchKey(ctx, ci, true)),
+                                  (proto::proto_ulong)genGetInt(ctx, iter, genCatchKey(ctx, ci, false))});
     }
 
     // The value next / return / throw passes in, read back by runBytecode's
@@ -19983,8 +20013,7 @@ static const proto::ProtoObject* resumeGenerator(proto::ProtoContext* ctx,
 // carries its suspended state as own attributes.
 static bool isGeneratorObject(proto::ProtoContext* ctx, const proto::ProtoObject* v) {
     if (!jsIsObject(ctx, v)) return false;
-    const proto::ProtoObject* ko = ctx->fromUTF8String(kGenMod);
-    const proto::ProtoString* k = ko ? ko->asString(ctx) : nullptr;
+    const proto::ProtoString* k = genKey(ctx, kGenMod);
     return k && v->hasOwnAttribute(ctx, k) == PROTO_TRUE;
 }
 
