@@ -2502,7 +2502,11 @@ of replacing them (1.3).
   QuickJS emits them only for `yield*`, and their slot-record paths look
   unreachable.
 - **String length and indexing** count code points, not UTF-16 code units:
-  `"\u{1F600}".length` is 1.
+  `"\u{1F600}".length` is 1, and `s[i]`, `charAt`, `at`, for-in's keys and
+  the String Iterator follow it. `charCodeAt` and `codePointAt` take a UTF-16
+  code-unit index, as do the Array.prototype methods called on a string
+  (their length is the UTF-16 length): the two views agree on BMP-only
+  strings only.
 - **Own-key order** of named properties (for-in, `Object.keys`,
   `Reflect.ownKeys`, `defineProperties`, spread, `JSON.stringify`, ...) is
   protoCore's attribute order, not insertion order: a deliberate deviation

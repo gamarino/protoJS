@@ -6,6 +6,36 @@ All notable changes to protoJS are documented in this file.
 
 **Requires protoCore 3.1.0** (untagged master, commit 267b9fc9; SOVERSION 4). CI builds protoCore 3.3.1 (tag v3.3.1, commit 5a8cd7c7, what the installers ship) on Linux, macOS and Windows, and 3.1.0 in the Windows floor job.
 
+### Fixed — string bugs found by the string-cells work (2026-10-27)
+
+- **NUL characters**: `"a\0b"`, `"a\u0000b"` and template literals with a NUL
+  had length 1. The loader built every atom from a C string, and so did most
+  built-ins (concat, replace, toUpperCase, repeat, join, JSON.parse keys,
+  Error messages, computed property keys, TypeBridge). `src/runtime/
+  JSStringBytes.h` builds strings and symbols from an explicit byte count.
+  `encodeURIComponent` / `encodeURI` no longer pass NUL through unescaped.
+  (`js/basic/string_nul`)
+- **`Array.from` cap**: the general iterator path stopped after 100,001
+  elements; `Object.fromEntries` had the same cap, `Object.groupBy` /
+  `Map.groupBy` stopped at 1,048,576 steps and the Set methods at 1,000,000.
+  The caps are gone. A plain-Array result stores its elements in
+  `__elements__` alone; an array-like length of `Infinity` or above 2^32 - 1
+  is a RangeError, as in Node. (`js/basic/array_from_large`)
+- **for-in over strings**: `for (k in "abc")` yielded `stringIterNext`, an
+  enumerable property String.prototype should not have; it now yields the
+  indices, first, for a string and for a String object.
+  (`js/basic/for_in_strings`)
+- **O(n^2) string access**: `charCodeAt` / `codePointAt` beyond index 0, the
+  Array.prototype methods called on a string (`map`, `join`, `indexOf`,
+  `slice`, ...) and every step of a global RegExp walk (`replace`, `match`,
+  `matchAll`, an `exec` loop) converted the whole string per call. Code units
+  are now read in O(log n) (`utf16UnitAt`, `StringPrototype.h`: the positions
+  of the supplementary code points, memoised per string until the next
+  collection), and an exec subject's UTF-16 form is memoised the same way.
+  40,000 characters: `charCodeAt` loop 6.4 s -> 0.02 s, `Array.prototype.map
+  .call` 3.8 s -> 0.1 s, global replace 0.56 s -> 0.03 s.
+  (`js/basic/string_access_scaling`, ratio of n to 4n)
+
 ### Fixed — strings no longer exploded per character (2026-10-27)
 
 Measured over a flat 100 KB string as the smallest fixed heap that runs the
