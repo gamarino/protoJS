@@ -10,60 +10,33 @@
 // carries a NUL is built with ProtoString::fromUTF8Buffer, which honours the
 // length, and is interned with ProtoString::intern (protoCore 3.2.0 and later)
 // when a symbol is needed.
+//
+// The helpers are out of line (JSStringBytes.cpp): a call site costs one call,
+// as the fromUTF8String call it replaced did. Inlined, the NUL test and both
+// constructor paths at the 88 sites of runBytecodeImpl moved its hot loop and
+// cost the numeric_loop benchmark about 10 % more cycles (perf stat).
 
 #include <protoCore.h>
 
 #include <cstddef>
-#include <cstdint>
-#include <cstring>
 #include <string>
 
 namespace protojs {
 
 // The string whose UTF-8 encoding is bytes[0, len). bytes[len] must be a NUL
 // (a std::string's data(), or a QuickJS C string).
-inline const proto::ProtoObject* jsStringFromUTF8(proto::ProtoContext* ctx,
-                                                   const char* bytes, std::size_t len) {
-    if (!bytes || len == 0) return ctx->fromUTF8String("");
-    if (std::memchr(bytes, 0, len) == nullptr) return ctx->fromUTF8String(bytes);
-    std::uint8_t remainder[4];
-    std::uint8_t remainderCount = 0;
-    const proto::ProtoString* s = proto::ProtoString::fromUTF8Buffer(
-        ctx, reinterpret_cast<const std::uint8_t*>(bytes), len, nullptr, 0,
-        remainder, &remainderCount);
-    return s ? s->asObject(ctx) : ctx->fromUTF8String("");
-}
+const proto::ProtoObject* jsStringFromUTF8(proto::ProtoContext* ctx,
+                                           const char* bytes, std::size_t len);
 
 inline const proto::ProtoObject* jsStringFromUTF8(proto::ProtoContext* ctx,
                                                    const std::string& utf8) {
     return jsStringFromUTF8(ctx, utf8.c_str(), utf8.size());
 }
 
-namespace detail {
-// ProtoString::intern exists since protoCore 3.2.0. Before it (the 3.1.0 floor)
-// the string is used as it is: attribute lookups compare a non-symbol string
-// key by content.
-template <typename S>
-auto internString(proto::ProtoContext* ctx, const S* s, int) -> decltype(s->intern(ctx)) {
-    return s->intern(ctx);
-}
-template <typename S>
-const S* internString(proto::ProtoContext*, const S* s, long) {
-    return s;
-}
-}  // namespace detail
-
 // The interned symbol whose UTF-8 encoding is bytes[0, len); bytes[len] must
 // be a NUL.
-inline const proto::ProtoString* jsSymbolFromUTF8(proto::ProtoContext* ctx,
-                                                   const char* bytes, std::size_t len) {
-    if (!bytes) return proto::ProtoString::createSymbol(ctx, "");
-    if (std::memchr(bytes, 0, len) == nullptr)
-        return proto::ProtoString::createSymbol(ctx, bytes);
-    const proto::ProtoObject* o = jsStringFromUTF8(ctx, bytes, len);
-    const proto::ProtoString* s = o ? o->asString(ctx) : nullptr;
-    return s ? detail::internString(ctx, s, 0) : proto::ProtoString::createSymbol(ctx, "");
-}
+const proto::ProtoString* jsSymbolFromUTF8(proto::ProtoContext* ctx,
+                                           const char* bytes, std::size_t len);
 
 inline const proto::ProtoString* jsSymbolFromUTF8(proto::ProtoContext* ctx,
                                                    const std::string& utf8) {

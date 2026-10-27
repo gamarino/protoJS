@@ -302,6 +302,7 @@ add_library(protojs_core STATIC
     src/runtime/ProtoCompileOnly.cpp
     src/runtime/ProtoBytecodeLoader.cpp
     src/runtime/ProtoInterpreter.cpp
+    src/runtime/JSStringBytes.cpp
     src/runtime/LazyPrototype.cpp
     src/runtime/PinnedBuiltin.cpp
     src/runtime/PropertyDictionary.cpp
