@@ -3131,7 +3131,8 @@ const proto::ProtoObject* stringOfCodePoint(proto::ProtoContext* ctx, uint32_t c
 // Shapes are memoised per thread by string. The key is the string's address,
 // so the memo is a GcScopedCache: it is emptied whenever a collection starts,
 // before any keyed cell can be freed and its address reused. Strings of at
-// most kUtf16DirectLimit code points are scanned directly instead.
+// most kUtf16DirectLimit code points, and code units below that index, are
+// read by a direct scan instead.
 
 namespace {
 
@@ -3193,7 +3194,11 @@ bool utf16UnitAt(proto::ProtoContext* ctx, const proto::ProtoString* str,
                  long long unitIndex, uint16_t& unit) {
     if (!str || unitIndex < 0) return false;
     const long long n = static_cast<long long>(str->getSize(ctx));
-    if (n <= kUtf16DirectLimit) {
+    // A short string, or a unit near the start (s.charCodeAt(0) on a long
+    // rope): scan the code points from the start. Each is at least one unit,
+    // so at most unitIndex + 1 are read and no shape is built; building one
+    // would make a single early read of a fresh long string O(n).
+    if (n <= kUtf16DirectLimit || unitIndex < kUtf16DirectLimit) {
         long long u = 0;
         for (long long i = 0; i < n; ++i) {
             const uint32_t cp = codePointAtIndex(ctx, str, i);
