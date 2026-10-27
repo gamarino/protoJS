@@ -5496,9 +5496,23 @@ static const proto::ProtoObject* arrayFrom(
                     closeIteratorPre();
                     throw;
                 }
+                // Into a plain Array an absent value is undefined, not a
+                // hole (PROTO_NONE in __elements__ is one).
+                if (intoPlainArray && (!mapped || mapped == PROTO_NONE))
+                    mapped = getUndefinedSentinel();
                 resultEls = resultEls->appendLast(ctx, mapped ? mapped : PROTO_NONE);
                 idx++;
-                if (idx > 100000) break; // safety
+            }
+            // A fresh plain Array holds its elements in __elements__ alone,
+            // as an array literal does: no index attribute or __pd_<i>__
+            // descriptor per element (CreateDataPropertyOrThrow cannot fail
+            // on it, and nothing can observe it before it is returned).
+            // Pre-fix the loop above also stopped at 100,001 elements, so
+            // Array.from over a longer iterable silently lost the rest.
+            if (intoPlainArray) {
+                setArrayElements(ctx, result, resultEls);
+                arrSetLen(ctx, result, static_cast<proto::proto_ulong>(idx));
+                return result;
             }
             // Iterator branch also uses CreateDataPropertyOrThrow per
             // §23.1.2.1 step 6.h.viii — reset __pd_<i>__ to default
@@ -5594,9 +5608,12 @@ static const proto::ProtoObject* arrayFrom(
             }
         }
         if (ok) {
+            // ToLength (§7.1.20): NaN and negatives are 0, +Infinity and
+            // anything larger is 2^53 - 1.
+            constexpr double kMaxLength = 9007199254740991.0;
             long long nSigned = 0;
             if (std::isnan(d) || d < 0) nSigned = 0;
-            else if (std::isinf(d)) nSigned = 0;
+            else if (d >= kMaxLength) nSigned = static_cast<long long>(kMaxLength);
             else nSigned = static_cast<long long>(d);
             if (nSigned < 0) nSigned = 0;
             proto::proto_ulong n = static_cast<proto::proto_ulong>(nSigned);
@@ -5621,6 +5638,30 @@ static const proto::ProtoObject* arrayFrom(
             // (built-ins/Array/from/source-object-length-set-elem-
             // prop-non-writable).
             constexpr long long kDefaultPdBits = 0x7;
+            // A fresh plain Array: the elements go to __elements__ alone, as
+            // in the iterator branch above.
+            const proto::ProtoString* arrayCtorKeyAL = JSSymbols::arrayCtor(ctx);
+            const bool intoPlainArrayAL = !hasCtor
+                || (arrayCtorKeyAL && self->hasOwnAttribute(ctx, arrayCtorKeyAL) == PROTO_TRUE);
+            // ArrayCreate(len) (§10.4.2.2 step 1): a length above 2^32 - 1
+            // is a RangeError before any element is read.
+            if (intoPlainArrayAL && n > static_cast<proto::proto_ulong>(0xFFFFFFFFull)) {
+                signalNativeException(makeNativeError(ctx, "RangeError", "Invalid array length"));
+                return PROTO_NONE;
+            }
+            if (intoPlainArrayAL) {
+                const proto::ProtoList* els = ctx->newList();
+                for (proto::proto_ulong i = 0; i < n; i++) {
+                    const proto::ProtoObject* v = arrGet(ctx, src, i);
+                    const proto::ProtoObject* mapped = applyMap(v, static_cast<long long>(i));
+                    // A missing source element reads as undefined: the
+                    // result has no holes (PROTO_NONE in __elements__ is one).
+                    els = els->appendLast(ctx, (mapped && mapped != PROTO_NONE)
+                                                   ? mapped : getUndefinedSentinel());
+                }
+                setArrayElements(ctx, result, els);
+                return arrSetLen(ctx, result, n);
+            }
             for (proto::proto_ulong i = 0; i < n; i++) {
                 const proto::ProtoObject* v = arrGet(ctx, src, i);
                 const proto::ProtoObject* mapped = applyMap(v, static_cast<long long>(i));

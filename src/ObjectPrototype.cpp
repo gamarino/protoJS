@@ -4937,7 +4937,6 @@ static const proto::ProtoObject* objectFromEntries(
             }
             return PROTO_NONE;
         };
-        long long safety = 0;
         // Helper: fire `__get_<name>__` accessor sidecar then fall
         // back to chain-walk getAttribute.  Spec §7.4.3 IteratorComplete
         // / §7.4.4 IteratorValue require Get() to invoke the accessor.
@@ -4979,7 +4978,6 @@ static const proto::ProtoObject* objectFromEntries(
                 closeAndPropagate();
                 throw;
             }
-            if (++safety > 100000) break;
         }
         return result;
     }
@@ -5161,8 +5159,7 @@ static const proto::ProtoObject* objectGroupBy(
                 const proto::ProtoString* doneK = JSSymbols::done(ctx);
                 const proto::ProtoString* valueK = JSSymbols::value(ctx);
                 const proto::ProtoList* built = ctx->newList();
-                int guard = 0x100000;
-                while (guard-- > 0) {
+                for (;;) {
                     const proto::ProtoObject* nextFn = nextK
                         ? iterObj->getAttribute(ctx, nextK, true) : nullptr;
                     if (!isCb(nextFn)) {

@@ -379,6 +379,7 @@ foreach(js_test
         basic/regexp_register_slots
         basic/string_cells_bounded
         basic/string_nul
+        basic/array_from_large
         basic/generator_for_of_yield
         basic/generator_resumption
         basic/typed_array_construction
@@ -516,6 +517,9 @@ set_tests_properties(js/basic/put_field_group_cells PROPERTIES
 set_tests_properties(js/basic/string_cells_bounded PROPERTIES
     ENVIRONMENT "PROTOCORE_ADAPTIVE_HEAP=0;PROTOCORE_HEAP_LIMIT_CELLS=6000000"
     TIMEOUT 120)
+
+# Array.from over 150,000-element iterators and a 250,000-element array-like.
+set_tests_properties(js/basic/array_from_large PROPERTIES TIMEOUT 300)
 
 # A quadratic Map.set / Set.add would not finish within this limit.
 set_tests_properties(js/collections/map_set_scaling PROPERTIES TIMEOUT 60)

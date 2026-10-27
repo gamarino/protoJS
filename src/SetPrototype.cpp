@@ -255,7 +255,7 @@ static bool iterateSetLikeKeys(proto::ProtoContext* ctx,
     if (!nextFn || nextFn == PROTO_NONE) {
         nextFn = iter->getAttribute(ctx, nextKs, true);
     }
-    for (int safety = 0; safety < 1000000; ++safety) {
+    for (;;) {
         if (!nextFn || nextFn == PROTO_NONE) break;
         const proto::ProtoObject* step = callJSFunction(ctx, nextFn, iter, ctx->newList());
         if (!step || step == PROTO_NONE) break;

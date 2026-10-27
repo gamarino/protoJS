@@ -745,8 +745,7 @@ static const proto::ProtoObject* mapGroupBy(
                     ctx->fromUTF8String("value")
                         ? ctx->fromUTF8String("value")->asString(ctx) : nullptr;
                 const proto::ProtoList* built = ctx->newList();
-                int guard = 0x100000;
-                while (guard-- > 0) {
+                for (;;) {
                     const proto::ProtoObject* nextFn = nextK
                         ? iterObj->getAttribute(ctx, nextK, true) : nullptr;
                     if (!isCallable(nextFn)) {
