@@ -181,6 +181,17 @@ add_test(NAME cli/gc-exceptions
             "${CMAKE_CURRENT_SOURCE_DIR}/integration/gc/exception_across_contexts.js")
 set_tests_properties(cli/gc-exceptions PROPERTIES TIMEOUT 600)
 
+# gc-frame-object: a call's frame object, the parent of every closure the call
+# creates, was held only in the t_currentFrameObj thread-local. Once the closures
+# made so far had died, a collection freed it and the next closure was built on
+# the reused cell; the collector then aborted on a corrupt parent link. Before
+# the fix all 10 runs failed (SIGABRT or SIGSEGV). About 90 s.
+add_test(NAME cli/gc-frame-object
+    COMMAND ${PROTOJS_SH} "${CMAKE_CURRENT_SOURCE_DIR}/cli/gc-stress.sh"
+            "$<TARGET_FILE:protojs>" 10 400000
+            "${CMAKE_CURRENT_SOURCE_DIR}/integration/gc/frame_object_outlives_closures.js")
+set_tests_properties(cli/gc-frame-object PROPERTIES TIMEOUT 600)
+
 # gc-promises: pending reactions, queued jobs and async functions suspended at
 # an await are reachable only from the job queue and the promises themselves;
 # the collector must see all of them. Three runs under a small ceiling: the
