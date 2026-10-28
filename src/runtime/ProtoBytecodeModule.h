@@ -42,6 +42,14 @@ struct ProtoBytecodeModule {
     /** Interned closure variable symbols for O(1) resolution. */
     const proto::ProtoList* closureSymbols{nullptr};
 
+    /** The same symbols as closureSymbols, one per closure variable, for the
+     *  interpreter: a global read or write names its key by index, and an
+     *  index into a ProtoList is a protoCore call (and an AVL walk) where an
+     *  index into this vector is a load.  The entries are interned symbols,
+     *  which protoCore never collects; closureSymbols (rooted through
+     *  `metadata`) keeps them reachable as well. */
+    std::vector<const proto::ProtoString*> closureKeys;
+
     /** Cached metadata values for fast interpreter access. */
     uint16_t argCount_{0};
     uint16_t varCount_{0};

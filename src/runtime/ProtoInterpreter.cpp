@@ -885,11 +885,9 @@ inline void populateClosureCellsFromInstance(proto::ProtoContext* childCtx,
     const proto::ProtoObject* scope = scopeKey
         ? fnInst->getOwnAttributeDirect(childCtx, scopeKey) : nullptr;
     if (scope == PROTO_NONE) scope = nullptr;
-    const proto::ProtoList* symbols = nf.closureSymbols;
-    const proto::proto_ulong symbolCount = symbols ? symbols->getSize(childCtx) : 0;
+    const size_t symbolCount = nf.closureKeys.size();
     for (size_t i = 0; i < nf.closureVarNames.size() && i < symbolCount; ++i) {
-        const proto::ProtoObject* symObj = symbols->getAt(childCtx, static_cast<int>(i));
-        const proto::ProtoString* nmKey = symObj ? symObj->asString(childCtx) : nullptr;
+        const proto::ProtoString* nmKey = nf.closureKeys[i];
         if (!nmKey || nf.closureVarNames[i].empty()) continue;
         const int cvType = (i < nf.closureVarTypes.size()) ? nf.closureVarTypes[i] : -1;
         const proto::ProtoObject* cell = nullptr;
@@ -3425,7 +3423,7 @@ static const proto::ProtoObject* captureClosureVars(proto::ProtoContext* ctx,
                                                     const proto::ProtoObject* outerFrame) {
     if (nm.closureVarNames.empty() || !nm.closureSymbols) return nullptr;
     const proto::ProtoObject* scope = nullptr;
-    const proto::proto_ulong symbolCount = nm.closureSymbols->getSize(ctx);
+    const proto::proto_ulong symbolCount = nm.closureKeys.size();
     for (size_t i = 0; i < nm.closureVarNames.size() && i < symbolCount; ++i) {
         const int cvType = (i < nm.closureVarTypes.size()) ? nm.closureVarTypes[i] : -1;
         const unsigned cvIdx = (i < nm.closureVarIndices.size()) ? nm.closureVarIndices[i] : 0;
@@ -3443,8 +3441,7 @@ static const proto::ProtoObject* captureClosureVars(proto::ProtoContext* ctx,
             captured = getSlot(ctx, argCount + varCount + cvIdx);
         }
         if (!captured || captured == PROTO_NONE) continue;
-        const proto::ProtoObject* symObj = nm.closureSymbols->getAt(ctx, static_cast<int>(i));
-        const proto::ProtoString* nmKey = symObj ? symObj->asString(ctx) : nullptr;
+        const proto::ProtoString* nmKey = i < nm.closureKeys.size() ? nm.closureKeys[i] : nullptr;
         if (!nmKey) continue;
         if (!scope) {
             scope = outerFrame ? outerFrame->newChild(ctx, /*mutable=*/false)
@@ -3470,10 +3467,10 @@ static PROTOJS_NOINLINE void checkEvalGlobalDeclarations(proto::ProtoContext* ct
     const proto::ProtoObject* root = *globalRoot;
     const proto::ProtoObject* gobj = globalObjectForRoot(ctx, root);
     const bool split = gobj && gobj != root;
-    const proto::proto_ulong n = nf.closureSymbols->getSize(ctx);
+    const proto::proto_ulong n = nf.closureKeys.size();
     for (size_t i = 0; i < nf.closureVarTypes.size() && i < n; ++i) {
         if (nf.closureVarTypes[i] != 4 /* JS_CLOSURE_GLOBAL_DECL */) continue;
-        const proto::ProtoString* key = nf.closureSymbols->getAt(ctx, static_cast<int>(i))->asString(ctx);
+        const proto::ProtoString* key = nf.closureKeys[i];
         if (!key) continue;
         const std::string& name = nf.closureVarNames[i];
         const bool lexical = i < nf.closureVarIsLexical.size() && nf.closureVarIsLexical[i];
@@ -3546,7 +3543,7 @@ static PROTOJS_NOINLINE const proto::ProtoObject* performEval(
     if (!lease) throwJS(ctx, makeError(ctx, "SyntaxError", error.c_str(), globalRoot));
     const ProtoBytecodeModule& nf = *lease.module();
     checkEvalGlobalDeclarations(ctx, nf, globalRoot);
-    const size_t closureCount = nf.closureSymbols ? nf.closureSymbols->getSize(ctx) : 0;
+    const size_t closureCount = nf.closureSymbols ? nf.closureKeys.size() : 0;
     const size_t totalSlots = nf.argCount() + nf.varCount() + closureCount + nf.stackSize() + 16;
     childCtx.resizeAutomaticLocals(static_cast<unsigned>(totalSlots));
     childCtx.currentFileName = ctx->currentFileName;
@@ -6151,8 +6148,8 @@ static PROTOJS_NOINLINE void hoistGlobalDeclarations(proto::ProtoContext* ctx,
         // (loaded once via createSymbol) — see L_OP_put_var_ref's
         // matching comment for the lookupByContent cost rationale.
         const proto::ProtoString* vkey =
-            (module->closureSymbols && gi < module->closureSymbols->getSize(ctx))
-                ? module->closureSymbols->getAt(ctx, static_cast<int>(gi))->asString(ctx)
+            (module->closureSymbols && gi < module->closureKeys.size())
+                ? module->closureKeys[gi]
                 : nullptr;
         if (!vkey) continue;
         // Only set when the global object has no own property of that
@@ -7643,9 +7640,8 @@ static const proto::ProtoObject* runBytecodeImpl(proto::ProtoContext* pContext,
                 getSlot(pContext, argCount + varCount + static_cast<unsigned>(i));
             if (existing && existing != PROTO_NONE) continue;
             if (!globalObjInit || globalObjInit == PROTO_NONE) continue;
-            const proto::ProtoString* key = (protojs::jsStringFromUTF8(pContext, module->closureVarNames[i])
-                ? protojs::jsStringFromUTF8(pContext, module->closureVarNames[i])->asString(pContext)
-                : nullptr);
+            const proto::ProtoString* key =
+                i < module->closureKeys.size() ? module->closureKeys[i] : nullptr;
             if (key) {
                 const proto::ProtoObject* val = globalObjInit->getAttribute(pContext, key, false);
                 if (val && val != PROTO_NONE)
@@ -11603,8 +11599,8 @@ static const proto::ProtoObject* runBytecodeImpl(proto::ProtoContext* pContext,
                 const proto::ProtoObject* liveGlobal = (pGlobalRoot && *pGlobalRoot) ? *pGlobalRoot : globalObj;
                 /* rawVal is the direct getAttribute result: nullptr=absent, PROTO_NONE=undefined, other=value. */
                 const proto::ProtoObject* rawVal = nullptr;
-                if (liveGlobal && liveGlobal != PROTO_NONE && closureSymbols && static_cast<size_t>(idx) < closureSymbols->getSize(pContext)) {
-                    const proto::ProtoString* key = closureSymbols->getAt(pContext, static_cast<int>(idx))->asString(pContext);
+                if (liveGlobal && liveGlobal != PROTO_NONE && closureSymbols && static_cast<size_t>(idx) < module->closureKeys.size()) {
+                    const proto::ProtoString* key = module->closureKeys[idx];
                     if (key) {
                         rawVal = liveGlobal->getAttribute(pContext, key, false);
                             /* TDZ check: absent key for a lexical variable means uninitialized.
@@ -11648,9 +11644,9 @@ static const proto::ProtoObject* runBytecodeImpl(proto::ProtoContext* pContext,
                 if (opcode == OP_get_var && (!val || val == PROTO_NONE)) {
                     bool declared = false;
                     if (closureSymbols
-                        && static_cast<size_t>(idx) < closureSymbols->getSize(pContext)) {
+                        && static_cast<size_t>(idx) < module->closureKeys.size()) {
                         const proto::ProtoString* k2 =
-                            closureSymbols->getAt(pContext, static_cast<int>(idx))->asString(pContext);
+                            module->closureKeys[idx];
                         if (k2) {
                             // Declared either as a global property already set...
                             if (liveGlobal && liveGlobal != PROTO_NONE
@@ -11717,9 +11713,9 @@ static const proto::ProtoObject* runBytecodeImpl(proto::ProtoContext* pContext,
                     // (let / const / class) before its declaration ran is a
                     // ReferenceError; the binding is absent until then.
                     if (opcode == OP_put_var && isLexical && closureSymbols
-                        && static_cast<size_t>(idx) < closureSymbols->getSize(pContext)) {
+                        && static_cast<size_t>(idx) < module->closureKeys.size()) {
                         const proto::ProtoString* tk =
-                            closureSymbols->getAt(pContext, static_cast<int>(idx))->asString(pContext);
+                            module->closureKeys[idx];
                         REFRESH_GLOBAL_OBJ();
                         if (tk && globalObj && globalObj != PROTO_NONE
                             && globalObj->hasAttribute(pContext, tk) != PROTO_TRUE) {
@@ -11735,8 +11731,8 @@ static const proto::ProtoObject* runBytecodeImpl(proto::ProtoContext* pContext,
                         DISPATCH();
                     }
 
-                    if (closureSymbols && static_cast<size_t>(idx) < closureSymbols->getSize(pContext)) {
-                        const proto::ProtoString* key = closureSymbols->getAt(pContext, static_cast<int>(idx))->asString(pContext);
+                    if (closureSymbols && static_cast<size_t>(idx) < module->closureKeys.size()) {
+                        const proto::ProtoString* key = module->closureKeys[idx];
                         if (key)
                             writeGlobalBinding(pContext, pGlobalRoot, key, val ? val : PROTO_NONE,
                                                static_cast<size_t>(idx) < module->closureVarIsLexical.size()
@@ -11803,7 +11799,7 @@ static const proto::ProtoObject* runBytecodeImpl(proto::ProtoContext* pContext,
                      * the global object — keep the global publication
                      * so `typeof f` / cross-function reads find them. */
                     if (pGlobalRoot && *pGlobalRoot && closureSymbols &&
-                        static_cast<size_t>(refIndex) < closureSymbols->getSize(pContext)) {
+                        static_cast<size_t>(refIndex) < module->closureKeys.size()) {
                         // Use the pre-interned symbol from the module loader
                         // (closureSymbols stores `createSymbol(name)` per
                         // closure var, populated once at bytecode load).
@@ -11814,7 +11810,7 @@ static const proto::ProtoObject* runBytecodeImpl(proto::ProtoContext* pContext,
                         // top-level lexicals in a hot loop (object_read_only
                         // baseline before this fix).
                         const proto::ProtoString* key =
-                            closureSymbols->getAt(pContext, static_cast<int>(refIndex))->asString(pContext);
+                            module->closureKeys[refIndex];
                         if (key)
                             writeGlobalBinding(pContext, pGlobalRoot, key, val ? val : PROTO_NONE,
                                                static_cast<size_t>(refIndex) < module->closureVarIsLexical.size()
@@ -11848,7 +11844,7 @@ static const proto::ProtoObject* runBytecodeImpl(proto::ProtoContext* pContext,
                 } else {
                     setSlot(pContext, argCount + varCount + refIndex, val);
                     if (pGlobalRoot && *pGlobalRoot && closureSymbols &&
-                        static_cast<size_t>(refIndex) < closureSymbols->getSize(pContext)) {
+                        static_cast<size_t>(refIndex) < module->closureKeys.size()) {
                         // Use the pre-interned symbol from the module loader
                         // (closureSymbols stores `createSymbol(name)` per
                         // closure var, populated once at bytecode load).
@@ -11859,7 +11855,7 @@ static const proto::ProtoObject* runBytecodeImpl(proto::ProtoContext* pContext,
                         // top-level lexicals in a hot loop (object_read_only
                         // baseline before this fix).
                         const proto::ProtoString* key =
-                            closureSymbols->getAt(pContext, static_cast<int>(refIndex))->asString(pContext);
+                            module->closureKeys[refIndex];
                         if (key)
                             writeGlobalBinding(pContext, pGlobalRoot, key, val ? val : PROTO_NONE,
                                                static_cast<size_t>(refIndex) < module->closureVarIsLexical.size()
@@ -11916,7 +11912,7 @@ static const proto::ProtoObject* runBytecodeImpl(proto::ProtoContext* pContext,
                 } else {
                     setSlot(pContext, argCount + varCount + refIndex, val);
                     if (pGlobalRoot && *pGlobalRoot && closureSymbols &&
-                        static_cast<size_t>(refIndex) < closureSymbols->getSize(pContext)) {
+                        static_cast<size_t>(refIndex) < module->closureKeys.size()) {
                         // Use the pre-interned symbol from the module loader
                         // (closureSymbols stores `createSymbol(name)` per
                         // closure var, populated once at bytecode load).
@@ -11927,7 +11923,7 @@ static const proto::ProtoObject* runBytecodeImpl(proto::ProtoContext* pContext,
                         // top-level lexicals in a hot loop (object_read_only
                         // baseline before this fix).
                         const proto::ProtoString* key =
-                            closureSymbols->getAt(pContext, static_cast<int>(refIndex))->asString(pContext);
+                            module->closureKeys[refIndex];
                         if (key)
                             writeGlobalBinding(pContext, pGlobalRoot, key, val ? val : PROTO_NONE,
                                                static_cast<size_t>(refIndex) < module->closureVarIsLexical.size()
@@ -11959,7 +11955,7 @@ static const proto::ProtoObject* runBytecodeImpl(proto::ProtoContext* pContext,
                 } else {
                     setSlot(pContext, argCount + varCount + refIndex, val);
                     if (pGlobalRoot && *pGlobalRoot && closureSymbols &&
-                        static_cast<size_t>(refIndex) < closureSymbols->getSize(pContext)) {
+                        static_cast<size_t>(refIndex) < module->closureKeys.size()) {
                         // Use the pre-interned symbol from the module loader
                         // (closureSymbols stores `createSymbol(name)` per
                         // closure var, populated once at bytecode load).
@@ -11970,7 +11966,7 @@ static const proto::ProtoObject* runBytecodeImpl(proto::ProtoContext* pContext,
                         // top-level lexicals in a hot loop (object_read_only
                         // baseline before this fix).
                         const proto::ProtoString* key =
-                            closureSymbols->getAt(pContext, static_cast<int>(refIndex))->asString(pContext);
+                            module->closureKeys[refIndex];
                         if (key)
                             writeGlobalBinding(pContext, pGlobalRoot, key, val ? val : PROTO_NONE,
                                                static_cast<size_t>(refIndex) < module->closureVarIsLexical.size()
@@ -12022,7 +12018,7 @@ static const proto::ProtoObject* runBytecodeImpl(proto::ProtoContext* pContext,
                 } else {
                     setSlot(pContext, argCount + varCount + refIndex, val);
                     if (pGlobalRoot && *pGlobalRoot && closureSymbols &&
-                        static_cast<size_t>(refIndex) < closureSymbols->getSize(pContext)) {
+                        static_cast<size_t>(refIndex) < module->closureKeys.size()) {
                         // Use the pre-interned symbol from the module loader
                         // (closureSymbols stores `createSymbol(name)` per
                         // closure var, populated once at bytecode load).
@@ -12033,7 +12029,7 @@ static const proto::ProtoObject* runBytecodeImpl(proto::ProtoContext* pContext,
                         // top-level lexicals in a hot loop (object_read_only
                         // baseline before this fix).
                         const proto::ProtoString* key =
-                            closureSymbols->getAt(pContext, static_cast<int>(refIndex))->asString(pContext);
+                            module->closureKeys[refIndex];
                         if (key)
                             writeGlobalBinding(pContext, pGlobalRoot, key, val ? val : PROTO_NONE,
                                                static_cast<size_t>(refIndex) < module->closureVarIsLexical.size()
@@ -15848,10 +15844,9 @@ static const proto::ProtoObject* runBytecodeImpl(proto::ProtoContext* pContext,
                         (pGlobalRoot && *pGlobalRoot) ? *pGlobalRoot : globalObj;
                     if (proto::isSmallInt(a) && liveGlobal && liveGlobal != PROTO_NONE
                         && closureSymbols
-                        && static_cast<size_t>(varIdx) < closureSymbols->getSize(pContext)) {
+                        && static_cast<size_t>(varIdx) < module->closureKeys.size()) {
                         const proto::ProtoString* key =
-                            closureSymbols->getAt(pContext, static_cast<int>(varIdx))
-                                ->asString(pContext);
+                            module->closureKeys[varIdx];
                         const proto::ProtoObject* b =
                             key ? liveGlobal->getAttribute(pContext, key, false) : nullptr;
                         if (b && proto::isSmallInt(b)) {
@@ -16700,7 +16695,7 @@ static const proto::ProtoObject* runBytecodeImpl(proto::ProtoContext* pContext,
                     // values.
                     const size_t totalSlotsM =
                         nf.argCount() + nf.varCount() +
-                        (nf.closureSymbols ? nf.closureSymbols->getSize(pContext) : 0) +
+                        (nf.closureSymbols ? nf.closureKeys.size() : 0) +
                         nf.stackSize() + 16;
                     constexpr size_t kStackSlotsCapM = 256;
                     const proto::ProtoObject* slotsBufM[kStackSlotsCapM];
@@ -17176,7 +17171,7 @@ static const proto::ProtoObject* runBytecodeImpl(proto::ProtoContext* pContext,
                     const auto& nf = *resolved;
                     const size_t totalSlotsC =
                         nf.argCount() + nf.varCount() +
-                        (nf.closureSymbols ? nf.closureSymbols->getSize(pContext) : 0) +
+                        (nf.closureSymbols ? nf.closureKeys.size() : 0) +
                         nf.stackSize() + 16;
                     constexpr size_t kStackSlotsCapC = 256;
                     const proto::ProtoObject* slotsBufC[kStackSlotsCapC];
@@ -17694,7 +17689,7 @@ static const proto::ProtoObject* runBytecodeImpl(proto::ProtoContext* pContext,
                     constexpr size_t kSBOSlots = 64;
                     const size_t totalSlots =
                         nf.argCount() + nf.varCount() +
-                        (nf.closureSymbols ? nf.closureSymbols->getSize(pContext) : 0) +
+                        (nf.closureSymbols ? nf.closureKeys.size() : 0) +
                         nf.stackSize() + 16;
                     alignas(void*) const proto::ProtoObject* sboBuf_call[kSBOSlots];
                     const proto::ProtoObject** ext = nullptr;
@@ -21097,7 +21092,7 @@ const proto::ProtoObject* callJSFunction(
         }
         const size_t totalSlots =
             nf.argCount() + nf.varCount() +
-            (nf.closureSymbols ? nf.closureSymbols->getSize(ctx) : 0) +
+            (nf.closureSymbols ? nf.closureKeys.size() : 0) +
             nf.stackSize() + 16;
         // Use a stack buffer for the automatic locals when totalSlots
         // fits.  protoCore's ProtoContext ctor exposes externalSlots

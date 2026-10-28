@@ -340,6 +340,8 @@ static bool loadBytecodeRecursive(JSContext* ctx,
     out->closureVarTypes.reserve(static_cast<size_t>(closureVarCount));
     out->closureVarIndices.clear();
     out->closureVarIndices.reserve(static_cast<size_t>(closureVarCount));
+    out->closureKeys.clear();
+    out->closureKeys.reserve(static_cast<size_t>(closureVarCount));
     for (int i = 0; i < closureVarCount; i++) {
         const char* name = protojs_bytecode_closure_var_name(ctx, quickjsBytecode, static_cast<uint16_t>(i));
         const std::string nameStr = name ? name : "";
@@ -349,6 +351,7 @@ static bool loadBytecodeRecursive(JSContext* ctx,
         const proto::ProtoString* sym = proto::ProtoString::createSymbol(pContext, nameStr);
         protojs::dict::noteVocabulary(nameStr);  // program vocabulary
         cSymbols = cSymbols->appendLast(pContext, sym->asObject(pContext));
+        out->closureKeys.push_back(sym);
         
         out->closureVarIsLexical.push_back(
             protojs_bytecode_closure_var_is_lexical(quickjsBytecode, static_cast<uint16_t>(i)) != 0);
