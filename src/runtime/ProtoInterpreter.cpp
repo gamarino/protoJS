@@ -11769,7 +11769,8 @@ static const proto::ProtoObject* runBytecodeImpl(proto::ProtoContext* pContext,
                         module->closureVarIsLexical[idx];
 
                     // Restricted global lexical declarations (e.g. eval/arguments) should fail.
-                    if (isLexical && (name == "eval" || name == "arguments")) {
+                    if (isLexical && ((name.size() == 4 && name == "eval")
+                                      || (name.size() == 9 && name == "arguments"))) {
                         throwJS(pContext, makeError(pContext, "SyntaxError",
                                                       "Invalid global lexical declaration", pGlobalRoot));
                         DISPATCH();
@@ -11792,7 +11793,10 @@ static const proto::ProtoObject* runBytecodeImpl(proto::ProtoContext* pContext,
                         const proto::ProtoString* tk =
                             module->closureKeys[idx];
                         REFRESH_GLOBAL_OBJ();
+                        // An own binding is initialised; only its absence
+                        // needs the chain-walking presence test.
                         if (tk && globalObj && globalObj != PROTO_NONE
+                            && !globalObj->getOwnAttributeDirect(pContext, tk)
                             && globalObj->hasAttribute(pContext, tk) != PROTO_TRUE) {
                             std::string msg = "Cannot access '" + name + "' before initialization";
                             throwJS(pContext, makeError(pContext, "ReferenceError", msg.c_str(), pGlobalRoot));
@@ -11800,7 +11804,7 @@ static const proto::ProtoObject* runBytecodeImpl(proto::ProtoContext* pContext,
                     }
 
                     // Global assignment to `undefined` should throw instead of mutating.
-                    if (name == "undefined") {
+                    if (name.size() == 9 && name == "undefined") {
                         throwJS(pContext, makeError(pContext, "ReferenceError",
                                                       "Cannot assign to read only binding 'undefined'", pGlobalRoot));
                         DISPATCH();
@@ -14081,7 +14085,12 @@ static const proto::ProtoObject* runBytecodeImpl(proto::ProtoContext* pContext,
                     // so the regular prototype walk returned PROTO_NONE
                     // (rendered as 0 — silently wrong). Resolve the
                     // length directly from the underlying ProtoString.
-                    if (obj && obj->isString(pContext) && key) {
+                    // `length` is vocabulary: its key is the interned
+                    // symbol, and only a heap-string key needs the content
+                    // comparison.
+                    if (obj && key && (key == JSSymbols::length(pContext)
+                                       || protojs::dict::isHeapStringKey(key))
+                        && obj->isString(pContext)) {
                         std::string keyStrTest;
                         key->toUTF8String(pContext, keyStrTest);
                         if (keyStrTest == "length") {

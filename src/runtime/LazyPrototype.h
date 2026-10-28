@@ -26,7 +26,9 @@
 // Once created, the object is an ordinary own property: its identity is stable
 // and the marker is cleared.
 
+#include <cstdint>
 #include "../JSSymbols.h"
+#include "PropertyDictionary.h"
 #include <protoCore.h>
 
 namespace protojs {
@@ -51,8 +53,10 @@ inline void materializeLazyPrototypeForKey(proto::ProtoContext* ctx,
                                            const proto::ProtoObject* obj,
                                            const proto::ProtoString* key) {
     if (!key || !obj) return;
+    // A heap string is compared by content, a symbol by pointer; an inline
+    // string holds at most six bytes, never "prototype".
     if (key == JSSymbols::prototype(ctx)
-        || (!key->isSymbol() && keyNamesPrototype(ctx, key)))
+        || (dict::isHeapStringKey(key) && keyNamesPrototype(ctx, key)))
         materializeLazyPrototypeOnChain(ctx, obj);
 }
 
