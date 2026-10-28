@@ -1,3 +1,4 @@
+#include <atomic>
 #include "ProtoCoreTypes.h"
 #include "runtime/JSStringUnits.h"
 #include "runtime/JSStringBytes.h"
@@ -34,8 +35,16 @@ static const proto::ProtoString* handlerKey(proto::ProtoContext* ctx) {
     return k;
 }
 
+// Set once, by the first proxy the process creates (proxyConstructor, which
+// Proxy.revocable uses too).  Until then no object carries the
+// __proxy_target__ brand, and isProxy answers without the attribute probe that
+// every element access and call site would otherwise pay.  Release/acquire: a
+// thread that is handed a proxy another thread created also sees the flag.
+static std::atomic<bool> g_anyProxyCreated{false};
+
 bool isProxy(proto::ProtoContext* ctx, const proto::ProtoObject* obj) {
-    if (!obj || obj == PROTO_NONE) return false;
+    if (!g_anyProxyCreated.load(std::memory_order_acquire)) return false;
+    if (!obj || obj == PROTO_NONE || proto::isSmallInt(obj)) return false;
     const proto::ProtoString* tk = targetKey(ctx);
     if (!tk) return false;
     return obj->hasOwnAttribute(ctx, tk) == PROTO_TRUE;
@@ -1741,6 +1750,7 @@ const proto::ProtoObject* proxyConstructor(
     if (!proxy) return PROTO_NONE;
     const proto::ProtoString* tk = targetKey(ctx);
     const proto::ProtoString* hk = handlerKey(ctx);
+    g_anyProxyCreated.store(true, std::memory_order_release);
     if (tk) proxy = proxy->setAttribute(ctx, tk, target);
     if (hk) proxy = proxy->setAttribute(ctx, hk, handler);
     return proxy;
