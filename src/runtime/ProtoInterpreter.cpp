@@ -4977,10 +4977,12 @@ const proto::ProtoString* resolveAtom(ProtoBytecodeModule* mod, proto::ProtoCont
 /** Check if obj is a bytecode function placeholder (has __bytecode_id__). Returns -1 if not. */
 int getBytecodeId(proto::ProtoContext* pContext, const proto::ProtoObject* obj) {
     if (!obj || !pContext || proto::isSmallInt(obj)) return -1;
-    // An own attribute under an interned symbol: getOwnAttributeDirect is the
-    // own-only read getAttribute(key, false) does, without its general path.
+    // A closure carries its id as an own attribute (OP_fclosure), which
+    // getOwnAttributeDirect reads directly; anything else takes the chain
+    // lookup it always took.
     const proto::ProtoString* key = JSSymbols::bytecodeId(pContext);
     const proto::ProtoObject* val = obj->getOwnAttributeDirect(pContext, key);
+    if (!val) val = obj->getAttribute(pContext, key, false);
     if (!val || val == PROTO_NONE) return -1;
     long long id;
     if (proto::isSmallInt(val)) id = proto::asSmallInt(val);
@@ -4999,7 +5001,9 @@ static const ProtoBytecodeModule* getClosureModule(
     const proto::ProtoString* key = JSSymbols::closureModule(pContext);
     if (!key) return nullptr;
     if (proto::isSmallInt(fn)) return nullptr;
+    // Own on a closure (OP_fclosure); anything else takes the chain lookup.
     const proto::ProtoObject* val = fn->getOwnAttributeDirect(pContext, key);
+    if (!val) val = fn->getAttribute(pContext, key, false);
     if (!val || val == PROTO_NONE) return nullptr;
     // eval code stamps its module's lifetime token (runtime/EvalModuleCache.h).
     if (!proto::isSmallInt(val) && !val->isInteger(pContext))
