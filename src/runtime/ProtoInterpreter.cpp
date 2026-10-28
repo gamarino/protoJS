@@ -3363,11 +3363,15 @@ struct InterpFrameStack {
     static InterpFrame& back() { return t_interpFrameBase[t_interpFrameCount - 1]; }
     static InterpFrame& at(std::size_t i) { return t_interpFrameBase[i]; }
     InterpFrame& operator[](std::size_t i) const { return t_interpFrameBase[i]; }
+    // The block is allocated on a thread's first activation, out of line:
+    // inlined into runBytecodeImpl it would grow every activation's native
+    // frame.
+    PROTOJS_NOINLINE static void allocate() {
+        t_interpFrameStore.reset(new InterpFrame[kMaxInterpFrames]);
+        t_interpFrameBase = t_interpFrameStore.get();
+    }
     static void push_back(const InterpFrame& f) {
-        if (!t_interpFrameBase) {
-            t_interpFrameStore.reset(new InterpFrame[kMaxInterpFrames]);
-            t_interpFrameBase = t_interpFrameStore.get();
-        }
+        if (__builtin_expect(!t_interpFrameBase, 0)) allocate();
         t_interpFrameBase[t_interpFrameCount++] = f;
     }
     static void pop_back() { --t_interpFrameCount; }
@@ -5845,7 +5849,10 @@ static bool putFieldGroupApplies(proto::ProtoContext* ctx, ProtoBytecodeModule* 
 // value: [v0 .. v(n-2), recv, v(n-1)].  Pops them and publishes the group.
 // The popped slots are not cleared (see stackPop), so the values stay
 // reachable while setAttributes allocates.
-static void putFieldGroupCommit(proto::ProtoContext* ctx, ProtoBytecodeModule* mod,
+// Kept out of line: inlined into runBytecodeImpl its locals grow every
+// activation's native frame, and with it lower the reachable recursion depth
+// (tests/integration/workers/deep_recursion.js).
+PROTOJS_NOINLINE static void putFieldGroupCommit(proto::ProtoContext* ctx, ProtoBytecodeModule* mod,
                                 const PutFieldGroup& g) {
     const size_t n = g.atoms.size();
     const proto::ProtoString* names[64];
