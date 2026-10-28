@@ -620,6 +620,10 @@ static const proto::ProtoString* internedKey(proto::ProtoContext* ctx, const pro
 
 static const proto::ProtoString* propertyKeyOOP(proto::ProtoContext* ctx, const proto::ProtoObject* obj) {
     if (!obj) return nullptr;
+    // A string primitive is never a Symbol object: answer before the
+    // __is_symbol__ probe below, a chain walk (string -> String.prototype ->
+    // Object.prototype) that misses for every string key of `o[k]`.
+    if (obj->isString(ctx)) return propertyKey(ctx, obj->asString(ctx));
     // Symbol-tagged objects carry a per-instance __symbol_str_key__
     // (installed by Symbol() ctor).  Return that ProtoString identity
     // so the put / get paths agree on the same attribute key — same
@@ -13787,6 +13791,35 @@ static const proto::ProtoObject* runBytecodeImpl(proto::ProtoContext* pContext,
                 }
                 const proto::ProtoObject* val = nullptr;
                 long long arrIdxFast = numericArrayIndexOrNeg(pContext, index);
+                // Dense element of an array: the receiver's own __elements__
+                // holds a value (not a hole) at the index, and the receiver
+                // has no own accessor (its own __has_accessor_props__ flag
+                // is unset).  An own data element shadows everything the
+                // general path below would consult -- String-wrapper
+                // characters, inherited accessors, indexed attributes --
+                // so the answer is the element, or what the receiver's
+                // behaviour (resolveElementOOP: typed arrays, integrity)
+                // returns for it, exactly as below.  Spares the general
+                // path's chain probes (__primitive_value__ and
+                // __has_accessor_props__, both walking to Object.prototype)
+                // and its second read of __elements__.
+                if (arrIdxFast >= 0 && !proto::isSmallInt(obj)) {
+                    if (const proto::ProtoList* els = protojs::getArrayElements(pContext, obj)) {
+                        const proto::ProtoString* hapK0 = JSSymbols::hasAccessorProps(pContext);
+                        if (!(hapK0 && obj->getOwnAttributeDirect(pContext, hapK0) == PROTO_TRUE)
+                            && arrIdxFast < static_cast<long long>(els->getSize(pContext))) {
+                            const proto::ProtoObject* dv = els->getAt(pContext, static_cast<int>(arrIdxFast));
+                            if (dv && dv != PROTO_NONE) {
+                                const proto::ProtoObject* bv =
+                                    resolveElementOOP(pContext, obj, static_cast<uint32_t>(arrIdxFast));
+                                if (!bv || bv != PROTO_NONE) {
+                                    pAutomaticLocals[currentStackBase + _PF().stackTop++] = bv ? bv : dv;
+                                    DISPATCH();
+                                }
+                            }
+                        }
+                    }
+                }
                 // String character indexing: `"abc"[0]` → "a".  Pre-fix
                 // strings followed the regular property-attribute path and
                 // returned undefined for numeric indices because strings
@@ -13990,6 +14023,25 @@ static const proto::ProtoObject* runBytecodeImpl(proto::ProtoContext* pContext,
                         }
                     }
                     protojs::materializeLazyPrototypeForKey(pContext, obj, key);  // LazyPrototype.h
+                    // Own data property under a named key (a symbol or an
+                    // inline string, which getOwnAttributeDirect finds by
+                    // pointer) of a receiver with no own accessor: the
+                    // general path below finds the same own value with
+                    // hasOwnAttribute + getAttribute and returns it, since
+                    // an own data property shadows the prototype chain
+                    // (§10.1.8.1 OrdinaryGet).  An own `undefined` (absent
+                    // or the sentinel) takes the general path.
+                    if (arrIdxFast < 0 && key && obj && !proto::isSmallInt(obj)
+                        && !protojs::dict::isHeapStringKey(key)) {
+                        const proto::ProtoString* hapK1 = JSSymbols::hasAccessorProps(pContext);
+                        if (!(hapK1 && obj->getOwnAttributeDirect(pContext, hapK1) == PROTO_TRUE)) {
+                            const proto::ProtoObject* ov = obj->getOwnAttributeDirect(pContext, key);
+                            if (ov && ov != PROTO_NONE && ov != t_undefinedSentinel) {
+                                pAutomaticLocals[currentStackBase + _PF().stackTop++] = ov;
+                                DISPATCH();
+                            }
+                        }
+                    }
                     // A heap-string key that is not vocabulary (propertyKey
                     // turned vocabulary into its symbol) is held, when the
                     // object has it at all, by the object's property

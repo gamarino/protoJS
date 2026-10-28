@@ -102,6 +102,12 @@ inline long long
 numericArrayIndexOrNeg(proto::ProtoContext* ctx,
                        const proto::ProtoObject* idx) {
     if (!idx || idx == PROTO_NONE) return -1;
+    // The common index, a small integer, decoded inline (isInteger and
+    // asLong are protoCore calls).
+    if (proto::isSmallInt(idx)) {
+        const long long v = proto::asSmallInt(idx);
+        return (v >= 0 && v < 4294967295LL) ? v : -1;
+    }
     if (idx->isInteger(ctx)) {
         long long v = idx->asLong(ctx);
         return (v >= 0 && v < 4294967295LL) ? v : -1;
