@@ -6,6 +6,22 @@ All notable changes to protoJS are documented in this file.
 
 **Requires protoCore 3.1.0** (untagged master, commit 267b9fc9; SOVERSION 4). CI builds protoCore 3.3.1 (tag v3.3.1, commit 5a8cd7c7, what the installers ship) on Linux, macOS and Windows, and 3.1.0 in the Windows floor job.
 
+### Performance — interpreter overhead per operation (2026-10-28)
+
+- protoJS's own work per JavaScript operation, measured by instruction
+  tracing (`benchmarks/reports/2026-10-28-per-op-overhead/`): a property
+  read costs half what it did (`o.b` 117 -> 59 ns net, `o[k]` 284 -> 126,
+  `a[i]` 321 -> 121) and a function call about a third less (378 -> 261 ns).
+  Closure-variable keys are kept in a vector built at load; `isProxy` needs
+  no lookup until a Proxy exists; element and named-key reads take an own
+  fast path; integer operators test for small integers first; interpreter
+  frames live in a fixed per-thread block; a call reads the callee's
+  identity with an own lookup and no longer probes the global object's
+  initialisation flag. Standard benchmarks: object_read_only -49 % cycles,
+  function_calls -30 %, numeric_loop -30 %, object_write_only -32 %,
+  control_flow -24 %; structure benchmarks about -10 %. protoCore is
+  unchanged.
+
 ### Fixed — strings are UTF-16 code units (2026-10-27)
 
 - **String length and indices** now count UTF-16 code units, as ECMA-262
