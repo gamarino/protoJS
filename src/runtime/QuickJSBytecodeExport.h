@@ -87,6 +87,9 @@ int protojs_bytecode_is_arrow(void* bytecode);
  *  functions. */
 int protojs_bytecode_is_constructor(void* bytecode);
 
+/** Return 1 for a class constructor (base or derived), 0 otherwise. */
+int protojs_bytecode_is_class_constructor(void* bytecode);
+
 /** Return 1 for an ordinary `function` (declaration or expression of kind
  *  normal): the functions given a `prototype` object, created lazily. */
 int protojs_bytecode_has_prototype(void* bytecode);

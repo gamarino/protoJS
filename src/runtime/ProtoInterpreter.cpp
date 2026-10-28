@@ -880,11 +880,16 @@ static void setSlot(proto::ProtoContext* ctx, unsigned int idx, const proto::Pro
 // shadow a captured variable of that name.  Global captures are not on the
 // scope; they are still resolved through the function's parent chain, which
 // reaches its module scope.
-inline void populateClosureCellsFromInstance(proto::ProtoContext* childCtx,
+//
+// Returns true when every named closure variable's slot now holds a value
+// (always, for a function without closure variables): the activation then has
+// nothing to fill from the global object (bindClosureVarSlots) and its entry
+// skips that pass.
+inline bool populateClosureCellsFromInstance(proto::ProtoContext* childCtx,
                                               const proto::ProtoObject* fnInst,
                                               const ProtoBytecodeModule& nf) {
-    if (!childCtx || !fnInst || fnInst == PROTO_NONE) return;
-    if (nf.closureVarNames.empty()) return;
+    if (nf.closureVarNames.empty()) return true;
+    if (!childCtx || !fnInst || fnInst == PROTO_NONE) return false;
     const unsigned argC = nf.argCount();
     const unsigned varC = nf.varCount();
     const proto::ProtoString* scopeKey = captureScopeKey(childCtx);
@@ -892,6 +897,7 @@ inline void populateClosureCellsFromInstance(proto::ProtoContext* childCtx,
         ? fnInst->getOwnAttributeDirect(childCtx, scopeKey) : nullptr;
     if (scope == PROTO_NONE) scope = nullptr;
     const size_t symbolCount = nf.closureKeys.size();
+    bool complete = symbolCount == nf.closureVarNames.size();
     for (size_t i = 0; i < nf.closureVarNames.size() && i < symbolCount; ++i) {
         const proto::ProtoString* nmKey = nf.closureKeys[i];
         if (!nmKey || nf.closureVarNames[i].empty()) continue;
@@ -903,9 +909,13 @@ inline void populateClosureCellsFromInstance(proto::ProtoContext* childCtx,
         } else {
             cell = fnInst->getAttribute(childCtx, nmKey, /*chain*/ true);
         }
-        if (!cell || cell == PROTO_NONE) continue;
+        if (!cell || cell == PROTO_NONE) {
+            complete = false;
+            continue;
+        }
         setSlot(childCtx, argC + varC + static_cast<unsigned>(i), cell);
     }
+    return complete;
 }
 
 /** Slot and stack storage use ProtoContext::closureLocals only (no std::vector); GC sees all references. */
@@ -7315,12 +7325,141 @@ struct NestedLevel {
     const proto::ProtoObject* result = nullptr;
 };
 
+// How an activation was entered: runBytecodeImpl's `entry`, a set of bits.
+using ActivationEntry = unsigned;
+// runBytecode: any caller and any module (a script, an eval, a generator or
+// async resume, a native that did not prepare the call).
+constexpr ActivationEntry kEntryGeneral = 0;
+// A call site (runCallActivation) bound the arguments, published t_activeFunc
+// and populated the closure slots from the function instance.
+constexpr ActivationEntry kEntryCallSite = 1u << 0;
+// ... and every closure slot holds a value (populateClosureCellsFromInstance).
+constexpr ActivationEntry kEntryClosuresBound = 1u << 1;
+// ... and the call site is an opcode of a running activation of this thread,
+// on the same global-root slot: that activation's own entry bootstrapped the
+// sentinels and found the built-in globals registered, so this one need not
+// check again.
+constexpr ActivationEntry kEntryFromActivation = 1u << 2;
+
 static const proto::ProtoObject* runBytecodeImpl(proto::ProtoContext* pContext,
                                                  const ProtoBytecodeModule* module,
                                                  const proto::ProtoObject* thisObj,
                                                  const proto::ProtoList* args,
                                                  const proto::ProtoObject** pGlobalRoot,
-                                                 NestedLevel* nested);
+                                                 NestedLevel* nested,
+                                                 ActivationEntry entry = kEntryGeneral);
+
+// Runs the activation of a JavaScript function that a call site prepared in
+// `child`: the arguments bound to their slots, the closure slots populated
+// from the function instance (populateClosureCellsFromInstance, whose result
+// is `closuresBound`) and t_activeFunc published.  `from` is
+// kEntryFromActivation for an opcode of a running activation on the same
+// global-root slot, kEntryGeneral for any other caller (callJSFunction).
+// What the prologue then skips is listed at the top of runBytecodeImpl.
+static PROTOJS_ALWAYS_INLINE const proto::ProtoObject* runCallActivation(
+        proto::ProtoContext* child, const ProtoBytecodeModule& nf,
+        const proto::ProtoObject* thisObj, const proto::ProtoList* args,
+        const proto::ProtoObject** pGlobalRoot, bool closuresBound,
+        ActivationEntry from = kEntryFromActivation) {
+    return runBytecodeImpl(child, &nf, thisObj, args, pGlobalRoot, nullptr,
+                           kEntryCallSite | from | (closuresBound ? kEntryClosuresBound : 0u));
+}
+
+// The global object last found initialised (`__protojs_globals_init__` set by
+// the first activation on it), valid until the next collection, which may
+// free it and reuse its address: every function call reaches the check, and
+// the flag, once set, stays.
+struct GlobalsInitSeen {
+    const proto::ProtoObject* root;
+    const proto::ProtoSpace* space;
+    std::uint64_t cycle;
+};
+static thread_local GlobalsInitSeen t_globalsInitSeen{nullptr, nullptr, 0};
+
+static PROTOJS_ALWAYS_INLINE bool globalsInitSeen(proto::ProtoContext* ctx,
+                                                  const proto::ProtoObject* root) {
+    const std::uint64_t cycle = ctx->space ? ctx->space->getGCCycleCount() : 0;
+    return t_globalsInitSeen.root == root && t_globalsInitSeen.space == ctx->space
+        && t_globalsInitSeen.cycle == cycle;
+}
+
+// The flag key as an INTERNED SYMBOL (not a plain ProtoString).  Symbols
+// compare by pointer, so getAttribute skips the SymbolTable::lookupByContent
+// (toUTF8String + contentEqual) round-trip that profiling showed at ~12 % of
+// per-call CPU on 100 K function calls.
+static const proto::ProtoString* globalsInitFlagKey(proto::ProtoContext* ctx) {
+    static thread_local const proto::ProtoString* s_initFlagKey = nullptr;
+    if (!s_initFlagKey)
+        s_initFlagKey = proto::ProtoString::createSymbol(ctx, "__protojs_globals_init__");
+    return s_initFlagKey;
+}
+
+// Whether the built-in globals must still be registered on *pGlobalRoot (the
+// block guarded by needsGlobalInit in runBytecodeImpl).  Out of line: its
+// locals take no room in the frame of every JavaScript call.
+static PROTOJS_NOINLINE bool globalsNeedInit(proto::ProtoContext* ctx,
+                                             const proto::ProtoObject** pGlobalRoot) {
+    const proto::ProtoString* key = globalsInitFlagKey(ctx);
+    if (!pGlobalRoot || !*pGlobalRoot || !key) return true;
+    if (globalsInitSeen(ctx, *pGlobalRoot)) return false;
+    if ((*pGlobalRoot)->getAttribute(ctx, key, false) != PROTO_TRUE) return true;
+    t_globalsInitSeen = GlobalsInitSeen{*pGlobalRoot, ctx->space,
+                                        ctx->space ? ctx->space->getGCCycleCount() : 0};
+    return false;
+}
+
+// Fills the closure-variable slots the call site left empty, at a fresh
+// activation: an arrow function's `this` from thisObj, any other from the
+// global object.  Out of line: an activation whose call site bound every slot
+// (kEntryClosuresBound) does not call it.
+static PROTOJS_NOINLINE void bindClosureVarSlots(proto::ProtoContext* pContext,
+                                                 const ProtoBytecodeModule* module,
+                                                 const proto::ProtoObject* thisObj,
+                                                 const proto::ProtoObject* globalObjInit) {
+    const unsigned argCount = module->argCount();
+    const unsigned varCount = module->varCount();
+    /* Pre-load closure vars from the global object into their dedicated slots.
+     * Closure vars occupy a SEPARATE slot region from local vars:
+     *   local vars:    slot[argCount + 0 .. argCount + varCount - 1]
+     *   closure vars:  slot[argCount + varCount + 0 .. argCount + varCount + N - 1]
+     * This separation prevents the _ret_ hidden eval variable (local slot 0) from
+     * colliding with closure-var slot 0 (used for hoisted function declarations).
+     *
+     * Arrow functions: QuickJS compiles arrow bodies to access `this` via a free
+     * variable named "this" rather than via OP_push_this.  The lexical this is
+     * already in `thisObj` (set by every call site that honours isArrow).  Inject
+     * it directly so that OP_get_var_ref0 inside the arrow body finds it. */
+    for (size_t i = 0; i < module->closureVarNames.size(); i++) {
+        if (module->closureVarNames[i].empty()) continue;
+        // Arrow function: the closure var "this" must come from thisObj, not the global.
+        // When the arrow captured the enclosing function's `this` slot as
+        // a cell (populateClosureCellsFromInstance), the cell is the
+        // binding: an arrow created before super() in a derived
+        // constructor sees the `this` super() initialises later.
+        if (module->isArrow && module->closureVarNames[i] == "this") {
+            const unsigned thisSlot = argCount + varCount + static_cast<unsigned>(i);
+            if (isCell(pContext, getSlot(pContext, thisSlot))) continue;
+            setSlot(pContext, thisSlot, thisObj ? thisObj : PROTO_NONE);
+            continue;
+        }
+        // Skip slots already populated by populateClosureCellsFromInstance
+        // (called by OP_call / OP_call_method / OP_call_constructor /
+        // callJSFunction with the function instance's captured cells).
+        // Those slots hold cells (or already-resolved values) — don't
+        // overwrite them with the global-fallback lookup.
+        const proto::ProtoObject* existing =
+            getSlot(pContext, argCount + varCount + static_cast<unsigned>(i));
+        if (existing && existing != PROTO_NONE) continue;
+        if (!globalObjInit || globalObjInit == PROTO_NONE) continue;
+        const proto::ProtoString* key =
+            i < module->closureKeys.size() ? module->closureKeys[i] : nullptr;
+        if (key) {
+            const proto::ProtoObject* val = globalObjInit->getAttribute(pContext, key, false);
+            if (val && val != PROTO_NONE)
+                setSlot(pContext, argCount + varCount + static_cast<unsigned>(i), val);
+        }
+    }
+}
 
 // Whether the handler at `handlerPc` is a `finally` block's: QuickJS compiles
 // `try {} finally {}` to a range whose handler calls the finally block and
@@ -7395,7 +7534,8 @@ static const proto::ProtoObject* runBytecodeImpl(proto::ProtoContext* pContext,
                                                  const proto::ProtoObject* thisObj,
                                                  const proto::ProtoList* args,
                                                  const proto::ProtoObject** pGlobalRoot,
-                                                 NestedLevel* nested) {
+                                                 NestedLevel* nested,
+                                                 ActivationEntry entry) {
     if (!pContext || !module || !module->pBytecode) return PROTO_NONE;
     if (__builtin_expect(nativeStackExhausted() || (!nested && t_interpFrames.full()), 0))
         raiseStackOverflow(pContext, pGlobalRoot);
@@ -7406,6 +7546,24 @@ static const proto::ProtoObject* runBytecodeImpl(proto::ProtoContext* pContext,
     if (__builtin_expect(module->isAsync, 0) && !nested
             && t_asyncEntryKind == kAsyncNone && !t_asyncResumeCont)
         return startAsyncActivation(pContext, module, thisObj, args, pGlobalRoot);
+
+    // The prologue skips each step that exists only for one kind of
+    // activation unless this one is of that kind.  The kinds are decided once,
+    // when the bytecode is loaded (ProtoBytecodeModule):
+    //   - the async and generator resume hand-offs (t_asyncResumeCont,
+    //     t_asyncEntryKind, t_genResumePc, t_genIterator) only for a function
+    //     that suspends (async functions, generators);
+    //   - the global var / function hoisting only for code that declares
+    //     global bindings (a script or an eval);
+    //   - the iterator-record close on unwinding only for a body with for-of
+    //     loops or destructuring patterns (opensIteratorRecords);
+    //   - the closure-slot pass only when the call site left a slot empty
+    //     (kEntryClosuresBound) or an arrow binds its `this`.
+    // A call made by an opcode of a running activation of this thread, on
+    // the same global-root slot (kEntryFromActivation), also skips the null /
+    // TDZ sentinel bootstrap and the built-in globals probe: that
+    // activation's own entry did both for this thread and this global object.
+
     const uint8_t* buf = reinterpret_cast<const uint8_t*>(module->pBytecode->getBuffer(pContext));
     int len = static_cast<int>(module->pBytecode->getSize(pContext));
     if (!buf || len <= 0) return PROTO_NONE;
@@ -7468,7 +7626,7 @@ static const proto::ProtoObject* runBytecodeImpl(proto::ProtoContext* pContext,
         pc = nested->pc;
         asyncOwner = nested->asyncOwner;
         asyncKind = nested->asyncKind;
-    } else if (t_asyncResumeCont || t_asyncEntryKind != kAsyncNone) {
+    } else if (module->suspends && (t_asyncResumeCont || t_asyncEntryKind != kAsyncNone)) {
         asyncActivationEntry(pContext, asyncOwner, asyncKind);
     }
 
@@ -7481,8 +7639,9 @@ static const proto::ProtoObject* runBytecodeImpl(proto::ProtoContext* pContext,
     const proto::ProtoObject* gen_resume_sent_val = PROTO_NONE;
     long long                 gen_resume_kind     = 0;
     bool                      gen_resume_active   = false;
-    if (nested) {
-        // A nested level runs on its activation's state.
+    if (nested || !module->suspends) {
+        // A nested level runs on its activation's state; a function that
+        // never suspends is always a fresh entry (below).
     } else if (t_asyncResumeCont) {
         // Resume a suspended async activation from its continuation.
         restoreAsyncActivation(pContext, t_asyncResumeCont, catch_stack, pc);
@@ -7550,16 +7709,11 @@ static const proto::ProtoObject* runBytecodeImpl(proto::ProtoContext* pContext,
         }
 
     } else {
-        // Slot/stack storage lives in ProtoContext::automaticLocals (a flat
-        // GC-visible array).  The InterpFrame for this call is pushed
-        // OUTSIDE this else block (after the if/else) so its RAII pop
-        // covers the entire body of runBytecode, not just this branch.
-        const unsigned int closureCount = static_cast<unsigned int>(module->closureVarNames.size());
-        const unsigned int slotsForLocals = argCount + varCount + closureCount;
-        const unsigned int reservedStack  = module->stackSize() + 16;  // small safety margin
-        const unsigned int totalSlots     = slotsForLocals + reservedStack;
-        pContext->resizeAutomaticLocals(totalSlots);
-
+        // A fresh entry.  Slot/stack storage lives in
+        // ProtoContext::automaticLocals (a flat GC-visible array), sized
+        // with the InterpFrame below (resizeAutomaticLocals only grows, so
+        // sizing it once is enough).
+        //
         // closureLocals is intentionally NOT initialised here — slots and
         // stack now live in automaticLocals.  The few legacy code paths
         // (generator save/restore, hoisted-function snapshots) lazily
@@ -7582,7 +7736,7 @@ static const proto::ProtoObject* runBytecodeImpl(proto::ProtoContext* pContext,
         unsigned int reservedStack  = module->stackSize() + 16;
         unsigned int totalSlots     = slotsForLocals + reservedStack;
         if (pContext->getAutomaticLocalsCount() < totalSlots)
-            pContext->resizeAutomaticLocals(totalSlots);
+            pContext->resizeAutomaticLocals(totalSlots);  // only grows
 
         // [NEW] Root the metadata object in the context slots to ensure GC safety.
         // We use the very last slot in the reserved region.
@@ -7594,7 +7748,9 @@ static const proto::ProtoObject* runBytecodeImpl(proto::ProtoContext* pContext,
         // empty value stack.  kGenStackTop is written by OP_yield /
         // OP_yield_star alongside kGenSlots.
         unsigned int initialStackTop = 0;
-        if (t_asyncResumeCont) {
+        if (!module->suspends) {
+            // A fresh entry: an empty value stack.
+        } else if (t_asyncResumeCont) {
             if (t_asyncResumeStackTop <= reservedStack) initialStackTop = t_asyncResumeStackTop;
         } else if (pc != 0 && t_genIterator) {
             const proto::ProtoString* tk = genKey(pContext, kGenStackTop);
@@ -7626,25 +7782,34 @@ static const proto::ProtoObject* runBytecodeImpl(proto::ProtoContext* pContext,
         if (t_activeFunc && t_activeFunc != PROTO_NONE && totalSlots > 2)
             setSlot(pContext, totalSlots - 3, t_activeFunc);
     }
+    // The frame pushed above, popped however the activation ends.
     struct InterpFramePopOnExit {
         bool pushed;
+        bool debugActivation;   // the debugger's record was pushed with it
+        bool closesIterators;   // the body can leave iterator records open
         proto::ProtoContext* ctx;
         const proto::ProtoObject** globalRoot;
         int uncaught;
         ~InterpFramePopOnExit() {
             // An exception leaving the function leaves its open for-of loops
             // and destructuring patterns too: IteratorClose with a throw
-            // completion, whose own errors are dropped.
-            if (pushed && __builtin_expect(std::uncaught_exceptions() > uncaught, 0)) {
+            // completion, whose own errors are dropped.  Only OP_for_of_start
+            // opens one (ProtoBytecodeModule::opensIteratorRecords); a body
+            // without it does not ask the C++ runtime about the exception.
+            if (pushed && closesIterators
+                    && __builtin_expect(std::uncaught_exceptions() > uncaught, 0)) {
                 try {
                     closeIteratorRecordsOnThrow(ctx, 0, globalRoot);
                 } catch (...) {
                 }
             }
             if (pushed && !t_interpFrames.empty()) t_interpFrames.pop_back();
-            if (pushed && __builtin_expect(debughooks::g_enabled, 0)) debughooks::popActivation();
+            if (debugActivation) debughooks::popActivation();
         }
-    } _interpFramePopOnExit{nested == nullptr, pContext, pGlobalRoot, std::uncaught_exceptions()};
+    } _interpFramePopOnExit{nested == nullptr,
+                            nested == nullptr && __builtin_expect(debughooks::g_enabled, 0),
+                            module->opensIteratorRecords, pContext, pGlobalRoot,
+                            module->opensIteratorRecords ? std::uncaught_exceptions() : 0};
 
     // OP_yield resume: the InterpFrame now exists so stackPush will hit the
     // correct slots.  Push sent-value first (bottom) then resume kind (top)
@@ -7661,50 +7826,14 @@ static const proto::ProtoObject* runBytecodeImpl(proto::ProtoContext* pContext,
     // guarded on (t_genResumePc < 0), but the resume path resets
     // t_genResumePc to -1 at the very top — so the guard was always
     // true and initStack ran on every resume, blanking the live stack.
-    if (!nested && !gen_resume_active && !t_asyncResumeCont) {
+    if (!nested && (!module->suspends || (!gen_resume_active && !t_asyncResumeCont))) {
         initStack(pContext);
-        const proto::ProtoObject* globalObjInit = (pGlobalRoot && *pGlobalRoot) ? *pGlobalRoot : thisObj;
-        /* Pre-load closure vars from the global object into their dedicated slots.
-         * Closure vars occupy a SEPARATE slot region from local vars:
-         *   local vars:    slot[argCount + 0 .. argCount + varCount - 1]
-         *   closure vars:  slot[argCount + varCount + 0 .. argCount + varCount + N - 1]
-         * This separation prevents the _ret_ hidden eval variable (local slot 0) from
-         * colliding with closure-var slot 0 (used for hoisted function declarations).
-         *
-         * Arrow functions: QuickJS compiles arrow bodies to access `this` via a free
-         * variable named "this" rather than via OP_push_this.  The lexical this is
-         * already in `thisObj` (set by every call site that honours isArrow).  Inject
-         * it directly so that OP_get_var_ref0 inside the arrow body finds it. */
-        for (size_t i = 0; i < module->closureVarNames.size(); i++) {
-            if (module->closureVarNames[i].empty()) continue;
-            // Arrow function: the closure var "this" must come from thisObj, not the global.
-            // When the arrow captured the enclosing function's `this` slot as
-            // a cell (populateClosureCellsFromInstance), the cell is the
-            // binding: an arrow created before super() in a derived
-            // constructor sees the `this` super() initialises later.
-            if (module->isArrow && module->closureVarNames[i] == "this") {
-                const unsigned thisSlot = argCount + varCount + static_cast<unsigned>(i);
-                if (isCell(pContext, getSlot(pContext, thisSlot))) continue;
-                setSlot(pContext, thisSlot, thisObj ? thisObj : PROTO_NONE);
-                continue;
-            }
-            // Skip slots already populated by populateClosureCellsFromInstance
-            // (called by OP_call / OP_call_method / OP_call_constructor /
-            // callJSFunction with the function instance's captured cells).
-            // Those slots hold cells (or already-resolved values) — don't
-            // overwrite them with the global-fallback lookup.
-            const proto::ProtoObject* existing =
-                getSlot(pContext, argCount + varCount + static_cast<unsigned>(i));
-            if (existing && existing != PROTO_NONE) continue;
-            if (!globalObjInit || globalObjInit == PROTO_NONE) continue;
-            const proto::ProtoString* key =
-                i < module->closureKeys.size() ? module->closureKeys[i] : nullptr;
-            if (key) {
-                const proto::ProtoObject* val = globalObjInit->getAttribute(pContext, key, false);
-                if (val && val != PROTO_NONE)
-                    setSlot(pContext, argCount + varCount + static_cast<unsigned>(i), val);
-            }
-        }
+        // Closure vars the call site did not bind (bindClosureVarSlots): none
+        // when it bound every slot, unless an arrow's `this` is among them.
+        if (!module->closureVarNames.empty()
+                && (!(entry & kEntryClosuresBound) || module->arrowCapturesThis))
+            bindClosureVarSlots(pContext, module, thisObj,
+                                (pGlobalRoot && *pGlobalRoot) ? *pGlobalRoot : thisObj);
     }
     ProtoBytecodeModule* mod = const_cast<ProtoBytecodeModule*>(module);
 
@@ -7732,12 +7861,12 @@ static const proto::ProtoObject* runBytecodeImpl(proto::ProtoContext* pContext,
     }
 
     // Async resume: deliver the completion at the suspension point.
-    if (t_asyncResumeCont && asyncDeliverResume(pContext, throwOnResume))
+    if (module->suspends && t_asyncResumeCont && asyncDeliverResume(pContext, throwOnResume))
         hasThrowOnResume = true;
 
     // Bootstrap the null sentinel. Stored as __js_null_sentinel__ on the global root
     // so the GC can trace it. Cached in t_nullSentinel for O(1) access during execution.
-    if (!nested && !t_nullSentinel && pGlobalRoot && *pGlobalRoot) {
+    if (!nested && !(entry & kEntryFromActivation) && !t_nullSentinel && pGlobalRoot && *pGlobalRoot) {
         const proto::ProtoString* sentinelKey = JSSymbols::jsNullSentinel(pContext);
         if (sentinelKey) {
             const proto::ProtoObject* existing =
@@ -7754,7 +7883,7 @@ static const proto::ProtoObject* runBytecodeImpl(proto::ProtoContext* pContext,
 
     // Bootstrap the TDZ sentinel. Same approach as t_nullSentinel: a unique ProtoObject
     // that cannot equal any legitimate JS value (including empty string "").
-    if (!nested && !t_tdzSentinel && pGlobalRoot && *pGlobalRoot) {
+    if (!nested && !(entry & kEntryFromActivation) && !t_tdzSentinel && pGlobalRoot && *pGlobalRoot) {
         const proto::ProtoString* tdzKey = JSSymbols::jsTdzSentinel(pContext);
         if (tdzKey) {
             const proto::ProtoObject* existing =
@@ -7782,44 +7911,15 @@ static const proto::ProtoObject* runBytecodeImpl(proto::ProtoContext* pContext,
     // Guard via a sentinel attribute on the global root.  First
     // entry installs everything and sets `__protojs_globals_init__`.
     // Subsequent entries find the flag and skip the entire block.
-    bool needsGlobalInit = true;
-    // Cache the flag key as an INTERNED SYMBOL (not a plain ProtoString).
-    // Symbols compare by pointer, so getAttribute below skips the
-    // SymbolTable::lookupByContent (toUTF8String + contentEqual) round-
-    // trip that profiling showed at ~12 % of per-call CPU on 100 K
-    // function calls.  fromUTF8String + asString returns a regular
-    // POINTER_TAG_STRING; use createSymbol to get the canonical
-    // POINTER_TAG_SYMBOL pointer.
-    static thread_local const proto::ProtoString* s_initFlagKey = nullptr;
-    if (!s_initFlagKey) {
-        s_initFlagKey = proto::ProtoString::createSymbol(pContext, "__protojs_globals_init__");
-    }
-    const proto::ProtoString* initFlagKey = s_initFlagKey;
-    // A nested level's activation has initialised the globals.
-    if (nested) needsGlobalInit = false;
-    else if (pGlobalRoot && *pGlobalRoot && initFlagKey) {
-        // The global object last found initialised, valid until the next
-        // collection (which may free it and reuse its address): every call
-        // of a function reaches here, and the flag, once set, stays.
-        struct InitSeen {
-            const proto::ProtoObject* root;
-            const proto::ProtoSpace* space;
-            std::uint64_t cycle;
-        };
-        static thread_local InitSeen t_initSeen{nullptr, nullptr, 0};
-        const std::uint64_t cycle = pContext->space ? pContext->space->getGCCycleCount() : 0;
-        if (t_initSeen.root == *pGlobalRoot && t_initSeen.space == pContext->space
-                && t_initSeen.cycle == cycle) {
-            needsGlobalInit = false;
-        } else {
-            const proto::ProtoObject* flag =
-                (*pGlobalRoot)->getAttribute(pContext, initFlagKey, false);
-            if (flag == PROTO_TRUE) {
-                needsGlobalInit = false;
-                t_initSeen = InitSeen{*pGlobalRoot, pContext->space, cycle};
-            }
-        }
-    }
+    // Guard via a sentinel attribute on the global root.  First
+    // entry installs everything and sets `__protojs_globals_init__`.
+    // Subsequent entries find the flag (globalsNeedInit, cached per thread
+    // for the global object and GC cycle) and skip the entire block.  A
+    // nested level's activation has initialised the globals, and so has the
+    // running activation that made this call (kEntryFromActivation).
+    const bool needsGlobalInit = !nested
+        && (!(entry & kEntryFromActivation) || !pGlobalRoot || !*pGlobalRoot)
+        && globalsNeedInit(pContext, pGlobalRoot);
   if (needsGlobalInit) {
     // Register Function.prototype first so that downstream constructors can
     // parent themselves on it — this makes Object.getPrototypeOf(Error) /
@@ -8922,8 +9022,8 @@ static const proto::ProtoObject* runBytecodeImpl(proto::ProtoContext* pContext,
 
     // Mark the global root as initialised so subsequent runBytecode calls
     // skip the entire block above.
-    if (pGlobalRoot && *pGlobalRoot && initFlagKey) {
-        *pGlobalRoot = (*pGlobalRoot)->setAttribute(pContext, initFlagKey, PROTO_TRUE);
+    if (pGlobalRoot && *pGlobalRoot && globalsInitFlagKey(pContext)) {
+        *pGlobalRoot = (*pGlobalRoot)->setAttribute(pContext, globalsInitFlagKey(pContext), PROTO_TRUE);
     }
   }  // end if (needsGlobalInit)
 
@@ -8940,7 +9040,7 @@ static const proto::ProtoObject* runBytecodeImpl(proto::ProtoContext* pContext,
     // CreateGlobalFunctionBinding).  A `let` / `const` / `class` is not hoisted:
     // its absence is the TDZ that OP_get_var reports as a ReferenceError until
     // the declaration initialises it.
-    if (!nested && pGlobalRoot && *pGlobalRoot && module && !module->closureVarNames.empty())
+    if (!nested && module->declaresGlobals && pGlobalRoot && *pGlobalRoot)
         hoistGlobalDeclarations(pContext, module, pGlobalRoot);
 
     // Module-scope split: top-level module bindings live in a small child
@@ -8965,8 +9065,9 @@ static const proto::ProtoObject* runBytecodeImpl(proto::ProtoContext* pContext,
     // A run against any other root slot (a loader's local) keeps its bindings
     // on the object the caller owns, as it did before the split existed.
     // tests/cli/toplevel-bindings-survive-gc.sh is the regression test.
-    JSContextWrapper* const splitOwner = JSContextWrapper::current();
-    if (!nested && module == t_rootModule && pGlobalRoot && *pGlobalRoot && splitOwner
+    JSContextWrapper* const splitOwner =
+        (nested || module != t_rootModule) ? nullptr : JSContextWrapper::current();
+    if (splitOwner && pGlobalRoot && *pGlobalRoot
         && pGlobalRoot == splitOwner->getNativeGlobalRootPtr()) {
         const proto::ProtoString* s_scopedKey = moduleScopedKey(pContext);
         if (s_scopedKey && (*pGlobalRoot)->hasOwnAttribute(pContext, s_scopedKey) != PROTO_TRUE) {
@@ -16865,14 +16966,6 @@ static const proto::ProtoObject* runBytecodeImpl(proto::ProtoContext* pContext,
                 // lookup was a measurable fraction of dispatch cost, even
                 // though it always returned -1.  Skip it when we can.
                 const bool funcIsNative = func && func->isMethod(pContext);
-                // §10.2.1 [[Call]] step 2: a class constructor called as a
-                // method (`({C}).C()`) is a TypeError, as in OP_call.
-                if (!funcIsNative && func && func != PROTO_NONE && !proto::isSmallInt(func)) {
-                    const proto::ProtoString* icck = JSSymbols::isClassCtor(pContext);
-                    if (icck && func->getOwnAttributeDirect(pContext, icck) == PROTO_TRUE)
-                        throwJS(pContext, makeError(pContext, "TypeError",
-                            "Class constructor cannot be invoked without 'new'", pGlobalRoot));
-                }
                 int bcId = funcIsNative ? -1 : getBytecodeId(pContext, func);
                 // Method calls consult the closure's own module like every other
                 // dispatch site.  Pre-fix this site looked only at the running
@@ -16883,6 +16976,16 @@ static const proto::ProtoObject* runBytecodeImpl(proto::ProtoContext* pContext,
                 // what made file-module exports look callable but not be.
                 const ProtoBytecodeModule* resolvedMod2 =
                     resolveNestedFunction(pContext, func, bcId, module);
+                // §10.2.1 [[Call]] step 2: a class constructor called as a
+                // method (`({C}).C()`) is a TypeError, as in OP_call; only a
+                // callee that may be a class constructor is probed.
+                if (!funcIsNative && func && func != PROTO_NONE && !proto::isSmallInt(func)
+                        && (!resolvedMod2 || resolvedMod2->isClassConstructor)) {
+                    const proto::ProtoString* icck = JSSymbols::isClassCtor(pContext);
+                    if (icck && func->getOwnAttributeDirect(pContext, icck) == PROTO_TRUE)
+                        throwJS(pContext, makeError(pContext, "TypeError",
+                            "Class constructor cannot be invoked without 'new'", pGlobalRoot));
+                }
                 if (resolvedMod2) {
                     const auto& nf = *resolvedMod2;
                     // GC critical section: argsList is built by repeated
@@ -16950,14 +17053,14 @@ static const proto::ProtoObject* runBytecodeImpl(proto::ProtoContext* pContext,
                             setSlot(&childCtx, i, argSlice[i]);
                         for (uint32_t i = 0; i < argc + 2; i++) stackPop(pContext);
                     }
-                    populateClosureCellsFromInstance(&childCtx, func, nf);
+                    const bool closuresBound = populateClosureCellsFromInstance(&childCtx, func, nf);
                     // Active func / args for OP_special_object inside method body.
                     ActiveCallScope activeCallScope;
                     t_activeFunc = func;
                     t_activeNewTgt = nullptr;
                     t_activeArgs = argsList;
-                    const proto::ProtoObject* result =
-                        runBytecode(&childCtx, &nf, effectiveThis, argsList, pGlobalRoot);
+                    const proto::ProtoObject* result = runCallActivation(
+                        &childCtx, nf, effectiveThis, argsList, pGlobalRoot, closuresBound);
                     anchorCallOutcome(childCtx, result, nullptr);
                     // Tail-call: caller's return value IS the callee's result.
                     // Don't push to the stack — propagate up via early return.
@@ -17399,9 +17502,10 @@ static const proto::ProtoObject* runBytecodeImpl(proto::ProtoContext* pContext,
                         }
                         setSlot(&childCtx, i, arg);
                     }
-                    populateClosureCellsFromInstance(&childCtx, func, nf);
+                    const bool closuresBound = populateClosureCellsFromInstance(&childCtx, func, nf);
 
-                    result = runBytecode(&childCtx, &nf, newObj, argsList, pGlobalRoot);
+                    result = runCallActivation(&childCtx, nf, newObj, argsList, pGlobalRoot,
+                                               closuresBound);
                     anchorCallOutcome(childCtx, result, nullptr);
                 } else if (func && func->isMethod(pContext)) {
                     // Raw protoCore methods (Math.abs, Math.sign, JSON.parse,
@@ -17846,12 +17950,26 @@ static const proto::ProtoObject* runBytecodeImpl(proto::ProtoContext* pContext,
                 //    and we fall through to the native-method branch).
                 if (bcId < 0) bcId = getBytecodeId(pContext, func);
 
+                const ProtoBytecodeModule* resolvedModule = nullptr;
+                // Closures created inside a foreign module (e.g. the
+                // Function constructor's evalIsolatedToProto path) carry
+                // an explicit __closure_module__ pointer to the module
+                // that owns their nestedFunctions[bcId] entry. Without
+                // this, the bcId would be resolved against the caller's
+                // current/root module — and either miss outright or
+                // (worse) collide with an unrelated nested function at
+                // the same index.
+                resolvedModule = resolveNestedFunction(pContext, func, bcId, module);
+
                 // ECMA-262 §10.2.1 [[Call]] step 2: if F's [[FunctionKind]]
                 // is "classConstructor", throw a TypeError.  Class ctors
                 // are marked with __is_class_ctor__ by OP_define_class.
                 // Invoking them without `new` (i.e., via OP_call rather
-                // than OP_call_constructor) is an error.
-                if (func && func != PROTO_NONE) {
+                // than OP_call_constructor) is an error.  A callee whose
+                // bytecode is not a class constructor's (decided at load)
+                // cannot carry the marker, so only the others are probed.
+                if (func && func != PROTO_NONE
+                        && (!resolvedModule || resolvedModule->isClassConstructor)) {
                     // PERF: use the interned JSSymbols accessor instead of
                     // building a fresh ProtoString every call.  Pre-fix
                     // this site allocated ~98 protoCore cells per JS-to-JS
@@ -17872,17 +17990,6 @@ static const proto::ProtoObject* runBytecodeImpl(proto::ProtoContext* pContext,
                         DISPATCH();
                     }
                 }
-
-                const ProtoBytecodeModule* resolvedModule = nullptr;
-                // Closures created inside a foreign module (e.g. the
-                // Function constructor's evalIsolatedToProto path) carry
-                // an explicit __closure_module__ pointer to the module
-                // that owns their nestedFunctions[bcId] entry. Without
-                // this, the bcId would be resolved against the caller's
-                // current/root module — and either miss outright or
-                // (worse) collide with an unrelated nested function at
-                // the same index.
-                resolvedModule = resolveNestedFunction(pContext, func, bcId, module);
 
                 if (resolvedModule) {
                     const auto& nf = *resolvedModule;
@@ -17949,15 +18056,15 @@ static const proto::ProtoObject* runBytecodeImpl(proto::ProtoContext* pContext,
                             setSlot(&childCtx, i, argSlice[i]);
                         for (uint32_t i = 0; i <= argc; i++) stackPop(pContext);
                     }
-                    populateClosureCellsFromInstance(&childCtx, func, nf);
+                    const bool closuresBound = populateClosureCellsFromInstance(&childCtx, func, nf);
 
                     // Publish active func / args for OP_special_object inside body.
                     ActiveCallScope activeCallScope;
                     t_activeFunc = func;
                     t_activeNewTgt = nullptr;
                     t_activeArgs = argsList;
-                    const proto::ProtoObject* result =
-                        runBytecode(&childCtx, &nf, callThisVal, argsList, pGlobalRoot);
+                    const proto::ProtoObject* result = runCallActivation(
+                        &childCtx, nf, callThisVal, argsList, pGlobalRoot, closuresBound);
                     REFRESH_INTERP_STATE();
                     anchorCallOutcome(childCtx, result, nullptr);
                     if (is_tail_call) return result ? result : PROTO_NONE;
@@ -21323,7 +21430,7 @@ const proto::ProtoObject* callJSFunction(
             setSlot(&childCtx, i, args->getAt(ctx, static_cast<int>(i)));
         childCtx.currentFileName = ctx->currentFileName;
         childCtx.currentLineNumber = ctx->currentLineNumber;
-        populateClosureCellsFromInstance(&childCtx, fn, nf);
+        const bool closuresBound = populateClosureCellsFromInstance(&childCtx, fn, nf);
         unsigned argc = args ? static_cast<unsigned>(args->getSize(ctx)) : 0u;
         // The arguments as a ProtoList only when the body can see them as one
         // (`arguments`, a rest parameter, super(...) through t_activeArgs), as
@@ -21344,7 +21451,8 @@ const proto::ProtoObject* callJSFunction(
         t_activeFunc = fn;
         t_activeArgs = argsList;
         const proto::ProtoObject* result =
-            runBytecode(&childCtx, &nf, effectiveThis, argsList, globalRoot);
+            runCallActivation(&childCtx, nf, effectiveThis, argsList, globalRoot, closuresBound,
+                              kEntryGeneral);
         anchorCallOutcome(childCtx, result, nullptr);
         // The callee's exception propagates to the native caller as a C++
         // exception.

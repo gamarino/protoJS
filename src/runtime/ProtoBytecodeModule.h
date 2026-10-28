@@ -129,6 +129,29 @@ struct ProtoBytecodeModule {
      *  runBytecode, saving one ProtoListSmallImpl allocation per call. */
     bool usesArguments{false};
 
+    /** A class constructor, base or derived: its [[FunctionKind]] is
+     *  "classConstructor", so a call without `new` is a TypeError. */
+    bool isClassConstructor{false};
+
+    /** The body runs OP_for_of_start, the only opcode that pushes an iterator
+     *  record (for-of loops and destructuring patterns) which an exception
+     *  leaving the activation must close.  Also true when the loader could
+     *  not walk the bytecode to the end. */
+    bool opensIteratorRecords{true};
+
+    /** An arrow function with a closure variable named `this`: its slot is
+     *  bound from the activation's `this` at entry. */
+    bool arrowCapturesThis{false};
+
+    /** An async function or a generator: an activation of it may be a resume
+     *  (the hand-offs runBytecodeImpl's prologue reads).  isAsync || isGenerator. */
+    bool suspends{false};
+
+    /** Declares global bindings (a closure variable of kind
+     *  JS_CLOSURE_GLOBAL_DECL): only a script or an eval, whose entry hoists
+     *  them. */
+    bool declaresGlobals{false};
+
     /** The function's declared name. */
     std::string funcName;
 

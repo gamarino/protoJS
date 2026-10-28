@@ -59915,6 +59915,13 @@ int protojs_bytecode_is_constructor(void *bytecode) {
     return (b->has_prototype || b->is_class_constructor) ? 1 : 0;
 }
 
+/* 1 for a class constructor, base or derived (its [[FunctionKind]] is
+ * "classConstructor": a call without `new` is a TypeError, ECMA-262 §10.2.1). */
+int protojs_bytecode_is_class_constructor(void *bytecode) {
+    JSFunctionBytecode *b = (JSFunctionBytecode *)bytecode;
+    return b->is_class_constructor ? 1 : 0;
+}
+
 /* 1 for an ordinary `function` (declaration or expression, kind normal):
  * the functions MakeConstructor gives a `prototype` object. QuickJS creates
  * that object lazily for them, and so does protoJS. */

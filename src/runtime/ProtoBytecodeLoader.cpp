@@ -246,15 +246,19 @@ static bool loadBytecodeRecursive(JSContext* ctx,
     std::vector<uint8_t> specBuf = specialise(litBuf.data(), len, getSpecialiseMode());
     lowerClassConstructorPush(specBuf);
     {
+        // The for-of loops' offsets.  A walk that cannot reach the end
+        // indexes none and leaves opensIteratorRecords conservatively set.
         const uint8_t* sizes = getOpSizes();
         out->forOfStartPcs.clear();
+        bool walked = true;
         for (size_t pc = 0; pc < specBuf.size(); ) {
             const uint8_t op = specBuf[pc];
             if (op == OP_for_of_start) out->forOfStartPcs.push_back(static_cast<uint32_t>(pc));
             const uint8_t sz = sizes[op];
-            if (sz == 0) { out->forOfStartPcs.clear(); break; }
+            if (sz == 0) { out->forOfStartPcs.clear(); walked = false; break; }
             pc += sz;
         }
+        out->opensIteratorRecords = !walked || !out->forOfStartPcs.empty();
     }
     out->pBytecode = pContext->newByteBuffer(
         reinterpret_cast<const char*>(specBuf.data()),
@@ -273,11 +277,13 @@ static bool loadBytecodeRecursive(JSContext* ctx,
     out->isArrow  = protojs_bytecode_is_arrow(quickjsBytecode) != 0;
     out->isConstructor = protojs_bytecode_is_constructor(quickjsBytecode) != 0;
     out->hasLazyPrototype = protojs_bytecode_has_prototype(quickjsBytecode) != 0;
+    out->isClassConstructor = protojs_bytecode_is_class_constructor(quickjsBytecode) != 0;
     {
         // func_kind: 0=normal, 1=generator, 2=async, 3=async-generator
         int fk = protojs_bytecode_func_kind(quickjsBytecode);
         out->isAsync     = (fk & 2) != 0; // JS_FUNC_ASYNC bit
         out->isGenerator = (fk & 1) != 0; // JS_FUNC_GENERATOR bit
+        out->suspends    = out->isAsync || out->isGenerator;
     }
 
     // [NEW] Create metadata object with interned keys.
@@ -333,6 +339,8 @@ static bool loadBytecodeRecursive(JSContext* ctx,
     out->closureVarIsConst.clear();
     out->closureVarIsConst.reserve(static_cast<size_t>(closureVarCount));
     out->closureVarIsDeclared.clear();
+    out->declaresGlobals = false;
+    out->arrowCapturesThis = false;
     out->closureVarIsDeclared.reserve(static_cast<size_t>(closureVarCount));
     out->closureVarIsFunctionDecl.clear();
     out->closureVarIsFunctionDecl.reserve(static_cast<size_t>(closureVarCount));
@@ -346,7 +354,8 @@ static bool loadBytecodeRecursive(JSContext* ctx,
         const char* name = protojs_bytecode_closure_var_name(ctx, quickjsBytecode, static_cast<uint16_t>(i));
         const std::string nameStr = name ? name : "";
         out->closureVarNames.push_back(nameStr);
-        
+        if (out->isArrow && nameStr == "this") out->arrowCapturesThis = true;
+
         // [NEW] Pre-intern the name as a symbol for O(1) resolution.
         const proto::ProtoString* sym = proto::ProtoString::createSymbol(pContext, nameStr);
         protojs::dict::noteVocabulary(nameStr);  // program vocabulary
@@ -359,6 +368,7 @@ static bool loadBytecodeRecursive(JSContext* ctx,
             protojs_bytecode_closure_var_is_const(quickjsBytecode, static_cast<uint16_t>(i)) != 0);
         int ctype = protojs_bytecode_closure_var_type(quickjsBytecode, static_cast<uint16_t>(i));
         out->closureVarIsDeclared.push_back(ctype == 4 /* JS_CLOSURE_GLOBAL_DECL */);
+        if (ctype == 4) out->declaresGlobals = true;
         out->closureVarIsFunctionDecl.push_back(
             protojs_bytecode_closure_var_is_function_decl(quickjsBytecode, static_cast<uint16_t>(i)) != 0);
         out->closureVarTypes.push_back(ctype);

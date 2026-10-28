@@ -378,6 +378,7 @@ foreach(js_test
         basic/regexp_global_advance
         basic/regexp_register_slots
         basic/string_cells_bounded
+        basic/call_activation_kinds
         basic/string_nul
         basic/array_from_large
         basic/for_in_strings
