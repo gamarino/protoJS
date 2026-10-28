@@ -4113,8 +4113,10 @@ static inline uint16_t get_u16(const uint8_t* p) {
 /** JS-style truthiness, implemented on top of protoCore primitives. */
 static bool toBool(proto::ProtoContext* context, const proto::ProtoObject* value) {
     if (!context) return false;
-    if (!value || value == PROTO_NONE || value->isNone(context)) return false;
     if (proto::isSmallInt(value)) return proto::asSmallInt(value) != 0;
+    if (value == PROTO_TRUE) return true;
+    if (value == PROTO_FALSE) return false;
+    if (!value || value == PROTO_NONE || value->isNone(context)) return false;
     if (value == t_nullSentinel) return false;  // JS null is falsy
     // The global `undefined` identifier resolves to t_undefinedSentinel
     // (a heap-allocated singleton distinct from PROTO_NONE). Without
@@ -4457,8 +4459,9 @@ static const proto::ProtoObject* toNumber(proto::ProtoContext* context,
 
 /** JS ToInt32: truncate to signed 32-bit integer. */
 static int32_t toInt32Val(proto::ProtoContext* ctx, const proto::ProtoObject* v) {
+    if (proto::isSmallInt(v))
+        return static_cast<int32_t>(static_cast<uint32_t>(proto::asSmallInt(v)));
     if (!v || v == PROTO_NONE || v->isNone(ctx)) return 0;
-    if (proto::isSmallInt(v)) return static_cast<int32_t>(proto::asSmallInt(v));
     if (v->isInteger(ctx)) return static_cast<int32_t>(v->asLong(ctx));
     if (v->isDouble(ctx) || v->isFloat(ctx)) {
         double d = v->asDouble(ctx);
@@ -8967,8 +8970,8 @@ static const proto::ProtoObject* runBytecodeImpl(proto::ProtoContext* pContext,
      *   4. If neither returns a primitive, throws TypeError.
      * Returns the original value unchanged when the object is already a primitive. */
     auto toPrimIfObject = [&](const proto::ProtoObject* obj) -> const proto::ProtoObject* {
-        if (!obj || obj == PROTO_NONE || obj->isNone(pContext)) return obj;
         if (proto::isSmallInt(obj)) return obj;
+        if (!obj || obj == PROTO_NONE || obj->isNone(pContext)) return obj;
         if (obj == t_nullSentinel) return obj;  // null does not coerce to primitive
         if (obj->isBoolean(pContext) || obj->isInteger(pContext) ||
             obj->isDouble(pContext) || obj->isFloat(pContext) ||
@@ -14820,6 +14823,18 @@ static const proto::ProtoObject* runBytecodeImpl(proto::ProtoContext* pContext,
                 if (_PF().stackTop < 2) MALFORMED_BYTECODE();
                 const proto::ProtoObject* b = pAutomaticLocals[currentStackBase + --_PF().stackTop];
                 const proto::ProtoObject* a = pAutomaticLocals[currentStackBase + --_PF().stackTop];
+                // Two small integers: the product when it stays one.  A zero
+                // product with a negative factor is -0, a Number that is not a
+                // small integer: the general path below makes it.
+                if (proto::isSmallInt(a) && proto::isSmallInt(b)) {
+                    long long m;
+                    const long long x = proto::asSmallInt(a), y = proto::asSmallInt(b);
+                    if (!__builtin_mul_overflow(x, y, &m) && proto::smallIntInRange(m)
+                        && (m != 0 || (x >= 0 && y >= 0))) {
+                        pAutomaticLocals[currentStackBase + _PF().stackTop++] = proto::makeSmallInt(m);
+                        DISPATCH();
+                    }
+                }
 
                 BIGINT_BIN_DISPATCH_IMPL(kBigMul, true);
 
@@ -14926,6 +14941,14 @@ static const proto::ProtoObject* runBytecodeImpl(proto::ProtoContext* pContext,
                 if (_PF().stackTop < 2) MALFORMED_BYTECODE();
                 const proto::ProtoObject* b = pAutomaticLocals[currentStackBase + --_PF().stackTop];
                 const proto::ProtoObject* a = pAutomaticLocals[currentStackBase + --_PF().stackTop];
+                // Two small integers: the difference when it stays one.
+                if (proto::isSmallInt(a) && proto::isSmallInt(b)) {
+                    const long long d = proto::asSmallInt(a) - proto::asSmallInt(b);
+                    if (proto::smallIntInRange(d)) {
+                        pAutomaticLocals[currentStackBase + _PF().stackTop++] = proto::makeSmallInt(d);
+                        DISPATCH();
+                    }
+                }
 
                 BIGINT_BIN_DISPATCH_IMPL(kBigSub, true);
 
@@ -15149,6 +15172,12 @@ static const proto::ProtoObject* runBytecodeImpl(proto::ProtoContext* pContext,
                 if (_PF().stackTop < 2) MALFORMED_BYTECODE();
                 const proto::ProtoObject* b = pAutomaticLocals[currentStackBase + --_PF().stackTop];
                 const proto::ProtoObject* a = pAutomaticLocals[currentStackBase + --_PF().stackTop];
+                // Two small integers: the comparison, before any BigInt or
+                // ToPrimitive work (neither applies to a small integer).
+                if (proto::isSmallInt(a) && proto::isSmallInt(b)) {
+                    pAutomaticLocals[currentStackBase + _PF().stackTop++] = (proto::asSmallInt(a) < proto::asSmallInt(b)) ? PROTO_TRUE : PROTO_FALSE;
+                    DISPATCH();
+                }
                 BIGINT_REL_DISPATCH(PROTO_TRUE, PROTO_FALSE, PROTO_FALSE);
                 // Per ECMA-262 Abstract Relational Comparison §7.2.13 step 4:
                 // numerify booleans before comparison.  Pre-fix `1 < true`
@@ -15199,6 +15228,12 @@ static const proto::ProtoObject* runBytecodeImpl(proto::ProtoContext* pContext,
                 if (_PF().stackTop < 2) MALFORMED_BYTECODE();
                 const proto::ProtoObject* b = pAutomaticLocals[currentStackBase + --_PF().stackTop];
                 const proto::ProtoObject* a = pAutomaticLocals[currentStackBase + --_PF().stackTop];
+                // Two small integers: the comparison, before any BigInt or
+                // ToPrimitive work (neither applies to a small integer).
+                if (proto::isSmallInt(a) && proto::isSmallInt(b)) {
+                    pAutomaticLocals[currentStackBase + _PF().stackTop++] = (proto::asSmallInt(a) <= proto::asSmallInt(b)) ? PROTO_TRUE : PROTO_FALSE;
+                    DISPATCH();
+                }
                 BIGINT_REL_DISPATCH(PROTO_TRUE, PROTO_TRUE, PROTO_FALSE);
                 // see L_OP_lt for the boolean-numerify rationale.
                 // undefined comparisons short-circuit to false (NaN rule);
@@ -15239,6 +15274,12 @@ static const proto::ProtoObject* runBytecodeImpl(proto::ProtoContext* pContext,
                 if (_PF().stackTop < 2) MALFORMED_BYTECODE();
                 const proto::ProtoObject* b = pAutomaticLocals[currentStackBase + --_PF().stackTop];
                 const proto::ProtoObject* a = pAutomaticLocals[currentStackBase + --_PF().stackTop];
+                // Two small integers: the comparison, before any BigInt or
+                // ToPrimitive work (neither applies to a small integer).
+                if (proto::isSmallInt(a) && proto::isSmallInt(b)) {
+                    pAutomaticLocals[currentStackBase + _PF().stackTop++] = (proto::asSmallInt(a) > proto::asSmallInt(b)) ? PROTO_TRUE : PROTO_FALSE;
+                    DISPATCH();
+                }
                 BIGINT_REL_DISPATCH(PROTO_FALSE, PROTO_FALSE, PROTO_TRUE);
                 // undefined comparisons short-circuit to false (NaN rule);
                 // see L_OP_lt for the spec reference.
@@ -15278,6 +15319,12 @@ static const proto::ProtoObject* runBytecodeImpl(proto::ProtoContext* pContext,
                 if (_PF().stackTop < 2) MALFORMED_BYTECODE();
                 const proto::ProtoObject* b = pAutomaticLocals[currentStackBase + --_PF().stackTop];
                 const proto::ProtoObject* a = pAutomaticLocals[currentStackBase + --_PF().stackTop];
+                // Two small integers: the comparison, before any BigInt or
+                // ToPrimitive work (neither applies to a small integer).
+                if (proto::isSmallInt(a) && proto::isSmallInt(b)) {
+                    pAutomaticLocals[currentStackBase + _PF().stackTop++] = (proto::asSmallInt(a) >= proto::asSmallInt(b)) ? PROTO_TRUE : PROTO_FALSE;
+                    DISPATCH();
+                }
                 BIGINT_REL_DISPATCH(PROTO_FALSE, PROTO_TRUE, PROTO_TRUE);
                 // undefined comparisons short-circuit to false (NaN rule);
                 // see L_OP_lt for the spec reference.
@@ -15322,6 +15369,14 @@ static const proto::ProtoObject* runBytecodeImpl(proto::ProtoContext* pContext,
                 // BigInt.prototype.toString → string, losing the type).
                 const proto::ProtoObject* b = pAutomaticLocals[currentStackBase + --_PF().stackTop];
                 const proto::ProtoObject* a = pAutomaticLocals[currentStackBase + --_PF().stackTop];
+                // Two small integers: ToInt32 is their low 32 bits.
+                if (proto::isSmallInt(a) && proto::isSmallInt(b)) {
+                    const int32_t r = static_cast<int32_t>(
+                        static_cast<uint32_t>(proto::asSmallInt(a)) &
+                        static_cast<uint32_t>(proto::asSmallInt(b)));
+                    pAutomaticLocals[currentStackBase + _PF().stackTop++] = proto::makeSmallInt(r);
+                    DISPATCH();
+                }
                 a = unwrapBigIntWrapper(pContext, a);
                 b = unwrapBigIntWrapper(pContext, b);
                 BIGINT_BIN_DISPATCH(kBigAnd);
@@ -15337,6 +15392,14 @@ static const proto::ProtoObject* runBytecodeImpl(proto::ProtoContext* pContext,
                 if (_PF().stackTop < 2) MALFORMED_BYTECODE();
                 const proto::ProtoObject* b = pAutomaticLocals[currentStackBase + --_PF().stackTop];
                 const proto::ProtoObject* a = pAutomaticLocals[currentStackBase + --_PF().stackTop];
+                // Two small integers: ToInt32 is their low 32 bits.
+                if (proto::isSmallInt(a) && proto::isSmallInt(b)) {
+                    const int32_t r = static_cast<int32_t>(
+                        static_cast<uint32_t>(proto::asSmallInt(a)) |
+                        static_cast<uint32_t>(proto::asSmallInt(b)));
+                    pAutomaticLocals[currentStackBase + _PF().stackTop++] = proto::makeSmallInt(r);
+                    DISPATCH();
+                }
                 a = unwrapBigIntWrapper(pContext, a);
                 b = unwrapBigIntWrapper(pContext, b);
                 BIGINT_BIN_DISPATCH(kBigOr);
@@ -15352,6 +15415,14 @@ static const proto::ProtoObject* runBytecodeImpl(proto::ProtoContext* pContext,
                 if (_PF().stackTop < 2) MALFORMED_BYTECODE();
                 const proto::ProtoObject* b = pAutomaticLocals[currentStackBase + --_PF().stackTop];
                 const proto::ProtoObject* a = pAutomaticLocals[currentStackBase + --_PF().stackTop];
+                // Two small integers: ToInt32 is their low 32 bits.
+                if (proto::isSmallInt(a) && proto::isSmallInt(b)) {
+                    const int32_t r = static_cast<int32_t>(
+                        static_cast<uint32_t>(proto::asSmallInt(a)) ^
+                        static_cast<uint32_t>(proto::asSmallInt(b)));
+                    pAutomaticLocals[currentStackBase + _PF().stackTop++] = proto::makeSmallInt(r);
+                    DISPATCH();
+                }
                 a = unwrapBigIntWrapper(pContext, a);
                 b = unwrapBigIntWrapper(pContext, b);
                 BIGINT_BIN_DISPATCH(kBigXor);
