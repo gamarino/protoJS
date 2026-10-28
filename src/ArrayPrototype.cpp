@@ -1,4 +1,5 @@
 #include "ProtoCoreTypes.h"
+#include "runtime/OwnAttributes.h"
 #include "runtime/JSStringBytes.h"
 #include "runtime/PinnedBuiltin.h"
 #include "runtime/PropertyDictionary.h"
@@ -762,35 +763,26 @@ static const proto::ProtoObject* arrSetLen(proto::ProtoContext* ctx,
         // (e.g. arr[4294967294] = v before arr.length = 2) — without
         // this, `arr[4294967294]` still resolved after truncation
         // (built-ins/Array/length/S15.4.5.2_A3_T4 et al).
-        const proto::ProtoSparseList* own = arr->getOwnAttributes(ctx);
-        if (own) {
-            std::vector<std::string> keysToDrop;
-            const proto::ProtoSparseListIterator* it = own->getIterator(ctx);
-            while (it && it->hasNext(ctx)) {
-                proto::proto_ulong rawKey = it->nextKey(ctx);
-                (void)it->nextValue(ctx);
-                it = const_cast<proto::ProtoSparseListIterator*>(it)->advance(ctx);
-                const proto::ProtoString* propKey =
-                    reinterpret_cast<const proto::ProtoString*>(rawKey);
-                if (!propKey) continue;
-                std::string ks;
-                propKey->toUTF8String(ctx, ks);
-                if (ks.empty()) continue;
-                bool allDigits = true;
-                for (char c : ks) if (c < '0' || c > '9') { allDigits = false; break; }
-                if (!allDigits) continue;
-                if (ks.size() > 1 && ks[0] == '0') continue;
-                try {
-                    unsigned long long idx = std::stoull(ks);
-                    if (idx >= static_cast<unsigned long long>(newLen))
-                        keysToDrop.push_back(ks);
-                } catch (...) {}
-            }
-            for (const auto& ks : keysToDrop) {
-                const proto::ProtoObject* ko = protojs::jsStringFromUTF8(ctx, ks);
-                const proto::ProtoString* k = ko ? ko->asString(ctx) : nullptr;
-                if (k) arr = const_cast<proto::ProtoObject*>(arr->removeAttribute(ctx, k));
-            }
+        {
+            // Collected first, removed after the walk.  The names are the
+            // canonical keys, removed as they are.
+            std::vector<const proto::ProtoString*> keysToDrop;
+            forEachOwnAttribute(ctx, arr,
+                [&](const proto::ProtoString* propKey, const proto::ProtoObject*) {
+                    if (!propKey) return;
+                    std::string ks;
+                    propKey->toUTF8String(ctx, ks);
+                    if (ks.empty()) return;
+                    for (char c : ks) if (c < '0' || c > '9') return;
+                    if (ks.size() > 1 && ks[0] == '0') return;
+                    try {
+                        unsigned long long idx = std::stoull(ks);
+                        if (idx >= static_cast<unsigned long long>(newLen))
+                            keysToDrop.push_back(propKey);
+                    } catch (...) {}
+                });
+            for (const proto::ProtoString* k : keysToDrop)
+                arr = const_cast<proto::ProtoObject*>(arr->removeAttribute(ctx, k));
         }
         // FAST PATH: native ProtoList storage — truncate or pad in place.
         if (const proto::ProtoList* els = getArrayElements(ctx, arr)) {

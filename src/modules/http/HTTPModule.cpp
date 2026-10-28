@@ -1,6 +1,7 @@
 #include "../../ProtoCoreTypes.h"
 #include "../../runtime/JSStringBytes.h"
 #include "../../runtime/PropertyDictionary.h"
+#include "../../runtime/OwnAttributes.h"
 #include "../../runtime/PinnedBuiltin.h"
 #include "HTTPModule.h"
 #include "../../ProtoNativeModule.h"
@@ -301,32 +302,25 @@ void appendHeadersFromObject(proto::ProtoContext* ctx,
                               std::ostringstream& out,
                               bool& haveContentType) {
     if (!hdrsObj || hdrsObj == PROTO_NONE) return;
-    const proto::ProtoSparseList* own = hdrsObj->getOwnAttributes(ctx);
-    if (!own) return;
-    const proto::ProtoSparseListIterator* it = own->getIterator(ctx);
-    while (it && it->hasNext(ctx)) {
-        proto::proto_ulong rawKey = it->nextKey(ctx);
-        const proto::ProtoObject* v = it->nextValue(ctx);
-        it = const_cast<proto::ProtoSparseListIterator*>(it)->advance(ctx);
-        const proto::ProtoString* k =
-            reinterpret_cast<const proto::ProtoString*>(rawKey);
-        if (!k || !v) continue;
-        std::string keyStr;
-        k->toUTF8String(ctx, keyStr);
-        // Skip our internal markers (none expected here, but defensive).
-        if (keyStr.size() >= 2 && keyStr[0] == '_' && keyStr[1] == '_') continue;
-        std::string valStr;
-        if (v->isString(ctx)) {
-            v->asString(ctx)->toUTF8String(ctx, valStr);
-        } else if (v->isInteger(ctx)) {
-            valStr = std::to_string(v->asLong(ctx));
-        } else {
-            continue;
-        }
-        if (keyStr == "Content-Type" || keyStr == "content-type")
-            haveContentType = true;
-        out << keyStr << ": " << valStr << "\r\n";
-    }
+    forEachOwnAttribute(ctx, hdrsObj,
+        [&](const proto::ProtoString* k, const proto::ProtoObject* v) {
+            if (!k || !v) return;
+            std::string keyStr;
+            k->toUTF8String(ctx, keyStr);
+            // Skip our internal markers (none expected here, but defensive).
+            if (keyStr.size() >= 2 && keyStr[0] == '_' && keyStr[1] == '_') return;
+            std::string valStr;
+            if (v->isString(ctx)) {
+                v->asString(ctx)->toUTF8String(ctx, valStr);
+            } else if (v->isInteger(ctx)) {
+                valStr = std::to_string(v->asLong(ctx));
+            } else {
+                return;
+            }
+            if (keyStr == "Content-Type" || keyStr == "content-type")
+                haveContentType = true;
+            out << keyStr << ": " << valStr << "\r\n";
+        });
     // The keys of the property dictionary (runtime/PropertyDictionary.h).
     std::vector<std::pair<const proto::ProtoString*, const proto::ProtoObject*>> de;
     dict::entries(ctx, hdrsObj, de);

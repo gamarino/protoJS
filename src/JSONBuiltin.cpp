@@ -1,6 +1,7 @@
 #include "ProtoCoreTypes.h"
 #include "runtime/JSStringBytes.h"
 #include "runtime/PropertyDictionary.h"
+#include "runtime/OwnAttributes.h"
 #include <algorithm>
 #include "JSONBuiltin.h"
 #include "JSSymbols.h"
@@ -533,19 +534,10 @@ void stringifyRecursive(proto::ProtoContext* ctx,
         auto pushKey = [&](const std::string& s) {
             if (keysSeenSet.insert(s).second) keysSeen.push_back(s);
         };
-        const proto::ProtoSparseList* attrs = obj->getOwnAttributes(ctx);
-        if (attrs) {
-            ScopedRoot r_attrs(rs, reinterpret_cast<const proto::ProtoObject*>(attrs));
-            const proto::ProtoSparseListIterator* it = attrs->getIterator(ctx);
-            while (it && it->hasNext(ctx)) {
-                ScopedRoot r_it(rs, reinterpret_cast<const proto::ProtoObject*>(it));
-                proto::proto_ulong hash = it->nextKey(ctx);
-                (void)it->nextValue(ctx);
-                std::string key = JSSymbols::getNameFromHash(ctx, hash);
-                if (key.empty()) {
-                    const proto::ProtoString* sym = reinterpret_cast<const proto::ProtoString*>(hash);
-                    if (hash > 0x1000) sym->toUTF8String(ctx, key);
-                }
+        forEachOwnAttribute(ctx, obj,
+            [&](const proto::ProtoString* name, const proto::ProtoObject*) {
+                std::string key;
+                if (name) name->toUTF8String(ctx, key);
                 if (!key.empty()) {
                     // Spec §25.5.2 SerializeJSONObject iterates OWN
                     // enumerable string-keyed properties — including
@@ -584,9 +576,7 @@ void stringifyRecursive(proto::ProtoContext* ctx,
                         pushKey(key);
                     }
                 }
-                it = const_cast<proto::ProtoSparseListIterator*>(it)->advance(ctx);
-            }
-        }
+            });
         // The keys of the property dictionary (runtime/PropertyDictionary.h),
         // after the named keys; with dictionary keys present, integer
         // indices go first in ascending order, as Object.keys reports them.
@@ -1229,24 +1219,17 @@ static const proto::ProtoObject* internalizeJSONProperty(
                 protojs::setArrayElements(ctx, val, els);
             }
         } else {
-            // Snapshot keys before mutation — iterator state would
-            // otherwise drift when setAttribute rewrites the chain.
-            const proto::ProtoSparseList* own = val->getOwnAttributes(ctx);
+            // Snapshot the keys before the reviver runs: it may mutate
+            // `val`, and so do the writes below (OwnAttributes.h).
             std::vector<const proto::ProtoString*> keys;
-            const proto::ProtoSparseListIterator* it =
-                own ? own->getIterator(ctx) : nullptr;
-            while (it && it->hasNext(ctx)) {
-                proto::proto_ulong rawKey = it->nextKey(ctx);
-                it = const_cast<proto::ProtoSparseListIterator*>(it)
-                        ->advance(ctx);
-                auto* pk =
-                    reinterpret_cast<const proto::ProtoString*>(rawKey);
-                if (!pk) continue;
-                std::string ks;
-                pk->toUTF8String(ctx, ks);
-                if (ks.compare(0, 2, "__") == 0) continue;
-                keys.push_back(pk);
-            }
+            forEachOwnAttribute(ctx, val,
+                [&](const proto::ProtoString* pk, const proto::ProtoObject*) {
+                    if (!pk) return;
+                    std::string ks;
+                    pk->toUTF8String(ctx, ks);
+                    if (ks.compare(0, 2, "__") == 0) return;
+                    keys.push_back(pk);
+                });
             // The keys of the property dictionary (runtime/PropertyDictionary.h).
             {
                 std::vector<std::pair<const proto::ProtoString*, const proto::ProtoObject*>> de;

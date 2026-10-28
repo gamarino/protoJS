@@ -1,4 +1,5 @@
 #include "ProtoCoreTypes.h"
+#include "runtime/OwnAttributes.h"
 #include "runtime/PropertyDictionary.h"
 #include <vector>
 #include "JSNumber.h"
@@ -124,26 +125,21 @@ static void printProtoValue(proto::ProtoContext* ctx, const proto::ProtoObject* 
         return;
     }
     out << '{';
-    const proto::ProtoSparseList* attrs = val->getOwnAttributes(ctx);
-    if (attrs) {
-        const proto::ProtoSparseListIterator* it = attrs->getIterator(ctx);
+    {
         bool first = true;
-        while (it && it->hasNext(ctx)) {
-            proto::proto_ulong hash = it->nextKey(ctx);
-            const proto::ProtoObject* v = it->nextValue(ctx);
-            std::string key = JSSymbols::getNameFromHash(ctx, hash);
-            if (key.empty()) {
-                const proto::ProtoString* sym = reinterpret_cast<const proto::ProtoString*>(hash);
-                if (hash > 0x1000) sym->toUTF8String(ctx, key);
-            }
+        // The entries first: printProtoValue recurses into the values, which
+        // enumerates other objects (runtime/OwnAttributes.h).
+        std::vector<std::pair<const proto::ProtoString*, const proto::ProtoObject*>> entries;
+        ownAttributeEntries(ctx, val, entries);
+        for (const auto& entry : entries) {
+            std::string key;
+            entry.first->toUTF8String(ctx, key);
             // Skip internal "__"-prefixed keys.
-            if (!key.empty() && key[0] != '_') {
-                if (!first) out << ", ";
-                out << key << ": ";
-                printProtoValue(ctx, v, out, depth + 1);
-                first = false;
-            }
-            it = const_cast<proto::ProtoSparseListIterator*>(it)->advance(ctx);
+            if (key.empty() || key[0] == '_') continue;
+            if (!first) out << ", ";
+            out << key << ": ";
+            printProtoValue(ctx, entry.second, out, depth + 1);
+            first = false;
         }
         // The keys of the property dictionary (runtime/PropertyDictionary.h).
         std::vector<std::pair<const proto::ProtoString*, const proto::ProtoObject*>> de;

@@ -1,6 +1,7 @@
 #include "../../ProtoCoreTypes.h"
 #include "../../runtime/JSStringBytes.h"
 #include "../../runtime/PropertyDictionary.h"
+#include "../../runtime/OwnAttributes.h"
 #include "../../runtime/PinnedBuiltin.h"
 #include "WorkerThreadsModule.h"
 #include <vector>
@@ -130,19 +131,17 @@ struct MessageCloner {
         const proto::ProtoObject* obj = ctx->newObject(/*mutable=*/true);
         seen.emplace_back(v, obj);
         // Own attributes, without protoJS's internal markers.
-        const proto::ProtoSparseList* own = v->getOwnAttributes(ctx);
-        if (own) {
-            const proto::ProtoSparseListIterator* it = own->getIterator(ctx);
-            while (it && it->hasNext(ctx)) {
-                proto::proto_ulong rawKey = it->nextKey(ctx);
-                const proto::ProtoObject* pv = it->nextValue(ctx);
-                it = const_cast<proto::ProtoSparseListIterator*>(it)->advance(ctx);
-                const proto::ProtoString* k = reinterpret_cast<const proto::ProtoString*>(rawKey);
-                if (!k || !pv) continue;
+        // The entries first: clone recurses into the values, which
+        // enumerates other objects (runtime/OwnAttributes.h).
+        {
+            std::vector<std::pair<const proto::ProtoString*, const proto::ProtoObject*>> entries;
+            ownAttributeEntries(ctx, v, entries);
+            for (const auto& entry : entries) {
+                const proto::ProtoString* k = entry.first;
                 std::string ks;
                 k->toUTF8String(ctx, ks);
                 if (ks.size() >= 2 && ks[0] == '_' && ks[1] == '_') continue;
-                obj = dict::createDataProperty(ctx, obj, k, clone(pv));
+                obj = dict::createDataProperty(ctx, obj, k, clone(entry.second));
             }
         }
         // The keys of the property dictionary (runtime/PropertyDictionary.h).
