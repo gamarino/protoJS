@@ -4972,12 +4972,16 @@ const proto::ProtoString* resolveAtom(ProtoBytecodeModule* mod, proto::ProtoCont
 
 /** Check if obj is a bytecode function placeholder (has __bytecode_id__). Returns -1 if not. */
 int getBytecodeId(proto::ProtoContext* pContext, const proto::ProtoObject* obj) {
-    if (!obj || !pContext) return -1;
+    if (!obj || !pContext || proto::isSmallInt(obj)) return -1;
+    // An own attribute under an interned symbol: getOwnAttributeDirect is the
+    // own-only read getAttribute(key, false) does, without its general path.
     const proto::ProtoString* key = JSSymbols::bytecodeId(pContext);
-    const proto::ProtoObject* val = obj->getAttribute(pContext, key, false);
+    const proto::ProtoObject* val = obj->getOwnAttributeDirect(pContext, key);
     if (!val || val == PROTO_NONE) return -1;
-    if (!val->isInteger(pContext)) return -1;
-    long long id = val->asLong(pContext);
+    long long id;
+    if (proto::isSmallInt(val)) id = proto::asSmallInt(val);
+    else if (val->isInteger(pContext)) id = val->asLong(pContext);
+    else return -1;
     return id >= 0 ? static_cast<int>(id) : -1;
 }
 
@@ -4990,11 +4994,14 @@ static const ProtoBytecodeModule* getClosureModule(
     if (!fn || fn == PROTO_NONE || !pContext) return nullptr;
     const proto::ProtoString* key = JSSymbols::closureModule(pContext);
     if (!key) return nullptr;
-    const proto::ProtoObject* val = fn->getAttribute(pContext, key, false);
+    if (proto::isSmallInt(fn)) return nullptr;
+    const proto::ProtoObject* val = fn->getOwnAttributeDirect(pContext, key);
     if (!val || val == PROTO_NONE) return nullptr;
     // eval code stamps its module's lifetime token (runtime/EvalModuleCache.h).
-    if (!val->isInteger(pContext)) return EvalModuleCache::moduleOfToken(pContext, val);
-    uintptr_t ptr = static_cast<uintptr_t>(val->asLong(pContext));
+    if (!proto::isSmallInt(val) && !val->isInteger(pContext))
+        return EvalModuleCache::moduleOfToken(pContext, val);
+    uintptr_t ptr = static_cast<uintptr_t>(
+        proto::isSmallInt(val) ? proto::asSmallInt(val) : val->asLong(pContext));
     return ptr ? reinterpret_cast<const ProtoBytecodeModule*>(ptr) : nullptr;
 }
 
@@ -7779,9 +7786,27 @@ static const proto::ProtoObject* runBytecodeImpl(proto::ProtoContext* pContext,
     // A nested level's activation has initialised the globals.
     if (nested) needsGlobalInit = false;
     else if (pGlobalRoot && *pGlobalRoot && initFlagKey) {
-        const proto::ProtoObject* flag =
-            (*pGlobalRoot)->getAttribute(pContext, initFlagKey, false);
-        if (flag == PROTO_TRUE) needsGlobalInit = false;
+        // The global object last found initialised, valid until the next
+        // collection (which may free it and reuse its address): every call
+        // of a function reaches here, and the flag, once set, stays.
+        struct InitSeen {
+            const proto::ProtoObject* root;
+            const proto::ProtoSpace* space;
+            std::uint64_t cycle;
+        };
+        static thread_local InitSeen t_initSeen{nullptr, nullptr, 0};
+        const std::uint64_t cycle = pContext->space ? pContext->space->getGCCycleCount() : 0;
+        if (t_initSeen.root == *pGlobalRoot && t_initSeen.space == pContext->space
+                && t_initSeen.cycle == cycle) {
+            needsGlobalInit = false;
+        } else {
+            const proto::ProtoObject* flag =
+                (*pGlobalRoot)->getAttribute(pContext, initFlagKey, false);
+            if (flag == PROTO_TRUE) {
+                needsGlobalInit = false;
+                t_initSeen = InitSeen{*pGlobalRoot, pContext->space, cycle};
+            }
+        }
     }
   if (needsGlobalInit) {
     // Register Function.prototype first so that downstream constructors can
