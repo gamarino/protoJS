@@ -85,6 +85,7 @@ extern "C" {
 #include <string>
 #include <cstdio>
 #include <iostream>
+#include <cstdint>
 #include <memory>
 #include <vector>
 #include <algorithm>
@@ -14904,9 +14905,13 @@ static const proto::ProtoObject* runBytecodeImpl(proto::ProtoContext* pContext,
                 // product with a negative factor is -0, a Number that is not a
                 // small integer: the general path below makes it.
                 if (proto::isSmallInt(a) && proto::isSmallInt(b)) {
-                    long long m;
+                    // Factors within 32 bits cannot overflow a 64-bit
+                    // product (portable: MSVC has no __builtin_mul_overflow).
                     const long long x = proto::asSmallInt(a), y = proto::asSmallInt(b);
-                    if (!__builtin_mul_overflow(x, y, &m) && proto::smallIntInRange(m)
+                    const bool narrow = x >= INT32_MIN && x <= INT32_MAX
+                                        && y >= INT32_MIN && y <= INT32_MAX;
+                    const long long m = narrow ? x * y : 0;
+                    if (narrow && proto::smallIntInRange(m)
                         && (m != 0 || (x >= 0 && y >= 0))) {
                         pAutomaticLocals[currentStackBase + _PF().stackTop++] = proto::makeSmallInt(m);
                         DISPATCH();
