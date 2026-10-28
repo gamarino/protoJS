@@ -85,6 +85,7 @@ extern "C" {
 #include <string>
 #include <cstdio>
 #include <iostream>
+#include <memory>
 #include <vector>
 #include <algorithm>
 #include <unordered_set>
@@ -3342,7 +3343,36 @@ struct InterpFrame {
     unsigned int stackTop;
     unsigned int stackCap;
 };
-static thread_local std::vector<InterpFrame> t_interpFrames;
+// The frames of the running thread's activations, innermost last.  A fixed
+// block, allocated on first use and never moved: an activation keeps a pointer
+// to its own frame for its whole life (`_PF()` in runBytecodeImpl), and
+// currentFrame() reads two plain thread-locals.  A std::vector here was
+// re-indexed through its thread-local wrapper at every push and pop of the
+// operand stack, and could move under a pointer when a callee pushed past its
+// capacity.  kMaxInterpFrames nested activations is the hard depth limit;
+// runBytecodeImpl raises the stack-overflow RangeError before pushing past it
+// (the native stack guard normally fires much earlier).
+constexpr unsigned kMaxInterpFrames = 1u << 16;
+static thread_local std::unique_ptr<InterpFrame[]> t_interpFrameStore;  // owner
+static thread_local InterpFrame* t_interpFrameBase = nullptr;
+static thread_local unsigned t_interpFrameCount = 0;
+struct InterpFrameStack {
+    static bool empty() { return t_interpFrameCount == 0; }
+    static bool full() { return t_interpFrameCount >= kMaxInterpFrames; }
+    static std::size_t size() { return t_interpFrameCount; }
+    static InterpFrame& back() { return t_interpFrameBase[t_interpFrameCount - 1]; }
+    static InterpFrame& at(std::size_t i) { return t_interpFrameBase[i]; }
+    InterpFrame& operator[](std::size_t i) const { return t_interpFrameBase[i]; }
+    static void push_back(const InterpFrame& f) {
+        if (!t_interpFrameBase) {
+            t_interpFrameStore.reset(new InterpFrame[kMaxInterpFrames]);
+            t_interpFrameBase = t_interpFrameStore.get();
+        }
+        t_interpFrameBase[t_interpFrameCount++] = f;
+    }
+    static void pop_back() { --t_interpFrameCount; }
+};
+static constexpr InterpFrameStack t_interpFrames{};
 
 // Debug flags — evaluated ONCE at first use, never on the hot path.
 // Single-shot init at process start (C++ static-init order is
@@ -3374,8 +3404,9 @@ static PROTOJS_ALWAYS_INLINE void anchorCallOutcome(proto::ProtoContext& child,
 }
 
 static PROTOJS_ALWAYS_INLINE InterpFrame* currentFrame(proto::ProtoContext* ctx) {
-    if (t_interpFrames.empty()) return nullptr;
-    InterpFrame* f = &t_interpFrames.back();
+    const unsigned n = t_interpFrameCount;
+    if (n == 0) return nullptr;
+    InterpFrame* f = &t_interpFrameBase[n - 1];
     return (f->ctx == ctx) ? f : nullptr;
 }
 
@@ -7347,7 +7378,7 @@ static const proto::ProtoObject* runBytecodeImpl(proto::ProtoContext* pContext,
                                                  const proto::ProtoObject** pGlobalRoot,
                                                  NestedLevel* nested) {
     if (!pContext || !module || !module->pBytecode) return PROTO_NONE;
-    if (__builtin_expect(nativeStackExhausted(), 0))
+    if (__builtin_expect(nativeStackExhausted() || (!nested && t_interpFrames.full()), 0))
         raiseStackOverflow(pContext, pGlobalRoot);
     // An async function or async generator called afresh: startAsyncActivation
     // sets up its completion and re-enters here with the entry handshake set
@@ -9669,10 +9700,11 @@ static const proto::ProtoObject* runBytecodeImpl(proto::ProtoContext* pContext,
     // context's automatic locals array or the thread-local frame vector
     // might have reallocated.
     const proto::ProtoObject** pAutomaticLocals = const_cast<const proto::ProtoObject**>(pContext->getAutomaticLocals());
-    const size_t _frameIdx = t_interpFrames.size() - 1;
-    const unsigned int currentStackBase = t_interpFrames[_frameIdx].stackBase;
+    // This activation's frame: the frame block never moves (InterpFrameStack).
+    InterpFrame* const _frameP = &t_interpFrames.back();
+    const unsigned int currentStackBase = _frameP->stackBase;
 
-    #define _PF() (t_interpFrames[_frameIdx])
+    #define _PF() (*_frameP)
     #define REFRESH_INTERP_STATE() do { \
         pAutomaticLocals = const_cast<const proto::ProtoObject**>(pContext->getAutomaticLocals()); \
     } while(0)
