@@ -63,4 +63,23 @@ std::string numberToString(proto::ProtoContext* ctx, const proto::ProtoObject* v
     return numberToDouble(ctx, v, d) ? numberToString(d) : std::string("NaN");
 }
 
+const proto::ProtoObject* integerFromIntegralDouble(proto::ProtoContext* ctx, double d) {
+    if (std::fabs(d) < 9007199254740992.0)            // 2^53: exact in long long
+        return ctx->fromInteger(static_cast<long long>(d));
+    int e = 0;
+    const double m = std::frexp(d, &e);               // d = m * 2^e, 0.5 <= |m| < 1
+    const long long mantissa = static_cast<long long>(std::ldexp(m, 53));
+    return ctx->fromInteger(mantissa)->shiftLeft(ctx, e - 53);  // e > 53 here
+}
+
+int compareIntegerWithNumber(proto::ProtoContext* ctx, const proto::ProtoObject* big, double d) {
+    if (std::isnan(d) || !big) return -2;
+    if (std::isinf(d)) return d > 0 ? -1 : 1;
+    const double fl = std::floor(d);
+    int c = big->compare(ctx, integerFromIntegralDouble(ctx, fl));
+    c = (c < 0) ? -1 : (c > 0 ? 1 : 0);
+    if (c == 0 && d > fl) return -1;                  // big == floor(d) < d
+    return c;
+}
+
 }  // namespace protojs

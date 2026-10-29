@@ -103,6 +103,22 @@ std::string numberToString(double d);
 /** numberToString for any protoCore number (SmallInteger, double, LargeInteger). */
 std::string numberToString(proto::ProtoContext* ctx, const proto::ProtoObject* v);
 
+/**
+ * The integral double `d` (finite, d == trunc(d)) as the protoCore Integer of
+ * exactly its value, at any magnitude up to Number.MAX_VALUE: the mantissa
+ * shifted by the exponent.  NumberToBigInt, and the BigInt / Number
+ * comparisons, which must not go through long long (undefined beyond 2^63)
+ * or through the BigInt's rounded double (wrong when both round alike).
+ */
+const proto::ProtoObject* integerFromIntegralDouble(proto::ProtoContext* ctx, double d);
+
+/**
+ * The protoCore Integer `big` (a BigInt's value) against the Number `d`, by
+ * mathematical value (§7.2.13, §7.2.15): -1, 0 or 1 as big is below, equal
+ * to or above d; -2 when d is NaN.
+ */
+int compareIntegerWithNumber(proto::ProtoContext* ctx, const proto::ProtoObject* big, double d);
+
 }  // namespace protojs
 
 #endif  // PROTOJS_JSNUMBER_H

@@ -1,3 +1,4 @@
+#include "JSNumber.h"
 #include "BigIntPrototype.h"
 #include "runtime/JSStringBytes.h"
 #include "runtime/ThreadIdentity.h"
@@ -88,7 +89,9 @@ static const proto::ProtoObject* coerceToInteger(proto::ProtoContext* ctx,
                 "The number cannot be converted to a BigInt because it is not an integer"));
             return PROTO_NONE;
         }
-        return ctx->fromInteger(static_cast<long long>(d));
+        // NumberToBigInt (§21.2.1.1.1): exactly d, at any magnitude.
+        // Until 2026-10 a long long cast, undefined beyond 2^63.
+        return integerFromIntegralDouble(ctx, d);
     }
     // Object (non-BigInt-wrapper) → call ToPrimitive(value, hint=number)
     // and recurse.  §7.1.13 step 1 / §7.1.1 ToPrimitive.  We probe
