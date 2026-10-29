@@ -283,19 +283,36 @@ Two rules follow from the pin living in the space:
   and `JSContextWrapper::eval`, hold the exception
   (`tests/unit/test_exception_value_rooting.cpp`).
 
-### Interpreter thread-locals (audit, 2026-10-04)
+### Interpreter thread-locals (audit, 2026-10-04; revised 2026-10-28)
 
 Thread-locals are not roots. Each one in `src/runtime/ProtoInterpreter.cpp` and
 the built-ins that holds a `ProtoObject*` was checked for the one hazard that
 matters: a value whose only reference is the thread-local while the thread
 allocates.
 
+The 2026-10-04 verdict for `t_currentFrameObj` was wrong: the object is
+allocated in the activation's context, but the activation's young generation
+is handed to the collector at every dispatch safepoint, so "alive while it is
+current" did not keep it reachable (`cli/gc-frame-object`). A young generation
+is a root only until its context's next safepoint; a verdict must name a slot,
+an object or a root set that references the value, not the context that
+allocated it.
+
+The reserved slots at the top of an activation's region
+(`stackBase + stackCap`, see the frame push in `runBytecodeImpl`):
+`- 1` the module metadata, `- 2` the async owner, `- 3` the active function,
+`- 4` the frame object.
+
 | Thread-local | Holds | Status |
 |---|---|---|
 | `t_activeFunc` | the function whose body runs | The call sites pop the callee before the call, so a function the program drops while it runs was referenced only here. Now also stored in the frame's slot `totalSlots - 3` for the activation. A failing test could not be built: no reader observed the freed cell. |
-| `t_activeArgs`, `t_activeNewTgt` | the arguments list and `new.target` | Allocated in, or reachable from, the caller's live context for the whole call. |
-| `t_currentFrameObj` | the lazily made frame object | Allocated in the running activation's context, which is alive while it is current; the outer value is restored on exit. |
-| `t_genResumeLocals`, `t_genIterator`, `t_asyncEntryOwner`, `t_asyncResumeCont`, `t_asyncResumeValue` | hand-offs from a resume or entry site to `runBytecode` | Read from heap objects (the generator, the continuation, the promise) that the caller holds on its operand stack, and consumed at entry; the async owner is then kept in slot `totalSlots - 2`. |
+| `t_activeArgs` | the arguments list | Allocated by the call site in the caller's context. The caller does not reach a safepoint while the call runs, so its young generation, a root, keeps the list. Lists that come from a heap object (an async continuation's arguments) are referenced by that object. |
+| `t_activeNewTgt` | `new.target` | A function that mentions `new.target` copies it into a local at its first instruction (`special_object new.target; put_loc`, see `protojs --disasm`); `init_ctor` and `apply` (`super(...)`) read the thread-local and hand it to the parent constructor, whose prologue copies it in turn. What keeps it reachable is where the value comes from: it is the callee (`new F`, kept in slot `- 3`), an argument of `Reflect.construct` (on the caller's operand stack for the native call), or the enclosing constructor's own `new.target`. Checked on 2026-10-28 under a 300,000-cell ceiling with `Reflect.construct(F, args, NT)`, NT built inline and dropped, constructor bodies that allocate before reading `new.target` and before `super()`: no failure in any run, including a deliberately broken build that published a copy of NT referenced only by the thread-local (the bodies read their local copy, made before they allocate, so that build shows only that the test cannot see such a fault; it is not kept as a regression test). |
+| `t_currentFrameObj` | the lazily made frame object | Kept in the activation's slot `- 4` from creation to the end of the activation (`getOrCreateFrameObj`); without an activation it is not cached. See above for the earlier, wrong verdict. |
+| `t_genResumeLocals`, `t_asyncEntryOwner`, `t_asyncResumeCont`, `t_asyncResumeValue` | hand-offs from a resume or entry site to `runBytecode` | Read from heap objects (the generator, the continuation, the promise) that the caller holds on its operand stack, and consumed at entry; the async owner is then kept in slot `- 2`. |
+| `t_genIterator` | the generator being resumed | Held for the whole resumed body and written at its next `yield` (`suspendGenerator`). The generator object is mutable, so its handle does not change, and it is the receiver of `next` / `return` / `throw`, on the caller's operand stack for the native call. |
+| `t_globalsInitSeen` | the global object last found initialised | Compared by identity only, and only within the collection cycle it was recorded in. |
+| `t_cellValueKey`, `t_captureScopeKey`, `t_intrinsicEvalKey`, `t_refCellKey`, `t_private*Key`, `genKey` / `genCatchKey` caches | attribute keys | Interned symbols, never collected. |
 | `t_nullSentinel`, `t_undefinedSentinel`, `t_tdzSentinel` | language sentinels | Stored as attributes of the global object as well. |
 | `t_cellMarker` | the closure-cell marker | Pinned through `PinnedBuiltin`. |
 | `t_regexpPrototype` | `%RegExp.prototype%` | Compared by identity only; reachable from the `RegExp` constructor. |
