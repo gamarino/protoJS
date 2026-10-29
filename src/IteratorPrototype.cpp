@@ -1,4 +1,5 @@
 #include "ProtoCoreTypes.h"
+#include "runtime/OwnAttributes.h"
 #include "runtime/JSStringBytes.h"
 #include "runtime/PropertyDictionary.h"
 #include "runtime/PinnedBuiltin.h"
@@ -1480,16 +1481,14 @@ static const proto::ProtoObject* iteratorZipKeyed(
             if (prev && prev != PROTO_NONE) iterClose(ctx, prev);
         }
     };
-    const proto::ProtoSparseList* own = obj->getOwnAttributes(ctx);
-    if (own) {
-        const proto::ProtoSparseListIterator* it = own->getIterator(ctx);
-        while (it && it->hasNext(ctx)) {
-            proto::proto_ulong rawKey = it->nextKey(ctx);
-            const proto::ProtoObject* val = it->nextValue(ctx);
-            it = const_cast<proto::ProtoSparseListIterator*>(it)->advance(ctx);
-            const proto::ProtoString* propKey =
-                reinterpret_cast<const proto::ProtoString*>(rawKey);
-            if (!propKey || !val || val == PROTO_NONE) continue;
+    {
+        // The entries first: GetIterator runs JavaScript (runtime/OwnAttributes.h).
+        std::vector<std::pair<const proto::ProtoString*, const proto::ProtoObject*>> ownEntries;
+        ownAttributeEntries(ctx, obj, ownEntries);
+        for (const auto& entry : ownEntries) {
+            const proto::ProtoString* propKey = entry.first;
+            const proto::ProtoObject* val = entry.second;
+            if (!val || val == PROTO_NONE) continue;
             std::string ks;
             propKey->toUTF8String(ctx, ks);
             if (ks.size() >= 2 && ks[0] == '_' && ks[1] == '_') continue; // internal

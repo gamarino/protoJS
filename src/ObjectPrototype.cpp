@@ -19,6 +19,7 @@
 #include "runtime/BehaviorRegistry.h"
 #include "runtime/PinnedBuiltin.h"
 #include "runtime/PropertyDictionary.h"
+#include "runtime/OwnAttributes.h"
 #include <algorithm>
 #include <atomic>
 #include <mutex>
@@ -85,6 +86,27 @@ static bool isInternalKey(proto::ProtoContext* ctx, const proto::ProtoString* ke
     return s.size() >= 4
         && s[0] == '_' && s[1] == '_'
         && s[s.size()-1] == '_' && s[s.size()-2] == '_';
+}
+
+// ---------------------------------------------------------------------------
+// appendOwnKeyNames — appends the UTF-8 names of `obj`'s own attributes to
+// `out`, in protoCore's order.  With `symbolKeysOnly` only the per-instance
+// Symbol identity keys (`@@sym#<n>`) are kept; otherwise every key except
+// the `__name__` bookkeeping ones is kept, Symbol identity keys included.
+// ---------------------------------------------------------------------------
+static void appendOwnKeyNames(proto::ProtoContext* ctx, const proto::ProtoObject* obj,
+                              std::vector<std::string>& out, bool symbolKeysOnly) {
+    forEachOwnAttribute(ctx, obj,
+        [&](const proto::ProtoString* name, const proto::ProtoObject*) {
+            if (!name) return;
+            std::string s;
+            name->toUTF8String(ctx, s);
+            const bool keep = symbolKeysOnly
+                ? isSymbolStorageKey(s)
+                : !(s.size() >= 4 && s[0] == '_' && s[1] == '_'
+                    && s[s.size()-1] == '_' && s[s.size()-2] == '_');
+            if (keep) out.push_back(std::move(s));
+        });
 }
 
 // ---------------------------------------------------------------------------
@@ -233,8 +255,6 @@ static void collectOwnKeys(
             }
         }
     }
-    const proto::ProtoSparseList* own = obj->getOwnAttributes(ctx);
-    if (!own) return;
     const proto::ProtoString* lenSymbol = JSSymbols::length(ctx);
 
     // Per-target hint flags — same idea as resolvePutFieldOOP's gate.
@@ -258,12 +278,6 @@ static void collectOwnKeys(
         }
     }
 
-    // processElements walks the SparseList via a C-callback — no
-    // per-step iterator object allocations.  For SmallSparseList the
-    // inline pairs are visited directly without ANY iterator chain;
-    // for AVL form, the internal iterator is reused inside a CS but
-    // the advance() public API's per-step implAsObject wrapper
-    // allocation is gone.
     // arrayIndexSet — every canonical-integer-string key seen across
     // either __elements__ or the sparse own-attribute walk lands here;
     // the post-walk emission step iterates this set in ascending order
@@ -283,20 +297,15 @@ static void collectOwnKeys(
         bool mightHaveAccessors;
         bool aborted;
         bool isTA;
-        // A getter's exception, held while processElements (protoCore)
-        // is on the stack and rethrown once it returns: a C++ exception
-        // must not unwind through the walk.
+        // A getter's exception, rethrown once the key loop stops.
         std::exception_ptr thrown;
     } state{ctx, obj, &keys, vals, isArr ? &arrayIndexSet : nullptr,
             lenSymbol, isArr,
             includeNonEnumerable, mightHaveNonWritable,
             mightHaveAccessors, false, isTA, nullptr};
-    auto cb = [](proto::ProtoContext* cbCtx, void* selfV,
-                 proto::proto_ulong rawKey, const proto::ProtoObject* val) {
-        CollectState* s = static_cast<CollectState*>(selfV);
+    auto cb = [](proto::ProtoContext* cbCtx, CollectState* s,
+                 const proto::ProtoString* propKey, const proto::ProtoObject* val) {
         if (s->aborted) return;
-        const proto::ProtoString* propKey =
-            reinterpret_cast<const proto::ProtoString*>(rawKey);
         if (!propKey) return;
         if (isInternalKey(cbCtx, propKey)) return;
         // §7.3.21 EnumerableOwnProperties filters by Type(key)=String — only
@@ -315,9 +324,9 @@ static void collectOwnKeys(
         }
         // ECMA-262 §7.3.23 EnumerableOwnProperties step 4.a — at each
         // step re-check that [[GetOwnProperty]] still returns a
-        // descriptor for this key on `obj`. The snapshot the iterator
-        // captures could mention a key that a previously-invoked
-        // getter deleted; re-check on the live object before emitting.
+        // descriptor for this key on `obj`. The entries were collected
+        // before any getter ran, and a getter may have deleted a later
+        // key; re-check on the live object before emitting.
         if (s->obj->hasOwnAttribute(cbCtx, propKey) != PROTO_TRUE) return;
         // Array's "length" is non-enumerable but IS an own property.
         if (s->isArr && s->lenSymbol && propKey == s->lenSymbol
@@ -398,8 +407,16 @@ static void collectOwnKeys(
             }
         }
     };
-    own->processElements(ctx, &state,
-        static_cast<void(*)(proto::ProtoContext*, void*, proto::proto_ulong, const proto::ProtoObject*)>(cb));
+    // The entries first, the per-key work after the walk: that work runs
+    // getters (runtime/OwnAttributes.h).
+    {
+        std::vector<std::pair<const proto::ProtoString*, const proto::ProtoObject*>> ownEntries;
+        ownAttributeEntries(ctx, obj, ownEntries);
+        for (const auto& e : ownEntries) {
+            if (state.aborted) break;
+            cb(ctx, &state, e.first, e.second);
+        }
+    }
     if (state.thrown) std::rethrow_exception(state.thrown);
 
     // The property dictionary (runtime/PropertyDictionary.h): enumerable
@@ -954,19 +971,11 @@ static const proto::ProtoObject* objectAssign(
                 const proto::ProtoObject* tgt = proxyTarget(ctx, src);
                 if (!tgt) continue;
                 const proto::ProtoList* tmp = ctx->newList();
-                const proto::ProtoSparseList* tOwn = tgt->getOwnAttributes(ctx);
-                const proto::ProtoSparseListIterator* tit =
-                    tOwn ? tOwn->getIterator(ctx) : nullptr;
-                while (tit && tit->hasNext(ctx)) {
-                    proto::proto_ulong rk = tit->nextKey(ctx);
-                    (void)tit->nextValue(ctx);
-                    tit = const_cast<proto::ProtoSparseListIterator*>(tit)->advance(ctx);
-                    const proto::ProtoString* ks =
-                        reinterpret_cast<const proto::ProtoString*>(rk);
-                    if (!ks) continue;
-                    if (isInternalKey(ctx, ks)) continue;
-                    tmp = tmp->appendLast(ctx, ks->asObject(ctx));
-                }
+                forEachOwnAttribute(ctx, tgt,
+                    [&](const proto::ProtoString* ks, const proto::ProtoObject*) {
+                        if (!ks || isInternalKey(ctx, ks)) return;
+                        tmp = tmp->appendLast(ctx, ks->asObject(ctx));
+                    });
                 els = tmp;
             }
             size_t n = els ? els->getSize(ctx) : 0;
@@ -1142,8 +1151,6 @@ static const proto::ProtoObject* objectAssign(
                     target = target->setAttribute(ctx, lk, ctx->fromInteger(static_cast<long long>(srcSz)));
             }
         }
-        const proto::ProtoSparseList* own = src->getOwnAttributes(ctx);
-        if (!own) continue;
         // §20.1.2.1 step 4.b: the keys come from [[OwnPropertyKeys]] --
         // indices, then strings, then symbols in creation order. The attribute
         // walk meets them in key-address order, so collect, then order them
@@ -1152,18 +1159,14 @@ static const proto::ProtoObject* objectAssign(
         {
             std::vector<std::string> order;
             std::unordered_map<std::string, std::pair<const proto::ProtoString*, const proto::ProtoObject*>> byName;
-            const proto::ProtoSparseListIterator* it = own->getIterator(ctx);
-            while (it && it->hasNext(ctx)) {
-                proto::proto_ulong rawKey = it->nextKey(ctx);
-                const proto::ProtoObject* val = it->nextValue(ctx);
-                it = const_cast<proto::ProtoSparseListIterator*>(it)->advance(ctx);
-                const proto::ProtoString* k = reinterpret_cast<const proto::ProtoString*>(rawKey);
-                if (!k) continue;
-                std::string ks;
-                k->toUTF8String(ctx, ks);
-                byName.emplace(ks, std::make_pair(k, val));
-                order.push_back(std::move(ks));
-            }
+            forEachOwnAttribute(ctx, src,
+                [&](const proto::ProtoString* k, const proto::ProtoObject* val) {
+                    if (!k) return;
+                    std::string ks;
+                    k->toUTF8String(ctx, ks);
+                    byName.emplace(ks, std::make_pair(k, val));
+                    order.push_back(std::move(ks));
+                });
             // The keys of the source's property dictionary (runtime/
             // PropertyDictionary.h), after the named ones.
             std::vector<std::pair<const proto::ProtoString*, const proto::ProtoObject*>> dEntries;
@@ -1682,22 +1685,7 @@ static const proto::ProtoObject* objectFreeze(
                 tgt = nx;
             }
             if (tgt) {
-                const proto::ProtoSparseList* tOwn = tgt->getOwnAttributes(ctx);
-                const proto::ProtoSparseListIterator* tit =
-                    tOwn ? tOwn->getIterator(ctx) : nullptr;
-                while (tit && tit->hasNext(ctx)) {
-                    proto::proto_ulong rk = tit->nextKey(ctx);
-                    (void)tit->nextValue(ctx);
-                    tit = const_cast<proto::ProtoSparseListIterator*>(tit)->advance(ctx);
-                    const proto::ProtoString* ks =
-                        reinterpret_cast<const proto::ProtoString*>(rk);
-                    if (!ks) continue;
-                    std::string s; ks->toUTF8String(ctx, s);
-                    bool isSym = s.size() >= 6 && s[0]=='@' && s[1]=='@'
-                        && s[2]=='s' && s[3]=='y' && s[4]=='m' && s[5]=='#';
-                    if (!isSym && isInternalKey(ctx, ks)) continue;
-                    defaultKeys.push_back(std::move(s));
-                }
+                appendOwnKeyNames(ctx, tgt, defaultKeys, /*symbolKeysOnly=*/false);
                 dict::keys(ctx, tgt, defaultKeys);  // runtime/PropertyDictionary.h
             }
         }
@@ -1757,26 +1745,13 @@ static const proto::ProtoObject* objectFreeze(
         // for this target.  Stamp the flag once up front.
         const proto::ProtoString* hnw = JSSymbols::hasNonWritableProps(ctx);
         if (hnw) obj->setAttribute(ctx, hnw, PROTO_TRUE);
-        const proto::ProtoSparseList* own = obj->getOwnAttributes(ctx);
-        if (own) {
-            const proto::ProtoSparseListIterator* it = own->getIterator(ctx);
+        {
+            // Collected first: the loop below writes the sidecars to obj.
+            // Per-instance Symbol identity keys are kept — they ARE
+            // user-visible properties that must have their configurable /
+            // writable bits cleared by seal / freeze.
             std::vector<std::string> keysToUpdate;
-            while (it && it->hasNext(ctx)) {
-                proto::proto_ulong raw = it->nextKey(ctx);
-                it = const_cast<proto::ProtoSparseListIterator*>(it)->advance(ctx);
-                const proto::ProtoString* k =
-                    reinterpret_cast<const proto::ProtoString*>(raw);
-                if (!k) continue;
-                std::string ks;
-                k->toUTF8String(ctx, ks);
-                // Allow per-instance Symbol identity keys through — they
-                // ARE user-visible properties that must have their
-                // configurable / writable bits cleared by seal / freeze.
-                bool isSymKey = ks.size() >= 6 && ks[0]=='@' && ks[1]=='@'
-                    && ks[2]=='s' && ks[3]=='y' && ks[4]=='m' && ks[5]=='#';
-                if (!isSymKey && isInternalKey(ctx, k)) continue;
-                keysToUpdate.push_back(std::move(ks));
-            }
+            appendOwnKeyNames(ctx, obj, keysToUpdate, /*symbolKeysOnly=*/false);
             for (const auto& ks : keysToUpdate) {
                 std::string pdStr = std::string("__pd_") + ks + "__";
                 const proto::ProtoObject* pdo = protojs::jsStringFromUTF8(ctx, pdStr);
@@ -1854,21 +1829,7 @@ static const proto::ProtoObject* objectIsFrozen(
             }
             if (tgt && tgt != obj) {
                 collectOwnKeys(ctx, tgt, defaultKeys, nullptr, true);
-                const proto::ProtoSparseList* tOwn = tgt->getOwnAttributes(ctx);
-                const proto::ProtoSparseListIterator* tit =
-                    tOwn ? tOwn->getIterator(ctx) : nullptr;
-                while (tit && tit->hasNext(ctx)) {
-                    proto::proto_ulong rk = tit->nextKey(ctx);
-                    (void)tit->nextValue(ctx);
-                    tit = const_cast<proto::ProtoSparseListIterator*>(tit)->advance(ctx);
-                    const proto::ProtoString* ks =
-                        reinterpret_cast<const proto::ProtoString*>(rk);
-                    if (!ks) continue;
-                    std::string s; ks->toUTF8String(ctx, s);
-                    if (s.size() >= 6 && s[0]=='@' && s[1]=='@'
-                        && s[2]=='s' && s[3]=='y' && s[4]=='m' && s[5]=='#')
-                        defaultKeys.push_back(std::move(s));
-                }
+                appendOwnKeyNames(ctx, tgt, defaultKeys, /*symbolKeysOnly=*/true);
             }
         }
         // The attribute walk meets keys in key-address order; report them as
@@ -1912,32 +1873,27 @@ static const proto::ProtoObject* objectIsFrozen(
     //   Object.preventExtensions(c);
     //   Object.isFrozen(c)              // pre-fix: false  post-fix: true
     if (jsIsNonExtensible(ctx, obj)) {
-        const proto::ProtoSparseList* own = obj->getOwnAttributes(ctx);
         bool anyOwn = false;
         bool allFrozen = true;
-        if (own) {
-            const proto::ProtoSparseListIterator* it = own->getIterator(ctx);
-            while (it && it->hasNext(ctx)) {
-                proto::proto_ulong raw = it->nextKey(ctx);
-                const proto::ProtoString* k =
-                    reinterpret_cast<const proto::ProtoString*>(raw);
-                it = const_cast<proto::ProtoSparseListIterator*>(it)->advance(ctx);
-                if (!k || isInternalKey(ctx, k)) continue;
+        // The walk cannot stop early: once a key answers "not frozen" the
+        // remaining keys are skipped (anyOwn is already set by then).
+        forEachOwnAttribute(ctx, obj,
+            [&](const proto::ProtoString* k, const proto::ProtoObject*) {
+                if (!allFrozen) return;
+                if (!k || isInternalKey(ctx, k)) return;
                 anyOwn = true;
                 std::string ks;
                 k->toUTF8String(ctx, ks);
                 std::string pdStr = std::string("__pd_") + ks + "__";
                 const proto::ProtoObject* pdo = protojs::jsStringFromUTF8(ctx, pdStr);
                 const proto::ProtoString* pdk = pdo ? pdo->asString(ctx) : nullptr;
-                if (!pdk) { allFrozen = false; break; }
+                if (!pdk) { allFrozen = false; return; }
                 const proto::ProtoObject* pdv = obj->getAttribute(ctx, pdk, false);
                 long long bits = (pdv && pdv != PROTO_NONE && pdv->isInteger(ctx))
                     ? pdv->asLong(ctx) : 0x7LL;  // default fully open
                 // bit0 writable, bit1 configurable
-                if (bits & 0x1) { allFrozen = false; break; }
-                if (bits & 0x2) { allFrozen = false; break; }
-            }
-        }
+                if (bits & 0x3) allFrozen = false;
+            });
         // A key of the property dictionary is writable and configurable
         // unless the object is frozen, which was answered above.
         if (dict::size(ctx, obj) > 0) return PROTO_FALSE;
@@ -2008,22 +1964,7 @@ static const proto::ProtoObject* objectSeal(
                 tgt = nx;
             }
             if (tgt) {
-                const proto::ProtoSparseList* tOwn = tgt->getOwnAttributes(ctx);
-                const proto::ProtoSparseListIterator* tit =
-                    tOwn ? tOwn->getIterator(ctx) : nullptr;
-                while (tit && tit->hasNext(ctx)) {
-                    proto::proto_ulong rk = tit->nextKey(ctx);
-                    (void)tit->nextValue(ctx);
-                    tit = const_cast<proto::ProtoSparseListIterator*>(tit)->advance(ctx);
-                    const proto::ProtoString* ks =
-                        reinterpret_cast<const proto::ProtoString*>(rk);
-                    if (!ks) continue;
-                    std::string s; ks->toUTF8String(ctx, s);
-                    bool isSym = s.size() >= 6 && s[0]=='@' && s[1]=='@'
-                        && s[2]=='s' && s[3]=='y' && s[4]=='m' && s[5]=='#';
-                    if (!isSym && isInternalKey(ctx, ks)) continue;
-                    defaultKeys.push_back(std::move(s));
-                }
+                appendOwnKeyNames(ctx, tgt, defaultKeys, /*symbolKeysOnly=*/false);
                 dict::keys(ctx, tgt, defaultKeys);  // runtime/PropertyDictionary.h
             }
         }
@@ -2055,37 +1996,22 @@ static const proto::ProtoObject* objectSeal(
     // read the original sidecar bits and reported configurable:true,
     // so verifyProperty fixtures (built-ins/Object/seal/*) failed.
     {
-        const proto::ProtoSparseList* own = obj->getOwnAttributes(ctx);
-        if (own) {
-            const proto::ProtoSparseListIterator* it = own->getIterator(ctx);
-            std::vector<std::string> keysToUpdate;
-            while (it && it->hasNext(ctx)) {
-                proto::proto_ulong raw = it->nextKey(ctx);
-                it = const_cast<proto::ProtoSparseListIterator*>(it)->advance(ctx);
-                const proto::ProtoString* k =
-                    reinterpret_cast<const proto::ProtoString*>(raw);
-                if (!k) continue;
-                std::string ks;
-                k->toUTF8String(ctx, ks);
-                // Allow per-instance Symbol identity keys through — they
-                // ARE user-visible properties that must have their
-                // configurable / writable bits cleared by seal / freeze.
-                bool isSymKey = ks.size() >= 6 && ks[0]=='@' && ks[1]=='@'
-                    && ks[2]=='s' && ks[3]=='y' && ks[4]=='m' && ks[5]=='#';
-                if (!isSymKey && isInternalKey(ctx, k)) continue;
-                keysToUpdate.push_back(std::move(ks));
-            }
-            for (const auto& ks : keysToUpdate) {
-                std::string pdStr = std::string("__pd_") + ks + "__";
-                const proto::ProtoObject* pdo = protojs::jsStringFromUTF8(ctx, pdStr);
-                const proto::ProtoString* pdk = pdo ? pdo->asString(ctx) : nullptr;
-                if (!pdk) continue;
-                const proto::ProtoObject* cur = obj->getAttribute(ctx, pdk, false);
-                long long bits = (cur && cur != PROTO_NONE && cur->isInteger(ctx))
-                    ? cur->asLong(ctx) : 0x7LL; // default {w, c, e}
-                bits &= ~0x2LL; // clear configurable
-                obj->setAttribute(ctx, pdk, ctx->fromInteger(bits));
-            }
+        // Collected first: the loop below writes the sidecars to obj.
+        // Per-instance Symbol identity keys are kept — they ARE
+        // user-visible properties that must have their configurable /
+        // writable bits cleared by seal / freeze.
+        std::vector<std::string> keysToUpdate;
+        appendOwnKeyNames(ctx, obj, keysToUpdate, /*symbolKeysOnly=*/false);
+        for (const auto& ks : keysToUpdate) {
+            std::string pdStr = std::string("__pd_") + ks + "__";
+            const proto::ProtoObject* pdo = protojs::jsStringFromUTF8(ctx, pdStr);
+            const proto::ProtoString* pdk = pdo ? pdo->asString(ctx) : nullptr;
+            if (!pdk) continue;
+            const proto::ProtoObject* cur = obj->getAttribute(ctx, pdk, false);
+            long long bits = (cur && cur != PROTO_NONE && cur->isInteger(ctx))
+                ? cur->asLong(ctx) : 0x7LL; // default {w, c, e}
+            bits &= ~0x2LL; // clear configurable
+            obj->setAttribute(ctx, pdk, ctx->fromInteger(bits));
         }
     }
     // Same fix for Array indices stored in __elements__.
@@ -2144,21 +2070,7 @@ static const proto::ProtoObject* objectIsSealed(
             }
             if (tgt && tgt != obj) {
                 collectOwnKeys(ctx, tgt, defaultKeys, nullptr, true);
-                const proto::ProtoSparseList* tOwn = tgt->getOwnAttributes(ctx);
-                const proto::ProtoSparseListIterator* tit =
-                    tOwn ? tOwn->getIterator(ctx) : nullptr;
-                while (tit && tit->hasNext(ctx)) {
-                    proto::proto_ulong rk = tit->nextKey(ctx);
-                    (void)tit->nextValue(ctx);
-                    tit = const_cast<proto::ProtoSparseListIterator*>(tit)->advance(ctx);
-                    const proto::ProtoString* ks =
-                        reinterpret_cast<const proto::ProtoString*>(rk);
-                    if (!ks) continue;
-                    std::string s; ks->toUTF8String(ctx, s);
-                    if (s.size() >= 6 && s[0]=='@' && s[1]=='@'
-                        && s[2]=='s' && s[3]=='y' && s[4]=='m' && s[5]=='#')
-                        defaultKeys.push_back(std::move(s));
-                }
+                appendOwnKeyNames(ctx, tgt, defaultKeys, /*symbolKeysOnly=*/true);
             }
         }
         // The attribute walk meets keys in key-address order; report them as
@@ -3933,36 +3845,26 @@ static const proto::ProtoObject* objectDefineProperty(
                 // sparse high-index entries (e.g. arr[4294967294]=v
                 // before arr.length=2) were left intact and arr[high]
                 // still resolved after the truncation.
-                const proto::ProtoSparseList* own = target->getOwnAttributes(ctx);
-                if (own) {
-                    std::vector<std::string> keysToDrop;
-                    const proto::ProtoSparseListIterator* it = own->getIterator(ctx);
-                    while (it && it->hasNext(ctx)) {
-                        proto::proto_ulong rawKey = it->nextKey(ctx);
-                        (void)it->nextValue(ctx);
-                        it = const_cast<proto::ProtoSparseListIterator*>(it)->advance(ctx);
-                        const proto::ProtoString* propKey =
-                            reinterpret_cast<const proto::ProtoString*>(rawKey);
-                        if (!propKey) continue;
-                        std::string ks;
-                        propKey->toUTF8String(ctx, ks);
-                        if (ks.empty()) continue;
-                        bool allDigits = true;
-                        for (char c : ks) if (c < '0' || c > '9') { allDigits = false; break; }
-                        if (!allDigits) continue;
-                        if (ks.size() > 1 && ks[0] == '0') continue;
-                        try {
-                            unsigned long long idx = std::stoull(ks);
-                            if (idx >= static_cast<unsigned long long>(newLen)) {
-                                keysToDrop.push_back(ks);
-                            }
-                        } catch (...) {}
-                    }
-                    for (const auto& ks : keysToDrop) {
-                        const proto::ProtoObject* ko = protojs::jsStringFromUTF8(ctx, ks);
-                        const proto::ProtoString* k = ko ? ko->asString(ctx) : nullptr;
-                        if (k) target = target->removeAttribute(ctx, k);
-                    }
+                {
+                    // Collected first, removed after the walk.  The names
+                    // are the canonical keys, removed as they are.
+                    std::vector<const proto::ProtoString*> keysToDrop;
+                    forEachOwnAttribute(ctx, target,
+                        [&](const proto::ProtoString* propKey, const proto::ProtoObject*) {
+                            if (!propKey) return;
+                            std::string ks;
+                            propKey->toUTF8String(ctx, ks);
+                            if (ks.empty()) return;
+                            for (char c : ks) if (c < '0' || c > '9') return;
+                            if (ks.size() > 1 && ks[0] == '0') return;
+                            try {
+                                unsigned long long idx = std::stoull(ks);
+                                if (idx >= static_cast<unsigned long long>(newLen))
+                                    keysToDrop.push_back(propKey);
+                            } catch (...) {}
+                        });
+                    for (const proto::ProtoString* k : keysToDrop)
+                        target = target->removeAttribute(ctx, k);
                 }
             }
         }
@@ -4308,26 +4210,22 @@ static const proto::ProtoObject* objectGetOwnPropertySymbols(
     //       sites that may still go through that path).
     const proto::ProtoString* isSymK = JSSymbols::isSymbol(ctx);
     std::vector<const proto::ProtoObject*> found;
-    const proto::ProtoSparseList* own = target->getOwnAttributes(ctx);
-    const proto::ProtoSparseListIterator* it = own ? own->getIterator(ctx) : nullptr;
-    while (it && it->hasNext(ctx)) {
-        proto::proto_ulong rawKey = it->nextKey(ctx);
-        it = const_cast<proto::ProtoSparseListIterator*>(it)->advance(ctx);
-        const proto::ProtoString* keyStr = reinterpret_cast<const proto::ProtoString*>(rawKey);
-        if (!keyStr) continue;
-        std::string ks; keyStr->toUTF8String(ctx, ks);
-        if (ks.size() >= 6 && ks[0]=='@' && ks[1]=='@'
-            && ks[2]=='s' && ks[3]=='y' && ks[4]=='m' && ks[5]=='#') {
-            const proto::ProtoObject* sym = lookupSymbolByStrKey(ctx, ks);
-            if (sym) found.push_back(sym);
-            continue;
-        }
-        const proto::ProtoObject* keyObj = keyStr->asObject(ctx);
-        if (!keyObj) continue;
-        if (isSymK && keyObj->getAttribute(ctx, isSymK, false) == PROTO_TRUE) {
-            found.push_back(keyObj);
-        }
-    }
+    forEachOwnAttribute(ctx, target,
+        [&](const proto::ProtoString* keyStr, const proto::ProtoObject*) {
+            if (!keyStr) return;
+            std::string ks; keyStr->toUTF8String(ctx, ks);
+            if (ks.size() >= 6 && ks[0]=='@' && ks[1]=='@'
+                && ks[2]=='s' && ks[3]=='y' && ks[4]=='m' && ks[5]=='#') {
+                const proto::ProtoObject* sym = lookupSymbolByStrKey(ctx, ks);
+                if (sym) found.push_back(sym);
+                return;
+            }
+            const proto::ProtoObject* keyObj = keyStr->asObject(ctx);
+            if (!keyObj) return;
+            if (isSymK && keyObj->getAttribute(ctx, isSymK, false) == PROTO_TRUE) {
+                found.push_back(keyObj);
+            }
+        });
     // The walk meets symbol keys in key-address order, which differs by
     // platform; report them in creation order (ObjectPrototype.h).
     sortSymbolsByCreation(ctx, found);
@@ -4383,21 +4281,7 @@ static const proto::ProtoObject* objectGetOwnPropertyDescriptors(
                 // collectOwnKeys filters \`@@sym#\` symbol-identity keys.
                 // gOPDs must report symbol-keyed descriptors too, so
                 // walk own attributes separately for those.
-                const proto::ProtoSparseList* tOwn = tgt->getOwnAttributes(ctx);
-                const proto::ProtoSparseListIterator* tit =
-                    tOwn ? tOwn->getIterator(ctx) : nullptr;
-                while (tit && tit->hasNext(ctx)) {
-                    proto::proto_ulong rk = tit->nextKey(ctx);
-                    (void)tit->nextValue(ctx);
-                    tit = const_cast<proto::ProtoSparseListIterator*>(tit)->advance(ctx);
-                    const proto::ProtoString* ks =
-                        reinterpret_cast<const proto::ProtoString*>(rk);
-                    if (!ks) continue;
-                    std::string s; ks->toUTF8String(ctx, s);
-                    if (s.size() >= 6 && s[0]=='@' && s[1]=='@'
-                        && s[2]=='s' && s[3]=='y' && s[4]=='m' && s[5]=='#')
-                        defaultKeys.push_back(std::move(s));
-                }
+                appendOwnKeyNames(ctx, tgt, defaultKeys, /*symbolKeysOnly=*/true);
             }
         }
         // The attribute walk meets keys in key-address order; report them as
@@ -4454,14 +4338,11 @@ static const proto::ProtoObject* objectGetOwnPropertyDescriptors(
     // keyed assertions in built-ins/Object/getOwnPropertyDescriptors/
     // symbols-included.js failed.
     {
-        const proto::ProtoSparseList* own = target->getOwnAttributes(ctx);
-        const proto::ProtoSparseListIterator* it = own ? own->getIterator(ctx) : nullptr;
-        while (it && it->hasNext(ctx)) {
-            proto::proto_ulong rawKey = it->nextKey(ctx);
-            it = const_cast<proto::ProtoSparseListIterator*>(it)->advance(ctx);
-            const proto::ProtoString* keyStr =
-                reinterpret_cast<const proto::ProtoString*>(rawKey);
-            if (!keyStr) continue;
+        // The names first: the descriptor of each is built by
+        // objectGetOwnPropertyDescriptor after the walk (OwnAttributes.h).
+        std::vector<const proto::ProtoString*> ownNames;
+        ownAttributeNames(ctx, target, ownNames);
+        for (const proto::ProtoString* keyStr : ownNames) {
             std::string ks; keyStr->toUTF8String(ctx, ks);
             if (!(ks.size() >= 6 && ks[0]=='@' && ks[1]=='@'
                   && ks[2]=='s' && ks[3]=='y' && ks[4]=='m' && ks[5]=='#'))
@@ -4560,21 +4441,7 @@ static const proto::ProtoObject* objectDefineProperties(
                 // entry (built-ins/Object/defineProperties/proxy-no-
                 // ownkeys-returned-keys-order.js asserts symbol keys
                 // are present in the trap-call sequence).
-                const proto::ProtoSparseList* tOwn = tgt->getOwnAttributes(ctx);
-                const proto::ProtoSparseListIterator* tit =
-                    tOwn ? tOwn->getIterator(ctx) : nullptr;
-                while (tit && tit->hasNext(ctx)) {
-                    proto::proto_ulong rk = tit->nextKey(ctx);
-                    (void)tit->nextValue(ctx);
-                    tit = const_cast<proto::ProtoSparseListIterator*>(tit)->advance(ctx);
-                    const proto::ProtoString* ks =
-                        reinterpret_cast<const proto::ProtoString*>(rk);
-                    if (!ks) continue;
-                    std::string s; ks->toUTF8String(ctx, s);
-                    if (s.size() >= 6 && s[0]=='@' && s[1]=='@'
-                        && s[2]=='s' && s[3]=='y' && s[4]=='m' && s[5]=='#')
-                        defaultKeys.push_back(std::move(s));
-                }
+                appendOwnKeyNames(ctx, tgt, defaultKeys, /*symbolKeysOnly=*/true);
             }
         }
         // The attribute walk meets keys in key-address order; report them as
@@ -4614,16 +4481,14 @@ static const proto::ProtoObject* objectDefineProperties(
         return target;
     }
 
-    const proto::ProtoSparseList* own = propsObj->getOwnAttributes(ctx);
-    if (!own) return target;
-    const proto::ProtoSparseListIterator* it = own->getIterator(ctx);
-    while (it && it->hasNext(ctx)) {
-        proto::proto_ulong rawKey = it->nextKey(ctx);
-        const proto::ProtoObject* descObj = it->nextValue(ctx);
-        it = const_cast<proto::ProtoSparseListIterator*>(it)->advance(ctx);
-        const proto::ProtoString* propKey =
-            reinterpret_cast<const proto::ProtoString*>(rawKey);
-        if (!propKey) continue;
+    // The entries first: each descriptor is applied by objectDefineProperty,
+    // which may run getters and may write to propsObj itself
+    // (runtime/OwnAttributes.h).
+    std::vector<std::pair<const proto::ProtoString*, const proto::ProtoObject*>> ownEntries;
+    ownAttributeEntries(ctx, propsObj, ownEntries);
+    for (const auto& entry : ownEntries) {
+        const proto::ProtoString* propKey = entry.first;
+        const proto::ProtoObject* descObj = entry.second;
         if (isInternalKey(ctx, propKey)) continue;
         if (descObj && descObj != PROTO_NONE) {
             std::string keyStr;

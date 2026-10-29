@@ -1,4 +1,5 @@
 #include <atomic>
+#include "runtime/OwnAttributes.h"
 #include "ProtoCoreTypes.h"
 #include "runtime/JSStringUnits.h"
 #include "runtime/JSStringBytes.h"
@@ -1047,15 +1048,11 @@ const proto::ProtoObject* proxyDispatchOwnKeys(
     // keys is a subset; the full invariant covers extensibility).
     bool targetNonExt = isTargetNonExtensible(ctx, target);
     {
-        const proto::ProtoSparseList* own = target->getOwnAttributes(ctx);
-        const proto::ProtoSparseListIterator* it2 =
-            own ? own->getIterator(ctx) : nullptr;
-        while (it2 && it2->hasNext(ctx)) {
-            proto::proto_ulong rk = it2->nextKey(ctx);
-            it2 = const_cast<proto::ProtoSparseListIterator*>(it2)->advance(ctx);
-            const proto::ProtoString* k =
-                reinterpret_cast<const proto::ProtoString*>(rk);
-            if (!k) continue;
+        // The names first: probeOwnDescriptor is a full [[GetOwnProperty]]
+        // and the check returns early (runtime/OwnAttributes.h).
+        std::vector<const proto::ProtoString*> ownNames;
+        ownAttributeNames(ctx, target, ownNames);
+        for (const proto::ProtoString* k : ownNames) {
             std::string ks; k->toUTF8String(ctx, ks);
             if (ks.size() >= 2 && ks[0] == '_' && ks[1] == '_') continue;
             // Skip "length" on arrays — it's reported via the synthesised

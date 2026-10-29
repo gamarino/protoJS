@@ -6,6 +6,30 @@ All notable changes to protoJS are documented in this file.
 
 **Requires protoCore 3.1.0** (untagged master, commit 267b9fc9; SOVERSION 4). CI builds protoCore 3.3.1 (tag v3.3.1, commit 5a8cd7c7, what the installers ship) on Linux, macOS and Windows, and 3.1.0 in the Windows floor job.
 
+### Performance — own attributes enumerated with processOwnAttributes (2026-10-28)
+
+- Every enumeration of an object's own attributes (`Object.keys` / `values` /
+  `entries` / `assign` / `getOwnPropertyNames` / `getOwnPropertySymbols` /
+  `getOwnPropertyDescriptors` / `defineProperties` / `freeze` / `seal` /
+  `isFrozen`, for-in, object spread, `Reflect.ownKeys`, the Proxy `ownKeys`
+  invariant check, `JSON.stringify` / `JSON.parse` revivers, array length
+  truncation, `Iterator.zipKeyed`, `console.log`, the worker message clone
+  and HTTP headers) walks them with protoCore's
+  `ProtoObject::processOwnAttributes` instead of materialising and iterating
+  `getOwnAttributes` (`src/runtime/OwnAttributes.h`). The walk allocates no
+  cell and hands over each name directly; the names are no longer recovered
+  by casting the sparse list's integer keys back to pointers, and
+  `JSSymbols::getNameFromHash` is gone. Values still come from one version
+  of the object, so a run of writes from another thread is seen whole
+  (`js/deferred/put_field_group_atomicity`). Getters, revivers and
+  `GetIterator` now run after the walk, outside any protoCore critical
+  section (the previous `processElements` walk held one across getters).
+  One cell less per attribute visited; cycles (`perf stat -r 3`,
+  `benchmarks/own-attributes/generate.py`, objects of 4 / 16 / 100
+  attributes): `JSON.stringify` -10 / -13 / -16 %, for-in -10 / -5 / -6 %,
+  spread -1 / -4 / -5 %, `Object.assign` -2 / -4 / -3 %, `Object.keys`
+  -2 / +1 / +1 % (within noise). Test262 results are unchanged.
+
 ### Performance — interpreter overhead per operation (2026-10-28)
 
 - protoJS's own work per JavaScript operation, measured by instruction
