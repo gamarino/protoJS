@@ -3,6 +3,7 @@
 #include "runtime/PropertyDictionary.h"
 #include <vector>
 #include "JSNumber.h"
+#include "BigIntPrototype.h"
 #include "console.h"
 #include "ProtoNativeModule.h"
 #include "runtime/ProtoInterpreter.h"
@@ -61,8 +62,22 @@ static void printProtoValue(proto::ProtoContext* ctx, const proto::ProtoObject* 
         return;
     }
     if (val->isDouble(ctx)) {
-        // JS ToString(Number): Number::toString (JSNumber.h).
-        out << protojs::numberToString(val->asDouble(ctx));
+        // JS ToString(Number): Number::toString (JSNumber.h), except that
+        // -0 prints as -0, as Node's console does (ToString gives "0").
+        const double d = val->asDouble(ctx);
+        if (d == 0.0 && std::signbit(d)) out << "-0";
+        else out << protojs::numberToString(d);
+        return;
+    }
+    // A BigInt: its digits and the n suffix (Node: 5n).  It is an object
+    // holding its Integer, so without this it printed as {}.
+    if (protojs::isBigInt(ctx, val)) {
+        const proto::ProtoObject* integer = protojs::unwrapBigInt(ctx, val);
+        const proto::ProtoString* digits = (integer && integer != PROTO_NONE)
+            ? integer->asIntegerString(ctx, 10) : nullptr;
+        std::string text;
+        if (digits) digits->toUTF8String(ctx, text);
+        out << text << 'n';
         return;
     }
     // Real arrays: print [v1, v2, ...]
