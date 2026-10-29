@@ -170,6 +170,13 @@ jobs:
           echo "PROTOJS_BIN=$BIN" >> "$GITHUB_ENV"
           "$BIN" --version
 
+      - name: DIAGNOSTIC (temporary) per-operation timing of string_access_scaling
+        working-directory: protoJS
+        run: |
+          start=$(date +%s)
+          "$PROTOJS_BIN" tests/integration/basic/string_access_scaling.js < /dev/null || true
+          echo "wall: $(( $(date +%s) - start )) s"
+
       - name: Report the registered test count
         working-directory: protoJS
         run: |

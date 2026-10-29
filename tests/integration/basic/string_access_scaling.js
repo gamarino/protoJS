@@ -48,8 +48,11 @@ function scales(name, f) {
     var expectedSmall = f(small), expectedLarge = f(large);
     if (expectedLarge === expectedSmall && typeof expectedSmall === "number" && expectedSmall !== 0)
         failures.push(name + ": same result for n and 4n (" + expectedSmall + ")");
+    var t0 = Date.now();
     var m = measure(f, small, large);
-    if (m.ratio > 10) m = measure(f, small, large);
+    var again = m.ratio > 10;
+    if (again) m = measure(f, small, large);
+    console.log("TIMING " + name + ": n " + m.ts.toFixed(3) + " ms, 4n " + m.tl.toFixed(3) + " ms, ratio " + m.ratio.toFixed(2) + (again ? " (remeasured)" : "") + ", total " + (Date.now() - t0) + " ms");
     if (m.ratio > 10)
         failures.push(name + ": " + m.ts.toFixed(2) + " ms for n, " + m.tl.toFixed(2) + " ms for 4n (ratio " + m.ratio.toFixed(1) + ")");
 }
