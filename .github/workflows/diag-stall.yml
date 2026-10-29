@@ -43,6 +43,18 @@ jobs:
         run: |
           cmake -B build -S . -G Ninja -DCMAKE_BUILD_TYPE=Release "-DCMAKE_PREFIX_PATH=$GITHUB_WORKSPACE/prefix" "-DOPENSSL_ROOT_DIR=$OPENSSL_ROOT_DIR"
           cmake --build build --parallel 4 --target protojs
+      - name: listen_close_cycles.js (from fix/accept-loop-close-race) on this build, 20 runs
+        working-directory: protoJS
+        run: |
+          set +e
+          stalls=0; fails=0
+          for i in $(seq 1 20); do
+            timeout 60 ./build/protojs diag_listen_close_cycles.js > lcc.txt 2>&1; rc=$?
+            if [ $rc -eq 124 ]; then stalls=$((stalls + 1)); echo "run $i: STALL (60 s)"; cat lcc.txt
+            elif [ $rc -ne 0 ]; then fails=$((fails + 1)); echo "run $i: rc=$rc"; cat lcc.txt
+            else echo "run $i: $(head -1 lcc.txt)"; fi
+          done
+          echo "listen_close_cycles: runs=20 stalls=$stalls failures=$fails"
       - name: Run the whole fixture repeatedly, sampling any stall
         working-directory: protoJS
         run: |
