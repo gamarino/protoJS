@@ -17,12 +17,18 @@
 var failures = [];
 function check(name, ok, detail) { if (!ok) failures.push(name + (detail ? ": " + detail : "")); }
 
-var CYCLES = 100;
-var worstHttp = 0, worstNet = 0;
+// The stall needs close() to meet the loop thread as it enters accept(), so
+// the delay between listen() and close() sweeps from nothing to about a
+// millisecond (a spin of growing length).
+var CYCLES = 200;
+var worstHttp = 0, worstNet = 0, sink = 0;
+function spin(n) { for (var k = 0; k < n; k++) sink += k; }
 for (var i = 0; i < CYCLES; i++) {
+    var delay = (i % 100) * 40;
     var hs = http.createServer(function (req, res) { res.end("x"); });
     hs.listen(18845);
     check("http listen " + i, hs.__fd__ !== undefined && hs.__fd__ >= 0, "fd " + hs.__fd__);
+    spin(delay);
     var t = Date.now();
     hs.close();
     worstHttp = Math.max(worstHttp, Date.now() - t);
@@ -30,6 +36,7 @@ for (var i = 0; i < CYCLES; i++) {
 
     var ns = net.createServer(function () {});
     ns.listen(18846);
+    spin(delay);
     t = Date.now();
     ns.close();
     worstNet = Math.max(worstNet, Date.now() - t);
