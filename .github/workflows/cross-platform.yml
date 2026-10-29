@@ -170,12 +170,27 @@ jobs:
           echo "PROTOJS_BIN=$BIN" >> "$GITHUB_ENV"
           "$BIN" --version
 
-      - name: DIAGNOSTIC (temporary) per-operation timing of string_access_scaling
+      - name: DIAGNOSTIC (temporary) where string_access_scaling spends its time
+        if: runner.os == 'macOS'
         working-directory: protoJS
         run: |
-          start=$(date +%s)
-          "$PROTOJS_BIN" tests/integration/basic/string_access_scaling.js < /dev/null || true
-          echo "wall: $(( $(date +%s) - start )) s"
+          set +e
+          ts() { python3 -c 'import time; print("%.3f" % time.time())'; }
+          echo "start $(ts)"
+          PROTOJS_GC_STATS=1 "$PROTOJS_BIN" tests/integration/basic/string_access_scaling.js > out.txt 2> err.txt < /dev/null &
+          pid=$!
+          until grep -q "all checks passed\|FAIL" out.txt; do sleep 0.2; done
+          echo "script done $(ts)"
+          sleep 3
+          echo "sampling $(ts)"
+          sample $pid 10 -file sample.txt > /dev/null 2>&1
+          wait $pid; echo "exit $? at $(ts)"
+          tail -3 out.txt; cat err.txt
+          echo "----- sample (heaviest stacks)"
+          sed -n '1,200p' sample.txt | cut -c1-220
+          echo "----- same script ending in process.exit(0)"
+          { cat tests/integration/basic/string_access_scaling.js; echo 'process.exit(0);'; } > exit0.js
+          echo "start $(ts)"; "$PROTOJS_BIN" exit0.js > out2.txt < /dev/null; echo "exit $? at $(ts)"; tail -1 out2.txt
 
       - name: Report the registered test count
         working-directory: protoJS
