@@ -42,6 +42,7 @@ extern "C" {
 #include "../GCBridge.h"
 #include "../TypeBridge.h"
 #include "protoCore.h"
+#include <functional>
 #include <optional>
 #include <cerrno>
 
@@ -1301,8 +1302,20 @@ static const proto::ProtoObject* reflectConstruct(
     // them per §10.2.2. Plain objects carry neither marker and also
     // fail. Builtins like Set / Map / Array / Promise have
     // __construct__ or one of the *Ctor markers.
-    auto isConstructible = [&](const proto::ProtoObject* t) -> bool {
+    // A bound function has [[Construct]] exactly when its target has one
+    // (§10.4.1.3 BoundFunctionCreate step 6).  Own-only lookup: a class
+    // that extends a bound function inherits __bound_fn__ through its
+    // chain without being one.
+    const proto::ProtoString* boundFnK = JSSymbols::boundFn(ctx);
+    auto boundTargetOf = [&](const proto::ProtoObject* t) -> const proto::ProtoObject* {
+        if (!t || t == PROTO_NONE || !boundFnK || t->isMethod(ctx)) return nullptr;
+        const proto::ProtoObject* bt = t->getOwnAttributeDirect(ctx, boundFnK);
+        return (bt && bt != PROTO_NONE) ? bt : nullptr;
+    };
+    std::function<bool(const proto::ProtoObject*)> isConstructible =
+        [&](const proto::ProtoObject* t) -> bool {
         if (!t || t == PROTO_NONE) return false;
+        if (const proto::ProtoObject* bt = boundTargetOf(t)) return isConstructible(bt);
         const proto::ProtoString* ctorK = JSSymbols::construct(ctx);
         if (ctorK) {
             const proto::ProtoObject* cf = t->getAttribute(ctx, ctorK, false);
@@ -1335,6 +1348,32 @@ static const proto::ProtoObject* reflectConstruct(
         signalNativeException(makeNativeError(ctx, "TypeError",
             "Reflect.construct target is not a constructor"));
         return PROTO_NONE;
+    }
+
+    // A bound target (§10.4.1.2 [[Construct]]): its bound arguments go
+    // first, a new.target that is the bound function itself becomes its
+    // target, and the target is constructed in its place -- the unwrapping
+    // OP_call_constructor does for `new bound()`.  Until 2026-10
+    // isConstructible did not know bound functions and this threw.
+    while (const proto::ProtoObject* bt = boundTargetOf(target)) {
+        const proto::ProtoObject* bArgs = target->getOwnAttributeDirect(ctx, JSSymbols::boundArgs(ctx));
+        const proto::ProtoList* merged = ctx->newList();
+        if (bArgs && bArgs != PROTO_NONE) {
+            long long blen = 0;
+            const proto::ProtoObject* lo = bArgs->getAttribute(ctx, JSSymbols::length(ctx), false);
+            if (lo && lo->isInteger(ctx)) blen = lo->asLong(ctx);
+            for (long long bi = 0; bi < blen; bi++) {
+                const proto::ProtoObject* av = bArgs->getAttribute(
+                    ctx, JSSymbols::indexKey(ctx, static_cast<uint32_t>(bi)), false);
+                merged = merged->appendLast(ctx, av ? av : PROTO_NONE);
+            }
+        }
+        const unsigned long n = callArgs->getSize(ctx);
+        for (unsigned long i = 0; i < n; i++)
+            merged = merged->appendLast(ctx, callArgs->getAt(ctx, static_cast<int>(i)));
+        callArgs = merged;
+        if (newTarget == target) newTarget = bt;
+        target = bt;
     }
 
     const proto::ProtoString* constructKey = JSSymbols::construct(ctx);
@@ -16524,6 +16563,16 @@ static const proto::ProtoObject* runBytecodeImpl(proto::ProtoContext* pContext,
                     throwJS(pContext, makeError(pContext, "TypeError",
                         "Right-hand side of 'instanceof' is not callable", pGlobalRoot));
                     DISPATCH();
+                }
+                // §7.3.21 OrdinaryHasInstance step 2: a bound function
+                // answers for its target (own-only lookup: a class that
+                // extends a bound function is not one).
+                if (const proto::ProtoString* bfK = JSSymbols::boundFn(pContext)) {
+                    while (!func->isMethod(pContext)) {
+                        const proto::ProtoObject* bt = func->getOwnAttributeDirect(pContext, bfK);
+                        if (!bt || bt == PROTO_NONE) break;
+                        func = bt;
+                    }
                 }
                 const proto::ProtoString* protoKey = JSSymbols::prototype(pContext);
                 protojs::materializeLazyPrototype(pContext, func);  // LazyPrototype.h

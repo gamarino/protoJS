@@ -114,8 +114,8 @@ check("Reflect.construct(F, [])", Reflect.construct(F, []).nt, F);
 check("Reflect.construct(F, [], G)", Reflect.construct(F, [], G).nt, G);
 var BoundF = F.bind(null);
 check("new on a bound function", new BoundF().nt, F);
-// Not covered: Reflect.construct on a bound function, which throws "target is
-// not a constructor" (a separate defect of Reflect.construct).
+check("Reflect.construct on a bound function", Reflect.construct(BoundF, []).nt, F);
+check("Reflect.construct on a bound function, new.target G", Reflect.construct(BoundF, [], G).nt, G);
 
 class A { constructor() { this.nt = new.target; } }
 class B extends A { constructor() { super(); this.ntB = new.target; } }
