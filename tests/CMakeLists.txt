@@ -541,8 +541,22 @@ set_tests_properties(js/basic/string_cells_bounded PROPERTIES
 
 # Array.from over 150,000-element iterators and a 250,000-element array-like.
 set_tests_properties(js/basic/array_from_large PROPERTIES TIMEOUT 300)
-# Times each string access for n and 4n characters and checks the ratio.
-set_tests_properties(js/basic/string_access_scaling PROPERTIES TIMEOUT 300)
+# Times each string access for n and 4n characters and checks the ratio. It
+# allocates about 12 GB of cells in all, nearly all garbage, so the heap policy
+# decides what it measures. Under the default policy the heap grows up to a
+# ceiling derived from physical memory: on a large Linux machine it never
+# collected (0 cycles, 11.7 GB RSS, 18.6 s), while on the 7 GB macOS runner it
+# reached its ceiling, collected twice over about 85 M cells, and took 130-149 s
+# (2026-10-29): about 90 s of that was the exit, which waits for the
+# collector's last cycle. A cycle that landed in a 4n sample also pushed a ratio
+# past the bound once (10.9, "length after prepend"). The adaptive controller
+# makes the heap the same on every machine: small, frequent cycles (37 cycles,
+# 0.57 GB, 18.6 s on Linux; 19.3 s on the macOS runner), with collection cost
+# spread evenly over the samples. The limit is about 6x the slowest run
+# measured under it, for a loaded runner.
+set_tests_properties(js/basic/string_access_scaling PROPERTIES
+    ENVIRONMENT "PROTOCORE_ADAPTIVE_HEAP=1"
+    TIMEOUT 120)
 set_tests_properties(js/basic/array_bulk_scaling PROPERTIES TIMEOUT 300)
 
 # A quadratic Map.set / Set.add would not finish within this limit.
