@@ -458,10 +458,14 @@ static const proto::ProtoObject* fnHasInstance(
     }
 
     // Spec step 2: if this has [[BoundTargetFunction]], delegate to it.
+    // Own-only lookup, through every level of binding: a class that
+    // extends a bound function inherits __bound_fn__ without being one.
     const proto::ProtoString* boundKey = JSSymbols::boundFn(ctx);
-    const proto::ProtoObject* boundTarget = (boundKey)
-        ? self->getAttribute(ctx, boundKey, false) : nullptr;
-    if (boundTarget && boundTarget != PROTO_NONE) self = boundTarget;
+    while (boundKey && !self->isMethod(ctx)) {
+        const proto::ProtoObject* boundTarget = self->getOwnAttributeDirect(ctx, boundKey);
+        if (!boundTarget || boundTarget == PROTO_NONE) break;
+        self = boundTarget;
+    }
 
     // Spec step 4: P = Get(this, "prototype").  §7.3.2 Get fires
     // accessor getters and propagates their abrupt completion.  Pre-
