@@ -1,4 +1,5 @@
 #include <atomic>
+#include "BigIntPrototype.h"
 #include "runtime/OwnAttributes.h"
 #include "ProtoCoreTypes.h"
 #include "runtime/JSStringUnits.h"
@@ -323,6 +324,10 @@ static bool sameValue(proto::ProtoContext* ctx,
                        const proto::ProtoObject* b) {
     if (a == b) return true;
     if (!a || !b || a == PROTO_NONE || b == PROTO_NONE) return false;
+    {
+        bool eq = false;
+        if (bigIntSameValue(ctx, a, b, eq)) return eq;
+    }
     if (a->isInteger(ctx) && b->isInteger(ctx))
         return a->asLong(ctx) == b->asLong(ctx);
     if ((a->isDouble(ctx) || a->isFloat(ctx) || a->isInteger(ctx)) &&

@@ -613,6 +613,20 @@ bool isBigInt(proto::ProtoContext* ctx, const proto::ProtoObject* v) {
     return v->hasOwnAttribute(ctx, vk) == PROTO_TRUE;
 }
 
+bool bigIntSameValue(proto::ProtoContext* ctx, const proto::ProtoObject* a,
+                     const proto::ProtoObject* b, bool& equal) {
+    const bool aBig = isBigInt(ctx, a);
+    const bool bBig = isBigInt(ctx, b);
+    if (!aBig && !bBig) return false;
+    equal = false;
+    if (aBig && bBig) {
+        const proto::ProtoObject* ai = unwrapBigInt(ctx, a);
+        const proto::ProtoObject* bi = unwrapBigInt(ctx, b);
+        equal = ai && bi && ai != PROTO_NONE && bi != PROTO_NONE && ai->compare(ctx, bi) == 0;
+    }
+    return true;
+}
+
 const proto::ProtoObject* unwrapBigInt(proto::ProtoContext* ctx,
                                        const proto::ProtoObject* v) {
     if (!isBigInt(ctx, v)) return PROTO_NONE;

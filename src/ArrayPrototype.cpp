@@ -1,3 +1,4 @@
+#include "BigIntPrototype.h"
 #include "ProtoCoreTypes.h"
 #include "JSNumber.h"
 #include "runtime/OwnAttributes.h"
@@ -939,6 +940,13 @@ static bool strictEquals(proto::ProtoContext* ctx,
     bool bNone = !b || b == PROTO_NONE || b == undefSent;
     if (aNone && bNone) return true;
     if (aNone || bNone) return false;
+    // Two BigInts by value (indexOf / lastIndexOf / includes).  Until
+    // 2026-10 they fell to reference equality and [5n].includes(5n) was
+    // false.
+    {
+        bool eq = false;
+        if (bigIntSameValue(ctx, a, b, eq)) return eq;
+    }
     bool aInt = a->isInteger(ctx);
     bool bInt = b->isInteger(ctx);
     bool aDbl = a->isDouble(ctx) || a->isFloat(ctx);
