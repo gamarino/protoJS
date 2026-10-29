@@ -109,6 +109,11 @@ add_test(NAME cli/attribute-access
     COMMAND ${PROTOJS_SH} "${CMAKE_CURRENT_SOURCE_DIR}/cli/attribute-access.sh"
             "$<TARGET_FILE:protojs>")
 
+# console.log of BigInts and -0, compared with Node's output.
+add_test(NAME cli/console-values
+    COMMAND ${PROTOJS_SH} "${CMAKE_CURRENT_SOURCE_DIR}/cli/console-values.sh"
+            "$<TARGET_FILE:protojs>")
+
 # protoCore's finalizer contract, asserted against the source because three of the
 # five finalizers cannot be reached at run time at all (each pins the object that
 # carries its own ExternalPointer). Follows calls one whole call graph deep, which is
