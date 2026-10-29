@@ -46,16 +46,20 @@ jobs:
       - name: Run the whole fixture repeatedly, sampling any stall
         working-directory: protoJS
         run: |
+          set +e +o pipefail
           mkdir -p scratch samples
           # Watchdog: any protojs alive for more than 25 s is sampled once.
           (
             while true; do
-              for pid in $(pgrep -x protojs); do
+              for pid in $(pgrep -x protojs || true); do
                 et=$(ps -o etime= -p $pid | tr -d ' ')
                 secs=$(echo "$et" | awk -F: '{ if (NF==2) print $1*60+$2; else if (NF==3) print $1*3600+$2*60+$3; else print $1 }')
                 if [ "${secs:-0}" -gt 25 ] && [ ! -f samples/$pid.txt ]; then
                   ps -o pid,etime,command -p $pid > samples/$pid.txt
                   sample $pid 5 -file samples/$pid.sample >/dev/null 2>&1
+                  # A second sample 10 s later shows whether anything moved.
+                  sleep 10; sample $pid 3 -file samples/$pid.sample2 >/dev/null 2>&1
+                  lsof -p $pid > samples/$pid.lsof 2>&1
                   echo "sampled $pid" >> samples/index.txt
                 fi
               done
@@ -72,5 +76,5 @@ jobs:
           done
           kill $WD 2>/dev/null
           echo "fixture runs=$i failures=$fails"
-          for f in samples/*.txt; do [ -f "$f" ] && { echo "=== $f"; cat "$f"; cat "${f%.txt}.sample" 2>/dev/null; }; done
+          for f in samples/*; do echo "=== $f"; cat "$f"; done
           [ $fails -eq 0 ]
