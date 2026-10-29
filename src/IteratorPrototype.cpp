@@ -1,4 +1,5 @@
 #include "ProtoCoreTypes.h"
+#include "JSNumber.h"
 #include "runtime/OwnAttributes.h"
 #include "runtime/JSStringBytes.h"
 #include "runtime/PropertyDictionary.h"
@@ -697,10 +698,10 @@ static const proto::ProtoObject* iteratorTake(
         limitNum = limitArg->asDouble(ctx);
         valid = true;
     } else if (limitArg->isString(ctx)) {
-        std::string s;
-        limitArg->asString(ctx)->toUTF8String(ctx, s);
-        try { limitNum = std::stod(s); valid = true; }
-        catch (...) { limitNum = std::nan(""); }
+        // ToNumber (StringToNumber): the whole string, "12abc" is NaN.
+        if (!numberToDouble(ctx, jsToNumber(ctx, limitArg), limitNum))
+            limitNum = std::numeric_limits<double>::quiet_NaN();
+        valid = true;
     } else {
         // Object → would normally ToPrimitive then ToNumber.  For
         // simplicity reject as NaN.
@@ -792,10 +793,10 @@ static const proto::ProtoObject* iteratorDrop(
     } else if (limitArg->isDouble(ctx) || limitArg->isFloat(ctx)) {
         limitNum = limitArg->asDouble(ctx); valid = true;
     } else if (limitArg->isString(ctx)) {
-        std::string s;
-        limitArg->asString(ctx)->toUTF8String(ctx, s);
-        try { limitNum = std::stod(s); valid = true; }
-        catch (...) { limitNum = std::numeric_limits<double>::quiet_NaN(); }
+        // ToNumber (StringToNumber): the whole string, "12abc" is NaN.
+        if (!numberToDouble(ctx, jsToNumber(ctx, limitArg), limitNum))
+            limitNum = std::numeric_limits<double>::quiet_NaN();
+        valid = true;
     } else {
         limitNum = std::numeric_limits<double>::quiet_NaN();
     }
