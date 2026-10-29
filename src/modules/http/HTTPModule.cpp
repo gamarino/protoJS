@@ -107,6 +107,7 @@ struct ServerState : GcOrphanQueue::Orphan {
     std::atomic<bool> listening{false};
     int socketFd{-1};
     std::thread thread;
+    platform::AcceptWaker acceptWaker;   // stops the accept loop (requestServerTeardown)
     JSContextWrapper* wrapper{nullptr};
     proto::ProtoRootSet::Handle listenerPin{proto::ProtoRootSet::kNullHandle};
 
@@ -114,9 +115,11 @@ struct ServerState : GcOrphanQueue::Orphan {
 };
 
 // Split in two halves, and the split is the fix: see NetModule.cpp for the full
-// reasoning. The REQUEST half closes the listening descriptor, which is what makes
-// ::accept return, and blocks on nothing. The AWAIT half joins the accept loop and
-// therefore blocks, which protoCore's finalizer contract forbids on the GC thread
+// reasoning. The REQUEST half clears `listening` and wakes the accept loop
+// (platform::AcceptWaker), and blocks on nothing. The AWAIT half joins
+// the accept loop and then closes the listening descriptor -- after the join, so no
+// thread is inside accept() on it (platform::acceptUntilStopped says why that
+// matters on macOS) -- and therefore blocks, which protoCore's finalizer contract forbids on the GC thread
 // (docs/GarbageCollector.md S7): a wait inside the sweep stalls collection for the
 // whole space, and joining a loop that may be inside ::read on a slow client is not
 // bounded.
@@ -126,11 +129,7 @@ struct ServerState : GcOrphanQueue::Orphan {
 bool requestServerTeardown(ServerState* s) {
     if (!s) return false;
     const bool wasListening = s->listening.exchange(false);
-    if (s->socketFd >= 0) {
-        ::shutdown(s->socketFd, SHUT_RDWR);
-        platform::closeSocket(s->socketFd);
-        s->socketFd = -1;
-    }
+    s->acceptWaker.wake();
     return wasListening;
 }
 
@@ -141,6 +140,10 @@ void awaitServerTeardown(ServerState* s, proto::ProtoContext* ctx) {
     if (!s) return;
     ThreadUnmanagedScope parked(ctx);   // an UnmanagedScope on ctx, or on this thread's
     if (s->thread.joinable()) s->thread.join();
+    if (s->socketFd >= 0) {
+        platform::closeSocket(s->socketFd);
+        s->socketFd = -1;
+    }
 }
 
 // Counts servers whose accept loop is active.  Decremented from
@@ -533,12 +536,13 @@ const proto::ProtoObject* serverListen(
         platform::closeSocket(fd);
         return PROTO_NONE;
     }
-    if (::listen(fd, 16) < 0) {
+    if (::listen(fd, 16) < 0 || !platform::setSocketBlocking(fd, false)) {
         platform::closeSocket(fd);
         return PROTO_NONE;
     }
 
     state->socketFd = fd;
+    state->acceptWaker.reset();
     self->setAttribute(ctx, keyFD(ctx), ctx->fromInteger(fd));
     self->setAttribute(ctx, keyPort(ctx), ctx->fromInteger(port));
     state->listening.store(true);
@@ -549,16 +553,13 @@ const proto::ProtoObject* serverListen(
     // ProtoRootSet via state->listenerPin (set by createServer).
     JSContextWrapper* wrapper = state->wrapper;
     proto::ProtoRootSet::Handle pin = state->listenerPin;
-    state->thread = std::thread([state, wrapper, pin]() {
+    state->thread = std::thread([state, wrapper, pin, fd]() {
         while (state->listening.load()) {
             sockaddr_in client{};
             socklen_t cl = sizeof(client);
-            int cfd = platform::acceptSocket(state->socketFd,
+            const int cfd = platform::acceptUntilStopped(fd, state->listening, state->acceptWaker,
                                 reinterpret_cast<sockaddr*>(&client), &cl);
-            if (cfd < 0) {
-                if (!state->listening.load()) break;
-                continue;
-            }
+            if (cfd < 0) break;   // stopped
             char buf[4096];
             ssize_t n = platform::readSocket(cfd, buf, sizeof(buf) - 1);
             if (n <= 0) {
