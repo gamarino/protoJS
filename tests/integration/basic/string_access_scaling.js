@@ -21,6 +21,12 @@
 // 4n samples met push a linear operation past the bound (16.6 on macOS, for
 // Array.prototype.slice.call). A ratio above the bound is measured once more
 // and fails only if it is reproduced; a quadratic path always is.
+//
+// Measured ratios (2026-10-29): 3.4-5.3 on Linux, 2.3-6.6 on the macOS runner
+// (the latter under the default heap policy); a quadratic path gives about 16. The test runs under the adaptive heap
+// controller (tests/CMakeLists.txt): under the default heap policy the heap
+// size, and with it when and how long collections run, depends on the
+// machine's memory.
 // Asserting test: exits 1 on any failure.
 
 var failures = [];
@@ -48,8 +54,13 @@ function scales(name, f) {
     var expectedSmall = f(small), expectedLarge = f(large);
     if (expectedLarge === expectedSmall && typeof expectedSmall === "number" && expectedSmall !== 0)
         failures.push(name + ": same result for n and 4n (" + expectedSmall + ")");
+    var t0 = Date.now();
     var m = measure(f, small, large);
-    if (m.ratio > 10) m = measure(f, small, large);
+    var again = m.ratio > 10;
+    if (again) m = measure(f, small, large);
+    // Self-report: the figures behind each verdict, printed on success too.
+    console.log(name + ": " + m.ts.toFixed(3) + " ms for n, " + m.tl.toFixed(3) + " ms for 4n, ratio "
+        + m.ratio.toFixed(2) + (again ? " (measured twice)" : "") + ", " + (Date.now() - t0) + " ms in all");
     if (m.ratio > 10)
         failures.push(name + ": " + m.ts.toFixed(2) + " ms for n, " + m.tl.toFixed(2) + " ms for 4n (ratio " + m.ratio.toFixed(1) + ")");
 }
