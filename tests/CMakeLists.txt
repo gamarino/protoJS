@@ -371,6 +371,7 @@ foreach(js_test
         basic/closure_set_prototype
         basic/lazy_function_prototype
         basic/new_non_constructor
+        basic/new_target_calls
         basic/object_integrity
         basic/symbol_key_order
         basic/native_function_prototype

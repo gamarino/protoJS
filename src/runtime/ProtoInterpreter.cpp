@@ -688,7 +688,27 @@ static const proto::ProtoObject* defineComputedAccessor(proto::ProtoContext* ctx
     return out;
 }
 
+// Runs fn as callJSFunction does, with `newTarget` as the new.target its body
+// sees: nullptr for a [[Call]] (callJSFunction), the constructor's new.target
+// for the body of a [[Construct]] (OP_apply magic 1, OP_init_ctor,
+// Reflect.construct).  Defined next to callJSFunction.
+const proto::ProtoObject* callJSFunctionWithNewTarget(
+    proto::ProtoContext* ctx,
+    const proto::ProtoObject* fn,
+    const proto::ProtoObject* thisVal,
+    const proto::ProtoArguments* args,
+    const proto::ProtoObject* newTarget);
 
+static const proto::ProtoObject* callJSFunctionWithNewTarget(
+    proto::ProtoContext* ctx,
+    const proto::ProtoObject* fn,
+    const proto::ProtoObject* thisVal,
+    const proto::ProtoList* args,
+    const proto::ProtoObject* newTarget)
+{
+    const proto::ProtoListArguments positional(ctx, args);
+    return callJSFunctionWithNewTarget(ctx, fn, thisVal, &positional, newTarget);
+}
 
 namespace {
 
@@ -1366,13 +1386,8 @@ static const proto::ProtoObject* reflectConstruct(
     // allocated receiver. The harness only inspects whether the call
     // throws, so this is sufficient for isConstructor.
     if (isBytecodeFn) {
-        // The body's new.target (OP_check_ctor), restored on every exit.
-        struct NewTargetScope {
-            const proto::ProtoObject* saved = t_activeNewTgt;
-            ~NewTargetScope() { t_activeNewTgt = saved; }
-        } newTargetScope;
-        t_activeNewTgt = newTarget;
-        const proto::ProtoObject* res = callJSFunction(ctx, target, newObj, callArgs);
+        const proto::ProtoObject* res =
+            callJSFunctionWithNewTarget(ctx, target, newObj, callArgs, newTarget);
         return isObjectResult(res) ? res : newObj;
     }
     return newObj;
@@ -9123,6 +9138,10 @@ static const proto::ProtoObject* runBytecodeImpl(proto::ProtoContext* pContext,
             }
             proto::ProtoContext childCtx(pContext->space, pContext, nullptr, nullptr, nullptr, nullptr);
             childCtx.currentFileName = pContext->currentFileName;
+            // A [[Call]]: the method's new.target is undefined, not the
+            // running constructor's.
+            ActiveCallScope activeCallScope;
+            t_activeNewTgt = nullptr;
             const proto::ProtoObject* result = runBytecode(&childCtx, resolvedFn, effectiveThisLambda,
                                                             pContext->newList(), pGlobalRoot);
             anchorCallOutcome(childCtx, result, nullptr);
@@ -10321,10 +10340,8 @@ static const proto::ProtoObject* runBytecodeImpl(proto::ProtoContext* pContext,
                         : pContext->newObject(true);
                     // Instance fields are initialised by the constructor
                     // bodies themselves; see the note in L_OP_call_constructor.
-                    ActiveCallScope applyCallScope;
-                    t_activeNewTgt = ntForProto;
                     const proto::ProtoObject* ret =
-                        callJSFunction(pContext, fn, newObj, argList);
+                        callJSFunctionWithNewTarget(pContext, fn, newObj, argList, ntForProto);
                     // If constructor returned a non-undefined object, use it; else newObj.
                     if (ret && ret != PROTO_NONE && !ret->isInteger(pContext) &&
                         !ret->isBoolean(pContext) && !ret->isDouble(pContext) &&
@@ -10791,8 +10808,9 @@ static const proto::ProtoObject* runBytecodeImpl(proto::ProtoContext* pContext,
                 // a built-in parent.
                 const proto::ProtoObject* ret = nullptr;
                 {
-                    ActiveCallScope activeCallScope;
-                    t_activeNewTgt = t_activeNewTgt ? t_activeNewTgt : parent;
+                    // The parent constructor's body sees the same new.target
+                    // (§10.2.2 [[Construct]] through SuperCall): passed to
+                    // callJSFunctionWithNewTarget below.
                     // Check for __construct__ native method first (Number etc).
                     const proto::ProtoString* ctorKeyL = JSSymbols::construct(pContext);
                     const proto::ProtoObject* ctorMethodL = (ctorKeyL && parent && parent != PROTO_NONE)
@@ -10869,7 +10887,7 @@ static const proto::ProtoObject* runBytecodeImpl(proto::ProtoContext* pContext,
                             // object is built with NewTarget's prototype,
                             // the one newObj was allocated with.
                             ret = constructBuiltinWithCtorProto(pContext, parent, newObj, forwardArgs);
-                            if (!ret) ret = callJSFunction(pContext, parent, newObj, forwardArgs);
+                            if (!ret) ret = callJSFunctionWithNewTarget(pContext, parent, newObj, forwardArgs, ntForProto);
                         } else if (reAttr == PROTO_TRUE) {
                             ret = regexpConstructor(pContext, newObj, nullptr, argsView(proto::ProtoListArguments(pContext, forwardArgs)), nullptr);
                         } else if (strAttr == PROTO_TRUE) {
@@ -10890,8 +10908,8 @@ static const proto::ProtoObject* runBytecodeImpl(proto::ProtoContext* pContext,
                             if (pdkI) newObj = newObj->setAttribute(pContext, pdkI, pContext->fromInteger(0x0LL));
                             ret = newObj;
                         } else {
-                            // Fallback: callJSFunction (JS bytecode ctor).
-                            ret = callJSFunction(pContext, parent, newObj, forwardArgs);
+                            // Fallback: a JS bytecode ctor, run as a construct.
+                            ret = callJSFunctionWithNewTarget(pContext, parent, newObj, forwardArgs, ntForProto);
                         }
                     }
                     // ret if object, else newObj (spec OrdinaryCallEvaluateBody).
@@ -20291,6 +20309,10 @@ static const proto::ProtoObject* resumeGenerator(proto::ProtoContext* ctx,
     // An exception that leaves the body completes the generator and is thrown
     // to the caller of next / return / throw (§27.5.3.3 GeneratorResume).
     // Until 2026-10-04 it was returned as the iterator result.
+    // A generator is never constructed (§27.3.1): its body's new.target is
+    // undefined, whoever calls next / return / throw.
+    ActiveCallScope activeCallScope;
+    t_activeNewTgt = nullptr;
     const proto::ProtoObject* result = nullptr;
     try {
         result = runBytecode(&childCtx, mod, genThis, nullptr, gr);
@@ -21282,6 +21304,18 @@ const proto::ProtoObject* callJSFunction(
     const proto::ProtoObject* thisVal,
     const proto::ProtoArguments* args)
 {
+    // [[Call]]: new.target is undefined in the callee (§10.2.1 step 3,
+    // OrdinaryCallBindThis / PrepareForOrdinaryCall with newTarget undefined).
+    return callJSFunctionWithNewTarget(ctx, fn, thisVal, args, nullptr);
+}
+
+const proto::ProtoObject* callJSFunctionWithNewTarget(
+    proto::ProtoContext* ctx,
+    const proto::ProtoObject* fn,
+    const proto::ProtoObject* thisVal,
+    const proto::ProtoArguments* args,
+    const proto::ProtoObject* newTarget)
+{
     if (!fn || fn == PROTO_NONE || !ctx) return PROTO_NONE;
 
     // Proxy callable target — dispatch through the handler's apply trap
@@ -21437,14 +21471,18 @@ const proto::ProtoObject* callJSFunction(
         if (debugBindEnabled()) {
             printf("[DEBUG] callJSFunction (dispatching to %d): this=%p argc=%u\n", bcId, effectiveThis, argc);
         }
-        // Publish active func / args for OP_special_object kind=THIS_FUNC / kind=HOME_OBJECT
-        // and OP_init_ctor in nested derived ctor invocations.  t_activeNewTgt
-        // is INHERITED from caller, not reset — when OP_init_ctor invokes
-        // callJSFunction(parent_ctor, ...), the parent ctor's body needs to
-        // see the same new_target so its own OP_init_ctor (in a deeper
-        // derivation) targets the right prototype.
+        // Publish active func / new.target / args for OP_special_object
+        // (THIS_FUNC, NEW_TARGET, HOME_OBJECT) and OP_init_ctor.  new.target
+        // is the caller's choice: undefined for a [[Call]] (callJSFunction),
+        // the constructor's new.target when a construct path runs the body
+        // (OP_init_ctor passes its own new.target on to the parent
+        // constructor, so a deeper OP_init_ctor still targets the right
+        // prototype).  Until 2026-10 it was inherited from whatever ran
+        // before, so a callback a constructor passed to a native
+        // (`[1].forEach(function () { new.target })`) saw the constructor.
         ActiveCallScope activeCallScope;
         t_activeFunc = fn;
+        t_activeNewTgt = newTarget;
         t_activeArgs = argsList;
         const proto::ProtoObject* result =
             runCallActivation(&childCtx, nf, effectiveThis, argsList, globalRoot, closuresBound,
@@ -21494,7 +21532,13 @@ const proto::ProtoObject* callJSFunction(
             if (debugBindEnabled()) {
                 printf("[DEBUG] callJSFunction (bound): target=%p this=%p argc=%d\n", target, effectiveBoundThis, (int)mergedArgs->getSize(ctx));
             }
-            return callJSFunction(ctx, target, effectiveBoundThis, mergedArgs);
+            // §10.4.1.2 [[Construct]] step 5: a new.target that is the bound
+            // function itself becomes its target.
+            // A construct ignores the bound this (step 6: Construct(target,
+            // args, newTarget)); the caller's receiver is the new object.
+            return callJSFunctionWithNewTarget(ctx, target,
+                                               newTarget ? thisVal : effectiveBoundThis, mergedArgs,
+                                               newTarget == fn ? target : newTarget);
         }
     }
 
