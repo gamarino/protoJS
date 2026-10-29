@@ -805,25 +805,8 @@ inline const proto::ProtoObject* allocCell(proto::ProtoContext* ctx,
 extern thread_local const proto::ProtoObject* t_currentFrameObj;
 extern thread_local const proto::ProtoObject* t_activeFunc;
 
-// Lazy frame-object materialiser.  Returns the current call's frameObj,
-// allocating it on first use.  parents = [activeFunc, *pGlobalRoot] —
-// activeFunc lets callers reach the fn-object's own attributes (name,
-// length, prototype); *pGlobalRoot reaches top-level bindings + built-ins.
-// Once created the same object is reused for the rest of the call.
-inline const proto::ProtoObject* getOrCreateFrameObj(proto::ProtoContext* ctx,
-                                                     const proto::ProtoObject** pGlobalRoot) {
-    if (t_currentFrameObj) return t_currentFrameObj;
-    const proto::ProtoObject* frameObj = ctx->newObject(true);
-    if (!frameObj) return nullptr;
-    if (t_activeFunc && t_activeFunc != PROTO_NONE) {
-        frameObj = frameObj->addParent(ctx, t_activeFunc);
-    }
-    if (pGlobalRoot && *pGlobalRoot) {
-        frameObj = frameObj->addParent(ctx, *pGlobalRoot);
-    }
-    t_currentFrameObj = frameObj;
-    return frameObj;
-}
+// getOrCreateFrameObj, the lazy frame-object materialiser, is defined below
+// currentFrame(), which it needs to anchor the object in the activation.
 
 // messageLen is the byte length of message when it may carry a NUL (a
 // JavaScript message string); by default message is a C string.
@@ -3451,6 +3434,40 @@ static PROTOJS_ALWAYS_INLINE void setSlot(proto::ProtoContext* ctx, unsigned int
         ctx->resizeAutomaticLocals(index + 1);
     const_cast<const proto::ProtoObject**>(ctx->getAutomaticLocals())[index] =
         value ? value : PROTO_NONE;
+}
+
+// Lazy frame-object materialiser.  Returns the current call's frameObj,
+// allocating it on first use.  parents = [activeFunc, *pGlobalRoot] --
+// activeFunc lets callers reach the fn-object's own attributes (name,
+// length, prototype); *pGlobalRoot reaches top-level bindings + built-ins.
+// Once created the same object is reused for the rest of the call.
+//
+// The object is anchored in the activation's slot below t_activeFunc's (the
+// fourth from the top of the reserved region, see the activation entry in
+// runBytecodeImpl).  t_currentFrameObj is a thread-local, which the collector
+// does not scan, and the closures the frame object is a parent of may all have
+// died before the call creates the next one: the activation's young
+// generation is handed to the collector at a safepoint, a collection then
+// freed the frame object, and the next closure was built on the reused cell
+// (tests/integration/gc/frame_object_outlives_closures.js).  Without an
+// activation to anchor it in, the object is not cached: each caller links the
+// fresh object into its closure before the next safepoint.
+static const proto::ProtoObject* getOrCreateFrameObj(proto::ProtoContext* ctx,
+                                                     const proto::ProtoObject** pGlobalRoot) {
+    if (t_currentFrameObj) return t_currentFrameObj;
+    const proto::ProtoObject* frameObj = ctx->newObject(true);
+    if (!frameObj) return nullptr;
+    if (t_activeFunc && t_activeFunc != PROTO_NONE) {
+        frameObj = frameObj->addParent(ctx, t_activeFunc);
+    }
+    if (pGlobalRoot && *pGlobalRoot) {
+        frameObj = frameObj->addParent(ctx, *pGlobalRoot);
+    }
+    const InterpFrame* f = currentFrame(ctx);
+    if (!f || f->stackCap < 4) return frameObj;
+    setSlot(ctx, f->stackBase + f->stackCap - 4, frameObj);
+    t_currentFrameObj = frameObj;
+    return frameObj;
 }
 
 // Build the capture scope of a closure that OP_fclosure / OP_fclosure8 is
