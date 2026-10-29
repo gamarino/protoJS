@@ -1,4 +1,5 @@
 #include "ProtoCoreTypes.h"
+#include "JSNumber.h"
 #include "runtime/JSStringBytes.h"
 #include "FunctionPrototype.h"
 #include "runtime/LazyPrototype.h"
@@ -692,11 +693,8 @@ static const proto::ProtoObject* createDynamicFunction(
         if (o == getNullSentinel()) return "null";
         if (o->isString(ctx)) { o->asString(ctx)->toUTF8String(ctx, r); return r; }
         if (o->isInteger(ctx)) return std::to_string(o->asLong(ctx));
-        if (o->isDouble(ctx) || o->isFloat(ctx)) {
-            char buf[64];
-            std::snprintf(buf, sizeof(buf), "%.15g", o->asDouble(ctx));
-            return std::string(buf);
-        }
+        if (o->isDouble(ctx) || o->isFloat(ctx))
+            return protojs::numberToString(o->asDouble(ctx));
         if (o == PROTO_TRUE) return "true";
         if (o == PROTO_FALSE) return "false";
         // §7.1.17 ToString on Object: ToPrimitive(arg, "string").  Try

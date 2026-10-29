@@ -272,6 +272,7 @@ add_library(protojs_core STATIC
     src/dap/DapSession.cpp
     # protoCore-backed array adapter and QuickJS integration
     src/JSSymbols.cpp
+    src/JSNumber.cpp
     src/NumberPrototype.cpp
     src/StringPrototype.cpp
     src/BooleanPrototype.cpp

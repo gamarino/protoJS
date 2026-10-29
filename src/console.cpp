@@ -61,38 +61,8 @@ static void printProtoValue(proto::ProtoContext* ctx, const proto::ProtoObject* 
         return;
     }
     if (val->isDouble(ctx)) {
-        const double d = val->asDouble(ctx);
-        if (std::isnan(d))      out << "NaN";
-        else if (std::isinf(d)) out << (d < 0 ? "-Infinity" : "Infinity");
-        else {
-            // Match JS ToString(Number): shortest round-trip per
-            // §7.1.12.1. The previous %.17g over-prints common literals
-            // (3.14 → "3.1400000000000001"). Integer-valued doubles in
-            // safe-int range print as plain integers.
-            char buf[64];
-            if (d == std::trunc(d) && std::abs(d) < 1e21) {
-                long long iv = static_cast<long long>(d);
-                if (static_cast<double>(iv) == d) {
-                    snprintf(buf, sizeof(buf), "%lld", iv);
-                    out << buf;
-                    return;
-                }
-            }
-            for (int p = 1; p <= 17; ++p) {
-                snprintf(buf, sizeof(buf), "%.*g", p, d);
-                double check = 0.0;
-                std::sscanf(buf, "%lf", &check);
-                if (check == d) break;
-            }
-            // Normalize exponent: glibc emits "1e-07" / "1e+21"; spec
-            // wants "1e-7" / "1e+21" (no leading zero in exponent).
-            if (char* e = std::strchr(buf, 'e')) {
-                if (e[1] && e[2] == '0' && e[3]) {
-                    std::memmove(e + 2, e + 3, std::strlen(e + 3) + 1);
-                }
-            }
-            out << buf;
-        }
+        // JS ToString(Number): Number::toString (JSNumber.h).
+        out << protojs::numberToString(val->asDouble(ctx));
         return;
     }
     // Real arrays: print [v1, v2, ...]

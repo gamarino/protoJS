@@ -1,4 +1,5 @@
 #include "DapSession.h"
+#include "../JSNumber.h"
 #include "DapStdio.h"
 #include "DapTransport.h"
 
@@ -284,21 +285,7 @@ std::string formatDouble(double d) {
     if (std::isnan(d)) return "NaN";
     if (std::isinf(d)) return d < 0 ? "-Infinity" : "Infinity";
     if (d == 0 && std::signbit(d)) return "-0";
-    char buf[64];
-    if (d == std::trunc(d) && std::abs(d) < 1e21) {
-        long long iv = static_cast<long long>(d);
-        if (static_cast<double>(iv) == d) {
-            std::snprintf(buf, sizeof buf, "%lld", iv);
-            return buf;
-        }
-    }
-    for (int p = 1; p <= 17; ++p) {
-        std::snprintf(buf, sizeof buf, "%.*g", p, d);
-        double check = 0.0;
-        std::sscanf(buf, "%lf", &check);
-        if (check == d) break;
-    }
-    return buf;
+    return protojs::numberToString(d);
 }
 
 std::string toUtf8(proto::ProtoContext* ctx, const proto::ProtoString* s) {

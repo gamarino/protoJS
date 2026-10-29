@@ -1,4 +1,5 @@
 #include "ProtoDeferred.h"
+#include "JSNumber.h"
 #include "DeferredPool.h"
 #include "runtime/ThreadIdentity.h"
 #include "runtime/PinnedBuiltin.h"
@@ -47,11 +48,7 @@ std::string describeThrownValue(proto::ProtoContext* ctx, const proto::ProtoObje
             return errStr;
         }
         if (exc->isInteger(ctx)) return std::to_string(exc->asLong(ctx));
-        if (exc->isDouble(ctx)) {
-            char buf[40];
-            std::snprintf(buf, sizeof(buf), "%.15g", exc->asDouble(ctx));
-            return buf;
-        }
+        if (exc->isDouble(ctx)) return protojs::numberToString(exc->asDouble(ctx));
         if (exc == getUndefinedSentinel()) return "undefined";
         if (exc == getNullSentinel()) return "null";
         if (exc->isBoolean(ctx)) return exc == PROTO_TRUE ? "true" : "false";

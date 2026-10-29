@@ -132,89 +132,8 @@ const proto::ProtoObject* numberToString(
         return context->fromUTF8String(value < 0 ? "-Infinity" : "Infinity");
     }
     if (radix == 10) {
-        char buf[64];
-        if (value == static_cast<long long>(value) && value >= -9007199254740992.0 && value <= 9007199254740991.0) {
-            snprintf(buf, sizeof(buf), "%lld", static_cast<long long>(value));
-            result = buf;
-        } else {
-            // ECMA-262 §6.1.6.1.13 Number::toString: pick the shortest
-            // decimal mantissa that round-trips through the double, then
-            // emit:
-            //   * scientific form when the decimal exponent is < -6 or
-            //     >= 21;
-            //   * integer notation (with trailing zeros) when the exponent
-            //     fits in [0, 21);
-            //   * "0." + leading zeros + mantissa when the exponent is
-            //     in [-6, 0).
-            // Pre-fix `%.15g` flattened any value whose magnitude was
-            // exactly at 15 significant digits, so
-            // `(1000000000000000128).toString()` returned "1e+18" instead
-            // of the spec-required "1000000000000000100".
-            int chosenP = 17;
-            for (int p = 1; p <= 17; ++p) {
-                snprintf(buf, sizeof(buf), "%.*e", p - 1, value);
-                double check = 0.0;
-                std::sscanf(buf, "%lf", &check);
-                if (check == value) { chosenP = p; break; }
-            }
-            // buf currently holds "[-]d.dddd...e[+/-]NN" with chosenP-1
-            // fraction digits.  Extract sign / mantissa / exponent.
-            const char* sp = buf;
-            bool neg = false;
-            if (*sp == '-') { neg = true; ++sp; }
-            std::string mant;
-            mant.push_back(*sp++);
-            if (*sp == '.') {
-                ++sp;
-                while (*sp && *sp != 'e') mant.push_back(*sp++);
-            }
-            int expVal = 0;
-            if (*sp == 'e') {
-                ++sp;
-                int sgn = 1;
-                if (*sp == '+') ++sp;
-                else if (*sp == '-') { sgn = -1; ++sp; }
-                while (*sp >= '0' && *sp <= '9') { expVal = expVal * 10 + (*sp - '0'); ++sp; }
-                expVal *= sgn;
-            }
-            // mant has chosenP significant digits, expVal is the
-            // decimal exponent of the first digit.
-            std::string m;
-            if (expVal < -6 || expVal >= 21) {
-                // Scientific notation: 'd.dddd' + 'e' + sign + |exp|.
-                m.push_back(mant[0]);
-                if (mant.size() > 1) {
-                    m.push_back('.');
-                    m.append(mant.substr(1));
-                }
-                m.push_back('e');
-                m.push_back(expVal >= 0 ? '+' : '-');
-                char eb[16];
-                snprintf(eb, sizeof(eb), "%d", std::abs(expVal));
-                m.append(eb);
-            } else if (expVal >= 0) {
-                // Integer-form: place dot after (expVal+1) digits, pad
-                // with trailing zeros up to that position.
-                int intLen = expVal + 1;
-                if (static_cast<int>(mant.size()) >= intLen) {
-                    m.append(mant.substr(0, intLen));
-                    if (static_cast<int>(mant.size()) > intLen) {
-                        m.push_back('.');
-                        m.append(mant.substr(intLen));
-                    }
-                } else {
-                    m.append(mant);
-                    m.append(intLen - mant.size(), '0');
-                }
-            } else {
-                // "0." + leading zeros + mantissa for expVal in [-6, -1].
-                m.append("0.");
-                for (int i = 0; i < -expVal - 1; ++i) m.push_back('0');
-                m.append(mant);
-            }
-            if (neg) m.insert(0, "-");
-            result = m;
-        }
+        // Number::toString(x, 10) (§6.1.6.1.20), JSNumber.h.
+        result = protojs::numberToString(value);
     } else {
         // Spec §21.1.3.6: split value into sign, integer, fractional
         // parts and emit each in the requested radix. Pre-fix the
@@ -323,11 +242,8 @@ const proto::ProtoObject* numberToFixed(
     if (std::isinf(value))
         return context->fromUTF8String(value < 0 ? "-Infinity" : "Infinity");
     // Step 9: if |x| >= 1e21, return ToString(x).
-    if (std::fabs(value) >= 1e21) {
-        char buf[64];
-        snprintf(buf, sizeof(buf), "%g", value);
-        return context->fromUTF8String(buf);
-    }
+    if (std::fabs(value) >= 1e21)
+        return context->fromUTF8String(protojs::numberToString(value).c_str());
     // Step 5 normalizes -0: since `-0 < 0` is false, the sign must not
     // be emitted. printf("-0.0", "%.2f") yields "-0.00"; spec wants
     // "0.00". Strip the sign by re-assigning the literal +0.
@@ -679,7 +595,7 @@ const proto::ProtoObject* numberParseInt(
         } else if (strObj->isInteger(ctx)) {
             s = std::to_string(strObj->asLong(ctx));
         } else if (strObj->isDouble(ctx)) {
-            char buf[64]; snprintf(buf, sizeof(buf), "%.15g", strObj->asDouble(ctx)); s = buf;
+            s = protojs::numberToString(strObj->asDouble(ctx));
         }
     }
     // Trim leading whitespace

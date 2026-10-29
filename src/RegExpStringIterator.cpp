@@ -1,4 +1,5 @@
 #include "ProtoCoreTypes.h"
+#include "JSNumber.h"
 #include "runtime/JSStringBytes.h"
 #include "runtime/PinnedBuiltin.h"
 #include "RegExpStringIterator.h"
@@ -26,9 +27,7 @@ static std::string objToStrLocal(proto::ProtoContext* ctx, const proto::ProtoObj
     std::string r;
     if (obj->isString(ctx)) { obj->asString(ctx)->toUTF8String(ctx, r); return r; }
     if (obj->isInteger(ctx)) return std::to_string(obj->asLong(ctx));
-    if (obj->isDouble(ctx)) {
-        char buf[64]; snprintf(buf, sizeof(buf), "%.15g", obj->asDouble(ctx)); return buf;
-    }
+    if (obj->isDouble(ctx)) return protojs::numberToString(obj->asDouble(ctx));
     return "";
 }
 

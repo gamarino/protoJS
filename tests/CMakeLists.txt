@@ -376,6 +376,7 @@ foreach(js_test
         basic/symbol_key_order
         basic/native_function_prototype
         basic/number_representation
+        basic/number_to_string
         basic/object_literal_build
         basic/put_field_groups
         basic/primitive_property_writes

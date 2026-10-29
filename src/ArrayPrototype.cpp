@@ -1,4 +1,5 @@
 #include "ProtoCoreTypes.h"
+#include "JSNumber.h"
 #include "runtime/OwnAttributes.h"
 #include "runtime/JSStringBytes.h"
 #include "runtime/PinnedBuiltin.h"
@@ -867,14 +868,8 @@ static std::string elemToString(proto::ProtoContext* ctx,
     if (val->isInteger(ctx)) {
         return std::to_string(val->asLong(ctx));
     }
-    if (val->isDouble(ctx) || val->isFloat(ctx)) {
-        double d = val->asDouble(ctx);
-        if (std::isnan(d)) return "NaN";
-        if (std::isinf(d)) return d > 0 ? "Infinity" : "-Infinity";
-        char buf[64];
-        snprintf(buf, sizeof(buf), "%.15g", d);
-        return buf;
-    }
+    if (val->isDouble(ctx) || val->isFloat(ctx))
+        return protojs::numberToString(val->asDouble(ctx));
     // Array-like objects: recursively join elements with "," (mirrors JS Array.prototype.toString).
     {
         const proto::ProtoString* lenKey = JSSymbols::length(ctx);

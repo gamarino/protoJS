@@ -125,16 +125,13 @@ const proto::ProtoObject* TypeBridge::fromJS(JSContext* ctx, JSValue val, proto:
     if (JS_IsNumber(val)) {
         double d;
         JS_ToFloat64(ctx, &d, val);
-        // Preserve negative zero — collapsing -0.0 to (long long)0 and
-        // then fromInteger destroys the sign, so JSON.parse('-0') was
-        // returning +0. The signbit test catches -0 specifically; all
-        // other integer doubles go through the SmallInteger fast path.
-        if (d == 0.0 && std::signbit(d)) {
-            return makeNumber(pContext, d);
-        }
-        if (d == (long long)d) {
-            return pContext->fromInteger((long long)d);
-        }
+        // The canonical form (JSNumber.h): a SmallInteger for a safe
+        // integer, a double for everything else, -0 included.  Until 2026-10
+        // every integral double that fit a long long became a protoCore
+        // Integer, so a literal beyond 2^53 (4611686014132420608) was a
+        // LargeInteger that printed its exact digits instead of the
+        // Number's (4611686014132420600), and (long long)d was undefined
+        // for literals beyond 2^63.
         return makeNumber(pContext, d);
     }
 

@@ -1,4 +1,5 @@
 #include "ProtoCoreTypes.h"
+#include "JSNumber.h"
 #include "runtime/JSStringUnits.h"
 #include "runtime/JSStringBytes.h"
 #include <exception>
@@ -2775,37 +2776,7 @@ static const proto::ProtoString* coercePropNameToKey(
         double d = current->asDouble(ctx);
         if (std::isnan(d)) out = "NaN";
         else if (std::isinf(d)) out = d < 0 ? "-Infinity" : "Infinity";
-        else if (d == 0.0) out = "0";
-        else {
-            double absD = std::abs(d);
-            char buf[128];
-            if (absD >= 1e21 || (absD > 0 && absD < 1e-6)) {
-                snprintf(buf, sizeof(buf), "%.15g", d);
-                out = buf;
-                for (auto &c : out) if (c == 'E') c = 'e';
-                size_t ePos = out.find('e');
-                if (ePos != std::string::npos) {
-                    std::string base = out.substr(0, ePos);
-                    std::string exp  = out.substr(ePos + 1);
-                    if (!exp.empty() && exp[0] == '+') exp.erase(0, 1);
-                    bool neg = false;
-                    if (!exp.empty() && exp[0] == '-') { neg = true; exp.erase(0, 1); }
-                    while (exp.size() > 1 && exp[0] == '0') exp.erase(0, 1);
-                    out = base + "e" + (neg ? "-" : "+") + exp;
-                }
-            } else {
-                snprintf(buf, sizeof(buf), "%.15g", d);
-                out = buf;
-                if (out.find('e') != std::string::npos || out.find('E') != std::string::npos) {
-                    snprintf(buf, sizeof(buf), "%.20f", d);
-                    out = buf;
-                    if (out.find('.') != std::string::npos) {
-                        while (out.back() == '0') out.pop_back();
-                        if (out.back() == '.') out.pop_back();
-                    }
-                }
-            }
-        }
+        else out = protojs::numberToString(d);
     } else if (current->isBoolean(ctx)) {
         out = current == PROTO_TRUE ? "true" : "false";
     } else if (current == getNullSentinel()) {
@@ -6426,18 +6397,7 @@ const proto::ProtoObject* installObjectInstanceMethods(
                 return protojs::jsStringFromUTF8(ictx, tmp);
             }
             if (self->isDouble(ictx) || self->isFloat(ictx)) {
-                char buf[64];
-                double d = self->asDouble(ictx);
-                if (std::isnan(d))      return ictx->fromUTF8String("NaN");
-                if (std::isinf(d))      return ictx->fromUTF8String(d > 0 ? "Infinity" : "-Infinity");
-                if (d == 0.0)           return ictx->fromUTF8String("0");
-                if (d == std::trunc(d) && std::abs(d) < 1e21) {
-                    long long iv = static_cast<long long>(d);
-                    if (static_cast<double>(iv) == d)
-                        return ictx->fromUTF8String(std::to_string(iv).c_str());
-                }
-                snprintf(buf, sizeof(buf), "%.15g", d);
-                return ictx->fromUTF8String(buf);
+                return protojs::jsStringFromUTF8(ictx, protojs::numberToString(self->asDouble(ictx)));
             }
             return objectToString(ictx, self, nullptr, nullptr, nullptr);
         };
