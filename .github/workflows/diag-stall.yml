@@ -43,39 +43,34 @@ jobs:
         run: |
           cmake -B build -S . -G Ninja -DCMAKE_BUILD_TYPE=Release "-DCMAKE_PREFIX_PATH=$GITHUB_WORKSPACE/prefix" "-DOPENSSL_ROOT_DIR=$OPENSSL_ROOT_DIR"
           cmake --build build --parallel 4 --target protojs
-      - name: Run the case repeatedly, sampling any stall
+      - name: Run the whole fixture repeatedly, sampling any stall
         working-directory: protoJS
         run: |
-          cat > case.js <<'JS'
-          const http = require('http');
-          function mkServer() {
-            const hsrv = http.createServer(function (req, res) { res.end('x'); });
-            hsrv.listen(18843);
-            if (hsrv.__fd__ === undefined || hsrv.__fd__ < 0) console.log('LISTEN-FAILED');
-            else console.log('LISTENING');
-            hsrv.close();
-          }
-          mkServer();
-          let acc = 0;
-          for (let i = 0; i < 120000; i++) { acc += ("garbage-" + i).length; }
-          for (let i = 120000; i < 200000; i++) { acc += ("garbage-" + i).length; }
-          console.log(acc);
-          JS
-          hangs=0; bad=0; RUNS=400
-          for i in $(seq 1 $RUNS); do
-            PROTOJS_GC_STATS=1 PROTOCORE_HEAP_LIMIT_CELLS=500000 ./build/protojs case.js > out.txt 2>&1 &
-            pid=$!
-            for t in $(seq 1 300); do kill -0 $pid 2>/dev/null || break; sleep 0.1; done
-            if kill -0 $pid 2>/dev/null; then
-              hangs=$((hangs + 1))
-              echo "=== HANG in run $i (pid $pid), output so far:"; cat out.txt
-              sample $pid 5 -file sample_$i.txt >/dev/null 2>&1; cat sample_$i.txt
-              kill -9 $pid; wait $pid 2>/dev/null
-              [ $hangs -ge 3 ] && break
-            else
-              wait $pid; rc=$?
-              if [ $rc -ne 0 ] || ! grep -q '^2688890$' out.txt; then bad=$((bad + 1)); echo "=== BAD run $i rc=$rc"; cat out.txt; fi
+          mkdir -p scratch samples
+          # Watchdog: any protojs alive for more than 25 s is sampled once.
+          (
+            while true; do
+              for pid in $(pgrep -x protojs); do
+                et=$(ps -o etime= -p $pid | tr -d ' ')
+                secs=$(echo "$et" | awk -F: '{ if (NF==2) print $1*60+$2; else if (NF==3) print $1*3600+$2*60+$3; else print $1 }')
+                if [ "${secs:-0}" -gt 25 ] && [ ! -f samples/$pid.txt ]; then
+                  ps -o pid,etime,command -p $pid > samples/$pid.txt
+                  sample $pid 5 -file samples/$pid.sample >/dev/null 2>&1
+                  echo "sampled $pid" >> samples/index.txt
+                fi
+              done
+              sleep 3
+            done
+          ) &
+          WD=$!
+          fails=0
+          for i in $(seq 1 80); do
+            if ! bash tests/cli/blocking-joins-and-finalizers.sh ./build/protojs scratch > run.txt 2>&1; then
+              fails=$((fails + 1)); echo "=== fixture run $i failed"; cat run.txt
+              [ $fails -ge 2 ] && break
             fi
           done
-          echo "runs=$i hangs=$hangs bad=$bad"
-          [ $hangs -eq 0 ]
+          kill $WD 2>/dev/null
+          echo "fixture runs=$i failures=$fails"
+          for f in samples/*.txt; do [ -f "$f" ] && { echo "=== $f"; cat "$f"; cat "${f%.txt}.sample" 2>/dev/null; }; done
+          [ $fails -eq 0 ]
