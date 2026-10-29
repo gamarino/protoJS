@@ -28,7 +28,7 @@ for (var i = 0; i < CYCLES; i++) {
     var hs = http.createServer(function (req, res) { res.end("x"); });
     hs.listen(18845);
     check("http listen " + i, hs.__fd__ !== undefined && hs.__fd__ >= 0, "fd " + hs.__fd__);
-    spin(delay);
+    if (i % 2 === 0) console.log("LISTENING " + i); else spin(delay);
     var t = Date.now();
     hs.close();
     worstHttp = Math.max(worstHttp, Date.now() - t);
