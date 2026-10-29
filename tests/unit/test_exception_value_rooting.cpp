@@ -76,6 +76,8 @@ private:
 // Requests a cycle and waits at safepoints until one has completed, sweep
 // included (protoCore test/GCRootScopeTests.cpp, cycleNow).  Bounded: a missed
 // cycle weakens the iteration, it does not hang.  Returns whether one ran.
+// The bound is generous for loaded CI runners; a cycle that completes sooner
+// returns at once.
 bool cycleNow(proto::ProtoContext* ctx) {
     proto::ProtoSpace* space = ctx->space;
     proto::ProtoThread* self = const_cast<proto::ProtoThread*>(ctx->thread);
@@ -85,7 +87,7 @@ bool cycleNow(proto::ProtoContext* ctx) {
         space->gcStarted = true;
         space->gcCV.notify_all();
     }
-    const auto deadline = std::chrono::steady_clock::now() + std::chrono::milliseconds(500);
+    const auto deadline = std::chrono::steady_clock::now() + std::chrono::seconds(10);
     while (std::chrono::steady_clock::now() < deadline) {
         self->synchToGC();
         if (space->getGCCycleCount() > before && !space->gcStarted.load()) return true;
@@ -147,7 +149,15 @@ for (let r = 0; r < ROUNDS; r++) {
 TEST_CASE("A thrown value survives collections after the catch that took it",
           "[exceptions][gc]") {
     constexpr int kRoundsPerEval = 200;
-    constexpr int kEvals = 10;
+    // The hammer only requests cycles; one runs when the interpreter reaches
+    // a safepoint, so how many run during a fixed number of evals depends on
+    // how fast the rounds are and how the runner schedules threads (a Windows
+    // CI run saw 9 in 10 evals). Run at least kMinEvals evals, then keep going
+    // until kMinCycles cycles have run, bounded by kMaxEvals and kMaxTime.
+    constexpr int kMinEvals = 10;
+    constexpr int kMaxEvals = 200;
+    constexpr uint64_t kMinCycles = 10;
+    constexpr auto kMaxTime = std::chrono::seconds(120);
 
     auto wrapper = std::make_unique<JSContextWrapper>();
     JSContextWrapper::CurrentScope scope(wrapper.get());
@@ -159,10 +169,15 @@ TEST_CASE("A thrown value survives collections after the catch that took it",
 
     long long done = 0;
     long long bad = 0;
+    int evals = 0;
     const uint64_t cyclesBefore = space->getGCCycleCount();
     {
         CycleHammer hammer(space);
-        for (int i = 0; i < kEvals; ++i) {
+        const auto deadline = std::chrono::steady_clock::now() + kMaxTime;
+        while (evals < kMinEvals
+               || (space->getGCCycleCount() - cyclesBefore < kMinCycles && evals < kMaxEvals
+                   && std::chrono::steady_clock::now() < deadline)) {
+            ++evals;
             // eval runs the microtask checkpoint after the script: every
             // rejection handler has run when it returns.
             JS_FreeValue(wrapper->getJSContext(), wrapper->eval(source, "rounds.js"));
@@ -180,9 +195,9 @@ TEST_CASE("A thrown value survives collections after the catch that took it",
     }
     const uint64_t cycles = space->getGCCycleCount() - cyclesBefore;
 
-    INFO("collection cycles during the rounds: " << cycles);
-    CHECK(cycles >= 10);  // premise: the collector did run during the rounds
-    CHECK(done == 3LL * kRoundsPerEval * kEvals);
+    INFO("collection cycles during the rounds: " << cycles << ", evals: " << evals);
+    CHECK(cycles >= kMinCycles);  // premise: the collector did run during the rounds
+    CHECK(done == 3LL * kRoundsPerEval * evals);
     CHECK(bad == 0);
 }
 
