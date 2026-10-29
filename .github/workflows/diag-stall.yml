@@ -1,0 +1,81 @@
+name: Diagnostic - http-server-collected stall (macOS)
+
+# Diagnostic branch only, never merged. Runs the http-server-collected case of
+# tests/cli/blocking-joins-and-finalizers.sh many times on macOS and, when a
+# run makes no progress for 30 s, samples every thread's stack before killing
+# it, so the stall seen once in CI (run 40817977080) can be read rather than
+# guessed.
+
+on:
+  push:
+    branches: ['diag/http-server-collected-stall']
+
+permissions:
+  contents: read
+
+jobs:
+  stall:
+    runs-on: macos-14
+    timeout-minutes: 120
+    defaults:
+      run:
+        shell: bash
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          path: protoJS
+      - uses: actions/checkout@v4
+        with:
+          repository: numaes/protoCore
+          ref: 5a8cd7c7aae68edbb34720445736b14685efae6f
+          path: protoCore
+      - name: Dependencies
+        run: |
+          for f in openssl@3 ninja coreutils; do brew list "$f" >/dev/null 2>&1 || brew install "$f"; done
+          echo "OPENSSL_ROOT_DIR=$(brew --prefix openssl@3)" >> "$GITHUB_ENV"
+      - name: Build protoCore
+        run: |
+          cmake -S protoCore -B protoCore/build -G Ninja -DCMAKE_BUILD_TYPE=Release
+          cmake --build protoCore/build --parallel 4
+          cmake --install protoCore/build --prefix "$GITHUB_WORKSPACE/prefix"
+      - name: Build protoJS
+        working-directory: protoJS
+        run: |
+          cmake -B build -S . -G Ninja -DCMAKE_BUILD_TYPE=Release "-DCMAKE_PREFIX_PATH=$GITHUB_WORKSPACE/prefix" "-DOPENSSL_ROOT_DIR=$OPENSSL_ROOT_DIR"
+          cmake --build build --parallel 4 --target protojs
+      - name: Run the case repeatedly, sampling any stall
+        working-directory: protoJS
+        run: |
+          cat > case.js <<'JS'
+          const http = require('http');
+          function mkServer() {
+            const hsrv = http.createServer(function (req, res) { res.end('x'); });
+            hsrv.listen(18843);
+            if (hsrv.__fd__ === undefined || hsrv.__fd__ < 0) console.log('LISTEN-FAILED');
+            else console.log('LISTENING');
+            hsrv.close();
+          }
+          mkServer();
+          let acc = 0;
+          for (let i = 0; i < 120000; i++) { acc += ("garbage-" + i).length; }
+          for (let i = 120000; i < 200000; i++) { acc += ("garbage-" + i).length; }
+          console.log(acc);
+          JS
+          hangs=0; bad=0; RUNS=400
+          for i in $(seq 1 $RUNS); do
+            PROTOJS_GC_STATS=1 PROTOCORE_HEAP_LIMIT_CELLS=500000 ./build/protojs case.js > out.txt 2>&1 &
+            pid=$!
+            for t in $(seq 1 300); do kill -0 $pid 2>/dev/null || break; sleep 0.1; done
+            if kill -0 $pid 2>/dev/null; then
+              hangs=$((hangs + 1))
+              echo "=== HANG in run $i (pid $pid), output so far:"; cat out.txt
+              sample $pid 5 -file sample_$i.txt >/dev/null 2>&1; cat sample_$i.txt
+              kill -9 $pid; wait $pid 2>/dev/null
+              [ $hangs -ge 3 ] && break
+            else
+              wait $pid; rc=$?
+              if [ $rc -ne 0 ] || ! grep -q '^2688890$' out.txt; then bad=$((bad + 1)); echo "=== BAD run $i rc=$rc"; cat out.txt; fi
+            fi
+          done
+          echo "runs=$i hangs=$hangs bad=$bad"
+          [ $hangs -eq 0 ]
