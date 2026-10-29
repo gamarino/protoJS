@@ -739,8 +739,11 @@ static const proto::ProtoObject* numberConstruct(
             const proto::ProtoString* vk = JSSymbols::bigIntValue(ctx);
             const proto::ProtoObject* inner = vk ? a->getAttribute(ctx, vk, false) : nullptr;
             if (inner && inner != PROTO_NONE) {
-                if (inner->isInteger(ctx)) val = static_cast<double>(inner->asLong(ctx));
-                else if (inner->isDouble(ctx) || inner->isFloat(ctx)) val = inner->asDouble(ctx);
+                // asDouble, not asLong: a LargeInteger beyond long long
+                // converts (correctly rounded, ±Infinity past MAX_VALUE)
+                // where asLong raised "exceeds long long range".
+                if (inner->isInteger(ctx) || inner->isDouble(ctx) || inner->isFloat(ctx))
+                    val = inner->asDouble(ctx);
             }
             const proto::ProtoString* pvKey = JSSymbols::primitiveValue(ctx);
             if (pvKey)

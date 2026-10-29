@@ -4839,36 +4839,20 @@ static bool jsAbstractEquals(proto::ProtoContext* ctx,
         const proto::ProtoObject* yi = y->getAttribute(ctx, vk, false);
         return xi && yi && xi->compare(ctx, yi) == 0;
     }
-    // §7.2.13 step 6 BigInt vs Number / Number vs BigInt: compare
-    // numeric values directly.  NaN never equates; infinite Number
-    // never equates to a finite BigInt.  For finite Number that's an
-    // integer, compare with the BigInt's stored Integer; otherwise
-    // false.
+    // §7.2.15 IsLooselyEqual steps 12-13, BigInt vs Number: equal when
+    // the Number is finite and the two have the same mathematical value
+    // (NaN and ±Infinity never equal a BigInt; a non-integral Number never
+    // does either).  compareIntegerWithNumber is exact at any magnitude.
+    // Until 2026-10 this formatted the Number through a long long cast,
+    // undefined beyond 2^63, so 2n ** 64n == 2 ** 64 was false.
     auto bigEqualsNumber = [&](const proto::ProtoObject* big,
                                const proto::ProtoObject* num) -> bool {
         if (!big || !num) return false;
-        if (num->isDouble(ctx) || num->isFloat(ctx)) {
-            double d = num->asDouble(ctx);
-            if (std::isnan(d) || std::isinf(d)) return false;
-            if (d != std::trunc(d)) return false;
-            // Compare via string: BigInt asIntegerString vs the
-            // truncated Number formatted as a string.  Handles values
-            // outside int64 range safely.
-            const proto::ProtoObject* bi = big->getAttribute(ctx, vk, false);
-            if (!bi) return false;
-            const proto::ProtoString* bs = bi->asIntegerString(ctx, 10);
-            char buf[32];
-            std::snprintf(buf, sizeof(buf), "%lld", static_cast<long long>(d));
-            std::string s;
-            if (bs) bs->toUTF8String(ctx, s);
-            return s == buf;
-        }
-        // Integer Number primitive.
-        long long nv = num->asLong(ctx);
+        double d = 0.0;
+        if (!numberToDouble(ctx, num, d)) return false;
         const proto::ProtoObject* bi = big->getAttribute(ctx, vk, false);
-        if (!bi) return false;
-        const proto::ProtoObject* numAsInt = ctx->fromInteger(nv);
-        return bi->compare(ctx, numAsInt) == 0;
+        if (!bi || bi == PROTO_NONE) return false;
+        return protojs::compareIntegerWithNumber(ctx, bi, d) == 0;
     };
     if (xBig && yNum) return bigEqualsNumber(x, y);
     if (xNum && yBig) return bigEqualsNumber(y, x);
@@ -6053,22 +6037,11 @@ static const proto::ProtoObject* generatorObjectPrototype(proto::ProtoContext* c
 // is NaN (the comparison is undefined, so every relational operator is false).
 static int compareBigIntWithNumber(proto::ProtoContext* ctx, const proto::ProtoObject* big,
                                    double d) {
-    if (std::isnan(d) || !big || big == PROTO_NONE) return -2;
-    if (std::isinf(d)) return d > 0 ? -1 : 1;
-    const double fl = std::floor(d);
-    int c;
-    if (fl >= -9.0e18 && fl <= 9.0e18) {
-        c = big->compare(ctx, ctx->fromInteger(static_cast<long long>(fl)));
-        c = (c < 0) ? -1 : (c > 0 ? 1 : 0);
-    } else {
-        // |d| >= 2^63: d is an integer, and a double has no more precision
-        // than the BigInt's nearest double, which orders them correctly
-        // unless the two round to the same double.
-        const double bd = big->asDouble(ctx);
-        c = (bd < fl) ? -1 : (bd > fl ? 1 : 0);
-    }
-    if (c == 0 && d > fl) return -1;  // big == floor(d) < d
-    return c;
+    // Exact at every magnitude (JSNumber.h).  Until 2026-10, beyond 2^63
+    // this compared the BigInt's rounded double, so 2n ** 64n + 1n > 2 ** 64
+    // was false.
+    if (!big || big == PROTO_NONE) return -2;
+    return protojs::compareIntegerWithNumber(ctx, big, d);
 }
 
 
