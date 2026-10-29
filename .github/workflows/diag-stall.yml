@@ -1,0 +1,92 @@
+name: Diagnostic - accept fix on macOS
+
+# Diagnostic branch only, never merged. Runs the http-server-collected case of
+# tests/cli/blocking-joins-and-finalizers.sh many times on macOS and, when a
+# run makes no progress for 30 s, samples every thread's stack before killing
+# it, so the stall seen once in CI (run 40817977080) can be read rather than
+# guessed.
+
+on:
+  push:
+    branches: ['diag/accept-fix-macos']
+
+permissions:
+  contents: read
+
+jobs:
+  stall:
+    runs-on: macos-14
+    timeout-minutes: 120
+    defaults:
+      run:
+        shell: bash
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          path: protoJS
+      - uses: actions/checkout@v4
+        with:
+          repository: numaes/protoCore
+          ref: 5a8cd7c7aae68edbb34720445736b14685efae6f
+          path: protoCore
+      - name: Dependencies
+        run: |
+          for f in openssl@3 ninja coreutils; do brew list "$f" >/dev/null 2>&1 || brew install "$f"; done
+          echo "OPENSSL_ROOT_DIR=$(brew --prefix openssl@3)" >> "$GITHUB_ENV"
+      - name: Build protoCore
+        run: |
+          cmake -S protoCore -B protoCore/build -G Ninja -DCMAKE_BUILD_TYPE=Release
+          cmake --build protoCore/build --parallel 4
+          cmake --install protoCore/build --prefix "$GITHUB_WORKSPACE/prefix"
+      - name: Build protoJS
+        working-directory: protoJS
+        run: |
+          cmake -B build -S . -G Ninja -DCMAKE_BUILD_TYPE=Release "-DCMAKE_PREFIX_PATH=$GITHUB_WORKSPACE/prefix" "-DOPENSSL_ROOT_DIR=$OPENSSL_ROOT_DIR"
+          cmake --build build --parallel 4 --target protojs
+      - name: listen_close_cycles.js (from fix/accept-loop-close-race) on this build, 20 runs (sweeping delay)
+        working-directory: protoJS
+        run: |
+          set +e
+          stalls=0; fails=0
+          for i in $(seq 1 20); do
+            timeout 60 env PROTOCORE_HEAP_LIMIT_CELLS=500000 ./build/protojs diag_listen_close_cycles.js 2>&1 | cat > lcc.txt; rc=${PIPESTATUS[0]}
+            if [ $rc -eq 124 ]; then stalls=$((stalls + 1)); echo "run $i: STALL (60 s)"; cat lcc.txt
+            elif [ $rc -ne 0 ]; then fails=$((fails + 1)); echo "run $i: rc=$rc"; cat lcc.txt
+            else echo "run $i: $(grep slowest lcc.txt)"; fi
+          done
+          echo "listen_close_cycles: runs=20 stalls=$stalls failures=$fails"
+      - name: Run the whole fixture repeatedly, sampling any stall
+        working-directory: protoJS
+        run: |
+          set +e +o pipefail
+          mkdir -p scratch samples
+          # Watchdog: any protojs alive for more than 25 s is sampled once.
+          (
+            while true; do
+              for pid in $(pgrep -x protojs || true); do
+                et=$(ps -o etime= -p $pid | tr -d ' ')
+                secs=$(echo "$et" | awk -F: '{ if (NF==2) print $1*60+$2; else if (NF==3) print $1*3600+$2*60+$3; else print $1 }')
+                if [ "${secs:-0}" -gt 25 ] && [ ! -f samples/$pid.txt ]; then
+                  ps -o pid,etime,command -p $pid > samples/$pid.txt
+                  sample $pid 5 -file samples/$pid.sample >/dev/null 2>&1
+                  # A second sample 10 s later shows whether anything moved.
+                  sleep 10; sample $pid 3 -file samples/$pid.sample2 >/dev/null 2>&1
+                  lsof -p $pid > samples/$pid.lsof 2>&1
+                  echo "sampled $pid" >> samples/index.txt
+                fi
+              done
+              sleep 3
+            done
+          ) &
+          WD=$!
+          fails=0
+          for i in $(seq 1 60); do
+            if ! bash tests/cli/blocking-joins-and-finalizers.sh ./build/protojs scratch > run.txt 2>&1; then
+              fails=$((fails + 1)); echo "=== fixture run $i failed"; cat run.txt
+              [ $fails -ge 2 ] && break
+            fi
+          done
+          kill $WD 2>/dev/null
+          echo "fixture runs=$i failures=$fails"
+          for f in samples/*; do echo "=== $f"; cat "$f"; done
+          [ $fails -eq 0 ]
