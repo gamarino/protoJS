@@ -1,4 +1,5 @@
 #include "FSModule.h"
+#include "../../JSNumber.h"
 #include "../../runtime/JSStringBytes.h"
 #include "../IOModule.h"
 #include "../../ProtoNativeModule.h"
@@ -494,11 +495,8 @@ std::string describeReceived(proto::ProtoContext* ctx, const proto::ProtoObject*
                                   (v->asBoolean(ctx) ? "true" : "false") + ")";
     if (v->isInteger(ctx)) return "Received type number (" +
                                   std::to_string(v->asLong(ctx)) + ")";
-    if (v->isDouble(ctx)) {
-        char buf[64];
-        std::snprintf(buf, sizeof(buf), "%g", v->asDouble(ctx));
-        return std::string("Received type number (") + buf + ")";
-    }
+    if (v->isDouble(ctx))
+        return "Received type number (" + protojs::numberToString(v->asDouble(ctx)) + ")";
     if (isCallableValue(ctx, v)) return "Received function";
     return "Received an instance of Object";
 }

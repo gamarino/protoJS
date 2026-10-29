@@ -27,6 +27,7 @@
 
 #include "protoCore.h"
 #include <cmath>
+#include <string>
 
 namespace protojs {
 
@@ -89,6 +90,18 @@ inline const proto::ProtoObject* numberAdd(proto::ProtoContext* ctx,
         return makeNumber(ctx, da + db);
     return canonicalNumber(ctx, a->add(ctx, b));
 }
+
+/**
+ * Number::toString(d, 10) (ECMA-262 §6.1.6.1.20): the shortest decimal that
+ * reads back as `d`, in the spec's layout ("4611686014132420600", "1e+21",
+ * "0.000001", "1.5e-7", "-0" as "0", "NaN", "Infinity").  The one formatter
+ * of a Number for ToString, String(), template literals, concatenation,
+ * Array.prototype.join, JSON.stringify and console output.
+ */
+std::string numberToString(double d);
+
+/** numberToString for any protoCore number (SmallInteger, double, LargeInteger). */
+std::string numberToString(proto::ProtoContext* ctx, const proto::ProtoObject* v);
 
 }  // namespace protojs
 

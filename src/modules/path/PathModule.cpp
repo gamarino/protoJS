@@ -15,6 +15,7 @@
  * the file system, and does not follow symbolic links -- as in Node.
  */
 #include "PathModule.h"
+#include "../../JSNumber.h"
 #include "../../runtime/JSStringBytes.h"
 #include "PathAlgorithms.h"
 #include "../../ProtoNativeModule.h"
@@ -81,16 +82,7 @@ bool isNumber(proto::ProtoContext* ctx, const proto::ProtoObject* v) {
 // back as the same double.
 std::string numberText(proto::ProtoContext* ctx, const proto::ProtoObject* v) {
     if (v->isInteger(ctx)) return std::to_string(static_cast<long long>(v->asLong(ctx)));
-    const double d = v->asDouble(ctx);
-    if (std::isnan(d)) return "NaN";
-    if (std::isinf(d)) return d > 0 ? "Infinity" : "-Infinity";
-    if (d == 0) return "0";
-    char buf[32];
-    for (int precision = 1; precision <= 17; ++precision) {
-        std::snprintf(buf, sizeof(buf), "%.*g", precision, d);
-        if (std::strtod(buf, nullptr) == d) break;
-    }
-    return buf;
+    return protojs::numberToString(v->asDouble(ctx));
 }
 
 bool isFunction(proto::ProtoContext* ctx, const proto::ProtoObject* v) {

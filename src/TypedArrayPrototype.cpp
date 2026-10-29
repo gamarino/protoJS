@@ -614,11 +614,8 @@ static const proto::ProtoObject* ta_join(
         const proto::ProtoObject* elem = typedArrayGetElement(ctx, self, i, et);
         if (elem && elem != PROTO_NONE) {
             if (elem->isInteger(ctx)) result += std::to_string(elem->asLong(ctx));
-            else if (elem->isDouble(ctx) || elem->isFloat(ctx)) {
-                char buf[64];
-                snprintf(buf, sizeof(buf), "%g", elem->asDouble(ctx));
-                result += buf;
-            } else if (isBigInt(ctx, elem)) {
+            else if (elem->isDouble(ctx) || elem->isFloat(ctx))
+                result += protojs::numberToString(elem->asDouble(ctx)); else if (isBigInt(ctx, elem)) {
                 const proto::ProtoObject* inner = unwrapBigInt(ctx, elem);
                 const proto::ProtoString* ds = inner ? inner->asIntegerString(ctx, 10) : nullptr;
                 if (ds) { std::string t; ds->toUTF8String(ctx, t); result += t; }

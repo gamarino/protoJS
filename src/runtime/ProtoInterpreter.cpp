@@ -2616,8 +2616,7 @@ static const proto::ProtoObject* symbolConstructor(
             } else if (d->isInteger(ctx)) {
                 s = std::to_string(d->asLong(ctx)); gotString = true;
             } else if (d->isDouble(ctx)) {
-                char buf[64]; snprintf(buf, sizeof(buf), "%.15g", d->asDouble(ctx));
-                s = buf; gotString = true;
+                s = protojs::numberToString(d->asDouble(ctx)); gotString = true;
             } else if (d == PROTO_TRUE) {
                 s = "true"; gotString = true;
             } else if (d == PROTO_FALSE) {
@@ -2683,8 +2682,7 @@ static const proto::ProtoObject* symbolConstructor(
                 } else if (prim->isInteger(ctx)) {
                     s = std::to_string(prim->asLong(ctx)); gotString = true;
                 } else if (prim->isDouble(ctx) || prim->isFloat(ctx)) {
-                    char buf[64]; snprintf(buf, sizeof(buf), "%.15g", prim->asDouble(ctx));
-                    s = buf; gotString = true;
+                    s = protojs::numberToString(prim->asDouble(ctx)); gotString = true;
                 }
             }
             if (gotString) {
@@ -2713,7 +2711,7 @@ static const proto::ProtoObject* globalParseInt(
     else if (strObj == PROTO_FALSE) { s = "false"; }
     else if (strObj->isString(ctx)) { const proto::ProtoString* ps = strObj->asString(ctx); if (ps) ps->toUTF8String(ctx, s); }
     else if (strObj->isInteger(ctx)) { s = std::to_string(strObj->asLong(ctx)); }
-    else if (strObj->isDouble(ctx)) { char buf[64]; snprintf(buf, sizeof(buf), "%.15g", strObj->asDouble(ctx)); s = buf; }
+    else if (strObj->isDouble(ctx)) { s = protojs::numberToString(strObj->asDouble(ctx)); }
     else if (strObj->isBoolean(ctx)) { s = strObj->asBoolean(ctx) ? "true" : "false"; }
     else {
         // Object: spec §19.2.6 step 1 wraps the argument with ToString,
@@ -2763,14 +2761,7 @@ static const proto::ProtoObject* globalParseInt(
             if (ps) ps->toUTF8String(ctx, s);
         } else if (prim->isInteger(ctx)) s = std::to_string(prim->asLong(ctx));
         else if (prim->isDouble(ctx) || prim->isFloat(ctx)) {
-            double d = prim->asDouble(ctx);
-            if (std::isnan(d)) s = "NaN";
-            else if (std::isinf(d)) s = (d > 0) ? "Infinity" : "-Infinity";
-            else {
-                char buf[64];
-                snprintf(buf, sizeof(buf), "%.15g", d);
-                s = buf;
-            }
+            s = protojs::numberToString(prim->asDouble(ctx));
         } else if (prim->isBoolean(ctx)) s = prim->asBoolean(ctx) ? "true" : "false";
         else return makeNumber(ctx, nan);
     }
@@ -2981,14 +2972,7 @@ static const proto::ProtoObject* globalParseFloat(
             if (ps) ps->toUTF8String(ctx, s);
         } else if (prim->isInteger(ctx)) s = std::to_string(prim->asLong(ctx));
         else if (prim->isDouble(ctx) || prim->isFloat(ctx)) {
-            double d = prim->asDouble(ctx);
-            if (std::isnan(d)) s = "NaN";
-            else if (std::isinf(d)) s = (d > 0) ? "Infinity" : "-Infinity";
-            else {
-                char buf[64];
-                snprintf(buf, sizeof(buf), "%.15g", d);
-                s = buf;
-            }
+            s = protojs::numberToString(prim->asDouble(ctx));
         } else if (prim->isBoolean(ctx)) s = prim->asBoolean(ctx) ? "true" : "false";
         else return makeNumber(ctx, nan);
     }
@@ -4613,97 +4597,9 @@ static const proto::ProtoObject* toString(proto::ProtoContext* context,
     }
 
     if (value->isDouble(context) || value->isFloat(context)) {
-        const double v = value->asDouble(context);
-        if (std::isnan(v)) return context->fromUTF8String("NaN");
-        if (std::isinf(v)) return context->fromUTF8String(v > 0 ? "Infinity" : "-Infinity");
-        char buf[64];
-        // Spec §7.1.12.1 ToString(Number): when the value is an
-        // integer in safe-integer range and fits in long long, format
-        // as a plain integer literal — both for spec faithfulness and
-        // to avoid losing the last digit to %.15g rounding (`%.15g
-        // 9007199254740991` prints `9.00719925474099e+15`, dropping
-        // the trailing `1`).
-        if (v == std::trunc(v) && std::abs(v) < 1e21) {
-            long long iv = static_cast<long long>(v);
-            if (static_cast<double>(iv) == v) {
-                const std::string tmp = std::to_string(iv);
-                return protojs::jsStringFromUTF8(context, tmp);
-            }
-        }
-        // Spec §7.1.12.1 step 5: choose the shortest decimal that
-        // round-trips back to the same IEEE-754 double. Fixed-precision
-        // %.17g over-prints (`3.14` -> `3.1400000000000001`); start at
-        // 1 digit and grow until the parsed value matches the input
-        // exactly. Worst case is 17 digits (Grisu/Ryu equivalence).
-        for (int p = 1; p <= 17; ++p) {
-            snprintf(buf, sizeof(buf), "%.*g", p, v);
-            double check = 0.0;
-            std::sscanf(buf, "%lf", &check);
-            if (check == v) {
-                std::string out(buf);
-                // glibc's %g picks scientific for very small / very
-                // large values, but §6.1.6.1.13 prefers decimal in the
-                // window -6 < expDec ≤ 21. Reparse the exponent and
-                // re-render to decimal when it lands in that window.
-                // Pre-fix String(0.000012345) returned "1.2345e-5"
-                // instead of the spec's "0.000012345" (Sputnik
-                // S9.8.1_A10).
-                size_t ePos = out.find('e');
-                if (ePos != std::string::npos) {
-                    std::string mant = out.substr(0, ePos);
-                    std::string exp  = out.substr(ePos + 1);
-                    bool negExp = false;
-                    if (!exp.empty() && (exp[0] == '+' || exp[0] == '-')) {
-                        negExp = (exp[0] == '-');
-                        exp.erase(0, 1);
-                    }
-                    size_t z = 0;
-                    while (z + 1 < exp.size() && exp[z] == '0') ++z;
-                    exp.erase(0, z);
-                    int e10 = exp.empty() ? 0 : std::atoi(exp.c_str());
-                    if (negExp) e10 = -e10;
-                    // §6.1.6.1.13 decimal window: -6 < n ≤ 21 where
-                    // n = exp + 1 for the canonical 1.x form. Off by
-                    // one from the raw scientific exponent.
-                    if (e10 > -7 && e10 <= 20) {
-                        bool negMant = !mant.empty() && mant[0] == '-';
-                        std::string sign = negMant ? "-" : "";
-                        std::string digits;
-                        size_t dot = mant.find('.');
-                        int mantExp = 0;
-                        if (dot == std::string::npos) {
-                            digits = negMant ? mant.substr(1) : mant;
-                            mantExp = static_cast<int>(digits.size()) - 1;
-                        } else {
-                            std::string head = negMant ? mant.substr(1, dot - 1)
-                                                       : mant.substr(0, dot);
-                            std::string tail = mant.substr(dot + 1);
-                            digits = head + tail;
-                            mantExp = static_cast<int>(head.size()) - 1;
-                        }
-                        int total = mantExp + e10;
-                        if (total >= static_cast<int>(digits.size()) - 1) {
-                            int pad = total - (static_cast<int>(digits.size()) - 1);
-                            digits.append(pad, '0');
-                            out = sign + digits;
-                        } else if (total >= 0) {
-                            out = sign + digits.substr(0, total + 1) + "." + digits.substr(total + 1);
-                        } else {
-                            int leadingZeros = -total - 1;
-                            out = sign + "0." + std::string(leadingZeros, '0') + digits;
-                        }
-                    } else {
-                        // Outside the decimal window — keep scientific
-                        // form but strip the spec-disallowed leading
-                        // zero from the exponent ("1e-07" → "1e-7").
-                        out = mant + "e" + (negExp ? "-" : "+") + exp;
-                    }
-                }
-                return protojs::jsStringFromUTF8(context, out);
-            }
-        }
-        snprintf(buf, sizeof(buf), "%.17g", v);
-        return context->fromUTF8String(buf);
+        // §7.1.12.1 ToString(Number): Number::toString, the shortest
+        // round-trip decimal (JSNumber.h).
+        return protojs::jsStringFromUTF8(context, protojs::numberToString(value->asDouble(context)));
     }
 
     // Object case: invoke ToPrimitive with hint "string" — i.e. call the

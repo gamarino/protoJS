@@ -4,6 +4,7 @@
 #include "runtime/OwnAttributes.h"
 #include <algorithm>
 #include "JSONBuiltin.h"
+#include "JSNumber.h"
 #include "JSSymbols.h"
 #include "BigIntPrototype.h"
 #include "ArrayElementsStorage.h"
@@ -225,26 +226,8 @@ void stringifyRecursive(proto::ProtoContext* ctx,
             out += "null";
             return;
         }
-        // ToString(-0) === "0".
-        if (d == 0.0) {
-            out += "0";
-            return;
-        }
-        char buf[64];
-        snprintf(buf, sizeof(buf), "%.15g", d);
-        // %g pads exponents to at least two digits; ECMA-262 forbids
-        // the leading zero. Strip it so JSON.stringify(1e-7) emits
-        // '1e-7' instead of '1e-07' (matches V8 / SpiderMonkey).
-        std::string s = buf;
-        size_t ePos = s.find('e');
-        if (ePos != std::string::npos && ePos + 1 < s.size()) {
-            size_t signPos = (s[ePos + 1] == '+' || s[ePos + 1] == '-')
-                ? ePos + 2 : ePos + 1;
-            while (signPos < s.size() - 1 && s[signPos] == '0') {
-                s.erase(signPos, 1);
-            }
-        }
-        out += s;
+        // ToString(Number) (JSNumber.h).
+        out += protojs::numberToString(d);
         return;
     }
     if (obj->isString(ctx)) {
@@ -827,19 +810,7 @@ const proto::ProtoObject* JSONBuiltin::stringify(proto::ProtoContext* ctx,
                         double d = e->asDouble(ctx);
                         if (std::isnan(d)) keyFilter.push_back("NaN");
                         else if (std::isinf(d)) keyFilter.push_back(d > 0 ? "Infinity" : "-Infinity");
-                        else if (d == 0.0) keyFilter.push_back("0");
-                        else {
-                            char buf[64];
-                            snprintf(buf, sizeof(buf), "%.15g", d);
-                            std::string s = buf;
-                            size_t ePos = s.find('e');
-                            if (ePos != std::string::npos && ePos + 1 < s.size()) {
-                                size_t sp = (s[ePos+1] == '+' || s[ePos+1] == '-')
-                                    ? ePos + 2 : ePos + 1;
-                                while (sp < s.size() - 1 && s[sp] == '0') s.erase(sp, 1);
-                            }
-                            keyFilter.push_back(std::move(s));
-                        }
+                        else keyFilter.push_back(protojs::numberToString(d));
                     } else {
                         const proto::ProtoString* pvK = JSSymbols::primitiveValue(ctx);
                         const proto::ProtoObject* pv = pvK
@@ -929,21 +900,8 @@ const proto::ProtoObject* JSONBuiltin::stringify(proto::ProtoContext* ctx,
                             keyFilter.push_back("NaN");
                         } else if (std::isinf(d)) {
                             keyFilter.push_back(d > 0 ? "Infinity" : "-Infinity");
-                        } else if (d == 0.0) {
-                            keyFilter.push_back("0");
                         } else {
-                            char buf[64];
-                            snprintf(buf, sizeof(buf), "%.15g", d);
-                            // Strip the leading-zero exponent padding
-                            // for consistency with Number.toString.
-                            std::string s = buf;
-                            size_t ePos = s.find('e');
-                            if (ePos != std::string::npos && ePos + 1 < s.size()) {
-                                size_t sp = (s[ePos+1] == '+' || s[ePos+1] == '-')
-                                    ? ePos + 2 : ePos + 1;
-                                while (sp < s.size() - 1 && s[sp] == '0') s.erase(sp, 1);
-                            }
-                            keyFilter.push_back(std::move(s));
+                            keyFilter.push_back(protojs::numberToString(d));
                         }
                     }
                 }
@@ -1322,15 +1280,7 @@ const proto::ProtoObject* JSONBuiltin::parse(proto::ProtoContext* ctx,
             double d = textObj->asDouble(ctx);
             if (std::isnan(d)) text = "NaN";
             else if (std::isinf(d)) text = (d > 0) ? "Infinity" : "-Infinity";
-            else {
-                long long ll = static_cast<long long>(d);
-                if (static_cast<double>(ll) == d) text = std::to_string(ll);
-                else {
-                    char buf[64];
-                    snprintf(buf, sizeof(buf), "%.17g", d);
-                    text = buf;
-                }
-            }
+            else text = protojs::numberToString(d);
         } else {
             // Object: ToPrimitive(hint:'string') — toString first, then
             // valueOf — followed by ToString on the resulting primitive.
@@ -1406,13 +1356,7 @@ const proto::ProtoObject* JSONBuiltin::parse(proto::ProtoContext* ctx,
                 double d = prim->asDouble(ctx);
                 if (std::isnan(d)) text = "NaN";
                 else if (std::isinf(d)) text = (d > 0) ? "Infinity" : "-Infinity";
-                else {
-                    long long ll = static_cast<long long>(d);
-                    if (static_cast<double>(ll) == d) text = std::to_string(ll);
-                    else {
-                        char buf[64]; snprintf(buf, sizeof(buf), "%.17g", d); text = buf;
-                    }
-                }
+                else text = protojs::numberToString(d);
             } else if (prim->isBoolean(ctx)) text = prim->asBoolean(ctx) ? "true" : "false";
             else text = "undefined";
         }
@@ -1535,31 +1479,8 @@ static const proto::ProtoObject* jsonRawJSON(proto::ProtoContext* ctx,
     if (v->isString(ctx)) v->asString(ctx)->toUTF8String(ctx, text);
     else if (v->isInteger(ctx)) text = std::to_string(v->asLong(ctx));
     else if (v->isDouble(ctx) || v->isFloat(ctx)) {
-        // ECMA-262 §6.1.6.1.13 ToString(Number): shortest decimal that
-        // round-trips back to the input double. Pre-fix the fixed
-        // %.17g format produced 1.1 → "1.1000000000000001" so
-        // JSON.stringify(JSON.rawJSON(1.1)) emitted the noisy form
-        // instead of the spec's "1.1" (built-ins/JSON/rawJSON/basic.js).
-        double d = v->asDouble(ctx);
-        char buf[64];
-        if (d == std::trunc(d) && std::abs(d) < 1e21) {
-            long long iv = static_cast<long long>(d);
-            if (static_cast<double>(iv) == d) {
-                text = std::to_string(iv);
-            }
-        }
-        if (text.empty()) {
-            for (int p = 1; p <= 17; ++p) {
-                snprintf(buf, sizeof(buf), "%.*g", p, d);
-                double check = 0.0;
-                std::sscanf(buf, "%lf", &check);
-                if (check == d) { text = buf; break; }
-            }
-            if (text.empty()) {
-                snprintf(buf, sizeof(buf), "%.17g", d);
-                text = buf;
-            }
-        }
+        // ECMA-262 §6.1.6.1.20 ToString(Number) (JSNumber.h).
+        text = protojs::numberToString(v->asDouble(ctx));
     }
     else if (v == PROTO_TRUE)  text = "true";
     else if (v == PROTO_FALSE) text = "false";

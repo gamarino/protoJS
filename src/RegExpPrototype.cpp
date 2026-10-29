@@ -1,4 +1,5 @@
 #include "ProtoCoreTypes.h"
+#include "JSNumber.h"
 #include "runtime/JSStringBytes.h"
 #include "RegExpPrototype.h"
 #include "runtime/ThreadIdentity.h"
@@ -41,12 +42,7 @@ static std::string objToStr(proto::ProtoContext* ctx, const proto::ProtoObject* 
         return r;
     }
     if (obj->isInteger(ctx)) return std::to_string(obj->asLong(ctx));
-    if (obj->isDouble(ctx)) {
-        double d = obj->asDouble(ctx);
-        char buf[64];
-        snprintf(buf, sizeof(buf), "%.15g", d);
-        return buf;
-    }
+    if (obj->isDouble(ctx)) return protojs::numberToString(obj->asDouble(ctx));
     if (obj->isBoolean(ctx)) return obj->asBoolean(ctx) ? "true" : "false";
     // String wrapper object — unwrap via __primitive_value__ sidecar so
     // `regex[Symbol.split](new String('hello'))` sees 'hello' instead of ''.
