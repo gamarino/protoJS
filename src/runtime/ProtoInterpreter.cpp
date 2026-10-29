@@ -4359,31 +4359,48 @@ static const proto::ProtoObject* toNumber(proto::ProtoContext* context,
             // as 1; reject this case explicitly.
             if (*p == ' ' || *p == '\t' || *p == '\n' || *p == '\r'
                 || *p == '\f' || *p == '\v') return makeNaN();
-            char* end = nullptr;
-            unsigned long long uval = std::strtoull(p, &end, base);
-            if (end == p || *end != '\0') return makeNaN();
-            return context->fromInteger(static_cast<long long>(uval));
+            // The value rounded to the nearest double (§7.1.4.1.1), at any
+            // length: the digits as bits, the bits as a hexadecimal
+            // significand, read by strtod, which rounds a hexadecimal
+            // literal correctly.  Until 2026-10 this was strtoull, which
+            // saturated beyond 2^64 and handed the result to fromInteger
+            // as a long long, so Number("0xFFFFFFFFFFFFFFFF") was -1.
+            const int bitsPerDigit = base == 16 ? 4 : base == 8 ? 3 : 1;
+            std::string bits;
+            for (const char* q = p; *q; ++q) {
+                const char c = *q;
+                int v = -1;
+                if (c >= '0' && c <= '9') v = c - '0';
+                else if (c >= 'a' && c <= 'f') v = c - 'a' + 10;
+                else if (c >= 'A' && c <= 'F') v = c - 'A' + 10;
+                if (v < 0 || v >= base) return makeNaN();
+                for (int b = bitsPerDigit - 1; b >= 0; --b)
+                    bits.push_back(((v >> b) & 1) ? '1' : '0');
+            }
+            if (bits.empty()) return makeNaN();
+            bits.insert(0, (4 - bits.size() % 4) % 4, '0');
+            std::string hex = "0x";
+            for (size_t i = 0; i < bits.size(); i += 4) {
+                const int nibble = (bits[i] - '0') * 8 + (bits[i + 1] - '0') * 4
+                                 + (bits[i + 2] - '0') * 2 + (bits[i + 3] - '0');
+                hex.push_back("0123456789abcdef"[nibble]);
+            }
+            return makeNumber(context, std::strtod(hex.c_str(), nullptr));
         }
-        // Try parsing as number; invalid format → NaN, overflow → ±Infinity.
-        // ECMA-262 §7.1.4.1.1 StrDecimalLiteral that "rounds to +∞" must
-        // return +Infinity (e.g. `Number("10e10000")`).  std::stod throws
-        // std::out_of_range for that — distinguish it from invalid_argument.
-        try {
-            size_t pos = 0;
-            double d = std::stod(trimmed, &pos);
-            if (pos != trimmed.size()) return makeNaN();
-            if (d == 0.0 && std::signbit(d)) return makeNumber(context, -0.0);
-            if (d == std::trunc(d) && std::abs(d) < 9.007199254740992e15)
-                return context->fromInteger(static_cast<long long>(d));
-            return makeNumber(context, d);
-        } catch (const std::out_of_range&) {
-            // Numeric literal whose value rounds beyond the double range.
-            // Preserve the leading sign — `"-10e10000"` is -Infinity.
-            const double inf = std::numeric_limits<double>::infinity();
-            return makeNumber(context, trimmed[0] == '-' ? -inf : inf);
-        } catch (...) {
+        // StrDecimalLiteral (§7.1.4.1.1): the value rounded to the nearest
+        // double, which is what strtod returns -- a subnormal for
+        // "5e-324", ±0 for a value below half the smallest subnormal
+        // ("1e-400"), ±Infinity beyond the largest double ("10e10000").
+        // Its ERANGE is a report, not an error, and is ignored.  Until
+        // 2026-10 this used std::stod, which throws std::out_of_range for
+        // underflow as well as overflow, and every out_of_range became
+        // ±Infinity: Number("5e-324") was Infinity.
+        const char* begin = trimmed.c_str();
+        char* end = nullptr;
+        const double d = std::strtod(begin, &end);
+        if (end == begin || static_cast<size_t>(end - begin) != trimmed.size())
             return makeNaN();
-        }
+        return makeNumber(context, d);
     }
 
     // §7.1.4 ToNumber: Symbol → TypeError abrupt completion. protoJS

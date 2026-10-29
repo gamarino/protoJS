@@ -339,56 +339,16 @@ static proto::proto_ulong arrLen(proto::ProtoContext* ctx,
     // without invoking the callback.
     if (lenObj == PROTO_TRUE)  return 1;
     if (lenObj == PROTO_FALSE) return 0;
-    // String-encoded length — try parsing, handle hex (e.g. "0x0002").
-    // §7.1.4 ToNumber + §7.1.20 ToLength also accepts the literal
-    // 'Infinity' / '+Infinity' / '-Infinity' forms.  Pre-fix the
-    // stoll parse threw on those and the value collapsed to 0
-    // (built-ins/Array/prototype/indexOf/15.4.4.14-3-14 with
-    // length: 'Infinity' / '+Infinity' / '-Infinity').
+    // A string length: ToNumber (StringToNumber, the interpreter's), then
+    // the clamping below.  Until 2026-10 this parsed the string itself
+    // with stoll / stod, a second StringToNumber that disagreed with the
+    // first on underflow ("5e-324") and on hexadecimal beyond 2^63.
     if (lenObj->isString(ctx)) {
-        const proto::ProtoString* s = lenObj->asString(ctx);
-        if (s) {
-            std::string sv;
-            s->toUTF8String(ctx, sv);
-            // Trim leading whitespace per §7.1.4 StringToNumber.
-            size_t firstNonWS = sv.find_first_not_of(" \t\n\r\v\f");
-            std::string trimmed = (firstNonWS == std::string::npos) ? "" : sv.substr(firstNonWS);
-            if (trimmed == "Infinity" || trimmed == "+Infinity")
-                return static_cast<proto::proto_ulong>(PROTO_UL(0xFFFFFFFF));
-            if (trimmed == "-Infinity")
-                return 0;
-            // Strict whole-string parse: stoll/stod accept partial matches
-            // ("123abc" → 123) but ECMA-262 §7.1.4 ToNumber returns NaN
-            // for any trailing garbage; we must surface NaN → ToLength
-            // → 0.  Use the appropriate parser (stoll for hex/integer,
-            // stod for everything else including "2.5", "2E0",
-            // "0002.00") with `pos` and require the parse to consume
-            // the entire trimmed value (modulo trailing WS).
-            size_t lastNonWS = trimmed.find_last_not_of(" \t\n\r\v\f");
-            size_t consumedEnd = (lastNonWS == std::string::npos) ? 0 : lastNonWS + 1;
-            bool isHex = (trimmed.size() > 2 && trimmed[0] == '0' && (trimmed[1] == 'x' || trimmed[1] == 'X'));
-            if (isHex) {
-                try {
-                    size_t pos = 0;
-                    long long v = std::stoll(trimmed, &pos, 16);
-                    if (pos >= consumedEnd)
-                        return (v > 0) ? static_cast<proto::proto_ulong>(v) : 0;
-                } catch (...) {}
-                return 0;
-            }
-            try {
-                size_t pos = 0;
-                double d = std::stod(trimmed, &pos);
-                if (pos >= consumedEnd) {
-                    if (std::isnan(d) || d <= 0) return 0;
-                    if (std::isinf(d)) return static_cast<proto::proto_ulong>(PROTO_UL(0xFFFFFFFF));
-                    if (d > static_cast<double>(PROTO_UL(0xFFFFFFFF))) return PROTO_UL(0xFFFFFFFF);
-                    return static_cast<proto::proto_ulong>(d);
-                }
-                // Trailing garbage → ToNumber = NaN → ToLength = 0.
-                return 0;
-            } catch (...) {}
-        }
+        double d = 0.0;
+        if (!numberToDouble(ctx, jsToNumber(ctx, lenObj), d) || std::isnan(d) || d <= 0) return 0;
+        if (std::isinf(d) || d > static_cast<double>(PROTO_UL(0xFFFFFFFF)))
+            return static_cast<proto::proto_ulong>(PROTO_UL(0xFFFFFFFF));
+        return static_cast<proto::proto_ulong>(d);
     }
     // Fall back to full ToNumber for any other shape (objects with
     // valueOf/toString, etc.).  ECMA-262 §7.1.20 ToLength is
@@ -4639,21 +4599,8 @@ static const proto::ProtoObject* arrayFlat(
             else if (d->isInteger(ctx)) dv = static_cast<double>(d->asLong(ctx));
             else if (d->isDouble(ctx) || d->isFloat(ctx)) dv = d->asDouble(ctx);
             else if (d->isString(ctx)) {
-                // String coercion handled directly below.
-                std::string s;
-                d->asString(ctx)->toUTF8String(ctx, s);
-                // Trim — Number(" 7 ") is 7. Empty/whitespace → 0.
-                size_t b = s.find_first_not_of(" \t\n\r\f\v");
-                size_t e = s.find_last_not_of(" \t\n\r\f\v");
-                if (b == std::string::npos) dv = 0.0;
-                else {
-                    std::string t = s.substr(b, e - b + 1);
-                    try {
-                        size_t idx = 0;
-                        dv = std::stod(t, &idx);
-                        if (idx != t.size()) dv = std::nan("");
-                    } catch (...) { dv = std::nan(""); }
-                }
+                // ToNumber (StringToNumber): Number(" 7 ") is 7, "" is 0.
+                if (!numberToDouble(ctx, jsToNumber(ctx, d), dv)) dv = std::nan("");
             }
             // §23.1.3.10 step 3 ToIntegerOrInfinity(depthNum) per
             // §7.1.5 begins with ToNumber.  Object / Symbol arguments

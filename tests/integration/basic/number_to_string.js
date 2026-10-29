@@ -86,9 +86,9 @@ check("JSON.stringify(NaN)", JSON.stringify(NaN), "null");
 all("42", 42, "42");
 all("-7", -7, "-7");
 
-// The digits read back as the same double.  (Not 5e-324: Number("5e-324")
-// gives Infinity, a defect of StringToNumber for subnormals, not of this.)
-var samples = [x * y, 2 ** 63, 0.1 + 0.2, 1 / 3, 1e21 / 7, 1.7976931348623157e308, 123456.789e10];
+// The digits read back as the same double.
+var samples = [x * y, 2 ** 63, 0.1 + 0.2, 1 / 3, 1e21 / 7, 1.7976931348623157e308, 123456.789e10,
+               5e-324, 3 * 2 ** -1074, 2.2250738585072014e-308];
 for (var v of samples) check("round trip " + v, Number(String(v)), v);
 
 // Typed array join formats elements the same way.
