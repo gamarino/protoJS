@@ -353,17 +353,10 @@ std::vector<uint8_t> toBytes(proto::ProtoContext* ctx,
         out.assign(s.begin(), s.end());
         return out;
     }
-    // Buffer instance: pull __byte_buffer__ as ProtoByteBuffer.
-    const proto::ProtoString* bbKey =
-        ctx->fromUTF8String("__byte_buffer__")->asString(ctx);
-    if (!bbKey) return out;
-    const proto::ProtoObject* attr = val->getAttribute(ctx, bbKey, false);
-    if (!attr || attr == PROTO_NONE) return out;
-    const proto::ProtoByteBuffer* bb = attr->asByteBuffer(ctx);
-    if (!bb) return out;
-    proto::proto_ulong n = bb->getSize(ctx);
-    const char* src = bb->getBuffer(ctx);
-    out.assign(src, src + n);
+    // A Buffer or another byte typed array.
+    const char* src = nullptr;
+    size_t n = 0;
+    if (BufferModule::bytesOf(ctx, val, src, n) && n) out.assign(src, src + n);
     return out;
 }
 
@@ -373,39 +366,7 @@ const proto::ProtoObject* makeBufferFromBytes(
         proto::ProtoContext* ctx,
         const char* data, size_t len) {
     if (!ctx) return PROTO_NONE;
-    const proto::ProtoObject* bufObj = ctx->newBuffer(len);
-    if (!bufObj) return PROTO_NONE;
-    const proto::ProtoByteBuffer* bb = bufObj->asByteBuffer(ctx);
-    if (bb && len) std::memcpy(bb->getBuffer(ctx), data, len);
-
-    // Wrap into a Buffer instance using the global Buffer prototype if
-    // available; if not (Buffer module wasn't installed), return the
-    // raw ProtoByteBuffer object — the `data` listener can still
-    // toString it via JS, but it's the best we can do without a
-    // public Buffer prototype hook.
-    JSContextWrapper* w = JSContextWrapper::current();
-    const proto::ProtoObject* g = w ? w->getNativeGlobal() : nullptr;
-    if (!g) return bufObj;
-    const proto::ProtoString* bk =
-        ctx->fromUTF8String("Buffer")->asString(ctx);
-    const proto::ProtoObject* bCtor =
-        bk ? g->getAttribute(ctx, bk, false) : nullptr;
-    if (!bCtor) return bufObj;
-    const proto::ProtoString* protoKey = JSSymbols::prototype(ctx);
-    const proto::ProtoObject* bProto =
-        protoKey ? bCtor->getAttribute(ctx, protoKey, false) : nullptr;
-    if (!bProto || bProto == PROTO_NONE) return bufObj;
-    const proto::ProtoObject* inst = bProto->newChild(ctx, true);
-    inst->setAttribute(ctx,
-        ctx->fromUTF8String("__byte_buffer__")->asString(ctx),
-        bufObj);
-    inst->setAttribute(ctx,
-        ctx->fromUTF8String("__is_buffer__")->asString(ctx),
-        PROTO_TRUE);
-    const proto::ProtoString* lk = JSSymbols::length(ctx);
-    if (lk) inst->setAttribute(ctx, lk,
-        ctx->fromInteger(static_cast<long long>(len)));
-    return inst;
+    return BufferModule::fromBytes(ctx, data, len);
 }
 
 // ---- Socket prototype methods ------------------------------------------

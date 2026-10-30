@@ -2,6 +2,8 @@
 #include "runtime/JSStringBytes.h"
 #include "JSContext.h"
 #include "ArrayPrototype.h"
+#include "ArrayBufferPrototype.h"
+#include "TypedArrayPrototype.h"
 #include "FunctionPrototype.h"
 #include "protoCore.h"
 #include "Deferred.h"
@@ -233,6 +235,9 @@ static void installRuntimeGlobals(protojs::JSContextWrapper& wrapper,
         const proto::ProtoObject* g = wrapper.getNativeGlobal();
         protojs::ensureFunctionPrototype(pCtx, &g);
         protojs::ensureArrayPrototype(pCtx, &g);
+        // Buffer.prototype inherits from Uint8Array.prototype.
+        protojs::ensureArrayBufferConstructor(pCtx, &g);
+        protojs::ensureTypedArrayConstructors(pCtx, &g);
         wrapper.updateNativeGlobal(g);
     }
     {

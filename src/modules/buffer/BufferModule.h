@@ -2,6 +2,7 @@
 #define PROTOJS_BUFFERMODULE_H
 
 #include "protoCore.h"
+#include <cstddef>
 
 namespace protojs {
 
@@ -23,6 +24,17 @@ public:
     static const proto::ProtoObject* init(
         proto::ProtoContext* ctx,
         const proto::ProtoObject* globalObj);
+
+    /** A new Buffer (a Uint8Array) holding a copy of `len` bytes at `data`. */
+    static const proto::ProtoObject* fromBytes(proto::ProtoContext* ctx,
+                                               const char* data, size_t len);
+
+    /**
+     * The bytes a Buffer, Uint8Array, Int8Array or Uint8ClampedArray views:
+     * true with `data` and `len` set, false for any other value.
+     */
+    static bool bytesOf(proto::ProtoContext* ctx, const proto::ProtoObject* val,
+                        const char*& data, size_t& len);
 };
 
 } // namespace protojs
