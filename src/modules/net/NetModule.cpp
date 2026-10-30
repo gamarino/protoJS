@@ -333,6 +333,10 @@ const proto::ProtoObject* makeSocketInstance(
         JSContextWrapper* wrapper,
         proto::ProtoContext* ctx,
         const proto::ProtoObject* nativeGlobal);
+const proto::ProtoObject* attachSocketState(
+        JSContextWrapper* wrapper,
+        proto::ProtoContext* ctx,
+        const proto::ProtoObject* sock);
 
 void startSocketReadLoop(JSContextWrapper* wrapper,
                           proto::ProtoRootSet::Handle pin,
@@ -597,6 +601,16 @@ const proto::ProtoObject* makeSocketInstance(
     const proto::ProtoObject* sock = proto
         ? proto->newChild(ctx, /*mutable=*/true)
         : ctx->newObject(/*mutable=*/true);
+    return attachSocketState(wrapper, ctx, sock);
+}
+
+// Gives `sock` (an object whose prototype is Socket.prototype) its native
+// state, unconnected.  Returns `sock`, or PROTO_NONE when it cannot.
+const proto::ProtoObject* attachSocketState(
+        JSContextWrapper* wrapper,
+        proto::ProtoContext* ctx,
+        const proto::ProtoObject* sock) {
+    if (!sock || sock == PROTO_NONE) return PROTO_NONE;
 
     auto* state = new SocketState{};
     state->mainWrapper = wrapper;
@@ -958,6 +972,52 @@ const proto::ProtoObject* createConnectionImpl(
     return sock;
 }
 
+// `new net.Socket()`: OP_call_constructor hands __construct__ the new object,
+// already parented on Socket.prototype; it gets an unconnected socket's state
+// and stays the result (PROTO_NONE keeps it).  Options are not read.
+const proto::ProtoObject* socketConstruct(
+    proto::ProtoContext* ctx,
+    const proto::ProtoObject* self,
+    const proto::ParentLink*,
+    const proto::ProtoArguments*,
+    const proto::ProtoKeywordArguments*) {
+    JSContextWrapper* wrapper = JSContextWrapper::current();
+    if (!ctx || !wrapper || !self || self == PROTO_NONE) return PROTO_NONE;
+    attachSocketState(wrapper, ctx, self);
+    return PROTO_NONE;
+}
+
+// `net.Socket()` without `new` returns a new socket, as Node's does.
+const proto::ProtoObject* socketCall(
+    proto::ProtoContext* ctx,
+    const proto::ProtoObject*,
+    const proto::ParentLink*,
+    const proto::ProtoArguments*,
+    const proto::ProtoKeywordArguments*) {
+    JSContextWrapper* wrapper = JSContextWrapper::current();
+    if (!ctx || !wrapper) return PROTO_NONE;
+    return makeSocketInstance(wrapper, ctx, wrapper->getNativeGlobal());
+}
+
+// net.Socket: the constructor, with Socket.prototype as its prototype.
+const proto::ProtoObject* makeSocketConstructor(proto::ProtoContext* ctx) {
+    const proto::ProtoObject* ctor =
+        wrapNativeFunction(ctx, socketCall, "Socket", /*length=*/1, /*globalRoot=*/nullptr);
+    if (!ctor) return nullptr;
+    const proto::ProtoObject* proto = getSocketProto(ctx);
+    const proto::ProtoString* protoKey = JSSymbols::prototype(ctx);
+    if (proto && protoKey) {
+        ctor = ctor->setAttribute(ctx, protoKey, proto);
+        const proto::ProtoString* ck = JSSymbols::constructor(ctx);
+        if (ck) proto->setAttribute(ctx, ck, ctor);
+    }
+    const proto::ProtoString* constructKey =
+        ctx->fromUTF8String("__construct__")->asString(ctx);
+    if (constructKey)
+        ctor = ctor->setAttribute(ctx, constructKey, ctx->fromMethod(nullptr, socketConstruct));
+    return ctor;
+}
+
 }  // namespace
 
 // ---- Public ------------------------------------------------------------
@@ -979,6 +1039,10 @@ const proto::ProtoObject* NetModule::init(
     const proto::ProtoObject* mod =
         ProtoNativeModule::buildModule(ctx, entries, 3);
     if (!mod) return globalObj;
+    if (const proto::ProtoObject* socketCtor = makeSocketConstructor(ctx)) {
+        const proto::ProtoString* sk = ctx->fromUTF8String("Socket")->asString(ctx);
+        if (sk) mod = mod->setAttribute(ctx, sk, socketCtor);
+    }
     return ProtoNativeModule::registerOnGlobal(ctx, globalObj, "net", mod);
 }
 
