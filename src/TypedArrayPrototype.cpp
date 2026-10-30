@@ -2,6 +2,7 @@
 #include "runtime/JSStringBytes.h"
 #include "JSNumber.h"
 #include "TypedArrayPrototype.h"
+#include "DataViewPrototype.h"
 #include "ArrayBufferPrototype.h"
 #include "JSSymbols.h"
 #include "protoCore.h"
@@ -1436,6 +1437,10 @@ const proto::ProtoObject* constructTypedArrayOrBuffer(proto::ProtoContext* ctx,
         if (name == "ArrayBuffer") {
             handled = true;
             return constructArrayBuffer(ctx, proto, args ? args : ctx->newList());
+        }
+        if (name == "DataView") {
+            handled = true;
+            return constructDataView(ctx, proto, args ? args : ctx->newList());
         }
     }
     return PROTO_NONE;

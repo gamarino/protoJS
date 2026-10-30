@@ -2,6 +2,10 @@
 #include "JSNumber.h"
 #include "ArrayBufferPrototype.h"
 #include "JSSymbols.h"
+#include "TypedArrayPrototype.h"
+#include "runtime/ProtoInterpreter.h"
+#include "ProtoCoreTypes.h"
+#include <string>
 #include "protoCore.h"
 #include <cstring>
 #include <cstdint>
@@ -414,21 +418,33 @@ static const proto::ProtoObject* dv_setBigUint64(
     return PROTO_NONE;
 }
 
-// ---- DataView.prototype property accessors (buffer, byteOffset, byteLength) ----
+// ---- DataView.prototype accessors (buffer, byteOffset, byteLength) ------
+// §25.3.4.1 / .2 / .3: getters that throw a TypeError for a receiver that
+// is not a DataView (one without its own [[ViewedArrayBuffer]] slot).
+static const proto::ProtoObject* dvRequireView(proto::ProtoContext* ctx,
+                                              const proto::ProtoObject* self,
+                                              const char* what) {
+    if (!isDataView(ctx, self)) {
+        const std::string msg = std::string("DataView.prototype.") + what
+            + " called on an object that is not a DataView";
+        signalNativeException(makeNativeError(ctx, "TypeError", msg.c_str()));
+    }
+    return self;
+}
+
 static const proto::ProtoObject* dv_get_buffer(
     proto::ProtoContext* ctx, const proto::ProtoObject* self,
     const proto::ParentLink*, const proto::ProtoArguments*, const proto::ProtoKeywordArguments*)
 {
-    if (!self || self == PROTO_NONE) return PROTO_NONE;
-    const proto::ProtoObject* ab = self->getAttribute(ctx, JSSymbols::dvBuffer(ctx), false);
-    return ab ? ab : PROTO_NONE;
+    dvRequireView(ctx, self, "buffer");
+    return self->getAttribute(ctx, JSSymbols::dvBuffer(ctx), false);
 }
 
 static const proto::ProtoObject* dv_get_byteOffset(
     proto::ProtoContext* ctx, const proto::ProtoObject* self,
     const proto::ParentLink*, const proto::ProtoArguments*, const proto::ProtoKeywordArguments*)
 {
-    if (!self || self == PROTO_NONE) return ctx->fromInteger(0LL);
+    dvRequireView(ctx, self, "byteOffset");
     const proto::ProtoObject* bo = self->getAttribute(ctx, JSSymbols::dvByteOffset(ctx), false);
     return (bo && bo != PROTO_NONE) ? bo : ctx->fromInteger(0LL);
 }
@@ -437,9 +453,62 @@ static const proto::ProtoObject* dv_get_byteLength(
     proto::ProtoContext* ctx, const proto::ProtoObject* self,
     const proto::ParentLink*, const proto::ProtoArguments*, const proto::ProtoKeywordArguments*)
 {
-    if (!self || self == PROTO_NONE) return ctx->fromInteger(0LL);
+    dvRequireView(ctx, self, "byteLength");
     const proto::ProtoObject* bl = self->getAttribute(ctx, JSSymbols::dvByteLength(ctx), false);
     return (bl && bl != PROTO_NONE) ? bl : ctx->fromInteger(0LL);
+}
+
+bool isDataView(proto::ProtoContext* ctx, const proto::ProtoObject* obj) {
+    return ctx && obj && obj != PROTO_NONE && obj != getUndefinedSentinel()
+        && obj != getNullSentinel() && !obj->isInteger(ctx) && !obj->isDouble(ctx)
+        && !obj->isString(ctx) && !obj->isBoolean(ctx)
+        && obj->hasOwnAttribute(ctx, JSSymbols::dvBuffer(ctx)) == PROTO_TRUE;
+}
+
+// new DataView(buffer[, byteOffset[, byteLength]]) (§25.3.2.1).  Until
+// 2026-10 there was no [[Construct]] for DataView: `new DataView(ab)` made
+// an empty object, so every DataView method failed and ArrayBuffer.isView
+// was false for it.
+const proto::ProtoObject* constructDataView(proto::ProtoContext* ctx,
+                                            const proto::ProtoObject* proto,
+                                            const proto::ProtoList* args) {
+    if (!ctx) return PROTO_NONE;
+    const auto arg = [&](int i) -> const proto::ProtoObject* {
+        return (args && static_cast<int>(args->getSize(ctx)) > i) ? args->getAt(ctx, i)
+                                                                  : getUndefinedSentinel();
+    };
+    const proto::ProtoObject* buffer = arg(0);
+    if (!buffer || buffer == PROTO_NONE || buffer == getUndefinedSentinel()
+        || buffer == getNullSentinel() || buffer->isInteger(ctx) || buffer->isDouble(ctx)
+        || buffer->isString(ctx) || buffer->isBoolean(ctx) || !isArrayBuffer(ctx, buffer)) {
+        signalNativeException(makeNativeError(ctx, "TypeError",
+            "First argument to DataView constructor must be an ArrayBuffer"));
+    }
+    long long offset = 0;
+    if (!toIndex(ctx, arg(1), offset, "Start offset is outside the bounds of the buffer"))
+        return PROTO_NONE;
+    const long long bufferLength = static_cast<long long>(getArrayBufferByteLength(ctx, buffer));
+    if (offset > bufferLength) {
+        signalNativeException(makeNativeError(ctx, "RangeError",
+            "Start offset is outside the bounds of the buffer"));
+    }
+    long long viewLength = bufferLength - offset;
+    const proto::ProtoObject* lenArg = arg(2);
+    if (lenArg && lenArg != PROTO_NONE && lenArg != getUndefinedSentinel()) {
+        if (!toIndex(ctx, lenArg, viewLength, "Invalid DataView length")) return PROTO_NONE;
+        if (offset + viewLength > bufferLength) {
+            signalNativeException(makeNativeError(ctx, "RangeError", "Invalid DataView length"));
+        }
+    }
+    const bool protoIsObject = proto && proto != PROTO_NONE && proto != getUndefinedSentinel()
+        && proto != getNullSentinel() && !proto->isInteger(ctx) && !proto->isDouble(ctx)
+        && !proto->isString(ctx) && !proto->isBoolean(ctx);
+    const proto::ProtoObject* dv = protoIsObject ? proto->newChild(ctx, true)
+                                                 : ctx->newObject(true);
+    dv = dv->setAttribute(ctx, JSSymbols::dvBuffer(ctx), buffer);
+    dv = dv->setAttribute(ctx, JSSymbols::dvByteOffset(ctx), ctx->fromInteger(offset));
+    dv = dv->setAttribute(ctx, JSSymbols::dvByteLength(ctx), ctx->fromInteger(viewLength));
+    return dv;
 }
 
 // ---- Bootstrap ----------------------------------------------------------
@@ -507,12 +576,38 @@ void ensureDataViewConstructor(proto::ProtoContext* ctx,
         ctx->fromMethod(nullptr, dv_setBigInt64));
     proto = proto->setAttribute(ctx, JSSymbols::setBigUint64(ctx),
         ctx->fromMethod(nullptr, dv_setBigUint64));
-    proto = proto->setAttribute(ctx, JSSymbols::buffer(ctx),
-        ctx->fromMethod(nullptr, dv_get_buffer));
-    proto = proto->setAttribute(ctx, JSSymbols::byteOffset(ctx),
-        ctx->fromMethod(nullptr, dv_get_byteOffset));
-    proto = proto->setAttribute(ctx, JSSymbols::byteLength(ctx),
-        ctx->fromMethod(nullptr, dv_get_byteLength));
+    // buffer / byteOffset / byteLength are accessors: a getter, no setter,
+    // { !enumerable, configurable } (0x2), installed as %TypedArray%.prototype's
+    // are (TypedArrayPrototype.cpp).  They were plain methods, so dv.buffer
+    // was a function.
+    {
+        struct Getter { const char* key; const char* name; proto::ProtoMethod fn; };
+        static const Getter kGetters[] = {
+            {"buffer", "get buffer", dv_get_buffer},
+            {"byteLength", "get byteLength", dv_get_byteLength},
+            {"byteOffset", "get byteOffset", dv_get_byteOffset},
+        };
+        const proto::ProtoObject* fnParent =
+            (ctx->space && ctx->space->methodPrototype) ? ctx->space->methodPrototype : nullptr;
+        for (const Getter& g : kGetters) {
+            const proto::ProtoObject* getter = fnParent ? fnParent->newChild(ctx, true)
+                                                        : ctx->newObject(true);
+            getter = getter->setAttribute(ctx, JSSymbols::nativeFn(ctx), ctx->fromMethod(nullptr, g.fn));
+            getter = getter->setAttribute(ctx, JSSymbols::length(ctx), ctx->fromInteger(0LL));
+            getter = getter->setAttribute(ctx, JSSymbols::pdLength(ctx), ctx->fromInteger(0x2LL));
+            getter = getter->setAttribute(ctx, JSSymbols::name(ctx), ctx->fromUTF8String(g.name));
+            getter = getter->setAttribute(ctx, JSSymbols::pdName(ctx), ctx->fromInteger(0x2LL));
+            getter = getter->setAttribute(ctx, JSSymbols::hasNonWritableProps(ctx), PROTO_TRUE);
+            const std::string gk = std::string("__get_") + g.key + "__";
+            const std::string pd = std::string("__pd_") + g.key + "__";
+            proto = proto->setAttribute(ctx, ctx->fromUTF8String(gk.c_str())->asString(ctx), getter);
+            proto = proto->setAttribute(ctx, ctx->fromUTF8String(g.key)->asString(ctx), PROTO_NONE);
+            proto = proto->setAttribute(ctx, ctx->fromUTF8String(pd.c_str())->asString(ctx),
+                                        ctx->fromInteger(0x2LL));
+        }
+        proto = proto->setAttribute(ctx, JSSymbols::hasAccessorProps(ctx), PROTO_TRUE);
+        proto = proto->setAttribute(ctx, JSSymbols::hasNonWritableProps(ctx), PROTO_TRUE);
+    }
     // §25.3.4.18 DataView.prototype[@@toStringTag] = "DataView" with
     // descriptor {writable:false, enumerable:false, configurable:true}
     // → 0x2.  Object.prototype.toString.call(new DataView(buf))
