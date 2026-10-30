@@ -408,6 +408,7 @@ foreach(js_test
         basic/string_access_scaling
         basic/string_utf16_units
         basic/array_bulk_scaling
+        basic/array_from_ctor_scaling
         basic/array_push_length
         basic/array_from_of_this
         basic/escape_unescape
@@ -570,6 +571,7 @@ set_tests_properties(js/basic/string_access_scaling PROPERTIES
     ENVIRONMENT "PROTOCORE_ADAPTIVE_HEAP=1"
     TIMEOUT 120)
 set_tests_properties(js/basic/array_bulk_scaling PROPERTIES TIMEOUT 300)
+set_tests_properties(js/basic/array_from_ctor_scaling PROPERTIES TIMEOUT 300)
 
 # A quadratic Map.set / Set.add would not finish within this limit.
 set_tests_properties(js/collections/map_set_scaling PROPERTIES TIMEOUT 60)
