@@ -405,6 +405,21 @@ ProtoSpace of its own, and messages crossed as JSON text.
 
 A built-in name returns the object installed as the global, so `require('fs') === fs`. `require('events')` is the `EventEmitter` constructor, as in Node (`require('events').EventEmitter` is the same function); instances have `on`/`addListener`, `once`, `off`/`removeListener`, `removeAllListeners`, `emit`, `listenerCount`, `listeners`, `setMaxListeners` and `getMaxListeners`, event names are strings, and an `'error'` event with no listener is thrown. The accepted names are `child_process`, `cluster`, `crypto`, `dgram`, `dns`, `events`, `fs`, `http`, `net`, `path`, `process`, `stream`, `url`, `util` and `worker_threads`, plus `buffer`, which returns `{ Buffer }`; a `node:` prefix is accepted. This is a closed list, so other host globals (`console`, `io`, `memory`, `profiler`, `debugger`) are not requirable and cannot shadow an npm package of the same name. `require.resolve` of a built-in returns its name.
 
+A `Buffer` is a `Uint8Array`, as in Node: `Buffer.prototype` inherits from
+`Uint8Array.prototype`, so a Buffer is indexable, iterable, an instance of
+`Uint8Array`, `[object Uint8Array]` to `Object.prototype.toString`, true for
+`ArrayBuffer.isView`, and has every typed-array method. `Buffer.from`
+(string with an encoding, array, typed array, Buffer, or `ArrayBuffer` with
+optional offset and length -- the last shares that memory), `Buffer.alloc`,
+`Buffer.concat` and `Buffer.isBuffer` are provided, and Buffer.prototype adds
+`toString(encoding, start, end)`, `slice` and `subarray` (views over the same
+memory), `copy`, `fill`, `indexOf` and `includes`. Not provided: the
+`read*`/`write*` integer and float accessors, `write`, `equals`, `compare`,
+`toJSON` (so `JSON.stringify(buf)` gives the typed-array form, not
+`{type: 'Buffer', data}`), `Buffer.byteLength`, `Buffer.allocUnsafe` and
+the shared allocation pool (every Buffer has its own `ArrayBuffer`, so
+`buf.byteOffset` is 0 unless it is a view).
+
 A specifier that resolves to nothing throws `Error: Cannot find module 'x'` with `code: 'MODULE_NOT_FOUND'`; a missing or non-string specifier throws a `TypeError`.
 
 A relative or absolute specifier — and a bare specifier that resolves inside `node_modules` — executes the module body and returns its `module.exports`. Functions the module exports are callable, replacing the exports object with `module.exports = …` is honoured, `__filename` and `__dirname` are set to the module's own path, a second `require()` of the same file returns the same object without re-running the body, and a require cycle terminates with the partner seeing the half-initialised exports, as in Node. A module whose body throws propagates the error to the caller and is not cached, so the next `require()` runs it again. Details: [MODULE_DISCOVERY_PROTOCORE.md](MODULE_DISCOVERY_PROTOCORE.md) and [NATIVE_MODULES.md](NATIVE_MODULES.md).

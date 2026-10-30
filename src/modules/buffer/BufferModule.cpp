@@ -8,6 +8,9 @@
 #include "../../FunctionPrototype.h"
 #include "../../JSSymbols.h"
 #include "../../JSContext.h"
+#include "../../runtime/ProtoInterpreter.h"
+#include "../../ArrayBufferPrototype.h"
+#include "../../TypedArrayPrototype.h"
 #include <algorithm>
 #include <cstring>
 #include <iomanip>
@@ -18,13 +21,6 @@
 namespace protojs {
 
 namespace {
-
-const proto::ProtoString* keyByteBuffer(proto::ProtoContext* ctx) {
-    return proto::ProtoString::createSymbol(ctx, "__byte_buffer__");
-}
-const proto::ProtoString* keyIsBufferMark(proto::ProtoContext* ctx) {
-    return proto::ProtoString::createSymbol(ctx, "__is_buffer__");
-}
 
 // ---- Argument helpers --------------------------------------------------
 
@@ -147,59 +143,61 @@ std::string encodeBytes(const char* data, size_t len,
     return std::string(data, len);
 }
 
-// ---- ProtoByteBuffer access through the instance -----------------------
+// ---- Bytes of a Buffer --------------------------------------------------
+//
+// A Buffer is a Uint8Array, as in Node: Buffer.prototype inherits from
+// Uint8Array.prototype and each Buffer is a typed array (an ArrayBuffer, a
+// byte offset and a length) made with Buffer.prototype.  Until 2026-10 a
+// Buffer held a ProtoByteBuffer in a hidden attribute: no indexing, not an
+// instance of Uint8Array, and "[object Object]" for Object.prototype.toString.
 
-const proto::ProtoByteBuffer* getByteBuffer(proto::ProtoContext* ctx,
-                                              const proto::ProtoObject* self) {
-    if (!ctx || !self) return nullptr;
-    const proto::ProtoObject* attr =
-        self->getAttribute(ctx, keyByteBuffer(ctx), false);
-    if (!attr || attr == PROTO_NONE) return nullptr;
-    return attr->asByteBuffer(ctx);
-}
+// The bytes a byte-element typed array (a Buffer, a Uint8Array, an
+// Int8Array or a Uint8ClampedArray) views.
+struct ByteView {
+    char* data = nullptr;
+    size_t size = 0;
+};
 
-bool isBufferInstance(proto::ProtoContext* ctx,
-                       const proto::ProtoObject* val) {
-    if (!ctx || !val || val == PROTO_NONE) return false;
-    const proto::ProtoObject* mark =
-        val->getAttribute(ctx, keyIsBufferMark(ctx), false);
-    return mark == PROTO_TRUE;
+bool byteView(proto::ProtoContext* ctx, const proto::ProtoObject* val, ByteView& out) {
+    out = ByteView{};
+    if (!ctx || !val || val == PROTO_NONE || !isTypedArrayInstance(ctx, val)) return false;
+    const uint8_t et = getTypedArrayElementType(ctx, val);
+    if (et > static_cast<uint8_t>(TAElementType::Uint8Clamped)) return false;
+    const proto::ProtoObject* ab = val->getAttribute(ctx, JSSymbols::taBuffer(ctx), false);
+    char* base = ab ? static_cast<char*>(getArrayBufferRawPtr(ctx, ab)) : nullptr;
+    const proto::ProtoObject* off = val->getAttribute(ctx, JSSymbols::taByteOffset(ctx), false);
+    const long long byteOffset = (off && off->isInteger(ctx)) ? off->asLong(ctx) : 0;
+    out.size = getTypedArrayLength(ctx, val);
+    out.data = base ? base + byteOffset : nullptr;
+    return out.data != nullptr || out.size == 0;
 }
 
 const proto::ProtoObject* getBufferProto(proto::ProtoContext* ctx);
 
-const proto::ProtoObject* makeBufferInstance(
-        proto::ProtoContext* ctx,
-        const proto::ProtoObject* byteBufferObj,
-        long long size) {
+bool isBufferInstance(proto::ProtoContext* ctx,
+                       const proto::ProtoObject* val) {
+    if (!ctx || !val || val == PROTO_NONE || !isTypedArrayInstance(ctx, val)) return false;
     const proto::ProtoObject* proto = getBufferProto(ctx);
-    const proto::ProtoObject* inst = proto
-        ? proto->newChild(ctx, /*mutable=*/true)
-        : ctx->newObject(/*mutable=*/true);
-    if (!inst) return PROTO_NONE;
-    inst->setAttribute(ctx, keyByteBuffer(ctx), byteBufferObj);
-    inst->setAttribute(ctx, keyIsBufferMark(ctx), PROTO_TRUE);
-    const proto::ProtoString* lk = JSSymbols::length(ctx);
-    if (lk) inst->setAttribute(ctx, lk, ctx->fromInteger(size));
-    const proto::ProtoString* blk =
-        ctx->fromUTF8String("byteLength")->asString(ctx);
-    if (blk) inst->setAttribute(ctx, blk, ctx->fromInteger(size));
-    return inst;
+    return proto && val->isInstanceOf(ctx, proto) == PROTO_TRUE;
 }
 
-// Allocate a fresh ProtoByteBuffer and copy `bytes` into it.
+// A new zero-filled Buffer of `size` bytes, or PROTO_NONE.
+const proto::ProtoObject* newZeroedBuffer(proto::ProtoContext* ctx, long long size) {
+    if (!ctx || size < 0 || size > 0x7FFFFFFFLL) return PROTO_NONE;
+    return createTypedArrayFromLength(ctx, getBufferProto(ctx),
+                                      static_cast<uint8_t>(TAElementType::Uint8),
+                                      static_cast<uint32_t>(size));
+}
+
+// A Buffer holding a copy of `bytes`.
 const proto::ProtoObject* makeFromBytes(proto::ProtoContext* ctx,
                                           const std::vector<uint8_t>& bytes) {
-    if (!ctx) return PROTO_NONE;
-    const proto::ProtoObject* bufObj = ctx->newBuffer(bytes.size());
-    if (!bufObj) return PROTO_NONE;
-    const proto::ProtoByteBuffer* bb = bufObj->asByteBuffer(ctx);
-    if (bb && !bytes.empty()) {
-        char* dst = bb->getBuffer(ctx);
-        if (dst) std::memcpy(dst, bytes.data(), bytes.size());
-    }
-    return makeBufferInstance(ctx, bufObj,
-                                static_cast<long long>(bytes.size()));
+    const proto::ProtoObject* buf =
+        newZeroedBuffer(ctx, static_cast<long long>(bytes.size()));
+    ByteView v;
+    if (buf != PROTO_NONE && !bytes.empty() && byteView(ctx, buf, v))
+        std::memcpy(v.data, bytes.data(), bytes.size());
+    return buf;
 }
 
 // ---- Buffer constructor (handles size | string | array | Buffer) ------
@@ -220,16 +218,29 @@ const proto::ProtoObject* bufferConstructor(
     if (!a0) return PROTO_NONE;
 
     if (a0->isInteger(ctx)) {
-        long long size = a0->asLong(ctx);
-        if (size < 0) return PROTO_NONE;
-        const proto::ProtoObject* bufObj = ctx->newBuffer(size);
-        if (!bufObj) return PROTO_NONE;
-        // Zero-fill to match Buffer.alloc behavior (the original QuickJS
-        // version left the buffer uninitialised; this is the safer
-        // default and matches Node's `new Buffer(size)` behaviour).
-        const proto::ProtoByteBuffer* bb = bufObj->asByteBuffer(ctx);
-        if (bb && size > 0) std::memset(bb->getBuffer(ctx), 0, size);
-        return makeBufferInstance(ctx, bufObj, size);
+        // Zero-filled, as Buffer.alloc (Node's `new Buffer(size)` is too).
+        return newZeroedBuffer(ctx, a0->asLong(ctx));
+    }
+
+    // Buffer.from(arrayBuffer[, byteOffset[, length]]): a view over the same
+    // memory, as in Node.
+    if (isArrayBuffer(ctx, a0)) {
+        const long long abLen = static_cast<long long>(getArrayBufferByteLength(ctx, a0));
+        long long off = 0, len = -1;
+        if (args->getSize(ctx) > 1) argInt(ctx, args, 1, off);
+        if (args->getSize(ctx) > 2) argInt(ctx, args, 2, len);
+        if (off < 0 || off > abLen) {
+            signalNativeException(makeNativeError(ctx, "RangeError",
+                "\"offset\" is outside of buffer bounds"));
+        }
+        if (len < 0) len = abLen - off;
+        if (off + len > abLen) {
+            signalNativeException(makeNativeError(ctx, "RangeError",
+                "\"length\" is outside of buffer bounds"));
+        }
+        return createTypedArrayFromBuffer(ctx, getBufferProto(ctx),
+                                          static_cast<uint8_t>(TAElementType::Uint8),
+                                          a0, off, len);
     }
 
     std::string encoding = "utf8";
@@ -256,12 +267,24 @@ const proto::ProtoObject* extractBytes(proto::ProtoContext* ctx,
         out = decodeString(s, encoding);
         return val;
     }
-    if (isBufferInstance(ctx, val)) {
-        const proto::ProtoByteBuffer* bb = getByteBuffer(ctx, val);
-        if (!bb) return nullptr;
-        proto::proto_ulong n = bb->getSize(ctx);
-        const char* src = bb->getBuffer(ctx);
-        out.assign(src, src + n);
+    // A Buffer or any other typed array: its elements, each taken modulo
+    // 256 (Node's Buffer.from(typedArray)).
+    if (isTypedArrayInstance(ctx, val)) {
+        ByteView v;
+        if (byteView(ctx, val, v)) {
+            out.assign(v.data, v.data + v.size);
+            return val;
+        }
+        const uint8_t et = getTypedArrayElementType(ctx, val);
+        const uint32_t n = getTypedArrayLength(ctx, val);
+        out.reserve(n);
+        for (uint32_t i = 0; i < n; ++i) {
+            const proto::ProtoObject* e = typedArrayGetElement(ctx, val, i, et);
+            long long iv = 0;
+            if (e && e->isInteger(ctx)) iv = e->asLong(ctx);
+            else if (e && e->isDouble(ctx)) iv = static_cast<long long>(e->asDouble(ctx));
+            out.push_back(static_cast<uint8_t>(iv & 0xFF));
+        }
         return val;
     }
     // Array of integers.
@@ -302,10 +325,9 @@ const proto::ProtoObject* bufferAllocImpl(
     const proto::ProtoKeywordArguments*) {
     long long size = 0;
     if (!argInt(ctx, args, 0, size) || size < 0) return PROTO_NONE;
-    const proto::ProtoObject* bufObj = ctx->newBuffer(size);
-    if (!bufObj) return PROTO_NONE;
-    const proto::ProtoByteBuffer* bb = bufObj->asByteBuffer(ctx);
-    if (bb && size > 0) {
+    const proto::ProtoObject* buf = newZeroedBuffer(ctx, size);
+    ByteView bb;
+    if (buf != PROTO_NONE && byteView(ctx, buf, bb) && size > 0) {
         char fill = 0;
         if (args && args->getSize(ctx) > 1) {
             const proto::ProtoObject* a1 = args->getAt(ctx, 1);
@@ -317,9 +339,9 @@ const proto::ProtoObject* bufferAllocImpl(
                 if (!s.empty()) fill = s[0];
             }
         }
-        std::memset(bb->getBuffer(ctx), fill, size);
+        std::memset(bb.data, fill, static_cast<size_t>(size));
     }
-    return makeBufferInstance(ctx, bufObj, size);
+    return buf;
 }
 
 const proto::ProtoObject* bufferConcatImpl(
@@ -334,14 +356,14 @@ const proto::ProtoObject* bufferConcatImpl(
     if (!els) return PROTO_NONE;
     long long n = static_cast<long long>(els->getSize(ctx));
     size_t total = 0;
-    std::vector<const proto::ProtoByteBuffer*> bufs;
+    std::vector<ByteView> bufs;
     bufs.reserve(static_cast<size_t>(n));
     for (long long i = 0; i < n; ++i) {
         const proto::ProtoObject* e = els->getAt(ctx, static_cast<int>(i));
-        const proto::ProtoByteBuffer* bb = getByteBuffer(ctx, e);
-        if (bb) {
+        ByteView bb;
+        if (byteView(ctx, e, bb)) {
             bufs.push_back(bb);
-            total += bb->getSize(ctx);
+            total += bb.size;
         }
     }
     // Optional explicit total length (Buffer.concat(arr, totalLength)).
@@ -349,22 +371,20 @@ const proto::ProtoObject* bufferConcatImpl(
         long long t = 0;
         if (argInt(ctx, args, 1, t) && t >= 0) total = static_cast<size_t>(t);
     }
-    const proto::ProtoObject* bufObj = ctx->newBuffer(total);
-    if (!bufObj) return PROTO_NONE;
-    const proto::ProtoByteBuffer* out = bufObj->asByteBuffer(ctx);
-    if (out && total) {
-        char* dst = out->getBuffer(ctx);
+    const proto::ProtoObject* result = newZeroedBuffer(ctx, static_cast<long long>(total));
+    ByteView out;
+    if (result != PROTO_NONE && total && byteView(ctx, result, out)) {
+        char* dst = out.data;
         size_t off = 0;
-        for (auto* b : bufs) {
-            size_t sz = b->getSize(ctx);
+        for (const ByteView& b : bufs) {
+            size_t sz = b.size;
             if (off + sz > total) sz = total - off;
-            std::memcpy(dst + off, b->getBuffer(ctx), sz);
+            if (sz) std::memcpy(dst + off, b.data, sz);
             off += sz;
             if (off >= total) break;
         }
-        if (off < total) std::memset(dst + off, 0, total - off);
     }
-    return makeBufferInstance(ctx, bufObj, static_cast<long long>(total));
+    return result;
 }
 
 const proto::ProtoObject* bufferIsBufferImpl(
@@ -386,10 +406,10 @@ const proto::ProtoObject* bufferToString(
     const proto::ParentLink*,
     const proto::ProtoArguments* args,
     const proto::ProtoKeywordArguments*) {
-    const proto::ProtoByteBuffer* bb = getByteBuffer(ctx, self);
-    if (!bb) return ctx ? ctx->fromUTF8String("") : PROTO_NONE;
-    proto::proto_ulong size = bb->getSize(ctx);
-    const char* src = bb->getBuffer(ctx);
+    ByteView bb;
+    if (!byteView(ctx, self, bb)) return ctx ? ctx->fromUTF8String("") : PROTO_NONE;
+    proto::proto_ulong size = bb.size;
+    const char* src = bb.data;
 
     std::string encoding = "utf8";
     if (args && args->getSize(ctx) > 0) argString(ctx, args, 0, encoding);
@@ -407,15 +427,17 @@ const proto::ProtoObject* bufferToString(
     return protojs::jsStringFromUTF8(ctx, out);
 }
 
+// buf.slice(start, end) and buf.subarray(start, end): a Buffer over the same
+// memory (Node; until 2026-10 slice copied the bytes).
 const proto::ProtoObject* bufferSlice(
     proto::ProtoContext* ctx,
     const proto::ProtoObject* self,
     const proto::ParentLink*,
     const proto::ProtoArguments* args,
     const proto::ProtoKeywordArguments*) {
-    const proto::ProtoByteBuffer* bb = getByteBuffer(ctx, self);
-    if (!bb) return PROTO_NONE;
-    long long size = static_cast<long long>(bb->getSize(ctx));
+    ByteView bb;
+    if (!byteView(ctx, self, bb)) return PROTO_NONE;
+    long long size = static_cast<long long>(bb.size);
 
     long long start = 0, end = size;
     if (args && args->getSize(ctx) > 0) argInt(ctx, args, 0, start);
@@ -426,14 +448,12 @@ const proto::ProtoObject* bufferSlice(
     if (end > size) end = size;
     if (start > end) start = end;
 
-    long long len = end - start;
-    const proto::ProtoObject* outObj = ctx->newBuffer(len);
-    if (!outObj) return PROTO_NONE;
-    const proto::ProtoByteBuffer* ob = outObj->asByteBuffer(ctx);
-    if (ob && len > 0) {
-        std::memcpy(ob->getBuffer(ctx), bb->getBuffer(ctx) + start, len);
-    }
-    return makeBufferInstance(ctx, outObj, len);
+    const proto::ProtoObject* ab = self->getAttribute(ctx, JSSymbols::taBuffer(ctx), false);
+    const proto::ProtoObject* off = self->getAttribute(ctx, JSSymbols::taByteOffset(ctx), false);
+    const long long byteOffset = (off && off->isInteger(ctx)) ? off->asLong(ctx) : 0;
+    return createTypedArrayFromBuffer(ctx, getBufferProto(ctx),
+                                      static_cast<uint8_t>(TAElementType::Uint8),
+                                      ab, byteOffset + start, end - start);
 }
 
 const proto::ProtoObject* bufferCopy(
@@ -442,14 +462,12 @@ const proto::ProtoObject* bufferCopy(
     const proto::ParentLink*,
     const proto::ProtoArguments* args,
     const proto::ProtoKeywordArguments*) {
-    const proto::ProtoByteBuffer* src = getByteBuffer(ctx, self);
-    if (!src || !args || args->getSize(ctx) == 0) return ctx->fromInteger(0);
-    const proto::ProtoObject* tgtObj = args->getAt(ctx, 0);
-    const proto::ProtoByteBuffer* tgt = getByteBuffer(ctx, tgtObj);
-    if (!tgt) return ctx->fromInteger(0);
+    ByteView src, tgt;
+    if (!byteView(ctx, self, src) || !args || args->getSize(ctx) == 0) return ctx->fromInteger(0);
+    if (!byteView(ctx, args->getAt(ctx, 0), tgt)) return ctx->fromInteger(0);
 
-    long long srcSize = static_cast<long long>(src->getSize(ctx));
-    long long tgtSize = static_cast<long long>(tgt->getSize(ctx));
+    long long srcSize = static_cast<long long>(src.size);
+    long long tgtSize = static_cast<long long>(tgt.size);
     long long tgtStart = 0, srcStart = 0, srcEnd = srcSize;
     if (args->getSize(ctx) > 1) argInt(ctx, args, 1, tgtStart);
     if (args->getSize(ctx) > 2) argInt(ctx, args, 2, srcStart);
@@ -461,8 +479,7 @@ const proto::ProtoObject* bufferCopy(
 
     long long n = std::min(srcEnd - srcStart, tgtSize - tgtStart);
     if (n > 0) {
-        std::memcpy(tgt->getBuffer(ctx) + tgtStart,
-                     src->getBuffer(ctx) + srcStart, n);
+        std::memmove(tgt.data + tgtStart, src.data + srcStart, static_cast<size_t>(n));
     }
     return ctx->fromInteger(n < 0 ? 0 : n);
 }
@@ -473,9 +490,9 @@ const proto::ProtoObject* bufferFill(
     const proto::ParentLink*,
     const proto::ProtoArguments* args,
     const proto::ProtoKeywordArguments*) {
-    const proto::ProtoByteBuffer* bb = getByteBuffer(ctx, self);
-    if (!bb || !args || args->getSize(ctx) == 0) return self ? self : PROTO_NONE;
-    long long size = static_cast<long long>(bb->getSize(ctx));
+    ByteView bb;
+    if (!byteView(ctx, self, bb) || !args || args->getSize(ctx) == 0) return self ? self : PROTO_NONE;
+    long long size = static_cast<long long>(bb.size);
     char fill = 0;
     const proto::ProtoObject* a0 = args->getAt(ctx, 0);
     if (a0 && a0->isInteger(ctx)) fill = static_cast<char>(a0->asLong(ctx) & 0xFF);
@@ -490,7 +507,7 @@ const proto::ProtoObject* bufferFill(
     if (off < 0) off = 0;
     if (end > size) end = size;
     if (off > end) off = end;
-    std::memset(bb->getBuffer(ctx) + off, fill,
+    std::memset(bb.data + off, fill,
                   static_cast<size_t>(end - off));
     return self;
 }
@@ -501,10 +518,10 @@ const proto::ProtoObject* bufferIndexOf(
     const proto::ParentLink*,
     const proto::ProtoArguments* args,
     const proto::ProtoKeywordArguments*) {
-    const proto::ProtoByteBuffer* bb = getByteBuffer(ctx, self);
-    if (!bb || !args || args->getSize(ctx) == 0) return ctx->fromInteger(-1);
-    long long size = static_cast<long long>(bb->getSize(ctx));
-    const char* buf = bb->getBuffer(ctx);
+    ByteView bb;
+    if (!byteView(ctx, self, bb) || !args || args->getSize(ctx) == 0) return ctx->fromInteger(-1);
+    long long size = static_cast<long long>(bb.size);
+    const char* buf = bb.data;
 
     std::vector<uint8_t> needle;
     const proto::ProtoObject* a0 = args->getAt(ctx, 0);
@@ -516,13 +533,9 @@ const proto::ProtoObject* bufferIndexOf(
         std::string enc = "utf8";
         if (args->getSize(ctx) > 2) argString(ctx, args, 2, enc);
         needle = decodeString(s, enc);
-    } else if (a0 && isBufferInstance(ctx, a0)) {
-        const proto::ProtoByteBuffer* sb = getByteBuffer(ctx, a0);
-        if (sb) {
-            proto::proto_ulong n = sb->getSize(ctx);
-            const char* sd = sb->getBuffer(ctx);
-            needle.assign(sd, sd + n);
-        }
+    } else {
+        ByteView sb;
+        if (byteView(ctx, a0, sb)) needle.assign(sb.data, sb.data + sb.size);
     }
     if (needle.empty()) return ctx->fromInteger(-1);
     long long off = 0;
@@ -563,21 +576,25 @@ const proto::ProtoObject* getBufferProto(proto::ProtoContext* ctx) {
     static const NativeEntry entries[] = {
         {"toString", bufferToString},
         {"slice",    bufferSlice},
+        {"subarray", bufferSlice},
         {"copy",     bufferCopy},
         {"fill",     bufferFill},
         {"indexOf",  bufferIndexOf},
         {"includes", bufferIncludes},
         NATIVE_MODULE_END
     };
-    // Buffer.prototype inherits from the realm's Object.prototype, as every
-    // JavaScript object does.  Built from a bare protoCore object (as it was
-    // until 2026-10) a Buffer was a foreign object: no valueOf or
-    // hasOwnProperty, and `"x" + buf` gave "x[object Object]" instead of
-    // calling Buffer.prototype.toString.
-    JSContextWrapper* w = JSContextWrapper::current();
-    const proto::ProtoObject* objectProto = w ? w->getJSObjectPrototype() : nullptr;
-    const proto::ProtoObject* bufferProto = objectProto
-        ? objectProto->newChild(ctx, /*mutable=*/true)
+    // Buffer.prototype inherits from Uint8Array.prototype (Node), and so from
+    // %TypedArray%.prototype and Object.prototype.  Without the typed-array
+    // constructors (they are installed before the modules) it falls back to
+    // the realm's Object.prototype, so a Buffer is never a foreign object.
+    const proto::ProtoObject* parent =
+        getTypedArrayConcreteProto(ctx, static_cast<uint8_t>(TAElementType::Uint8));
+    if (!parent || parent == PROTO_NONE) {
+        JSContextWrapper* w = JSContextWrapper::current();
+        parent = w ? w->getJSObjectPrototype() : nullptr;
+    }
+    const proto::ProtoObject* bufferProto = parent
+        ? parent->newChild(ctx, /*mutable=*/true)
         : ctx->newObject(/*mutable=*/true);
     for (const NativeEntry* e = entries; e->name; ++e)
         bufferProto = ProtoNativeModule::addMethod(ctx, bufferProto, e->name, e->fn);
@@ -585,6 +602,24 @@ const proto::ProtoObject* getBufferProto(proto::ProtoContext* ctx) {
 }
 
 }  // namespace
+
+const proto::ProtoObject* BufferModule::fromBytes(proto::ProtoContext* ctx,
+                                                  const char* data, size_t len) {
+    const proto::ProtoObject* buf = newZeroedBuffer(ctx, static_cast<long long>(len));
+    ByteView v;
+    if (buf != PROTO_NONE && len && data && byteView(ctx, buf, v))
+        std::memcpy(v.data, data, len);
+    return buf;
+}
+
+bool BufferModule::bytesOf(proto::ProtoContext* ctx, const proto::ProtoObject* val,
+                           const char*& data, size_t& len) {
+    ByteView v;
+    if (!byteView(ctx, val, v)) return false;
+    data = v.data;
+    len = v.size;
+    return true;
+}
 
 const proto::ProtoObject* BufferModule::init(
     proto::ProtoContext* ctx,

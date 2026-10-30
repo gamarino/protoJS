@@ -112,12 +112,10 @@ static const proto::ProtoObject* ab_isView(
     const proto::ProtoObject* arg = args->getAt(ctx, 0);
     if (!arg || arg == PROTO_NONE) return PROTO_FALSE;
 
-    // TypedArray: has __ta_element_type__ attribute.
-    const proto::ProtoString* taElemTypeKey = JSSymbols::taElementType(ctx);
-    if (taElemTypeKey) {
-        const proto::ProtoObject* v = arg->getAttribute(ctx, taElemTypeKey, false);
-        if (v && v != PROTO_NONE) return PROTO_TRUE;
-    }
+    // A typed array (a Buffer included).  Until 2026-10 this looked for a
+    // __ta_element_type__ attribute that no typed array carries, so isView
+    // was false for every typed array.
+    if (isTypedArrayInstance(ctx, arg)) return PROTO_TRUE;
 
     // DataView: has __dv_buffer__ attribute.
     const proto::ProtoString* dvBufferKey = JSSymbols::dvBuffer(ctx);
