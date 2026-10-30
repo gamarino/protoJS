@@ -922,9 +922,14 @@ static std::string elemToString(proto::ProtoContext* ctx,
 // ---------------------------------------------------------------------------
 // Strict equality (===) for indexOf / lastIndexOf.
 // ---------------------------------------------------------------------------
+// `b` is the searched-for value and `bIsBigInt` is isBigInt(ctx, b), computed
+// once by the caller: indexOf / lastIndexOf / includes compare one needle
+// with every element, and asking every element whether it is a BigInt made
+// those searches up to twice as slow.
 static bool strictEquals(proto::ProtoContext* ctx,
                           const proto::ProtoObject* a,
-                          const proto::ProtoObject* b) {
+                          const proto::ProtoObject* b,
+                          bool bIsBigInt) {
     if (a == b) return true;
     // §6.1 collapses all undefined representations to a single value.
     // protoJS carries two: PROTO_NONE (the canonical "absent/undefined"
@@ -942,10 +947,12 @@ static bool strictEquals(proto::ProtoContext* ctx,
     if (aNone || bNone) return false;
     // Two BigInts by value (indexOf / lastIndexOf / includes).  Until
     // 2026-10 they fell to reference equality and [5n].includes(5n) was
-    // false.
-    {
+    // false.  A BigInt equals only a BigInt, so when the needle is not one
+    // the rules below decide (a BigInt element matches nothing there).
+    if (bIsBigInt) {
         bool eq = false;
-        if (bigIntSameValue(ctx, a, b, eq)) return eq;
+        bigIntSameValue(ctx, a, b, eq);
+        return eq;
     }
     bool aInt = a->isInteger(ctx);
     bool bInt = b->isInteger(ctx);
@@ -974,11 +981,12 @@ static bool strictEquals(proto::ProtoContext* ctx,
 // SameValueZero: like === but NaN === NaN.
 static bool sameValueZero(proto::ProtoContext* ctx,
                            const proto::ProtoObject* a,
-                           const proto::ProtoObject* b) {
+                           const proto::ProtoObject* b,
+                           bool bIsBigInt) {
     bool aNaN = a && (a->isDouble(ctx) || a->isFloat(ctx)) && std::isnan(a->asDouble(ctx));
     bool bNaN = b && (b->isDouble(ctx) || b->isFloat(ctx)) && std::isnan(b->asDouble(ctx));
     if (aNaN && bNaN) return true;
-    return strictEquals(ctx, a, b);
+    return strictEquals(ctx, a, b, bIsBigInt);
 }
 
 // Normalize negative or out-of-range index per ECMAScript spec.
@@ -2183,6 +2191,7 @@ static const proto::ProtoObject* arrayIndexOf(
     const proto::ProtoObject* needle = (args && args->getSize(ctx) > 0)
         ? args->getAt(ctx, 0)
         : getUndefinedSentinel();
+    const bool needleIsBigInt = isBigInt(ctx, needle);
     const proto::ProtoArguments noArgs(nullptr, 0);
     if (!args || args->getSize(ctx) == 0) args = &noArgs; // ensure non-null below
     long long from = 0;
@@ -2258,7 +2267,7 @@ static const proto::ProtoObject* arrayIndexOf(
                 const proto::ProtoListIterator* it = list->getIterator(ctx);
                 while (it && it->hasNext(ctx)) {
                     const proto::ProtoObject* el = it->next(ctx);
-                    if (idx >= from && strictEquals(ctx, el, needle))
+                    if (idx >= from && strictEquals(ctx, el, needle, needleIsBigInt))
                         return ctx->fromInteger(idx);
                     it = it->advance(ctx);
                     idx++;
@@ -2276,7 +2285,7 @@ static const proto::ProtoObject* arrayIndexOf(
         // a throwing accessor must terminate iteration before later
         // indices are probed — parallel to lastIndexOf's fix in this
         // round.
-        if (strictEquals(ctx, elem, needle))
+        if (strictEquals(ctx, elem, needle, needleIsBigInt))
             return ctx->fromInteger(i);
     }
     return ctx->fromInteger(-1LL);
@@ -2364,6 +2373,7 @@ static const proto::ProtoObject* arrayLastIndexOf(
     const proto::ProtoObject* needle = (args && args->getSize(ctx) > 0)
         ? args->getAt(ctx, 0)
         : getUndefinedSentinel();
+    const bool needleIsBigInt = isBigInt(ctx, needle);
     const proto::ProtoArguments noArgs(nullptr, 0);
     if (!args) args = &noArgs;
     long long from = len - 1;
@@ -2442,7 +2452,7 @@ static const proto::ProtoObject* arrayLastIndexOf(
                 while (it && it->hasNext(ctx)) {
                     if (idx > from) break;
                     const proto::ProtoObject* el = it->next(ctx);
-                    if (strictEquals(ctx, el, needle)) lastMatch = idx;
+                    if (strictEquals(ctx, el, needle, needleIsBigInt)) lastMatch = idx;
                     it = it->advance(ctx);
                     idx++;
                 }
@@ -2456,7 +2466,7 @@ static const proto::ProtoObject* arrayLastIndexOf(
             !arrHasProperty(ctx, self, static_cast<proto::proto_ulong>(i))) continue;
         const proto::ProtoObject* elem = arrGet(ctx, self, static_cast<proto::proto_ulong>(i));
         // §23.1.3.18 step 7.a Get(O, Pk) is the abrupt-completion site.
-        if (strictEquals(ctx, elem, needle))
+        if (strictEquals(ctx, elem, needle, needleIsBigInt))
             return ctx->fromInteger(i);
     }
     return ctx->fromInteger(-1LL);
@@ -2489,6 +2499,7 @@ static const proto::ProtoObject* arrayIncludes(
     const proto::ProtoObject* needle = (args && args->getSize(ctx) > 0)
         ? args->getAt(ctx, 0)
         : getUndefinedSentinel();
+    const bool needleIsBigInt = isBigInt(ctx, needle);
     long long from = 0;
     if (args && args->getSize(ctx) > 1) {
         const proto::ProtoObject* fi = args->getAt(ctx, 1);
@@ -2552,7 +2563,7 @@ static const proto::ProtoObject* arrayIncludes(
                     if (idx >= from) {
                         const proto::ProtoObject* el = it->next(ctx);
                         if (!el || el == PROTO_NONE) el = getUndefinedSentinel();
-                        if (sameValueZero(ctx, el, needle)) return PROTO_TRUE;
+                        if (sameValueZero(ctx, el, needle, needleIsBigInt)) return PROTO_TRUE;
                     } else {
                         (void)it->next(ctx);
                     }
@@ -2580,7 +2591,7 @@ static const proto::ProtoObject* arrayIncludes(
         // SameValueZero. Normalise so [ , , , ].includes(undefined)
         // surfaces true (built-ins/Array/prototype/includes/sparse.js).
         if (!el || el == PROTO_NONE) el = getUndefinedSentinel();
-        if (sameValueZero(ctx, el, needle))
+        if (sameValueZero(ctx, el, needle, needleIsBigInt))
             return PROTO_TRUE;
     }
     return PROTO_FALSE;
