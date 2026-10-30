@@ -76,7 +76,6 @@ var tcp = net.createServer(function (socket) {
 });
 tcp.listen(18848, function () {
     // 'connect' is emitted asynchronously, so a listener added here sees it.
-    // (protoJS ignores a connect listener passed to createConnection.)
     var client = net.createConnection({ port: 18848, host: "127.0.0.1" });
     client.on("connect", function () { client.write("hi"); });
     client.on("data", function (d) {
