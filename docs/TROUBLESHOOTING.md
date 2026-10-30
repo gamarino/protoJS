@@ -113,9 +113,12 @@ The error carries `code: 'MODULE_NOT_FOUND'`, as in Node. The built-in names
 globals such as `console`, `io`, `memory`, `profiler` and `debugger` are
 deliberately **not** requirable; use them directly.
 
-### `setTimeout` or `setInterval` is not defined
+### `setTimeout()` throws "is not available in a worker thread"
 
-protoJS does not install timer functions. Use `setImmediate(callback)` to run code on a later event-loop turn.
+The timer functions run on the main script's event loop. Inside a
+`worker_threads` worker or a Deferred function they throw; schedule the work
+from the main script instead. (They are installed since 2026-10; older protoJS
+builds did not define `setTimeout` or `setInterval` at all.)
 
 ### `process.platform` prints a function
 

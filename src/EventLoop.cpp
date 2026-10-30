@@ -34,23 +34,7 @@ void EventLoop::processCallbacks() {
         auto callback = callbacksToProcess.front();
         callbacksToProcess.pop();
         
-        try {
-            callback();
-            // A macrotask has run: drain the job queue (promise reactions,
-            // await continuations) before the next one, as Node does.
-            MicrotaskQueue::checkpointThread();
-            if (endOfTurnHook) endOfTurnHook();
-        } catch (const proto::ProtoException& thrown) {
-            // A JavaScript exception that escaped the callback: nothing will
-            // catch it, so, as in Node, it ends the process.
-            reportUncaughtException(threadProtoContext(), "event-loop callback",
-                                    thrown.value());
-        } catch (const std::exception& e) {
-            // Log error but continue processing other callbacks
-            std::cerr << "Exception in event loop callback: " << e.what() << std::endl;
-        } catch (...) {
-            std::cerr << "Unknown exception in event loop callback" << std::endl;
-        }
+        runMacrotask(callback);
     }
 
     // The mutator-side half of the finalizer contract.  Five of protoJS's
@@ -82,6 +66,26 @@ void EventLoop::run() {
         
         lock.unlock();
         processCallbacks();
+    }
+}
+
+void EventLoop::runMacrotask(const std::function<void()>& task) {
+    try {
+        task();
+        // A macrotask has run: drain the job queue (promise reactions,
+        // await continuations) before the next one, as Node does.
+        MicrotaskQueue::checkpointThread();
+        if (endOfTurnHook) endOfTurnHook();
+    } catch (const proto::ProtoException& thrown) {
+        // A JavaScript exception that escaped the callback: nothing will
+        // catch it, so, as in Node, it ends the process.
+        reportUncaughtException(threadProtoContext(), "event-loop callback",
+                                thrown.value());
+    } catch (const std::exception& e) {
+        // Log error but continue processing other callbacks
+        std::cerr << "Exception in event loop callback: " << e.what() << std::endl;
+    } catch (...) {
+        std::cerr << "Unknown exception in event loop callback" << std::endl;
     }
 }
 
