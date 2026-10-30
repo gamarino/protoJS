@@ -179,6 +179,7 @@ struct ServerState : GcOrphanQueue::Orphan {
     std::atomic<bool> listening{false};
     std::atomic<bool> closed{false};
     std::thread acceptThread;
+    platform::AcceptWaker acceptWaker;   // stops the accept loop (requestServerTeardown)
 
     void releaseOnMutator() override;
 };
@@ -218,12 +219,16 @@ struct SocketState : GcOrphanQueue::Orphan {
 // Returns true exactly once per server: `listening` is the once-only token, so
 // whichever of an explicit close() and the finalizer gets there first owns the
 // g_active decrement and the other one does nothing.
+//
+// For a server the request half clears `listening` and wakes the accept loop
+// (platform::AcceptWaker); the listening descriptor is closed by the await half
+// after the join, never under a thread inside accept()
+// (platform::acceptUntilStopped: on macOS that close stalls).
 bool requestServerTeardown(ServerState* s) {
     if (!s) return false;
     bool wasListening = s->listening.exchange(false);
     s->closed.store(true);
-    int fd = s->socketFd.exchange(-1);
-    if (fd >= 0) { ::shutdown(fd, SHUT_RDWR); platform::closeSocket(fd); }
+    s->acceptWaker.wake();
     return wasListening;
 }
 
@@ -235,6 +240,8 @@ void awaitServerTeardown(ServerState* s, proto::ProtoContext* ctx) {
     if (!s) return;
     ThreadUnmanagedScope parked(ctx);   // an UnmanagedScope on ctx, or on this thread's
     if (s->acceptThread.joinable()) s->acceptThread.join();
+    const int fd = s->socketFd.exchange(-1);
+    if (fd >= 0) platform::closeSocket(fd);
 }
 
 // Returns true exactly once per socket, for the same reason.
@@ -788,7 +795,7 @@ const proto::ProtoObject* serverListenImpl(
         platform::closeSocket(fd);
         return self;
     }
-    if (::listen(fd, 128) < 0) {
+    if (::listen(fd, 128) < 0 || !platform::setSocketBlocking(fd, false)) {
         platform::closeSocket(fd);
         return self;
     }
@@ -803,6 +810,7 @@ const proto::ProtoObject* serverListenImpl(
         s->port = static_cast<int>(port);
     }
     s->host = host;
+    s->acceptWaker.reset();
     s->socketFd.store(fd);
     s->listening.store(true);
     g_active.fetch_add(1);
@@ -810,17 +818,14 @@ const proto::ProtoObject* serverListenImpl(
     JSContextWrapper* wrapper = s->mainWrapper;
     proto::ProtoRootSet::Handle pin = s->serverPin;
 
-    s->acceptThread = std::thread([wrapper, pin, s]() {
+    s->acceptThread = std::thread([wrapper, pin, s, fd]() {
         while (s->listening.load() && !s->closed.load()) {
             sockaddr_in client{};
             socklen_t clen = sizeof(client);
-            int cfd = platform::acceptSocket(s->socketFd.load(),
+            const int cfd = platform::acceptUntilStopped(fd, s->listening, s->acceptWaker,
                                  reinterpret_cast<sockaddr*>(&client),
                                  &clen);
-            if (cfd < 0) {
-                if (!s->listening.load()) break;
-                continue;
-            }
+            if (cfd < 0) break;   // stopped
             char ip[INET_ADDRSTRLEN] = {};
             inet_ntop(AF_INET, &client.sin_addr, ip, sizeof(ip));
             std::string remote = ip;

@@ -573,6 +573,14 @@ set_tests_properties(js/basic/array_bulk_scaling PROPERTIES TIMEOUT 300)
 # A quadratic Map.set / Set.add would not finish within this limit.
 set_tests_properties(js/collections/map_set_scaling PROPERTIES TIMEOUT 60)
 
+# Servers closed right after listen() close promptly, and still accept when they
+# are not closed (platform::acceptUntilStopped). Binds loopback ports 18845-18848,
+# like cli/blocking-joins-and-finalizers; a stall is a timeout.
+add_test(NAME js/net/listen_close_cycles
+    COMMAND "$<TARGET_FILE:protojs>"
+            "${CMAKE_CURRENT_SOURCE_DIR}/integration/net/listen_close_cycles.js")
+set_tests_properties(js/net/listen_close_cycles PROPERTIES TIMEOUT 60)
+
 # util.format / util.inspect: Node.js's own test/parallel/test-util-format.js,
 # adapted like the path tests below (the cases protoJS cannot run are commented
 # out, each with the reason).
