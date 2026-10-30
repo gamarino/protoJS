@@ -1,4 +1,5 @@
 #include "ProtoCoreTypes.h"
+#include "runtime/AccessorFlags.h"
 #include "JSNumber.h"
 #include "runtime/JSStringUnits.h"
 #include "runtime/JSStringBytes.h"
@@ -3582,7 +3583,7 @@ static const proto::ProtoObject* objectDefineProperty(
         // accessor descriptor exists anywhere reachable from the target.
         {
             const proto::ProtoString* hap = JSSymbols::hasAccessorProps(ctx);
-            if (hap) target = target->setAttribute(ctx, hap, PROTO_TRUE);
+            if (hap) target = markHasAccessors(ctx, target);
         }
         // §10.1.6.3 ValidateAndApplyPropertyDescriptor step 4: when
         // redefining an accessor over an existing accessor, any field

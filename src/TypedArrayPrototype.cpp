@@ -1,4 +1,5 @@
 #include "ProtoCoreTypes.h"
+#include "runtime/AccessorFlags.h"
 #include "runtime/JSStringBytes.h"
 #include "JSNumber.h"
 #include "TypedArrayPrototype.h"
@@ -1799,7 +1800,7 @@ void ensureTypedArrayConstructors(proto::ProtoContext* ctx,
             baseProto = baseProto->setAttribute(ctx, JSSymbols::internName(ctx, pd.c_str()),
                                                 ctx->fromInteger(0x2LL));
         }
-        baseProto = baseProto->setAttribute(ctx, JSSymbols::hasAccessorProps(ctx), PROTO_TRUE);
+        baseProto = markHasAccessors(ctx, baseProto);
         baseProto = baseProto->setAttribute(ctx, JSSymbols::hasNonWritableProps(ctx), PROTO_TRUE);
     }
     const proto::ProtoObject* s_taBaseProto = s_taBaseProtoCache.replace(ctx, baseProto);

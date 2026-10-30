@@ -1,4 +1,5 @@
 #include "../ProtoCoreTypes.h"
+#include "AccessorFlags.h"
 #include "JSStringBytes.h"
 #include "JSStringUnits.h"
 #include "../JSNumber.h"
@@ -262,10 +263,13 @@ static const proto::ProtoObject* resolvePutFieldOOP(proto::ProtoContext* ctx, co
         if (const proto::ProtoObject* r = putDictionaryProperty(ctx, obj, key, val, isStrict))
             return r;
     }
+    // The chain-wide __has_accessor_props__ is always true (Object.prototype's
+    // __proto__ accessor), so the walk below built and probed two heap-string
+    // names per level on every new-property write.  mayInheritAccessor
+    // (runtime/AccessorFlags.h) reads the flag every other accessor
+    // installation stamps, and takes the walk for the key "__proto__".
     const bool needAccessorWalk = ownMayHaveAccessor
-        || (!ownHasData
-            && hapKey
-            && obj->getAttribute(ctx, hapKey, true) == PROTO_TRUE);
+        || (!ownHasData && protojs::mayInheritAccessor(ctx, obj, key));
 
     // Accessor setter support: check for __set_<key>__ / __get_<key>__
     // sidecar along the chain. Pre-fix the walk only stopped when the
@@ -277,13 +281,9 @@ static const proto::ProtoObject* resolvePutFieldOOP(proto::ProtoContext* ctx, co
     const proto::ProtoString* sk = nullptr;
     const proto::ProtoString* gk = nullptr;
     if (needAccessorWalk) {
-        key->toUTF8String(ctx, keyStr);
-        std::string skStr = "__set_" + keyStr + "__";
-        std::string gkStr = "__get_" + keyStr + "__";
-        const proto::ProtoObject* sko = protojs::jsStringFromUTF8(ctx, skStr);
-        sk = sko ? sko->asString(ctx) : nullptr;
-        const proto::ProtoObject* gko = protojs::jsStringFromUTF8(ctx, gkStr);
-        gk = gko ? gko->asString(ctx) : nullptr;
+        // Symbols for a symbol key (cached); heap strings otherwise.
+        sk = JSSymbols::sidecarName(ctx, JSSymbols::Sidecar::Set, key);
+        gk = JSSymbols::sidecarName(ctx, JSSymbols::Sidecar::Get, key);
     }
 
     if (sk || gk) {
@@ -684,8 +684,7 @@ static const proto::ProtoObject* defineComputedAccessor(proto::ProtoContext* ctx
     const proto::ProtoObject* pdo = protojs::jsStringFromUTF8(ctx, pdName);
     if (const proto::ProtoString* pdk = pdo ? pdo->asString(ctx) : nullptr)
         out = out->setAttribute(ctx, pdk, ctx->fromInteger(enumerable ? 0x6LL : 0x2LL));
-    if (const proto::ProtoString* hapK = JSSymbols::hasAccessorProps(ctx))
-        out = out->setAttribute(ctx, hapK, PROTO_TRUE);
+    out = protojs::markHasAccessors(ctx, out);  // runtime/AccessorFlags.h
     // runtime/IndexKeyFlags.h: `get [0]()` makes an index accessor.
     out = protojs::noteIndexAccessor(ctx, out, name);
     out = protojs::noteIndexDescriptor(ctx, out, name);
@@ -6420,8 +6419,7 @@ static const proto::ProtoObject* defineMethodNamed(proto::ProtoContext* ctx,
     key->toUTF8String(ctx, name);
     out = protojs::noteIndexDescriptor(ctx, out, name);
     if (kind == 1 || kind == 2) {
-        if (const proto::ProtoString* hapK = JSSymbols::hasAccessorProps(ctx))
-            out = out->setAttribute(ctx, hapK, PROTO_TRUE);
+        out = protojs::markHasAccessors(ctx, out);  // runtime/AccessorFlags.h
         out = protojs::noteIndexAccessor(ctx, out, name);
     }
     return out;
@@ -8479,7 +8477,7 @@ static const proto::ProtoObject* runBytecodeImpl(proto::ProtoContext* pContext,
                                 // Mark that accessor sidecars exist on this object so
                                 // resolvePutFieldOOP / OP_get_field probe them.
                                 const proto::ProtoString* hapK = JSSymbols::hasAccessorProps(pContext);
-                                if (hapK) symProto = symProto->setAttribute(pContext, hapK, PROTO_TRUE);
+                                if (hapK) symProto = protojs::markHasAccessors(pContext, symProto);
                                 // §17 accessor descriptor: {enumerable:false,
                                 // configurable:true} → pd bits 0x2.  Pre-fix
                                 // the slot had no sidecar so verifyProperty
