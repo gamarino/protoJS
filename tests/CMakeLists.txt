@@ -594,6 +594,13 @@ add_test(NAME js/net/connect_listener
             "${CMAKE_CURRENT_SOURCE_DIR}/integration/net/connect_listener.js")
 set_tests_properties(js/net/connect_listener PROPERTIES TIMEOUT 30)
 
+# __filename / __dirname are absolute when the script is run by a relative
+# path: run from tests/integration as `protojs modules/dirname_absolute.js`.
+add_test(NAME js/modules/dirname_absolute
+    COMMAND "$<TARGET_FILE:protojs>" "modules/dirname_absolute.js"
+    WORKING_DIRECTORY "${CMAKE_CURRENT_SOURCE_DIR}/integration")
+set_tests_properties(js/modules/dirname_absolute PROPERTIES TIMEOUT 30)
+
 # A net.Socket and a net.Server are EventEmitters: listeners run with them as
 # `this`. Binds loopback port 18852; a listener that never runs is a timeout.
 add_test(NAME js/net/socket_is_emitter
