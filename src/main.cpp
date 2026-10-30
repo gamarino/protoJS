@@ -44,6 +44,7 @@
 #include "platform/SizedThread.h"
 #include "quickjs.h"
 #include <iostream>
+#include <filesystem>
 #include <fstream>
 #include <sstream>
 #include <string>
@@ -179,10 +180,22 @@ static const proto::ProtoObject* installScriptGlobals(
         if (!k) return;
         g = g->setAttribute(pCtx, k, protojs::jsStringFromUTF8(pCtx, value));
     };
-    setStr("__filename", filename);
-    size_t lastSlash = filename.find_last_of("/\\");
-    setStr("__dirname",
-           (lastSlash != std::string::npos) ? filename.substr(0, lastSlash) : ".");
+    // __filename and __dirname are absolute, as in Node (path.resolve of the
+    // script path).  Until 2026-10 they kept the path as typed, so a script
+    // run as `protojs dir/main.js` had __dirname "dir", and
+    // require(__dirname + "/lib.js") resolved "dir/lib.js" as a package name
+    // instead of a file.  `-e` code keeps the name "eval" and the cwd.
+    std::string absolute = filename;
+    if (filename != "eval") {
+        std::error_code ec;
+        const std::filesystem::path p = std::filesystem::absolute(filename, ec);
+        if (!ec) absolute = p.lexically_normal().string();
+    }
+    setStr("__filename", absolute);
+    size_t lastSlash = absolute.find_last_of("/\\");
+    std::string dir = (lastSlash != std::string::npos) ? absolute.substr(0, lastSlash) : ".";
+    if (dir.empty()) dir = "/";
+    setStr("__dirname", dir);
     const proto::ProtoString* pjKey = pCtx->fromUTF8String("__protojs__")
         ? pCtx->fromUTF8String("__protojs__")->asString(pCtx) : nullptr;
     if (pjKey) g = g->setAttribute(pCtx, pjKey, PROTO_TRUE);
