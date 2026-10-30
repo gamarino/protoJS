@@ -63,6 +63,41 @@ static const proto::ProtoString* arrIndexKey(proto::ProtoContext* ctx, proto::pr
     return dict::indexKeyNoIntern(ctx, static_cast<uint32_t>(idx));
 }
 
+// CreateDataProperty's descriptor half for index `idx` of `obj`: the index
+// becomes a default data property (writable, enumerable, configurable).  A
+// `__pd_<idx>__` sidecar exists only when something gave the index other
+// flags, and its absence already means the defaults, so it is reset only when
+// present.  The probe does not intern the spelling (a lookup of a heap-string
+// key that was never interned answers "absent" without inserting it).  Until
+// 2026-10 the default bits were written unconditionally, which made every
+// index of every Array.from / Array.of / CreateDataPropertyOrThrow result a
+// perennial "__pd_<i>__" symbol: Array.from.call(C, {length: n}) took 32,
+// 73 and 241 ms for n = 5,000, 10,000 and 20,000.
+static const proto::ProtoObject* arrResetIndexDescriptor(proto::ProtoContext* ctx,
+                                                         const proto::ProtoObject* obj,
+                                                         proto::proto_ulong idx) {
+    constexpr long long kDefaultPdBits = 0x7;
+    const std::string pdStr = "__pd_" + std::to_string(idx) + "__";
+    const proto::ProtoObject* pdko = protojs::jsStringFromUTF8(ctx, pdStr);
+    const proto::ProtoString* pdk = pdko ? pdko->asString(ctx) : nullptr;
+    if (pdk && obj->hasOwnAttribute(ctx, pdk) == PROTO_TRUE)
+        obj = obj->setAttribute(ctx, pdk, ctx->fromInteger(kDefaultPdBits));
+    return obj;
+}
+
+// CreateDataProperty's value half for index `idx` of an object that is not a
+// real Array: an own data property, written without [[Set]] (no inherited
+// setter runs).  The key is not interned: an ordinary object keeps an index
+// of seven or more digits in its property dictionary (dict::createDataProperty).
+static const proto::ProtoObject* arrDefineIndexValue(proto::ProtoContext* ctx,
+                                                     const proto::ProtoObject* obj,
+                                                     proto::proto_ulong idx,
+                                                     const proto::ProtoObject* val) {
+    const proto::ProtoString* k = arrIndexKey(ctx, idx);
+    if (!k) return obj;
+    return dict::createDataProperty(ctx, obj, k, val ? val : PROTO_NONE);
+}
+
 // Removes the indexed attribute or dictionary key `idx` (the caller has
 // decided it may be deleted).
 static void arrDeleteIndex(proto::ProtoContext* ctx, const proto::ProtoObject* obj,
@@ -3604,10 +3639,9 @@ static const proto::ProtoObject* arrayCreateDataPropertyOrThrow(
 static bool arrayThrowIfCreateDataPropertyFails(proto::ProtoContext* ctx,
                                                  const proto::ProtoObject* obj,
                                                  proto::proto_ulong idx) {
-    const proto::ProtoString* k =
-        JSSymbols::indexKey(ctx, static_cast<uint32_t>(idx));
+    const proto::ProtoString* k = arrIndexKey(ctx, idx);
     bool nonExtensible = jsIsNonExtensible(ctx, obj);
-    bool hasOwnK = k && obj->hasOwnAttribute(ctx, k) == PROTO_TRUE;
+    bool hasOwnK = k && (obj->hasOwnAttribute(ctx, k) == PROTO_TRUE || dict::hasOwn(ctx, obj, k));
     if (nonExtensible && !hasOwnK) {
         signalNativeException(makeNativeError(ctx, "TypeError",
             "Cannot define property: object is not extensible"));
@@ -3702,13 +3736,7 @@ static const proto::ProtoObject* arrayCreateDataPropertyOrThrow(
     // wholesale.  CreateDataProperty installs a FRESH data
     // descriptor; the spec wants {value, writable:true,
     // enumerable:true, configurable:true} regardless of prior state.
-    constexpr long long kDefaultPdBits = 0x7;
-    std::string pdStr = "__pd_" + std::to_string(idx) + "__";
-    const proto::ProtoObject* pdko = protojs::jsStringFromUTF8(ctx, pdStr);
-    const proto::ProtoString* pdk = pdko ? pdko->asString(ctx) : nullptr;
-    if (pdk) updated = updated->setAttribute(ctx, pdk,
-                          ctx->fromInteger(kDefaultPdBits));
-    return updated;
+    return arrResetIndexDescriptor(ctx, updated, idx);
 }
 
 // ---------------------------------------------------------------------------
@@ -5506,7 +5534,6 @@ static const proto::ProtoObject* arrayFrom(
             // descriptor is overwritten rather than just having its
             // value replaced (built-ins/Array/from/iter-set-elem-
             // prop-non-writable).
-            constexpr long long kDefaultPdBits = 0x7;
             // Write directly to string-keyed indices and reset __pd__.
             // Probe CreateDataPropertyOrThrow's failure conditions
             // before each write so a species ctor's
@@ -5552,14 +5579,8 @@ static const proto::ProtoObject* arrayFrom(
                     return PROTO_NONE;
                 }
                 const proto::ProtoObject* v = resultEls->getAt(ctx, static_cast<int>(i));
-                const proto::ProtoString* k =
-                    JSSymbols::indexKey(ctx, static_cast<uint32_t>(i));
-                if (k) result = result->setAttribute(ctx, k, v ? v : PROTO_NONE);
-                std::string pdStr = "__pd_" + std::to_string(i) + "__";
-                const proto::ProtoObject* pdko = protojs::jsStringFromUTF8(ctx, pdStr);
-                const proto::ProtoString* pdk = pdko ? pdko->asString(ctx) : nullptr;
-                if (pdk) result = result->setAttribute(ctx, pdk,
-                                      ctx->fromInteger(kDefaultPdBits));
+                result = arrDefineIndexValue(ctx, result, static_cast<proto::proto_ulong>(i), v);
+                result = arrResetIndexDescriptor(ctx, result, static_cast<proto::proto_ulong>(i));
             }
             // Also publish __elements__ for fast-path readers.
             setArrayElements(ctx, result, resultEls);
@@ -5623,7 +5644,6 @@ static const proto::ProtoObject* arrayFrom(
             // and resetting __pd_<i>__ to default flags
             // (built-ins/Array/from/source-object-length-set-elem-
             // prop-non-writable).
-            constexpr long long kDefaultPdBits = 0x7;
             // A fresh plain Array: the elements go to __elements__ alone, as
             // in the iterator branch above.
             const proto::ProtoString* arrayCtorKeyAL = JSSymbols::arrayCtor(ctx);
@@ -5653,15 +5673,8 @@ static const proto::ProtoObject* arrayFrom(
                 const proto::ProtoObject* mapped = applyMap(v, static_cast<long long>(i));
                 if (arrayThrowIfCreateDataPropertyFails(ctx, result, i))
                     return PROTO_NONE;
-                const proto::ProtoString* k =
-                    JSSymbols::indexKey(ctx, static_cast<uint32_t>(i));
-                if (k) result = result->setAttribute(ctx, k,
-                                    mapped ? mapped : PROTO_NONE);
-                std::string pdStr = "__pd_" + std::to_string(i) + "__";
-                const proto::ProtoObject* pdko = protojs::jsStringFromUTF8(ctx, pdStr);
-                const proto::ProtoString* pdk = pdko ? pdko->asString(ctx) : nullptr;
-                if (pdk) result = result->setAttribute(ctx, pdk,
-                                      ctx->fromInteger(kDefaultPdBits));
+                result = arrDefineIndexValue(ctx, result, i, mapped);
+                result = arrResetIndexDescriptor(ctx, result, i);
             }
             result = arrSetLen(ctx, result, n);
             return result;
@@ -5792,52 +5805,15 @@ static const proto::ProtoObject* arrayOf(
     // inherited setter) and built-ins/Array/from/source-object-
     // length-set-elem-prop-non-writable (reset descriptor flags
     // when ctor-installed slot had writable:false) both pin this.
-    constexpr long long kDefaultPdBits = 0x7; // writable|configurable|enumerable
     for (proto::proto_ulong i = 0; i < argc; i++) {
         const proto::ProtoObject* v = args->getAt(ctx, static_cast<int>(i));
-        const proto::ProtoString* k =
-            JSSymbols::indexKey(ctx, static_cast<uint32_t>(i));
-        // §7.3.5 CreateDataProperty: if O is non-extensible AND k is
-        // not already an own property, the descriptor cannot be
-        // installed — success is false, CreateDataPropertyOrThrow
-        // raises TypeError.  Also: if k IS an own property but its
-        // descriptor is non-configurable, redefining it as a fresh
-        // data descriptor likewise fails.  Two T-cases pin this:
-        //   T1 = function(){Object.preventExtensions(this)}
-        //     → throw because non-extensible.
-        //   T2 = function(){Object.defineProperty(this,0,{configurable:false,
-        //        writable:true,enumerable:true})}
-        //     → throw because existing slot is non-configurable.
-        // built-ins/Array/of/return-abrupt-from-data-property.
-        {
-            bool nonExtensible = jsIsNonExtensible(ctx, result);
-            bool hasOwnK = k && result->hasOwnAttribute(ctx, k) == PROTO_TRUE;
-            if (nonExtensible && !hasOwnK) {
-                signalNativeException(makeNativeError(ctx, "TypeError",
-                    "Cannot define property: object is not extensible"));
-                return PROTO_NONE;
-            }
-            if (hasOwnK) {
-                std::string pdStr0 = "__pd_" + std::to_string(i) + "__";
-                const proto::ProtoObject* pdko0 = protojs::jsStringFromUTF8(ctx, pdStr0);
-                const proto::ProtoString* pdk0 = pdko0 ? pdko0->asString(ctx) : nullptr;
-                if (pdk0 && result->hasOwnAttribute(ctx, pdk0) == PROTO_TRUE) {
-                    const proto::ProtoObject* pdv = result->getAttribute(ctx, pdk0, false);
-                    if (pdv && pdv->isInteger(ctx)
-                        && (pdv->asLong(ctx) & 0x2) == 0) {
-                        signalNativeException(makeNativeError(ctx, "TypeError",
-                            "Cannot redefine non-configurable data property"));
-                        return PROTO_NONE;
-                    }
-                }
-            }
-        }
-        if (k) result = result->setAttribute(ctx, k, v ? v : PROTO_NONE);
-        std::string pdStr = "__pd_" + std::to_string(i) + "__";
-        const proto::ProtoObject* pdko = protojs::jsStringFromUTF8(ctx, pdStr);
-        const proto::ProtoString* pdk = pdko ? pdko->asString(ctx) : nullptr;
-        if (pdk) result = result->setAttribute(ctx, pdk,
-                              ctx->fromInteger(kDefaultPdBits));
+        // §7.3.5 CreateDataProperty fails when O is non-extensible and k is
+        // not already own, or when the existing own k is non-configurable:
+        // CreateDataPropertyOrThrow then raises TypeError
+        // (built-ins/Array/of/return-abrupt-from-data-property).
+        if (arrayThrowIfCreateDataPropertyFails(ctx, result, i)) return PROTO_NONE;
+        result = arrDefineIndexValue(ctx, result, i, v);
+        result = arrResetIndexDescriptor(ctx, result, i);
     }
     // §23.1.2.2 step 9: Set(A, 'length', len, true).  arrSetLen
     // honours user __set_length__ accessors (package-3 commit) so
