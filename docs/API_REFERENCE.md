@@ -166,6 +166,33 @@ timers run on the main script's event loop only -- calling them inside a
 Deferred function or a `worker_threads` worker throws an `Error` -- and the
 REPL does not run timers. `require('timers')` is not provided.
 
+### Not implemented: `SharedArrayBuffer` and `Atomics`
+
+`SharedArrayBuffer` is registered as a global constructor but is a stub, and
+`Atomics` is a placeholder global (`undefined`) that exists only so that a
+reference to it does not throw a `ReferenceError`. A `DataView` over a
+`SharedArrayBuffer` throws a `TypeError`.
+
+They are missing features, not defects, and are not scheduled. In Node and
+in browsers each worker has an isolated heap, so a `SharedArrayBuffer` is the
+only way for threads to share memory. In protoJS every worker and Deferred
+runs in the one ProtoSpace of the process: objects are shared directly, and
+protoCore's immutable values pass between threads without copying and
+without data races (see [Shared objects, Deferreds and grouped
+writes](#shared-objects-deferreds-and-grouped-writes) and
+[`worker_threads`](#worker_threads)). Shared raw bytes with racy access are
+the model protoCore avoids by construction.
+
+Code that requires them -- chiefly WebAssembly with threads, which protoJS
+does not provide either, and npm packages built on `Atomics.wait`/`notify` --
+does not run. Should they be added for compatibility, the intended design
+keeps the shared bytes outside the object graph: a reference-counted native
+block that the collector does not trace, typed-array and `DataView` views
+over it, `Atomics` on aligned elements through `std::atomic_ref`, and
+`Atomics.wait`/`notify` on a protoCore-aware parking primitive (never
+`std::counting_semaphore`), with `wait` refused on the main thread as in
+Node.
+
 ### Shared objects, Deferreds and grouped writes
 
 A `Deferred` runs its function in parallel and shares the script's objects
