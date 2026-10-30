@@ -1764,8 +1764,7 @@ void ensureTypedArrayConstructors(proto::ProtoContext* ctx,
             "entries", "Symbol.iterator"};
         for (const char* m : kMethods) {
             const std::string pd = std::string("__pd_") + m + "__";
-            const proto::ProtoObject* ko = protojs::jsStringFromUTF8(ctx, pd);
-            if (const proto::ProtoString* k = ko ? ko->asString(ctx) : nullptr)
+            if (const proto::ProtoString* k = JSSymbols::internName(ctx, pd.c_str()))
                 baseProto = baseProto->setAttribute(ctx, k, ctx->fromInteger(0x3LL));
         }
     }
@@ -1795,9 +1794,9 @@ void ensureTypedArrayConstructors(proto::ProtoContext* ctx,
             getter = getter->setAttribute(ctx, JSSymbols::hasNonWritableProps(ctx), PROTO_TRUE);
             const std::string gk = std::string("__get_") + g.key + "__";
             const std::string pd = std::string("__pd_") + g.key + "__";
-            baseProto = baseProto->setAttribute(ctx, protojs::jsStringFromUTF8(ctx, gk)->asString(ctx), getter);
-            baseProto = baseProto->setAttribute(ctx, ctx->fromUTF8String(g.key)->asString(ctx), PROTO_NONE);
-            baseProto = baseProto->setAttribute(ctx, protojs::jsStringFromUTF8(ctx, pd)->asString(ctx),
+            baseProto = baseProto->setAttribute(ctx, JSSymbols::internName(ctx, gk.c_str()), getter);
+            baseProto = baseProto->setAttribute(ctx, JSSymbols::internName(ctx, g.key), PROTO_NONE);
+            baseProto = baseProto->setAttribute(ctx, JSSymbols::internName(ctx, pd.c_str()),
                                                 ctx->fromInteger(0x2LL));
         }
         baseProto = baseProto->setAttribute(ctx, JSSymbols::hasAccessorProps(ctx), PROTO_TRUE);
@@ -1841,8 +1840,7 @@ void ensureTypedArrayConstructors(proto::ProtoContext* ctx,
         ctor = ctor->setAttribute(ctx, JSSymbols::prototype(ctx), concreteProto);
         // §23.2.5.1 / §17: TypedArray ctors' prototype descriptor 0x0.
         {
-            const proto::ProtoObject* pdpo = ctx->fromUTF8String("__pd_prototype__");
-            const proto::ProtoString* pdpk = pdpo ? pdpo->asString(ctx) : nullptr;
+            const proto::ProtoString* pdpk = PROTOJS_NAME(ctx, "__pd_prototype__");
             if (pdpk) ctor = ctor->setAttribute(ctx, pdpk, ctx->fromInteger(0x0LL));
         }
         {

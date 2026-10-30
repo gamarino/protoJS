@@ -158,6 +158,8 @@ const proto::ProtoString* bigIntValue(proto::ProtoContext* ctx);    // "__bigint
 // negative would break Array.prototype setter dispatch, which we must
 // never do).
 const proto::ProtoString* hasIndexedSetters(proto::ProtoContext* ctx); // "__has_indexed_setters__"
+const proto::ProtoString* hasIndexedAccessors(proto::ProtoContext* ctx); // "__has_indexed_accessors__"
+const proto::ProtoString* hasIndexDescriptors(proto::ProtoContext* ctx); // "__has_index_descriptors__"
 
 // Accessor sidecars for "length" — Array.prototype.* helpers probe these
 // on every native call (arrLen alone builds 3 ropes per invocation).
@@ -306,7 +308,51 @@ const proto::ProtoString* toStringTag(proto::ProtoContext* ctx);   // "__toStrin
  */
 const proto::ProtoString* indexKey(proto::ProtoContext* ctx, uint32_t i);
 
+/**
+ * The interned symbol for a fixed name of protoJS's own (a string literal),
+ * recorded as program vocabulary like the names above.  Use it through
+ * PROTOJS_NAME, which interns once per call site.  Never for names derived
+ * from data: every symbol is perennial.
+ */
+const proto::ProtoString* internName(proto::ProtoContext* ctx, const char* literal);
+
+/** The accessor and descriptor sidecars of a property: __get_K__, __set_K__,
+ *  __pd_K__. */
+enum class Sidecar : unsigned { Get = 0, Set = 1, Pd = 2 };
+
+/**
+ * The name of sidecar `kind` of property key `key`.
+ *
+ * For a symbol key the result is the interned sidecar symbol, built on the
+ * first request and then served from a process-wide lock-free cache keyed by
+ * the key's address (symbols are perennial, so the address is stable and
+ * the set of sidecars is bounded by the symbol table).  `programName` extends
+ * this to inline keys (strings of up to six bytes, whose address is their
+ * value): pass it only for names of the program text (bytecode atoms), never
+ * for keys computed from data, whose sidecars would be perennial symbols.
+ * Any other key gets a heap string, built per call and not interned: a
+ * protoCore lookup with it canonicalises it, so callers build it only after
+ * a gate says a sidecar may exist.
+ */
+const proto::ProtoString* sidecarName(proto::ProtoContext* ctx, Sidecar kind,
+                                      const proto::ProtoString* key, bool programName = false);
+
 } // namespace JSSymbols
 } // namespace protojs
+
+/**
+ * PROTOJS_NAME(ctx, "literal"): the interned symbol for a fixed attribute
+ * name, interned on the first call at this site and cached.  protoCore
+ * attribute operations take symbols: a heap-string name (any string of seven
+ * or more bytes built with fromUTF8String) is canonicalised against the
+ * symbol table on every call, which is what PROTOCORE_NONINTERNED_NAMES
+ * counts.  Fixed names must therefore be symbols, built once.
+ */
+#define PROTOJS_NAME(ctx, literal)                                              \
+    ([](proto::ProtoContext* pjNameCtx_) -> const proto::ProtoString* {         \
+        static const proto::ProtoString* const pjNameSym_ =                     \
+            ::protojs::JSSymbols::internName(pjNameCtx_, literal);              \
+        return pjNameSym_;                                                      \
+    }(ctx))
 
 #endif // PROTOJS_JSSYMBOLS_H

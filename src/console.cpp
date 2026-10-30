@@ -663,8 +663,7 @@ void TimingAPIs::init(proto::ProtoContext* ctx, const proto::ProtoObject*& globa
                     if (userK) {
                         dateProto = dateProto->setAttribute(ctx, userK,
                             ctx->fromUTF8String("Date"));
-                        const proto::ProtoObject* pdttO = ctx->fromUTF8String("__pd_Symbol.toStringTag__");
-                        const proto::ProtoString* pdttK = pdttO ? pdttO->asString(ctx) : nullptr;
+                        const proto::ProtoString* pdttK = PROTOJS_NAME(ctx, "__pd_Symbol.toStringTag__");
                         if (pdttK) dateProto = dateProto->setAttribute(ctx, pdttK,
                             ctx->fromInteger(0x2LL));
                     }

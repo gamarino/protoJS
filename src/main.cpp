@@ -1,6 +1,7 @@
 #include "ProtoCoreTypes.h"
 #include "runtime/JSStringBytes.h"
 #include "JSContext.h"
+#include "JSSymbols.h"
 #include "ArrayPrototype.h"
 #include "ArrayBufferPrototype.h"
 #include "TypedArrayPrototype.h"
@@ -175,8 +176,7 @@ static const proto::ProtoObject* installScriptGlobals(
     const std::string& filename) {
     if (!pCtx || !g) return g;
     auto setStr = [&](const char* name, const std::string& value) {
-        const proto::ProtoString* k = pCtx->fromUTF8String(name)
-            ? pCtx->fromUTF8String(name)->asString(pCtx) : nullptr;
+        const proto::ProtoString* k = protojs::JSSymbols::internName(pCtx, name);
         if (!k) return;
         g = g->setAttribute(pCtx, k, protojs::jsStringFromUTF8(pCtx, value));
     };

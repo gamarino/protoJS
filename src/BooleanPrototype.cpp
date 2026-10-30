@@ -164,8 +164,7 @@ void ensureBooleanConstructor(proto::ProtoContext* ctx, const proto::ProtoObject
 {
     if (!ctx || !globalRoot || !*globalRoot) return;
 
-    const proto::ProtoObject* boolKeyObj = ctx->fromUTF8String("Boolean");
-    const proto::ProtoString* keyBoolean = boolKeyObj ? boolKeyObj->asString(ctx) : nullptr;
+    const proto::ProtoString* keyBoolean = PROTOJS_NAME(ctx, "Boolean");
     if (!keyBoolean) return;
 
     const proto::ProtoObject* existing = (*globalRoot)->getAttribute(ctx, keyBoolean, false);
@@ -226,19 +225,16 @@ void ensureBooleanConstructor(proto::ProtoContext* ctx, const proto::ProtoObject
     const proto::ProtoObject* boolProto = ctx->space ? ctx->space->booleanPrototype : nullptr;
     if (protoKey && boolProto && boolProto != PROTO_NONE) {
         ctor = ctor->setAttribute(ctx, protoKey, boolProto);
-        const proto::ProtoObject* pdpo = ctx->fromUTF8String("__pd_prototype__");
-        const proto::ProtoString* pdpk = pdpo ? pdpo->asString(ctx) : nullptr;
+        const proto::ProtoString* pdpk = PROTOJS_NAME(ctx, "__pd_prototype__");
         if (pdpk) ctor = ctor->setAttribute(ctx, pdpk, ctx->fromInteger(0x0LL));
     }
 
     // Explicitly mark as a constructor for OP_call_constructor.
-    const proto::ProtoObject* isCtorObj = ctx->fromUTF8String("__is_constructor__");
-    const proto::ProtoString* isCtorKey = isCtorObj ? isCtorObj->asString(ctx) : nullptr;
+    const proto::ProtoString* isCtorKey = PROTOJS_NAME(ctx, "__is_constructor__");
     if (isCtorKey) ctor = ctor->setAttribute(ctx, isCtorKey, PROTO_TRUE);
 
     // __boolean_ctor__ marker for instanceof checks
-    const proto::ProtoObject* boolCtorKeyObj = ctx->fromUTF8String("__boolean_ctor__");
-    const proto::ProtoString* boolCtorKey = boolCtorKeyObj ? boolCtorKeyObj->asString(ctx) : nullptr;
+    const proto::ProtoString* boolCtorKey = PROTOJS_NAME(ctx, "__boolean_ctor__");
     if (boolCtorKey)
         ctor = ctor->setAttribute(ctx, boolCtorKey, PROTO_TRUE);
 
@@ -246,8 +242,7 @@ void ensureBooleanConstructor(proto::ProtoContext* ctx, const proto::ProtoObject
     // OP_call_constructor checks isMethod() directly on the __construct__ value;
     // wrapNativeFunction returns a ProtoObject (isMethod() == false), so the body
     // would never be invoked.
-    const proto::ProtoObject* ctorKeyObj = ctx->fromUTF8String("__construct__");
-    const proto::ProtoString* ctorKey = ctorKeyObj ? ctorKeyObj->asString(ctx) : nullptr;
+    const proto::ProtoString* ctorKey = PROTOJS_NAME(ctx, "__construct__");
     if (ctorKey) {
         // fromMethod's self is nullptr, not this object: see the comment at
         // installNonEnumerableMethod in PrototypeUtils.cpp.  Binding a method cell
@@ -282,8 +277,7 @@ void ensureBooleanConstructor(proto::ProtoContext* ctx, const proto::ProtoObject
     *globalRoot = (*globalRoot)->setAttribute(ctx, keyBoolean, ctor);
     // §17 globalThis.Boolean descriptor 0x3.
     {
-        const proto::ProtoObject* pdo = ctx->fromUTF8String("__pd_Boolean__");
-        const proto::ProtoString* pdk = pdo ? pdo->asString(ctx) : nullptr;
+        const proto::ProtoString* pdk = PROTOJS_NAME(ctx, "__pd_Boolean__");
         if (pdk) *globalRoot = (*globalRoot)->setAttribute(ctx, pdk,
             ctx->fromInteger(0x3LL));
     }

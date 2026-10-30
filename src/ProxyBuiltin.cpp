@@ -1106,8 +1106,7 @@ const proto::ProtoObject* proxyDispatchOwnKeys(
             const proto::ProtoString* probeKey = nullptr;
             const proto::ProtoString* isSymK = JSSymbols::isSymbol(ctx);
             if (isSymK && kv->getAttribute(ctx, isSymK, true) == PROTO_TRUE) {
-                const proto::ProtoObject* ssko = ctx->fromUTF8String("__symbol_str_key__");
-                const proto::ProtoString* sskK = ssko ? ssko->asString(ctx) : nullptr;
+                const proto::ProtoString* sskK = PROTOJS_NAME(ctx, "__symbol_str_key__");
                 if (sskK) {
                     const proto::ProtoObject* keyStr =
                         kv->getAttribute(ctx, sskK, true);
@@ -1364,15 +1363,13 @@ const proto::ProtoObject* proxyDispatchDefineProperty(
         bool descHasWritable     = false;
         bool descWritable        = true;
         if (descriptor && descriptor != PROTO_NONE) {
-            const proto::ProtoObject* cko = ctx->fromUTF8String("configurable");
-            const proto::ProtoString* cks = cko ? cko->asString(ctx) : nullptr;
+            const proto::ProtoString* cks = PROTOJS_NAME(ctx, "configurable");
             if (cks && descriptor->hasAttribute(ctx, cks) == PROTO_TRUE) {
                 descHasConfigurable = true;
                 const proto::ProtoObject* cv = descriptor->getAttribute(ctx, cks, false);
                 descConfigurable = (cv == PROTO_TRUE);
             }
-            const proto::ProtoObject* wko = ctx->fromUTF8String("writable");
-            const proto::ProtoString* wks = wko ? wko->asString(ctx) : nullptr;
+            const proto::ProtoString* wks = PROTOJS_NAME(ctx, "writable");
             if (wks && descriptor->hasAttribute(ctx, wks) == PROTO_TRUE) {
                 descHasWritable = true;
                 const proto::ProtoObject* wv = descriptor->getAttribute(ctx, wks, false);
@@ -1541,8 +1538,7 @@ const proto::ProtoObject* proxyDispatchGetOwnPropertyDescriptor(
             // non-configurable trap result slipped through (test262
             // resultdesc-is-not-configurable-targetdesc-is-undefined.js).
             if (!odPre.present) {
-                const proto::ProtoObject* cko = ctx->fromUTF8String("configurable");
-                const proto::ProtoString* cks = cko ? cko->asString(ctx) : nullptr;
+                const proto::ProtoString* cks = PROTOJS_NAME(ctx, "configurable");
                 if (cks) {
                     const proto::ProtoObject* cv = res->getAttribute(ctx, cks, true);
                     if (cv == PROTO_FALSE

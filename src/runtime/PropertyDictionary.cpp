@@ -1,6 +1,7 @@
 #include "../ProtoCoreTypes.h"
 #include "JSStringBytes.h"
 #include "PropertyDictionary.h"
+#include "IndexKeyFlags.h"
 
 #include "../HashedCollection.h"
 #include "../JSSymbols.h"
@@ -527,6 +528,7 @@ const proto::ProtoObject* evict(proto::ProtoContext* ctx, const proto::ProtoObje
         const bool frozen = (bits & kIntegrityFrozen) != 0;
         obj = obj->setAttribute(ctx, pdk, ctx->fromInteger(frozen ? 0x4LL : 0x5LL));
         if (frozen) obj = obj->setAttribute(ctx, JSSymbols::hasNonWritableProps(ctx), PROTO_TRUE);
+        obj = noteIndexDescriptor(ctx, obj, ks);  // runtime/IndexKeyFlags.h
     }
     return obj;
 }

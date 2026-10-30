@@ -621,15 +621,14 @@ const proto::ProtoObject* regexpConstructor(
     // Object/create/15.2.3.5-4-{12,35}.js).
     {
         const proto::ProtoString* pdLiKey =
-            ctx->fromUTF8String("__pd_lastIndex__")->asString(ctx);
+            PROTOJS_NAME(ctx, "__pd_lastIndex__");
         if (pdLiKey)
             obj = obj->setAttribute(ctx, pdLiKey, ctx->fromInteger(0x3LL));
         for (const char* nm : {"source","flags","global","ignoreCase",
                                "multiline","dotAll","unicode","sticky",
                                "hasIndices"}) {
             std::string pds = std::string("__pd_") + nm + "__";
-            const proto::ProtoObject* pdo = protojs::jsStringFromUTF8(ctx, pds);
-            const proto::ProtoString* pdss = pdo ? pdo->asString(ctx) : nullptr;
+            const proto::ProtoString* pdss = JSSymbols::internName(ctx, pds.c_str());
             if (pdss) obj = obj->setAttribute(ctx, pdss, ctx->fromInteger(0x3LL));
         }
     }
@@ -1154,13 +1153,11 @@ static const proto::ProtoObject* installRegExpGetter(
     const proto::ProtoObject* raw = ctx->fromMethod(nullptr, fn);
     if (raw) getter = getter->setAttribute(ctx, JSSymbols::nativeFn(ctx), raw);
     getter = getter->setAttribute(ctx, JSSymbols::length(ctx), ctx->fromInteger(0LL));
-    const proto::ProtoObject* pdlo = ctx->fromUTF8String("__pd_length__");
-    const proto::ProtoString* pdlk = pdlo ? pdlo->asString(ctx) : nullptr;
+    const proto::ProtoString* pdlk = PROTOJS_NAME(ctx, "__pd_length__");
     if (pdlk) getter = getter->setAttribute(ctx, pdlk, ctx->fromInteger(0x2LL));
     std::string nm = std::string("get ") + nameStr;
     getter = getter->setAttribute(ctx, JSSymbols::name(ctx), protojs::jsStringFromUTF8(ctx, nm));
-    const proto::ProtoObject* pdno = ctx->fromUTF8String("__pd_name__");
-    const proto::ProtoString* pdnk = pdno ? pdno->asString(ctx) : nullptr;
+    const proto::ProtoString* pdnk = PROTOJS_NAME(ctx, "__pd_name__");
     if (pdnk) getter = getter->setAttribute(ctx, pdnk, ctx->fromInteger(0x2LL));
     getter = getter->setAttribute(ctx, JSSymbols::hasNonWritableProps(ctx), PROTO_TRUE);
 
@@ -1168,15 +1165,17 @@ static const proto::ProtoObject* installRegExpGetter(
     // data slot is intentionally left PROTO_NONE so accessor probes
     // win on getOwnPropertyDescriptor(RegExp.prototype, name).
     std::string gkStr = "__get_" + std::string(nameStr) + "__";
-    const proto::ProtoString* gk =
-        protojs::jsStringFromUTF8(ctx, gkStr)->asString(ctx);
+    const proto::ProtoString* gk = JSSymbols::internName(ctx, gkStr.c_str());
     if (gk) sp = sp->setAttribute(ctx, gk, getter);
-    const proto::ProtoString* nk = ctx->fromUTF8String(nameStr)->asString(ctx);
+    const proto::ProtoString* nk = JSSymbols::internName(ctx, nameStr);
     if (nk) sp = sp->setAttribute(ctx, nk, PROTO_NONE);
     std::string pdStr = "__pd_" + std::string(nameStr) + "__";
-    const proto::ProtoString* pdk =
-        protojs::jsStringFromUTF8(ctx, pdStr)->asString(ctx);
+    const proto::ProtoString* pdk = JSSymbols::internName(ctx, pdStr.c_str());
     if (pdk) sp = sp->setAttribute(ctx, pdk, ctx->fromInteger(0x2LL));
+    // Every object holding an accessor carries the own hint (the gates on
+    // __has_accessor_props__ rely on it).
+    if (const proto::ProtoString* hapK = JSSymbols::hasAccessorProps(ctx))
+        sp = sp->setAttribute(ctx, hapK, PROTO_TRUE);
     return sp;
 }
 
@@ -1194,7 +1193,7 @@ const proto::ProtoObject* BuildRegExpPrototype(proto::ProtoSpace* space, proto::
     // so the entire RegExp.prototype.* method-descriptor suite
     // (length / name / prop-desc) failed for every entry.
     auto reg = [&](const char* name, proto::ProtoMethod fn, long long length) {
-        const proto::ProtoString* key = ctx->fromUTF8String(name)->asString(ctx);
+        const proto::ProtoString* key = JSSymbols::internName(ctx, name);
         if (!key) return;
         const proto::ProtoObject* parent =
             (ctx->space && ctx->space->methodPrototype)
@@ -1261,8 +1260,7 @@ const proto::ProtoObject* BuildRegExpPrototype(proto::ProtoSpace* space, proto::
         const proto::ProtoString* userKey = JSSymbols::symbolToStringTag(ctx);
         if (userKey) {
             sp = sp->setAttribute(ctx, userKey, ctx->fromUTF8String("RegExp"));
-            const proto::ProtoObject* pdko = ctx->fromUTF8String("__pd_Symbol.toStringTag__");
-            const proto::ProtoString* pdks = pdko ? pdko->asString(ctx) : nullptr;
+            const proto::ProtoString* pdks = PROTOJS_NAME(ctx, "__pd_Symbol.toStringTag__");
             if (pdks) sp = sp->setAttribute(ctx, pdks, ctx->fromInteger(0x2LL));
             const proto::ProtoString* hnwK = JSSymbols::hasNonWritableProps(ctx);
             if (hnwK) sp = sp->setAttribute(ctx, hnwK, PROTO_TRUE);
@@ -1341,16 +1339,14 @@ void ensureRegExpConstructor(proto::ProtoContext* ctx,
     // and Object.getOwnPropertyDescriptor reported enumerable:true,
     // failing the 15.2.3.3-4-163.js fixture.
     {
-        const proto::ProtoObject* pdco = ctx->fromUTF8String("__pd_constructor__");
-        const proto::ProtoString* pdck = pdco ? pdco->asString(ctx) : nullptr;
+        const proto::ProtoString* pdck = PROTOJS_NAME(ctx, "__pd_constructor__");
         if (pdck) regexpProto = regexpProto->setAttribute(ctx, pdck, ctx->fromInteger(0x3LL));
     }
     // Re-set .prototype on constructor because regexpProto was updated!
     ctor = ctor->setAttribute(ctx, JSSymbols::prototype(ctx), regexpProto);
     // §22.2.2.1 / §17: RegExp.prototype descriptor bits 0x0.
     {
-        const proto::ProtoObject* pdpo = ctx->fromUTF8String("__pd_prototype__");
-        const proto::ProtoString* pdpk = pdpo ? pdpo->asString(ctx) : nullptr;
+        const proto::ProtoString* pdpk = PROTOJS_NAME(ctx, "__pd_prototype__");
         if (pdpk) ctor = ctor->setAttribute(ctx, pdpk, ctx->fromInteger(0x0LL));
     }
 
@@ -1400,10 +1396,9 @@ void ensureRegExpConstructor(proto::ProtoContext* ctx,
                 const proto::ProtoString* hnwSp = JSSymbols::hasNonWritableProps(ctx);
                 if (hnwSp) getter = getter->setAttribute(ctx, hnwSp, PROTO_TRUE);
                 const proto::ProtoString* gksSym =
-                    ctx->fromUTF8String("__get_Symbol.species__")->asString(ctx);
+                    PROTOJS_NAME(ctx, "__get_Symbol.species__");
                 if (gksSym) ctor = ctor->setAttribute(ctx, gksSym, getter);
-                const proto::ProtoObject* pdo = ctx->fromUTF8String("__pd_Symbol.species__");
-                const proto::ProtoString* pdk = pdo ? pdo->asString(ctx) : nullptr;
+                const proto::ProtoString* pdk = PROTOJS_NAME(ctx, "__pd_Symbol.species__");
                 if (pdk) ctor = ctor->setAttribute(ctx, pdk, ctx->fromInteger(0x2LL));
             }
         }
@@ -1429,8 +1424,7 @@ void ensureRegExpConstructor(proto::ProtoContext* ctx,
     // Pre-fix the bare setAttribute fell through to default enumerable=true,
     // and Object.getOwnPropertyDescriptor(globalThis, "RegExp").enumerable
     // surfaced as true (built-ins/RegExp/prop-desc.js).
-    const proto::ProtoObject* pdko = ctx->fromUTF8String("__pd_RegExp__");
-    const proto::ProtoString* pdks = pdko ? pdko->asString(ctx) : nullptr;
+    const proto::ProtoString* pdks = PROTOJS_NAME(ctx, "__pd_RegExp__");
     if (pdks) *globalRoot = (*globalRoot)->setAttribute(ctx, pdks, ctx->fromInteger(0x3LL));
 }
 

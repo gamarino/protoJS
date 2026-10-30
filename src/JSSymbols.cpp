@@ -1,6 +1,9 @@
 #include "ProtoCoreTypes.h"
 #include "JSSymbols.h"
 #include "runtime/PropertyDictionary.h"
+#include "runtime/JSStringBytes.h"
+#include <atomic>
+#include <cstdint>
 #include <cstring>
 #include <mutex>
 #include <string>
@@ -158,6 +161,8 @@ DEFINE_SYMBOL(fieldsInit,       "__fields_init__")
 DEFINE_SYMBOL(isBigInt,         "__is_bigint__")
 DEFINE_SYMBOL(bigIntValue,      "__bigint_value__")
 DEFINE_SYMBOL(hasIndexedSetters,"__has_indexed_setters__")
+DEFINE_SYMBOL(hasIndexedAccessors,"__has_indexed_accessors__")
+DEFINE_SYMBOL(hasIndexDescriptors,"__has_index_descriptors__")
 DEFINE_SYMBOL(hasAccessorProps, "__has_accessor_props__")
 DEFINE_SYMBOL(hasNonWritableProps,"__has_nonwritable_props__")
 DEFINE_SYMBOL(integrity,        "__integrity__")
@@ -292,6 +297,64 @@ const proto::ProtoString* indexKey(proto::ProtoContext* ctx, uint32_t i) {
         return s_indexCache[i];
     }
     return proto::ProtoString::createSymbol(ctx, std::to_string(i).c_str());
+}
+
+const proto::ProtoString* internName(proto::ProtoContext* ctx, const char* literal) {
+    return internVocabulary(ctx, literal);
+}
+
+namespace {
+
+// One open-addressing table per sidecar kind: key address -> sidecar symbol.
+// A slot's key is claimed once with a CAS and never changes; its value is
+// published after it, so a reader that sees the key but no value yet builds
+// the (same) symbol itself.  A full probe window falls back to building the
+// name uncached.
+struct SidecarSlot {
+    std::atomic<std::uintptr_t> key{0};
+    std::atomic<const proto::ProtoString*> value{nullptr};
+};
+constexpr unsigned kSidecarBits = 14;
+constexpr std::size_t kSidecarSlots = std::size_t(1) << kSidecarBits;
+constexpr std::size_t kSidecarProbe = 16;
+SidecarSlot g_sidecars[3][kSidecarSlots];
+const char* const kSidecarPrefix[3] = {"__get_", "__set_", "__pd_"};
+
+std::string sidecarSpelling(proto::ProtoContext* ctx, Sidecar kind, const proto::ProtoString* key) {
+    std::string name;
+    key->toUTF8String(ctx, name);
+    return kSidecarPrefix[static_cast<unsigned>(kind)] + name + "__";
+}
+
+}  // namespace
+
+const proto::ProtoString* sidecarName(proto::ProtoContext* ctx, Sidecar kind,
+                                      const proto::ProtoString* key, bool programName) {
+    if (!ctx || !key) return nullptr;
+    const std::uintptr_t k = reinterpret_cast<std::uintptr_t>(key);
+    const bool cacheable = key->isSymbol() || (programName && !dict::isHeapStringKey(key));
+    if (!cacheable) {
+        const proto::ProtoObject* o = jsStringFromUTF8(ctx, sidecarSpelling(ctx, kind, key));
+        return o ? o->asString(ctx) : nullptr;
+    }
+    SidecarSlot* table = g_sidecars[static_cast<unsigned>(kind)];
+    const std::size_t h = static_cast<std::size_t>((k * 0x9E3779B97F4A7C15ull) >> (64 - kSidecarBits));
+    for (std::size_t i = 0; i < kSidecarProbe; ++i) {
+        SidecarSlot& slot = table[(h + i) & (kSidecarSlots - 1)];
+        std::uintptr_t seen = slot.key.load(std::memory_order_acquire);
+        if (seen == k) {
+            if (const proto::ProtoString* v = slot.value.load(std::memory_order_acquire)) return v;
+            break;  // being published by another thread
+        }
+        if (seen == 0) {
+            const std::string spelling = sidecarSpelling(ctx, kind, key);
+            const proto::ProtoString* sym = internVocabulary(ctx, spelling.c_str());
+            if (slot.key.compare_exchange_strong(seen, k, std::memory_order_acq_rel))
+                slot.value.store(sym, std::memory_order_release);
+            return sym;
+        }
+    }
+    return internVocabulary(ctx, sidecarSpelling(ctx, kind, key).c_str());
 }
 
 } // namespace protojs::JSSymbols

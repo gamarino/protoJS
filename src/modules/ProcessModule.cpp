@@ -189,8 +189,10 @@ const proto::ProtoObject* buildEnvObject(proto::ProtoContext* ctx) {
 #endif
         std::string key = entry.substr(0, eq);
         std::string val = entry.substr(eq + 1);
-        const proto::ProtoString* k =
-            ctx->fromUTF8String(key.c_str())->asString(ctx);
+        // Interned once here, as setAttribute would intern it: the set of
+        // variables is fixed for the process, and named attributes keep
+        // process.env.NAME on the attribute fast path.
+        const proto::ProtoString* k = proto::ProtoString::createSymbol(ctx, key);
         if (k) env->setAttribute(ctx, k, protojs::jsStringFromUTF8(ctx, val));
     }
     return env;

@@ -315,7 +315,7 @@ const proto::ProtoObject* CommonJSLoader::init(
     if (!requireFn) return globalObj;
 
     const proto::ProtoString* resolveKey =
-        pCtx->fromUTF8String("resolve")->asString(pCtx);
+        PROTOJS_NAME(pCtx, "resolve");
     if (resolveKey) {
         const proto::ProtoObject* resolveFn =
             wrapNativeFunction(pCtx, requireResolveProtoMethod, "resolve",

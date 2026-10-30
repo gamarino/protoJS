@@ -13,6 +13,7 @@
 #include "LazyPrototype.h"
 #include "PinnedBuiltin.h"
 #include "PropertyDictionary.h"
+#include "IndexKeyFlags.h"
 #include "OwnAttributes.h"
 #include "ThreadIdentity.h"
 #include "NativeStackGuard.h"
@@ -630,8 +631,7 @@ static const proto::ProtoString* propertyKeyOOP(proto::ProtoContext* ctx, const 
     {
         const proto::ProtoString* isSymK = protojs::JSSymbols::isSymbol(ctx);
         if (isSymK && obj->getAttribute(ctx, isSymK, true) == PROTO_TRUE) {
-            const proto::ProtoObject* ssko = ctx->fromUTF8String("__symbol_str_key__");
-            const proto::ProtoString* sskK = ssko ? ssko->asString(ctx) : nullptr;
+            const proto::ProtoString* sskK = PROTOJS_NAME(ctx, "__symbol_str_key__");
             if (sskK) {
                 const proto::ProtoObject* keyStr =
                     obj->getAttribute(ctx, sskK, true);
@@ -686,6 +686,9 @@ static const proto::ProtoObject* defineComputedAccessor(proto::ProtoContext* ctx
         out = out->setAttribute(ctx, pdk, ctx->fromInteger(enumerable ? 0x6LL : 0x2LL));
     if (const proto::ProtoString* hapK = JSSymbols::hasAccessorProps(ctx))
         out = out->setAttribute(ctx, hapK, PROTO_TRUE);
+    // runtime/IndexKeyFlags.h: `get [0]()` makes an index accessor.
+    out = protojs::noteIndexAccessor(ctx, out, name);
+    out = protojs::noteIndexDescriptor(ctx, out, name);
     return out;
 }
 
@@ -1118,8 +1121,7 @@ static const proto::ProtoObject* reflectApply(
         // getter under __get_length__. Pre-fix the getter never fired
         // so throwing length accessors were silently zeroed.
         if (!lv || lv == PROTO_NONE || lv == getUndefinedSentinel()) {
-            const proto::ProtoObject* gko = ctx->fromUTF8String("__get_length__");
-            const proto::ProtoString* gks = gko ? gko->asString(ctx) : nullptr;
+            const proto::ProtoString* gks = PROTOJS_NAME(ctx, "__get_length__");
             if (gks) {
                 const proto::ProtoObject* getter = argsArr->getAttribute(ctx, gks, true);
                 if (getter && getter != PROTO_NONE) {
@@ -1261,8 +1263,7 @@ static const proto::ProtoObject* reflectConstruct(
             // Pre-fix the path only read the data slot, missed the
             // accessor entirely, and silently used len=0.
             if (!lv || lv == PROTO_NONE || lv == getUndefinedSentinel()) {
-                const proto::ProtoObject* gko = ctx->fromUTF8String("__get_length__");
-                const proto::ProtoString* gks = gko ? gko->asString(ctx) : nullptr;
+                const proto::ProtoString* gks = PROTOJS_NAME(ctx, "__get_length__");
                 if (gks) {
                     const proto::ProtoObject* getter = argsArr->getAttribute(ctx, gks, true);
                     if (getter && getter != PROTO_NONE) {
@@ -2491,14 +2492,12 @@ static const proto::ProtoObject* symbolFor(
     if (sym) {
         const proto::ProtoString* tagKey = JSSymbols::isSymbol(ctx);
         if (tagKey) sym = sym->setAttribute(ctx, tagKey, PROTO_TRUE);
-        const proto::ProtoObject* descObj = ctx->fromUTF8String("__symbol_desc__");
-        const proto::ProtoString* descKey = descObj ? descObj->asString(ctx) : nullptr;
+        const proto::ProtoString* descKey = PROTOJS_NAME(ctx, "__symbol_desc__");
         if (descKey) sym = sym->setAttribute(ctx, descKey, protojs::jsStringFromUTF8(ctx, keyStr));
         // Mark as a globally-registered symbol so Symbol.keyFor round-trips
         // (§20.4.2.5 returns undefined for bare Symbol() — only Symbol.for
         // results carry this marker).
-        const proto::ProtoObject* regObj = ctx->fromUTF8String("__symbol_registered__");
-        const proto::ProtoString* regK = regObj ? regObj->asString(ctx) : nullptr;
+        const proto::ProtoString* regK = PROTOJS_NAME(ctx, "__symbol_registered__");
         if (regK) sym = sym->setAttribute(ctx, regK, PROTO_TRUE);
     }
     if (sym) sym = protojs::symbolForRegistrySet(ctx, keyStr, sym);
@@ -2544,13 +2543,11 @@ static const proto::ProtoObject* symbolKeyFor(
     // §20.4.2.5 step 2-3: only registered symbols (those created by
     // Symbol.for and tracked in the GlobalSymbolRegistry) round-trip
     // through keyFor; bare Symbol() returns undefined.
-    const proto::ProtoObject* regObj = ctx->fromUTF8String("__symbol_registered__");
-    const proto::ProtoString* regK = regObj ? regObj->asString(ctx) : nullptr;
+    const proto::ProtoString* regK = PROTOJS_NAME(ctx, "__symbol_registered__");
     if (!regK || sym->getAttribute(ctx, regK, false) != PROTO_TRUE) {
         return getUndefinedSentinel();
     }
-    const proto::ProtoObject* descObj = ctx->fromUTF8String("__symbol_desc__");
-    const proto::ProtoString* descKey = descObj ? descObj->asString(ctx) : nullptr;
+    const proto::ProtoString* descKey = PROTOJS_NAME(ctx, "__symbol_desc__");
     const proto::ProtoObject* d = descKey ? sym->getAttribute(ctx, descKey, false) : nullptr;
     return (d && d != PROTO_NONE) ? d : getUndefinedSentinel();
 }
@@ -2595,8 +2592,7 @@ static const proto::ProtoObject* symbolConstructor(
     // Symbol() is unique' guarantee) -- the symbol's address, used before,
     // could be reused once the symbol was collected.
     {
-        const proto::ProtoObject* ssko = ctx->fromUTF8String("__symbol_str_key__");
-        const proto::ProtoString* sskKey = ssko ? ssko->asString(ctx) : nullptr;
+        const proto::ProtoString* sskKey = PROTOJS_NAME(ctx, "__symbol_str_key__");
         if (sskKey) {
             // "@@sym#<creation number>": unique for the life of the
             // process and the same on every platform; reports of symbol
@@ -2725,8 +2721,7 @@ static const proto::ProtoObject* symbolConstructor(
                 }
             }
             if (gotString) {
-                const proto::ProtoObject* descObj = ctx->fromUTF8String("__symbol_desc__");
-                const proto::ProtoString* descKey = descObj ? descObj->asString(ctx) : nullptr;
+                const proto::ProtoString* descKey = PROTOJS_NAME(ctx, "__symbol_desc__");
                 if (descKey)
                     sym = sym->setAttribute(ctx, descKey, protojs::jsStringFromUTF8(ctx, s));
             }
@@ -4014,8 +4009,7 @@ static PROTOJS_NOINLINE void privateAddBrand(proto::ProtoContext* ctx, const pro
 static PROTOJS_NOINLINE bool privateBrandCheck(proto::ProtoContext* ctx, const proto::ProtoObject* obj,
                                                const proto::ProtoObject* func) {
     if (!jsIsObject(ctx, obj) || !func || func == PROTO_NONE || proto::isSmallInt(func)) return false;
-    const proto::ProtoObject* hoKo = ctx->fromUTF8String("__home_object__");
-    const proto::ProtoString* hoK = hoKo ? hoKo->asString(ctx) : nullptr;
+    const proto::ProtoString* hoK = PROTOJS_NAME(ctx, "__home_object__");
     const proto::ProtoObject* home = hoK ? func->getAttribute(ctx, hoK, false) : nullptr;
     const proto::ProtoString* brand = classBrand(ctx, home, false);
     return brand && obj->hasOwnAttribute(ctx, brand) == PROTO_TRUE;
@@ -4491,8 +4485,7 @@ static const proto::ProtoObject* toNumber(proto::ProtoContext* context,
         return false;
     };
     {
-        const proto::ProtoObject* tpKo = context->fromUTF8String("Symbol.toPrimitive");
-        const proto::ProtoString* tpKs = tpKo ? tpKo->asString(context) : nullptr;
+        const proto::ProtoString* tpKs = PROTOJS_NAME(context, "Symbol.toPrimitive");
         const proto::ProtoObject* tpFn = tpKs
             ? value->getAttribute(context, tpKs, true) : nullptr;
         // GetMethod (§7.3.10): present, non-null, non-undefined value
@@ -5079,8 +5072,7 @@ static const proto::ProtoObject* errorIsError(
     // OP_call_constructor errCtor branch on every genuine Error
     // instance.  Use hasOwnAttribute (not hasAttribute) so a fake
     // `{__proto__: Error.prototype}` does not see an inherited marker.
-    const proto::ProtoObject* edk = context->fromUTF8String("__error_data__");
-    const proto::ProtoString* edK = edk ? edk->asString(context) : nullptr;
+    const proto::ProtoString* edK = PROTOJS_NAME(context, "__error_data__");
     if (edK && v->hasOwnAttribute(context, edK) == PROTO_TRUE)
         return PROTO_TRUE;
     return PROTO_FALSE;
@@ -5216,8 +5208,7 @@ static void ensureBuiltinErrorConstructors(proto::ProtoContext* ctx,
         // (length=1 on the ctor itself is set further down where the
         // ctor object is finalized.)
         {
-            const proto::ProtoObject* mko = ctx->fromUTF8String("message");
-            const proto::ProtoString* mk = mko ? mko->asString(ctx) : nullptr;
+            const proto::ProtoString* mk = PROTOJS_NAME(ctx, "message");
             if (mk) {
                 proto = proto->setAttribute(ctx, mk, ctx->fromUTF8String(""));
                 // §20.5.6.3 / §20.5.5.3 Error.prototype.message
@@ -5266,8 +5257,7 @@ static void ensureBuiltinErrorConstructors(proto::ProtoContext* ctx,
             const proto::ProtoObject* toStringMethod = wrapNativeFunction(
                 ctx, errorPrototypeToString, "toString", 0, globalRoot);
             if (toStringMethod) proto = proto->setAttribute(ctx, toStringKey, toStringMethod);
-            const proto::ProtoObject* pdto = ctx->fromUTF8String("__pd_toString__");
-            const proto::ProtoString* pdtk = pdto ? pdto->asString(ctx) : nullptr;
+            const proto::ProtoString* pdtk = PROTOJS_NAME(ctx, "__pd_toString__");
             if (pdtk) proto = proto->setAttribute(ctx, pdtk, ctx->fromInteger(0x3LL));
         }
         if (!proto) continue;
@@ -5450,8 +5440,7 @@ static const proto::ProtoObject* makeError(proto::ProtoContext* ctx,
     // for Error.prototype, and for any object pretending to inherit
     // (`{__proto__: Error.prototype}` with a `name` slot).
     if (err) {
-        const proto::ProtoObject* edk = ctx->fromUTF8String("__error_data__");
-        const proto::ProtoString* edK = edk ? edk->asString(ctx) : nullptr;
+        const proto::ProtoString* edK = PROTOJS_NAME(ctx, "__error_data__");
         if (edK) err = err->setAttribute(ctx, edK, PROTO_TRUE);
     }
     (void)name; // name flows through the prototype chain only.
@@ -6255,8 +6244,7 @@ static std::string methodNameForKey(proto::ProtoContext* ctx,
     const proto::ProtoString* isSymK = JSSymbols::isSymbol(ctx);
     if (keyVal && keyVal != PROTO_NONE && isSymK
         && keyVal->getAttribute(ctx, isSymK, true) == PROTO_TRUE) {
-        const proto::ProtoObject* descKo = ctx->fromUTF8String("__symbol_desc__");
-        const proto::ProtoString* descK = descKo ? descKo->asString(ctx) : nullptr;
+        const proto::ProtoString* descK = PROTOJS_NAME(ctx, "__symbol_desc__");
         const proto::ProtoObject* desc = descK ? keyVal->getAttribute(ctx, descK, true) : nullptr;
         const proto::ProtoString* ds =
             (desc && desc != PROTO_NONE && desc != t_undefinedSentinel) ? desc->asString(ctx) : nullptr;
@@ -6382,6 +6370,7 @@ static const proto::ProtoObject* defineMethodComputed(proto::ProtoContext* ctx,
         const proto::ProtoObject* pdo = protojs::jsStringFromUTF8(ctx, pdName);
         if (const proto::ProtoString* pdk = pdo ? pdo->asString(ctx) : nullptr)
             out = out->setAttribute(ctx, pdk, ctx->fromInteger(enumerable ? 0x7LL : 0x3LL));
+        out = protojs::noteIndexDescriptor(ctx, out, name);
     }
     return out;
 }
@@ -6403,14 +6392,14 @@ static const proto::ProtoObject* defineMethodNamed(proto::ProtoContext* ctx,
     const int kind = op_flags & 0x3;
     const bool enumerable = (op_flags & 0x4) != 0;
     method = makeMethod(ctx, method, nullptr, key, kind, obj);
-    std::string name;
-    key->toUTF8String(ctx, name);
+    // `key` is an atom of the program text: its sidecar names are symbols,
+    // interned once (JSSymbols::sidecarName).  Pre-2026-10 they were heap
+    // strings built on every evaluation of the literal or class body.
     const proto::ProtoObject* out = nullptr;
     long long pdBits;
     if (kind == 1 || kind == 2) {
-        const std::string sidecar = (kind == 1 ? "__get_" : "__set_") + name + "__";
-        const proto::ProtoObject* sko = protojs::jsStringFromUTF8(ctx, sidecar);
-        const proto::ProtoString* skp = sko ? sko->asString(ctx) : nullptr;
+        const proto::ProtoString* skp = JSSymbols::sidecarName(
+            ctx, kind == 1 ? JSSymbols::Sidecar::Get : JSSymbols::Sidecar::Set, key, true);
         if (!skp) return nullptr;
         out = obj->setAttribute(ctx, key, PROTO_NONE);
         out = out ? out->setAttribute(ctx, skp, method ? method : PROTO_NONE) : nullptr;
@@ -6425,13 +6414,15 @@ static const proto::ProtoObject* defineMethodNamed(proto::ProtoContext* ctx,
         pdBits = enumerable ? 0x7LL : 0x3LL;
     }
     if (!out) return nullptr;
-    const std::string pdName = "__pd_" + name + "__";
-    const proto::ProtoObject* pdo = protojs::jsStringFromUTF8(ctx, pdName);
-    if (const proto::ProtoString* pdk = pdo ? pdo->asString(ctx) : nullptr)
+    if (const proto::ProtoString* pdk = JSSymbols::sidecarName(ctx, JSSymbols::Sidecar::Pd, key, true))
         out = out->setAttribute(ctx, pdk, ctx->fromInteger(pdBits));
+    std::string name;
+    key->toUTF8String(ctx, name);
+    out = protojs::noteIndexDescriptor(ctx, out, name);
     if (kind == 1 || kind == 2) {
         if (const proto::ProtoString* hapK = JSSymbols::hasAccessorProps(ctx))
             out = out->setAttribute(ctx, hapK, PROTO_TRUE);
+        out = protojs::noteIndexAccessor(ctx, out, name);
     }
     return out;
 }
@@ -7900,7 +7891,7 @@ static const proto::ProtoObject* runBytecodeImpl(proto::ProtoContext* pContext,
     [&]() PROTOJS_NOINLINE_LAMBDA {
     if (pGlobalRoot && *pGlobalRoot) {
         auto ensureGlobalConst = [&](const char* name, const proto::ProtoObject* val) {
-            const proto::ProtoString* k = (pContext->fromUTF8String(name) ? pContext->fromUTF8String(name)->asString(pContext) : nullptr);
+            const proto::ProtoString* k = JSSymbols::internName(pContext, name);
             if (!k) return;
             const proto::ProtoObject* existing = (*pGlobalRoot)->getAttribute(pContext, k, false);
             if (!existing) // absent means not yet set
@@ -7911,8 +7902,7 @@ static const proto::ProtoObject* runBytecodeImpl(proto::ProtoContext* pContext,
             // writable) leaked them into Object.keys(globalThis) and
             // allowed reassignment.
             std::string pdStr = std::string("__pd_") + name + "__";
-            const proto::ProtoObject* pdo = protojs::jsStringFromUTF8(pContext, pdStr);
-            const proto::ProtoString* pdks = pdo ? pdo->asString(pContext) : nullptr;
+            const proto::ProtoString* pdks = JSSymbols::internName(pContext, pdStr.c_str());
             if (pdks) *pGlobalRoot = (*pGlobalRoot)->setAttribute(pContext, pdks, pContext->fromInteger(0x0LL));
         };
         ensureGlobalConst("Infinity",
@@ -7989,8 +7979,7 @@ static const proto::ProtoObject* runBytecodeImpl(proto::ProtoContext* pContext,
                     if (userK) {
                         stubProto = stubProto->setAttribute(pContext, userK,
                             pContext->fromUTF8String(ctorName));
-                        const proto::ProtoObject* pdttO = pContext->fromUTF8String("__pd_Symbol.toStringTag__");
-                        const proto::ProtoString* pdttK = pdttO ? pdttO->asString(pContext) : nullptr;
+                        const proto::ProtoString* pdttK = PROTOJS_NAME(pContext, "__pd_Symbol.toStringTag__");
                         if (pdttK) stubProto = stubProto->setAttribute(pContext, pdttK,
                             pContext->fromInteger(0x2LL));
                     }
@@ -8098,8 +8087,7 @@ static const proto::ProtoObject* runBytecodeImpl(proto::ProtoContext* pContext,
                 *pGlobalRoot = (*pGlobalRoot)->setAttribute(pContext, ck, stub);
                 // §17 globalThis.<Ctor> descriptor 0x3.
                 std::string pdStr = std::string("__pd_") + ctorName + "__";
-                const proto::ProtoObject* pdo = protojs::jsStringFromUTF8(pContext, pdStr);
-                const proto::ProtoString* pdk = pdo ? pdo->asString(pContext) : nullptr;
+                const proto::ProtoString* pdk = JSSymbols::internName(pContext, pdStr.c_str());
                 if (pdk) *pGlobalRoot = (*pGlobalRoot)->setAttribute(pContext, pdk,
                     pContext->fromInteger(0x3LL));
             }
@@ -8225,15 +8213,13 @@ static const proto::ProtoObject* runBytecodeImpl(proto::ProtoContext* pContext,
     // { writable:true, enumerable:false, configurable:true } (descriptor
     // bits 0x1|0x2 = 0x3) per §B.2.1.
     if (pGlobalRoot && *pGlobalRoot) {
-        const proto::ProtoObject* gtObj = pContext->fromUTF8String("globalThis");
-        const proto::ProtoString* gtKey = gtObj ? gtObj->asString(pContext) : nullptr;
+        const proto::ProtoString* gtKey = PROTOJS_NAME(pContext, "globalThis");
         if (gtKey) {
             const proto::ProtoObject* existing =
                 (*pGlobalRoot)->getAttribute(pContext, gtKey, false);
             if (!existing || existing == PROTO_NONE) {
                 *pGlobalRoot = (*pGlobalRoot)->setAttribute(pContext, gtKey, *pGlobalRoot);
-                const proto::ProtoObject* pdObj = pContext->fromUTF8String("__pd_globalThis__");
-                const proto::ProtoString* pdKey = pdObj ? pdObj->asString(pContext) : nullptr;
+                const proto::ProtoString* pdKey = PROTOJS_NAME(pContext, "__pd_globalThis__");
                 if (pdKey) *pGlobalRoot = (*pGlobalRoot)->setAttribute(pContext, pdKey, pContext->fromInteger(0x3LL));
             }
         }
@@ -8245,8 +8231,7 @@ static const proto::ProtoObject* runBytecodeImpl(proto::ProtoContext* pContext,
     // implemented — those methods will be missing — but several test262
     // tests probe only `typeof Reflect`.  Pre-fix Reflect was absent.
     if (pGlobalRoot && *pGlobalRoot) {
-        const proto::ProtoObject* rfObj = pContext->fromUTF8String("Reflect");
-        const proto::ProtoString* rfKey = rfObj ? rfObj->asString(pContext) : nullptr;
+        const proto::ProtoString* rfKey = PROTOJS_NAME(pContext, "Reflect");
         if (rfKey) {
             const proto::ProtoObject* existing =
                 (*pGlobalRoot)->getAttribute(pContext, rfKey, false);
@@ -8488,8 +8473,7 @@ static const proto::ProtoObject* runBytecodeImpl(proto::ProtoContext* pContext,
                                     if (d && d != PROTO_NONE) return d;
                                     return getUndefinedSentinel();
                                 };
-                                const proto::ProtoObject* getKo = pContext->fromUTF8String("__get_description__");
-                                const proto::ProtoString* getK = getKo ? getKo->asString(pContext) : nullptr;
+                                const proto::ProtoString* getK = PROTOJS_NAME(pContext, "__get_description__");
                                 if (getK) symProto = symProto->setAttribute(pContext, getK,
                                     pContext->fromMethod(nullptr, descGetter));
                                 // Mark that accessor sidecars exist on this object so
@@ -8696,8 +8680,7 @@ static const proto::ProtoObject* runBytecodeImpl(proto::ProtoContext* pContext,
                                     symProto = symProto->setAttribute(pContext, key,
                                         wrapSymMethod(fn, pdName, argc));
                                     std::string pdStr = std::string("__pd_") + pdName + "__";
-                                    const proto::ProtoObject* pdo = protojs::jsStringFromUTF8(pContext, pdStr);
-                                    const proto::ProtoString* pdk = pdo ? pdo->asString(pContext) : nullptr;
+                                    const proto::ProtoString* pdk = JSSymbols::internName(pContext, pdStr.c_str());
                                     if (pdk) symProto = symProto->setAttribute(pContext, pdk,
                                         pContext->fromInteger(0x3LL));
                                 };
@@ -8707,13 +8690,11 @@ static const proto::ProtoObject* runBytecodeImpl(proto::ProtoContext* pContext,
                                 // is {writable:false, enumerable:false,
                                 // configurable:true} → pd bits 0x2.  Bound
                                 // to the well-known "Symbol.toPrimitive" key.
-                                const proto::ProtoObject* tpKo = pContext->fromUTF8String("Symbol.toPrimitive");
-                                const proto::ProtoString* tpK = tpKo ? tpKo->asString(pContext) : nullptr;
+                                const proto::ProtoString* tpK = PROTOJS_NAME(pContext, "Symbol.toPrimitive");
                                 if (tpK) {
                                     symProto = symProto->setAttribute(pContext, tpK,
                                         wrapSymMethod(symValueOf, "[Symbol.toPrimitive]", 1));
-                                    const proto::ProtoObject* pdpo = pContext->fromUTF8String("__pd_Symbol.toPrimitive__");
-                                    const proto::ProtoString* pdpk = pdpo ? pdpo->asString(pContext) : nullptr;
+                                    const proto::ProtoString* pdpk = PROTOJS_NAME(pContext, "__pd_Symbol.toPrimitive__");
                                     if (pdpk) symProto = symProto->setAttribute(pContext, pdpk,
                                         pContext->fromInteger(0x2LL));
                                 }
@@ -8826,8 +8807,7 @@ static const proto::ProtoObject* runBytecodeImpl(proto::ProtoContext* pContext,
                 // this object so they consult __pd_<key>__ instead of
                 // silently succeeding.
                 {
-                    const proto::ProtoObject* hnpKo = pContext->fromUTF8String("__has_nonwritable_props__");
-                    const proto::ProtoString* hnpKs = hnpKo ? hnpKo->asString(pContext) : nullptr;
+                    const proto::ProtoString* hnpKs = PROTOJS_NAME(pContext, "__has_nonwritable_props__");
                     if (hnpKs) symbolObj = symbolObj->setAttribute(pContext, hnpKs, PROTO_TRUE);
                 }
                 *pGlobalRoot = (*pGlobalRoot)->setAttribute(pContext, symbolGlobalKey, symbolObj);
@@ -8840,7 +8820,7 @@ static const proto::ProtoObject* runBytecodeImpl(proto::ProtoContext* pContext,
         // neither, so test262's verifyPrimordialCallableProperty
         // fixtures fail when probing parseInt.length === 2 etc.
         auto ensureGlobalFn = [&](const char* name, proto::ProtoMethod fn, long long len) {
-            const proto::ProtoString* k = (pContext->fromUTF8String(name) ? pContext->fromUTF8String(name)->asString(pContext) : nullptr);
+            const proto::ProtoString* k = JSSymbols::internName(pContext, name);
             if (!k) return;
             const proto::ProtoObject* existing = (*pGlobalRoot)->getAttribute(pContext, k, false);
             if (existing && existing != PROTO_NONE) return;
@@ -8852,8 +8832,7 @@ static const proto::ProtoObject* runBytecodeImpl(proto::ProtoContext* pContext,
                 // → 0x3 (no enumerable bit). Without the sidecar
                 // `for (k in globalThis)` would list parseInt/etc.
                 std::string pdStr = std::string("__pd_") + name + "__";
-                const proto::ProtoObject* pdo = protojs::jsStringFromUTF8(pContext, pdStr);
-                const proto::ProtoString* pdk = pdo ? pdo->asString(pContext) : nullptr;
+                const proto::ProtoString* pdk = JSSymbols::internName(pContext, pdStr.c_str());
                 if (pdk) *pGlobalRoot = (*pGlobalRoot)->setAttribute(pContext, pdk,
                     pContext->fromInteger(0x3LL));
             }
@@ -9145,8 +9124,7 @@ static const proto::ProtoObject* runBytecodeImpl(proto::ProtoContext* pContext,
         // is used directly (must be a primitive).  Hint is "default"
         // here because most call sites don't differentiate.
         {
-            const proto::ProtoObject* tpKeyObj = pContext->fromUTF8String("Symbol.toPrimitive");
-            const proto::ProtoString* tpKey = tpKeyObj ? tpKeyObj->asString(pContext) : nullptr;
+            const proto::ProtoString* tpKey = PROTOJS_NAME(pContext, "Symbol.toPrimitive");
             const proto::ProtoObject* tpFn = tpKey
                 ? obj->getAttribute(pContext, tpKey, true) : nullptr;
             if (tpFn && tpFn != PROTO_NONE) {
@@ -14010,10 +13988,15 @@ static const proto::ProtoObject* runBytecodeImpl(proto::ProtoContext* pContext,
                 // arrays with explicit own getters); chain probe only
                 // when own data lookup misses.
                 if (arrIdxFast >= 0) {
-                    const proto::ProtoString* hapK = JSSymbols::hasAccessorProps(pContext);
-                    const bool ownMayHaveAccessor = hapK
-                        && obj->hasOwnAttribute(pContext, hapK) == PROTO_TRUE
-                        && obj->getAttribute(pContext, hapK, false) == PROTO_TRUE;
+                    // Index accessors are flagged by __has_indexed_accessors__
+                    // (runtime/IndexKeyFlags.h): own for the own probe, through
+                    // the chain for the inherited one.  The generic
+                    // __has_accessor_props__ is on Object.prototype (its
+                    // __proto__ accessor), so its chain check was always true
+                    // and every hole or out-of-range read built and probed a
+                    // heap-string "__get_<idx>__".
+                    const bool ownMayHaveAccessor =
+                        protojs::mayHaveOwnIndexAccessor(pContext, obj);
                     std::string gkStr;
                     const proto::ProtoString* gks = nullptr;
                     if (ownMayHaveAccessor) {
@@ -14038,8 +14021,7 @@ static const proto::ProtoObject* runBytecodeImpl(proto::ProtoContext* pContext,
                     // per-call cost; instead defer the check (and the
                     // rope build for the chain probe) until we know
                     // the chain flag is true.
-                    if (hapK
-                        && obj->getAttribute(pContext, hapK, true) == PROTO_TRUE) {
+                    if (protojs::mayHaveIndexAccessor(pContext, obj)) {
                         const proto::ProtoList* ownEls = protojs::getArrayElements(pContext, obj);
                         const proto::ProtoObject* dv = ownEls && arrIdxFast < static_cast<long long>(ownEls->getSize(pContext))
                             ? ownEls->getAt(pContext, static_cast<int>(arrIdxFast))
@@ -14273,9 +14255,13 @@ static const proto::ProtoObject* runBytecodeImpl(proto::ProtoContext* pContext,
                             // `__get_<key>__` happens even when no real
                             // accessor will match — that's unfortunate
                             // but only on the cold "no own data" path.
+                            // An index key (a hole, or past the end) has an
+                            // inherited getter only under the index flag
+                            // (runtime/IndexKeyFlags.h).
                             const proto::ProtoObject* chainHap = hapKey
                                 ? obj->getAttribute(pContext, hapKey, true) : nullptr;
-                            if (chainHap == PROTO_TRUE) {
+                            if (chainHap == PROTO_TRUE
+                                && (arrIdxFast < 0 || protojs::mayHaveIndexAccessor(pContext, obj))) {
                                 if (keyStrGAE.empty()) {
                                     key->toUTF8String(pContext, keyStrGAE);
                                     gkStrGAE = "__get_" + keyStrGAE + "__";
@@ -14629,7 +14615,13 @@ static const proto::ProtoObject* runBytecodeImpl(proto::ProtoContext* pContext,
                 // Pre-fix the fast path wrote directly to __elements__
                 // and verifyProperty's isWritable probe reported true
                 // (test262 Object/defineProperty/15.2.3.6-4-190.js).
-                if (idxFast >= 0) {
+                // Both sidecars are flagged on their object (runtime/
+                // IndexKeyFlags.h): without the own flags no name is built.
+                // Pre-2026-10 every arr[i] = v built and probed two
+                // heap-string names, "__set_<i>__" and "__pd_<i>__".
+                if (idxFast >= 0
+                    && (protojs::mayHaveOwnIndexAccessor(pContext, obj)
+                        || protojs::mayHaveOwnIndexDescriptor(pContext, obj))) {
                     std::string idxKs = std::to_string(idxFast);
                     // Accessor sidecar probe — invoke __set_<i>__ if
                     // present. Pre-fix arr[i]=v went straight to
@@ -17591,8 +17583,7 @@ static const proto::ProtoObject* runBytecodeImpl(proto::ProtoContext* pContext,
                                     // HasProperty("cause") — accessor sidecar
                                     // or own data slot.  An accessor with a
                                     // throwing getter must propagate per §6.2.5.5.
-                                    const proto::ProtoObject* getCauseKo = pContext->fromUTF8String("__get_cause__");
-                                    const proto::ProtoString* getCauseK = getCauseKo ? getCauseKo->asString(pContext) : nullptr;
+                                    const proto::ProtoString* getCauseK = PROTOJS_NAME(pContext, "__get_cause__");
                                     bool hasCause = (causeK && opts->hasAttribute(pContext, causeK) == PROTO_TRUE)
                                         || (getCauseK && opts->hasAttribute(pContext, getCauseK) == PROTO_TRUE);
                                     if (causeK && hasCause) {
@@ -18228,8 +18219,7 @@ static const proto::ProtoObject* runBytecodeImpl(proto::ProtoContext* pContext,
                                 // the marker first.
                                 const proto::ProtoString* symK = JSSymbols::isSymbol(pContext);
                                 if (arg && symK && arg->getAttribute(pContext, symK, true) == PROTO_TRUE) {
-                                    const proto::ProtoObject* descKo = pContext->fromUTF8String("__symbol_desc__");
-                                    const proto::ProtoString* descK = descKo ? descKo->asString(pContext) : nullptr;
+                                    const proto::ProtoString* descK = PROTOJS_NAME(pContext, "__symbol_desc__");
                                     std::string desc;
                                     if (descK) {
                                         const proto::ProtoObject* descVal = arg->getAttribute(pContext, descK, true);
@@ -21545,8 +21535,7 @@ const proto::ProtoObject* callJSFunctionWithNewTarget(
             // §22.1.1.1 step 2.a: Symbol → "Symbol(<desc>)".
             const proto::ProtoString* symK = JSSymbols::isSymbol(ctx);
             if (arg && symK && arg->getAttribute(ctx, symK, true) == PROTO_TRUE) {
-                const proto::ProtoObject* descKo = ctx->fromUTF8String("__symbol_desc__");
-                const proto::ProtoString* descK = descKo ? descKo->asString(ctx) : nullptr;
+                const proto::ProtoString* descK = PROTOJS_NAME(ctx, "__symbol_desc__");
                 std::string desc;
                 if (descK) {
                     const proto::ProtoObject* descVal = arg->getAttribute(ctx, descK, true);

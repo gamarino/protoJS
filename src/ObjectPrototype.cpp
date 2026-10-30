@@ -12,6 +12,7 @@
 #include "ArrayElementsStorage.h"
 #include "FunctionPrototype.h"
 #include "JSSymbols.h"
+#include "runtime/IndexKeyFlags.h"
 #include "PrototypeUtils.h"
 #include "protoCore.h"
 #include "JSContext.h"
@@ -994,8 +995,7 @@ static const proto::ProtoObject* objectAssign(
                     const proto::ProtoString* isSymK = JSSymbols::isSymbol(ctx);
                     if (isSymK
                         && keyObj->getAttribute(ctx, isSymK, true) == PROTO_TRUE) {
-                        const proto::ProtoObject* ssko = ctx->fromUTF8String("__symbol_str_key__");
-                        const proto::ProtoString* sskK = ssko ? ssko->asString(ctx) : nullptr;
+                        const proto::ProtoString* sskK = PROTOJS_NAME(ctx, "__symbol_str_key__");
                         if (sskK) {
                             const proto::ProtoObject* skey =
                                 keyObj->getAttribute(ctx, sskK, true);
@@ -1010,8 +1010,7 @@ static const proto::ProtoObject* objectAssign(
                     proxyDispatchGetOwnPropertyDescriptor(ctx, src, propKey);
                 if (!desc || desc == PROTO_NONE) continue;
                 {
-                    const proto::ProtoObject* eko = ctx->fromUTF8String("enumerable");
-                    const proto::ProtoString* eks = eko ? eko->asString(ctx) : nullptr;
+                    const proto::ProtoString* eks = PROTOJS_NAME(ctx, "enumerable");
                     if (eks) {
                         const proto::ProtoObject* ev = desc->getAttribute(ctx, eks, false);
                         if (ev != PROTO_TRUE) continue;
@@ -1763,6 +1762,7 @@ static const proto::ProtoObject* objectFreeze(
                     ? cur->asLong(ctx) : 0x7LL;
                 bits &= ~0x3LL; // clear writable and configurable
                 obj->setAttribute(ctx, pdk, ctx->fromInteger(bits));
+                protojs::noteIndexDescriptor(ctx, obj, ks);  // runtime/IndexKeyFlags.h
             }
         }
     }
@@ -1788,6 +1788,8 @@ static const proto::ProtoObject* objectFreeze(
                     bits &= ~0x3LL;
                     obj->setAttribute(ctx, pdk, ctx->fromInteger(bits));
                 }
+                if (n > 0)  // runtime/IndexKeyFlags.h
+                    obj->setAttribute(ctx, JSSymbols::hasIndexDescriptors(ctx), PROTO_TRUE);
             }
         }
     }
@@ -2013,6 +2015,7 @@ static const proto::ProtoObject* objectSeal(
                 ? cur->asLong(ctx) : 0x7LL; // default {w, c, e}
             bits &= ~0x2LL; // clear configurable
             obj->setAttribute(ctx, pdk, ctx->fromInteger(bits));
+            protojs::noteIndexDescriptor(ctx, obj, ks);  // runtime/IndexKeyFlags.h
         }
     }
     // Same fix for Array indices stored in __elements__.
@@ -2033,6 +2036,8 @@ static const proto::ProtoObject* objectSeal(
                     bits &= ~0x2LL;
                     obj->setAttribute(ctx, pdk, ctx->fromInteger(bits));
                 }
+                if (n > 0)  // runtime/IndexKeyFlags.h
+                    obj->setAttribute(ctx, JSSymbols::hasIndexDescriptors(ctx), PROTO_TRUE);
             }
         }
     }
@@ -2218,8 +2223,7 @@ static const proto::ProtoObject* objectIsExtensible(
                 "Cannot perform 'isExtensible' on a proxy that has been revoked"));
             return PROTO_FALSE;
         }
-        const proto::ProtoObject* trapKo = ctx->fromUTF8String("isExtensible");
-        const proto::ProtoString* trapKs = trapKo ? trapKo->asString(ctx) : nullptr;
+        const proto::ProtoString* trapKs = PROTOJS_NAME(ctx, "isExtensible");
         const proto::ProtoObject* trap = (handler && trapKs)
             ? handler->getAttribute(ctx, trapKs, true) : nullptr;
         if (trap && trap != PROTO_NONE && trap != getUndefinedSentinel()
@@ -2624,8 +2628,7 @@ static const proto::ProtoString* coercePropNameToKey(
         // to-property-key and the wider {defineProperty/computed-key}
         // family).
         {
-            const proto::ProtoObject* tpKo = ctx->fromUTF8String("Symbol.toPrimitive");
-            const proto::ProtoString* tpKey = tpKo ? tpKo->asString(ctx) : nullptr;
+            const proto::ProtoString* tpKey = PROTOJS_NAME(ctx, "Symbol.toPrimitive");
             if (tpKey) {
                 const proto::ProtoObject* tpFn = current->getAttribute(ctx, tpKey, true);
                 if (isCallable(tpFn)) {
@@ -3447,6 +3450,7 @@ static const proto::ProtoObject* objectDefineProperty(
             }
             if (pdk && newBits != existingBits) {
                 target = target->setAttribute(ctx, pdk, ctx->fromInteger(newBits));
+                target = protojs::noteIndexDescriptor(ctx, target, kstr);
             }
             return target;
         }
@@ -3731,6 +3735,10 @@ static const proto::ProtoObject* objectDefineProperty(
 
     uint8_t bits = (writable ? 0x1 : 0) | (configurable ? 0x2 : 0) | (enumerable ? 0x4 : 0);
     if (pdk) target = target->setAttribute(ctx, pdk, ctx->fromInteger((long long)bits));
+    // runtime/IndexKeyFlags.h: element paths look for index sidecars only
+    // on objects carrying these flags.
+    if (pdk) target = protojs::noteIndexDescriptor(ctx, target, kstr);
+    if (isAccessor) target = protojs::noteIndexAccessor(ctx, target, kstr);
     // Hot-path hint: if the descriptor leaves writable=false, tag the
     // target with __has_nonwritable_props__ so resolvePutFieldOOP can
     // skip the __pd_<key>__ probe entirely on writes when every property
@@ -4569,7 +4577,7 @@ static const proto::ProtoObject* objectFromEntries(
     // path; else fall back to the indexed-attribute chain walk.
     auto readEl = [&](const proto::ProtoObject* arr, long long i) -> const proto::ProtoObject* {
         if (!arr || arr == PROTO_NONE) return PROTO_NONE;
-        {
+        if (protojs::mayHaveIndexAccessor(ctx, arr)) {  // runtime/IndexKeyFlags.h
             std::string gkStr = "__get_" + std::to_string(i) + "__";
             const proto::ProtoObject* gko = protojs::jsStringFromUTF8(ctx, gkStr);
             const proto::ProtoString* gks = gko ? gko->asString(ctx) : nullptr;
@@ -5198,8 +5206,7 @@ static const proto::ProtoObject* objectPropertyIsEnumerable(
             return PROTO_FALSE;
         }
         // Read the descriptor's `enumerable` data slot.
-        const proto::ProtoObject* eko = ctx->fromUTF8String("enumerable");
-        const proto::ProtoString* eks = eko ? eko->asString(ctx) : nullptr;
+        const proto::ProtoString* eks = PROTOJS_NAME(ctx, "enumerable");
         if (!eks) return PROTO_FALSE;
         const proto::ProtoObject* ev = desc->getAttribute(ctx, eks, true);
         if (!ev || ev == PROTO_NONE) return PROTO_FALSE;
@@ -5403,8 +5410,7 @@ static const proto::ProtoObject* objectToString(
             }
         }
         if (!funcBuiltinTag) {
-            const proto::ProtoObject* fpmo = ctx->fromUTF8String("__is_function_prototype__");
-            const proto::ProtoString* fpms = fpmo ? fpmo->asString(ctx) : nullptr;
+            const proto::ProtoString* fpms = PROTOJS_NAME(ctx, "__is_function_prototype__");
             if (fpms) {
                 const proto::ProtoObject* fpv = self->getAttribute(ctx, fpms, false);
                 if (fpv == PROTO_TRUE)
@@ -5431,8 +5437,7 @@ static const proto::ProtoObject* objectToString(
     {
         const proto::ProtoString* iaKey = JSSymbols::isArray(ctx);
         const proto::ProtoObject* probe = self;
-        const proto::ProtoObject* targetKeyObj = ctx->fromUTF8String("__proxy_target__");
-        const proto::ProtoString* targetKey = targetKeyObj ? targetKeyObj->asString(ctx) : nullptr;
+        const proto::ProtoString* targetKey = PROTOJS_NAME(ctx, "__proxy_target__");
         int hops = 0;
         while (probe && probe != PROTO_NONE && hops < 16) {
             if (iaKey) {
@@ -6239,8 +6244,7 @@ const proto::ProtoObject* installObjectInstanceMethods(
         if (key) {
             base = base->setAttribute(ctx, key, ctx->fromMethod(nullptr, fn));
             std::string pdKeyStr = std::string("__pd_") + name + "__";
-            const proto::ProtoObject* pko = protojs::jsStringFromUTF8(ctx, pdKeyStr);
-            const proto::ProtoString* pdk = pko ? pko->asString(ctx) : nullptr;
+            const proto::ProtoString* pdk = JSSymbols::internName(ctx, pdKeyStr.c_str());
             if (pdk)
                 base = base->setAttribute(ctx, pdk,
                     ctx->fromInteger(0x3LL)); // writable+configurable, not enumerable
@@ -6313,20 +6317,17 @@ const proto::ProtoObject* installObjectInstanceMethods(
             if (hnwK) wrap = wrap->setAttribute(ctx, hnwK, PROTO_TRUE);
             return wrap;
         };
-        const proto::ProtoObject* getKo = ctx->fromUTF8String("__get___proto____");
-        const proto::ProtoString* getK = getKo ? getKo->asString(ctx) : nullptr;
+        const proto::ProtoString* getK = PROTOJS_NAME(ctx, "__get___proto____");
         if (getK) base = base->setAttribute(ctx, getK,
             wrapAccessor(protoGetter, "get __proto__"));
-        const proto::ProtoObject* setKo = ctx->fromUTF8String("__set___proto____");
-        const proto::ProtoString* setK = setKo ? setKo->asString(ctx) : nullptr;
+        const proto::ProtoString* setK = PROTOJS_NAME(ctx, "__set___proto____");
         if (setK) base = base->setAttribute(ctx, setK,
             wrapAccessor(protoSetter, "set __proto__"));
         const proto::ProtoString* hapK = JSSymbols::hasAccessorProps(ctx);
         if (hapK) base = base->setAttribute(ctx, hapK, PROTO_TRUE);
         // §B.2.2.1: __proto__ is {enumerable:false, configurable:true}
         // — descriptor bits 0x2 (no writable bit on accessor props).
-        const proto::ProtoObject* pdo = ctx->fromUTF8String("__pd___proto____");
-        const proto::ProtoString* pdk = pdo ? pdo->asString(ctx) : nullptr;
+        const proto::ProtoString* pdk = PROTOJS_NAME(ctx, "__pd___proto____");
         if (pdk) base = base->setAttribute(ctx, pdk, ctx->fromInteger(0x2LL));
     }
     (void)reg; // legacy raw-method installer kept for the special-case branches below
@@ -6378,8 +6379,7 @@ const proto::ProtoObject* installObjectInstanceMethods(
         // primitive_this_value_getter) fell through to the natural
         // ToString.
         {
-            const proto::ProtoObject* gko = ictx->fromUTF8String("__get_toString__");
-            const proto::ProtoString* gk = gko ? gko->asString(ictx) : nullptr;
+            const proto::ProtoString* gk = PROTOJS_NAME(ictx, "__get_toString__");
             if (gk) {
                 const proto::ProtoObject* getter = self->getAttribute(ictx, gk, true);
                 if (getter && getter != PROTO_NONE) {
@@ -6854,8 +6854,7 @@ void ensureObjectConstructor(proto::ProtoContext* ctx,
     *globalRoot = (*globalRoot)->setAttribute(ctx, keyObject, ctor);
     // §17 globalThis.Object descriptor 0x3.
     {
-        const proto::ProtoObject* pdo = ctx->fromUTF8String("__pd_Object__");
-        const proto::ProtoString* pdk = pdo ? pdo->asString(ctx) : nullptr;
+        const proto::ProtoString* pdk = PROTOJS_NAME(ctx, "__pd_Object__");
         if (pdk) *globalRoot = (*globalRoot)->setAttribute(ctx, pdk,
             ctx->fromInteger(0x3LL));
     }
@@ -7145,8 +7144,7 @@ unsigned long long symbolStorageKeySequence(const std::string& key) {
 
 unsigned long long symbolSequence(proto::ProtoContext* ctx, const proto::ProtoObject* sym) {
     if (!ctx || !sym || sym == PROTO_NONE) return 0;
-    const proto::ProtoObject* ssko = ctx->fromUTF8String("__symbol_str_key__");
-    const proto::ProtoString* sskKey = ssko ? ssko->asString(ctx) : nullptr;
+    const proto::ProtoString* sskKey = PROTOJS_NAME(ctx, "__symbol_str_key__");
     if (!sskKey) return 0;
     const proto::ProtoObject* k = sym->getAttribute(ctx, sskKey, false);
     if (!k || k == PROTO_NONE || !k->isString(ctx)) return 0;

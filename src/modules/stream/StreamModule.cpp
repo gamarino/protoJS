@@ -164,7 +164,7 @@ const proto::ProtoObject* buildClass(proto::ProtoContext* ctx,
     const proto::ProtoString* protoKey = JSSymbols::prototype(ctx);
     if (protoKey) ctor = ctor->setAttribute(ctx, protoKey, protoObj);
     const proto::ProtoString* ck =
-        ctx->fromUTF8String("__construct__")->asString(ctx);
+        PROTOJS_NAME(ctx, "__construct__");
     if (ck) ctor = ctor->setAttribute(ctx, ck,
         ctx->fromMethod(nullptr, commonConstructor));
     return ctor;

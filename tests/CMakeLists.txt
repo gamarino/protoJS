@@ -601,6 +601,24 @@ add_test(NAME js/modules/dirname_absolute
     WORKING_DIRECTORY "${CMAKE_CURRENT_SOURCE_DIR}/integration")
 set_tests_properties(js/modules/dirname_absolute PROPERTIES TIMEOUT 30)
 
+# protoCore attribute names must be symbols: a heap-string name is
+# canonicalised against the symbol table on every call.  Each script runs
+# with protoCore's PROTOCORE_NONINTERNED_NAMES report on and passes when the
+# process used at most MAX such names (a constant, not a per-operation
+# count).  Skipped with a protoCore that has no report (before 3.4).
+function(protojs_noninterned_test name max)
+    add_test(NAME js/perf/${name}
+        COMMAND "${CMAKE_COMMAND}"
+            "-DPROTOJS=$<TARGET_FILE:protojs>"
+            "-DSCRIPT=${CMAKE_CURRENT_SOURCE_DIR}/integration/perf/${name}.js"
+            "-DREPORT=${CMAKE_CURRENT_BINARY_DIR}/${name}.noninterned"
+            "-DMAX=${max}"
+            -P "${CMAKE_CURRENT_SOURCE_DIR}/integration/perf/noninterned_names.cmake")
+    set_tests_properties(js/perf/${name} PROPERTIES
+        TIMEOUT 120 SKIP_REGULAR_EXPRESSION "SKIP: ")
+endfunction()
+protojs_noninterned_test(noninterned_array_access 1000)
+
 # A net.Socket and a net.Server are EventEmitters: listeners run with them as
 # `this`. Binds loopback port 18852; a listener that never runs is a timeout.
 add_test(NAME js/net/socket_is_emitter

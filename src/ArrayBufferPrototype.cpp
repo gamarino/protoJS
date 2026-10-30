@@ -294,8 +294,7 @@ void ensureArrayBufferConstructor(proto::ProtoContext* ctx,
     // configurable:true} → 0x2.  Object.prototype.toString.call(ab)
     // returned "[object Object]" before this stamp.
     {
-        const proto::ProtoObject* tagKo = ctx->fromUTF8String("Symbol.toStringTag");
-        const proto::ProtoString* tagK = tagKo ? tagKo->asString(ctx) : nullptr;
+        const proto::ProtoString* tagK = PROTOJS_NAME(ctx, "Symbol.toStringTag");
         if (tagK) {
             proto = proto->setAttribute(ctx, tagK,
                 ctx->fromUTF8String("ArrayBuffer"));
@@ -321,8 +320,7 @@ void ensureArrayBufferConstructor(proto::ProtoContext* ctx,
     if (protoKey) {
         ctor = ctor->setAttribute(ctx, protoKey, proto);
         // §25.1.4 / §17: ArrayBuffer.prototype descriptor bits 0x0.
-        const proto::ProtoObject* pdpo = ctx->fromUTF8String("__pd_prototype__");
-        const proto::ProtoString* pdpk = pdpo ? pdpo->asString(ctx) : nullptr;
+        const proto::ProtoString* pdpk = PROTOJS_NAME(ctx, "__pd_prototype__");
         if (pdpk) ctor = ctor->setAttribute(ctx, pdpk, ctx->fromInteger(0x0LL));
     }
 
@@ -436,7 +434,7 @@ void ensureArrayBufferConstructor(proto::ProtoContext* ctx,
                     if (pdns) getter = getter->setAttribute(ctx, pdns, ctx->fromInteger(0x2LL));
                 }
                 const proto::ProtoString* gksSym =
-                    ctx->fromUTF8String("__get_Symbol.species__")->asString(ctx);
+                    PROTOJS_NAME(ctx, "__get_Symbol.species__");
                 if (gksSym) ctor = ctor->setAttribute(ctx, gksSym, getter);
                 const proto::ProtoObject* pdo = ctx->fromUTF8String("__pd_Symbol.species__");
                 const proto::ProtoString* pdk = pdo ? pdo->asString(ctx) : nullptr;

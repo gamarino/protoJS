@@ -374,7 +374,7 @@ const proto::ProtoObject* EventsModule::init(
     // ProtoCore-native modules.
     {
         const proto::ProtoString* ck =
-            ctx->fromUTF8String("__construct__")->asString(ctx);
+            PROTOJS_NAME(ctx, "__construct__");
         if (ck) eeCtor = eeCtor->setAttribute(ctx, ck,
             ctx->fromMethod(nullptr, eeConstructor));
     }
@@ -387,10 +387,10 @@ const proto::ProtoObject* EventsModule::init(
     //    a cycle the collector keeps, which costs nothing for an object that
     //    lives as long as the global anyway.
     const proto::ProtoString* eeKey =
-        ctx->fromUTF8String("EventEmitter")->asString(ctx);
+        PROTOJS_NAME(ctx, "EventEmitter");
     if (eeKey) eeCtor = eeCtor->setAttribute(ctx, eeKey, eeCtor);
     const proto::ProtoString* dmlKey =
-        ctx->fromUTF8String("defaultMaxListeners")->asString(ctx);
+        PROTOJS_NAME(ctx, "defaultMaxListeners");
     if (dmlKey) eeCtor = eeCtor->setAttribute(ctx, dmlKey, ctx->fromInteger(10));
 
     return ProtoNativeModule::registerOnGlobal(ctx, globalObj, "events", eeCtor);

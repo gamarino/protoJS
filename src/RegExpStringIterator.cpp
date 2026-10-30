@@ -169,8 +169,7 @@ static const proto::ProtoObject* getRegExpStringIteratorProto(proto::ProtoContex
                 if (pdnk) wrapper = wrapper->setAttribute(ctx, pdnk, ctx->fromInteger(0x2LL));
             }
             proto = proto->setAttribute(ctx, nextKey, wrapper);
-            const proto::ProtoObject* pdno = ctx->fromUTF8String("__pd_next__");
-            const proto::ProtoString* pdnk = pdno ? pdno->asString(ctx) : nullptr;
+            const proto::ProtoString* pdnk = PROTOJS_NAME(ctx, "__pd_next__");
             if (pdnk) proto = proto->setAttribute(ctx, pdnk, ctx->fromInteger(0x3LL));
         }
     }
@@ -179,8 +178,7 @@ static const proto::ProtoObject* getRegExpStringIteratorProto(proto::ProtoContex
     if (tagUser) {
         proto = proto->setAttribute(ctx, tagUser,
             ctx->fromUTF8String("RegExp String Iterator"));
-        const proto::ProtoObject* pdo = ctx->fromUTF8String("__pd_Symbol.toStringTag__");
-        const proto::ProtoString* pdk = pdo ? pdo->asString(ctx) : nullptr;
+        const proto::ProtoString* pdk = PROTOJS_NAME(ctx, "__pd_Symbol.toStringTag__");
         if (pdk) proto = proto->setAttribute(ctx, pdk, ctx->fromInteger(0x2LL));
     }
     const proto::ProtoString* hnwK = JSSymbols::hasNonWritableProps(ctx);
