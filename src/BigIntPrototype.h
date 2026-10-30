@@ -69,6 +69,16 @@ const proto::ProtoObject* unwrapBigInt(proto::ProtoContext* ctx,
                                        const proto::ProtoObject* v);
 
 /**
+ * SameValue, SameValueZero and IsStrictlyEqual on BigInts (§6.1.6.2.13
+ * BigInt::equal): when a or b is a BigInt, sets `equal` (true when both are
+ * BigInts of the same value) and returns true; otherwise returns false and
+ * the caller compares by its other rules.  A BigInt is an object here, so
+ * pointer identity is not its equality: every `5n` is a fresh wrapper.
+ */
+bool bigIntSameValue(proto::ProtoContext* ctx, const proto::ProtoObject* a,
+                     const proto::ProtoObject* b, bool& equal);
+
+/**
  * Wrap a protoCore Integer into a BigInt JS value (a fresh object with
  * BigInt.prototype as parent and __bigint_value__ = integer).  Returns
  * PROTO_NONE on failure.

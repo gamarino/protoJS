@@ -3162,6 +3162,8 @@ static const proto::ProtoObject* objectDefineProperty(
         auto sameValue = [&](const proto::ProtoObject* a, const proto::ProtoObject* b) -> bool {
             if (a == b) return true;
             if (!a || !b) return false;
+            bool bigEq = false;
+            if (bigIntSameValue(ctx, a, b, bigEq)) return bigEq;
             if (a->isInteger(ctx) && b->isInteger(ctx))
                 return a->asLong(ctx) == b->asLong(ctx);
             if ((a->isDouble(ctx) || a->isFloat(ctx)) && (b->isDouble(ctx) || b->isFloat(ctx))) {
@@ -6545,6 +6547,12 @@ void ensureObjectConstructor(proto::ProtoContext* ctx,
         bool bZ = isNumericZero(b, bNeg);
         if (aZ && bZ) return (aNeg == bNeg) ? PROTO_TRUE : PROTO_FALSE;
         if (a == b) return PROTO_TRUE;
+        // Two BigInts by value.  Until 2026-10 the final compare() saw two
+        // distinct wrapper objects and Object.is(5n, 5n) was false.
+        {
+            bool eq = false;
+            if (bigIntSameValue(ictx, a, b, eq)) return eq ? PROTO_TRUE : PROTO_FALSE;
+        }
         // SameValue numeric path: both Number (Integer or Double).  NaN
         // == NaN per spec, +0 vs -0 handled above.  Pre-fix only the
         // both-Double branch ran, so Object.is(0, NaN) fell through to
