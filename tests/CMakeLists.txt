@@ -429,6 +429,7 @@ foreach(js_test
         collections/map_set_semantics
         workers/deep_recursion
         workers/promises_in_worker
+        workers/immediate_in_worker
         workers/prototypes_after_worker
         crypto/test_crypto_cipher
         crypto/test_crypto_keygen

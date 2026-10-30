@@ -110,6 +110,14 @@ const proto::ProtoObject* EventLoopBindings::setImmediateNative(
     // Append to the per-global pending queue (GC-reachable through global).
     JSContextWrapper* w = JSContextWrapper::current();
     if (!w) return PROTO_NONE;
+    // Only the main script's thread runs the event loop.  From a worker the
+    // callback used to be queued there and run by the main thread, with the
+    // worker's wrapper, concurrently with the worker's own code.  It throws,
+    // as setTimeout does (Timers.h).
+    if (w != EventLoop::getInstance().owner()) {
+        signalNativeException(makeNativeError(ctx, "Error",
+            "setImmediate() is not available in a worker thread"));
+    }
     const proto::ProtoObject* global = w->getNativeGlobal();
     if (!global) return PROTO_NONE;
 

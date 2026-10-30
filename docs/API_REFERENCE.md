@@ -139,7 +139,7 @@ Dictionary keys enumerate in insertion order, after the named string keys; see
 | `print` | `src/console.cpp` | Alias of `console.log` (used by Test262 harness files) |
 | `performance` | `src/console.cpp` | `performance.now()` |
 | `JSON` | `src/JSONBuiltin.cpp` | `JSON.parse`, `JSON.stringify` |
-| `setImmediate` | `src/EventLoopBindings.cpp` | `setImmediate(callback)` runs `callback` on a later event-loop turn |
+| `setImmediate` | `src/EventLoopBindings.cpp` | `setImmediate(callback)` runs `callback` on a later event-loop turn (main script only; it throws in a worker or a Deferred function, as the timers do) |
 | `Promise` | `src/PromisePrototype.cpp` | ECMA-262 promises: `then`, `catch`, `finally`, `Promise.resolve`, `reject`, `all`, `allSettled`, `any`, `race`, `withResolvers`, `try`, `Symbol.species`. See [Promises and async functions](#promises-and-async-functions) |
 | `queueMicrotask` | `src/PromisePrototype.cpp` | `queueMicrotask(callback)` queues `callback` as a microtask; an exception it throws is uncaught |
 | `Deferred` | `src/ProtoDeferred.cpp`, `src/DeferredPool.cpp` | A promise (`instanceof Promise`) whose function runs in parallel on the Deferred pool, sharing the script's objects. `new Deferred(fn)` and `Deferred(fn)` both work; `fn` takes no arguments, its return value fulfils and a thrown value rejects; it settles on the calling thread and `then`/`catch`/`finally` behave as on any promise. See [DEFERRED_USAGE.md](DEFERRED_USAGE.md) |
@@ -407,6 +407,11 @@ ProtoSpace of its own, and messages crossed as JSON text.
   the module), `isMainThread` is a function (`require('worker_threads').isMainThread()`),
   and `SharedArrayBuffer` behaves as before. A worker's message listeners run
   on the main thread's event loop once its script has finished, as before.
+- A worker has no event loop of its own: `setImmediate`, `setTimeout` and
+  `setInterval` throw `Error: <name>() is not available in a worker thread`
+  there (deviation from Node, where a worker runs its own loop). Before
+  2026-10 `setImmediate` in a worker queued its callback on the main loop,
+  where the main thread ran it concurrently with the worker's code.
 
 ---
 

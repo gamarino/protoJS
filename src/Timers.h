@@ -22,7 +22,7 @@
 //     else does.  clearTimeout and clearInterval are interchangeable and
 //     accept a Timeout or its numeric id; anything else is ignored.
 //
-// The timers belong to the main script's realm.  Calling them inside a
+// The timers belong to the main script's realm (EventLoop::owner()).  Calling them inside a
 // Deferred function or from a worker_threads worker throws an Error (those
 // threads have no event loop of their own to run them).
 
@@ -30,16 +30,11 @@
 
 namespace protojs {
 
-class JSContextWrapper;
-
 class Timers {
 public:
     /** Installs the four functions on the protoCore-native global. */
     static const proto::ProtoObject* init(proto::ProtoContext* ctx,
                                           const proto::ProtoObject* globalObj);
-
-    /** The wrapper whose event loop runs the timers (the main script's). */
-    static void setOwner(JSContextWrapper* wrapper);
 
     /** True while a referenced timer is pending: the process stays alive. */
     static bool hasRefedTimers();
