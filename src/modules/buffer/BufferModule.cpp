@@ -7,6 +7,7 @@
 #include "../../ArrayPrototype.h"
 #include "../../FunctionPrototype.h"
 #include "../../JSSymbols.h"
+#include "../../JSContext.h"
 #include <algorithm>
 #include <cstring>
 #include <iomanip>
@@ -568,7 +569,19 @@ const proto::ProtoObject* getBufferProto(proto::ProtoContext* ctx) {
         {"includes", bufferIncludes},
         NATIVE_MODULE_END
     };
-    return protoCache.keep(ctx, ProtoNativeModule::buildModule(ctx, entries, 6));
+    // Buffer.prototype inherits from the realm's Object.prototype, as every
+    // JavaScript object does.  Built from a bare protoCore object (as it was
+    // until 2026-10) a Buffer was a foreign object: no valueOf or
+    // hasOwnProperty, and `"x" + buf` gave "x[object Object]" instead of
+    // calling Buffer.prototype.toString.
+    JSContextWrapper* w = JSContextWrapper::current();
+    const proto::ProtoObject* objectProto = w ? w->getJSObjectPrototype() : nullptr;
+    const proto::ProtoObject* bufferProto = objectProto
+        ? objectProto->newChild(ctx, /*mutable=*/true)
+        : ctx->newObject(/*mutable=*/true);
+    for (const NativeEntry* e = entries; e->name; ++e)
+        bufferProto = ProtoNativeModule::addMethod(ctx, bufferProto, e->name, e->fn);
+    return protoCache.keep(ctx, bufferProto);
 }
 
 }  // namespace
