@@ -1,6 +1,7 @@
 #include "ProtoCoreTypes.h"
 #include "JSNumber.h"
 #include "runtime/JSStringBytes.h"
+#include "runtime/IndexKeyFlags.h"
 #include "FunctionPrototype.h"
 #include "runtime/LazyPrototype.h"
 #include "JSContext.h"
@@ -237,7 +238,7 @@ static const proto::ProtoObject* fnApply(
             // threw was silently swallowed (test262 apply/get-length-abrupt).
             const proto::ProtoObject* lo = nullptr;
             const proto::ProtoString* gk =
-                ctx->fromUTF8String("__get_length__")->asString(ctx);
+                PROTOJS_NAME(ctx, "__get_length__");
             if (gk) {
                 const proto::ProtoObject* getter = argsArray->getAttribute(ctx, gk, true);
                 if (getter && getter != PROTO_NONE) {
@@ -252,6 +253,9 @@ static const proto::ProtoObject* fnApply(
                 else if (lo->isDouble(ctx))  alen = static_cast<long long>(lo->asDouble(ctx));
             }
         }
+        // runtime/IndexKeyFlags.h: an index getter can exist only under the
+        // flag; without it the "__get_<i>__" name is never built.
+        const bool indexAccessors = mayHaveIndexAccessor(ctx, argsArray);
         for (long long i = 0; i < alen; i++) {
             // Read via arrayTryFastGet first (arrays store elements in
             // __elements__ ProtoList) — falling back to indexed-attribute
@@ -260,9 +264,11 @@ static const proto::ProtoObject* fnApply(
             // completions propagate (apply/get-index-abrupt).
             const proto::ProtoObject* av = arrayTryFastGet(ctx, argsArray, static_cast<proto::proto_ulong>(i));
             if (!av) {
-                std::string gks = "__get_" + std::to_string(i) + "__";
-                const proto::ProtoString* gk =
-                    protojs::jsStringFromUTF8(ctx, gks)->asString(ctx);
+                const proto::ProtoString* gk = nullptr;
+                if (indexAccessors) {
+                    std::string gks = "__get_" + std::to_string(i) + "__";
+                    gk = protojs::jsStringFromUTF8(ctx, gks)->asString(ctx);
+                }
                 if (gk) {
                     const proto::ProtoObject* getter = argsArray->getAttribute(ctx, gk, true);
                     if (getter && getter != PROTO_NONE) {
@@ -400,8 +406,7 @@ static const proto::ProtoObject* fnBind(
     if (nameKey2) {
         std::string targetName;
         const proto::ProtoObject* no = nullptr;
-        const proto::ProtoObject* gko = ctx->fromUTF8String("__get_name__");
-        const proto::ProtoString* gk  = gko ? gko->asString(ctx) : nullptr;
+        const proto::ProtoString* gk = PROTOJS_NAME(ctx, "__get_name__");
         if (gk) {
             const proto::ProtoObject* getter = self->getAttribute(ctx, gk, true);
             if (getter && getter != PROTO_NONE) {
@@ -481,8 +486,7 @@ static const proto::ProtoObject* fnHasInstance(
     materializeLazyPrototype(ctx, self);  // runtime/LazyPrototype.h
     const proto::ProtoObject* P = nullptr;
     {
-        const proto::ProtoObject* gko = ctx->fromUTF8String("__get_prototype__");
-        const proto::ProtoString* gk = gko ? gko->asString(ctx) : nullptr;
+        const proto::ProtoString* gk = PROTOJS_NAME(ctx, "__get_prototype__");
         if (gk) {
             const proto::ProtoObject* getter = self->getAttribute(ctx, gk, true);
             if (getter && getter != PROTO_NONE) {
@@ -828,8 +832,7 @@ void ensureFunctionPrototype(proto::ProtoContext* ctx,
     // already point to fp).  Instead install the raw ProtoMethod with descriptor
     // sidecars directly.  The descriptor bits 0x3 = writable|configurable|!enumerable.
     auto installFpMethod = [&](const char* methodName, proto::ProtoMethod fn, int argc) {
-        const proto::ProtoObject* mko = ctx->fromUTF8String(methodName);
-        const proto::ProtoString* mk = mko ? mko->asString(ctx) : nullptr;
+        const proto::ProtoString* mk = JSSymbols::internName(ctx, methodName);
         if (!mk) return;
 
         // Wrap with name + length so the spec-mandated §17 descriptor
@@ -868,8 +871,7 @@ void ensureFunctionPrototype(proto::ProtoContext* ctx,
 
         // Method descriptor: {writable:true, enumerable:false, configurable:true} → 0x3
         std::string pdStr = std::string("__pd_") + methodName + "__";
-        const proto::ProtoObject* pdko = protojs::jsStringFromUTF8(ctx, pdStr);
-        const proto::ProtoString* pdks = pdko ? pdko->asString(ctx) : nullptr;
+        const proto::ProtoString* pdks = JSSymbols::internName(ctx, pdStr.c_str());
         if (pdks) fp = fp->setAttribute(ctx, pdks, ctx->fromInteger(0x3LL));
     };
 
@@ -923,8 +925,7 @@ void ensureFunctionPrototype(proto::ProtoContext* ctx,
     // toString fell through to "[object Object]" (Sputnik S15.3.4_A1).
     // Stamp __is_function_prototype__ so objectToString can dispatch.
     {
-        const proto::ProtoObject* fpmo = ctx->fromUTF8String("__is_function_prototype__");
-        const proto::ProtoString* fpms = fpmo ? fpmo->asString(ctx) : nullptr;
+        const proto::ProtoString* fpms = PROTOJS_NAME(ctx, "__is_function_prototype__");
         if (fpms) fp = fp->setAttribute(ctx, fpms, PROTO_TRUE);
     }
 
@@ -1085,8 +1086,7 @@ void ensureFunctionPrototype(proto::ProtoContext* ctx,
                     // fully enumerable/writable/configurable.  test262
                     // built-ins/Object/getOwnPropertyDescriptor/15.2.3.3-
                     // 4-185 verifies the spec-mandated descriptor.
-                    const proto::ProtoObject* pdpo = ctx->fromUTF8String("__pd_prototype__");
-                    const proto::ProtoString* pdpk = pdpo ? pdpo->asString(ctx) : nullptr;
+                    const proto::ProtoString* pdpk = PROTOJS_NAME(ctx, "__pd_prototype__");
                     if (pdpk) fnCtor = fnCtor->setAttribute(ctx, pdpk,
                         ctx->fromInteger(0x0LL));
                 }

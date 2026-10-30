@@ -99,8 +99,7 @@ static const proto::ProtoObject* coerceToInteger(proto::ProtoContext* ctx,
     // (valueOf, toString).
     if (!v->isString(ctx)) {
         // Try @@toPrimitive("number").
-        const proto::ProtoObject* tpKo = ctx->fromUTF8String("Symbol.toPrimitive");
-        const proto::ProtoString* tpK = tpKo ? tpKo->asString(ctx) : nullptr;
+        const proto::ProtoString* tpK = PROTOJS_NAME(ctx, "Symbol.toPrimitive");
         const proto::ProtoObject* tpFn = tpK ? v->getAttribute(ctx, tpK, true) : nullptr;
         if (tpFn && tpFn != PROTO_NONE && tpFn != getUndefinedSentinel()
             && tpFn != getNullSentinel()) {
@@ -477,8 +476,7 @@ static const proto::ProtoObject* toBigInt(proto::ProtoContext* ctx,
     // GetMethod (§7.3.10): a non-undefined / non-null but non-callable
     // method is a TypeError, not a silent skip.
     {
-        const proto::ProtoObject* tpKo = ctx->fromUTF8String("Symbol.toPrimitive");
-        const proto::ProtoString* tpK = tpKo ? tpKo->asString(ctx) : nullptr;
+        const proto::ProtoString* tpK = PROTOJS_NAME(ctx, "Symbol.toPrimitive");
         const proto::ProtoObject* tpFn = tpK ? v->getAttribute(ctx, tpK, true) : nullptr;
         if (tpFn && tpFn != PROTO_NONE && tpFn != getUndefinedSentinel()
             && tpFn != getNullSentinel() && !isCallable(tpFn)) {
@@ -721,7 +719,7 @@ static const proto::ProtoObject* installMethod(proto::ProtoContext* ctx,
     if (hnw) w = w->setAttribute(ctx, hnw, PROTO_TRUE);
     const proto::ProtoString* methodKey =
         ctx->fromUTF8String(name)
-            ? ctx->fromUTF8String(name)->asString(ctx)
+            ? JSSymbols::internName(ctx, name)
             : nullptr;
     if (methodKey) {
         const_cast<proto::ProtoObject*&>(proto) =
@@ -729,8 +727,7 @@ static const proto::ProtoObject* installMethod(proto::ProtoContext* ctx,
         // §17: own methods on builtin prototype default to
         // {writable:true, enumerable:false, configurable:true} = 0x3.
         std::string pdStr = std::string("__pd_") + name + "__";
-        const proto::ProtoObject* pdko = protojs::jsStringFromUTF8(ctx, pdStr);
-        const proto::ProtoString* pdk = pdko ? pdko->asString(ctx) : nullptr;
+        const proto::ProtoString* pdk = JSSymbols::internName(ctx, pdStr.c_str());
         if (pdk) {
             const_cast<proto::ProtoObject*&>(proto) =
                 const_cast<proto::ProtoObject*>(proto->setAttribute(ctx, pdk, ctx->fromInteger(0x3LL)));
@@ -789,8 +786,7 @@ void buildBigIntPrototype(proto::ProtoSpace* /*space*/,
             const proto::ProtoString* ts = tsk->asString(ctx);
             if (ts) {
                 proto = proto->setAttribute(ctx, ts, ctx->fromUTF8String("BigInt"));
-                const proto::ProtoObject* pdko = ctx->fromUTF8String("__pd_Symbol.toStringTag__");
-                const proto::ProtoString* pdk = pdko ? pdko->asString(ctx) : nullptr;
+                const proto::ProtoString* pdk = PROTOJS_NAME(ctx, "__pd_Symbol.toStringTag__");
                 if (pdk) proto = proto->setAttribute(ctx, pdk, ctx->fromInteger(0x2LL));
             }
         }
@@ -914,8 +910,7 @@ void ensureBigIntConstructor(proto::ProtoContext* ctx,
     *globalRoot = (*globalRoot)->setAttribute(ctx, keyBigInt, ctor);
     // §17: global builtin constructors are {W:true, E:false, C:true} = 0x3.
     {
-        const proto::ProtoObject* pdko = ctx->fromUTF8String("__pd_BigInt__");
-        const proto::ProtoString* pdk = pdko ? pdko->asString(ctx) : nullptr;
+        const proto::ProtoString* pdk = PROTOJS_NAME(ctx, "__pd_BigInt__");
         if (pdk) *globalRoot = (*globalRoot)->setAttribute(ctx, pdk, ctx->fromInteger(0x3LL));
     }
 }

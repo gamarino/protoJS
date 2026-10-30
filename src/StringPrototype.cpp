@@ -101,8 +101,7 @@ static std::string objToStr(proto::ProtoContext* ctx, const proto::ProtoObject* 
     // (built-ins/String/prototype/trimEnd/this-value-object-toprimitive-
     // returns-object-err and the wider trim* / replace / slice family).
     {
-        const proto::ProtoObject* tpKo = ctx->fromUTF8String("Symbol.toPrimitive");
-        const proto::ProtoString* tpKey = tpKo ? tpKo->asString(ctx) : nullptr;
+        const proto::ProtoString* tpKey = PROTOJS_NAME(ctx, "Symbol.toPrimitive");
         if (tpKey) {
             // §7.1.1 ToPrimitive step 2.c: GetMethod walks Get
             // (P), which invokes the accessor getter for P when one is
@@ -197,8 +196,7 @@ static std::string objToStr(proto::ProtoContext* ctx, const proto::ProtoObject* 
     // callJSFunction so template-literal / .concat coercion works
     // for ANY user-defined toString).
     {
-        const proto::ProtoObject* tsKey_o = ctx->fromUTF8String("toString");
-        const proto::ProtoString* tsKey = tsKey_o ? tsKey_o->asString(ctx) : nullptr;
+        const proto::ProtoString* tsKey = PROTOJS_NAME(ctx, "toString");
         if (tsKey) {
             const proto::ProtoObject* tsFn = obj->getAttribute(ctx, tsKey, true);
             // §7.1.1 OrdinaryToPrimitive step 5.a uses Get(O, "toString"),
@@ -318,8 +316,7 @@ static std::string objToStr(proto::ProtoContext* ctx, const proto::ProtoObject* 
         // S15.5.4.11_A1_T12 — searchValue.valueOf throws
         // "insearchValue" but objToStr returned "[object Object]" so
         // replace silently fell through to the replacement coercion).
-        const proto::ProtoObject* voKey_o = ctx->fromUTF8String("valueOf");
-        const proto::ProtoString* voKey = voKey_o ? voKey_o->asString(ctx) : nullptr;
+        const proto::ProtoString* voKey = PROTOJS_NAME(ctx, "valueOf");
         if (voKey) {
             const proto::ProtoObject* voFn = obj->getAttribute(ctx, voKey, true);
             // Mirror the toString accessor probe — §7.1.1 OrdinaryToPrimitive
@@ -1577,8 +1574,7 @@ static bool isRegExp(proto::ProtoContext* ctx, const proto::ProtoObject* obj) {
     // returns and bail.
     const proto::ProtoObject* m = nullptr;
     {
-        const proto::ProtoObject* gko = ctx->fromUTF8String("__get_Symbol.match__");
-        const proto::ProtoString* gks = gko ? gko->asString(ctx) : nullptr;
+        const proto::ProtoString* gks = PROTOJS_NAME(ctx, "__get_Symbol.match__");
         if (gks) {
             const proto::ProtoObject* getter = obj->getAttribute(ctx, gks, true);
             if (getter && getter != PROTO_NONE) {
@@ -1658,8 +1654,7 @@ const proto::ProtoObject* stringMatch(
         // the matchFn.
         const proto::ProtoObject* matchFn = nullptr;
         {
-            const proto::ProtoObject* gko = ctx->fromUTF8String("__get_Symbol.match__");
-            const proto::ProtoString* gk = gko ? gko->asString(ctx) : nullptr;
+            const proto::ProtoString* gk = PROTOJS_NAME(ctx, "__get_Symbol.match__");
             if (gk) {
                 const proto::ProtoObject* getter = pattern->getAttribute(ctx, gk, true);
                 if (getter && getter != PROTO_NONE
@@ -2175,8 +2170,7 @@ const proto::ProtoObject* stringMatchAll(
         // matchAll-is-undefined-or-null.js).
         if (!matcher || matcher == PROTO_NONE
             || matcher == undefSentinel || matcher == nullSentinel) {
-            const proto::ProtoObject* gko = ctx->fromUTF8String("__get_Symbol.matchAll__");
-            const proto::ProtoString* gk = gko ? gko->asString(ctx) : nullptr;
+            const proto::ProtoString* gk = PROTOJS_NAME(ctx, "__get_Symbol.matchAll__");
             if (gk) {
                 const proto::ProtoObject* getter = regexp->getAttribute(ctx, gk, true);
                 if (getter && getter != PROTO_NONE
@@ -2754,13 +2748,11 @@ static const proto::ProtoObject* getStringIteratorProto(proto::ProtoContext* ctx
     const proto::ProtoObject* proto = objProto
         ? objProto->newChild(ctx, true) : ctx->newObject(true);
     if (!proto) return nullptr;
-    const proto::ProtoObject* tagUserObj = ctx->fromUTF8String("Symbol.toStringTag");
-    const proto::ProtoString* tagUser = tagUserObj ? tagUserObj->asString(ctx) : nullptr;
+    const proto::ProtoString* tagUser = PROTOJS_NAME(ctx, "Symbol.toStringTag");
     if (tagUser) {
         proto = proto->setAttribute(ctx, tagUser,
             ctx->fromUTF8String("String Iterator"));
-        const proto::ProtoObject* pdo = ctx->fromUTF8String("__pd_Symbol.toStringTag__");
-        const proto::ProtoString* pdk = pdo ? pdo->asString(ctx) : nullptr;
+        const proto::ProtoString* pdk = PROTOJS_NAME(ctx, "__pd_Symbol.toStringTag__");
         if (pdk) proto = proto->setAttribute(ctx, pdk, ctx->fromInteger(0x2LL));
     }
     // Install `next` on the proto (NOT on every instance) per §22.2.5.1.2
@@ -2794,8 +2786,7 @@ static const proto::ProtoObject* getStringIteratorProto(proto::ProtoContext* ctx
                     if (pdnk) wrapper = wrapper->setAttribute(ctx, pdnk, ctx->fromInteger(0x2LL));
                 }
                 proto = proto->setAttribute(ctx, nextKey, wrapper);
-                const proto::ProtoObject* pdno = ctx->fromUTF8String("__pd_next__");
-                const proto::ProtoString* pdnk = pdno ? pdno->asString(ctx) : nullptr;
+                const proto::ProtoString* pdnk = PROTOJS_NAME(ctx, "__pd_next__");
                 if (pdnk) proto = proto->setAttribute(ctx, pdnk, ctx->fromInteger(0x3LL));
             }
         }
@@ -2840,10 +2831,8 @@ static const proto::ProtoObject* stringSymbolIterator(
     const proto::ProtoObject* iter = protoParent
         ? protoParent->newChild(ctx, true) : ctx->newObject(true);
     if (!iter) return PROTO_NONE;
-    const proto::ProtoObject* strKo = ctx->fromUTF8String("__str__");
-    const proto::ProtoString* strKey = strKo ? strKo->asString(ctx) : nullptr;
-    const proto::ProtoObject* idxKo = ctx->fromUTF8String("__idx__");
-    const proto::ProtoString* idxKey = idxKo ? idxKo->asString(ctx) : nullptr;
+    const proto::ProtoString* strKey = PROTOJS_NAME(ctx, "__str__");
+    const proto::ProtoString* idxKey = PROTOJS_NAME(ctx, "__idx__");
     if (strKey) iter = iter->setAttribute(ctx, strKey, strVal);
     if (idxKey) iter = iter->setAttribute(ctx, idxKey, ctx->fromInteger(0));
     return iter;
@@ -2968,7 +2957,7 @@ void BuildStringPrototype(proto::ProtoSpace* space, proto::ProtoContext* ctx,
     //   length         — arity with descriptor {writable:false, enumerable:false, configurable:true}
     //   name           — method name with the same non-writable, configurable descriptor
     auto reg = [&](const char* name, proto::ProtoMethod fn, long long length) {
-        const proto::ProtoString* key = ctx->fromUTF8String(name)->asString(ctx);
+        const proto::ProtoString* key = JSSymbols::internName(ctx, name);
         if (!key) return;
 
         // Build a wrapper object carrying __native_fn__, length, name.
@@ -3051,8 +3040,7 @@ void BuildStringPrototype(proto::ProtoSpace* space, proto::ProtoContext* ctx,
     // has no "stringIterNext" property (it was an enumerable one, listed
     // by every for-in over a string).
     {
-        const proto::ProtoObject* siko = ctx->fromUTF8String("Symbol.iterator");
-        const proto::ProtoString* sik = siko ? siko->asString(ctx) : nullptr;
+        const proto::ProtoString* sik = PROTOJS_NAME(ctx, "Symbol.iterator");
         if (sik) {
             // Parent on methodPrototype (Function.prototype) so .call /
             // .apply / .bind are inherited.  Pre-fix the wrapper used
@@ -3089,8 +3077,7 @@ void ReinstallStringPrototypeMethods(proto::ProtoContext* ctx) {
     const proto::ProtoObject* sp =
         reinterpret_cast<const proto::ProtoObject*>(ctx->space->stringPrototype);
     // Idempotency: check for a reinstall sentinel.
-    const proto::ProtoObject* sentinelObj = ctx->fromUTF8String("__string_methods_reinstalled__");
-    const proto::ProtoString* sentinelKey = sentinelObj ? sentinelObj->asString(ctx) : nullptr;
+    const proto::ProtoString* sentinelKey = PROTOJS_NAME(ctx, "__string_methods_reinstalled__");
     if (sentinelKey) {
         const proto::ProtoObject* chk = sp->getAttribute(ctx, sentinelKey, false);
         if (chk && chk != PROTO_NONE) return; // Already done.
@@ -3151,8 +3138,7 @@ void ReinstallStringPrototypeMethods(proto::ProtoContext* ctx) {
     // built-ins/String/prototype/Symbol.iterator/this-val-to-str-err
     // fixture probes that exact call form.
     {
-        const proto::ProtoObject* siko = ctx->fromUTF8String("Symbol.iterator");
-        const proto::ProtoString* sik = siko ? siko->asString(ctx) : nullptr;
+        const proto::ProtoString* sik = PROTOJS_NAME(ctx, "Symbol.iterator");
         if (sik) {
             const proto::ProtoObject* parent = ctx->space->methodPrototype;
             const proto::ProtoObject* wrapper = parent
@@ -3175,15 +3161,13 @@ void ReinstallStringPrototypeMethods(proto::ProtoContext* ctx) {
                 {
                     const proto::ProtoString* nk = JSSymbols::name(ctx);
                     if (nk) wrapper = wrapper->setAttribute(ctx, nk, ctx->fromUTF8String("[Symbol.iterator]"));
-                    const proto::ProtoObject* pdnko = ctx->fromUTF8String("__pd_name__");
-                    const proto::ProtoString* pdnk = pdnko ? pdnko->asString(ctx) : nullptr;
+                    const proto::ProtoString* pdnk = PROTOJS_NAME(ctx, "__pd_name__");
                     if (pdnk) wrapper = wrapper->setAttribute(ctx, pdnk, ctx->fromInteger(0x2LL));
                 }
                 sp = sp->setAttribute(ctx, sik, wrapper);
                 // Mark the slot itself as {writable:true, enumerable:
                 // false, configurable:true} → 0x3 per §17.
-                const proto::ProtoObject* pdko = ctx->fromUTF8String("__pd_Symbol.iterator__");
-                const proto::ProtoString* pdks = pdko ? pdko->asString(ctx) : nullptr;
+                const proto::ProtoString* pdks = PROTOJS_NAME(ctx, "__pd_Symbol.iterator__");
                 if (pdks) sp = sp->setAttribute(ctx, pdks, ctx->fromInteger(0x3LL));
             }
         }
@@ -3241,14 +3225,13 @@ void ensureStringConstructor(proto::ProtoContext* ctx,
     // descriptor sidecar and leaked through for-in over String
     // (built-ins/String/<Method>/prop-desc.js).
     auto regStatic = [&](const char* name, proto::ProtoMethod fn, long long length) {
-        const proto::ProtoString* key = ctx->fromUTF8String(name)->asString(ctx);
+        const proto::ProtoString* key = JSSymbols::internName(ctx, name);
         if (key) {
             const proto::ProtoObject* mObj = wrapNativeFunction(ctx, fn, name, length, globalRoot);
             if (mObj && mObj != PROTO_NONE) {
                 ctor = ctor->setAttribute(ctx, key, mObj);
                 std::string pdStr = std::string("__pd_") + name + "__";
-                const proto::ProtoObject* pdo = protojs::jsStringFromUTF8(ctx, pdStr);
-                const proto::ProtoString* pdk = pdo ? pdo->asString(ctx) : nullptr;
+                const proto::ProtoString* pdk = JSSymbols::internName(ctx, pdStr.c_str());
                 if (pdk) ctor = ctor->setAttribute(ctx, pdk, ctx->fromInteger(0x3LL));
             }
         }
@@ -3306,8 +3289,7 @@ void ensureStringConstructor(proto::ProtoContext* ctx,
     const proto::ProtoString* protoKey = JSSymbols::prototype(ctx);
     if (protoKey && ctx->space && ctx->space->stringPrototype) {
         ctor = ctor->setAttribute(ctx, protoKey, reinterpret_cast<const proto::ProtoObject*>(ctx->space->stringPrototype));
-        const proto::ProtoObject* pdpo = ctx->fromUTF8String("__pd_prototype__");
-        const proto::ProtoString* pdpk = pdpo ? pdpo->asString(ctx) : nullptr;
+        const proto::ProtoString* pdpk = PROTOJS_NAME(ctx, "__pd_prototype__");
         if (pdpk) ctor = ctor->setAttribute(ctx, pdpk, ctx->fromInteger(0x0LL));
     }
 

@@ -1,4 +1,5 @@
 #include "VisualProfiler.h"
+#include "../JSSymbols.h"
 #include "../ProtoNativeModule.h"
 #include <fstream>
 #include <sstream>
@@ -93,7 +94,7 @@ const proto::ProtoObject* VisualProfiler::init(
     const proto::ProtoObject* globalObj) {
     if (!ctx || !globalObj) return globalObj;
     const proto::ProtoString* profKey =
-        ctx->fromUTF8String("profiler")->asString(ctx);
+        PROTOJS_NAME(ctx, "profiler");
     if (!profKey) return globalObj;
     const proto::ProtoObject* profilerObj = globalObj->getAttribute(ctx, profKey, false);
     if (!profilerObj || profilerObj == PROTO_NONE) return globalObj;

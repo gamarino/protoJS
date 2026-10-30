@@ -17,6 +17,7 @@
 #include "debugger/DebugHooks.h"
 #include "runtime/LazyPrototype.h"
 #include "JSSymbols.h"
+#include "runtime/IndexKeyFlags.h"
 #include "StringPrototype.h"
 #include "protoCore.h"
 #include <algorithm>
@@ -77,6 +78,9 @@ static const proto::ProtoObject* arrResetIndexDescriptor(proto::ProtoContext* ct
                                                          const proto::ProtoObject* obj,
                                                          proto::proto_ulong idx) {
     constexpr long long kDefaultPdBits = 0x7;
+    // Only an object stamped with __has_index_descriptors__ can hold one
+    // (runtime/IndexKeyFlags.h); the probe below canonicalises a heap string.
+    if (!mayHaveOwnIndexDescriptor(ctx, obj)) return obj;
     const std::string pdStr = "__pd_" + std::to_string(idx) + "__";
     const proto::ProtoObject* pdko = protojs::jsStringFromUTF8(ctx, pdStr);
     const proto::ProtoString* pdk = pdko ? pdko->asString(ctx) : nullptr;
@@ -443,47 +447,58 @@ static const proto::ProtoObject* arrGet(proto::ProtoContext* ctx,
             if (arr->isString(ctx)) return PROTO_NONE;
         }
     }
-    // Build accessor sidecar keys up-front so we can shadow the fast
-    // path when an own accessor is installed.  §10.1.5 OrdinaryGet:
-    // an own accessor descriptor takes precedence over any data slot
-    // — including the native ProtoList storage real arrays use.
-    // Pre-fix Object.defineProperty(arr, '0', {get:...}) on
-    // arr=[0,1,2,'last'] left __elements__[0]=0 in place, so
-    // arrayTryFastGet returned 0 and the getter never fired; tests
-    // like every / indexOf / forEach with a length-truncating getter
-    // on index 0 silently iterated all four slots
-    // (built-ins/Array/prototype/indexOf/15.4.4.14-9-a-17 + family).
+    // §10.1.5 OrdinaryGet: an own accessor descriptor takes precedence over
+    // any data slot, including the native ProtoList storage real arrays
+    // use (Object.defineProperty(arr, '0', {get}) leaves __elements__[0] in
+    // place, and the getter must still fire: built-ins/Array/prototype/
+    // indexOf/15.4.4.14-9-a-17 and family).
+    //
+    // Every path that installs an accessor of an index stamps the target
+    // with __has_indexed_accessors__ (runtime/IndexKeyFlags.h), so an array
+    // without that own flag has no own __get_<idx>__ / __set_<idx>__ and its
+    // native storage answers directly; the same flag read through the chain
+    // gates the inherited getter a hole falls through to.  Pre-2026-10 both
+    // sidecar names were built as heap strings and probed on EVERY element
+    // read: two non-interned attribute names per read, each canonicalised
+    // against protoCore's symbol table (57 % of all such names in ctest;
+    // PROTOCORE_NONINTERNED_NAMES).
+    const bool ownMayHaveAccessor = mayHaveOwnIndexAccessor(ctx, arr);
+    if (!ownMayHaveAccessor) {
+        if (const proto::ProtoObject* fastVal = arrayTryFastGet(ctx, arr, idx)) {
+            if (fastVal != PROTO_NONE) return fastVal;
+        }
+    }
     const proto::ProtoString* key = arrIndexKey(ctx, idx);
     if (!key) return PROTO_NONE;
-    std::string gkStr = "__get_" + std::to_string(idx) + "__";
-    std::string skStr = "__set_" + std::to_string(idx) + "__";
-    const proto::ProtoObject* gko = protojs::jsStringFromUTF8(ctx, gkStr);
-    const proto::ProtoObject* sko = protojs::jsStringFromUTF8(ctx, skStr);
-    const proto::ProtoString* gk  = gko ? gko->asString(ctx) : nullptr;
-    const proto::ProtoString* sk  = sko ? sko->asString(ctx) : nullptr;
+    const proto::ProtoString* gk = nullptr;
+    auto getterKey = [&]() -> const proto::ProtoString* {
+        if (!gk) {
+            // A heap string, deliberately not interned: index-derived
+            // names must not grow the perennial symbol table.
+            const proto::ProtoObject* gko =
+                protojs::jsStringFromUTF8(ctx, "__get_" + std::to_string(idx) + "__");
+            gk = gko ? gko->asString(ctx) : nullptr;
+        }
+        return gk;
+    };
 
-    // Step 1: OWN accessor probe BEFORE the data fast path.  hasOwnAttribute
-    // hits the per-thread accessor cache after the first probe, so the
-    // perf cost on hot reads is one branch — negligible compared to a
-    // mis-ordered semantic that loses the getter call entirely.
-    bool hasOwnGetter = gk && arr->hasOwnAttribute(ctx, gk) == PROTO_TRUE;
-    bool hasOwnSetter = sk && arr->hasOwnAttribute(ctx, sk) == PROTO_TRUE;
-
-    if (hasOwnGetter) {
-        const proto::ProtoObject* ownGetter = arr->getAttribute(ctx, gk, true);
-        const proto::ProtoObject* result = callJSFunction(ctx, ownGetter, arr, ctx->newList());
-        return (!result || result == PROTO_NONE) ? PROTO_NONE : result;
-    }
-    if (hasOwnSetter) {
-        // Setter-only own accessor — read returns undefined.
-        return PROTO_NONE;
-    }
-
-    // Step 2: FAST PATH (no own accessor) — native ProtoList storage.
-    // In-range read returns the element directly; out-of-range falls
-    // through to the string-key / accessor path below.
-    if (const proto::ProtoObject* fastVal = arrayTryFastGet(ctx, arr, idx)) {
-        if (fastVal != PROTO_NONE) return fastVal;
+    if (ownMayHaveAccessor) {
+        if (getterKey() && arr->hasOwnAttribute(ctx, gk) == PROTO_TRUE) {
+            const proto::ProtoObject* ownGetter = arr->getAttribute(ctx, gk, true);
+            const proto::ProtoObject* result = callJSFunction(ctx, ownGetter, arr, ctx->newList());
+            return (!result || result == PROTO_NONE) ? PROTO_NONE : result;
+        }
+        const proto::ProtoObject* sko =
+            protojs::jsStringFromUTF8(ctx, "__set_" + std::to_string(idx) + "__");
+        const proto::ProtoString* sk = sko ? sko->asString(ctx) : nullptr;
+        if (sk && arr->hasOwnAttribute(ctx, sk) == PROTO_TRUE) {
+            // Setter-only own accessor: a read returns undefined.
+            return PROTO_NONE;
+        }
+        // No own accessor at idx: native storage answers.
+        if (const proto::ProtoObject* fastVal = arrayTryFastGet(ctx, arr, idx)) {
+            if (fastVal != PROTO_NONE) return fastVal;
+        }
     }
 
     // A typed array (§10.4.5.4 [[Get]] of an integer index): the element is
@@ -511,7 +526,7 @@ static const proto::ProtoObject* arrGet(proto::ProtoContext* ctx,
     // return that placeholder and never reach the inherited getter
     // (built-ins/Array/prototype/pop/set-length-array-length-is-non-
     // writable).
-    if (gk) {
+    if (mayHaveIndexAccessor(ctx, arr) && getterKey()) {
         const proto::ProtoObject* inheritedGetter = arr->getAttribute(ctx, gk, true);
         if (inheritedGetter && inheritedGetter != PROTO_NONE) {
             const proto::ProtoObject* result = callJSFunction(ctx, inheritedGetter, arr, ctx->newList());
@@ -558,11 +573,11 @@ static const proto::ProtoObject* arrSet(proto::ProtoContext* ctx,
         // precise-setter-* sort tests masked here because the setter
         // never ran.
         {
-            const proto::ProtoString* hapK = JSSymbols::hasAccessorProps(ctx);
-            bool maybeHasAccessor = hapK
-                && (arr->hasAttribute(ctx, hapK) == PROTO_TRUE)
-                && (arr->getAttribute(ctx, hapK, true) == PROTO_TRUE);
-            if (maybeHasAccessor) {
+            // Own index accessors are flagged (runtime/IndexKeyFlags.h).  The
+            // chain-wide __has_accessor_props__ this tested is always true
+            // (Object.prototype's __proto__ accessor), so every element write
+            // built and probed a heap-string "__set_<idx>__".
+            if (mayHaveOwnIndexAccessor(ctx, arr)) {
                 std::string sks = "__set_" + std::to_string(idx) + "__";
                 const proto::ProtoObject* sko2 = protojs::jsStringFromUTF8(ctx, sks);
                 const proto::ProtoString* sk2 = sko2 ? sko2->asString(ctx) : nullptr;
@@ -658,11 +673,11 @@ static const proto::ProtoObject* arrSet(proto::ProtoContext* ctx,
     // an inherited or own setter never propagated the setter's abrupt
     // completion (built-ins/Array/prototype/copyWithin/return-abrupt-
     // from-set-target-value and the wider 'set-target-value' family).
-    std::string skStr = "__set_" + std::to_string(idx) + "__";
-    const proto::ProtoObject* sko = protojs::jsStringFromUTF8(ctx, skStr);
-    const proto::ProtoString* sk  = sko ? sko->asString(ctx) : nullptr;
-    if (sk) {
-        const proto::ProtoObject* setter = arr->getAttribute(ctx, sk, true);
+    if (mayHaveIndexAccessor(ctx, arr)) {  // runtime/IndexKeyFlags.h
+        std::string skStr = "__set_" + std::to_string(idx) + "__";
+        const proto::ProtoObject* sko = protojs::jsStringFromUTF8(ctx, skStr);
+        const proto::ProtoString* sk  = sko ? sko->asString(ctx) : nullptr;
+        const proto::ProtoObject* setter = sk ? arr->getAttribute(ctx, sk, true) : nullptr;
         if (setter && setter != PROTO_NONE) {
             const proto::ProtoList* sargs = ctx->newList();
             sargs = sargs->appendLast(ctx, val ? val : PROTO_NONE);
@@ -735,11 +750,9 @@ static const proto::ProtoObject* arrSetLen(proto::ProtoContext* ctx,
     // happens to leave bit 0 cleared); built-ins/Array/prototype/
     // splice/set_length_no_args pins this contrast.
     {
-        const proto::ProtoObject* sko = ctx->fromUTF8String("__set_length__");
-        const proto::ProtoString* sk  = sko ? sko->asString(ctx) : nullptr;
+        const proto::ProtoString* sk = JSSymbols::setLength(ctx);
         bool hasOwnSetter = sk && arr->hasOwnAttribute(ctx, sk) == PROTO_TRUE;
-        const proto::ProtoObject* gko = ctx->fromUTF8String("__get_length__");
-        const proto::ProtoString* gk  = gko ? gko->asString(ctx) : nullptr;
+        const proto::ProtoString* gk = JSSymbols::getLength(ctx);
         bool hasOwnGetter = gk && arr->hasOwnAttribute(ctx, gk) == PROTO_TRUE;
         if (!hasOwnSetter && !hasOwnGetter) {
             const proto::ProtoString* pdk = JSSymbols::pdLength(ctx);
@@ -825,9 +838,7 @@ static const proto::ProtoObject* arrSetLen(proto::ProtoContext* ctx,
     // `Object.defineProperty(obj, 'length', {set: f})` observes every
     // length write — built-ins/Array/prototype/splice/set_length_no_args
     // probes that splice() with no args still calls Set('length', len).
-    const proto::ProtoObject* sko = ctx->fromUTF8String("__set_length__");
-    const proto::ProtoString* sk  = sko ? sko->asString(ctx) : nullptr;
-    if (sk) {
+    if (const proto::ProtoString* sk = JSSymbols::setLength(ctx)) {
         const proto::ProtoObject* setter = arr->getAttribute(ctx, sk, true);
         if (setter && setter != PROTO_NONE) {
             const proto::ProtoList* sargs = ctx->newList();
@@ -1094,8 +1105,7 @@ static const proto::ProtoObject* arraySpeciesCreate(
     // create-ctor-poisoned and the family).
     const proto::ProtoObject* C = nullptr;
     {
-        const proto::ProtoObject* gcko = ctx->fromUTF8String("__get_constructor__");
-        const proto::ProtoString* gck = gcko ? gcko->asString(ctx) : nullptr;
+        const proto::ProtoString* gck = PROTOJS_NAME(ctx, "__get_constructor__");
         if (gck) {
             const proto::ProtoObject* getter = originalArray->getAttribute(ctx, gck, true);
             if (getter && getter != PROTO_NONE) {
@@ -1140,11 +1150,7 @@ static const proto::ProtoObject* arraySpeciesCreate(
             // {get: f}) must fire on the read, and a throwing getter
             // must propagate (built-ins/Array/prototype/concat/
             // create-species-poisoned).  Probe the sidecar key first.
-            std::string keyStr;
-            speciesKey->toUTF8String(ctx, keyStr);
-            std::string gkStr = "__get_" + keyStr + "__";
-            const proto::ProtoObject* gko = protojs::jsStringFromUTF8(ctx, gkStr);
-            const proto::ProtoString* gk = gko ? gko->asString(ctx) : nullptr;
+            const proto::ProtoString* gk = PROTOJS_NAME(ctx, "__get_Symbol.species__");
             const proto::ProtoObject* species = nullptr;
             if (gk) {
                 const proto::ProtoObject* getter = C->getAttribute(ctx, gk, true);
@@ -3981,8 +3987,7 @@ static const proto::ProtoObject* arrayFindLast(
         // getter's abrupt (built-ins/Array/prototype/findLast/
         // return-abrupt-from-this-length.js pins the case).
         {
-            const proto::ProtoObject* gko = ctx->fromUTF8String("__get_length__");
-            const proto::ProtoString* gk  = gko ? gko->asString(ctx) : nullptr;
+            const proto::ProtoString* gk = PROTOJS_NAME(ctx, "__get_length__");
             if (gk) {
                 const proto::ProtoObject* getter = self->getAttribute(ctx, gk, true);
                 if (getter && getter != PROTO_NONE
@@ -4045,8 +4050,7 @@ static const proto::ProtoObject* arrayFindLastIndex(
         // comment above for the regression detail.
         const proto::ProtoObject* lenV = nullptr;
         {
-            const proto::ProtoObject* gko = ctx->fromUTF8String("__get_length__");
-            const proto::ProtoString* gk  = gko ? gko->asString(ctx) : nullptr;
+            const proto::ProtoString* gk = PROTOJS_NAME(ctx, "__get_length__");
             if (gk) {
                 const proto::ProtoObject* getter = self->getAttribute(ctx, gk, true);
                 if (getter && getter != PROTO_NONE
@@ -5095,8 +5099,7 @@ static const proto::ProtoObject* getArrayIteratorProto(proto::ProtoContext* ctx)
     if (tagUser) {
         proto = proto->setAttribute(ctx, tagUser,
             ctx->fromUTF8String("Array Iterator"));
-        const proto::ProtoObject* pdo = ctx->fromUTF8String("__pd_Symbol.toStringTag__");
-        const proto::ProtoString* pdk = pdo ? pdo->asString(ctx) : nullptr;
+        const proto::ProtoString* pdk = PROTOJS_NAME(ctx, "__pd_Symbol.toStringTag__");
         if (pdk) proto = proto->setAttribute(ctx, pdk, ctx->fromInteger(0x2LL));
     }
     // §22.1.5.2.1 + §17: %ArrayIteratorPrototype%.next has the §17
@@ -5128,8 +5131,7 @@ static const proto::ProtoObject* getArrayIteratorProto(proto::ProtoContext* ctx)
                     if (pdnk) wrapper = wrapper->setAttribute(ctx, pdnk, ctx->fromInteger(0x2LL));
                 }
                 proto = proto->setAttribute(ctx, nextKey, wrapper);
-                const proto::ProtoObject* pdno = ctx->fromUTF8String("__pd_next__");
-                const proto::ProtoString* pdnk = pdno ? pdno->asString(ctx) : nullptr;
+                const proto::ProtoString* pdnk = PROTOJS_NAME(ctx, "__pd_next__");
                 if (pdnk) proto = proto->setAttribute(ctx, pdnk, ctx->fromInteger(0x3LL));
             }
         }
@@ -5230,10 +5232,8 @@ static const proto::ProtoObject* arrayIsArray(
     if (!val || val == PROTO_NONE) return PROTO_FALSE;
     // §7.2.2 IsArray: follow Proxy target chains (step 3).
     const proto::ProtoString* isArrayKey = JSSymbols::isArray(ctx);
-    const proto::ProtoObject* tko = ctx->fromUTF8String("__proxy_target__");
-    const proto::ProtoString* tk = tko ? tko->asString(ctx) : nullptr;
-    const proto::ProtoObject* hko = ctx->fromUTF8String("__proxy_handler__");
-    const proto::ProtoString* hk = hko ? hko->asString(ctx) : nullptr;
+    const proto::ProtoString* tk = PROTOJS_NAME(ctx, "__proxy_target__");
+    const proto::ProtoString* hk = PROTOJS_NAME(ctx, "__proxy_handler__");
     int hops = 0;
     while (val && val != PROTO_NONE && hops < 16) {
         if (isArrayKey && val->hasOwnAttribute(ctx, isArrayKey) == PROTO_TRUE)
@@ -5907,8 +5907,7 @@ void ensureArrayPrototype(proto::ProtoContext* ctx,
                 // (incl. enumerable), so for-in over any array enumerated
                 // every method ("at,map,pop,find,...") alongside the indices.
                 std::string pdName = std::string("__pd_") + m.name + "__";
-                const proto::ProtoObject* pdo = protojs::jsStringFromUTF8(ctx, pdName);
-                const proto::ProtoString* pdk = pdo ? pdo->asString(ctx) : nullptr;
+                const proto::ProtoString* pdk = JSSymbols::internName(ctx, pdName.c_str());
                 if (pdk) proto = proto->setAttribute(ctx, pdk, ctx->fromInteger(0x3LL));
             }
         }
@@ -5956,12 +5955,10 @@ void ensureArrayPrototype(proto::ProtoContext* ctx,
                 const proto::ProtoString* k = proto::ProtoString::createSymbol(ctx, kUnscopables[i]);
                 if (k) unsObj = unsObj->setAttribute(ctx, k, PROTO_TRUE);
             }
-            const proto::ProtoObject* uko = ctx->fromUTF8String("Symbol.unscopables");
-            const proto::ProtoString* uk = uko ? uko->asString(ctx) : nullptr;
+            const proto::ProtoString* uk = PROTOJS_NAME(ctx, "Symbol.unscopables");
             if (uk) {
                 proto = proto->setAttribute(ctx, uk, unsObj);
-                const proto::ProtoObject* pdo = ctx->fromUTF8String("__pd_Symbol.unscopables__");
-                const proto::ProtoString* pdk = pdo ? pdo->asString(ctx) : nullptr;
+                const proto::ProtoString* pdk = PROTOJS_NAME(ctx, "__pd_Symbol.unscopables__");
                 if (pdk) proto = proto->setAttribute(ctx, pdk, ctx->fromInteger(0x2LL));
             }
         }
@@ -6018,8 +6015,7 @@ void ensureArrayPrototype(proto::ProtoContext* ctx,
         JSSymbols::prototype(ctx);
     if (protoKey) {
         ctor = ctor->setAttribute(ctx, protoKey, proto);
-        const proto::ProtoObject* pdpo = ctx->fromUTF8String("__pd_prototype__");
-        const proto::ProtoString* pdpk = pdpo ? pdpo->asString(ctx) : nullptr;
+        const proto::ProtoString* pdpk = PROTOJS_NAME(ctx, "__pd_prototype__");
         if (pdpk) ctor = ctor->setAttribute(ctx, pdpk, ctx->fromInteger(0x0LL));
     }
 
@@ -6113,8 +6109,7 @@ void ensureArrayPrototype(proto::ProtoContext* ctx,
                 if (gksSym) ctor = ctor->setAttribute(ctx, gksSym, getter);
                 // Descriptor for the species property on Array:
                 // accessor with {enumerable:false, configurable:true} → 0x2.
-                const proto::ProtoObject* pdo = ctx->fromUTF8String("__pd_Symbol.species__");
-                const proto::ProtoString* pdk = pdo ? pdo->asString(ctx) : nullptr;
+                const proto::ProtoString* pdk = PROTOJS_NAME(ctx, "__pd_Symbol.species__");
                 if (pdk) ctor = ctor->setAttribute(ctx, pdk, ctx->fromInteger(0x2LL));
             }
         }
@@ -6157,8 +6152,7 @@ void ensureArrayPrototype(proto::ProtoContext* ctx,
     *globalRoot = (*globalRoot)->setAttribute(ctx, arrayKey, ctor);
     // §17 globalThis.Array descriptor 0x3.
     {
-        const proto::ProtoObject* pdo = ctx->fromUTF8String("__pd_Array__");
-        const proto::ProtoString* pdk = pdo ? pdo->asString(ctx) : nullptr;
+        const proto::ProtoString* pdk = PROTOJS_NAME(ctx, "__pd_Array__");
         if (pdk) *globalRoot = (*globalRoot)->setAttribute(ctx, pdk,
             ctx->fromInteger(0x3LL));
     }

@@ -69,13 +69,11 @@ const proto::ProtoObject* installNonEnumerableMethod(
 
     // Install on proto: {writable: true, enumerable: false, configurable: true}
     // bits = 0x3 → bit0(writable)=1, bit1(configurable)=1, bit2(enumerable)=0
-    const proto::ProtoObject* mko = ctx->fromUTF8String(methodName);
-    const proto::ProtoString* mk = mko ? mko->asString(ctx) : nullptr;
+    const proto::ProtoString* mk = JSSymbols::internName(ctx, methodName);
     if (mk) {
         proto = proto->setAttribute(ctx, mk, methodObj);
         std::string pdStr = std::string("__pd_") + methodName + "__";
-        const proto::ProtoObject* pdko = protojs::jsStringFromUTF8(ctx, pdStr);
-        const proto::ProtoString* pdks = pdko ? pdko->asString(ctx) : nullptr;
+        const proto::ProtoString* pdks = JSSymbols::internName(ctx, pdStr.c_str());
         if (pdks) proto = proto->setAttribute(ctx, pdks, ctx->fromInteger(0x3LL));
     }
 

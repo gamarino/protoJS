@@ -431,8 +431,7 @@ static const proto::ProtoObject* getMapIteratorProto(proto::ProtoContext* ctx) {
                 if (pdnk) wrapper = wrapper->setAttribute(ctx, pdnk, ctx->fromInteger(0x2LL));
             }
             proto = proto->setAttribute(ctx, nextKey, wrapper);
-            const proto::ProtoObject* pdno = ctx->fromUTF8String("__pd_next__");
-            const proto::ProtoString* pdnk = pdno ? pdno->asString(ctx) : nullptr;
+            const proto::ProtoString* pdnk = PROTOJS_NAME(ctx, "__pd_next__");
             if (pdnk) proto = proto->setAttribute(ctx, pdnk, ctx->fromInteger(0x3LL));
         }
     }
@@ -441,8 +440,7 @@ static const proto::ProtoObject* getMapIteratorProto(proto::ProtoContext* ctx) {
     if (tagUser) {
         proto = proto->setAttribute(ctx, tagUser,
             ctx->fromUTF8String("Map Iterator"));
-        const proto::ProtoObject* pdo = ctx->fromUTF8String("__pd_Symbol.toStringTag__");
-        const proto::ProtoString* pdk = pdo ? pdo->asString(ctx) : nullptr;
+        const proto::ProtoString* pdk = PROTOJS_NAME(ctx, "__pd_Symbol.toStringTag__");
         if (pdk) proto = proto->setAttribute(ctx, pdk, ctx->fromInteger(0x2LL));
     }
     const proto::ProtoString* hnwK = JSSymbols::hasNonWritableProps(ctx);
@@ -936,8 +934,7 @@ static const proto::ProtoObject* mapConstruct(
         // Pre-fix the impl walked the array-like length path regardless
         // and silently produced an empty Map.
         if (iterable && iterable != PROTO_NONE) {
-            const proto::ProtoObject* ito = ctx->fromUTF8String("Symbol.iterator");
-            const proto::ProtoString* its = ito ? ito->asString(ctx) : nullptr;
+            const proto::ProtoString* its = PROTOJS_NAME(ctx, "Symbol.iterator");
             if (its && iterable->hasOwnAttribute(ctx, its) == PROTO_TRUE) {
                 const proto::ProtoObject* fn = iterable->getAttribute(ctx, its, false);
                 if (fn == getUndefinedSentinel() || fn == getNullSentinel()) {
@@ -1188,8 +1185,7 @@ void BuildMapPrototype(proto::ProtoSpace* space, proto::ProtoContext* ctx,
     //   .length = 0           (descriptor 0x2)
     // matching the parallel Set.prototype.size install pattern.
     {
-        const proto::ProtoObject* gko = ctx->fromUTF8String("__get_size__");
-        const proto::ProtoString* gks = gko ? gko->asString(ctx) : nullptr;
+        const proto::ProtoString* gks = PROTOJS_NAME(ctx, "__get_size__");
         if (gks) {
             const proto::ProtoObject* parent =
                 (ctx->space && ctx->space->methodPrototype)
@@ -1246,8 +1242,7 @@ void BuildMapPrototype(proto::ProtoSpace* space, proto::ProtoContext* ctx,
     {
         const proto::ProtoString* symIterKey = JSSymbols::symbolIterator(ctx);
         if (symIterKey) {
-            const proto::ProtoObject* entriesKeyObj = ctx->fromUTF8String("entries");
-            const proto::ProtoString* entriesKey = entriesKeyObj ? entriesKeyObj->asString(ctx) : nullptr;
+            const proto::ProtoString* entriesKey = PROTOJS_NAME(ctx, "entries");
             const proto::ProtoObject* entriesFn = entriesKey
                 ? mapProto->getAttribute(ctx, entriesKey, false) : nullptr;
             if (entriesFn && entriesFn != PROTO_NONE) {
@@ -1324,15 +1319,13 @@ void ensureMapConstructor(proto::ProtoContext* ctx,
         // BuildMapPrototype-era one (which was parented before
         // ensureFunctionPrototype published methodPrototype).
         {
-            const proto::ProtoObject* eKo = ctx->fromUTF8String("entries");
-            const proto::ProtoString* eK = eKo ? eKo->asString(ctx) : nullptr;
+            const proto::ProtoString* eK = PROTOJS_NAME(ctx, "entries");
             const proto::ProtoObject* entriesFn = eK ? mp->getAttribute(ctx, eK, false) : nullptr;
             if (entriesFn && entriesFn != PROTO_NONE) {
                 const proto::ProtoString* symIterKey = JSSymbols::symbolIterator(ctx);
                 if (symIterKey) {
                     mp = mp->setAttribute(ctx, symIterKey, entriesFn);
-                    const proto::ProtoObject* pdiko = ctx->fromUTF8String("__pd_Symbol.iterator__");
-                    const proto::ProtoString* pdiks = pdiko ? pdiko->asString(ctx) : nullptr;
+                    const proto::ProtoString* pdiks = PROTOJS_NAME(ctx, "__pd_Symbol.iterator__");
                     if (pdiks) mp = mp->setAttribute(ctx, pdiks, ctx->fromInteger(0x3LL));
                 }
             }
@@ -1343,8 +1336,7 @@ void ensureMapConstructor(proto::ProtoContext* ctx,
         // ensureFunctionPrototype and left the getter with no
         // .call / .apply / .bind.
         {
-            const proto::ProtoObject* gko = ctx->fromUTF8String("__get_size__");
-            const proto::ProtoString* gks = gko ? gko->asString(ctx) : nullptr;
+            const proto::ProtoString* gks = PROTOJS_NAME(ctx, "__get_size__");
             if (gks) {
                 const proto::ProtoObject* parent = ctx->space->methodPrototype;
                 const proto::ProtoObject* getter = parent ? parent->newChild(ctx, true) : nullptr;
@@ -1422,15 +1414,13 @@ void ensureMapConstructor(proto::ProtoContext* ctx,
         // the slot defaulted to fully writable / configurable; same
         // pattern as the Function.prototype / Symbol.prototype fixes
         // earlier in this round (def48d31 + d97d7635).
-        const proto::ProtoObject* pdpo = ctx->fromUTF8String("__pd_prototype__");
-        const proto::ProtoString* pdpk = pdpo ? pdpo->asString(ctx) : nullptr;
+        const proto::ProtoString* pdpk = PROTOJS_NAME(ctx, "__pd_prototype__");
         if (pdpk) ctor = ctor->setAttribute(ctx, pdpk, ctx->fromInteger(0x0LL));
     }
 
     // __construct__ — MUST use ctx->fromMethod (NOT wrapNativeFunction).
     // OP_call_constructor checks isMethod() on the __construct__ value.
-    const proto::ProtoObject* constructKey = ctx->fromUTF8String("__construct__");
-    const proto::ProtoString* constructKs  = constructKey ? constructKey->asString(ctx) : nullptr;
+    const proto::ProtoString* constructKs = PROTOJS_NAME(ctx, "__construct__");
     if (constructKs) {
         const proto::ProtoObject* constructFn = ctx->fromMethod(nullptr, mapConstruct);
         if (constructFn) ctor = ctor->setAttribute(ctx, constructKs, constructFn);
@@ -1471,12 +1461,10 @@ void ensureMapConstructor(proto::ProtoContext* ctx,
         }
         const proto::ProtoString* hnwGb = JSSymbols::hasNonWritableProps(ctx);
         if (hnwGb) gbWrapper = gbWrapper->setAttribute(ctx, hnwGb, PROTO_TRUE);
-        const proto::ProtoObject* gbko = ctx->fromUTF8String("groupBy");
-        const proto::ProtoString* gbks = gbko ? gbko->asString(ctx) : nullptr;
+        const proto::ProtoString* gbks = PROTOJS_NAME(ctx, "groupBy");
         if (gbks) {
             ctor = ctor->setAttribute(ctx, gbks, gbWrapper);
-            const proto::ProtoObject* pdgb = ctx->fromUTF8String("__pd_groupBy__");
-            const proto::ProtoString* pdgbk = pdgb ? pdgb->asString(ctx) : nullptr;
+            const proto::ProtoString* pdgbk = PROTOJS_NAME(ctx, "__pd_groupBy__");
             if (pdgbk) ctor = ctor->setAttribute(ctx, pdgbk, ctx->fromInteger(0x3LL));
         }
     }
@@ -1529,7 +1517,7 @@ void ensureMapConstructor(proto::ProtoContext* ctx,
                 const proto::ProtoString* hnwSp = JSSymbols::hasNonWritableProps(ctx);
                 if (hnwSp) getter = getter->setAttribute(ctx, hnwSp, PROTO_TRUE);
                 const proto::ProtoString* gksSym =
-                    ctx->fromUTF8String("__get_Symbol.species__")->asString(ctx);
+                    PROTOJS_NAME(ctx, "__get_Symbol.species__");
                 if (gksSym) ctor = ctor->setAttribute(ctx, gksSym, getter);
                 // §24.1.2.2 get Map[@@species] descriptor: accessor
                 // with {enumerable:false, configurable:true} → 0x2.
@@ -1561,8 +1549,7 @@ void ensureMapConstructor(proto::ProtoContext* ctx,
 // ---------------------------------------------------------------------------
 
 static long long wmGetCount(proto::ProtoContext* ctx, const proto::ProtoObject* self) {
-    const proto::ProtoObject* nObj = ctx->fromUTF8String("__wm_n__");
-    const proto::ProtoString* nKey = nObj ? nObj->asString(ctx) : nullptr;
+    const proto::ProtoString* nKey = PROTOJS_NAME(ctx, "__wm_n__");
     if (!nKey) return 0;
     const proto::ProtoObject* nv = self->getAttribute(ctx, nKey, false);
     if (nv && nv != PROTO_NONE && nv->isInteger(ctx)) return nv->asLong(ctx);
@@ -1573,8 +1560,7 @@ static bool requireWeakMapThis(proto::ProtoContext* ctx,
                                  const proto::ProtoObject* self,
                                  const char* methodName) {
     if (self && self != PROTO_NONE) {
-        const proto::ProtoObject* bo = ctx->fromUTF8String("__is_weak_map__");
-        const proto::ProtoString* bk = bo ? bo->asString(ctx) : nullptr;
+        const proto::ProtoString* bk = PROTOJS_NAME(ctx, "__is_weak_map__");
         if (bk && self->getAttribute(ctx, bk, true) == PROTO_TRUE) return true;
     }
     std::string msg = "WeakMap.prototype.";
@@ -1626,8 +1612,7 @@ static const proto::ProtoObject* weakMapSet(
         // be held weakly.  Probe __symbol_registered__ on the symbol
         // value — Symbol.for(...) creates it; bare Symbol(...) does not.
         if (isSymbolKey) {
-            const proto::ProtoObject* regO = ctx->fromUTF8String("__symbol_registered__");
-            const proto::ProtoString* regK = regO ? regO->asString(ctx) : nullptr;
+            const proto::ProtoString* regK = PROTOJS_NAME(ctx, "__symbol_registered__");
             if (regK && key->getAttribute(ctx, regK, false) == PROTO_TRUE) {
                 isRegisteredSymbol = true;
             }
@@ -1672,8 +1657,7 @@ static const proto::ProtoObject* weakMapSet(
     const proto::ProtoString* vs = vo ? vo->asString(ctx) : nullptr;
     if (ks) self = self->setAttribute(ctx, ks, key);
     if (vs) self = self->setAttribute(ctx, vs, val ? val : PROTO_NONE);
-    const proto::ProtoObject* nObj = ctx->fromUTF8String("__wm_n__");
-    const proto::ProtoString* nKey = nObj ? nObj->asString(ctx) : nullptr;
+    const proto::ProtoString* nKey = PROTOJS_NAME(ctx, "__wm_n__");
     if (nKey) self = self->setAttribute(ctx, nKey, ctx->fromInteger(n + 1));
     return const_cast<proto::ProtoObject*>(self);
 }
@@ -1767,8 +1751,7 @@ static const proto::ProtoObject* weakMapDelete(
                 self = self->setAttribute(ctx, ks, PROTO_NONE);
                 if (vs) self = self->setAttribute(ctx, vs, PROTO_NONE);
             }
-            const proto::ProtoObject* nObj = ctx->fromUTF8String("__wm_n__");
-            const proto::ProtoString* nKey = nObj ? nObj->asString(ctx) : nullptr;
+            const proto::ProtoString* nKey = PROTOJS_NAME(ctx, "__wm_n__");
             if (nKey) self = self->setAttribute(ctx, nKey, ctx->fromInteger(n - 1));
             return PROTO_TRUE;
         }
@@ -1814,8 +1797,7 @@ static const proto::ProtoObject* weakMapGetOrInsert(
         // be held weakly.  Probe __symbol_registered__ on the symbol
         // value — Symbol.for(...) creates it; bare Symbol(...) does not.
         if (isSymbolKey) {
-            const proto::ProtoObject* regO = ctx->fromUTF8String("__symbol_registered__");
-            const proto::ProtoString* regK = regO ? regO->asString(ctx) : nullptr;
+            const proto::ProtoString* regK = PROTOJS_NAME(ctx, "__symbol_registered__");
             if (regK && key->getAttribute(ctx, regK, false) == PROTO_TRUE) {
                 isRegisteredSymbol = true;
             }
@@ -1858,8 +1840,7 @@ static const proto::ProtoObject* weakMapGetOrInsert(
     const proto::ProtoString* vs = vo ? vo->asString(ctx) : nullptr;
     if (ks) self = self->setAttribute(ctx, ks, key);
     if (vs) self = self->setAttribute(ctx, vs, value ? value : PROTO_NONE);
-    const proto::ProtoObject* nObj = ctx->fromUTF8String("__wm_n__");
-    const proto::ProtoString* nKey = nObj ? nObj->asString(ctx) : nullptr;
+    const proto::ProtoString* nKey = PROTOJS_NAME(ctx, "__wm_n__");
     if (nKey) self = self->setAttribute(ctx, nKey, ctx->fromInteger(n + 1));
     return value ? value : PROTO_NONE;
 }
@@ -1913,8 +1894,7 @@ static const proto::ProtoObject* weakMapGetOrInsertComputed(
         // be held weakly.  Probe __symbol_registered__ on the symbol
         // value — Symbol.for(...) creates it; bare Symbol(...) does not.
         if (isSymbolKey) {
-            const proto::ProtoObject* regO = ctx->fromUTF8String("__symbol_registered__");
-            const proto::ProtoString* regK = regO ? regO->asString(ctx) : nullptr;
+            const proto::ProtoString* regK = PROTOJS_NAME(ctx, "__symbol_registered__");
             if (regK && key->getAttribute(ctx, regK, false) == PROTO_TRUE) {
                 isRegisteredSymbol = true;
             }
@@ -1977,8 +1957,7 @@ static const proto::ProtoObject* weakMapGetOrInsertComputed(
     const proto::ProtoString* vs = vo ? vo->asString(ctx) : nullptr;
     if (ks) self = self->setAttribute(ctx, ks, key);
     if (vs) self = self->setAttribute(ctx, vs, value ? value : PROTO_NONE);
-    const proto::ProtoObject* nObj = ctx->fromUTF8String("__wm_n__");
-    const proto::ProtoString* nKey = nObj ? nObj->asString(ctx) : nullptr;
+    const proto::ProtoString* nKey = PROTOJS_NAME(ctx, "__wm_n__");
     if (nKey) self = self->setAttribute(ctx, nKey, ctx->fromInteger(n + 1));
     return value ? value : PROTO_NONE;
 }
@@ -1990,15 +1969,13 @@ static const proto::ProtoObject* weakMapConstruct(
 {
     if (!self) return PROTO_NONE;
     // Initialize the entry count to 0; entries are stored lazily.
-    const proto::ProtoObject* nObj = ctx->fromUTF8String("__wm_n__");
-    const proto::ProtoString* nKey = nObj ? nObj->asString(ctx) : nullptr;
+    const proto::ProtoString* nKey = PROTOJS_NAME(ctx, "__wm_n__");
     if (nKey) self = self->setAttribute(ctx, nKey, ctx->fromInteger(0LL));
     // §24.4.1.1 brand check: stamp __is_weak_map__ so prototype methods
     // can validate via requireWeakMapThis.  Without this, WeakMap
     // .prototype.{set,get,has,delete}.call(non-WeakMap, ...) silently
     // succeeded instead of throwing TypeError.
-    const proto::ProtoObject* brandObj = ctx->fromUTF8String("__is_weak_map__");
-    const proto::ProtoString* brandKey = brandObj ? brandObj->asString(ctx) : nullptr;
+    const proto::ProtoString* brandKey = PROTOJS_NAME(ctx, "__is_weak_map__");
     if (brandKey) self = self->setAttribute(ctx, brandKey, PROTO_TRUE);
 
     // §24.4.1.1 step 4-9: AddEntriesFromIterable(self, iterable, set).
@@ -2291,8 +2268,7 @@ void ensureWeakMapConstructor(proto::ProtoContext* ctx,
         const proto::ProtoString* userKey = JSSymbols::symbolToStringTag(ctx);
         if (userKey) {
             proto = proto->setAttribute(ctx, userKey, ctx->fromUTF8String("WeakMap"));
-            const proto::ProtoObject* pdko = ctx->fromUTF8String("__pd_Symbol.toStringTag__");
-            const proto::ProtoString* pdks = pdko ? pdko->asString(ctx) : nullptr;
+            const proto::ProtoString* pdks = PROTOJS_NAME(ctx, "__pd_Symbol.toStringTag__");
             if (pdks) proto = proto->setAttribute(ctx, pdks, ctx->fromInteger(0x2LL));
             const proto::ProtoString* hnwK = JSSymbols::hasNonWritableProps(ctx);
             if (hnwK) proto = proto->setAttribute(ctx, hnwK, PROTO_TRUE);
@@ -2337,14 +2313,12 @@ void ensureWeakMapConstructor(proto::ProtoContext* ctx,
     if (protoKey) {
         ctor = ctor->setAttribute(ctx, protoKey, proto);
         // §24.3.2.1 / §17: WeakMap.prototype descriptor bits 0x0.
-        const proto::ProtoObject* pdpo = ctx->fromUTF8String("__pd_prototype__");
-        const proto::ProtoString* pdpk = pdpo ? pdpo->asString(ctx) : nullptr;
+        const proto::ProtoString* pdpk = PROTOJS_NAME(ctx, "__pd_prototype__");
         if (pdpk) ctor = ctor->setAttribute(ctx, pdpk, ctx->fromInteger(0x0LL));
     }
 
     // __construct__ native handler (called by OP_call_constructor generic fallback).
-    const proto::ProtoObject* constructKeyObj = ctx->fromUTF8String("__construct__");
-    const proto::ProtoString* constructKs = constructKeyObj ? constructKeyObj->asString(ctx) : nullptr;
+    const proto::ProtoString* constructKs = PROTOJS_NAME(ctx, "__construct__");
     if (constructKs) {
         const proto::ProtoObject* constructFn = ctx->fromMethod(nullptr, weakMapConstruct);
         if (constructFn) ctor = ctor->setAttribute(ctx, constructKs, constructFn);
@@ -2382,8 +2356,7 @@ void ensureWeakMapConstructor(proto::ProtoContext* ctx,
     *globalRoot = (*globalRoot)->setAttribute(ctx, key, ctor);
     // §17 globalThis.WeakMap descriptor 0x3.
     {
-        const proto::ProtoObject* pdo = ctx->fromUTF8String("__pd_WeakMap__");
-        const proto::ProtoString* pdk = pdo ? pdo->asString(ctx) : nullptr;
+        const proto::ProtoString* pdk = PROTOJS_NAME(ctx, "__pd_WeakMap__");
         if (pdk) *globalRoot = (*globalRoot)->setAttribute(ctx, pdk,
             ctx->fromInteger(0x3LL));
     }

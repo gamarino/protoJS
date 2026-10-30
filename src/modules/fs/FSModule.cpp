@@ -1,4 +1,5 @@
 #include "FSModule.h"
+#include "../../JSSymbols.h"
 #include "../../JSNumber.h"
 #include "../../runtime/JSStringBytes.h"
 #include "../IOModule.h"
@@ -891,7 +892,7 @@ const proto::ProtoObject* FSModule::init(
         ProtoNativeModule::buildModule(ctx, fsEntries, 19);
     if (!mod) return globalObj;
     const proto::ProtoString* pk =
-        ctx->fromUTF8String("promises")->asString(ctx);
+        PROTOJS_NAME(ctx, "promises");
     if (pk) mod = mod->setAttribute(ctx, pk, promisesObj);
 
     return ProtoNativeModule::registerOnGlobal(ctx, globalObj, "fs", mod);

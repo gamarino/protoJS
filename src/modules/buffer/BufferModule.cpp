@@ -638,14 +638,14 @@ const proto::ProtoObject* BufferModule::init(
         bufferCtor = bufferCtor->setAttribute(ctx, protoKey, bufferProto);
     {
         const proto::ProtoString* ck =
-            ctx->fromUTF8String("__construct__")->asString(ctx);
+            PROTOJS_NAME(ctx, "__construct__");
         if (ck) bufferCtor = bufferCtor->setAttribute(ctx, ck,
             ctx->fromMethod(nullptr, bufferConstructor));
     }
     // Static factory methods on the constructor.
     auto installStatic = [&](const char* name, proto::ProtoMethod fn) {
         const proto::ProtoString* k =
-            ctx->fromUTF8String(name)->asString(ctx);
+            JSSymbols::internName(ctx, name);
         if (!k) return;
         bufferCtor = bufferCtor->setAttribute(ctx, k,
             ctx->fromMethod(nullptr, fn));

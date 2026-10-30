@@ -973,7 +973,7 @@ const proto::ProtoObject* makeSocketConstructor(proto::ProtoContext* ctx) {
         if (ck) proto->setAttribute(ctx, ck, ctor);
     }
     const proto::ProtoString* constructKey =
-        ctx->fromUTF8String("__construct__")->asString(ctx);
+        PROTOJS_NAME(ctx, "__construct__");
     if (constructKey)
         ctor = ctor->setAttribute(ctx, constructKey, ctx->fromMethod(nullptr, socketConstruct));
     return ctor;

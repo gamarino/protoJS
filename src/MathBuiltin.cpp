@@ -462,7 +462,7 @@ void ensureMathObject(proto::ProtoContext* ctx,
     // raw ProtoMethod cell can't hold arbitrary attributes, so a thin
     // wrapper object inheriting Function.prototype is needed instead.
     auto reg = [&](const char* name, proto::ProtoMethod fn, long long length) {
-        const proto::ProtoString* key = ctx->fromUTF8String(name)->asString(ctx);
+        const proto::ProtoString* key = JSSymbols::internName(ctx, name);
         if (!key) return;
         const proto::ProtoObject* wrapper = ctx->space->methodPrototype
             ? ctx->space->methodPrototype->newChild(ctx, true)
@@ -491,13 +491,12 @@ void ensureMathObject(proto::ProtoContext* ctx,
         // Math methods themselves carry the standard built-in descriptor
         // {writable:true, enumerable:false, configurable:true} → 0x3.
         std::string pd = std::string("__pd_") + name + "__";
-        const proto::ProtoObject* pko = protojs::jsStringFromUTF8(ctx, pd);
-        const proto::ProtoString* pdk = pko ? pko->asString(ctx) : nullptr;
+        const proto::ProtoString* pdk = JSSymbols::internName(ctx, pd.c_str());
         if (pdk) math = math->setAttribute(ctx, pdk, ctx->fromInteger(0x3LL));
     };
 
     auto setConst = [&](const char* name, double val) {
-        const proto::ProtoString* key = ctx->fromUTF8String(name)->asString(ctx);
+        const proto::ProtoString* key = JSSymbols::internName(ctx, name);
         if (!key) return;
         math = math->setAttribute(ctx, key, makeNumber(ctx, val));
         // Math constants are spec'd { writable:false, enumerable:false,
@@ -506,8 +505,7 @@ void ensureMathObject(proto::ProtoContext* ctx,
         // so `delete Math.PI` returned true and Math.PI = 99 silently
         // overwrote the value.
         std::string pd = std::string("__pd_") + name + "__";
-        const proto::ProtoObject* pko = protojs::jsStringFromUTF8(ctx, pd);
-        const proto::ProtoString* pdk = pko ? pko->asString(ctx) : nullptr;
+        const proto::ProtoString* pdk = JSSymbols::internName(ctx, pd.c_str());
         if (pdk) math = math->setAttribute(ctx, pdk, ctx->fromInteger(0LL));
         // Hot-path hint mirroring the constructor sweep in Round 12 —
         // resolvePutFieldOOP only consults __pd_<key>__ when the per-
@@ -578,8 +576,7 @@ void ensureMathObject(proto::ProtoContext* ctx,
         const proto::ProtoString* userKey = JSSymbols::symbolToStringTag(ctx);
         if (userKey) {
             math = math->setAttribute(ctx, userKey, ctx->fromUTF8String("Math"));
-            const proto::ProtoObject* pdko = ctx->fromUTF8String("__pd_Symbol.toStringTag__");
-            const proto::ProtoString* pdks = pdko ? pdko->asString(ctx) : nullptr;
+            const proto::ProtoString* pdks = PROTOJS_NAME(ctx, "__pd_Symbol.toStringTag__");
             if (pdks) math = math->setAttribute(ctx, pdks, ctx->fromInteger(0x2LL));
         }
     }
@@ -590,8 +587,7 @@ void ensureMathObject(proto::ProtoContext* ctx,
     // so the default 0x7 (full enumerable) leaked Math into for-in
     // and Object.keys(globalThis).
     {
-        const proto::ProtoObject* pdo = ctx->fromUTF8String("__pd_Math__");
-        const proto::ProtoString* pdks = pdo ? pdo->asString(ctx) : nullptr;
+        const proto::ProtoString* pdks = PROTOJS_NAME(ctx, "__pd_Math__");
         if (pdks) *globalRoot = (*globalRoot)->setAttribute(ctx, pdks, ctx->fromInteger(0x3LL));
     }
 }

@@ -244,11 +244,9 @@ void stringifyRecursive(proto::ProtoContext* ctx,
     // JSON.rawJSON("1")) produced '{"rawJSON":"1"}' instead of '1'
     // (built-ins/JSON/rawJSON/basic.js).
     {
-        const proto::ProtoObject* mkO = ctx->fromUTF8String("__is_raw_json__");
-        const proto::ProtoString* mkK = mkO ? mkO->asString(ctx) : nullptr;
+        const proto::ProtoString* mkK = PROTOJS_NAME(ctx, "__is_raw_json__");
         if (mkK && obj->getAttribute(ctx, mkK, false) == PROTO_TRUE) {
-            const proto::ProtoObject* rkO = ctx->fromUTF8String("rawJSON");
-            const proto::ProtoString* rkK = rkO ? rkO->asString(ctx) : nullptr;
+            const proto::ProtoString* rkK = PROTOJS_NAME(ctx, "rawJSON");
             const proto::ProtoObject* raw = rkK
                 ? obj->getAttribute(ctx, rkK, false) : PROTO_NONE;
             if (raw && raw != PROTO_NONE && raw->isString(ctx)) {
@@ -358,8 +356,7 @@ void stringifyRecursive(proto::ProtoContext* ctx,
     // the wrapper object was treated as a regular object with no own
     // enumerable props.
     {
-        const proto::ProtoObject* pvObj = ctx->fromUTF8String("__primitive_value__");
-        const proto::ProtoString* pvKey = pvObj ? pvObj->asString(ctx) : nullptr;
+        const proto::ProtoString* pvKey = PROTOJS_NAME(ctx, "__primitive_value__");
         if (pvKey) {
             const proto::ProtoObject* prim = obj->getAttribute(ctx, pvKey, false);
             if (prim && prim != PROTO_NONE
@@ -1515,11 +1512,9 @@ static const proto::ProtoObject* jsonRawJSON(proto::ProtoContext* ctx,
     // refuses (matches the spec's parse-then-emit gate).
     const proto::ProtoObject* wrap = ctx->newObject(true);
     if (!wrap) return PROTO_NONE;
-    const proto::ProtoObject* rk = ctx->fromUTF8String("rawJSON");
-    const proto::ProtoString* rks = rk ? rk->asString(ctx) : nullptr;
+    const proto::ProtoString* rks = PROTOJS_NAME(ctx, "rawJSON");
     if (rks) wrap = wrap->setAttribute(ctx, rks, protojs::jsStringFromUTF8(ctx, text));
-    const proto::ProtoObject* mk = ctx->fromUTF8String("__is_raw_json__");
-    const proto::ProtoString* mks = mk ? mk->asString(ctx) : nullptr;
+    const proto::ProtoString* mks = PROTOJS_NAME(ctx, "__is_raw_json__");
     if (mks) wrap = wrap->setAttribute(ctx, mks, PROTO_TRUE);
     // Spec (JSON.parse / rawJSON proposal): the returned wrapper has
     // [[Prototype]] = null. Pre-fix the bare newObject inherited the
@@ -1546,8 +1541,7 @@ static const proto::ProtoObject* jsonIsRawJSON(proto::ProtoContext* ctx,
     if (v->isInteger(ctx) || v->isDouble(ctx) || v->isFloat(ctx)
         || v->isString(ctx) || v == PROTO_TRUE || v == PROTO_FALSE)
         return PROTO_FALSE;
-    const proto::ProtoObject* mk = ctx->fromUTF8String("__is_raw_json__");
-    const proto::ProtoString* mks = mk ? mk->asString(ctx) : nullptr;
+    const proto::ProtoString* mks = PROTOJS_NAME(ctx, "__is_raw_json__");
     return (mks && v->getAttribute(ctx, mks, false) == PROTO_TRUE)
         ? PROTO_TRUE : PROTO_FALSE;
 }
@@ -1585,8 +1579,7 @@ void JSONBuiltin::init(proto::ProtoContext* ctx, const proto::ProtoObject*& glob
     if (jsonObj) {
         const proto::ProtoString* lenKey = JSSymbols::length(ctx);
         auto patchLen = [&](const char* methodName, long long len) {
-            const proto::ProtoObject* mo = ctx->fromUTF8String(methodName);
-            const proto::ProtoString* mk = mo ? mo->asString(ctx) : nullptr;
+            const proto::ProtoString* mk = JSSymbols::internName(ctx, methodName);
             if (!mk) return;
             const proto::ProtoObject* wrapper = jsonObj->getAttribute(ctx, mk, false);
             if (wrapper && wrapper != PROTO_NONE && lenKey) {
@@ -1609,8 +1602,7 @@ void JSONBuiltin::init(proto::ProtoContext* ctx, const proto::ProtoObject*& glob
         const proto::ProtoString* userKey = JSSymbols::symbolToStringTag(ctx);
         if (userKey) {
             jsonObj = jsonObj->setAttribute(ctx, userKey, ctx->fromUTF8String("JSON"));
-            const proto::ProtoObject* pdko = ctx->fromUTF8String("__pd_Symbol.toStringTag__");
-            const proto::ProtoString* pdks = pdko ? pdko->asString(ctx) : nullptr;
+            const proto::ProtoString* pdks = PROTOJS_NAME(ctx, "__pd_Symbol.toStringTag__");
             if (pdks) jsonObj = jsonObj->setAttribute(ctx, pdks, ctx->fromInteger(0x2LL));
         }
         // §17 the @@toStringTag slot is non-writable; the hnw hint flag
@@ -1626,8 +1618,7 @@ void JSONBuiltin::init(proto::ProtoContext* ctx, const proto::ProtoObject*& glob
     // configurable:true} → 0x3. Pre-fix no sidecar so the default 0x7
     // (full enumerable) leaked JSON into for-in / Object.keys(globalThis).
     {
-        const proto::ProtoObject* pdo = ctx->fromUTF8String("__pd_JSON__");
-        const proto::ProtoString* pdks = pdo ? pdo->asString(ctx) : nullptr;
+        const proto::ProtoString* pdks = PROTOJS_NAME(ctx, "__pd_JSON__");
         if (pdks && globalObj) globalObj = globalObj->setAttribute(ctx, pdks, ctx->fromInteger(0x3LL));
     }
 }

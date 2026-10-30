@@ -497,8 +497,7 @@ static const proto::ProtoObject* setIteratorNext(
     // and would happily resume yielding new entries past the original
     // 'done' return — set.add(4) after iteration completes would be
     // visited on the next call.
-    const proto::ProtoObject* doneKo = ctx->fromUTF8String("__iter_done__");
-    const proto::ProtoString* doneKs = doneKo ? doneKo->asString(ctx) : nullptr;
+    const proto::ProtoString* doneKs = PROTOJS_NAME(ctx, "__iter_done__");
     if (doneKs) {
         const proto::ProtoObject* d = self->getAttribute(ctx, doneKs, false);
         if (d == PROTO_TRUE) return makeDone();
@@ -597,8 +596,7 @@ static const proto::ProtoObject* getSetIteratorProto(proto::ProtoContext* ctx) {
                 if (pdnk) wrapper = wrapper->setAttribute(ctx, pdnk, ctx->fromInteger(0x2LL));
             }
             proto = proto->setAttribute(ctx, nextKey, wrapper);
-            const proto::ProtoObject* pdno = ctx->fromUTF8String("__pd_next__");
-            const proto::ProtoString* pdnk = pdno ? pdno->asString(ctx) : nullptr;
+            const proto::ProtoString* pdnk = PROTOJS_NAME(ctx, "__pd_next__");
             if (pdnk) proto = proto->setAttribute(ctx, pdnk, ctx->fromInteger(0x3LL));
         }
     }
@@ -607,8 +605,7 @@ static const proto::ProtoObject* getSetIteratorProto(proto::ProtoContext* ctx) {
     if (tagUser) {
         proto = proto->setAttribute(ctx, tagUser,
             ctx->fromUTF8String("Set Iterator"));
-        const proto::ProtoObject* pdo = ctx->fromUTF8String("__pd_Symbol.toStringTag__");
-        const proto::ProtoString* pdk = pdo ? pdo->asString(ctx) : nullptr;
+        const proto::ProtoString* pdk = PROTOJS_NAME(ctx, "__pd_Symbol.toStringTag__");
         if (pdk) proto = proto->setAttribute(ctx, pdk, ctx->fromInteger(0x2LL));
     }
     const proto::ProtoString* hnwK = JSSymbols::hasNonWritableProps(ctx);
@@ -736,8 +733,7 @@ static const proto::ProtoObject* setConstruct(
         // §24.2.1.1 step 6 + GetIterator: explicit @@iterator =
         // undefined / null is a TypeError, not a silent skip.
         if (iterable && iterable != PROTO_NONE && !iterable->isString(ctx)) {
-            const proto::ProtoObject* ito = ctx->fromUTF8String("Symbol.iterator");
-            const proto::ProtoString* its = ito ? ito->asString(ctx) : nullptr;
+            const proto::ProtoString* its = PROTOJS_NAME(ctx, "Symbol.iterator");
             if (its && iterable->hasOwnAttribute(ctx, its) == PROTO_TRUE) {
                 const proto::ProtoObject* fn = iterable->getAttribute(ctx, its, false);
                 if (fn == getUndefinedSentinel() || fn == getNullSentinel()) {
@@ -1495,8 +1491,7 @@ void BuildSetPrototype(proto::ProtoSpace* space, proto::ProtoContext* ctx,
 
     // size getter via __get_size__
     {
-        const proto::ProtoObject* gko = ctx->fromUTF8String("__get_size__");
-        const proto::ProtoString* gks = gko ? gko->asString(ctx) : nullptr;
+        const proto::ProtoString* gks = PROTOJS_NAME(ctx, "__get_size__");
         if (gks) {
             // The getter must be a real Function object with the
             // standard §17 .length and .name data properties so
@@ -1597,8 +1592,7 @@ void ensureSetConstructor(proto::ProtoContext* ctx,
             const proto::ProtoString* kK = kKo ? kKo->asString(ctx) : nullptr;
             if (valuesFn && valuesFn != PROTO_NONE && kK) {
                 sp = sp->setAttribute(ctx, kK, valuesFn);
-                const proto::ProtoObject* pdko = ctx->fromUTF8String("__pd_keys__");
-                const proto::ProtoString* pdks = pdko ? pdko->asString(ctx) : nullptr;
+                const proto::ProtoString* pdks = PROTOJS_NAME(ctx, "__pd_keys__");
                 if (pdks) sp = sp->setAttribute(ctx, pdks, ctx->fromInteger(0x3LL));
             }
             // §24.2.3.12 Set.prototype[@@iterator] === Set.prototype.values
@@ -1609,8 +1603,7 @@ void ensureSetConstructor(proto::ProtoContext* ctx,
                 const proto::ProtoString* symIterKey = JSSymbols::symbolIterator(ctx);
                 if (symIterKey) {
                     sp = sp->setAttribute(ctx, symIterKey, valuesFn);
-                    const proto::ProtoObject* pdiko = ctx->fromUTF8String("__pd_Symbol.iterator__");
-                    const proto::ProtoString* pdiks = pdiko ? pdiko->asString(ctx) : nullptr;
+                    const proto::ProtoString* pdiks = PROTOJS_NAME(ctx, "__pd_Symbol.iterator__");
                     if (pdiks) sp = sp->setAttribute(ctx, pdiks, ctx->fromInteger(0x3LL));
                 }
             }
@@ -1630,8 +1623,7 @@ void ensureSetConstructor(proto::ProtoContext* ctx,
         // .apply / .bind were missing, breaking
         // Object.getOwnPropertyDescriptor(Set.prototype,'size').get.call.
         {
-            const proto::ProtoObject* gko = ctx->fromUTF8String("__get_size__");
-            const proto::ProtoString* gks = gko ? gko->asString(ctx) : nullptr;
+            const proto::ProtoString* gks = PROTOJS_NAME(ctx, "__get_size__");
             if (gks) {
                 const proto::ProtoObject* parent = ctx->space->methodPrototype;
                 const proto::ProtoObject* getter = parent ? parent->newChild(ctx, true) : nullptr;
@@ -1705,13 +1697,11 @@ void ensureSetConstructor(proto::ProtoContext* ctx,
     if (protoKey && setProtoOf(ctx)) {
         ctor = ctor->setAttribute(ctx, protoKey, setProtoOf(ctx));
         // §24.2.2.1 / §17: Set.prototype descriptor bits 0x0.
-        const proto::ProtoObject* pdpo = ctx->fromUTF8String("__pd_prototype__");
-        const proto::ProtoString* pdpk = pdpo ? pdpo->asString(ctx) : nullptr;
+        const proto::ProtoString* pdpk = PROTOJS_NAME(ctx, "__pd_prototype__");
         if (pdpk) ctor = ctor->setAttribute(ctx, pdpk, ctx->fromInteger(0x0LL));
     }
 
-    const proto::ProtoObject* constructKey = ctx->fromUTF8String("__construct__");
-    const proto::ProtoString* constructKs  = constructKey ? constructKey->asString(ctx) : nullptr;
+    const proto::ProtoString* constructKs = PROTOJS_NAME(ctx, "__construct__");
     if (constructKs) {
         const proto::ProtoObject* constructFn = ctx->fromMethod(nullptr, setConstruct);
         if (constructFn) ctor = ctor->setAttribute(ctx, constructKs, constructFn);
@@ -1785,7 +1775,7 @@ void ensureSetConstructor(proto::ProtoContext* ctx,
                 const proto::ProtoString* hnwSp = JSSymbols::hasNonWritableProps(ctx);
                 if (hnwSp) getter = getter->setAttribute(ctx, hnwSp, PROTO_TRUE);
                 const proto::ProtoString* gksSym =
-                    ctx->fromUTF8String("__get_Symbol.species__")->asString(ctx);
+                    PROTOJS_NAME(ctx, "__get_Symbol.species__");
                 if (gksSym) ctor = ctor->setAttribute(ctx, gksSym, getter);
                 // §24.2.2.2 get Set[@@species] descriptor: accessor
                 // with {enumerable:false, configurable:true} → 0x2.

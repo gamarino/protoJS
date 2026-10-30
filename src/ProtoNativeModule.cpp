@@ -45,14 +45,13 @@ const proto::ProtoObject* ProtoNativeModule::addMethod(
     // built-in static methods like Object.create.
     const proto::ProtoString* hnw = JSSymbols::hasNonWritableProps(ctx);
     if (hnw) wrapper = wrapper->setAttribute(ctx, hnw, PROTO_TRUE);
-    const proto::ProtoString* key = ctx->fromUTF8String(name)->asString(ctx);
+    const proto::ProtoString* key = JSSymbols::internName(ctx, name);
     if (!key) return obj;
     obj = obj->setAttribute(ctx, key, wrapper);
     // ECMA-262 §17: built-in methods carry descriptor
     // {writable:true, enumerable:false, configurable:true} → 0x3.
     std::string pdStr = std::string("__pd_") + name + "__";
-    const proto::ProtoObject* pdo = protojs::jsStringFromUTF8(ctx, pdStr);
-    const proto::ProtoString* pdk = pdo ? pdo->asString(ctx) : nullptr;
+    const proto::ProtoString* pdk = JSSymbols::internName(ctx, pdStr.c_str());
     if (pdk) obj = obj->setAttribute(ctx, pdk, ctx->fromInteger(0x3LL));
     return obj;
 }
@@ -80,7 +79,7 @@ const proto::ProtoObject* ProtoNativeModule::registerOnGlobal(
     const proto::ProtoObject* moduleObj)
 {
     if (!ctx || !globalObj || !name || !moduleObj) return globalObj;
-    const proto::ProtoString* key = ctx->fromUTF8String(name)->asString(ctx);
+    const proto::ProtoString* key = JSSymbols::internName(ctx, name);
     if (!key) return globalObj;
     return globalObj->setAttribute(ctx, key, moduleObj);
 }

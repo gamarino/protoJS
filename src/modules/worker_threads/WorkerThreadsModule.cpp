@@ -177,7 +177,7 @@ const proto::ProtoObject* makeEventEmitterInstance(
         nativeGlobal->getAttribute(ctx, eventsKey, false);
     if (!eventsMod || eventsMod == PROTO_NONE) return ctx->newObject(true);
     const proto::ProtoString* eeKey =
-        ctx->fromUTF8String("EventEmitter")->asString(ctx);
+        PROTOJS_NAME(ctx, "EventEmitter");
     const proto::ProtoObject* eeCtor =
         eeKey ? eventsMod->getAttribute(ctx, eeKey, false) : nullptr;
     if (!eeCtor || eeCtor == PROTO_NONE) return ctx->newObject(true);
@@ -430,7 +430,7 @@ const proto::ProtoObject* workerPostMessage(
             const proto::ProtoObject* wg = wrapperRaw->getNativeGlobal();
             if (!wg) return;
             const proto::ProtoString* ppKey =
-                wctx->fromUTF8String("parentPort")->asString(wctx);
+                PROTOJS_NAME(wctx, "parentPort");
             const proto::ProtoObject* pp =
                 ppKey ? wg->getAttribute(wctx, ppKey, false) : nullptr;
             if (!pp || pp == PROTO_NONE) return;
@@ -673,7 +673,7 @@ void runWorker(WorkerState* state, proto::ProtoContext* ctx) {
 
         // Install parentPort on the worker global.
         const proto::ProtoString* ppKey =
-            wctx->fromUTF8String("parentPort")->asString(wctx);
+            PROTOJS_NAME(wctx, "parentPort");
         if (ppKey) {
             wg = wg->setAttribute(wctx, ppKey, parentPort);
             state->workerWrapper->updateNativeGlobal(wg);
@@ -683,7 +683,7 @@ void runWorker(WorkerState* state, proto::ProtoContext* ctx) {
         if (mainRs && state->workerData != proto::ProtoRootSet::kNullHandle) {
             const proto::ProtoObject* wd = mainRs->resolve(state->workerData);
             const proto::ProtoString* wdKey =
-                wctx->fromUTF8String("workerData")->asString(wctx);
+                PROTOJS_NAME(wctx, "workerData");
             if (wdKey && wd) {
                 wg = wg->setAttribute(wctx, wdKey, wd);
                 state->workerWrapper->updateNativeGlobal(wg);
@@ -791,7 +791,7 @@ const proto::ProtoObject* workerConstructor(
         const proto::ProtoObject* opts = args->getAt(ctx, 1);
         if (opts && opts != PROTO_NONE) {
             const proto::ProtoString* wdKey =
-                ctx->fromUTF8String("workerData")->asString(ctx);
+                PROTOJS_NAME(ctx, "workerData");
             const proto::ProtoObject* wdv =
                 wdKey ? opts->getAttribute(ctx, wdKey, false) : nullptr;
             // Cloned in the caller's context, as in workerPostMessage.
@@ -880,7 +880,7 @@ const proto::ProtoObject* isMainThreadImpl(
     const proto::ProtoObject* g = w->getNativeGlobal();
     if (!c || !g) return PROTO_TRUE;
     const proto::ProtoString* k =
-        c->fromUTF8String("parentPort")->asString(c);
+        PROTOJS_NAME(c, "parentPort");
     const proto::ProtoObject* pp = k ? g->getAttribute(c, k, false) : nullptr;
     return (pp && pp != PROTO_NONE) ? PROTO_FALSE : PROTO_TRUE;
 }
@@ -894,7 +894,7 @@ const proto::ProtoObject* parentPortImpl(
     JSContextWrapper* w = JSContextWrapper::current();
     if (!w || !ctx) return PROTO_NONE;
     const proto::ProtoString* k =
-        ctx->fromUTF8String("parentPort")->asString(ctx);
+        PROTOJS_NAME(ctx, "parentPort");
     const proto::ProtoObject* g = w->getNativeGlobal();
     if (!k || !g) return PROTO_NONE;
     const proto::ProtoObject* pp = g->getAttribute(ctx, k, false);
@@ -910,7 +910,7 @@ const proto::ProtoObject* workerDataImpl(
     JSContextWrapper* w = JSContextWrapper::current();
     if (!w || !ctx) return PROTO_NONE;
     const proto::ProtoString* k =
-        ctx->fromUTF8String("workerData")->asString(ctx);
+        PROTOJS_NAME(ctx, "workerData");
     const proto::ProtoObject* g = w->getNativeGlobal();
     if (!k || !g) return PROTO_NONE;
     const proto::ProtoObject* wd = g->getAttribute(ctx, k, false);
@@ -974,7 +974,7 @@ const proto::ProtoObject* WorkerThreadsModule::init(
         workerCtor = workerCtor->setAttribute(ctx, protoKey, workerProto);
     {
         const proto::ProtoString* ck =
-            ctx->fromUTF8String("__construct__")->asString(ctx);
+            PROTOJS_NAME(ctx, "__construct__");
         if (ck) workerCtor = workerCtor->setAttribute(ctx, ck,
             ctx->fromMethod(nullptr, workerConstructor));
     }
@@ -991,7 +991,7 @@ const proto::ProtoObject* WorkerThreadsModule::init(
     auto installFn = [&](const char* name,
                            proto::ProtoMethod fn) {
         const proto::ProtoString* k =
-            ctx->fromUTF8String(name)->asString(ctx);
+            JSSymbols::internName(ctx, name);
         if (!k) return;
         mod->setAttribute(ctx, k, ctx->fromMethod(nullptr, fn));
     };

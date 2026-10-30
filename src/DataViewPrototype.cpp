@@ -613,8 +613,7 @@ void ensureDataViewConstructor(proto::ProtoContext* ctx,
     // → 0x2.  Object.prototype.toString.call(new DataView(buf))
     // returned "[object Object]" before this stamp.
     {
-        const proto::ProtoObject* tagKo = ctx->fromUTF8String("Symbol.toStringTag");
-        const proto::ProtoString* tagK = tagKo ? tagKo->asString(ctx) : nullptr;
+        const proto::ProtoString* tagK = PROTOJS_NAME(ctx, "Symbol.toStringTag");
         if (tagK) {
             proto = proto->setAttribute(ctx, tagK,
                 ctx->fromUTF8String("DataView"));
@@ -632,8 +631,7 @@ void ensureDataViewConstructor(proto::ProtoContext* ctx,
     ctor = ctor->setAttribute(ctx, JSSymbols::prototype(ctx), proto);
     // §25.3.2.1 / §17: DataView.prototype descriptor bits 0x0.
     {
-        const proto::ProtoObject* pdpo = ctx->fromUTF8String("__pd_prototype__");
-        const proto::ProtoString* pdpk = pdpo ? pdpo->asString(ctx) : nullptr;
+        const proto::ProtoString* pdpk = PROTOJS_NAME(ctx, "__pd_prototype__");
         if (pdpk) ctor = ctor->setAttribute(ctx, pdpk, ctx->fromInteger(0x0LL));
     }
     // Mark as DataView constructor so OP_call_constructor can dispatch.

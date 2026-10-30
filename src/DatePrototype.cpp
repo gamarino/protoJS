@@ -200,8 +200,7 @@ static const proto::ProtoObject* jsToPrimitive(proto::ProtoContext* ctx,
         }
     }
     if (!tpFn || tpFn == PROTO_NONE) {
-        const proto::ProtoObject* tpKo = ctx->fromUTF8String("Symbol.toPrimitive");
-        const proto::ProtoString* tpKs = tpKo ? tpKo->asString(ctx) : nullptr;
+        const proto::ProtoString* tpKs = PROTOJS_NAME(ctx, "Symbol.toPrimitive");
         tpFn = tpKs ? v->getAttribute(ctx, tpKs, true) : nullptr;
     }
     if (tpFn && tpFn != PROTO_NONE && tpFn != getUndefinedSentinel()
@@ -1956,13 +1955,13 @@ static void registerProtoMethod(proto::ProtoContext* ctx,
                                 proto::ProtoMethod fn,
                                 long long length) {
     if (!proto || proto == PROTO_NONE) return;
-    const proto::ProtoString* k = ctx->fromUTF8String(name)->asString(ctx);
+    const proto::ProtoString* k = JSSymbols::internName(ctx, name);
     if (!k) return;
     const proto::ProtoObject* w = makeMethodWrapper(ctx, name, fn, length);
     if (!w) return;
     proto = proto->setAttribute(ctx, k, w);
     std::string pdStr = std::string("__pd_") + name + "__";
-    const proto::ProtoString* pdk = protojs::jsStringFromUTF8(ctx, pdStr)->asString(ctx);
+    const proto::ProtoString* pdk = JSSymbols::internName(ctx, pdStr.c_str());
     if (pdk) proto = proto->setAttribute(ctx, pdk, ctx->fromInteger(0x3LL));
 }
 

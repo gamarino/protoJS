@@ -834,8 +834,7 @@ const proto::ProtoObject* ProtoCoreNativeBindings::init(
 
     auto put = [&](const char* name, const proto::ProtoObject* value) {
         if (!value) return;
-        const proto::ProtoObject* k = ctx->fromUTF8String(name);
-        const proto::ProtoString* key = k ? k->asString(ctx) : nullptr;
+        const proto::ProtoString* key = JSSymbols::internName(ctx, name);
         if (key) mod->setAttribute(ctx, key, value);
     };
 

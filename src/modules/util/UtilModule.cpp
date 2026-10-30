@@ -110,7 +110,7 @@ const proto::ProtoObject* typesIsDate(
     const proto::ProtoObject* a = arg0(ctx, args);
     if (!ctx || !a || a == PROTO_NONE) return PROTO_FALSE;
     const proto::ProtoString* gtKey =
-        ctx->fromUTF8String("getTime")->asString(ctx);
+        PROTOJS_NAME(ctx, "getTime");
     if (!gtKey) return PROTO_FALSE;
     const proto::ProtoObject* v = a->getAttribute(ctx, gtKey, false);
     if (!v || v == PROTO_NONE) return PROTO_FALSE;
@@ -133,8 +133,7 @@ const proto::ProtoObject* inspectImplementation(proto::ProtoContext* ctx) {
     JSContextWrapper* wrapper = JSContextWrapper::current();
     if (!ctx || !wrapper) return nullptr;
     const proto::ProtoObject* g = wrapper->getNativeGlobal();
-    const proto::ProtoObject* keyObj = ctx->fromUTF8String("__pjs_util_inspect__");
-    const proto::ProtoString* key = keyObj ? keyObj->asString(ctx) : nullptr;
+    const proto::ProtoString* key = PROTOJS_NAME(ctx, "__pjs_util_inspect__");
     if (!g || !key) return nullptr;
     const proto::ProtoObject* cached = g->getAttribute(ctx, key, false);
     if (cached && cached != PROTO_NONE) return cached;

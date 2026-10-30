@@ -63,8 +63,7 @@ static const proto::ProtoObject* iterGetNext(proto::ProtoContext* ctx,
     // the getter and uses its return value (test262 this-plain-
     // iterator.js installs `get next() { return function(){...}; }`).
     if (!fn || fn == PROTO_NONE || fn == getUndefinedSentinel() || fn == getNullSentinel()) {
-        const proto::ProtoObject* gko = ctx->fromUTF8String("__get_next__");
-        const proto::ProtoString* gk = gko ? gko->asString(ctx) : nullptr;
+        const proto::ProtoString* gk = PROTOJS_NAME(ctx, "__get_next__");
         if (gk) {
             const proto::ProtoObject* getter = iter->getAttribute(ctx, gk, true);
             if (getter && getter != PROTO_NONE && getter != getUndefinedSentinel()) {
@@ -419,14 +418,11 @@ static const proto::ProtoObject* makeHelperIterator(
         ? iterProto->newChild(ctx, true) : ctx->newObject(true);
     if (!it) return PROTO_NONE;
     // Stash internal state.
-    const proto::ProtoObject* uKo = ctx->fromUTF8String("__helper_underlying__");
-    const proto::ProtoString* uK = uKo ? uKo->asString(ctx) : nullptr;
+    const proto::ProtoString* uK = PROTOJS_NAME(ctx, "__helper_underlying__");
     if (uK) it = it->setAttribute(ctx, uK, underlying ? underlying : PROTO_NONE);
-    const proto::ProtoObject* cKo = ctx->fromUTF8String("__helper_cb__");
-    const proto::ProtoString* cK = cKo ? cKo->asString(ctx) : nullptr;
+    const proto::ProtoString* cK = PROTOJS_NAME(ctx, "__helper_cb__");
     if (cK) it = it->setAttribute(ctx, cK, callback ? callback : PROTO_NONE);
-    const proto::ProtoObject* nKo = ctx->fromUTF8String("__helper_counter__");
-    const proto::ProtoString* nK = nKo ? nKo->asString(ctx) : nullptr;
+    const proto::ProtoString* nK = PROTOJS_NAME(ctx, "__helper_counter__");
     if (nK) it = it->setAttribute(ctx, nK, ctx->fromInteger(initialCounter));
     // Install .next pointing at our method.
     const proto::ProtoObject* nxKo = ctx->fromUTF8String("next");
@@ -461,8 +457,7 @@ static const proto::ProtoObject* iteratorHelperReturn(
 {
     if (!self || self == PROTO_NONE)
         return makeIterResult(ctx, getUndefinedSentinel(), true);
-    const proto::ProtoObject* flagKo = ctx->fromUTF8String("__helper_returned__");
-    const proto::ProtoString* flagK = flagKo ? flagKo->asString(ctx) : nullptr;
+    const proto::ProtoString* flagK = PROTOJS_NAME(ctx, "__helper_returned__");
     bool alreadyReturned = false;
     if (flagK) {
         const proto::ProtoObject* fv = self->getAttribute(ctx, flagK, false);
@@ -470,14 +465,12 @@ static const proto::ProtoObject* iteratorHelperReturn(
     }
     if (!alreadyReturned) {
         if (flagK) self->setAttribute(ctx, flagK, PROTO_TRUE);
-        const proto::ProtoObject* uKo = ctx->fromUTF8String("__helper_underlying__");
-        const proto::ProtoString* uK = uKo ? uKo->asString(ctx) : nullptr;
+        const proto::ProtoString* uK = PROTOJS_NAME(ctx, "__helper_underlying__");
         const proto::ProtoObject* underlying = uK ? self->getAttribute(ctx, uK, false) : nullptr;
         if (underlying && underlying != PROTO_NONE) {
             iterClose(ctx, underlying);
         }
-        const proto::ProtoObject* innerKo = ctx->fromUTF8String("__helper_inner__");
-        const proto::ProtoString* innerK = innerKo ? innerKo->asString(ctx) : nullptr;
+        const proto::ProtoString* innerK = PROTOJS_NAME(ctx, "__helper_inner__");
         if (innerK) {
             const proto::ProtoObject* inner = self->getAttribute(ctx, innerK, false);
             if (inner && inner != PROTO_NONE && inner != getUndefinedSentinel()) {
@@ -495,14 +488,11 @@ static const proto::ProtoObject* iteratorMapNext(
     const proto::ProtoKeywordArguments*)
 {
     if (!self || self == PROTO_NONE) return makeIterResult(ctx, getUndefinedSentinel(), true);
-    const proto::ProtoObject* uKo = ctx->fromUTF8String("__helper_underlying__");
-    const proto::ProtoString* uK = uKo ? uKo->asString(ctx) : nullptr;
+    const proto::ProtoString* uK = PROTOJS_NAME(ctx, "__helper_underlying__");
     const proto::ProtoObject* underlying = uK ? self->getAttribute(ctx, uK, false) : nullptr;
-    const proto::ProtoObject* cKo = ctx->fromUTF8String("__helper_cb__");
-    const proto::ProtoString* cK = cKo ? cKo->asString(ctx) : nullptr;
+    const proto::ProtoString* cK = PROTOJS_NAME(ctx, "__helper_cb__");
     const proto::ProtoObject* cb = cK ? self->getAttribute(ctx, cK, false) : nullptr;
-    const proto::ProtoObject* nKo = ctx->fromUTF8String("__helper_counter__");
-    const proto::ProtoString* nK = nKo ? nKo->asString(ctx) : nullptr;
+    const proto::ProtoString* nK = PROTOJS_NAME(ctx, "__helper_counter__");
     long long counter = 0;
     if (nK) {
         const proto::ProtoObject* cv = self->getAttribute(ctx, nK, false);
@@ -567,14 +557,11 @@ static const proto::ProtoObject* iteratorFilterNext(
     const proto::ProtoKeywordArguments*)
 {
     if (!self || self == PROTO_NONE) return makeIterResult(ctx, getUndefinedSentinel(), true);
-    const proto::ProtoObject* uKo = ctx->fromUTF8String("__helper_underlying__");
-    const proto::ProtoString* uK = uKo ? uKo->asString(ctx) : nullptr;
+    const proto::ProtoString* uK = PROTOJS_NAME(ctx, "__helper_underlying__");
     const proto::ProtoObject* underlying = uK ? self->getAttribute(ctx, uK, false) : nullptr;
-    const proto::ProtoObject* cKo = ctx->fromUTF8String("__helper_cb__");
-    const proto::ProtoString* cK = cKo ? cKo->asString(ctx) : nullptr;
+    const proto::ProtoString* cK = PROTOJS_NAME(ctx, "__helper_cb__");
     const proto::ProtoObject* cb = cK ? self->getAttribute(ctx, cK, false) : nullptr;
-    const proto::ProtoObject* nKo = ctx->fromUTF8String("__helper_counter__");
-    const proto::ProtoString* nK = nKo ? nKo->asString(ctx) : nullptr;
+    const proto::ProtoString* nK = PROTOJS_NAME(ctx, "__helper_counter__");
     long long counter = 0;
     if (nK) {
         const proto::ProtoObject* cv = self->getAttribute(ctx, nK, false);
@@ -640,11 +627,9 @@ static const proto::ProtoObject* iteratorTakeNext(
     const proto::ProtoKeywordArguments*)
 {
     if (!self || self == PROTO_NONE) return makeIterResult(ctx, getUndefinedSentinel(), true);
-    const proto::ProtoObject* uKo = ctx->fromUTF8String("__helper_underlying__");
-    const proto::ProtoString* uK = uKo ? uKo->asString(ctx) : nullptr;
+    const proto::ProtoString* uK = PROTOJS_NAME(ctx, "__helper_underlying__");
     const proto::ProtoObject* underlying = uK ? self->getAttribute(ctx, uK, false) : nullptr;
-    const proto::ProtoObject* nKo = ctx->fromUTF8String("__helper_counter__");
-    const proto::ProtoString* nK = nKo ? nKo->asString(ctx) : nullptr;
+    const proto::ProtoString* nK = PROTOJS_NAME(ctx, "__helper_counter__");
     long long remaining = 0;
     if (nK) {
         const proto::ProtoObject* cv = self->getAttribute(ctx, nK, false);
@@ -736,11 +721,9 @@ static const proto::ProtoObject* iteratorDropNext(
     const proto::ProtoKeywordArguments*)
 {
     if (!self || self == PROTO_NONE) return makeIterResult(ctx, getUndefinedSentinel(), true);
-    const proto::ProtoObject* uKo = ctx->fromUTF8String("__helper_underlying__");
-    const proto::ProtoString* uK = uKo ? uKo->asString(ctx) : nullptr;
+    const proto::ProtoString* uK = PROTOJS_NAME(ctx, "__helper_underlying__");
     const proto::ProtoObject* underlying = uK ? self->getAttribute(ctx, uK, false) : nullptr;
-    const proto::ProtoObject* nKo = ctx->fromUTF8String("__helper_counter__");
-    const proto::ProtoString* nK = nKo ? nKo->asString(ctx) : nullptr;
+    const proto::ProtoString* nK = PROTOJS_NAME(ctx, "__helper_counter__");
     long long remainingToSkip = 0;
     if (nK) {
         const proto::ProtoObject* cv = self->getAttribute(ctx, nK, false);
@@ -832,21 +815,17 @@ static const proto::ProtoObject* iteratorFlatMapNext(
     const proto::ProtoKeywordArguments*)
 {
     if (!self || self == PROTO_NONE) return makeIterResult(ctx, getUndefinedSentinel(), true);
-    const proto::ProtoObject* uKo = ctx->fromUTF8String("__helper_underlying__");
-    const proto::ProtoString* uK = uKo ? uKo->asString(ctx) : nullptr;
+    const proto::ProtoString* uK = PROTOJS_NAME(ctx, "__helper_underlying__");
     const proto::ProtoObject* outer = uK ? self->getAttribute(ctx, uK, false) : nullptr;
-    const proto::ProtoObject* cKo = ctx->fromUTF8String("__helper_cb__");
-    const proto::ProtoString* cK = cKo ? cKo->asString(ctx) : nullptr;
+    const proto::ProtoString* cK = PROTOJS_NAME(ctx, "__helper_cb__");
     const proto::ProtoObject* cb = cK ? self->getAttribute(ctx, cK, false) : nullptr;
-    const proto::ProtoObject* nKo = ctx->fromUTF8String("__helper_counter__");
-    const proto::ProtoString* nK = nKo ? nKo->asString(ctx) : nullptr;
+    const proto::ProtoString* nK = PROTOJS_NAME(ctx, "__helper_counter__");
     long long counter = 0;
     if (nK) {
         const proto::ProtoObject* cv = self->getAttribute(ctx, nK, false);
         if (cv && cv->isInteger(ctx)) counter = cv->asLong(ctx);
     }
-    const proto::ProtoObject* innerKo = ctx->fromUTF8String("__helper_inner__");
-    const proto::ProtoString* innerK = innerKo ? innerKo->asString(ctx) : nullptr;
+    const proto::ProtoString* innerK = PROTOJS_NAME(ctx, "__helper_inner__");
     if (!outer || outer == PROTO_NONE)
         return makeIterResult(ctx, getUndefinedSentinel(), true);
     for (;;) {
@@ -971,13 +950,11 @@ static void installHelper(proto::ProtoContext* ctx,
     if (hnwK) wrap = wrap->setAttribute(ctx, hnwK, PROTO_TRUE);
     // Stamp on prototype with §17 descriptor 0x3 (writable, non-enumerable,
     // configurable).
-    const proto::ProtoObject* mKo = ctx->fromUTF8String(name);
-    const proto::ProtoString* mK = mKo ? mKo->asString(ctx) : nullptr;
+    const proto::ProtoString* mK = JSSymbols::internName(ctx, name);
     if (mK) {
         *proto = (*proto)->setAttribute(ctx, mK, wrap);
         std::string pdName = std::string("__pd_") + name + "__";
-        const proto::ProtoObject* pdo = protojs::jsStringFromUTF8(ctx, pdName);
-        const proto::ProtoString* pdK = pdo ? pdo->asString(ctx) : nullptr;
+        const proto::ProtoString* pdK = JSSymbols::internName(ctx, pdName.c_str());
         if (pdK) *proto = (*proto)->setAttribute(ctx, pdK, ctx->fromInteger(0x3LL));
     }
 }
@@ -1056,8 +1033,7 @@ const proto::ProtoObject* getIteratorPrototype(proto::ProtoContext* ctx) {
             }
             return getUndefinedSentinel();
         };
-        const proto::ProtoObject* dispKo = ctx->fromUTF8String("Symbol.dispose");
-        const proto::ProtoString* dispK = dispKo ? dispKo->asString(ctx) : nullptr;
+        const proto::ProtoString* dispK = PROTOJS_NAME(ctx, "Symbol.dispose");
         if (dispK) {
             // Build a Function-prototype-parented wrapper, same shape as
             // installHelper.
@@ -1144,8 +1120,7 @@ static const proto::ProtoObject* iteratorFromNext(
 {
     if (!self || self == PROTO_NONE)
         return makeIterResult(ctx, getUndefinedSentinel(), true);
-    const proto::ProtoObject* uKo = ctx->fromUTF8String("__helper_underlying__");
-    const proto::ProtoString* uK = uKo ? uKo->asString(ctx) : nullptr;
+    const proto::ProtoString* uK = PROTOJS_NAME(ctx, "__helper_underlying__");
     const proto::ProtoObject* underlying = uK ? self->getAttribute(ctx, uK, false) : nullptr;
     if (!underlying || underlying == PROTO_NONE)
         return makeIterResult(ctx, getUndefinedSentinel(), true);
@@ -1201,20 +1176,17 @@ static const proto::ProtoObject* iteratorConcatNext(
     if (!self || self == PROTO_NONE)
         return makeIterResult(ctx, getUndefinedSentinel(), true);
     // __helper_underlying__ holds an array of the source iterables.
-    const proto::ProtoObject* uKo = ctx->fromUTF8String("__helper_underlying__");
-    const proto::ProtoString* uK = uKo ? uKo->asString(ctx) : nullptr;
+    const proto::ProtoString* uK = PROTOJS_NAME(ctx, "__helper_underlying__");
     const proto::ProtoObject* sources = uK ? self->getAttribute(ctx, uK, false) : nullptr;
     if (!sources || sources == PROTO_NONE)
         return makeIterResult(ctx, getUndefinedSentinel(), true);
-    const proto::ProtoObject* idxKo = ctx->fromUTF8String("__helper_counter__");
-    const proto::ProtoString* idxK = idxKo ? idxKo->asString(ctx) : nullptr;
+    const proto::ProtoString* idxK = PROTOJS_NAME(ctx, "__helper_counter__");
     long long idx = 0;
     if (idxK) {
         const proto::ProtoObject* cv = self->getAttribute(ctx, idxK, false);
         if (cv && cv->isInteger(ctx)) idx = cv->asLong(ctx);
     }
-    const proto::ProtoObject* innerKo = ctx->fromUTF8String("__helper_inner__");
-    const proto::ProtoString* innerK = innerKo ? innerKo->asString(ctx) : nullptr;
+    const proto::ProtoString* innerK = PROTOJS_NAME(ctx, "__helper_inner__");
     const proto::ProtoList* arr = getArrayElements(ctx, sources);
     if (!arr) return makeIterResult(ctx, getUndefinedSentinel(), true);
     long long arrLen = static_cast<long long>(arr->getSize(ctx));
@@ -1296,8 +1268,7 @@ static const proto::ProtoObject* iteratorZipNext(
 {
     if (!self || self == PROTO_NONE)
         return makeIterResult(ctx, getUndefinedSentinel(), true);
-    const proto::ProtoObject* uKo = ctx->fromUTF8String("__helper_underlying__");
-    const proto::ProtoString* uK = uKo ? uKo->asString(ctx) : nullptr;
+    const proto::ProtoString* uK = PROTOJS_NAME(ctx, "__helper_underlying__");
     // sources is an Array of inner iterators.
     const proto::ProtoObject* sources = uK ? self->getAttribute(ctx, uK, false) : nullptr;
     if (!sources || sources == PROTO_NONE)
@@ -1407,8 +1378,7 @@ static const proto::ProtoObject* iteratorZipKeyedNext(
         return makeIterResult(ctx, getUndefinedSentinel(), true);
     // __helper_underlying__ holds the {keys, iters} record (encoded as
     // a length-2 array: [keysArray, itersArray]).
-    const proto::ProtoObject* uKo = ctx->fromUTF8String("__helper_underlying__");
-    const proto::ProtoString* uK = uKo ? uKo->asString(ctx) : nullptr;
+    const proto::ProtoString* uK = PROTOJS_NAME(ctx, "__helper_underlying__");
     const proto::ProtoObject* pair = uK ? self->getAttribute(ctx, uK, false) : nullptr;
     if (!pair || pair == PROTO_NONE)
         return makeIterResult(ctx, getUndefinedSentinel(), true);
@@ -1573,13 +1543,11 @@ const proto::ProtoObject* installIteratorStatics(
         }
         const proto::ProtoString* hnwK = JSSymbols::hasNonWritableProps(ctx);
         if (hnwK) wrap = wrap->setAttribute(ctx, hnwK, PROTO_TRUE);
-        const proto::ProtoObject* mKo = ctx->fromUTF8String(name);
-        const proto::ProtoString* mK = mKo ? mKo->asString(ctx) : nullptr;
+        const proto::ProtoString* mK = JSSymbols::internName(ctx, name);
         if (mK) {
             stub = stub->setAttribute(ctx, mK, wrap);
             std::string pdName = std::string("__pd_") + name + "__";
-            const proto::ProtoObject* pdo = protojs::jsStringFromUTF8(ctx, pdName);
-            const proto::ProtoString* pdK = pdo ? pdo->asString(ctx) : nullptr;
+            const proto::ProtoString* pdK = JSSymbols::internName(ctx, pdName.c_str());
             if (pdK) stub = stub->setAttribute(ctx, pdK, ctx->fromInteger(0x3LL));
         }
     };

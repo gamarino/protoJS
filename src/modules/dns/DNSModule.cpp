@@ -1,4 +1,5 @@
 #include "DNSModule.h"
+#include "../../JSSymbols.h"
 #include "../../runtime/JSStringBytes.h"
 #include "../../ProtoNativeModule.h"
 #include "../../ArrayElementsStorage.h"
@@ -95,7 +96,7 @@ const proto::ProtoObject* syncLookup(proto::ProtoContext* ctx,
 
     const proto::ProtoObject* obj = ctx->newObject(/*mutable=*/true);
     const proto::ProtoString* addrKey =
-        ctx->fromUTF8String("address")->asString(ctx);
+        PROTOJS_NAME(ctx, "address");
     if (addrKey) obj->setAttribute(ctx, addrKey, ctx->fromUTF8String(ip));
     const proto::ProtoString* famKey =
         ctx->fromUTF8String("family")->asString(ctx);

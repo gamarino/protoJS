@@ -816,14 +816,13 @@ void ensureNumberConstructor(proto::ProtoContext* ctx,
     // isInteger / isFinite / isSafeInteger / parseInt / parseFloat in
     // for-in over Number (built-ins/Number/<Name>/prop-desc.js).
     auto reg = [&](const char* name, proto::ProtoMethod fn, long long length = 1) {
-        const proto::ProtoString* key = ctx->fromUTF8String(name)->asString(ctx);
+        const proto::ProtoString* key = JSSymbols::internName(ctx, name);
         if (key) {
             const proto::ProtoObject* wrapped = wrapNativeFunction(ctx, fn, name, length, globalRoot);
             if (wrapped && wrapped != PROTO_NONE) {
                 ctor = ctor->setAttribute(ctx, key, wrapped);
                 std::string pdStr = std::string("__pd_") + name + "__";
-                const proto::ProtoObject* pdo = protojs::jsStringFromUTF8(ctx, pdStr);
-                const proto::ProtoString* pdk = pdo ? pdo->asString(ctx) : nullptr;
+                const proto::ProtoString* pdk = JSSymbols::internName(ctx, pdStr.c_str());
                 if (pdk) ctor = ctor->setAttribute(ctx, pdk, ctx->fromInteger(0x3LL));
             }
         }
@@ -845,8 +844,7 @@ void ensureNumberConstructor(proto::ProtoContext* ctx,
 
     // Constants
     auto setConst = [&](const char* name, double val) {
-        const proto::ProtoObject* keyObj = ctx->fromUTF8String(name);
-        const proto::ProtoString* key = keyObj ? keyObj->asString(ctx) : nullptr;
+        const proto::ProtoString* key = JSSymbols::internName(ctx, name);
         if (!key) return;
         ctor = ctor->setAttribute(ctx, key, makeNumber(ctx, val));
         // Constants: {writable: false, enumerable: false, configurable: false} → bits = 0x0
@@ -898,8 +896,7 @@ void ensureNumberConstructor(proto::ProtoContext* ctx,
     const proto::ProtoObject* numProto = ctx->space ? ctx->space->smallIntegerPrototype : nullptr;
     if (protoKey2 && numProto && numProto != PROTO_NONE) {
         ctor = ctor->setAttribute(ctx, protoKey2, numProto);
-        const proto::ProtoObject* pdpo = ctx->fromUTF8String("__pd_prototype__");
-        const proto::ProtoString* pdpk = pdpo ? pdpo->asString(ctx) : nullptr;
+        const proto::ProtoString* pdpk = PROTOJS_NAME(ctx, "__pd_prototype__");
         if (pdpk) ctor = ctor->setAttribute(ctx, pdpk, ctx->fromInteger(0x0LL));
     }
 
@@ -966,8 +963,7 @@ void patchNumberParseFns(proto::ProtoContext* ctx,
     if (!num || num == PROTO_NONE) return;
 
     auto getGlobal = [&](const char* name) -> const proto::ProtoObject* {
-        const proto::ProtoObject* o = ctx->fromUTF8String(name);
-        const proto::ProtoString* k = o ? o->asString(ctx) : nullptr;
+        const proto::ProtoString* k = JSSymbols::internName(ctx, name);
         if (!k) return nullptr;
         const proto::ProtoObject* v = (*globalRoot)->getAttribute(ctx, k, false);
         return (v && v != PROTO_NONE) ? v : nullptr;
@@ -977,8 +973,7 @@ void patchNumberParseFns(proto::ProtoContext* ctx,
 
     auto patch = [&](const char* name, const proto::ProtoObject* fn) {
         if (!fn) return;
-        const proto::ProtoObject* ko = ctx->fromUTF8String(name);
-        const proto::ProtoString* k = ko ? ko->asString(ctx) : nullptr;
+        const proto::ProtoString* k = JSSymbols::internName(ctx, name);
         if (k) num = num->setAttribute(ctx, k, fn);
     };
     patch("parseInt", gParseInt);

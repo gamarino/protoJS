@@ -80,7 +80,7 @@ const proto::ProtoObject* URLModule::init(
     // actually runs urlConstructor.
     {
         const proto::ProtoString* ck =
-            ctx->fromUTF8String("__construct__")->asString(ctx);
+            PROTOJS_NAME(ctx, "__construct__");
         if (ck) urlCtor = urlCtor->setAttribute(ctx, ck,
             ctx->fromMethod(nullptr, urlConstructor));
     }
