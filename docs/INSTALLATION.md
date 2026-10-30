@@ -18,7 +18,7 @@ protoJS is not production ready. The version configured in `CMakeLists.txt` is 0
 
 ### Platform support
 
-protoJS is developed on Linux. It also builds and runs natively on Windows with MSVC (see [Windows (MSVC)](#windows-msvc)) and on macOS with Apple clang. CI builds and tests all three (`.github/workflows/ci.yml` on Linux, `cross-platform.yml` on macOS 14 arm64 and Windows Server 2022); the macOS DragNDrop package is not built by CI.
+protoJS is developed on Linux. It also builds and runs natively on Windows with MSVC (see [Windows (MSVC)](#windows-msvc)) and on macOS with Apple clang. CI builds and tests all three (`.github/workflows/ci.yml` on Linux, `cross-platform.yml` on macOS 15 arm64 and Windows Server 2022); the macOS DragNDrop package is not built by CI.
 
 ---
 
