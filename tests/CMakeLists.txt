@@ -598,6 +598,13 @@ add_test(NAME js/net/socket_is_emitter
             "${CMAKE_CURRENT_SOURCE_DIR}/integration/net/socket_is_emitter.js")
 set_tests_properties(js/net/socket_is_emitter PROPERTIES TIMEOUT 30)
 
+# net.Socket is a constructor; `new net.Socket()` connects with connect().
+# Binds loopback port 18853; a connection that never completes is a timeout.
+add_test(NAME js/net/socket_constructor
+    COMMAND "$<TARGET_FILE:protojs>"
+            "${CMAKE_CURRENT_SOURCE_DIR}/integration/net/socket_constructor.js")
+set_tests_properties(js/net/socket_constructor PROPERTIES TIMEOUT 30)
+
 # util.format / util.inspect: Node.js's own test/parallel/test-util-format.js,
 # adapted like the path tests below (the cases protoJS cannot run are commented
 # out, each with the reason).
