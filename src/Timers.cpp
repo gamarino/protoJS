@@ -51,7 +51,6 @@ std::unordered_map<std::uint64_t, TimerState> g_timers;
 std::uint64_t g_nextId = 1;
 std::uint64_t g_nextSeq = 1;
 long long g_refedCount = 0;
-JSContextWrapper* g_owner = nullptr;
 
 // The Timeout objects of the live timers, by id, in a sparse list held by one
 // mutable object pinned in the owner's root set (one pin for all timers): a
@@ -198,7 +197,7 @@ const proto::ProtoObject* createTimer(proto::ProtoContext* ctx,
                                       bool repeat, const char* what) {
     if (refuseOnDeferredThread(ctx, what)) return PROTO_NONE;
     JSContextWrapper* w = JSContextWrapper::current();
-    if (!w || w != g_owner) {
+    if (!w || w != EventLoop::getInstance().owner()) {
         const std::string msg = std::string(what) + " is not available in a worker thread";
         signalNativeException(makeNativeError(ctx, "Error", msg.c_str()));
     }
@@ -248,7 +247,7 @@ const proto::ProtoObject* setIntervalNative(proto::ProtoContext* ctx, const prot
 const proto::ProtoObject* clearTimerNative(proto::ProtoContext* ctx, const proto::ProtoObject*,
         const proto::ParentLink*, const proto::ProtoArguments* args,
         const proto::ProtoKeywordArguments*) {
-    if (JSContextWrapper::current() != g_owner || JSContextWrapper::onPoolThread())
+    if (JSContextWrapper::current() != EventLoop::getInstance().owner() || JSContextWrapper::onPoolThread())
         return getUndefinedSentinel();
     const std::uint64_t id = timerIdOf(ctx, args ? args->getAt(ctx, 0) : PROTO_NONE);
     if (id) forget(ctx, id);
@@ -258,7 +257,7 @@ const proto::ProtoObject* clearTimerNative(proto::ProtoContext* ctx, const proto
 // ---- Timeout.prototype ------------------------------------------------------
 
 bool onOwner() {
-    return JSContextWrapper::current() == g_owner && !JSContextWrapper::onPoolThread();
+    return JSContextWrapper::current() == EventLoop::getInstance().owner() && !JSContextWrapper::onPoolThread();
 }
 
 const proto::ProtoObject* timeoutRef(proto::ProtoContext* ctx, const proto::ProtoObject* self,
@@ -353,7 +352,7 @@ const proto::ProtoObject* timeoutPrototype(proto::ProtoContext* ctx) {
 
 // Runs the callback of timer `id`, due at `seq`, as one macrotask.
 void fire(std::uint64_t id, std::uint64_t seq) {
-    JSContextWrapper* w = g_owner;
+    JSContextWrapper* w = EventLoop::getInstance().owner();
     if (!w) return;
     JSContextWrapper::CurrentScope scope(w);
     proto::ProtoContext* ctx = w->getProtoContext();
@@ -388,8 +387,6 @@ void fire(std::uint64_t id, std::uint64_t seq) {
 
 }  // namespace
 
-void Timers::setOwner(JSContextWrapper* wrapper) { g_owner = wrapper; }
-
 bool Timers::hasRefedTimers() { return g_refedCount > 0; }
 
 long long Timers::msUntilNext() {
@@ -406,7 +403,7 @@ long long Timers::msUntilNext() {
 }
 
 void Timers::runDue() {
-    if (!g_owner || g_heap.empty()) return;
+    if (!EventLoop::getInstance().owner() || g_heap.empty()) return;
     const Clock::time_point now = Clock::now();
     // A timer scheduled while this pass runs (a new timer, an interval's next
     // run, a refresh) waits for the next pass, as in Node.

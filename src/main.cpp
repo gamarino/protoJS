@@ -219,7 +219,7 @@ static void installRuntimeGlobals(protojs::JSContextWrapper& wrapper,
         protojs::TimingAPIs::init(pCtx, g);
         if (!minimal) g = protojs::EventLoopBindings::init(pCtx, g);
         if (!minimal) g = protojs::Timers::init(pCtx, g);
-        if (!minimal) protojs::Timers::setOwner(&wrapper);
+        if (!minimal) protojs::EventLoop::getInstance().setOwner(&wrapper);
         g = protojs::ProtoDeferred::init(pCtx, g);
         g = protojs::ProtoCoreNativeBindings::init(pCtx, g);
         g = installScriptGlobals(pCtx, g, filename);

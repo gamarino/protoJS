@@ -120,7 +120,7 @@ A Deferred computes; it does not schedule work on the caller's event loop or
 load code. These throw `Error: <name> is not available inside a Deferred
 function`, which rejects the Deferred:
 
-- `setImmediate()`,
+- `setImmediate()`, `setTimeout()` and `setInterval()`,
 - `require()` and `require.resolve()` (require modules before creating the
   Deferred and use them from the closure),
 - `new Worker()`.

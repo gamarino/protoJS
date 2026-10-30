@@ -10,6 +10,8 @@
 
 namespace protojs {
 
+class JSContextWrapper;
+
 /**
  * @brief Event loop for processing callbacks from Deferred and I/O operations.
  * 
@@ -98,6 +100,15 @@ public:
     void endOperation() { pendingOperations.fetch_sub(1); }
     bool hasPendingOperations() const { return pendingOperations.load() > 0; }
 
+    /**
+     * @brief The wrapper whose thread runs this event loop: the main script's.
+     * setImmediate and the timers (Timers.h) schedule work only from it; a
+     * worker_threads worker or a Deferred function has no event loop of its
+     * own, so they throw there.
+     */
+    void setOwner(JSContextWrapper* wrapper) { owner_ = wrapper; }
+    JSContextWrapper* owner() const { return owner_; }
+
 private:
     EventLoop() = default;
     ~EventLoop() = default;
@@ -112,6 +123,7 @@ private:
     std::atomic<bool> running{false};
     std::function<void()> endOfTurnHook;
     std::atomic<int> pendingOperations{0};
+    JSContextWrapper* owner_ = nullptr;
 };
 
 } // namespace protojs
