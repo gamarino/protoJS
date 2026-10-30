@@ -13,6 +13,7 @@
 #include "MicrotaskQueue.h"
 #include "GcOrphanQueue.h"
 #include "EventLoopBindings.h"
+#include "Timers.h"
 #include "console.h"
 #include "modules/IOModule.h"
 #include "modules/ProcessModule.h"
@@ -217,6 +218,8 @@ static void installRuntimeGlobals(protojs::JSContextWrapper& wrapper,
         protojs::JSONBuiltin::init(pCtx, g);
         protojs::TimingAPIs::init(pCtx, g);
         if (!minimal) g = protojs::EventLoopBindings::init(pCtx, g);
+        if (!minimal) g = protojs::Timers::init(pCtx, g);
+        if (!minimal) protojs::Timers::setOwner(&wrapper);
         g = protojs::ProtoDeferred::init(pCtx, g);
         g = protojs::ProtoCoreNativeBindings::init(pCtx, g);
         g = installScriptGlobals(pCtx, g, filename);
@@ -672,15 +675,21 @@ static int runMain(int argc, char** argv) {
                protojs::HTTPModule::getActiveServerCount() > 0 ||
                protojs::HTTPModule::getActiveClientCount() > 0 ||
                protojs::NetModule::getActiveCount() > 0 ||
-               protojs::FSModule::getActiveCount() > 0) {
+               protojs::FSModule::getActiveCount() > 0 ||
+               protojs::Timers::hasRefedTimers()) {
+            // The timers phase, then the callbacks other threads queued (I/O
+            // completions, settled Deferreds, setImmediate).
+            protojs::Timers::runDue();
             protojs::EventLoop::getInstance().processCallbacks();
             timerResolution.raise();
-            {
-                // Wake as soon as another thread hands work over (a Deferred
-                // settling, an I/O completion); poll the other conditions at
-                // least every 10 ms.
+            // Wake as soon as another thread hands work over (a Deferred
+            // settling, an I/O completion) or the next timer is due; poll the
+            // other conditions at least every 10 ms.
+            long long waitMs = protojs::Timers::msUntilNext();
+            if (waitMs < 0 || waitMs > 10) waitMs = 10;
+            if (waitMs > 0) {
                 proto::ProtoContext::UnmanagedScope u(wrapper.getProtoContext());
-                protojs::EventLoop::getInstance().waitForCallbacks(std::chrono::milliseconds(10));
+                protojs::EventLoop::getInstance().waitForCallbacks(std::chrono::milliseconds(waitMs));
             }
 
             auto now = std::chrono::steady_clock::now();

@@ -76,6 +76,15 @@ public:
     void setEndOfTurnHook(std::function<void()> hook);
 
     /**
+     * @brief Runs `task` as one macrotask: drains the microtask queue and runs
+     * the end-of-turn hook after it; a JavaScript exception that escapes it
+     * is reported as uncaught (which ends the process, as in Node).  Main
+     * thread only.  processCallbacks runs each callback through it; the
+     * timers (Timers.h) run each due timer through it.
+     */
+    void runMacrotask(const std::function<void()>& task);
+
+    /**
      * @brief Keep the process alive for an asynchronous operation in flight.
      *
      * A native module that hands work to a pool thread and will later enqueue

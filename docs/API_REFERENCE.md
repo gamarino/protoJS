@@ -153,7 +153,18 @@ Dictionary keys enumerate in insertion order, after the named string keys; see
 | `debugger` | `src/debugging/IntegratedDebugger.cpp` | `startCDPServer`, `stopCDPServer`, `setBreakpoint`, `removeBreakpoint`, `getCallStack`, `evaluate`, `stepOver`, `stepInto`, `stepOut`, `continue` |
 | `__filename`, `__dirname`, `__protojs__` | `src/main.cpp` | Path of the main script, its directory, and `true` |
 
-Timer functions such as `setTimeout` and `setInterval` are not installed.
+`setTimeout`, `setInterval`, `clearTimeout` and `clearInterval` follow Node
+(`src/Timers.cpp`): the callback runs with the returned `Timeout` object as
+`this` and the extra arguments as its arguments; a delay outside 1 to
+2^31 - 1 (or not a number) becomes 1 ms; timers run in order of due time and,
+when due together, in creation order, each followed by a microtask
+checkpoint; an interval is rescheduled after its callback returns. A
+`Timeout` has `ref()`, `unref()`, `hasRef()`, `refresh()`, `close()` and
+`[Symbol.toPrimitive]()` (its numeric id, which `clearTimeout` also
+accepts); an unreferenced timer does not keep the process alive. Limits: the
+timers run on the main script's event loop only -- calling them inside a
+Deferred function or a `worker_threads` worker throws an `Error` -- and the
+REPL does not run timers. `require('timers')` is not provided.
 
 ### Shared objects, Deferreds and grouped writes
 

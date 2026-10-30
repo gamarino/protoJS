@@ -606,6 +606,23 @@ add_test(NAME js/net/socket_constructor
             "${CMAKE_CURRENT_SOURCE_DIR}/integration/net/socket_constructor.js")
 set_tests_properties(js/net/socket_constructor PROPERTIES TIMEOUT 30)
 
+# setTimeout / setInterval / clearTimeout / clearInterval.
+add_test(NAME js/timers/timers_basic
+    COMMAND "$<TARGET_FILE:protojs>"
+            "${CMAKE_CURRENT_SOURCE_DIR}/integration/timers/timers_basic.js")
+set_tests_properties(js/timers/timers_basic PROPERTIES TIMEOUT 30)
+# Only unreferenced timers pending: the process ends at once (an hour-long
+# interval would otherwise hit the 20 s timeout).
+add_test(NAME js/timers/timers_unref_exit
+    COMMAND "$<TARGET_FILE:protojs>"
+            "${CMAKE_CURRENT_SOURCE_DIR}/integration/timers/timers_unref_exit.js")
+set_tests_properties(js/timers/timers_unref_exit PROPERTIES TIMEOUT 20)
+# An exception thrown by a timer callback is uncaught: exit status non-zero.
+add_test(NAME js/timers/timers_uncaught_exit
+    COMMAND "$<TARGET_FILE:protojs>"
+            "${CMAKE_CURRENT_SOURCE_DIR}/integration/timers/timers_unref_exit.js" throw)
+set_tests_properties(js/timers/timers_uncaught_exit PROPERTIES TIMEOUT 20 WILL_FAIL TRUE)
+
 # util.format / util.inspect: Node.js's own test/parallel/test-util-format.js,
 # adapted like the path tests below (the cases protoJS cannot run are commented
 # out, each with the reason).
