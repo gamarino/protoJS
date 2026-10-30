@@ -386,6 +386,7 @@ foreach(js_test
         basic/string_to_number
         basic/bigint_number_compare
         basic/bigint_same_value
+        buffer/buffer_object_prototype
         basic/object_literal_build
         basic/put_field_groups
         basic/primitive_property_writes

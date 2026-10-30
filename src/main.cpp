@@ -203,6 +203,11 @@ static void installRuntimeGlobals(protojs::JSContextWrapper& wrapper,
                                   const std::string& filename,
                                   bool minimal) {
     proto::ProtoContext* pCtx = wrapper.getProtoContext();
+    // The wrapper being populated is the current one while its globals are
+    // installed: a module that builds a JavaScript object at init time finds
+    // the realm's prototypes through JSContextWrapper::current() (Buffer's
+    // prototype inherits from Object.prototype), as it does at run time.
+    protojs::JSContextWrapper::CurrentScope currentWrapper(&wrapper);
 
     {
         const proto::ProtoObject* g = wrapper.getNativeGlobal();
