@@ -582,6 +582,13 @@ add_test(NAME js/net/listen_close_cycles
             "${CMAKE_CURRENT_SOURCE_DIR}/integration/net/listen_close_cycles.js")
 set_tests_properties(js/net/listen_close_cycles PROPERTIES TIMEOUT 60)
 
+# The connect listener of net.createConnection / net.connect runs on 'connect'.
+# Binds loopback port 18851; a listener that never runs is a timeout.
+add_test(NAME js/net/connect_listener
+    COMMAND "$<TARGET_FILE:protojs>"
+            "${CMAKE_CURRENT_SOURCE_DIR}/integration/net/connect_listener.js")
+set_tests_properties(js/net/connect_listener PROPERTIES TIMEOUT 30)
+
 # util.format / util.inspect: Node.js's own test/parallel/test-util-format.js,
 # adapted like the path tests below (the cases protoJS cannot run are commented
 # out, each with the reason).

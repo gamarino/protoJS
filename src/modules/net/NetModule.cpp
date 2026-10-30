@@ -7,6 +7,7 @@
 #include "../../ArrayPrototype.h"
 #include "../../FunctionPrototype.h"
 #include "../../JSSymbols.h"
+#include "../../PromisePrototype.h"
 #include "../../JSContext.h"
 #include "../../EventLoop.h"
 #include "../../GcOrphanQueue.h"
@@ -514,6 +515,20 @@ const proto::ProtoObject* socketConnectImpl(
     const proto::ProtoKeywordArguments*) {
     SocketState* s = getSocketState(ctx, self);
     if (!s || s->connected.load()) return self ? self : PROTO_NONE;
+
+    // The connect listener, the last argument when it is a function, is added
+    // as a 'connect' listener with once(), as Node does.  Until 2026-10 it
+    // was ignored and never ran.
+    const unsigned long argc = args ? args->getSize(ctx) : 0;
+    if (argc > 1) {
+        const proto::ProtoObject* listener = args->getAt(ctx, static_cast<int>(argc - 1));
+        if (jsIsCallable(ctx, listener)) {
+            const proto::ProtoList* onceArgs = ctx->newList()
+                ->appendLast(ctx, ctx->fromUTF8String("connect"))
+                ->appendLast(ctx, listener);
+            invokeEEMethod(ctx, self, "once", argsView(proto::ProtoListArguments(ctx, onceArgs)));
+        }
+    }
 
     long long port = 0;
     std::string host = "127.0.0.1";
