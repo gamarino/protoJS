@@ -32,9 +32,6 @@ namespace {
 
 // ---- Attribute keys (re-intern per call: SymbolTable is per-space) ----
 
-const proto::ProtoString* keyEvents(proto::ProtoContext* ctx) {
-    return proto::ProtoString::createSymbol(ctx, "__events__");
-}
 const proto::ProtoString* keyServerState(proto::ProtoContext* ctx) {
     return proto::ProtoString::createSymbol(ctx, "__server_state__");
 }
@@ -94,51 +91,58 @@ bool optString(proto::ProtoContext* ctx, const proto::ProtoObject* opts,
 
 // ---- EventEmitter helpers ---------------------------------------------
 //
-// Same pattern used by worker_threads: each Server / Socket carries an
-// `__events__` attribute holding a fresh EventEmitter instance built
-// from `events.EventEmitter.prototype`.  Worker-style invokeEEMethod*
-// forwards on/emit through that delegate.
+// A Socket and a Server are EventEmitters, as in Node: Socket.prototype and
+// the server prototype inherit from events.EventEmitter.prototype, so the
+// listeners live on the socket itself and run with the socket as `this`, and
+// every EventEmitter method (once, off, listeners, ...) is there.  Until
+// 2026-10 each one carried a separate EventEmitter in an `__events__`
+// attribute and forwarded on/emit to it, so a listener's `this` was that
+// hidden object.
 
-const proto::ProtoObject* makeEventEmitterInstance(
-        proto::ProtoContext* ctx,
-        const proto::ProtoObject* nativeGlobal) {
-    if (!ctx || !nativeGlobal) return ctx ? ctx->newObject(true) : nullptr;
+// events.EventEmitter.prototype of the running realm, or nullptr.
+const proto::ProtoObject* eventEmitterPrototype(proto::ProtoContext* ctx) {
+    JSContextWrapper* w = JSContextWrapper::current();
+    const proto::ProtoObject* nativeGlobal = w ? w->getNativeGlobal() : nullptr;
+    if (!ctx || !nativeGlobal) return nullptr;
     const proto::ProtoString* eventsKey =
         ctx->fromUTF8String("events")->asString(ctx);
-    if (!eventsKey) return ctx->newObject(true);
     const proto::ProtoObject* eventsMod =
-        nativeGlobal->getAttribute(ctx, eventsKey, false);
-    if (!eventsMod || eventsMod == PROTO_NONE) return ctx->newObject(true);
-    const proto::ProtoString* eeKey =
-        ctx->fromUTF8String("EventEmitter")->asString(ctx);
-    const proto::ProtoObject* eeCtor =
-        eeKey ? eventsMod->getAttribute(ctx, eeKey, false) : nullptr;
-    if (!eeCtor || eeCtor == PROTO_NONE) return ctx->newObject(true);
+        eventsKey ? nativeGlobal->getAttribute(ctx, eventsKey, false) : nullptr;
+    if (!eventsMod || eventsMod == PROTO_NONE) return nullptr;
     const proto::ProtoString* protoKey = JSSymbols::prototype(ctx);
     const proto::ProtoObject* eeProto =
-        protoKey ? eeCtor->getAttribute(ctx, protoKey, false) : nullptr;
-    if (!eeProto || eeProto == PROTO_NONE) return ctx->newObject(true);
-    return eeProto->newChild(ctx, /*mutable=*/true);
+        protoKey ? eventsMod->getAttribute(ctx, protoKey, false) : nullptr;
+    return (eeProto && eeProto != PROTO_NONE) ? eeProto : nullptr;
 }
 
+// A prototype holding `entries` whose parent is EventEmitter.prototype.
+const proto::ProtoObject* buildEmitterPrototype(proto::ProtoContext* ctx,
+                                                const NativeEntry* entries) {
+    const proto::ProtoObject* eeProto = eventEmitterPrototype(ctx);
+    const proto::ProtoObject* p = eeProto ? eeProto->newChild(ctx, /*mutable=*/true)
+                                          : ctx->newObject(/*mutable=*/true);
+    for (const NativeEntry* e = entries; p && e->name; ++e)
+        p = ProtoNativeModule::addMethod(ctx, p, e->name, e->fn);
+    return p;
+}
+
+// Calls the EventEmitter method `methodName` of `self` with `self` as `this`.
 const proto::ProtoObject* invokeEEMethod(
         proto::ProtoContext* ctx,
         const proto::ProtoObject* self,
         const char* methodName,
         const proto::ProtoArguments* args) {
     if (!self || !ctx) return PROTO_NONE;
-    const proto::ProtoObject* ee =
-        self->getAttribute(ctx, keyEvents(ctx), false);
-    if (!ee || ee == PROTO_NONE) return PROTO_NONE;
     const proto::ProtoString* mk =
         ctx->fromUTF8String(methodName)->asString(ctx);
     if (!mk) return PROTO_NONE;
-    const proto::ProtoObject* fn = ee->getAttribute(ctx, mk, true);
+    const proto::ProtoObject* fn = self->getAttribute(ctx, mk, true);
     if (!fn || fn == PROTO_NONE) return PROTO_NONE;
     const proto::ProtoArguments noArgs(nullptr, 0);
-    return callJSFunction(ctx, fn, ee, args ? args : &noArgs);
+    return callJSFunction(ctx, fn, self, args ? args : &noArgs);
 }
 
+// The same from an event-loop callback (a socket's data, connect or close).
 void invokeEEMethodFromAsync(
         JSContextWrapper* wrapper,
         const proto::ProtoObject* self,
@@ -147,17 +151,14 @@ void invokeEEMethodFromAsync(
     if (!wrapper || !self) return;
     proto::ProtoContext* ctx = wrapper->getProtoContext();
     if (!ctx) return;
-    const proto::ProtoObject* ee =
-        self->getAttribute(ctx, keyEvents(ctx), false);
-    if (!ee || ee == PROTO_NONE) return;
     const proto::ProtoString* mk =
         ctx->fromUTF8String(methodName)->asString(ctx);
     if (!mk) return;
-    const proto::ProtoObject* fn = ee->getAttribute(ctx, mk, true);
+    const proto::ProtoObject* fn = self->getAttribute(ctx, mk, true);
     if (!fn || fn == PROTO_NONE) return;
     const ProtoBytecodeModule* mod =
         static_cast<const ProtoBytecodeModule*>(wrapper->getRootModule());
-    callJSFunctionFromAsync(ctx, fn, ee,
+    callJSFunctionFromAsync(ctx, fn, self,
                              args ? args : ctx->newList(),
                              mod, wrapper->getNativeGlobalRootPtr());
 }
@@ -405,25 +406,6 @@ const proto::ProtoObject* makeBufferFromBytes(
 
 // ---- Socket prototype methods ------------------------------------------
 
-const proto::ProtoObject* socketOnImpl(
-    proto::ProtoContext* ctx,
-    const proto::ProtoObject* self,
-    const proto::ParentLink*,
-    const proto::ProtoArguments* args,
-    const proto::ProtoKeywordArguments*) {
-    invokeEEMethod(ctx, self, "on", args);
-    return self ? self : PROTO_NONE;
-}
-
-const proto::ProtoObject* socketEmitImpl(
-    proto::ProtoContext* ctx,
-    const proto::ProtoObject* self,
-    const proto::ParentLink*,
-    const proto::ProtoArguments* args,
-    const proto::ProtoKeywordArguments*) {
-    return invokeEEMethod(ctx, self, "emit", args);
-}
-
 const proto::ProtoObject* socketWriteImpl(
     proto::ProtoContext* ctx,
     const proto::ProtoObject* self,
@@ -597,8 +579,6 @@ const proto::ProtoObject* getSocketProto(proto::ProtoContext* ctx) {
     static PinnedBuiltin protoCache;
     if (const proto::ProtoObject* cached = protoCache.get(ctx)) return cached;
     static const NativeEntry entries[] = {
-        {"on",       socketOnImpl},
-        {"emit",     socketEmitImpl},
         {"connect",  socketConnectImpl},
         {"write",    socketWriteImpl},
         {"end",      socketEndImpl},
@@ -606,21 +586,17 @@ const proto::ProtoObject* getSocketProto(proto::ProtoContext* ctx) {
         {"address",  socketAddressImpl},
         NATIVE_MODULE_END
     };
-    return protoCache.keep(ctx, ProtoNativeModule::buildModule(ctx, entries, 7));
+    return protoCache.keep(ctx, buildEmitterPrototype(ctx, entries));
 }
 
 const proto::ProtoObject* makeSocketInstance(
         JSContextWrapper* wrapper,
         proto::ProtoContext* ctx,
-        const proto::ProtoObject* nativeGlobal) {
+        const proto::ProtoObject* /*nativeGlobal*/) {
     const proto::ProtoObject* proto = getSocketProto(ctx);
     const proto::ProtoObject* sock = proto
         ? proto->newChild(ctx, /*mutable=*/true)
         : ctx->newObject(/*mutable=*/true);
-
-    const proto::ProtoObject* ee =
-        makeEventEmitterInstance(ctx, nativeGlobal);
-    sock->setAttribute(ctx, keyEvents(ctx), ee);
 
     auto* state = new SocketState{};
     state->mainWrapper = wrapper;
@@ -691,25 +667,6 @@ void startSocketReadLoop(JSContextWrapper* wrapper,
 }
 
 // ---- Server prototype methods ------------------------------------------
-
-const proto::ProtoObject* serverOnImpl(
-    proto::ProtoContext* ctx,
-    const proto::ProtoObject* self,
-    const proto::ParentLink*,
-    const proto::ProtoArguments* args,
-    const proto::ProtoKeywordArguments*) {
-    invokeEEMethod(ctx, self, "on", args);
-    return self ? self : PROTO_NONE;
-}
-
-const proto::ProtoObject* serverEmitImpl(
-    proto::ProtoContext* ctx,
-    const proto::ProtoObject* self,
-    const proto::ParentLink*,
-    const proto::ProtoArguments* args,
-    const proto::ProtoKeywordArguments*) {
-    return invokeEEMethod(ctx, self, "emit", args);
-}
 
 const proto::ProtoObject* serverAddressImpl(
     proto::ProtoContext* ctx,
@@ -897,15 +854,31 @@ const proto::ProtoObject* serverListenImpl(
         }
     });
 
-    // Optional 'listening' callback (server.listen(port, [host], cb)).
+    // server.listen(port, [host], cb) adds cb as a once('listening') listener,
+    // and 'listening' is emitted on a later event-loop turn, as in Node (until
+    // 2026-10 cb was called synchronously, inside listen, and no 'listening'
+    // event was emitted).
     if (cbArgIdx >= 0 && args
          && static_cast<int>(args->getSize(ctx)) > cbArgIdx) {
         const proto::ProtoObject* cb =
             args->getAt(ctx, cbArgIdx);
-        if (cb && cb != PROTO_NONE) {
-            callJSFunction(ctx, cb, self, ctx->newList());
+        if (cb && cb != PROTO_NONE && cb != getUndefinedSentinel()) {
+            const proto::ProtoList* onceArgs = ctx->newList()
+                ->appendLast(ctx, ctx->fromUTF8String("listening"))
+                ->appendLast(ctx, cb);
+            invokeEEMethod(ctx, self, "once", argsView(proto::ProtoListArguments(ctx, onceArgs)));
         }
     }
+    EventLoop::getInstance().enqueueCallback([wrapper, pin]() {
+        if (!wrapper) return;
+        JSContextWrapper::CurrentScope ws(wrapper);
+        proto::ProtoContext* mctx = wrapper->getProtoContext();
+        proto::ProtoRootSet* rs = wrapper->getRootSet();
+        const proto::ProtoObject* server = (mctx && rs) ? rs->resolve(pin) : nullptr;
+        if (!server || server == PROTO_NONE) return;
+        invokeEEMethodFromAsync(wrapper, server, "emit",
+            mctx->newList()->appendLast(mctx, mctx->fromUTF8String("listening")));
+    });
     return self;
 }
 
@@ -914,14 +887,12 @@ const proto::ProtoObject* getServerProto(proto::ProtoContext* ctx) {
     static PinnedBuiltin protoCache;
     if (const proto::ProtoObject* cached = protoCache.get(ctx)) return cached;
     static const NativeEntry entries[] = {
-        {"on",      serverOnImpl},
-        {"emit",    serverEmitImpl},
         {"listen",  serverListenImpl},
         {"close",   serverCloseImpl},
         {"address", serverAddressImpl},
         NATIVE_MODULE_END
     };
-    return protoCache.keep(ctx, ProtoNativeModule::buildModule(ctx, entries, 5));
+    return protoCache.keep(ctx, buildEmitterPrototype(ctx, entries));
 }
 
 // ---- Module-level: createServer / createConnection --------------------
@@ -940,9 +911,6 @@ const proto::ProtoObject* createServerImpl(
     const proto::ProtoObject* server = serverProto
         ? serverProto->newChild(ctx, /*mutable=*/true)
         : ctx->newObject(/*mutable=*/true);
-    const proto::ProtoObject* ee =
-        makeEventEmitterInstance(ctx, wrapper->getNativeGlobal());
-    server->setAttribute(ctx, keyEvents(ctx), ee);
 
     auto* state = new ServerState{};
     state->mainWrapper = wrapper;

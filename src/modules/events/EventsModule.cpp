@@ -4,6 +4,7 @@
 #include "../../ArrayPrototype.h"
 #include "../../FunctionPrototype.h"
 #include "../../JSSymbols.h"
+#include "../../JSContext.h"
 #include "../../runtime/ProtoInterpreter.h"
 #include <string>
 
@@ -338,8 +339,17 @@ const proto::ProtoObject* EventsModule::init(
         {"getMaxListeners",    eeGetMaxListeners},
         NATIVE_MODULE_END
     };
-    const proto::ProtoObject* eeProto =
-        ProtoNativeModule::buildModule(ctx, protoEntries, 11);
+    //    EventEmitter.prototype inherits from the realm's Object.prototype,
+    //    as every JavaScript object does (until 2026-10 it was a bare
+    //    protoCore object: an emitter had no hasOwnProperty or valueOf and
+    //    converted to a string as a foreign object).
+    JSContextWrapper* w = JSContextWrapper::current();
+    const proto::ProtoObject* objectProto = w ? w->getJSObjectPrototype() : nullptr;
+    const proto::ProtoObject* eeProto = objectProto
+        ? objectProto->newChild(ctx, /*mutable=*/true)
+        : ctx->newObject(/*mutable=*/true);
+    for (const NativeEntry* e = protoEntries; eeProto && e->name; ++e)
+        eeProto = ProtoNativeModule::addMethod(ctx, eeProto, e->name, e->fn);
     if (!eeProto) return globalObj;
 
     // 2. Build the constructor as a wrapNativeFunction wrapper —
