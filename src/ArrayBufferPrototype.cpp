@@ -3,6 +3,7 @@
 #include "ArrayBufferPrototype.h"
 #include "JSSymbols.h"
 #include "TypedArrayPrototype.h"
+#include "DataViewPrototype.h"
 #include "runtime/ProtoInterpreter.h"
 #include "protoCore.h"
 #include <cstring>
@@ -117,12 +118,8 @@ static const proto::ProtoObject* ab_isView(
     // was false for every typed array.
     if (isTypedArrayInstance(ctx, arg)) return PROTO_TRUE;
 
-    // DataView: has __dv_buffer__ attribute.
-    const proto::ProtoString* dvBufferKey = JSSymbols::dvBuffer(ctx);
-    if (dvBufferKey) {
-        const proto::ProtoObject* v = arg->getAttribute(ctx, dvBufferKey, false);
-        if (v && v != PROTO_NONE) return PROTO_TRUE;
-    }
+    // A DataView (own [[ViewedArrayBuffer]] slot).
+    if (isDataView(ctx, arg)) return PROTO_TRUE;
 
     return PROTO_FALSE;
 }

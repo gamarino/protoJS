@@ -388,6 +388,7 @@ foreach(js_test
         basic/bigint_same_value
         buffer/buffer_object_prototype
         buffer/buffer_is_uint8array
+        basic/dataview_construct
         basic/object_literal_build
         basic/put_field_groups
         basic/primitive_property_writes
