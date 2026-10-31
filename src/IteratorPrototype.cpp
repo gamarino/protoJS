@@ -122,8 +122,7 @@ static const proto::ProtoObject* iterStep(proto::ProtoContext* ctx,
     // and we must call it so an abrupt completion in the getter
     // propagates (test262 next-method-returns-throwing-done.js).
     if (!dv || dv == PROTO_NONE || dv == getUndefinedSentinel()) {
-        const proto::ProtoObject* gko = ctx->fromUTF8String("__get_done__");
-        const proto::ProtoString* gk = gko ? gko->asString(ctx) : nullptr;
+        const proto::ProtoString* gk = PROTOJS_NAME(ctx, "__get_done__");
         if (gk) {
             const proto::ProtoObject* getter = step->getAttribute(ctx, gk, true);
             if (getter && getter != PROTO_NONE && getter != getUndefinedSentinel()
@@ -148,8 +147,7 @@ static const proto::ProtoObject* iterStep(proto::ProtoContext* ctx,
         // Accessor descriptor probe for `value` — same rationale as for
         // `done` above (test262 next-method-returns-throwing-value.js).
         if (!v || v == PROTO_NONE || v == getUndefinedSentinel()) {
-            const proto::ProtoObject* gko = ctx->fromUTF8String("__get_value__");
-            const proto::ProtoString* gk = gko ? gko->asString(ctx) : nullptr;
+            const proto::ProtoString* gk = PROTOJS_NAME(ctx, "__get_value__");
             if (gk) {
                 const proto::ProtoObject* getter = step->getAttribute(ctx, gk, true);
                 if (getter && getter != PROTO_NONE && getter != getUndefinedSentinel()
@@ -975,8 +973,7 @@ const proto::ProtoObject* getIteratorPrototype(proto::ProtoContext* ctx) {
     if (symIterKey) {
         const proto::ProtoObject* iterFn = ctx->fromMethod(nullptr, iteratorReturnSelf);
         if (iterFn) proto = proto->setAttribute(ctx, symIterKey, iterFn);
-        const proto::ProtoObject* pdo = ctx->fromUTF8String("__pd_Symbol.iterator__");
-        const proto::ProtoString* pdk = pdo ? pdo->asString(ctx) : nullptr;
+        const proto::ProtoString* pdk = PROTOJS_NAME(ctx, "__pd_Symbol.iterator__");
         if (pdk) proto = proto->setAttribute(ctx, pdk, ctx->fromInteger(0x3LL));
     }
 
@@ -984,8 +981,7 @@ const proto::ProtoObject* getIteratorPrototype(proto::ProtoContext* ctx) {
     const proto::ProtoString* tag = JSSymbols::symbolToStringTag(ctx);
     if (tag) {
         proto = proto->setAttribute(ctx, tag, ctx->fromUTF8String("Iterator"));
-        const proto::ProtoObject* pdo = ctx->fromUTF8String("__pd_Symbol.toStringTag__");
-        const proto::ProtoString* pdk = pdo ? pdo->asString(ctx) : nullptr;
+        const proto::ProtoString* pdk = PROTOJS_NAME(ctx, "__pd_Symbol.toStringTag__");
         if (pdk) proto = proto->setAttribute(ctx, pdk, ctx->fromInteger(0x2LL));
     }
 
@@ -1055,8 +1051,7 @@ const proto::ProtoObject* getIteratorPrototype(proto::ProtoContext* ctx) {
                 if (pdlK) wrap = wrap->setAttribute(ctx, pdlK, ctx->fromInteger(0x2LL));
             }
             proto = proto->setAttribute(ctx, dispK, wrap);
-            const proto::ProtoObject* pdo = ctx->fromUTF8String("__pd_Symbol.dispose__");
-            const proto::ProtoString* pdK = pdo ? pdo->asString(ctx) : nullptr;
+            const proto::ProtoString* pdK = PROTOJS_NAME(ctx, "__pd_Symbol.dispose__");
             if (pdK) proto = proto->setAttribute(ctx, pdK, ctx->fromInteger(0x3LL));
         }
     }

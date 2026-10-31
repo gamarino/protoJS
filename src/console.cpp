@@ -724,8 +724,7 @@ void TimingAPIs::init(proto::ProtoContext* ctx, const proto::ProtoObject*& globa
                     const proto::ProtoString* hnwNow = JSSymbols::hasNonWritableProps(ctx);
                     if (hnwNow) nowWrapper = nowWrapper->setAttribute(ctx, hnwNow, PROTO_TRUE);
                     dateObj = dateObj->setAttribute(ctx, nowKey, nowWrapper);
-                    const proto::ProtoObject* pdo = ctx->fromUTF8String("__pd_now__");
-                    const proto::ProtoString* pdk = pdo ? pdo->asString(ctx) : nullptr;
+                    const proto::ProtoString* pdk = PROTOJS_NAME(ctx, "__pd_now__");
                     if (pdk) dateObj = dateObj->setAttribute(ctx, pdk, ctx->fromInteger(0x3LL));
                 }
             }
@@ -764,8 +763,7 @@ void TimingAPIs::init(proto::ProtoContext* ctx, const proto::ProtoObject*& globa
                     // §17 descriptor 0x3 on the Date.parse slot — pre-fix
                     // it bled enumerable: true, so Object.keys(Date) listed
                     // parse / UTC / now alongside any user globals.
-                    const proto::ProtoObject* pdo = ctx->fromUTF8String("__pd_parse__");
-                    const proto::ProtoString* pdk = pdo ? pdo->asString(ctx) : nullptr;
+                    const proto::ProtoString* pdk = PROTOJS_NAME(ctx, "__pd_parse__");
                     if (pdk) dateObj = dateObj->setAttribute(ctx, pdk, ctx->fromInteger(0x3LL));
                 }
             }
@@ -775,8 +773,7 @@ void TimingAPIs::init(proto::ProtoContext* ctx, const proto::ProtoObject*& globa
                 const proto::ProtoObject* w = wrap("UTC", TimingAPIs::dateUTC, 7);
                 if (w) {
                     dateObj = dateObj->setAttribute(ctx, utcKey, w);
-                    const proto::ProtoObject* pdo = ctx->fromUTF8String("__pd_UTC__");
-                    const proto::ProtoString* pdk = pdo ? pdo->asString(ctx) : nullptr;
+                    const proto::ProtoString* pdk = PROTOJS_NAME(ctx, "__pd_UTC__");
                     if (pdk) dateObj = dateObj->setAttribute(ctx, pdk, ctx->fromInteger(0x3LL));
                 }
             }

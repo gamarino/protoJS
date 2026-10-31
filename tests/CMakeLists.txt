@@ -619,6 +619,7 @@ function(protojs_noninterned_test name max)
 endfunction()
 protojs_noninterned_test(noninterned_array_access 1000)
 protojs_noninterned_test(noninterned_property_writes 1000)
+protojs_noninterned_test(noninterned_object_ops 1000)
 
 # A net.Socket and a net.Server are EventEmitters: listeners run with them as
 # `this`. Binds loopback port 18852; a listener that never runs is a timeout.

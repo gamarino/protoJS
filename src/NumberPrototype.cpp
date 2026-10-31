@@ -851,8 +851,7 @@ void ensureNumberConstructor(proto::ProtoContext* ctx,
         std::string pdKeyStr = "__pd_";
         pdKeyStr += name;
         pdKeyStr += "__";
-        const proto::ProtoObject* pdko = protojs::jsStringFromUTF8(ctx, pdKeyStr);
-        const proto::ProtoString* pdk = pdko ? pdko->asString(ctx) : nullptr;
+        const proto::ProtoString* pdk = proto::ProtoString::createSymbol(ctx, pdKeyStr);
         if (pdk) ctor = ctor->setAttribute(ctx, pdk, ctx->fromInteger(0x0));
     };
     setConst("EPSILON",            std::numeric_limits<double>::epsilon());
@@ -942,8 +941,7 @@ void ensureNumberConstructor(proto::ProtoContext* ctx,
     *globalRoot = (*globalRoot)->setAttribute(ctx, keyNumber, ctor);
     // §17 globalThis.Number descriptor 0x3.
     {
-        const proto::ProtoObject* pdo = ctx->fromUTF8String("__pd_Number__");
-        const proto::ProtoString* pdk = pdo ? pdo->asString(ctx) : nullptr;
+        const proto::ProtoString* pdk = PROTOJS_NAME(ctx, "__pd_Number__");
         if (pdk) *globalRoot = (*globalRoot)->setAttribute(ctx, pdk,
             ctx->fromInteger(0x3LL));
     }

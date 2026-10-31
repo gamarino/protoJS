@@ -244,8 +244,7 @@ static bool iterateSetLikeKeys(proto::ProtoContext* ctx,
     // "next") once and caches the result for the loop.
     const proto::ProtoObject* nextFn = nullptr;
     {
-        const proto::ProtoObject* gko = ctx->fromUTF8String("__get_next__");
-        const proto::ProtoString* gks = gko ? gko->asString(ctx) : nullptr;
+        const proto::ProtoString* gks = PROTOJS_NAME(ctx, "__get_next__");
         if (gks) {
             const proto::ProtoObject* getter = iter->getAttribute(ctx, gks, true);
             if (getter && getter != PROTO_NONE) {
@@ -264,8 +263,7 @@ static bool iterateSetLikeKeys(proto::ProtoContext* ctx,
         // chain.  Fire the `__get_done__` accessor sidecar first.
         const proto::ProtoObject* d = nullptr;
         {
-            const proto::ProtoObject* gko = ctx->fromUTF8String("__get_done__");
-            const proto::ProtoString* gks = gko ? gko->asString(ctx) : nullptr;
+            const proto::ProtoString* gks = PROTOJS_NAME(ctx, "__get_done__");
             if (gks) {
                 const proto::ProtoObject* getter = step->getAttribute(ctx, gks, true);
                 if (getter && getter != PROTO_NONE) {
@@ -280,8 +278,7 @@ static bool iterateSetLikeKeys(proto::ProtoContext* ctx,
         // §7.4.4 IteratorValue: Get(step, "value") fires the accessor.
         const proto::ProtoObject* val = nullptr;
         {
-            const proto::ProtoObject* gko = ctx->fromUTF8String("__get_value__");
-            const proto::ProtoString* gks = gko ? gko->asString(ctx) : nullptr;
+            const proto::ProtoString* gks = PROTOJS_NAME(ctx, "__get_value__");
             if (gks) {
                 const proto::ProtoObject* getter = step->getAttribute(ctx, gks, true);
                 if (getter && getter != PROTO_NONE) {
@@ -696,8 +693,7 @@ static const proto::ProtoObject* setConstruct(
             // its own "is not callable" TypeError instead of the
             // accessor's abrupt (test262 set-get-add-method-failure).
             {
-                const proto::ProtoObject* gko = ctx->fromUTF8String("__get_add__");
-                const proto::ProtoString* gks = gko ? gko->asString(ctx) : nullptr;
+                const proto::ProtoString* gks = PROTOJS_NAME(ctx, "__get_add__");
                 if (gks) {
                     const proto::ProtoObject* getter = self->getAttribute(ctx, gks, true);
                     if (getter && getter != PROTO_NONE) {
@@ -857,8 +853,7 @@ static const proto::ProtoObject* setConstruct(
                         // §7.4.4 IteratorValue: fire `__get_value__` accessor
                         // so a throwing `get value` propagates.
                         {
-                            const proto::ProtoObject* gko = ctx->fromUTF8String("__get_value__");
-                            const proto::ProtoString* gks = gko ? gko->asString(ctx) : nullptr;
+                            const proto::ProtoString* gks = PROTOJS_NAME(ctx, "__get_value__");
                             if (gks) {
                                 const proto::ProtoObject* getter = stepRes->getAttribute(ctx, gks, true);
                                 if (getter && getter != PROTO_NONE) {
@@ -1017,8 +1012,7 @@ static bool getSetRecord(proto::ProtoContext* ctx,
     // Pre-fix the validator only consulted the data slot and rejected
     // any class-style Set-like with "argument lacks a numeric .size".
     if (!sizeV || sizeV == PROTO_NONE || sizeV == getUndefinedSentinel()) {
-        const proto::ProtoObject* gko = ctx->fromUTF8String("__get_size__");
-        const proto::ProtoString* gks = gko ? gko->asString(ctx) : nullptr;
+        const proto::ProtoString* gks = PROTOJS_NAME(ctx, "__get_size__");
         if (gks) {
             const proto::ProtoObject* getter = obj->getAttribute(ctx, gks, true);
             if (getter && getter != PROTO_NONE) {
@@ -1453,8 +1447,7 @@ void BuildSetPrototype(proto::ProtoSpace* space, proto::ProtoContext* ctx,
                 ? setProto->getAttribute(ctx, valuesKey, false) : nullptr;
             if (valuesFn && valuesFn != PROTO_NONE) {
                 setProto = setProto->setAttribute(ctx, symIterKey, valuesFn);
-                const proto::ProtoObject* pdko = ctx->fromUTF8String("__pd_Symbol.iterator__");
-                const proto::ProtoString* pdks = pdko ? pdko->asString(ctx) : nullptr;
+                const proto::ProtoString* pdks = PROTOJS_NAME(ctx, "__pd_Symbol.iterator__");
                 if (pdks) setProto = setProto->setAttribute(ctx, pdks, ctx->fromInteger(0x3LL));
             }
         }
@@ -1472,15 +1465,13 @@ void BuildSetPrototype(proto::ProtoSpace* space, proto::ProtoContext* ctx,
         const proto::ProtoString* tstKey = JSSymbols::toStringTag(ctx);
         if (tstKey) {
             setProto = setProto->setAttribute(ctx, tstKey, ctx->fromUTF8String("Set"));
-            const proto::ProtoObject* pdko = ctx->fromUTF8String("__pd___toStringTag____");
-            const proto::ProtoString* pdks = pdko ? pdko->asString(ctx) : nullptr;
+            const proto::ProtoString* pdks = PROTOJS_NAME(ctx, "__pd___toStringTag____");
             if (pdks) setProto = setProto->setAttribute(ctx, pdks, ctx->fromInteger(0x2LL));
         }
         const proto::ProtoString* userKey = JSSymbols::symbolToStringTag(ctx);
         if (userKey) {
             setProto = setProto->setAttribute(ctx, userKey, ctx->fromUTF8String("Set"));
-            const proto::ProtoObject* pdko = ctx->fromUTF8String("__pd_Symbol.toStringTag__");
-            const proto::ProtoString* pdks = pdko ? pdko->asString(ctx) : nullptr;
+            const proto::ProtoString* pdks = PROTOJS_NAME(ctx, "__pd_Symbol.toStringTag__");
             if (pdks) setProto = setProto->setAttribute(ctx, pdks, ctx->fromInteger(0x2LL));
             // resolvePutFieldOOP gates writability on __has_nonwritable_props__
             // so `Set.prototype[@@toStringTag] = "X"` would otherwise silently
@@ -1782,8 +1773,7 @@ void ensureSetConstructor(proto::ProtoContext* ctx,
                 // with {enumerable:false, configurable:true} → 0x2.
                 // Pre-fix the species slot had no descriptor and
                 // defaulted to fully enumerable.
-                const proto::ProtoObject* pdo = ctx->fromUTF8String("__pd_Symbol.species__");
-                const proto::ProtoString* pdk = pdo ? pdo->asString(ctx) : nullptr;
+                const proto::ProtoString* pdk = PROTOJS_NAME(ctx, "__pd_Symbol.species__");
                 if (pdk) ctor = ctor->setAttribute(ctx, pdk, ctx->fromInteger(0x2LL));
             }
         }
@@ -1795,8 +1785,7 @@ void ensureSetConstructor(proto::ProtoContext* ctx,
     // Pre-fix the slot defaulted to fully enumerable, leaking "Set"
     // through for-in over globalThis.
     {
-        const proto::ProtoObject* pdo = ctx->fromUTF8String("__pd_Set__");
-        const proto::ProtoString* pdk = pdo ? pdo->asString(ctx) : nullptr;
+        const proto::ProtoString* pdk = PROTOJS_NAME(ctx, "__pd_Set__");
         if (pdk) *globalRoot = (*globalRoot)->setAttribute(ctx, pdk,
             ctx->fromInteger(0x3LL));
     }

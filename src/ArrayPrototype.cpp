@@ -5377,11 +5377,8 @@ static const proto::ProtoObject* arrayFrom(
     const proto::ProtoString* symIterKey = JSSymbols::symbolIterator(ctx);
     const proto::ProtoObject* iterFn = nullptr;
     if (symIterKey) {
-        std::string keyStr;
-        symIterKey->toUTF8String(ctx, keyStr);
-        std::string gkStr = "__get_" + keyStr + "__";
-        const proto::ProtoObject* gko = protojs::jsStringFromUTF8(ctx, gkStr);
-        const proto::ProtoString* gk = gko ? gko->asString(ctx) : nullptr;
+        const proto::ProtoString* gk =
+            JSSymbols::sidecarName(ctx, JSSymbols::Sidecar::Get, symIterKey);
         if (gk) {
             const proto::ProtoObject* getter = src->getAttribute(ctx, gk, true);
             if (getter && getter != PROTO_NONE) {
@@ -5436,11 +5433,9 @@ static const proto::ProtoObject* arrayFrom(
                                        const proto::ProtoString* key)
                 -> const proto::ProtoObject* {
                 if (!key) return PROTO_NONE;
-                std::string keyStr;
-                key->toUTF8String(ctx, keyStr);
-                std::string gkStr = "__get_" + keyStr + "__";
-                const proto::ProtoObject* gko = protojs::jsStringFromUTF8(ctx, gkStr);
-                const proto::ProtoString* gk = gko ? gko->asString(ctx) : nullptr;
+                // `key` is done or value: fixed names, cached as program names.
+                const proto::ProtoString* gk =
+                    JSSymbols::sidecarName(ctx, JSSymbols::Sidecar::Get, key, /*programName=*/true);
                 if (!gk) return PROTO_NONE;
                 const proto::ProtoObject* getter = obj->getAttribute(ctx, gk, true);
                 if (!getter || getter == PROTO_NONE) return PROTO_NONE;

@@ -379,12 +379,11 @@ uint32_t getTypedArrayLength(proto::ProtoContext* ctx, const proto::ProtoObject*
 // is ignored), so they are stamped read-only.
 static const proto::ProtoObject* stampTypedArrayFields(proto::ProtoContext* ctx,
                                                        const proto::ProtoObject* ta) {
-    static const char* const kFields[] = {"__pd_buffer__", "__pd_byteLength__",
-                                          "__pd_byteOffset__", "__pd_length__"};
-    for (const char* f : kFields) {
-        const proto::ProtoObject* ko = ctx->fromUTF8String(f);
-        if (const proto::ProtoString* k = ko ? ko->asString(ctx) : nullptr)
-            ta = ta->setAttribute(ctx, k, ctx->fromInteger(0x0LL));
+    const proto::ProtoString* const kFields[] = {
+        PROTOJS_NAME(ctx, "__pd_buffer__"), PROTOJS_NAME(ctx, "__pd_byteLength__"),
+        PROTOJS_NAME(ctx, "__pd_byteOffset__"), PROTOJS_NAME(ctx, "__pd_length__")};
+    for (const proto::ProtoString* k : kFields) {
+        if (k) ta = ta->setAttribute(ctx, k, ctx->fromInteger(0x0LL));
     }
     return ta->setAttribute(ctx, JSSymbols::hasNonWritableProps(ctx), PROTO_TRUE);
 }

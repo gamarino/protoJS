@@ -1812,8 +1812,7 @@ static const proto::ProtoObject* proxyRevocable(
         ? fpObj->newChild(ctx, true) : ctx->newObject(true);
     if (!revoke) return PROTO_NONE;
     // Stash the proxy on the revoke fn.
-    const proto::ProtoObject* pko = ctx->fromUTF8String("__proxy_revoke_target__");
-    const proto::ProtoString* pk = pko ? pko->asString(ctx) : nullptr;
+    const proto::ProtoString* pk = PROTOJS_NAME(ctx, "__proxy_revoke_target__");
     if (pk) revoke = revoke->setAttribute(ctx, pk, proxy);
     // Install __native_fn__ that clears the proxy's sidecars.
     // The revoke function looks up __proxy_revoke_target__ on its
@@ -1829,8 +1828,7 @@ static const proto::ProtoObject* proxyRevocable(
         const proto::ProtoArguments*,
         const proto::ProtoKeywordArguments*) -> const proto::ProtoObject* {
         if (!ictx || !self) return PROTO_NONE;
-        const proto::ProtoObject* pko = ictx->fromUTF8String("__proxy_revoke_target__");
-        const proto::ProtoString* pk = pko ? pko->asString(ictx) : nullptr;
+        const proto::ProtoString* pk = PROTOJS_NAME(ictx, "__proxy_revoke_target__");
         if (!pk) return PROTO_NONE;
         // Search self (the call receiver) and, if not found, walk
         // through the receiver's properties looking for revoke

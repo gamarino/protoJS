@@ -910,8 +910,7 @@ void ensureFunctionPrototype(proto::ProtoContext* ctx,
                 if (hnwK) hiWrapper = hiWrapper->setAttribute(ctx, hnwK, PROTO_TRUE);
                 fp = fp->setAttribute(ctx, hiK, hiWrapper);
                 // Slot descriptor 0x0 = writable:false, enumerable:false, configurable:false
-                const proto::ProtoObject* pdo = ctx->fromUTF8String("__pd_Symbol.hasInstance__");
-                const proto::ProtoString* pdks = pdo ? pdo->asString(ctx) : nullptr;
+                const proto::ProtoString* pdks = PROTOJS_NAME(ctx, "__pd_Symbol.hasInstance__");
                 if (pdks) fp = fp->setAttribute(ctx, pdks, ctx->fromInteger(0x0LL));
             }
         }
@@ -1163,8 +1162,7 @@ void ensureFunctionPrototype(proto::ProtoContext* ctx,
 
                 *globalRoot = (*globalRoot)->setAttribute(ctx, keyFunction, fnCtor);
                 // §17 globalThis.Function descriptor 0x3.
-                const proto::ProtoObject* pdo = ctx->fromUTF8String("__pd_Function__");
-                const proto::ProtoString* pdk = pdo ? pdo->asString(ctx) : nullptr;
+                const proto::ProtoString* pdk = PROTOJS_NAME(ctx, "__pd_Function__");
                 if (pdk) *globalRoot = (*globalRoot)->setAttribute(ctx, pdk,
                     ctx->fromInteger(0x3LL));
             }

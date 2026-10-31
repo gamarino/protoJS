@@ -274,10 +274,14 @@ static void collectOwnKeys(
             mightHaveNonWritable = (obj->hasAttribute(ctx, hnwKey) == PROTO_TRUE)
                 && (obj->getAttribute(ctx, hnwKey, true) == PROTO_TRUE);
         }
+        // The accessor probes below are own-only, and every object holding
+        // an own accessor carries its own hint (runtime/AccessorFlags.h);
+        // read through the chain the hint is always true (Object.prototype's
+        // __proto__ accessor).
         const proto::ProtoString* hapKey = JSSymbols::hasAccessorProps(ctx);
         if (hapKey) {
-            mightHaveAccessors = (obj->hasAttribute(ctx, hapKey) == PROTO_TRUE)
-                && (obj->getAttribute(ctx, hapKey, true) == PROTO_TRUE);
+            mightHaveAccessors = (obj->hasOwnAttribute(ctx, hapKey) == PROTO_TRUE)
+                && (obj->getAttribute(ctx, hapKey, false) == PROTO_TRUE);
         }
     }
 
@@ -364,9 +368,8 @@ static void collectOwnKeys(
         // bypassed the probe and the now-non-enumerable key still
         // emerged in the result.  Always probe when filtering.
         if (!s->includeNonEnumerable) {
-            std::string pdKeyStr = "__pd_" + kstr + "__";
-            const proto::ProtoObject* pko = protojs::jsStringFromUTF8(cbCtx, pdKeyStr);
-            const proto::ProtoString* pdk = pko ? pko->asString(cbCtx) : nullptr;
+            const proto::ProtoString* pdk =
+                JSSymbols::sidecarName(cbCtx, JSSymbols::Sidecar::Pd, propKey);
             if (pdk) {
                 // Own-only: the descriptor of an own property is never
                 // inherited (getAttribute walks the chain, and e.g.
@@ -387,9 +390,8 @@ static void collectOwnKeys(
             // exist anywhere reachable.
             const proto::ProtoObject* getter = nullptr;
             if (s->mightHaveAccessors) {
-                std::string gkStr = "__get_" + kstr + "__";
-                const proto::ProtoObject* gko = protojs::jsStringFromUTF8(cbCtx, gkStr);
-                const proto::ProtoString* gk = gko ? gko->asString(cbCtx) : nullptr;
+                const proto::ProtoString* gk =
+                    JSSymbols::sidecarName(cbCtx, JSSymbols::Sidecar::Get, propKey);
                 getter = (gk && s->obj->hasOwnAttribute(cbCtx, gk) == PROTO_TRUE)
                     ? s->obj->getAttribute(cbCtx, gk, false) : nullptr;
             }
@@ -486,7 +488,9 @@ static void collectOwnKeys(
             std::string kstr = std::to_string(idx);
             const proto::ProtoObject* ko = protojs::jsStringFromUTF8(ctx, kstr);
             const proto::ProtoString* propKey = ko ? ko->asString(ctx) : nullptr;
-            if (!includeNonEnumerable) {
+            // Index sidecars exist only under the own index flags
+            // (runtime/IndexKeyFlags.h).
+            if (!includeNonEnumerable && protojs::mayHaveOwnIndexDescriptor(ctx, obj)) {
                 std::string pdKeyStr = "__pd_" + kstr + "__";
                 const proto::ProtoObject* pko = protojs::jsStringFromUTF8(ctx, pdKeyStr);
                 const proto::ProtoString* pdk = pko ? pko->asString(ctx) : nullptr;
@@ -502,7 +506,7 @@ static void collectOwnKeys(
             keys.push_back(kstr);
             if (vals) {
                 const proto::ProtoObject* getter = nullptr;
-                if (mightHaveAccessors) {
+                if (mightHaveAccessors && protojs::mayHaveOwnIndexAccessor(ctx, obj)) {
                     std::string gkStr = "__get_" + kstr + "__";
                     const proto::ProtoObject* gko = protojs::jsStringFromUTF8(ctx, gkStr);
                     const proto::ProtoString* gk = gko ? gko->asString(ctx) : nullptr;
@@ -592,8 +596,7 @@ static const proto::ProtoObject* objectKeys(
                 const proto::ProtoObject* desc =
                     protojs::proxyDispatchGetOwnPropertyDescriptor(ctx, obj, kStr);
                 if (!desc || desc == PROTO_NONE) continue;
-                const proto::ProtoObject* eko = ctx->fromUTF8String("enumerable");
-                const proto::ProtoString* eks = eko ? eko->asString(ctx) : nullptr;
+                const proto::ProtoString* eks = PROTOJS_NAME(ctx, "enumerable");
                 if (eks) {
                     const proto::ProtoObject* ev = desc->getAttribute(ctx, eks, false);
                     if (ev != PROTO_TRUE) continue;
@@ -641,8 +644,7 @@ static const proto::ProtoObject* objectKeys(
             const proto::ProtoObject* desc =
                 protojs::proxyDispatchGetOwnPropertyDescriptor(ctx, outerProxy, kStr);
             if (!desc || desc == PROTO_NONE) continue;
-            const proto::ProtoObject* eko = ctx->fromUTF8String("enumerable");
-            const proto::ProtoString* eks = eko ? eko->asString(ctx) : nullptr;
+            const proto::ProtoString* eks = PROTOJS_NAME(ctx, "enumerable");
             if (eks) {
                 const proto::ProtoObject* ev = desc->getAttribute(ctx, eks, false);
                 if (ev != PROTO_TRUE) continue;
@@ -1755,8 +1757,9 @@ static const proto::ProtoObject* objectFreeze(
             appendOwnKeyNames(ctx, obj, keysToUpdate, /*symbolKeysOnly=*/false);
             for (const auto& ks : keysToUpdate) {
                 std::string pdStr = std::string("__pd_") + ks + "__";
-                const proto::ProtoObject* pdo = protojs::jsStringFromUTF8(ctx, pdStr);
-                const proto::ProtoString* pdk = pdo ? pdo->asString(ctx) : nullptr;
+                // setAttribute interns the name anyway: intern it once, so the read
+                // and the write below pass a symbol (no per-call canonicalisation).
+                const proto::ProtoString* pdk = proto::ProtoString::createSymbol(ctx, pdStr);
                 if (!pdk) continue;
                 const proto::ProtoObject* cur = obj->getAttribute(ctx, pdk, false);
                 long long bits = (cur && cur != PROTO_NONE && cur->isInteger(ctx))
@@ -1780,8 +1783,9 @@ static const proto::ProtoObject* objectFreeze(
                 size_t n = els->getSize(ctx);
                 for (size_t i = 0; i < n; ++i) {
                     std::string pdStr = std::string("__pd_") + std::to_string(i) + "__";
-                    const proto::ProtoObject* pdo = protojs::jsStringFromUTF8(ctx, pdStr);
-                    const proto::ProtoString* pdk = pdo ? pdo->asString(ctx) : nullptr;
+                    // setAttribute interns the name anyway: intern it once, so the read
+                    // and the write below pass a symbol (no per-call canonicalisation).
+                    const proto::ProtoString* pdk = proto::ProtoString::createSymbol(ctx, pdStr);
                     if (!pdk) continue;
                     const proto::ProtoObject* cur = obj->getAttribute(ctx, pdk, false);
                     long long bits = (cur && cur != PROTO_NONE && cur->isInteger(ctx))
@@ -2008,8 +2012,9 @@ static const proto::ProtoObject* objectSeal(
         appendOwnKeyNames(ctx, obj, keysToUpdate, /*symbolKeysOnly=*/false);
         for (const auto& ks : keysToUpdate) {
             std::string pdStr = std::string("__pd_") + ks + "__";
-            const proto::ProtoObject* pdo = protojs::jsStringFromUTF8(ctx, pdStr);
-            const proto::ProtoString* pdk = pdo ? pdo->asString(ctx) : nullptr;
+            // setAttribute interns the name anyway: intern it once, so the read
+            // and the write below pass a symbol (no per-call canonicalisation).
+            const proto::ProtoString* pdk = proto::ProtoString::createSymbol(ctx, pdStr);
             if (!pdk) continue;
             const proto::ProtoObject* cur = obj->getAttribute(ctx, pdk, false);
             long long bits = (cur && cur != PROTO_NONE && cur->isInteger(ctx))
@@ -2028,8 +2033,9 @@ static const proto::ProtoObject* objectSeal(
                 size_t n = els->getSize(ctx);
                 for (size_t i = 0; i < n; ++i) {
                     std::string pdStr = std::string("__pd_") + std::to_string(i) + "__";
-                    const proto::ProtoObject* pdo = protojs::jsStringFromUTF8(ctx, pdStr);
-                    const proto::ProtoString* pdk = pdo ? pdo->asString(ctx) : nullptr;
+                    // setAttribute interns the name anyway: intern it once, so the read
+                    // and the write below pass a symbol (no per-call canonicalisation).
+                    const proto::ProtoString* pdk = proto::ProtoString::createSymbol(ctx, pdStr);
                     if (!pdk) continue;
                     const proto::ProtoObject* cur = obj->getAttribute(ctx, pdk, false);
                     long long bits = (cur && cur != PROTO_NONE && cur->isInteger(ctx))
@@ -2590,8 +2596,7 @@ static const proto::ProtoString* coercePropNameToKey(
         const proto::ProtoString* isSymK = JSSymbols::isSymbol(ctx);
         if (current && isSymK
             && current->getAttribute(ctx, isSymK, true) == PROTO_TRUE) {
-            const proto::ProtoObject* ssko = ctx->fromUTF8String("__symbol_str_key__");
-            const proto::ProtoString* sskK = ssko ? ssko->asString(ctx) : nullptr;
+            const proto::ProtoString* sskK = PROTOJS_NAME(ctx, "__symbol_str_key__");
             if (sskK) {
                 const proto::ProtoObject* keyStr =
                     current->getAttribute(ctx, sskK, true);
@@ -2661,8 +2666,7 @@ static const proto::ProtoString* coercePropNameToKey(
                         // the put / hasOwn paths use.  Bypass toString /
                         // valueOf / number stringification fallthrough.
                         if (isSym) {
-                            const proto::ProtoObject* ssko = ctx->fromUTF8String("__symbol_str_key__");
-                            const proto::ProtoString* sskK = ssko ? ssko->asString(ctx) : nullptr;
+                            const proto::ProtoString* sskK = PROTOJS_NAME(ctx, "__symbol_str_key__");
                             if (sskK) {
                                 const proto::ProtoObject* keyStr = res->getAttribute(ctx, sskK, true);
                                 if (keyStr && keyStr != PROTO_NONE && keyStr->isString(ctx))
@@ -2715,8 +2719,7 @@ static const proto::ProtoString* coercePropNameToKey(
                     // a wrapper whose toString / valueOf returns a
                     // Symbol resolves to the same attribute storage
                     // key as the put path.
-                    const proto::ProtoObject* ssko = ctx->fromUTF8String("__symbol_str_key__");
-                    const proto::ProtoString* sskK = ssko ? ssko->asString(ctx) : nullptr;
+                    const proto::ProtoString* sskK = PROTOJS_NAME(ctx, "__symbol_str_key__");
                     if (sskK) {
                         const proto::ProtoObject* keyStr = res->getAttribute(ctx, sskK, true);
                         if (keyStr && keyStr != PROTO_NONE && keyStr->isString(ctx))
@@ -2744,8 +2747,7 @@ static const proto::ProtoString* coercePropNameToKey(
                     const proto::ProtoString* isSK = JSSymbols::isSymbol(ctx);
                     if (isSK && res->hasAttribute(ctx, isSK) == PROTO_TRUE
                         && res->getAttribute(ctx, isSK, false) == PROTO_TRUE) {
-                        const proto::ProtoObject* ssko = ctx->fromUTF8String("__symbol_str_key__");
-                        const proto::ProtoString* sskK = ssko ? ssko->asString(ctx) : nullptr;
+                        const proto::ProtoString* sskK = PROTOJS_NAME(ctx, "__symbol_str_key__");
                         if (sskK) {
                             const proto::ProtoObject* keyStr = res->getAttribute(ctx, sskK, true);
                             if (keyStr && keyStr != PROTO_NONE && keyStr->isString(ctx))
@@ -4723,10 +4725,10 @@ static const proto::ProtoObject* objectFromEntries(
         // back to chain-walk getAttribute.  Spec §7.4.3 IteratorComplete
         // / §7.4.4 IteratorValue require Get() to invoke the accessor.
         auto readDoneOrValue = [&](const proto::ProtoObject* obj,
-                                   const proto::ProtoString* key,
-                                   const char* gkStr) -> const proto::ProtoObject* {
-            const proto::ProtoObject* gko = ctx->fromUTF8String(gkStr);
-            const proto::ProtoString* gks = gko ? gko->asString(ctx) : nullptr;
+                                   const proto::ProtoString* key) -> const proto::ProtoObject* {
+            const proto::ProtoString* gks =
+                key ? JSSymbols::sidecarName(ctx, JSSymbols::Sidecar::Get, key,
+                                             /*programName=*/true) : nullptr;  // done / value
             if (gks) {
                 const proto::ProtoObject* getter = obj->getAttribute(ctx, gks, true);
                 if (getter && getter != PROTO_NONE) {
@@ -4746,11 +4748,11 @@ static const proto::ProtoObject* objectFromEntries(
             // accessor; abrupt completion propagates WITHOUT calling
             // iterator.return (test262 fromEntries/iterator-not-
             // closed-for-throwing-done-accessor).
-            const proto::ProtoObject* dv = readDoneOrValue(res, doneKey, "__get_done__");
+            const proto::ProtoObject* dv = readDoneOrValue(res, doneKey);
             bool isDone = dv == PROTO_TRUE
                 || (dv && dv->isBoolean(ctx) && dv->asBoolean(ctx));
             if (isDone) break;
-            const proto::ProtoObject* pair = readDoneOrValue(res, valueKey, "__get_value__");
+            const proto::ProtoObject* pair = readDoneOrValue(res, valueKey);
             // §7.4.4 IteratorValue: a throwing `get value()` DOES
             // propagate without iterator.return either (the spec only
             // closes for abrupt completions after a successful step).
@@ -5343,8 +5345,7 @@ static const proto::ProtoObject* objectToString(
             tagSource = reinterpret_cast<const proto::ProtoObject*>(ctx->space->stringPrototype);
     }
     if (primitiveBuiltinTag) {
-        const proto::ProtoObject* tagKo = ctx->fromUTF8String("Symbol.toStringTag");
-        const proto::ProtoString* tagK = tagKo ? tagKo->asString(ctx) : nullptr;
+        const proto::ProtoString* tagK = PROTOJS_NAME(ctx, "Symbol.toStringTag");
         if (tagK) {
             const proto::ProtoObject* val = tagSource->getAttribute(ctx, tagK, true);
             if (val && val != PROTO_NONE && val->isString(ctx)) {
@@ -5476,8 +5477,7 @@ static const proto::ProtoObject* objectToString(
     {
         const proto::ProtoString* symK = JSSymbols::isSymbol(ctx);
         if (symK && self->getAttribute(ctx, symK, true) == PROTO_TRUE) {
-            const proto::ProtoObject* tagKo = ctx->fromUTF8String("Symbol.toStringTag");
-            const proto::ProtoString* tagK = tagKo ? tagKo->asString(ctx) : nullptr;
+            const proto::ProtoString* tagK = PROTOJS_NAME(ctx, "Symbol.toStringTag");
             std::string tag = "Symbol";
             if (tagK) {
                 const proto::ProtoObject* val = self->getAttribute(ctx, tagK, true);

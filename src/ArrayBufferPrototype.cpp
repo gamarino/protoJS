@@ -299,8 +299,7 @@ void ensureArrayBufferConstructor(proto::ProtoContext* ctx,
         if (tagK) {
             proto = proto->setAttribute(ctx, tagK,
                 ctx->fromUTF8String("ArrayBuffer"));
-            const proto::ProtoObject* pdo = ctx->fromUTF8String("__pd_Symbol.toStringTag__");
-            const proto::ProtoString* pdk = pdo ? pdo->asString(ctx) : nullptr;
+            const proto::ProtoString* pdk = PROTOJS_NAME(ctx, "__pd_Symbol.toStringTag__");
             if (pdk) proto = proto->setAttribute(ctx, pdk, ctx->fromInteger(0x2LL));
         }
     }
@@ -437,8 +436,7 @@ void ensureArrayBufferConstructor(proto::ProtoContext* ctx,
                 const proto::ProtoString* gksSym =
                     PROTOJS_NAME(ctx, "__get_Symbol.species__");
                 if (gksSym) ctor = markHasAccessors(ctx, ctor->setAttribute(ctx, gksSym, getter));
-                const proto::ProtoObject* pdo = ctx->fromUTF8String("__pd_Symbol.species__");
-                const proto::ProtoString* pdk = pdo ? pdo->asString(ctx) : nullptr;
+                const proto::ProtoString* pdk = PROTOJS_NAME(ctx, "__pd_Symbol.species__");
                 if (pdk) ctor = ctor->setAttribute(ctx, pdk, ctx->fromInteger(0x2LL));
             }
         }
@@ -450,8 +448,7 @@ void ensureArrayBufferConstructor(proto::ProtoContext* ctx,
     *globalRoot = (*globalRoot)->setAttribute(ctx, abKey, ctor);
     // §17 globalThis.ArrayBuffer descriptor 0x3.
     {
-        const proto::ProtoObject* pdo = ctx->fromUTF8String("__pd_ArrayBuffer__");
-        const proto::ProtoString* pdk = pdo ? pdo->asString(ctx) : nullptr;
+        const proto::ProtoString* pdk = PROTOJS_NAME(ctx, "__pd_ArrayBuffer__");
         if (pdk) *globalRoot = (*globalRoot)->setAttribute(ctx, pdk,
             ctx->fromInteger(0x3LL));
     }

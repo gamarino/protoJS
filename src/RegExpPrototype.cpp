@@ -493,11 +493,8 @@ const proto::ProtoObject* regexpToString(
         if (!k) return "";
         // Probe the __get_<k>__ accessor sidecar so a throwing/explicit
         // getter fires before we fall back to the data slot.
-        std::string nameUtf8;
-        k->toUTF8String(ctx, nameUtf8);
-        std::string gkBuf = "__get_" + nameUtf8 + "__";
         const proto::ProtoString* gk =
-            protojs::jsStringFromUTF8(ctx, gkBuf)->asString(ctx);
+            JSSymbols::sidecarName(ctx, JSSymbols::Sidecar::Get, k);
         const proto::ProtoObject* getter = gk
             ? self->getAttribute(ctx, gk, true) : PROTO_NONE;
         const proto::ProtoObject* val = nullptr;
@@ -1220,10 +1217,9 @@ const proto::ProtoObject* BuildRegExpPrototype(proto::ProtoSpace* space, proto::
         // Object.getOwnPropertyDescriptor(RegExp.prototype, "exec")
         // reported enumerable: true (test262
         // Object/getOwnPropertyDescriptor/15.2.3.3-4-165.js).
-        std::string pks = "__pd_" + std::string(name) + "__";
-        const proto::ProtoObject* pko =
-            protojs::jsStringFromUTF8(ctx, pks);
-        const proto::ProtoString* pksk = pko ? pko->asString(ctx) : nullptr;
+        // setAttribute interns the name anyway: pass it interned.
+        const proto::ProtoString* pksk =
+            proto::ProtoString::createSymbol(ctx, "__pd_" + std::string(name) + "__");
         if (pksk) sp = sp->setAttribute(ctx, pksk, ctx->fromInteger(0x3LL));
     };
 

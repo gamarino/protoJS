@@ -329,10 +329,7 @@ static const proto::ProtoObject* resolvePutFieldOOP(proto::ProtoContext* ctx, co
         && (obj->hasAttribute(ctx, hnwKey) == PROTO_TRUE)
         && (obj->getAttribute(ctx, hnwKey, true) == PROTO_TRUE);
     if (maybeHasNonWritable) {
-        if (keyStr.empty()) key->toUTF8String(ctx, keyStr);
-        std::string pdKeyStr = "__pd_" + keyStr + "__";
-        const proto::ProtoObject* pdko = protojs::jsStringFromUTF8(ctx, pdKeyStr);
-        const proto::ProtoString* pdks = pdko ? pdko->asString(ctx) : nullptr;
+        const proto::ProtoString* pdks = JSSymbols::sidecarName(ctx, JSSymbols::Sidecar::Pd, key);
         const proto::ProtoObject* pdv = pdks ? obj->getAttribute(ctx, pdks, true) : nullptr;
         if (pdv && pdv != PROTO_NONE && pdv->isInteger(ctx)) {
             uint8_t bits = static_cast<uint8_t>(pdv->asLong(ctx));
@@ -343,6 +340,7 @@ static const proto::ProtoObject* resolvePutFieldOOP(proto::ProtoContext* ctx, co
                 // succeeded" vs the spec-required throw).  Sloppy mode →
                 // silent failure preserves the existing pre-R26 behavior.
                 if (isStrict) {
+                    if (keyStr.empty()) key->toUTF8String(ctx, keyStr);
                     std::string msg = "Cannot assign to read only property '";
                     msg += keyStr;
                     msg += "'";
@@ -3730,13 +3728,10 @@ static PROTOJS_NOINLINE bool hasPropertyJS(proto::ProtoContext* ctx,
     // Also check accessor sidecars (__get_<N>__, __set_<N>__) — when a property is
     // defined via Object.defineProperty as an accessor, there is no data key (it is
     // removed during definition).  The property still exists and 'in' must return true.
-    if (hasResult != PROTO_TRUE && key) {
-        std::string keyStr;
-        key->toUTF8String(ctx, keyStr);
-        for (const char* prefix : {"__get_", "__set_"}) {
-            std::string sk = std::string(prefix) + keyStr + "__";
-            const proto::ProtoObject* sko = protojs::jsStringFromUTF8(ctx, sk);
-            const proto::ProtoString* sks = sko ? sko->asString(ctx) : nullptr;
+    // Only when an accessor may exist on the chain (runtime/AccessorFlags.h).
+    if (hasResult != PROTO_TRUE && key && protojs::mayInheritAccessor(ctx, obj, key)) {
+        for (JSSymbols::Sidecar kind : {JSSymbols::Sidecar::Get, JSSymbols::Sidecar::Set}) {
+            const proto::ProtoString* sks = JSSymbols::sidecarName(ctx, kind, key);
             if (sks && obj->hasAttribute(ctx, sks) == PROTO_TRUE) {
                 hasResult = PROTO_TRUE;
                 break;
@@ -5170,7 +5165,7 @@ static void ensureBuiltinErrorConstructors(proto::ProtoContext* ctx,
     // subtype-iteration step below can newChild on it.
     const proto::ProtoObject* errorCtorOut = nullptr;
     for (int i = 0; kNames[i]; ++i) {
-        const proto::ProtoString* ctorKey = (ctx->fromUTF8String(kNames[i]) ? ctx->fromUTF8String(kNames[i])->asString(ctx) : nullptr);
+        const proto::ProtoString* ctorKey = JSSymbols::internName(ctx, kNames[i]);
         if (!ctorKey) continue;
         // Only register if not already present.
         const proto::ProtoObject* existing = (*globalRoot)->getAttribute(ctx, ctorKey, false);
@@ -5233,8 +5228,7 @@ static void ensureBuiltinErrorConstructors(proto::ProtoContext* ctx,
             if (userKey) {
                 proto = proto->setAttribute(ctx, userKey,
                     ctx->fromUTF8String("Error"));
-                const proto::ProtoObject* pdo = ctx->fromUTF8String("__pd_Symbol.toStringTag__");
-                const proto::ProtoString* pdk = pdo ? pdo->asString(ctx) : nullptr;
+                const proto::ProtoString* pdk = PROTOJS_NAME(ctx, "__pd_Symbol.toStringTag__");
                 if (pdk) proto = proto->setAttribute(ctx, pdk, ctx->fromInteger(0x2LL));
             }
         }
@@ -5362,8 +5356,7 @@ static void ensureBuiltinErrorConstructors(proto::ProtoContext* ctx,
                 const proto::ProtoObject* fn = wrapNativeFunction(ctx, errorIsError, "isError", 1, globalRoot);
                 if (fn && fn != PROTO_NONE) {
                     ctor = ctor->setAttribute(ctx, ieK, fn);
-                    const proto::ProtoObject* pdo = ctx->fromUTF8String("__pd_isError__");
-                    const proto::ProtoString* pdk = pdo ? pdo->asString(ctx) : nullptr;
+                    const proto::ProtoString* pdk = PROTOJS_NAME(ctx, "__pd_isError__");
                     if (pdk) ctor = ctor->setAttribute(ctx, pdk, ctx->fromInteger(0x3LL));
                 }
             }
@@ -5379,8 +5372,7 @@ static void ensureBuiltinErrorConstructors(proto::ProtoContext* ctx,
         // NativeError subtype caught this).
         {
             std::string pdNameStr = std::string("__pd_") + kNames[i] + "__";
-            const proto::ProtoObject* pdo = protojs::jsStringFromUTF8(ctx, pdNameStr);
-            const proto::ProtoString* pdk = pdo ? pdo->asString(ctx) : nullptr;
+            const proto::ProtoString* pdk = proto::ProtoString::createSymbol(ctx, pdNameStr);
             if (pdk) *globalRoot = (*globalRoot)->setAttribute(ctx, pdk,
                 ctx->fromInteger(0x3LL));
         }
@@ -5405,7 +5397,9 @@ static const proto::ProtoObject* makeError(proto::ProtoContext* ctx,
     // Try to get the prototype from the global so instanceof works.
     const proto::ProtoObject* base = nullptr;
     if (globalRoot && *globalRoot && name) {
-        const proto::ProtoString* ctorKey   = (ctx->fromUTF8String(name) ? ctx->fromUTF8String(name)->asString(ctx) : nullptr);
+        // `name` is a built-in constructor name (vocabulary): look it up
+        // interned.
+        const proto::ProtoString* ctorKey   = proto::ProtoString::createSymbol(ctx, name);
         const proto::ProtoString* protoKey  = JSSymbols::prototype(ctx);
         if (ctorKey && protoKey) {
             const proto::ProtoObject* ctor = (*globalRoot)->getAttribute(ctx, ctorKey, false);
@@ -6163,9 +6157,8 @@ static PROTOJS_NOINLINE void hoistGlobalDeclarations(proto::ProtoContext* ctx,
             // PROTO_NONE slot reads as a deleted property.
             const proto::ProtoObject* undef = getUndefinedSentinel();
             writeGlobalBinding(ctx, pGlobalRoot, vkey, undef ? undef : PROTO_NONE, false);
-            const std::string pdStr = "__pd_" + module->closureVarNames[gi] + "__";
-            const proto::ProtoObject* pdo = protojs::jsStringFromUTF8(ctx, pdStr);
-            const proto::ProtoString* pdk = pdo ? pdo->asString(ctx) : nullptr;
+            const proto::ProtoString* pdk =
+                JSSymbols::sidecarName(ctx, JSSymbols::Sidecar::Pd, vkey, /*programName=*/true);
             // 0x1 writable | 0x4 enumerable; the configurable bit 0x2 is clear.
             if (pdk)
                 writeGlobalBinding(ctx, pGlobalRoot, pdk, ctx->fromInteger(0x5LL), false);
@@ -7947,7 +7940,7 @@ static const proto::ProtoObject* runBytecodeImpl(proto::ProtoContext* pContext,
             for (int gi = 0; kUnimplementedCtors[gi].name; ++gi) {
                 const char* ctorName = kUnimplementedCtors[gi].name;
                 const long long ctorLen = kUnimplementedCtors[gi].length;
-                const proto::ProtoString* ck = (pContext->fromUTF8String(ctorName) ? pContext->fromUTF8String(ctorName)->asString(pContext) : nullptr);
+                const proto::ProtoString* ck = JSSymbols::internName(pContext, ctorName);
                 if (!ck) continue;
                 const proto::ProtoObject* ex = (*pGlobalRoot)->getAttribute(pContext, ck, false);
                 if (ex && ex != PROTO_NONE) continue;
@@ -8032,8 +8025,7 @@ static const proto::ProtoObject* runBytecodeImpl(proto::ProtoContext* pContext,
                         const proto::ProtoArguments*,
                         const proto::ProtoKeywordArguments*) -> const proto::ProtoObject* {
                         if (sctx && sself && sself != PROTO_NONE) {
-                            const proto::ProtoObject* edk = sctx->fromUTF8String("__error_data__");
-                            const proto::ProtoString* edK = edk ? edk->asString(sctx) : nullptr;
+                            const proto::ProtoString* edK = PROTOJS_NAME(sctx, "__error_data__");
                             if (edK)
                                 return sself->setAttribute(sctx, edK, PROTO_TRUE);
                         }
@@ -8143,8 +8135,7 @@ static const proto::ProtoObject* runBytecodeImpl(proto::ProtoContext* pContext,
                     *pGlobalRoot = (*pGlobalRoot)->setAttribute(pContext, evalKey, evalFn);
                 // \xc2\xa719.2.1: eval's global descriptor is {writable: true,
                 // enumerable: false, configurable: true} \xe2\x86\x92 0x3.
-                const proto::ProtoObject* pdo = pContext->fromUTF8String("__pd_eval__");
-                const proto::ProtoString* pdks = pdo ? pdo->asString(pContext) : nullptr;
+                const proto::ProtoString* pdks = PROTOJS_NAME(pContext, "__pd_eval__");
                 if (pdks) *pGlobalRoot = (*pGlobalRoot)->setAttribute(pContext, pdks,
                     pContext->fromInteger(0x3LL));
             }
@@ -8277,7 +8268,7 @@ static const proto::ProtoObject* runBytecodeImpl(proto::ProtoContext* pContext,
                             // descriptors via getOwnPropertyDescriptor.
                             std::string pdStr = std::string("__pd_") + m.name + "__";
                             const proto::ProtoString* pdk =
-                                protojs::jsStringFromUTF8(pContext, pdStr)->asString(pContext);
+                                proto::ProtoString::createSymbol(pContext, pdStr);
                             if (pdk) reflectStub = reflectStub->setAttribute(pContext, pdk, pContext->fromInteger(0x3LL));
                         }
                     }
@@ -8297,8 +8288,7 @@ static const proto::ProtoObject* runBytecodeImpl(proto::ProtoContext* pContext,
                     if (ttKey) {
                         reflectStub = reflectStub->setAttribute(pContext, ttKey,
                             pContext->fromUTF8String("Reflect"));
-                        const proto::ProtoObject* pdo = pContext->fromUTF8String("__pd_Symbol.toStringTag__");
-                        const proto::ProtoString* pdk = pdo ? pdo->asString(pContext) : nullptr;
+                        const proto::ProtoString* pdk = PROTOJS_NAME(pContext, "__pd_Symbol.toStringTag__");
                         if (pdk) reflectStub = reflectStub->setAttribute(pContext, pdk,
                             pContext->fromInteger(0x2LL));
                         // resolvePutFieldOOP gates the writability check on
@@ -8377,8 +8367,7 @@ static const proto::ProtoObject* runBytecodeImpl(proto::ProtoContext* pContext,
                             if (ttKey) {
                                 symProto = symProto->setAttribute(pContext, ttKey,
                                     pContext->fromUTF8String("Symbol"));
-                                const proto::ProtoObject* pdo = pContext->fromUTF8String("__pd_Symbol.toStringTag__");
-                                const proto::ProtoString* pdk = pdo ? pdo->asString(pContext) : nullptr;
+                                const proto::ProtoString* pdk = PROTOJS_NAME(pContext, "__pd_Symbol.toStringTag__");
                                 if (pdk) symProto = symProto->setAttribute(pContext, pdk,
                                     pContext->fromInteger(0x2LL));
                                 // Hot-path hint: without
@@ -8464,8 +8453,7 @@ static const proto::ProtoObject* runBytecodeImpl(proto::ProtoContext* pContext,
                                         // (matches V8 / spec behavior).
                                         return gself;
                                     }
-                                    const proto::ProtoObject* dko = gctx->fromUTF8String("__symbol_desc__");
-                                    const proto::ProtoString* dk = dko ? dko->asString(gctx) : nullptr;
+                                    const proto::ProtoString* dk = PROTOJS_NAME(gctx, "__symbol_desc__");
                                     if (!dk) return PROTO_NONE;
                                     const proto::ProtoObject* d = gself->getAttribute(gctx, dk, false);
                                     if (d && d != PROTO_NONE) return d;
@@ -8568,8 +8556,7 @@ static const proto::ProtoObject* runBytecodeImpl(proto::ProtoContext* pContext,
                                         std::string out = "Symbol(" + wkStr + ")";
                                         return protojs::jsStringFromUTF8(gctx, out);
                                     }
-                                    const proto::ProtoObject* dko = gctx->fromUTF8String("__symbol_desc__");
-                                    const proto::ProtoString* dk = dko ? dko->asString(gctx) : nullptr;
+                                    const proto::ProtoString* dk = PROTOJS_NAME(gctx, "__symbol_desc__");
                                     const proto::ProtoObject* d = dk ? gself->getAttribute(gctx, dk, false) : nullptr;
                                     std::string out = "Symbol(";
                                     if (d && d != PROTO_NONE && d != getUndefinedSentinel()) {
@@ -8720,8 +8707,7 @@ static const proto::ProtoObject* runBytecodeImpl(proto::ProtoContext* pContext,
                             const proto::ProtoObject* fn = wrapNativeFunction(pContext, symbolFor, "for", 1, pGlobalRoot);
                             if (fn) {
                                 symbolCtor = symbolCtor->setAttribute(pContext, fk, fn);
-                                const proto::ProtoObject* pdo = pContext->fromUTF8String("__pd_for__");
-                                const proto::ProtoString* pdk = pdo ? pdo->asString(pContext) : nullptr;
+                                const proto::ProtoString* pdk = PROTOJS_NAME(pContext, "__pd_for__");
                                 if (pdk) symbolCtor = symbolCtor->setAttribute(pContext, pdk,
                                     pContext->fromInteger(0x3LL));
                             }
@@ -8732,8 +8718,7 @@ static const proto::ProtoObject* runBytecodeImpl(proto::ProtoContext* pContext,
                             const proto::ProtoObject* fn = wrapNativeFunction(pContext, symbolKeyFor, "keyFor", 1, pGlobalRoot);
                             if (fn) {
                                 symbolCtor = symbolCtor->setAttribute(pContext, kfk, fn);
-                                const proto::ProtoObject* pdo = pContext->fromUTF8String("__pd_keyFor__");
-                                const proto::ProtoString* pdk = pdo ? pdo->asString(pContext) : nullptr;
+                                const proto::ProtoString* pdk = PROTOJS_NAME(pContext, "__pd_keyFor__");
                                 if (pdk) symbolCtor = symbolCtor->setAttribute(pContext, pdk,
                                     pContext->fromInteger(0x3LL));
                             }
@@ -8741,8 +8726,7 @@ static const proto::ProtoObject* runBytecodeImpl(proto::ProtoContext* pContext,
                     }
                     *pGlobalRoot = (*pGlobalRoot)->setAttribute(pContext, symbolGlobalKey, symbolCtor);
                     // §17 globalThis.Symbol descriptor 0x3.
-                    const proto::ProtoObject* pdo = pContext->fromUTF8String("__pd_Symbol__");
-                    const proto::ProtoString* pdkk = pdo ? pdo->asString(pContext) : nullptr;
+                    const proto::ProtoString* pdkk = PROTOJS_NAME(pContext, "__pd_Symbol__");
                     if (pdkk) *pGlobalRoot = (*pGlobalRoot)->setAttribute(pContext, pdkk,
                         pContext->fromInteger(0x3LL));
                 }
@@ -8795,8 +8779,7 @@ static const proto::ProtoObject* runBytecodeImpl(proto::ProtoContext* pContext,
                         // and the prop-desc.js / cross-realm.js test262
                         // tests for each WKS failed.
                         std::string pdName = std::string("__pd_") + wks[wi].prop + "__";
-                        const proto::ProtoObject* pdKo = protojs::jsStringFromUTF8(pContext, pdName);
-                        const proto::ProtoString* pdKs = pdKo ? pdKo->asString(pContext) : nullptr;
+                        const proto::ProtoString* pdKs = proto::ProtoString::createSymbol(pContext, pdName);
                         if (pdKs) symbolObj = symbolObj->setAttribute(pContext, pdKs, pContext->fromInteger(0LL));
                     }
                 }
@@ -8912,8 +8895,7 @@ static const proto::ProtoObject* runBytecodeImpl(proto::ProtoContext* pContext,
                 {nullptr,          false},
             };
             for (int i = 0; kBuiltinCtors[i].name; ++i) {
-                const proto::ProtoObject* nko = pContext->fromUTF8String(kBuiltinCtors[i].name);
-                const proto::ProtoString* nk = nko ? nko->asString(pContext) : nullptr;
+                const proto::ProtoString* nk = JSSymbols::internName(pContext, kBuiltinCtors[i].name);
                 if (!nk) continue;
                 const proto::ProtoObject* ctor = (*pGlobalRoot)->getAttribute(pContext, nk, false);
                 if (!ctor || ctor == PROTO_NONE) continue;
@@ -9342,24 +9324,25 @@ static const proto::ProtoObject* runBytecodeImpl(proto::ProtoContext* pContext,
         return sk;
     };
 
-    /* Accessor property helper: invoke getter stored as __get_<keyStr>__ on the object (or
-     * its prototype chain).  Returns the getter result, PROTO_NONE if no getter is defined,
-     * An exception the getter throws propagates (a C++ exception). */
+    /* Accessor property helper: invoke the getter of `key` (sidecar __get_<key>__) found on
+     * the object or its prototype chain.  Returns the getter result, PROTO_NONE if no getter
+     * is defined.  An exception the getter throws propagates (a C++ exception).
+     * Probes the sidecar only when an accessor may apply: the object holds one of its own
+     * (__has_accessor_props__), or one other than Object.prototype's __proto__ may be
+     * inherited (runtime/AccessorFlags.h). */
     auto invokeGetterIfPresent = [&](
             const proto::ProtoObject* obj,
-            const std::string& keyStr) -> const proto::ProtoObject* {
-        if (!obj || obj == PROTO_NONE || obj == t_nullSentinel) return PROTO_NONE;
+            const proto::ProtoString* key) -> const proto::ProtoObject* {
+        if (!obj || obj == PROTO_NONE || obj == t_nullSentinel || !key) return PROTO_NONE;
         {
             const proto::ProtoString* hapKey = JSSymbols::hasAccessorProps(pContext);
-            if (hapKey) {
-                const proto::ProtoObject* hv = obj->hasAttribute(pContext, hapKey);
-                if (hv != PROTO_TRUE) return PROTO_NONE;
-                if (obj->getAttribute(pContext, hapKey, true) != PROTO_TRUE) return PROTO_NONE;
-            }
+            const bool ownMay = hapKey
+                && obj->hasOwnAttribute(pContext, hapKey) == PROTO_TRUE
+                && obj->getAttribute(pContext, hapKey, false) == PROTO_TRUE;
+            if (!ownMay && !protojs::mayInheritAccessor(pContext, obj, key)) return PROTO_NONE;
         }
-        std::string gkStr = "__get_" + keyStr + "__";
-        const proto::ProtoObject* gko = protojs::jsStringFromUTF8(pContext, gkStr);
-        const proto::ProtoString* gk  = gko ? gko->asString(pContext) : nullptr;
+        const proto::ProtoString* gk =
+            JSSymbols::sidecarName(pContext, JSSymbols::Sidecar::Get, key);
         if (!gk) return PROTO_NONE;
         const proto::ProtoObject* getter = obj->getAttribute(pContext, gk, true);
         if (!getter || getter == PROTO_NONE) return PROTO_NONE;
@@ -10098,12 +10081,8 @@ static const proto::ProtoObject* runBytecodeImpl(proto::ProtoContext* pContext,
                             // instances.js's Arguments arm.  The non-enumerable
                             // bit still keeps defineProperties from iterating
                             // the slot (R50's defineProperties-iteration fix).
-                            std::string pdStr = std::string("__pd_");
-                            std::string ukName;
-                            userKey->toUTF8String(pContext, ukName);
-                            pdStr += ukName + "__";
-                            const proto::ProtoObject* pdo = protojs::jsStringFromUTF8(pContext, pdStr);
-                            const proto::ProtoString* pdk = pdo ? pdo->asString(pContext) : nullptr;
+                            const proto::ProtoString* pdk =
+                                JSSymbols::sidecarName(pContext, JSSymbols::Sidecar::Pd, userKey);
                             if (pdk) argsObj = argsObj->setAttribute(pContext, pdk,
                                 pContext->fromInteger(0x3LL));
                         }
@@ -10122,8 +10101,7 @@ static const proto::ProtoObject* runBytecodeImpl(proto::ProtoContext* pContext,
                     // during class body construction.
                     const proto::ProtoObject* home = PROTO_NONE;
                     if (t_activeFunc && t_activeFunc != PROTO_NONE) {
-                        const proto::ProtoObject* hoKo = pContext->fromUTF8String("__home_object__");
-                        const proto::ProtoString* hoK = hoKo ? hoKo->asString(pContext) : nullptr;
+                        const proto::ProtoString* hoK = PROTOJS_NAME(pContext, "__home_object__");
                         if (hoK) {
                             const proto::ProtoObject* h = t_activeFunc->getAttribute(pContext, hoK, false);
                             if (h && h != PROTO_NONE) home = h;
@@ -10667,8 +10645,7 @@ static const proto::ProtoObject* runBytecodeImpl(proto::ProtoContext* pContext,
                 // OP_call_constructor-equivalent logic.
                 const proto::ProtoObject* parent = nullptr;
                 if (t_activeFunc && t_activeFunc != PROTO_NONE) {
-                    const proto::ProtoObject* cpo = pContext->fromUTF8String("__class_parent__");
-                    const proto::ProtoString* cpk = cpo ? cpo->asString(pContext) : nullptr;
+                    const proto::ProtoString* cpk = PROTOJS_NAME(pContext, "__class_parent__");
                     if (cpk) {
                         const proto::ProtoObject* cp = t_activeFunc->getAttribute(pContext, cpk, false);
                         if (cp && cp != PROTO_NONE) parent = cp;
@@ -10778,8 +10755,7 @@ static const proto::ProtoObject* runBytecodeImpl(proto::ProtoContext* pContext,
                             // (objects with __proto__: Error.prototype) and
                             // from the Error constructor itself.
                             {
-                                const proto::ProtoObject* edk = pContext->fromUTF8String("__error_data__");
-                                const proto::ProtoString* edK = edk ? edk->asString(pContext) : nullptr;
+                                const proto::ProtoString* edK = PROTOJS_NAME(pContext, "__error_data__");
                                 if (edK) newObj = newObj->setAttribute(pContext, edK, PROTO_TRUE);
                             }
                             ret = newObj;
@@ -10864,8 +10840,7 @@ static const proto::ProtoObject* runBytecodeImpl(proto::ProtoContext* pContext,
                     const proto::ProtoObject* method = stackAt(pContext, 0);
                     const proto::ProtoObject* home   = stackAt(pContext, 1);
                     if (method && method != PROTO_NONE && home && home != PROTO_NONE) {
-                        const proto::ProtoObject* hoKo = pContext->fromUTF8String("__home_object__");
-                        const proto::ProtoString* hoKey = hoKo ? hoKo->asString(pContext) : nullptr;
+                        const proto::ProtoString* hoKey = PROTOJS_NAME(pContext, "__home_object__");
                         if (hoKey) {
                             const proto::ProtoObject* newMethod = method->setAttribute(pContext, hoKey, home);
                             pAutomaticLocals[currentStackBase + _PF().stackTop - 1] =
@@ -10896,8 +10871,7 @@ static const proto::ProtoObject* runBytecodeImpl(proto::ProtoContext* pContext,
                 const proto::ProtoObject* parent = nullptr;
                 if (topObj && topObj != PROTO_NONE) {
                     // Class-ctor case: check __class_parent__ first.
-                    const proto::ProtoObject* cpo = pContext->fromUTF8String("__class_parent__");
-                    const proto::ProtoString* cpk = cpo ? cpo->asString(pContext) : nullptr;
+                    const proto::ProtoString* cpk = PROTOJS_NAME(pContext, "__class_parent__");
                     if (cpk) {
                         const proto::ProtoObject* cp = topObj->getAttribute(pContext, cpk, false);
                         if (cp && cp != PROTO_NONE) parent = cp;
@@ -11228,8 +11202,7 @@ static const proto::ProtoObject* runBytecodeImpl(proto::ProtoContext* pContext,
                     // super(...args) and OP_init_ctor dispatch in derived
                     // ctor bodies.
                     if (hasHeritage && parentClass && parentClass != PROTO_NONE) {
-                        const proto::ProtoObject* cpo = pContext->fromUTF8String("__class_parent__");
-                        const proto::ProtoString* cpk = cpo ? cpo->asString(pContext) : nullptr;
+                        const proto::ProtoString* cpk = PROTOJS_NAME(pContext, "__class_parent__");
                         if (cpk) ctor = ctor->setAttribute(pContext, cpk, parentClass);
                     }
 
@@ -12739,12 +12712,16 @@ static const proto::ProtoObject* runBytecodeImpl(proto::ProtoContext* pContext,
                         // setter probe was missing
                         // (Object/prototype/__proto__/set-non-extensible).
                         bool hasAccessor = false;
-                        std::string ks; key->toUTF8String(pContext, ks);
-                        std::string sks = "__set_" + ks + "__";
-                        const proto::ProtoObject* sko =
-                            protojs::jsStringFromUTF8(pContext, sks);
-                        const proto::ProtoString* sksk =
-                            sko ? sko->asString(pContext) : nullptr;
+                        // A setter exists only on an object carrying the own
+                        // hint, or inherited under the chain flag / for
+                        // __proto__ (runtime/AccessorFlags.h).
+                        const proto::ProtoString* hapSk = JSSymbols::hasAccessorProps(pContext);
+                        const bool mayHaveSetter =
+                            (hapSk && obj->hasOwnAttribute(pContext, hapSk) == PROTO_TRUE
+                             && obj->getAttribute(pContext, hapSk, false) == PROTO_TRUE)
+                            || protojs::mayInheritAccessor(pContext, obj, key);
+                        const proto::ProtoString* sksk = mayHaveSetter
+                            ? JSSymbols::sidecarName(pContext, JSSymbols::Sidecar::Set, key) : nullptr;
                         if (sksk
                             && obj->getAttribute(pContext, sksk, true) != nullptr
                             && obj->getAttribute(pContext, sksk, true) != PROTO_NONE) {
@@ -14209,16 +14186,11 @@ static const proto::ProtoObject* runBytecodeImpl(proto::ProtoContext* pContext,
                             && obj->getAttribute(pContext, hapKey, false) == PROTO_TRUE;
                         const bool mayDictGAE = protojs::dict::mayBeDictionaryKey(pContext, key);
 
-                        std::string keyStrGAE;
-                        std::string gkStrGAE;
                         const proto::ProtoString* gkStrKey = nullptr;
                         bool ownAccessor = false;
 
                         if (ownMayHaveAccessor) {
-                            key->toUTF8String(pContext, keyStrGAE);
-                            gkStrGAE = "__get_" + keyStrGAE + "__";
-                            const proto::ProtoObject* gkObj = protojs::jsStringFromUTF8(pContext, gkStrGAE);
-                            gkStrKey = gkObj ? gkObj->asString(pContext) : nullptr;
+                            gkStrKey = JSSymbols::sidecarName(pContext, JSSymbols::Sidecar::Get, key);
                             ownAccessor = gkStrKey
                                 && obj->hasOwnAttribute(pContext, gkStrKey) == PROTO_TRUE;
                         }
@@ -14226,7 +14198,7 @@ static const proto::ProtoObject* runBytecodeImpl(proto::ProtoContext* pContext,
                         if (ownAccessor) {
                             // Invoke the own getter directly.
                             const proto::ProtoObject* gval =
-                                invokeGetterIfPresent(obj, keyStrGAE);
+                                invokeGetterIfPresent(obj, key);
                             (void)0;
                             if (gval && gval != PROTO_NONE) val = gval;
                         } else if (obj->hasOwnAttribute(pContext, key) == PROTO_TRUE) {
@@ -14256,16 +14228,12 @@ static const proto::ProtoObject* runBytecodeImpl(proto::ProtoContext* pContext,
                             // An index key (a hole, or past the end) has an
                             // inherited getter only under the index flag
                             // (runtime/IndexKeyFlags.h).
-                            const proto::ProtoObject* chainHap = hapKey
-                                ? obj->getAttribute(pContext, hapKey, true) : nullptr;
-                            if (chainHap == PROTO_TRUE
-                                && (arrIdxFast < 0 || protojs::mayHaveIndexAccessor(pContext, obj))) {
-                                if (keyStrGAE.empty()) {
-                                    key->toUTF8String(pContext, keyStrGAE);
-                                    gkStrGAE = "__get_" + keyStrGAE + "__";
-                                }
+                            // invokeGetterIfPresent probes the sidecar only
+                            // when an accessor other than Object.prototype's
+                            // __proto__ may be inherited (runtime/AccessorFlags.h).
+                            if (arrIdxFast < 0 || protojs::mayHaveIndexAccessor(pContext, obj)) {
                                 const proto::ProtoObject* gval =
-                                    invokeGetterIfPresent(obj, keyStrGAE);
+                                    invokeGetterIfPresent(obj, key);
                                 (void)0;
                                 if (gval && gval != PROTO_NONE) val = gval;
                             }
@@ -14404,9 +14372,7 @@ static const proto::ProtoObject* runBytecodeImpl(proto::ProtoContext* pContext,
                     val = protojs::dict::getDataProperty(pContext, obj, key);
                     REFRESH_INTERP_STATE();
                     if ((!val || val == PROTO_NONE) && key) {
-                        std::string keyStrGAE2;
-                        key->toUTF8String(pContext, keyStrGAE2);
-                        const proto::ProtoObject* gval = invokeGetterIfPresent(obj, keyStrGAE2);
+                        const proto::ProtoObject* gval = invokeGetterIfPresent(obj, key);
                         (void)0;
                         if (gval && gval != PROTO_NONE) val = gval;
                     }
@@ -14491,9 +14457,7 @@ static const proto::ProtoObject* runBytecodeImpl(proto::ProtoContext* pContext,
                     protojs::materializeLazyPrototypeForKey(pContext, obj, key);  // LazyPrototype.h
                     val = protojs::dict::getDataProperty(pContext, obj, key);
                     if ((!val || val == PROTO_NONE) && key) {
-                        std::string keyStrGAE3;
-                        key->toUTF8String(pContext, keyStrGAE3);
-                        const proto::ProtoObject* gval = invokeGetterIfPresent(obj, keyStrGAE3);
+                        const proto::ProtoObject* gval = invokeGetterIfPresent(obj, key);
                         (void)0;
                         if (gval && gval != PROTO_NONE) val = gval;
                     }
@@ -17597,8 +17561,7 @@ static const proto::ProtoObject* runBytecodeImpl(proto::ProtoContext* pContext,
                                         }
                                         result = result->setAttribute(pContext, causeK,
                                             causeVal ? causeVal : PROTO_NONE);
-                                        const proto::ProtoObject* pdo = pContext->fromUTF8String("__pd_cause__");
-                                        const proto::ProtoString* pdk = pdo ? pdo->asString(pContext) : nullptr;
+                                        const proto::ProtoString* pdk = PROTOJS_NAME(pContext, "__pd_cause__");
                                         if (pdk) result = result->setAttribute(pContext, pdk,
                                             pContext->fromInteger(0x3LL));
                                     }
@@ -17636,8 +17599,7 @@ static const proto::ProtoObject* runBytecodeImpl(proto::ProtoContext* pContext,
                             // "errors" descriptor is
                             // {writable:true, enumerable:false,
                             // configurable:true} (bits 0x3).
-                            const proto::ProtoObject* pdo = pContext->fromUTF8String("__pd_errors__");
-                            const proto::ProtoString* pdk = pdo ? pdo->asString(pContext) : nullptr;
+                            const proto::ProtoString* pdk = PROTOJS_NAME(pContext, "__pd_errors__");
                             if (pdk) result = result->setAttribute(pContext, pdk,
                                 pContext->fromInteger(0x3LL));
                         }
@@ -19141,14 +19103,14 @@ static const proto::ProtoObject* runBytecodeImpl(proto::ProtoContext* pContext,
                     const proto::ProtoObject* doneFO = (resultFO && resultFO != PROTO_NONE && doneKeyFO)
                         ? resultFO->getAttribute(pContext, doneKeyFO, false) : PROTO_TRUE;
                     if ((!doneFO || doneFO == PROTO_NONE) && resultFO && resultFO != PROTO_NONE) {
-                        const proto::ProtoObject* gd = invokeGetterIfPresent(resultFO, "done");
+                        const proto::ProtoObject* gd = invokeGetterIfPresent(resultFO, doneKeyFO);
                         (void)0;
                         if (gd && gd != PROTO_NONE) doneFO = gd;
                     }
                     const proto::ProtoObject* valueFO = (resultFO && resultFO != PROTO_NONE && valueKeyFO)
                         ? resultFO->getAttribute(pContext, valueKeyFO, false) : PROTO_NONE;
                     if ((!valueFO || valueFO == PROTO_NONE) && resultFO && resultFO != PROTO_NONE) {
-                        const proto::ProtoObject* gv = invokeGetterIfPresent(resultFO, "value");
+                        const proto::ProtoObject* gv = invokeGetterIfPresent(resultFO, valueKeyFO);
                         (void)0;
                         if (gv && gv != PROTO_NONE) valueFO = gv;
                     }
