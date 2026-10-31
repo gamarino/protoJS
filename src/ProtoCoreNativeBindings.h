@@ -8,8 +8,10 @@
 // running on the protoCore interpreter never see.  Exposes:
 //
 //   protoCore.Set / Multiset / SparseList
-//     - Constructors backed by protoCore's persistent collections.  The
-//       collection is held in a private attribute of the instance and
+//     - Constructors backed by persistent collections.  Set and Multiset
+//       compare elements with SameValueZero, on the storage of the
+//       JavaScript Set (src/HashedCollection.h); SparseList is protoCore's
+//       ProtoSparseList.  The collection is held in a private attribute of the instance and
 //       republished with a compare-and-swap on every mutation, so two
 //       threads mutating the same instance cannot lose an update.
 //       `size()` is a method, not a property.

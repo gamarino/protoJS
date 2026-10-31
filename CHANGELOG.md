@@ -4,6 +4,30 @@ All notable changes to protoJS are documented in this file.
 
 ## [Unreleased]
 
+### Fixed — `protoCore.Set` and `protoCore.Multiset` compare by SameValueZero
+
+- `protoCore.Set` stored a protoCore `ProtoSet`, which keyed its elements by
+  `ProtoObject::getHash`. protoCore 3.5.0 (master `e1b58522`) makes
+  `ProtoSet` compare the elements under one hash by pointer, so two equal
+  strings longer than six bytes built at run time, or two equal boxed
+  doubles (`1.5`, `NaN`, `Infinity`, integers beyond 2**53), became two
+  elements, and `has()` with a third equal copy reported `false`. The binding
+  now uses protoJS's own storage, the one the JavaScript `Set` uses
+  (`src/HashedCollection.h`), and compares with SameValueZero: numbers by
+  value with `NaN` equal to `NaN` and `-0` equal to `+0`, strings by content,
+  BigInts by value, everything else by identity. The same holds against
+  protoCore 3.4.0, where `-0` and `+0` were two elements and two unequal
+  values whose hashes collided were one.
+- `protoCore.Multiset` keyed its counts by hash alone, so it merged unequal
+  values whose hashes collided and split `-0` from `+0`. It now counts on the
+  same SameValueZero index.
+- `protoCore.Set` gains `values()`, a snapshot Array of the elements in
+  insertion order.
+- New asserting tests `js/collections/pc_set_long_strings`,
+  `pc_set_boxed_doubles`, `pc_set_nan_zero`, `pc_set_collisions`,
+  `pc_set_operations` and `pc_multiset_equality`; each fails on protoJS
+  0.3.0 linked to protoCore `e1b58522`.
+
 ## [0.3.0] - 2026-10-31
 
 **Requires protoCore 3.4.0** (SOVERSION 5), the declared minimum for a build from source; the `.deb` depends on `protocore (>= 3.4.0)`. protoCore 3.4.0 removed `ProtoContext::pendingRoot`, which changes the layout of `ProtoContext`: a protoJS built against 3.4.0 does not load with an older protoCore, nor the reverse. protoJS never referenced `pendingRoot`, so the move is a rebuild, not a source change. CI pins protoCore tag `v3.4.0` (commit `f63adc08`) on Linux, macOS and Windows; the Windows floor job builds the same commit, because the floor and the pin coincide at 3.4.0 until the pin moves on.

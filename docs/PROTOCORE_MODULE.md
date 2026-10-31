@@ -35,13 +35,13 @@ for (let i = 0; i < 4; i++) {
 
 ## Collections
 
-`Set`, `Multiset` and `SparseList` are **constructors**: call them with `new`, or they throw `TypeError: Constructor <name> requires 'new'`. Each instance keeps its persistent protoCore collection in a private attribute and republishes the derived collection with a compare-and-swap on every mutation, so two threads mutating the same instance cannot lose an update. The mutators return the instance, so calls chain.
+`Set`, `Multiset` and `SparseList` are **constructors**: call them with `new`, or they throw `TypeError: Constructor <name> requires 'new'`. Each instance keeps its persistent collection in a private attribute and republishes the derived collection with a compare-and-swap on every mutation, so two threads mutating the same instance cannot lose an update. The mutators return the instance, so calls chain.
 
 **`size()` is a method, not a property.** `set.size` is the function itself; `set.size()` is the count.
 
 | Constructor | Methods |
 |---|---|
-| `new protoCore.Set(array?)` | `add(value)`, `has(value)`, `remove(value)`, `size()` |
+| `new protoCore.Set(array?)` | `add(value)`, `has(value)`, `remove(value)`, `size()`, `values()` |
 | `new protoCore.Multiset(array?)` | `add(value)`, `count(value)`, `remove(value)`, `size()` |
 | `new protoCore.SparseList()` | `set(index, value)`, `get(index)`, `has(index)`, `size()` |
 
@@ -60,7 +60,9 @@ sparse.get(7);       // undefined — an unset index reads as undefined
 ```
 
 - The optional array argument seeds a `Set` or `Multiset`; anything that is not an array throws a `TypeError`.
-- Elements are keyed by `ProtoObject::getHash`, so equal values built at runtime match: a `Set` containing `"ab"` reports `has("a" + "b") === true`.
+- `Set` and `Multiset` compare elements with **SameValueZero**, the equality of the JavaScript `Set` and `Map`: numbers by value, whatever representation holds them (a SmallInteger or a boxed double), with every `NaN` equal to every other and `-0` equal to `+0` (a `-0` is stored as `+0`); strings by content, however they were built; BigInts by value; every other value (objects, arrays, functions, symbols) by identity. A `Set` containing `"ab"` reports `has("a" + "b") === true`, and one containing `1.5` reports `has(3 / 2) === true`.
+- `values()` returns a new Array of the `Set`'s elements in insertion order: a snapshot, which later mutations do not change. `size()` is O(1); `add`, `has` and `remove` are O(log n).
+- The storage is protoJS's own, the one the JavaScript `Set` uses (`src/HashedCollection.h`): insertion-ordered entries plus an index driven by protoCore's hashed-collection helper (`hashedPut` / `hashedGet` / `hashedRemove`) with SameValueZero semantics. It is not a protoCore `ProtoSet`, which compares its elements by pointer from protoCore 3.5.0 on, nor a `ProtoMultiset`, which keys its counts by hash alone.
 - Calling a method on a receiver that is not an instance throws `TypeError: Invalid <name> object`.
 
 ## `Tuple`

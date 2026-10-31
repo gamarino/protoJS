@@ -9,6 +9,7 @@
 #include "ProtoNativeModule.h"
 #include "JSContext.h"
 #include "JSSymbols.h"
+#include "HashedCollection.h"
 #include "EventLoop.h"
 #include "CPUThreadPool.h"
 #include "ThreadPoolExecutor.h"
@@ -355,6 +356,27 @@ bool readIndex(proto::ProtoContext* ctx, const proto::ProtoObject* v,
 }
 
 // ---- Set ---------------------------------------------------------------
+//
+// A Set holds the record of src/HashedCollection.h (the storage of the
+// JavaScript Set): insertion-ordered entries plus an index driven by
+// protoCore's hashed-collection helper with SameValueZero semantics.  It is
+// not a proto::ProtoSet, which compares its elements by pointer from
+// protoCore 3.5.0 on: two equal strings built at run time, or two boxed
+// equal doubles, are distinct ProtoSet elements there.  The helper files a
+// value-equality element under a SmallInteger hash slot whose value is
+// always a bucket list, and an identity element under the element itself,
+// so a slot never has to be told apart from an element by its pointer tag.
+
+const proto::ProtoObject* emptySetRecord(proto::ProtoContext* ctx) {
+    return coll::pack(ctx, coll::emptyState(ctx));
+}
+
+bool readSetState(proto::ProtoContext* ctx, const proto::ProtoObject* self,
+                  const proto::ProtoObject*& record, coll::State& st) {
+    if (!self || self == PROTO_NONE || proto::isSmallInt(self)) return false;
+    record = self->getOwnAttributeDirect(ctx, collKeys(ctx).set);
+    return coll::unpack(ctx, record, st);
+}
 
 const proto::ProtoObject* setConstruct(
     proto::ProtoContext* ctx, const proto::ProtoObject* self,
@@ -363,30 +385,24 @@ const proto::ProtoObject* setConstruct(
     if (!ctx) return PROTO_NONE;
     if (!calledWithNew(ctx, self, setProtoSlot()))
         return throwTypeError(ctx, "Constructor Set requires 'new'");
-    const proto::ProtoSet* s = ctx->newSet();
-    if (!s) return throwTypeError(ctx, "Set: could not create the collection");
+    coll::State st = coll::emptyState(ctx);
     if (args && args->getSize(ctx) > 0) {
         const proto::ProtoObject* init = args->getAt(ctx, 0);
         if (init && init != PROTO_NONE && init != getUndefinedSentinel()) {
             const proto::ProtoList* els = arrayArgElements(ctx, args);
             if (!els) return throwTypeError(ctx, "Set expects an array");
             proto::proto_ulong n = els->getSize(ctx);
-            for (proto::proto_ulong i = 0; i < n; i++)
-                s = s->add(ctx, els->getAt(ctx, static_cast<int>(i)));
+            for (proto::proto_ulong i = 0; i < n; i++) {
+                const proto::ProtoObject* key =
+                    coll::normalizeKey(ctx, els->getAt(ctx, static_cast<int>(i)));
+                proto::proto_ulong slot = 0;
+                if (!coll::find(ctx, st, key, slot)) coll::insert(ctx, st, key, key);
+            }
         }
     }
-    self->setAttribute(ctx, collKeys(ctx).set, s->asObject(ctx));
+    self->setAttribute(ctx, collKeys(ctx).set, coll::pack(ctx, st));
     // A non-object result makes the interpreter keep the receiver it built.
     return PROTO_NONE;
-}
-
-const proto::ProtoSet* readSet(proto::ProtoContext* ctx,
-                                const proto::ProtoObject* self) {
-    if (!self || self == PROTO_NONE) return nullptr;
-    const proto::ProtoObject* a =
-        self->getOwnAttributeDirect(ctx, collKeys(ctx).set);
-    if (!a || a == PROTO_NONE) return nullptr;
-    return a->asSet(ctx);
 }
 
 const proto::ProtoObject* setAdd(
@@ -395,17 +411,15 @@ const proto::ProtoObject* setAdd(
     const proto::ProtoKeywordArguments*) {
     if (!args || args->getSize(ctx) < 1)
         return throwTypeError(ctx, "Set.add expects a value");
-    const proto::ProtoString* key = collKeys(ctx).set;
-    const proto::ProtoObject* value = args->getAt(ctx, 0);
+    const proto::ProtoObject* key = coll::normalizeKey(ctx, args->getAt(ctx, 0));
     for (int attempt = 0; attempt < kCasAttempts; attempt++) {
-        const proto::ProtoObject* cur = (self && self != PROTO_NONE)
-            ? self->getOwnAttributeDirect(ctx, key) : nullptr;
-        const proto::ProtoSet* s = (cur && cur != PROTO_NONE) ? cur->asSet(ctx) : nullptr;
-        if (!s) return throwTypeError(ctx, "Invalid Set object");
-        const proto::ProtoSet* neu = s->add(ctx, value);
-        if (!neu) return throwTypeError(ctx, "Invalid Set object");
-        if (neu == s) return self;
-        if (self->setAttributeIfEqual(ctx, key, cur, neu->asObject(ctx)))
+        const proto::ProtoObject* cur = nullptr;
+        coll::State st;
+        if (!readSetState(ctx, self, cur, st)) return throwTypeError(ctx, "Invalid Set object");
+        proto::proto_ulong slot = 0;
+        if (coll::find(ctx, st, key, slot)) return self;
+        coll::insert(ctx, st, key, key);
+        if (self->setAttributeIfEqual(ctx, collKeys(ctx).set, cur, coll::pack(ctx, st)))
             return self;
     }
     return throwTypeError(ctx, "Set.add: could not update the receiver");
@@ -417,10 +431,12 @@ const proto::ProtoObject* setHas(
     const proto::ProtoKeywordArguments*) {
     if (!args || args->getSize(ctx) < 1)
         return throwTypeError(ctx, "Set.has expects a value");
-    const proto::ProtoSet* s = readSet(ctx, self);
-    if (!s) return throwTypeError(ctx, "Invalid Set object");
-    const proto::ProtoObject* r = s->has(ctx, args->getAt(ctx, 0));
-    return (r == PROTO_TRUE) ? PROTO_TRUE : PROTO_FALSE;
+    const proto::ProtoObject* record = nullptr;
+    coll::State st;
+    if (!readSetState(ctx, self, record, st)) return throwTypeError(ctx, "Invalid Set object");
+    proto::proto_ulong slot = 0;
+    return coll::find(ctx, st, coll::normalizeKey(ctx, args->getAt(ctx, 0)), slot)
+        ? PROTO_TRUE : PROTO_FALSE;
 }
 
 const proto::ProtoObject* setRemove(
@@ -429,16 +445,15 @@ const proto::ProtoObject* setRemove(
     const proto::ProtoKeywordArguments*) {
     if (!args || args->getSize(ctx) < 1)
         return throwTypeError(ctx, "Set.remove expects a value");
-    const proto::ProtoString* key = collKeys(ctx).set;
-    const proto::ProtoObject* value = args->getAt(ctx, 0);
+    const proto::ProtoObject* key = coll::normalizeKey(ctx, args->getAt(ctx, 0));
     for (int attempt = 0; attempt < kCasAttempts; attempt++) {
-        const proto::ProtoObject* cur = (self && self != PROTO_NONE)
-            ? self->getOwnAttributeDirect(ctx, key) : nullptr;
-        const proto::ProtoSet* s = (cur && cur != PROTO_NONE) ? cur->asSet(ctx) : nullptr;
-        if (!s) return throwTypeError(ctx, "Invalid Set object");
-        const proto::ProtoSet* neu = s->remove(ctx, value);
-        if (!neu || neu == s) return self;
-        if (self->setAttributeIfEqual(ctx, key, cur, neu->asObject(ctx)))
+        const proto::ProtoObject* cur = nullptr;
+        coll::State st;
+        if (!readSetState(ctx, self, cur, st)) return throwTypeError(ctx, "Invalid Set object");
+        proto::proto_ulong slot = 0;
+        if (!coll::find(ctx, st, key, slot)) return self;
+        coll::remove(ctx, st, key, slot);
+        if (self->setAttributeIfEqual(ctx, collKeys(ctx).set, cur, coll::pack(ctx, st)))
             return self;
     }
     return throwTypeError(ctx, "Set.remove: could not update the receiver");
@@ -448,12 +463,94 @@ const proto::ProtoObject* setSize(
     proto::ProtoContext* ctx, const proto::ProtoObject* self,
     const proto::ParentLink*, const proto::ProtoArguments*,
     const proto::ProtoKeywordArguments*) {
-    const proto::ProtoSet* s = readSet(ctx, self);
-    if (!s) return throwTypeError(ctx, "Invalid Set object");
-    return ctx->fromInteger(static_cast<long long>(s->getSize(ctx)));
+    const proto::ProtoObject* record = nullptr;
+    coll::State st;
+    if (!readSetState(ctx, self, record, st)) return throwTypeError(ctx, "Invalid Set object");
+    return ctx->fromInteger(static_cast<long long>(st.size));
+}
+
+// A new JavaScript Array whose elements are `els`.
+const proto::ProtoObject* arrayFromList(proto::ProtoContext* ctx, const proto::ProtoList* els) {
+    const proto::ProtoObject** groot = getCurrentGlobalRoot();
+    const proto::ProtoObject* arrayProto = nullptr;
+    if (groot && *groot) {
+        const proto::ProtoString* apK = JSSymbols::arrayProto(ctx);
+        if (apK) arrayProto = (*groot)->getAttribute(ctx, apK, false);
+        if (arrayProto == PROTO_NONE) arrayProto = nullptr;
+    }
+    const proto::ProtoObject* arr = createNewArray(ctx, arrayProto);
+    if (arr) setArrayElements(ctx, arr, els);
+    return arr;
+}
+
+// The elements in insertion order, as a new Array: a snapshot, which later
+// mutations of the Set do not change.
+const proto::ProtoObject* setValues(
+    proto::ProtoContext* ctx, const proto::ProtoObject* self,
+    const proto::ParentLink*, const proto::ProtoArguments*,
+    const proto::ProtoKeywordArguments*) {
+    const proto::ProtoObject* record = nullptr;
+    coll::State st;
+    if (!readSetState(ctx, self, record, st)) return throwTypeError(ctx, "Invalid Set object");
+    // Entries are keyed by insertion slot; the iterator walks the slots in
+    // ascending order and skips the holes deletions left.
+    const proto::ProtoList* out = ctx->newList();
+    const proto::ProtoSparseListIterator* it = st.entries->getIterator(ctx);
+    while (it && it->hasNext(ctx)) {
+        out = out->appendLast(ctx, it->nextValue(ctx));
+        it = const_cast<proto::ProtoSparseListIterator*>(it)->advance(ctx);
+    }
+    const proto::ProtoObject* arr = arrayFromList(ctx, out);
+    return arr ? arr : throwTypeError(ctx, "Set.values: could not create the result array");
 }
 
 // ---- Multiset ----------------------------------------------------------
+//
+// A Multiset holds the one-cell record [counts, size]: `counts` maps each
+// distinct element to its count through protoCore's hashed-collection helper
+// with SameValueZero semantics (src/HashedCollection.h), and `size` is the
+// total number of occurrences.  proto::ProtoMultiset keys its counts by
+// ProtoObject::getHash alone, so two unequal values whose hashes collide
+// share one count, and -0 and +0 do not.
+
+struct MultisetState {
+    const proto::ProtoMap* counts = nullptr;
+    proto::proto_ulong size = 0;
+};
+
+const proto::ProtoObject* packMultiset(proto::ProtoContext* ctx, const MultisetState& st) {
+    const proto::ProtoObject* items[2] = {
+        st.counts->asObject(ctx), proto::makeSmallInt(static_cast<long long>(st.size))};
+    return ctx->newList(2, items)->asObject(ctx);
+}
+
+bool readMultisetState(proto::ProtoContext* ctx, const proto::ProtoObject* self,
+                       const proto::ProtoObject*& record, MultisetState& st) {
+    if (!self || self == PROTO_NONE || proto::isSmallInt(self)) return false;
+    record = self->getOwnAttributeDirect(ctx, collKeys(ctx).multiset);
+    if (!record || record == PROTO_NONE || proto::isSmallInt(record) || record->isString(ctx))
+        return false;
+    const proto::ProtoList* l = record->asList(ctx);
+    if (!l || l->getSize(ctx) != 2) return false;
+    const proto::ProtoObject* c = l->getAt(ctx, 0);
+    const proto::ProtoObject* s = l->getAt(ctx, 1);
+    st.counts = c ? c->asMap(ctx) : nullptr;
+    if (!st.counts || !proto::isSmallInt(s)) return false;
+    st.size = static_cast<proto::proto_ulong>(proto::asSmallInt(s));
+    return true;
+}
+
+long long multisetCountOf(proto::ProtoContext* ctx, const MultisetState& st,
+                          const proto::ProtoObject* key) {
+    const proto::ProtoObject* c = proto::hashedGet(ctx, st.counts, coll::jsKeySemantics(), key);
+    return (c && proto::isSmallInt(c)) ? proto::asSmallInt(c) : 0;
+}
+
+void multisetAddOne(proto::ProtoContext* ctx, MultisetState& st, const proto::ProtoObject* key) {
+    const long long n = multisetCountOf(ctx, st, key) + 1;
+    st.counts = proto::hashedPut(ctx, st.counts, coll::jsKeySemantics(), key, proto::makeSmallInt(n));
+    st.size++;
+}
 
 const proto::ProtoObject* multisetConstruct(
     proto::ProtoContext* ctx, const proto::ProtoObject* self,
@@ -462,8 +559,8 @@ const proto::ProtoObject* multisetConstruct(
     if (!ctx) return PROTO_NONE;
     if (!calledWithNew(ctx, self, multisetProtoSlot()))
         return throwTypeError(ctx, "Constructor Multiset requires 'new'");
-    const proto::ProtoMultiset* m = ctx->newMultiset();
-    if (!m) return throwTypeError(ctx, "Multiset: could not create the collection");
+    MultisetState st;
+    st.counts = ctx->newMap();
     if (args && args->getSize(ctx) > 0) {
         const proto::ProtoObject* init = args->getAt(ctx, 0);
         if (init && init != PROTO_NONE && init != getUndefinedSentinel()) {
@@ -471,20 +568,11 @@ const proto::ProtoObject* multisetConstruct(
             if (!els) return throwTypeError(ctx, "Multiset expects an array");
             proto::proto_ulong n = els->getSize(ctx);
             for (proto::proto_ulong i = 0; i < n; i++)
-                m = m->add(ctx, els->getAt(ctx, static_cast<int>(i)));
+                multisetAddOne(ctx, st, coll::normalizeKey(ctx, els->getAt(ctx, static_cast<int>(i))));
         }
     }
-    self->setAttribute(ctx, collKeys(ctx).multiset, m->asObject(ctx));
+    self->setAttribute(ctx, collKeys(ctx).multiset, packMultiset(ctx, st));
     return PROTO_NONE;
-}
-
-const proto::ProtoMultiset* readMultiset(proto::ProtoContext* ctx,
-                                          const proto::ProtoObject* self) {
-    if (!self || self == PROTO_NONE) return nullptr;
-    const proto::ProtoObject* a =
-        self->getOwnAttributeDirect(ctx, collKeys(ctx).multiset);
-    if (!a || a == PROTO_NONE) return nullptr;
-    return a->asMultiset(ctx);
 }
 
 const proto::ProtoObject* multisetAdd(
@@ -493,17 +581,14 @@ const proto::ProtoObject* multisetAdd(
     const proto::ProtoKeywordArguments*) {
     if (!args || args->getSize(ctx) < 1)
         return throwTypeError(ctx, "Multiset.add expects a value");
-    const proto::ProtoString* key = collKeys(ctx).multiset;
-    const proto::ProtoObject* value = args->getAt(ctx, 0);
+    const proto::ProtoObject* key = coll::normalizeKey(ctx, args->getAt(ctx, 0));
     for (int attempt = 0; attempt < kCasAttempts; attempt++) {
-        const proto::ProtoObject* cur = (self && self != PROTO_NONE)
-            ? self->getOwnAttributeDirect(ctx, key) : nullptr;
-        const proto::ProtoMultiset* m =
-            (cur && cur != PROTO_NONE) ? cur->asMultiset(ctx) : nullptr;
-        if (!m) return throwTypeError(ctx, "Invalid Multiset object");
-        const proto::ProtoMultiset* neu = m->add(ctx, value);
-        if (!neu) return throwTypeError(ctx, "Invalid Multiset object");
-        if (self->setAttributeIfEqual(ctx, key, cur, neu->asObject(ctx)))
+        const proto::ProtoObject* cur = nullptr;
+        MultisetState st;
+        if (!readMultisetState(ctx, self, cur, st))
+            return throwTypeError(ctx, "Invalid Multiset object");
+        multisetAddOne(ctx, st, key);
+        if (self->setAttributeIfEqual(ctx, collKeys(ctx).multiset, cur, packMultiset(ctx, st)))
             return self;
     }
     return throwTypeError(ctx, "Multiset.add: could not update the receiver");
@@ -515,10 +600,12 @@ const proto::ProtoObject* multisetCount(
     const proto::ProtoKeywordArguments*) {
     if (!args || args->getSize(ctx) < 1)
         return throwTypeError(ctx, "Multiset.count expects a value");
-    const proto::ProtoMultiset* m = readMultiset(ctx, self);
-    if (!m) return throwTypeError(ctx, "Invalid Multiset object");
-    const proto::ProtoObject* c = m->count(ctx, args->getAt(ctx, 0));
-    return (c && c != PROTO_NONE) ? c : ctx->fromInteger(0);
+    const proto::ProtoObject* record = nullptr;
+    MultisetState st;
+    if (!readMultisetState(ctx, self, record, st))
+        return throwTypeError(ctx, "Invalid Multiset object");
+    return ctx->fromInteger(
+        multisetCountOf(ctx, st, coll::normalizeKey(ctx, args->getAt(ctx, 0))));
 }
 
 const proto::ProtoObject* multisetRemove(
@@ -527,17 +614,19 @@ const proto::ProtoObject* multisetRemove(
     const proto::ProtoKeywordArguments*) {
     if (!args || args->getSize(ctx) < 1)
         return throwTypeError(ctx, "Multiset.remove expects a value");
-    const proto::ProtoString* key = collKeys(ctx).multiset;
-    const proto::ProtoObject* value = args->getAt(ctx, 0);
+    const proto::ProtoObject* key = coll::normalizeKey(ctx, args->getAt(ctx, 0));
     for (int attempt = 0; attempt < kCasAttempts; attempt++) {
-        const proto::ProtoObject* cur = (self && self != PROTO_NONE)
-            ? self->getOwnAttributeDirect(ctx, key) : nullptr;
-        const proto::ProtoMultiset* m =
-            (cur && cur != PROTO_NONE) ? cur->asMultiset(ctx) : nullptr;
-        if (!m) return throwTypeError(ctx, "Invalid Multiset object");
-        const proto::ProtoMultiset* neu = m->remove(ctx, value);
-        if (!neu || neu == m) return self;
-        if (self->setAttributeIfEqual(ctx, key, cur, neu->asObject(ctx)))
+        const proto::ProtoObject* cur = nullptr;
+        MultisetState st;
+        if (!readMultisetState(ctx, self, cur, st))
+            return throwTypeError(ctx, "Invalid Multiset object");
+        const long long n = multisetCountOf(ctx, st, key);
+        if (n == 0) return self;
+        st.counts = (n > 1)
+            ? proto::hashedPut(ctx, st.counts, coll::jsKeySemantics(), key, proto::makeSmallInt(n - 1))
+            : proto::hashedRemove(ctx, st.counts, coll::jsKeySemantics(), key);
+        if (st.size > 0) st.size--;
+        if (self->setAttributeIfEqual(ctx, collKeys(ctx).multiset, cur, packMultiset(ctx, st)))
             return self;
     }
     return throwTypeError(ctx, "Multiset.remove: could not update the receiver");
@@ -547,9 +636,11 @@ const proto::ProtoObject* multisetSize(
     proto::ProtoContext* ctx, const proto::ProtoObject* self,
     const proto::ParentLink*, const proto::ProtoArguments*,
     const proto::ProtoKeywordArguments*) {
-    const proto::ProtoMultiset* m = readMultiset(ctx, self);
-    if (!m) return throwTypeError(ctx, "Invalid Multiset object");
-    return ctx->fromInteger(static_cast<long long>(m->getSize(ctx)));
+    const proto::ProtoObject* record = nullptr;
+    MultisetState st;
+    if (!readMultisetState(ctx, self, record, st))
+        return throwTypeError(ctx, "Invalid Multiset object");
+    return ctx->fromInteger(static_cast<long long>(st.size));
 }
 
 // ---- SparseList --------------------------------------------------------
@@ -658,18 +749,8 @@ const proto::ProtoObject* tupleFn(
     const proto::ProtoKeywordArguments*) {
     const proto::ProtoList* els = arrayArgElements(ctx, args);
     if (!els) return throwTypeError(ctx, "Tuple expects an array");
-
-    const proto::ProtoObject** groot = getCurrentGlobalRoot();
-    const proto::ProtoObject* arrayProto = nullptr;
-    if (groot && *groot) {
-        const proto::ProtoString* apK = JSSymbols::arrayProto(ctx);
-        if (apK) arrayProto = (*groot)->getAttribute(ctx, apK, false);
-        if (arrayProto == PROTO_NONE) arrayProto = nullptr;
-    }
-    const proto::ProtoObject* arr = createNewArray(ctx, arrayProto);
-    if (!arr) return throwTypeError(ctx, "Tuple: could not create the result array");
-    setArrayElements(ctx, arr, els);
-    return arr;
+    const proto::ProtoObject* arr = arrayFromList(ctx, els);
+    return arr ? arr : throwTypeError(ctx, "Tuple: could not create the result array");
 }
 
 // True for JavaScript primitives.  protoCore's public API exposes no
@@ -843,6 +924,7 @@ const proto::ProtoObject* ProtoCoreNativeBindings::init(
         {"has",    setHas},
         {"remove", setRemove},
         {"size",   setSize},
+        {"values", setValues},
         NATIVE_MODULE_END
     };
     static const NativeEntry multisetMethods[] = {
@@ -861,7 +943,7 @@ const proto::ProtoObject* ProtoCoreNativeBindings::init(
     };
 
     put("Set", buildConstructor(ctx, "Set", 1, setConstruct,
-                                 setMethods, 4, setProtoSlot()));
+                                 setMethods, 5, setProtoSlot()));
     put("Multiset", buildConstructor(ctx, "Multiset", 1, multisetConstruct,
                                       multisetMethods, 4, multisetProtoSlot()));
     put("SparseList", buildConstructor(ctx, "SparseList", 0, sparseListConstruct,

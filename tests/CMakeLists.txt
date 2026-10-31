@@ -428,6 +428,12 @@ foreach(js_test
         collections/protoCore_collections
         collections/map_set_scaling
         collections/map_set_semantics
+        collections/pc_set_long_strings
+        collections/pc_set_boxed_doubles
+        collections/pc_set_nan_zero
+        collections/pc_set_collisions
+        collections/pc_set_operations
+        collections/pc_multiset_equality
         workers/deep_recursion
         workers/promises_in_worker
         workers/immediate_in_worker

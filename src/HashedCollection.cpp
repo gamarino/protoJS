@@ -109,11 +109,17 @@ State emptyState(proto::ProtoContext* ctx) {
     return st;
 }
 
-bool load(proto::ProtoContext* ctx, const proto::ProtoObject* obj,
-          const proto::ProtoString* slot, State& out) {
-    if (!obj || obj == PROTO_NONE || !slot || proto::isSmallInt(obj)) return false;
-    const proto::ProtoObject* rec = obj->getAttribute(ctx, slot, false);
-    if (!rec || rec == PROTO_NONE) return false;
+const proto::ProtoObject* pack(proto::ProtoContext* ctx, const State& st) {
+    // One cell: newList(n, items) builds a list of up to five in place.
+    const proto::ProtoObject* items[4] = {
+        st.entries->asObject(ctx), st.index->asObject(ctx),
+        proto::makeSmallInt(static_cast<long long>(st.next)),
+        proto::makeSmallInt(static_cast<long long>(st.size))};
+    return ctx->newList(4, items)->asObject(ctx);
+}
+
+bool unpack(proto::ProtoContext* ctx, const proto::ProtoObject* rec, State& out) {
+    if (!rec || rec == PROTO_NONE || proto::isSmallInt(rec) || rec->isString(ctx)) return false;
     const proto::ProtoList* l = rec->asList(ctx);
     if (!l || l->getSize(ctx) != 4) return false;
     const proto::ProtoObject* e = l->getAt(ctx, 0);
@@ -128,15 +134,16 @@ bool load(proto::ProtoContext* ctx, const proto::ProtoObject* obj,
     return true;
 }
 
+bool load(proto::ProtoContext* ctx, const proto::ProtoObject* obj,
+          const proto::ProtoString* slot, State& out) {
+    if (!obj || obj == PROTO_NONE || !slot || proto::isSmallInt(obj)) return false;
+    return unpack(ctx, obj->getAttribute(ctx, slot, false), out);
+}
+
 void store(proto::ProtoContext* ctx, const proto::ProtoObject* obj,
            const proto::ProtoString* slot, const State& st) {
     if (!obj || !slot) return;
-    // One cell: newList(n, items) builds a list of up to five in place.
-    const proto::ProtoObject* items[4] = {
-        st.entries->asObject(ctx), st.index->asObject(ctx),
-        proto::makeSmallInt(static_cast<long long>(st.next)),
-        proto::makeSmallInt(static_cast<long long>(st.size))};
-    obj->setAttribute(ctx, slot, ctx->newList(4, items)->asObject(ctx));
+    obj->setAttribute(ctx, slot, pack(ctx, st));
 }
 
 bool find(proto::ProtoContext* ctx, const State& st, const proto::ProtoObject* key,
