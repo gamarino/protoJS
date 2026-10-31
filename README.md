@@ -49,7 +49,7 @@ Four language runtimes (protoJS, protoPython, protoST, protoClojure) and protoCp
 
 - A **C++20** compiler: GCC or Clang, or MSVC (Visual Studio 2022) on Windows
 - **CMake** 3.16 or later
-- The **protoCore** shared library, **3.0.0 or newer** (`libprotoCore`), built from source or installed under a prefix
+- The **protoCore** shared library, **3.4.0 or newer** (`libprotoCore.so.5`), built from source or installed under a prefix
 - **OpenSSL** (`libssl`, `libcrypto`), **pthread** and **libdl**, which `protojs` links against
 - For the unit tests: **Catch2** v3; if CMake does not find it, the build downloads v3.5.2 with `FetchContent`
 
@@ -66,7 +66,7 @@ cmake --install build                      # default prefix
 cmake --install build --prefix "$HOME/.local"
 ```
 
-**Build your own packages.** `CMakeLists.txt` configures CPack for the package `protojs`, version 0.2.0:
+**Build your own packages.** `CMakeLists.txt` configures CPack for the package `protojs`, version 0.3.0:
 
 | Platform | CPack generators | Dependency declared |
 |---|---|---|
@@ -74,7 +74,7 @@ cmake --install build --prefix "$HOME/.local"
 | macOS | `DragNDrop` | — |
 | Windows | `ZIP` (and `NSIS` when `makensis` is found) | — |
 
-Run `cpack` in the build directory (or `cmake --build build --target package`). With CPack's default file naming, the Linux packages are `protojs-0.2.0-Linux.deb`, `protojs-0.2.0-Linux.rpm` and `protojs-0.2.0-Linux.tar.gz`.
+Run `cpack` in the build directory (or `cmake --build build --target package`). With CPack's default file naming, the Linux packages are `protojs-0.3.0-Linux.deb`, `protojs-0.3.0-Linux.rpm` and `protojs-0.3.0-Linux.tar.gz`.
 
 See [docs/INSTALLATION.md](docs/INSTALLATION.md) for details and [packaging/PROCEDURES.md](packaging/PROCEDURES.md) for packaging procedures.
 
@@ -139,7 +139,7 @@ All options are parsed by `src/main.cpp`.
 | `-p`, `--print` | Print the result of the evaluation when it is not `undefined`. |
 | `--dap` | Run as a Debug Adapter Protocol server on stdin/stdout, for VS Code and other DAP clients (see [Debugging in VS Code](#-debugging-in-vs-code)). |
 | `-c`, `--check` | Parse the input without executing it. A file that parses prints nothing and exits 0; otherwise the syntax error is printed and the status is 1. Combining it with `-e` exits with status 9. With `--input-type=module` the module itself is parsed, but its imports cannot be resolved: any `import` is reported as `ReferenceError: could not load module`, so the check is limited to modules without imports. |
-| `-v`, `--version` | Print `protoJS v0.2.0` and exit. |
+| `-v`, `--version` | Print `protoJS v0.3.0` and exit. |
 | `--input-type=module` | Compile the input as an ES module. |
 | `--cpu-threads N` | Size of the CPU thread pool (default: the number of hardware threads). |
 | `--io-threads N` | Size of the I/O thread pool (default: hardware threads × the I/O factor, rounded up). |
@@ -432,7 +432,7 @@ To reproduce, build protoJS and run `node tests/benchmarks/run_standard_comparis
 
 ## 🔬 Current Status
 
-**Version:** 0.2.0. protoJS is **not production ready**, and its APIs may change.
+**Version:** 0.3.0. protoJS is **not production ready**, and its APIs may change.
 
 **Available:**
 

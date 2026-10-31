@@ -4,7 +4,131 @@ All notable changes to protoJS are documented in this file.
 
 ## [Unreleased]
 
-**Requires protoCore 3.1.0** (untagged master, commit 267b9fc9; SOVERSION 4). CI builds protoCore 3.3.1 (tag v3.3.1, commit 5a8cd7c7, what the installers ship) on Linux, macOS and Windows, and 3.1.0 in the Windows floor job.
+## [0.3.0] - 2026-10-31
+
+**Requires protoCore 3.4.0** (SOVERSION 5), the declared minimum for a build from source; the `.deb` depends on `protocore (>= 3.4.0)`. protoCore 3.4.0 removed `ProtoContext::pendingRoot`, which changes the layout of `ProtoContext`: a protoJS built against 3.4.0 does not load with an older protoCore, nor the reverse. protoJS never referenced `pendingRoot`, so the move is a rebuild, not a source change. CI pins protoCore tag `v3.4.0` (commit `f63adc08`) on Linux, macOS and Windows; the Windows floor job builds the same commit, because the floor and the pin coincide at 3.4.0 until the pin moves on.
+
+Summary of the release:
+
+- **One ProtoSpace per process.** Deferreds and workers run in the main space.
+- **Timers.** `setTimeout`, `setInterval`, `clearTimeout` and `clearInterval`, with Node semantics, in the main script.
+- **Strings are UTF-16 code units**, read in O(log n) without per-character copies; NUL characters survive.
+- **Fewer non-interned attribute names.** Across ctest, the names protoCore had to canonicalise against its symbol table on every call fell from 51.1 M to 3.9 M; the structure workloads run 5 to 10 % fewer cycles.
+- **Interpreter overhead per operation** roughly halved for property reads and cut by about a third for calls; own attributes are enumerated with `processOwnAttributes`.
+- **Numbers and BigInts:** one shortest-round-trip `Number::toString`, correctly rounded `StringToNumber` (subnormals included), exact BigInt/Number comparison, BigInt SameValue by value.
+- **Host APIs closer to Node:** a Buffer is a Uint8Array, `net.Socket` is a constructor and an EventEmitter, connect listeners run, DataView constructs, `__filename` / `__dirname` are absolute.
+- **Debugging in VS Code** (breakpoints, conditions, logpoints, exception breakpoints, path mappings, remote debugging) and `protojs --disasm`.
+- **Crash and race fixes:** a call's frame object is rooted in its activation (the `records` parallel crash), accept loops stop by flag (the macOS close/accept stall), bounded and GC-safe eval modules.
+
+### Performance — non-interned attribute names, three passes (2026-10-30 to 2026-10-31)
+
+- protoCore attribute keys are interned symbols; a heap-string name (7 or
+  more bytes, not a symbol) is canonicalised against the symbol table on
+  every call, which protoCore counts with `PROTOCORE_NONINTERNED_NAMES`.
+  Across ctest these calls fell from **51.1 M to 3.9 M** (51.1 M -> 10.6 M
+  -> 8.1 M -> 3.9 M), and in the five structure workloads from 1,815,314 to
+  790, all of them at startup.
+- #37: index sidecars (`__get_<i>__`, `__set_<i>__`, `__pd_<i>__`) are built
+  only when the new flags `__has_indexed_accessors__` /
+  `__has_index_descriptors__` (`src/runtime/IndexKeyFlags.h`) are present;
+  `arrGet` reads native storage first; about 470 fixed names are interned
+  once (`JSSymbols::internName`, `PROTOJS_NAME`); `JSSymbols::sidecarName`
+  serves symbol-key sidecars from a lock-free cache.
+- #38: a write of a key the receiver does not own probes the accessor
+  sidecars only when the new chain flag `__has_accessors_beyond_proto__`
+  (`src/runtime/AccessorFlags.h`) is inherited or the key is `__proto__`;
+  the old hint is always true because `Object.prototype` carries it.
+- #39: the same gate for element reads of keys not owned, `in` on a missing
+  key, writes to non-extensible objects and `Object.keys` / `values` /
+  `entries`; index-flag gates for `new Map(pairs)` and array key listings;
+  `__pd_<key>__` names of `freeze` / `seal`, Error names and 71 more
+  literals interned once.
+- Cycles, cumulative over the three passes (`perf stat -e cycles -r 3`, 3
+  interleaved rounds, both builds against protoCore 605df26a, checksums
+  identical): structures records -5.0 %, join -5.5 %, doctree -7.8 %,
+  wordfreq -7.3 %, graph -10.2 %; standard `tree_traversal` -2.3 % and
+  `list_snapshot_history` +0.2 %, both within noise.
+- What ctest still produces is almost all data keys computed at run time;
+  removing those needs a protoCore lookup that does not intern.
+- Tests: `js/perf/noninterned_array_access`, `noninterned_property_writes`,
+  `noninterned_object_ops` (at most 1,000 non-interned names each; skipped,
+  printing `SKIP:`, with a protoCore that has no report).
+
+### Added — timers (2026-10-30)
+
+- `setTimeout`, `setInterval`, `clearTimeout`, `clearInterval`
+  (`src/Timers.h/.cpp`, Node semantics): a `Timeout` with `ref`, `unref`,
+  `hasRef`, `refresh`, `close` and `Symbol.toPrimitive`; callbacks are
+  macrotasks with a microtask checkpoint after each; referenced timers keep
+  the process alive. Limits: main script only (Deferred functions and
+  workers get an Error), the REPL does not run timers, no
+  `require('timers')`. `setImmediate` in a worker now throws as the timers
+  do, instead of running the worker's callback on the main thread.
+  Tests `js/timers/*`, `js/workers/immediate_in_worker`.
+
+### Fixed — host APIs: Buffer, net, DataView, module paths (2026-10-30)
+
+- A Buffer is a Uint8Array over an ArrayBuffer, and `Buffer.prototype`
+  inherits from `Uint8Array.prototype` (so from `Object.prototype`):
+  `buf[0]`, typed-array methods, `"x" + buf`. `ArrayBuffer.isView` answers
+  for typed arrays and DataViews.
+- `net`: a Socket and a Server are EventEmitters and listeners run with them
+  as `this`; `net.Socket` is a constructor; the connect listener of
+  `createConnection` / `connect` runs; `listen(port, cb)` emits
+  `'listening'`. `EventEmitter.prototype` inherits from `Object.prototype`.
+- `new DataView(ab)` constructs (§25.3.2.1); `buffer`, `byteOffset` and
+  `byteLength` are accessors. Test262 `built-ins/DataView` +
+  `built-ins/ArrayBuffer`: 112 -> 194 of 782; three `-sab` tests that passed
+  only because the old DataView accepted anything now fail
+  (`SharedArrayBuffer` is a stub, documented in docs/API_REFERENCE.md).
+- `__filename` and `__dirname` are absolute and normalised, as in Node; the
+  structure benchmarks run from the repository root again.
+- http and net servers stop their accept loop by flag (poll of at most
+  50 ms) and close the listening descriptor after the join: on macOS
+  `close()` of a descriptor inside `accept()` could stall
+  (`cli/blocking-joins-and-finalizers` flake). Test `js/net/listen_close_cycles`.
+
+### Fixed — numbers, BigInts, new.target, bound constructors (2026-10-29 to 2026-10-30)
+
+- One `protojs::numberToString` (shortest round-trip digits) replaces 29
+  ToString(Number) implementations: `2147483647 * 2147483647` prints
+  `4611686014132420600`, `JSON.stringify(0.1 + 0.2)` is
+  `0.30000000000000004`. Literals beyond 2^53 stay Numbers.
+- StringToNumber rounds to the nearest double, subnormals included
+  (`Number("5e-324")` was Infinity), and long hex / octal / binary strings
+  no longer wrap.
+- BigInt vs Number comparisons are exact at every magnitude; NumberToBigInt
+  and `Number(bigint)` accept values beyond 64 bits. `Object.is`,
+  `includes`, `indexOf` and `defineProperty`'s SameValue compare BigInts by
+  value (the needle is classified once per search). `console.log` prints
+  `5n` and `-0` as Node does.
+- A plain function called from native code inside a constructor sees
+  `new.target` undefined; construct paths pass it explicitly.
+- `Reflect.construct` accepts bound functions as target and newTarget, and
+  `instanceof` unwraps bound functions.
+- `Array.from` / `Array.of` with a constructor other than Array no longer
+  intern a descriptor key per index (10,000 elements: 1,072 -> 32 ms).
+
+### Fixed — a call's frame object rooted in its activation (2026-10-29)
+
+- The frame object a call creates for its captured locals was held only by
+  a thread-local the collector does not scan; a collection could free it
+  while the call still used it. The `records` structure benchmark in
+  parallel mode crashed in 20 of 100 runs (`CRITICAL TAGGED POINTER ...
+  type 23` or SIGSEGV); it now passes 150 of 150. The object lives in a
+  reserved slot of the activation. Test `cli/gc-frame-object`. The audit of
+  the other interpreter thread-locals (docs/GC_BRIDGING) found no further
+  unrooted case.
+
+### Changed — tests and CI (2026-10-29 to 2026-10-30)
+
+- `js/basic/string_access_scaling` runs under `PROTOCORE_ADAPTIVE_HEAP=1`,
+  so it no longer measures the machine's memory size (it took 130-149 s on
+  the macOS runner); limit 120 s.
+- The exception-rooting test runs until the collector has run ten cycles
+  rather than for a fixed number of evals.
+- The macOS CI job runs on `macos-15` (the macOS 14 image is retired on
+  2026-11-02).
 
 ### Performance — own attributes enumerated with processOwnAttributes (2026-10-28)
 
