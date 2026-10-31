@@ -1,4 +1,5 @@
 #include "ProtoCoreTypes.h"
+#include "runtime/AccessorFlags.h"
 #include "JSNumber.h"
 #include "runtime/JSStringBytes.h"
 #include "runtime/IndexKeyFlags.h"
@@ -998,7 +999,7 @@ void ensureFunctionPrototype(proto::ProtoContext* ctx,
         };
         const proto::ProtoObject* poison = ctx->fromMethod(nullptr, throwTypeErrorPoison);
         const proto::ProtoString* hapK = JSSymbols::hasAccessorProps(ctx);
-        if (hapK) fp = fp->setAttribute(ctx, hapK, PROTO_TRUE);
+        if (hapK) fp = markHasAccessors(ctx, fp);
         const char* names[2] = { "caller", "arguments" };
         for (int i = 0; i < 2; ++i) {
             const proto::ProtoObject* propNameObj = ctx->fromUTF8String(names[i]);

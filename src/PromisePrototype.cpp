@@ -1,4 +1,5 @@
 // Promise objects and the Promise built-ins, ECMA-262 §27.2.
+#include "runtime/AccessorFlags.h"
 //
 // See PromisePrototype.h for the representation of a promise and
 // MicrotaskQueue.h for the job queue the reactions run on.
@@ -1525,7 +1526,7 @@ void ensurePromiseConstructor(proto::ProtoContext* ctx,
             const proto::ProtoKeywordArguments*) -> const proto::ProtoObject* { return self; };
         const proto::ProtoObject* getter = makeBuiltin("get [Symbol.species]", speciesGetter, 0);
         getter = getter->setAttribute(ctx, JSSymbols::hasNonWritableProps(ctx), PROTO_TRUE);
-        ctor = ctor->setAttribute(ctx, keySpeciesGetter(ctx), getter);
+        ctor = markHasAccessors(ctx, ctor->setAttribute(ctx, keySpeciesGetter(ctx), getter));
         ctor = ctor->setAttribute(ctx, sym(ctx, "__pd_Symbol.species__"), ctx->fromInteger(0x2LL));
     }
 

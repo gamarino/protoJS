@@ -1,4 +1,5 @@
 #include "ProtoCoreTypes.h"
+#include "runtime/AccessorFlags.h"
 #include "JSNumber.h"
 #include "runtime/JSStringBytes.h"
 #include "RegExpPrototype.h"
@@ -1174,8 +1175,7 @@ static const proto::ProtoObject* installRegExpGetter(
     if (pdk) sp = sp->setAttribute(ctx, pdk, ctx->fromInteger(0x2LL));
     // Every object holding an accessor carries the own hint (the gates on
     // __has_accessor_props__ rely on it).
-    if (const proto::ProtoString* hapK = JSSymbols::hasAccessorProps(ctx))
-        sp = sp->setAttribute(ctx, hapK, PROTO_TRUE);
+    sp = markHasAccessors(ctx, sp);
     return sp;
 }
 
@@ -1397,7 +1397,7 @@ void ensureRegExpConstructor(proto::ProtoContext* ctx,
                 if (hnwSp) getter = getter->setAttribute(ctx, hnwSp, PROTO_TRUE);
                 const proto::ProtoString* gksSym =
                     PROTOJS_NAME(ctx, "__get_Symbol.species__");
-                if (gksSym) ctor = ctor->setAttribute(ctx, gksSym, getter);
+                if (gksSym) ctor = markHasAccessors(ctx, ctor->setAttribute(ctx, gksSym, getter));
                 const proto::ProtoString* pdk = PROTOJS_NAME(ctx, "__pd_Symbol.species__");
                 if (pdk) ctor = ctor->setAttribute(ctx, pdk, ctx->fromInteger(0x2LL));
             }

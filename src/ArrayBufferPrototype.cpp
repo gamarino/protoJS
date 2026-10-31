@@ -1,4 +1,5 @@
 #include "ProtoCoreTypes.h"
+#include "runtime/AccessorFlags.h"
 #include "runtime/PinnedBuiltin.h"
 #include "ArrayBufferPrototype.h"
 #include "JSSymbols.h"
@@ -285,7 +286,7 @@ void ensureArrayBufferConstructor(proto::ProtoContext* ctx,
         proto = proto->setAttribute(ctx, ctx->fromUTF8String("byteLength")->asString(ctx), PROTO_NONE);
         proto = proto->setAttribute(ctx, ctx->fromUTF8String("__pd_byteLength__")->asString(ctx),
                                     ctx->fromInteger(0x2LL));
-        proto = proto->setAttribute(ctx, JSSymbols::hasAccessorProps(ctx), PROTO_TRUE);
+        proto = markHasAccessors(ctx, proto);
         proto = proto->setAttribute(ctx, JSSymbols::hasNonWritableProps(ctx), PROTO_TRUE);
     }
 
@@ -435,7 +436,7 @@ void ensureArrayBufferConstructor(proto::ProtoContext* ctx,
                 }
                 const proto::ProtoString* gksSym =
                     PROTOJS_NAME(ctx, "__get_Symbol.species__");
-                if (gksSym) ctor = ctor->setAttribute(ctx, gksSym, getter);
+                if (gksSym) ctor = markHasAccessors(ctx, ctor->setAttribute(ctx, gksSym, getter));
                 const proto::ProtoObject* pdo = ctx->fromUTF8String("__pd_Symbol.species__");
                 const proto::ProtoString* pdk = pdo ? pdo->asString(ctx) : nullptr;
                 if (pdk) ctor = ctor->setAttribute(ctx, pdk, ctx->fromInteger(0x2LL));

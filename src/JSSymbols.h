@@ -159,6 +159,7 @@ const proto::ProtoString* bigIntValue(proto::ProtoContext* ctx);    // "__bigint
 // never do).
 const proto::ProtoString* hasIndexedSetters(proto::ProtoContext* ctx); // "__has_indexed_setters__"
 const proto::ProtoString* hasIndexedAccessors(proto::ProtoContext* ctx); // "__has_indexed_accessors__"
+const proto::ProtoString* hasAccessorsBeyondProto(proto::ProtoContext* ctx); // "__has_accessors_beyond_proto__"
 const proto::ProtoString* hasIndexDescriptors(proto::ProtoContext* ctx); // "__has_index_descriptors__"
 
 // Accessor sidecars for "length" — Array.prototype.* helpers probe these

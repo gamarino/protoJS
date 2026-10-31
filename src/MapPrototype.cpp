@@ -1,4 +1,5 @@
 #include "ProtoCoreTypes.h"
+#include "runtime/AccessorFlags.h"
 #include "runtime/JSStringBytes.h"
 #include "runtime/PinnedBuiltin.h"
 #include "MapPrototype.h"
@@ -1226,7 +1227,7 @@ void BuildMapPrototype(proto::ProtoSpace* space, proto::ProtoContext* ctx,
                 // on `myMap.size` reads (chain-inherited).
                 {
                     const proto::ProtoString* hap = JSSymbols::hasAccessorProps(ctx);
-                    if (hap) mapProto = mapProto->setAttribute(ctx, hap, PROTO_TRUE);
+                    if (hap) mapProto = markHasAccessors(ctx, mapProto);
                 }
                 // §24.1.3.10 .size accessor descriptor:
                 // {enumerable:false, configurable:true} → bits 0x2.
@@ -1518,7 +1519,7 @@ void ensureMapConstructor(proto::ProtoContext* ctx,
                 if (hnwSp) getter = getter->setAttribute(ctx, hnwSp, PROTO_TRUE);
                 const proto::ProtoString* gksSym =
                     PROTOJS_NAME(ctx, "__get_Symbol.species__");
-                if (gksSym) ctor = ctor->setAttribute(ctx, gksSym, getter);
+                if (gksSym) ctor = markHasAccessors(ctx, ctor->setAttribute(ctx, gksSym, getter));
                 // §24.1.2.2 get Map[@@species] descriptor: accessor
                 // with {enumerable:false, configurable:true} → 0x2.
                 // Pre-fix the species slot had no descriptor and

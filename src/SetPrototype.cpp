@@ -1,4 +1,5 @@
 #include "ProtoCoreTypes.h"
+#include "runtime/AccessorFlags.h"
 #include "runtime/JSStringBytes.h"
 #include "runtime/PinnedBuiltin.h"
 #include "SetPrototype.h"
@@ -1536,7 +1537,7 @@ void BuildSetPrototype(proto::ProtoSpace* space, proto::ProtoContext* ctx,
                 // getter (chain-inherited from Set.prototype).
                 {
                     const proto::ProtoString* hap = JSSymbols::hasAccessorProps(ctx);
-                    if (hap) setProto = setProto->setAttribute(ctx, hap, PROTO_TRUE);
+                    if (hap) setProto = markHasAccessors(ctx, setProto);
                 }
                 // §24.2.3.10 accessor descriptor 0x2 (non-enumerable,
                 // configurable) on the size slot itself.
@@ -1776,7 +1777,7 @@ void ensureSetConstructor(proto::ProtoContext* ctx,
                 if (hnwSp) getter = getter->setAttribute(ctx, hnwSp, PROTO_TRUE);
                 const proto::ProtoString* gksSym =
                     PROTOJS_NAME(ctx, "__get_Symbol.species__");
-                if (gksSym) ctor = ctor->setAttribute(ctx, gksSym, getter);
+                if (gksSym) ctor = markHasAccessors(ctx, ctor->setAttribute(ctx, gksSym, getter));
                 // §24.2.2.2 get Set[@@species] descriptor: accessor
                 // with {enumerable:false, configurable:true} → 0x2.
                 // Pre-fix the species slot had no descriptor and

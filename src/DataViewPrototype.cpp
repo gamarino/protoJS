@@ -1,4 +1,5 @@
 #include "DataViewPrototype.h"
+#include "runtime/AccessorFlags.h"
 #include "JSNumber.h"
 #include "ArrayBufferPrototype.h"
 #include "JSSymbols.h"
@@ -605,7 +606,7 @@ void ensureDataViewConstructor(proto::ProtoContext* ctx,
             proto = proto->setAttribute(ctx, ctx->fromUTF8String(pd.c_str())->asString(ctx),
                                         ctx->fromInteger(0x2LL));
         }
-        proto = proto->setAttribute(ctx, JSSymbols::hasAccessorProps(ctx), PROTO_TRUE);
+        proto = markHasAccessors(ctx, proto);
         proto = proto->setAttribute(ctx, JSSymbols::hasNonWritableProps(ctx), PROTO_TRUE);
     }
     // §25.3.4.18 DataView.prototype[@@toStringTag] = "DataView" with

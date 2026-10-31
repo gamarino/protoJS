@@ -1,4 +1,5 @@
 #include "BigIntPrototype.h"
+#include "runtime/AccessorFlags.h"
 #include "ProtoCoreTypes.h"
 #include "JSNumber.h"
 #include "runtime/OwnAttributes.h"
@@ -6106,7 +6107,7 @@ void ensureArrayPrototype(proto::ProtoContext* ctx,
                 const proto::ProtoString* hnwG = JSSymbols::hasNonWritableProps(ctx);
                 if (hnwG) getter = getter->setAttribute(ctx, hnwG, PROTO_TRUE);
                 const proto::ProtoString* gksSym = JSSymbols::getSymbolSpecies(ctx);
-                if (gksSym) ctor = ctor->setAttribute(ctx, gksSym, getter);
+                if (gksSym) ctor = markHasAccessors(ctx, ctor->setAttribute(ctx, gksSym, getter));
                 // Descriptor for the species property on Array:
                 // accessor with {enumerable:false, configurable:true} → 0x2.
                 const proto::ProtoString* pdk = PROTOJS_NAME(ctx, "__pd_Symbol.species__");
