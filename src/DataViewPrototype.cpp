@@ -618,8 +618,7 @@ void ensureDataViewConstructor(proto::ProtoContext* ctx,
         if (tagK) {
             proto = proto->setAttribute(ctx, tagK,
                 ctx->fromUTF8String("DataView"));
-            const proto::ProtoObject* pdo = ctx->fromUTF8String("__pd_Symbol.toStringTag__");
-            const proto::ProtoString* pdk = pdo ? pdo->asString(ctx) : nullptr;
+            const proto::ProtoString* pdk = PROTOJS_NAME(ctx, "__pd_Symbol.toStringTag__");
             if (pdk) proto = proto->setAttribute(ctx, pdk, ctx->fromInteger(0x2LL));
         }
     }
@@ -680,8 +679,7 @@ void ensureDataViewConstructor(proto::ProtoContext* ctx,
     root = root->setAttribute(ctx, JSSymbols::DataView(ctx), ctor);
     // §17 globalThis.DataView descriptor 0x3.
     {
-        const proto::ProtoObject* pdo = ctx->fromUTF8String("__pd_DataView__");
-        const proto::ProtoString* pdk = pdo ? pdo->asString(ctx) : nullptr;
+        const proto::ProtoString* pdk = PROTOJS_NAME(ctx, "__pd_DataView__");
         if (pdk) root = root->setAttribute(ctx, pdk, ctx->fromInteger(0x3LL));
     }
     *globalRoot = root;

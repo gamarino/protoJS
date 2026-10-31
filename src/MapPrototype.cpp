@@ -1,5 +1,6 @@
 #include "ProtoCoreTypes.h"
 #include "runtime/AccessorFlags.h"
+#include "runtime/IndexKeyFlags.h"
 #include "runtime/JSStringBytes.h"
 #include "runtime/PinnedBuiltin.h"
 #include "MapPrototype.h"
@@ -894,8 +895,7 @@ static const proto::ProtoObject* mapConstruct(
             // §24.1.1.2 step 7.a — accessor sidecar FIRST so a throwing
             // `get set()` propagates before the data slot is read.
             {
-                const proto::ProtoObject* gko = ctx->fromUTF8String("__get_set__");
-                const proto::ProtoString* gks = gko ? gko->asString(ctx) : nullptr;
+                const proto::ProtoString* gks = PROTOJS_NAME(ctx, "__get_set__");
                 if (gks) {
                     const proto::ProtoObject* getter = self->getAttribute(ctx, gks, true);
                     if (getter && getter != PROTO_NONE) {
@@ -954,7 +954,8 @@ static const proto::ProtoObject* mapConstruct(
                 // so `Object.defineProperty(pair, 0, {get: throws})`
                 // surfaces correctly (test262 iterator-item-{first,
                 // second}-entry-returns-abrupt).
-                {
+                // Only when an index accessor may exist (runtime/IndexKeyFlags.h).
+                if (protojs::mayHaveIndexAccessor(ctx, arr)) {
                     std::string gkStr = "__get_" + std::to_string(i) + "__";
                     const proto::ProtoObject* gko = protojs::jsStringFromUTF8(ctx, gkStr);
                     const proto::ProtoString* gks = gko ? gko->asString(ctx) : nullptr;
@@ -1069,8 +1070,7 @@ static const proto::ProtoObject* mapConstruct(
                         // accessor getters; their abrupt completion must
                         // propagate.  Probe `__get_value__` first.
                         {
-                            const proto::ProtoObject* gko = ctx->fromUTF8String("__get_value__");
-                            const proto::ProtoString* gks = gko ? gko->asString(ctx) : nullptr;
+                            const proto::ProtoString* gks = PROTOJS_NAME(ctx, "__get_value__");
                             if (gks) {
                                 const proto::ProtoObject* getter = stepRes->getAttribute(ctx, gks, true);
                                 if (getter && getter != PROTO_NONE) {
@@ -1248,8 +1248,7 @@ void BuildMapPrototype(proto::ProtoSpace* space, proto::ProtoContext* ctx,
                 ? mapProto->getAttribute(ctx, entriesKey, false) : nullptr;
             if (entriesFn && entriesFn != PROTO_NONE) {
                 mapProto = mapProto->setAttribute(ctx, symIterKey, entriesFn);
-                const proto::ProtoObject* pdko = ctx->fromUTF8String("__pd_Symbol.iterator__");
-                const proto::ProtoString* pdks = pdko ? pdko->asString(ctx) : nullptr;
+                const proto::ProtoString* pdks = PROTOJS_NAME(ctx, "__pd_Symbol.iterator__");
                 if (pdks) mapProto = mapProto->setAttribute(ctx, pdks, ctx->fromInteger(0x3LL));
             }
         }
@@ -1261,15 +1260,13 @@ void BuildMapPrototype(proto::ProtoSpace* space, proto::ProtoContext* ctx,
         const proto::ProtoString* tstKey = JSSymbols::toStringTag(ctx);
         if (tstKey) {
             mapProto = mapProto->setAttribute(ctx, tstKey, ctx->fromUTF8String("Map"));
-            const proto::ProtoObject* pdko = ctx->fromUTF8String("__pd___toStringTag____");
-            const proto::ProtoString* pdks = pdko ? pdko->asString(ctx) : nullptr;
+            const proto::ProtoString* pdks = PROTOJS_NAME(ctx, "__pd___toStringTag____");
             if (pdks) mapProto = mapProto->setAttribute(ctx, pdks, ctx->fromInteger(0x2LL));
         }
         const proto::ProtoString* userKey = JSSymbols::symbolToStringTag(ctx);
         if (userKey) {
             mapProto = mapProto->setAttribute(ctx, userKey, ctx->fromUTF8String("Map"));
-            const proto::ProtoObject* pdko = ctx->fromUTF8String("__pd_Symbol.toStringTag__");
-            const proto::ProtoString* pdks = pdko ? pdko->asString(ctx) : nullptr;
+            const proto::ProtoString* pdks = PROTOJS_NAME(ctx, "__pd_Symbol.toStringTag__");
             if (pdks) mapProto = mapProto->setAttribute(ctx, pdks, ctx->fromInteger(0x2LL));
             const proto::ProtoString* hnwK = JSSymbols::hasNonWritableProps(ctx);
             if (hnwK) mapProto = mapProto->setAttribute(ctx, hnwK, PROTO_TRUE);
@@ -1524,8 +1521,7 @@ void ensureMapConstructor(proto::ProtoContext* ctx,
                 // with {enumerable:false, configurable:true} → 0x2.
                 // Pre-fix the species slot had no descriptor and
                 // defaulted to fully enumerable.
-                const proto::ProtoObject* pdo = ctx->fromUTF8String("__pd_Symbol.species__");
-                const proto::ProtoString* pdk = pdo ? pdo->asString(ctx) : nullptr;
+                const proto::ProtoString* pdk = PROTOJS_NAME(ctx, "__pd_Symbol.species__");
                 if (pdk) ctor = ctor->setAttribute(ctx, pdk, ctx->fromInteger(0x2LL));
             }
         }
@@ -1534,8 +1530,7 @@ void ensureMapConstructor(proto::ProtoContext* ctx,
     *globalRoot = (*globalRoot)->setAttribute(ctx, ks, ctor);
     // §17 globalThis.Map descriptor 0x3.
     {
-        const proto::ProtoObject* pdo = ctx->fromUTF8String("__pd_Map__");
-        const proto::ProtoString* pdk = pdo ? pdo->asString(ctx) : nullptr;
+        const proto::ProtoString* pdk = PROTOJS_NAME(ctx, "__pd_Map__");
         if (pdk) *globalRoot = (*globalRoot)->setAttribute(ctx, pdk,
             ctx->fromInteger(0x3LL));
     }
@@ -2016,8 +2011,7 @@ static const proto::ProtoObject* weakMapConstruct(
             // §24.4.1.1 step 6 — accessor sidecar FIRST so a throwing
             // `get set()` propagates per GetMethod.
             {
-                const proto::ProtoObject* gko = ctx->fromUTF8String("__get_set__");
-                const proto::ProtoString* gks = gko ? gko->asString(ctx) : nullptr;
+                const proto::ProtoString* gks = PROTOJS_NAME(ctx, "__get_set__");
                 if (gks) {
                     const proto::ProtoObject* getter = self->getAttribute(ctx, gks, true);
                     if (getter && getter != PROTO_NONE) {
@@ -2048,7 +2042,8 @@ static const proto::ProtoObject* weakMapConstruct(
                 if (!arr || arr == PROTO_NONE) return PROTO_NONE;
                 // Spec §7.3.2 Get — fire accessor getters via the
                 // __get_<i>__ sidecar before reading the indexed slot.
-                {
+                // Only when an index accessor may exist (runtime/IndexKeyFlags.h).
+                if (protojs::mayHaveIndexAccessor(ctx, arr)) {
                     std::string gkStr = "__get_" + std::to_string(i) + "__";
                     const proto::ProtoObject* gko = protojs::jsStringFromUTF8(ctx, gkStr);
                     const proto::ProtoString* gks = gko ? gko->asString(ctx) : nullptr;
@@ -2151,8 +2146,7 @@ static const proto::ProtoObject* weakMapConstruct(
                         // accessor getters; their abrupt completion must
                         // propagate.  Probe `__get_value__` first.
                         {
-                            const proto::ProtoObject* gko = ctx->fromUTF8String("__get_value__");
-                            const proto::ProtoString* gks = gko ? gko->asString(ctx) : nullptr;
+                            const proto::ProtoString* gks = PROTOJS_NAME(ctx, "__get_value__");
                             if (gks) {
                                 const proto::ProtoObject* getter = stepRes->getAttribute(ctx, gks, true);
                                 if (getter && getter != PROTO_NONE) {

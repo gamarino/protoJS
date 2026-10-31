@@ -163,8 +163,7 @@ static std::string objToStr(proto::ProtoContext* ctx, const proto::ProtoObject* 
                     const proto::ProtoString* isSymK = protojs::JSSymbols::isSymbol(ctx);
                     if (isSymK && prim->getAttribute(ctx, isSymK, true) == PROTO_TRUE)
                         isPrim = true;
-                    const proto::ProtoObject* bigKo = ctx->fromUTF8String("__is_bigint__");
-                    const proto::ProtoString* bigK = bigKo ? bigKo->asString(ctx) : nullptr;
+                    const proto::ProtoString* bigK = PROTOJS_NAME(ctx, "__is_bigint__");
                     if (!isPrim && bigK && prim->getAttribute(ctx, bigK, true) == PROTO_TRUE)
                         isPrim = true;
                 }
@@ -290,11 +289,9 @@ static std::string objToStr(proto::ProtoContext* ctx, const proto::ProtoObject* 
                     // 'Cannot convert object to primitive value'
                     // (built-ins/String/prototype/indexOf/searchstring-
                     // tostring-bigint).
-                    const proto::ProtoObject* bigKo = ctx->fromUTF8String("__is_bigint__");
-                    const proto::ProtoString* bigK = bigKo ? bigKo->asString(ctx) : nullptr;
+                    const proto::ProtoString* bigK = PROTOJS_NAME(ctx, "__is_bigint__");
                     if (bigK && result->getAttribute(ctx, bigK, true) == PROTO_TRUE) {
-                        const proto::ProtoObject* bvKo = ctx->fromUTF8String("__bigint_value__");
-                        const proto::ProtoString* bvK = bvKo ? bvKo->asString(ctx) : nullptr;
+                        const proto::ProtoString* bvK = PROTOJS_NAME(ctx, "__bigint_value__");
                         if (bvK) {
                             const proto::ProtoObject* bv = result->getAttribute(ctx, bvK, true);
                             if (bv && bv->isString(ctx)) {
@@ -374,11 +371,9 @@ static std::string objToStr(proto::ProtoContext* ctx, const proto::ProtoObject* 
                 // BigInt return value — \xc2\xa77.1.17 ToString step 9 yields
                 // the decimal representation.  Same shape as the
                 // toString branch above.
-                const proto::ProtoObject* bigKo = ctx->fromUTF8String("__is_bigint__");
-                const proto::ProtoString* bigK = bigKo ? bigKo->asString(ctx) : nullptr;
+                const proto::ProtoString* bigK = PROTOJS_NAME(ctx, "__is_bigint__");
                 if (bigK && result->getAttribute(ctx, bigK, true) == PROTO_TRUE) {
-                    const proto::ProtoObject* bvKo = ctx->fromUTF8String("__bigint_value__");
-                    const proto::ProtoString* bvK = bvKo ? bvKo->asString(ctx) : nullptr;
+                    const proto::ProtoString* bvK = PROTOJS_NAME(ctx, "__bigint_value__");
                     if (bvK) {
                         const proto::ProtoObject* bv = result->getAttribute(ctx, bvK, true);
                         if (bv && bv->isString(ctx)) {
@@ -2598,8 +2593,7 @@ const proto::ProtoObject* stringRaw(
     const proto::ProtoString* rawKey = rawKeyObj ? rawKeyObj->asString(ctx) : nullptr;
     const proto::ProtoObject* rawArr = nullptr;
     {
-        const proto::ProtoObject* gko = ctx->fromUTF8String("__get_raw__");
-        const proto::ProtoString* gk  = gko ? gko->asString(ctx) : nullptr;
+        const proto::ProtoString* gk = PROTOJS_NAME(ctx, "__get_raw__");
         if (gk) {
             const proto::ProtoObject* getter = tpl->getAttribute(ctx, gk, true);
             if (getter && getter != PROTO_NONE) {
@@ -2626,8 +2620,7 @@ const proto::ProtoObject* stringRaw(
     long long rawLen = 0;
     if (lenKey) {
         const proto::ProtoObject* lv = nullptr;
-        const proto::ProtoObject* gko = ctx->fromUTF8String("__get_length__");
-        const proto::ProtoString* gk  = gko ? gko->asString(ctx) : nullptr;
+        const proto::ProtoString* gk = PROTOJS_NAME(ctx, "__get_length__");
         if (gk) {
             const proto::ProtoObject* getter = rawArr->getAttribute(ctx, gk, true);
             if (getter && getter != PROTO_NONE) {
@@ -3304,8 +3297,7 @@ void ensureStringConstructor(proto::ProtoContext* ctx,
     *globalRoot = (*globalRoot)->setAttribute(ctx, keyString, ctor);
     // §17 globalThis.String descriptor 0x3.
     {
-        const proto::ProtoObject* pdo = ctx->fromUTF8String("__pd_String__");
-        const proto::ProtoString* pdk = pdo ? pdo->asString(ctx) : nullptr;
+        const proto::ProtoString* pdk = PROTOJS_NAME(ctx, "__pd_String__");
         if (pdk) *globalRoot = (*globalRoot)->setAttribute(ctx, pdk,
             ctx->fromInteger(0x3LL));
     }
