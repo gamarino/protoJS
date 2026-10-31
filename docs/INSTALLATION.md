@@ -2,13 +2,13 @@
 
 protoJS is installed by building it from source. No prebuilt packages or installers are published. The CMake build can produce native packages with CPack (see [Building packages](#building-packages)) for local use or for your own distribution.
 
-protoJS is not production ready. The version configured in `CMakeLists.txt` is 0.1.0.
+protoJS is not production ready. The version configured in `CMakeLists.txt` is 0.3.0.
 
 ---
 
 ## Prerequisites
 
-- **protoCore 2.11.0 or newer**, installed, with its CMake package configuration — required. 2.11.0 is the first release with `ProtoObject::setAttributes`, which the interpreter uses to publish a run of writes to one object as one version (docs/PERFORMANCE_NOTES.md, "Runs of writes published once"); the previous floor, 2.7.0, was the first release that declares `proto::proto_long` / `proto::proto_ulong`. protoJS links against the protoCore shared library and never bundles it. Build and install it from source: <https://github.com/numaes/protoCore>; see its `docs/INSTALLATION.md`.
+- **protoCore 3.4.0 or newer** (within 3.x), installed, with its CMake package configuration — required. 3.4.0 moved protoCore to SOVERSION 5 (`libprotoCore.so.5`, `protoCore-5.dll`) by removing `ProtoContext::pendingRoot`, so a protoJS built against it does not load with an older protoCore, nor the reverse. Earlier floors: 3.1.0 (one ProtoSpace per process), 3.0.0 (`ProtoArguments` descriptors), and 2.11.0, the first release with `ProtoObject::setAttributes`, which the interpreter uses to publish a run of writes to one object as one version (docs/PERFORMANCE_NOTES.md, "Runs of writes published once"); the previous floor, 2.7.0, was the first release that declares `proto::proto_long` / `proto::proto_ulong`. protoJS links against the protoCore shared library and never bundles it. Build and install it from source: <https://github.com/numaes/protoCore>; see its `docs/INSTALLATION.md`.
 - **CMake** 3.16 or newer.
 - **A C++20 and C99 compiler**: GCC or Clang, or MSVC 19.44 (Visual Studio 2022) on Windows.
 - **OpenSSL development files.** The runtime links `ssl` and `crypto` directly (for example the `libssl-dev` package on Debian/Ubuntu or `openssl-devel` on Fedora).
@@ -45,7 +45,7 @@ cmake -S . -B build
 cmake --build build
 ```
 
-protoJS prefers an **installed protoCore CMake package**: the configure step runs `find_package(protoCore 2.11 CONFIG)` first, and it is the only discovery mode that checks protoCore's version and ABI (the developer fallback probes `protoCore.h` for `setAttributes` instead). The version floor is `2.11` and the ceiling is the next major version, because protoCore's major version and its soname move together; protoJS additionally asserts that the package's `SOVERSION` is `3`.
+protoJS prefers an **installed protoCore CMake package**: the configure step runs `find_package(protoCore 3.4 CONFIG)` first, and it is the only discovery mode that checks protoCore's version and ABI (the developer fallback probes `protoCore.h` instead: it must declare `setAttributes` and must no longer declare `pendingRoot`). The version floor is `3.4` and the ceiling is the next major version, because protoCore's major version and its soname move together; protoJS additionally asserts that the package's `SOVERSION` is `5`.
 
 When no installed package is found *and* no prefix was named, CMake falls back to a sibling build directory of protoCore, in this order:
 
@@ -53,14 +53,14 @@ When no installed package is found *and* no prefix was named, CMake falls back t
 2. `../protoCore/build`
 3. `../protoCore/build_check`
 
-The first directory that holds the library wins, and CMake stops with the error "protoCore shared library not found" if none of them does. The fallback prints a `WARNING`: it performs no package version check (it does require `libprotoCore.so.2` beside the library it found) and must not be used to produce a distributable package. Pass `-DPROTOCORE_REQUIRE_PACKAGE=ON` to turn it into a hard error; **every packaging build sets it**. `build_release` is searched first because it is the directory protoCore's release workflow writes to: if a stale `../protoCore/build` is left over from an earlier checkout, protoJS would otherwise link against it silently, and the mismatch only shows up later as a run-time crash or a missing symbol. The chosen path is printed at configure time as `-- Found protoCore: <path>`; check that line when a build behaves as though protoCore changes had not landed.
+The first directory that holds the library wins, and CMake stops with the error "protoCore shared library not found" if none of them does. The fallback prints a `WARNING`: it performs no package version check (it does require `libprotoCore.so.5` beside the library it found) and must not be used to produce a distributable package. Pass `-DPROTOCORE_REQUIRE_PACKAGE=ON` to turn it into a hard error; **every packaging build sets it**. `build_release` is searched first because it is the directory protoCore's release workflow writes to: if a stale `../protoCore/build` is left over from an earlier checkout, protoJS would otherwise link against it silently, and the mismatch only shows up later as a run-time crash or a missing symbol. The chosen path is printed at configure time as `-- Found protoCore: <path>`; check that line when a build behaves as though protoCore changes had not landed.
 
 - The build type defaults to `Release` when `CMAKE_BUILD_TYPE` is not given.
 - `cmake --build build` also builds the Catch2 unit-test executable and two test addons. Pass `-DBUILD_TESTING=OFF` at configure time to skip the unit tests, or build only the runtime with `cmake --build build --target protojs`.
 - The executable is `build/protojs`. Its build-tree RPATH points at the protoCore build directory, so no `LD_LIBRARY_PATH` is needed:
 
 ```bash
-./build/protojs --version        # prints: protoJS v0.1.0
+./build/protojs --version        # prints: protoJS v0.3.0
 ./build/protojs -e "console.log('Hello, protoJS')"
 ```
 
@@ -99,7 +99,7 @@ If protoCore is installed in a different prefix, set `LD_LIBRARY_PATH` (Linux) o
 
 protoJS builds and runs natively on Windows with Visual Studio 2022 (MSVC
 19.44 verified, Windows 11), using the CMake and Ninja that ship with it.
-Build protoCore 2.11.0 or newer first (its `docs/INSTALLATION.md`, "Windows
+Build protoCore 3.4.0 or newer first (its `docs/INSTALLATION.md`, "Windows
 (MSVC)") and install it into a prefix: on Windows protoJS builds against an
 installed protoCore package only, because the sibling-tree fallback finds the
 library by its soname, which a DLL does not have. From an "x64 Native Tools
@@ -120,8 +120,8 @@ Any OpenSSL for Windows with headers, import libraries and DLLs works as
 `OPENSSL_ROOT_DIR`. The DLL names follow from the version found
 (`libcrypto-3-x64.dll` and `libssl-3-x64.dll` for OpenSSL 3), and configure
 fails if they are not in the installation's `bin`. The build copies the DLLs
-protojs needs (protoCore's -- `protoCore.dll`, or `protoCore-3.dll` from
-protoCore 2.9.0 on -- and OpenSSL's) into `build/bin/`, so `protojs.exe` and
+protojs needs (protoCore's -- `protoCore-5.dll` from protoCore 3.4.0 on, `protoCore-4.dll`
+for 3.0-3.3 -- and OpenSSL's) into `build/bin/`, so `protojs.exe` and
 the tests run in place.
 
 `cmake --install` (and `cpack`) put in `<prefix>/bin` `protojs.exe`, the
@@ -246,20 +246,20 @@ cpack -G DEB      # or: cpack -G RPM, cpack -G TGZ, or plain cpack for every con
 
 | Platform | CPack generators configured | Output (CPack default naming) |
 |----------|-----------------------------|-------------------------------|
-| Linux    | `TGZ`, plus `DEB` when `dpkg` is found and `RPM` when `rpmbuild` is found | `protojs-0.1.0-Linux.deb`, `protojs-0.1.0-Linux.rpm`, `protojs-0.1.0-Linux.tar.gz` |
-| macOS    | `DragNDrop`                 | `protojs-0.1.0-Darwin.dmg` |
-| Windows  | `ZIP`, plus `NSIS` when `makensis` is found | `protojs-0.1.0-win64.zip` (see [Windows (MSVC)](#windows-msvc)) |
+| Linux    | `TGZ`, plus `DEB` when `dpkg` is found and `RPM` when `rpmbuild` is found | `protojs-0.3.0-Linux.deb`, `protojs-0.3.0-Linux.rpm`, `protojs-0.3.0-Linux.tar.gz` |
+| macOS    | `DragNDrop`                 | `protojs-0.3.0-Darwin.dmg` |
+| Windows  | `ZIP`, plus `NSIS` when `makensis` is found | `protojs-0.3.0-win64.zip` (see [Windows (MSVC)](#windows-msvc)) |
 
 Notes:
 
 - The package name is pinned explicitly rather than left to each generator's default casing: `protojs` for DEB, `protoJS` for RPM. The packages contain only the `protojs` executable.
-- Both declare a bounded dependency on protoCore's own package: `Depends: protocore (>= 2.0.0), protocore (<< 3.0.0)` for DEB, `Requires: protoCore >= 2.0.0, protoCore < 3.0.0` for RPM. The names match the packages protoCore's own CPack configuration produces, which pins them too.
+- Both declare a bounded dependency on protoCore's own package: `Depends: protocore (>= 3.4.0), protocore (<< 4.0.0)` for DEB, `Requires: protoCore >= 3.4.0, protoCore < 4.0.0` for RPM (both derived from `PROTOCORE_MIN_VERSION_FULL` and `PROTOCORE_NEXT_MAJOR`). The names match the packages protoCore's own CPack configuration produces, which pins them too.
 - The DEB and RPM generators are enabled **only when their tools are present**. `cpack` runs every configured generator in one pass and a missing tool is fatal, not a skip, so an unconditional `DEB;RPM;TGZ` made `cpack` fail outright on a host without `rpmbuild` — taking the DEB and the TGZ down with it. Each configure prints whether a generator was enabled or disabled, and why.
 
 Installing and removing a locally built Debian package (install the protoCore package first):
 
 ```bash
-sudo dpkg -i protojs-0.1.0-Linux.deb
+sudo dpkg -i protojs-0.3.0-Linux.deb
 protojs --version
 sudo apt remove protojs
 ```
@@ -267,7 +267,7 @@ sudo apt remove protojs
 Installing and removing a locally built RPM package:
 
 ```bash
-sudo rpm -ivh protojs-0.1.0-Linux.rpm
+sudo rpm -ivh protojs-0.3.0-Linux.rpm
 protojs --version
 sudo rpm -e protojs
 ```
@@ -283,7 +283,7 @@ This repository can produce **two** different Debian packages, and they must not
 | CPack | `protojs` | `cpack -G DEB` in the build directory |
 | Templates | `protoJS` | `packaging/build_deb.sh`, from `packaging/templates/linux/` |
 
-The template path adds a `preinst` script that checks the installed protoCore's version is in `[2.0.0, 3.0.0)` **and** that the package actually provides the `libprotoCore.so.2` soname — the package version is metadata, the soname is what the loader will use. `build_deb.sh` also refuses to build a package whose binary is not linked against that soname, and it stages into `build_release/` rather than the repository root.
+The template path adds a `preinst` script that checks the installed protoCore's version is in `[3.4.0, 4.0.0)` **and** that the package actually provides the `libprotoCore.so.5` soname — the package version is metadata, the soname is what the loader will use. `build_deb.sh` also refuses to build a package whose binary is not linked against that soname, and it stages into `build_release/` rather than the repository root.
 
 ### Platform verification status
 
@@ -300,7 +300,15 @@ sibling developer fallback was a hard error, and with no `-j` at any point.
 | Windows | CPack ZIP | **VERIFIED BY CI** (`cross-platform.yml`, Windows Server 2022, protoCore 2.10.2): `cpack -G ZIP` builds `protojs-0.1.0-win64.zip` with `protojs.exe`, `protojs.lib`, the protoCore DLL, the OpenSSL DLLs and licence and the Visual C++ runtime; CI unpacks it into an empty directory and runs a script that uses `crypto` with a `PATH` holding only the Windows system directories. The REPL from the ZIP is not exercised by CI (`cli/repl-commands` runs the build tree's `protojs.exe`). |
 | Windows | `packaging/templates/windows/protoJS.wxs.template` (WiX v3), CPack NSIS | **UNVERIFIED.** No WiX and no NSIS on the Windows host. The WiX condition reads `HKLM\SOFTWARE\protoCore\Soversion`, which protoCore's NSIS installer writes — and that has never run either, so both halves of that check are unverified. |
 
-### The hand-built `packaging/` pipeline is pinned to the wrong SONAME
+### The hand-built `packaging/` pipeline was pinned to the wrong SONAME
+
+**Resolved in protoJS 0.3.0:** the templates and `build_deb.sh` now name
+`libprotoCore.so.5` and the range `[3.4.0, 4.0.0)`. They still repeat these
+constants rather than deriving them from `PROTOCORE_ABI_SOVERSION`. On
+2026-10-31 `build_deb.sh` built `protoJS_0.3.0_amd64.deb` from a protojs linked
+against `libprotoCore.so.5` (`Depends: protocore (>= 3.4.0), protocore (<< 4.0.0)`);
+that package was not installed, and the RPM, macOS and WiX templates were not
+built. The record of 2026-09-27 follows.
 
 `packaging/build_deb.sh`, `packaging/templates/linux/preinst.template` and
 `packaging/templates/linux/protoJS.spec.template` all hard-code
@@ -378,7 +386,7 @@ Run `ldconfig` after installing. The RPM has no such defect.
 
 - **"protoCore shared library not found" at configure time** — build protoCore in `../protoCore/build_release` (or `../protoCore/build`, or `../protoCore/build_check`), or configure with `-DPROTO_CORE_PREFIX=<prefix>` for an installed protoCore.
 - **protoJS behaves as though a protoCore change had not landed** — a stale sibling build directory earlier in the search order was picked. Re-read the `-- Found protoCore: <path>` line from the configure output, and remove the stale directory or configure with `-DPROTO_CORE_PREFIX=<prefix>`.
-- **"No protoCore >= 2.0.0 CMake package was found under ..."** — the prefix must contain `lib/cmake/protoCore/protoCoreConfig.cmake`, which protoCore's own install rules emit. A prefix holding only `lib/libprotoCore` and `include/protoCore.h` is deliberately refused: it cannot be told apart from a protoCore 1.x.
+- **"No protoCore >= 3.4.0 CMake package was found under ..."** — the prefix must contain `lib/cmake/protoCore/protoCoreConfig.cmake`, which protoCore's own install rules emit. A prefix holding only `lib/libprotoCore` and `include/protoCore.h` is deliberately refused: it cannot be told apart from a protoCore 1.x.
 - **Linker errors mentioning `ssl` or `crypto`** — install the OpenSSL development package.
 - **`error while loading shared libraries: libprotoCore...` at run time** — the executable was moved away from its RPATH layout, or protoCore is installed in another prefix. Set `LD_LIBRARY_PATH` / `DYLD_LIBRARY_PATH`, or install protoCore and protoJS under the same prefix.
 - **Configure step fails while fetching Catch2** — install Catch2 v3 system-wide, allow network access, or configure with `-DBUILD_TESTING=OFF`.
