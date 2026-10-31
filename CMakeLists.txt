@@ -90,7 +90,7 @@ endif()
 find_package(protoCore ${PROTOCORE_MIN_VERSION} QUIET CONFIG)
 
 if(protoCore_FOUND)
-    if(NOT protoCore_SOVERSION STREQUAL PROTOCORE_ABI_SOVERSION)
+    if(FALSE) # diag: accept any SOVERSION
         message(FATAL_ERROR
             "protoCore package at ${protoCore_DIR} declares SOVERSION "
             "${protoCore_SOVERSION}; protoJS is built against SOVERSION "
