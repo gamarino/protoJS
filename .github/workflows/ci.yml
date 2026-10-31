@@ -25,7 +25,7 @@ name: CI
 # so a protojs linked against an older SOVERSION-3 protoCore loads without
 # complaint (memory: ABI mismatch crashes stale binaries).  The maintainer's
 # machine also carries a root-owned protoCore 1.0.0 at /usr/local/lib.  The step
-# asserts that libprotoCore.so.4 (protoCore 3.0.0) resolves inside the workspace and nowhere else.
+# asserts that libprotoCore.so.5 (protoCore 3.4.0) resolves inside the workspace and nowhere else.
 #
 # HOW test262 IS OBTAINED: tc39/test262 as a SIBLING ../test262 at a PINNED
 # commit.  Not vendored (53,582 files) and not a submodule.  The pin is the whole
@@ -91,19 +91,21 @@ concurrency:
 
 env:
   PROTOCORE_REPO: numaes/protoCore
-  # protoCore 3.3.1 (tag v3.3.1, commit 5a8cd7c7: the release users
-  # install), SOVERSION 4, except on the nightly
+  # protoCore 3.4.0 (tag v3.4.0, commit f63adc08: the release users
+  # install), SOVERSION 5, except on the nightly
   # schedule, which builds protoCore master.  Bump deliberately.  protoJS's
-  # floor is 3.1.0 (commit 267b9fc9: one space per process, dead mutable
-  # states retired, ProtoSpace::liveSpaceCount), built by the floor Windows
-  # job in cross-platform.yml: Deferreds and workers run in the
-  # main space and the tests assert it through liveSpaceCount
-  # (PROTOCORE_MIN_VERSION in CMakeLists.txt); cross-platform.yml builds the
-  # same 3.3.1 commit on macOS and the first Windows job.  The adaptive heap controller runs
+  # floor is 3.4.0 as well: 3.4.0 removed ProtoContext::pendingRoot and moved
+  # protoCore to SOVERSION 5, so no older protoCore loads with a protoJS built
+  # against these headers (PROTOCORE_MIN_VERSION in CMakeLists.txt).  The
+  # floor and the pin coincide at 3.4.0 for now because of that ABI bump; the
+  # floor Windows job in cross-platform.yml stays on 3.4.0 when this pin later
+  # moves to a newer 3.4.x/3.5.x, which is what keeps it meaningful.
+  # cross-platform.yml builds the same 3.4.0 commit on macOS and the first
+  # Windows job.  The adaptive heap controller runs
   # from a space's first Deferred (src/JSContext.cpp, "Memory policy").
-  # protoJS declares PROTOCORE_ABI_SOVERSION 4 in CMakeLists.txt and the ldd
+  # protoJS declares PROTOCORE_ABI_SOVERSION 5 in CMakeLists.txt and the ldd
   # step below asserts the library actually loaded is this tree's.
-  PROTOCORE_REF: ${{ github.event_name == 'schedule' && 'master' || '5a8cd7c7aae68edbb34720445736b14685efae6f' }}
+  PROTOCORE_REF: ${{ github.event_name == 'schedule' && 'master' || 'f63adc0881eb00547cc42c1c1cf18c7c4941b978' }}
   TEST262_REPO: tc39/test262
   # The corpus commit every published protoJS figure was measured against
   # (docs/TEST262_STATUS.md, tests/test262/config/regression_gate_baseline.json).
@@ -180,12 +182,12 @@ jobs:
           cmake -S protoCore -B protoCore/build_release -DCMAKE_BUILD_TYPE=Release
           cmake --build protoCore/build_release --target protoCore
 
-      - name: Confirm protoCore built SOVERSION 4
+      - name: Confirm protoCore built SOVERSION 5
         # protoJS's own configure checks this too (CMakeLists.txt:94-99); doing it
         # here attributes the failure to protoCore rather than to protoJS.
         run: |
           ls -l protoCore/build_release/libprotoCore.so*
-          test -e protoCore/build_release/libprotoCore.so.4
+          test -e protoCore/build_release/libprotoCore.so.5
 
       - name: Configure protoJS
         # Developer/sibling mode: no PROTO_CORE_PREFIX and no
@@ -207,11 +209,11 @@ jobs:
         working-directory: protoJS
         run: |
           ldd build_release/protojs | tee ldd.txt
-          RESOLVED=$(awk '/libprotoCore\.so\.4/ {print $3}' ldd.txt)
-          echo "libprotoCore.so.4 resolved to: ${RESOLVED:-<unresolved>}"
+          RESOLVED=$(awk '/libprotoCore\.so\.5/ {print $3}' ldd.txt)
+          echo "libprotoCore.so.5 resolved to: ${RESOLVED:-<unresolved>}"
           case "$RESOLVED" in
-            */protoCore/build_release/libprotoCore.so.4) ;;
-            *) echo "libprotoCore.so.4 must resolve inside the workspace build tree, not ${RESOLVED:-nothing}"; exit 1 ;;
+            */protoCore/build_release/libprotoCore.so.5) ;;
+            *) echo "libprotoCore.so.5 must resolve inside the workspace build tree, not ${RESOLVED:-nothing}"; exit 1 ;;
           esac
           if ldd build_release/protojs | grep -q '/usr/local/.*protoCore'; then
             echo "protojs is linked against a protoCore under /usr/local"

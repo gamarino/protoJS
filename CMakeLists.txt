@@ -1,7 +1,7 @@
 # CMakeLists.txt for protoJS
 
 cmake_minimum_required(VERSION 3.16)
-project(protoJS VERSION 0.2.0 LANGUAGES C CXX)
+project(protoJS VERSION 0.3.0 LANGUAGES C CXX)
 
 set(CMAKE_CXX_STANDARD 20)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
@@ -63,12 +63,14 @@ set(QUICKJS_DIR ${CMAKE_CURRENT_SOURCE_DIR}/deps/quickjs)
 #      protoJS does not build protoCore itself; it must already be built.
 #      Refused by -DPROTOCORE_REQUIRE_PACKAGE=ON.
 #
-# The version floor is 2.11: the interpreter publishes a run of writes to one
+# The version floor is 3.4.0 (history below). It first became 2.11: the
+# interpreter publishes a run of writes to one
 # object with ProtoObject::setAttributes, which protoCore declares from 2.11.0
 # (src/runtime/BytecodeSpecialiser.cpp, markPutFieldGroups). The previous
 # floor, 2.7.0, was the first release declaring proto::proto_long /
 # proto::proto_ulong (src/ProtoCoreTypes.h). The developer fallback checks no
-# package version, so it probes the header for setAttributes instead.
+# package version, so it probes the header for setAttributes (and, since
+# 3.4.0, for the absence of pendingRoot) instead.
 # The ceiling is the next major, because protoCore's major version and its
 # soname move together.
 # 3.0.0: methods receive their arguments as ProtoArguments /
@@ -76,10 +78,16 @@ set(QUICKJS_DIR ${CMAKE_CURRENT_SOURCE_DIR}/deps/quickjs)
 # 3.1.0: one ProtoSpace per process -- Deferreds and workers run in the main
 # space, and the dead states of the mutable table are retired
 # (ProtoSpace::liveSpaceCount, PROTOCORE_HAS_LIVE_SPACE_COUNT).
-set(PROTOCORE_MIN_VERSION      "3.1")
-set(PROTOCORE_MIN_VERSION_FULL "3.1.0")
+# 3.4.0: SOVERSION 5, ProtoContext::pendingRoot removed (the layout of
+# ProtoContext changed, so a protoJS built against 3.3.x headers does not
+# load with this library, nor the reverse). protoJS never referenced
+# pendingRoot: the move is a rebuild, not a source change. The developer
+# fallback checks for libprotoCore.so.5 and probes protoCore.h for the
+# absence of pendingRoot, which no 3.4.0 header declares.
+set(PROTOCORE_MIN_VERSION      "3.4")
+set(PROTOCORE_MIN_VERSION_FULL "3.4.0")
 set(PROTOCORE_NEXT_MAJOR       "4.0.0")
-set(PROTOCORE_ABI_SOVERSION    "4")
+set(PROTOCORE_ABI_SOVERSION    "5")
 option(PROTOCORE_REQUIRE_PACKAGE
     "Require an installed protoCore CMake package; never fall back to ../protoCore" OFF)
 
@@ -173,6 +181,19 @@ else()
             "protoJS needs protoCore ${PROTOCORE_MIN_VERSION_FULL} or later.")
     endif()
     unset(_protoCore_set_attributes)
+    # protoCore 3.4.0 removed ProtoContext::pendingRoot (SOVERSION 5). A build
+    # directory can keep a stale libprotoCore.so.5 after ../protoCore is moved
+    # back to 3.3.x, so the soname file alone does not prove the headers match.
+    file(STRINGS "${PROTOCORE_DIR}/headers/protoCore.h" _protoCore_pending_root
+         REGEX "Cell\\* pendingRoot;")
+    if(_protoCore_pending_root)
+        message(FATAL_ERROR
+            "The protoCore in ${PROTOCORE_DIR} still declares "
+            "ProtoContext::pendingRoot: its headers predate protoCore 3.4.0 "
+            "(SOVERSION 5). protoJS needs protoCore ${PROTOCORE_MIN_VERSION_FULL} "
+            "or later.")
+    endif()
+    unset(_protoCore_pending_root)
     set(PROTOCORE_INCLUDE_DIRS ${PROTOCORE_DIR} ${PROTOCORE_DIR}/headers)
     include_directories(${PROTOCORE_INCLUDE_DIRS})
     message(STATUS "Found protoCore: ${PROTOCORE_LIBRARY}")

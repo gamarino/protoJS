@@ -527,7 +527,7 @@ static int runMain(int argc, char** argv) {
 
     // Handle version flag
     if (showVersion) {
-        std::cout << "protoJS v0.2.0" << std::endl;
+        std::cout << "protoJS v0.3.0" << std::endl;
         return 0;
     }
 
