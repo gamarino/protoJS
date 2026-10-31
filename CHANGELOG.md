@@ -16,8 +16,9 @@ All notable changes to protoJS are documented in this file.
   (`src/HashedCollection.h`), and compares with SameValueZero: numbers by
   value with `NaN` equal to `NaN` and `-0` equal to `+0`, strings by content,
   BigInts by value, everything else by identity. The same holds against
-  protoCore 3.4.0, where `-0` and `+0` were two elements and two unequal
-  values whose hashes collided were one.
+  protoCore 3.4.0, where `-0` and `+0` were two elements, equal BigInts were
+  compared by identity, and (by `ProtoSet`'s code) two unequal values with
+  the same protoCore hash were one element.
 - `protoCore.Multiset` keyed its counts by hash alone, so it merged unequal
   values whose hashes collided and split `-0` from `+0`. It now counts on the
   same SameValueZero index.
