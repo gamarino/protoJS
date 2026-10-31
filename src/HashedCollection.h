@@ -49,6 +49,12 @@ struct State {
 /** An empty state. */
 State emptyState(proto::ProtoContext* ctx);
 
+/** The one-cell record [entries, index, next, size] that carries `st`. */
+const proto::ProtoObject* pack(proto::ProtoContext* ctx, const State& st);
+
+/** Reads a record built by pack(); false when `rec` is not one. */
+bool unpack(proto::ProtoContext* ctx, const proto::ProtoObject* rec, State& out);
+
 /** Reads the state stored under `slot` on `obj`; false when there is none
  *  (`obj` is not a collection of that kind). */
 bool load(proto::ProtoContext* ctx, const proto::ProtoObject* obj,

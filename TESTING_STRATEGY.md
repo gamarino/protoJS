@@ -229,7 +229,7 @@ The runners look for `build_release/protojs` first, then `build/protojs`. Worklo
 | `protoCore_collections.js` | `protoCore.Set` and `protoCore.Multiset` |
 | `test_virtual_threads.js` | Availability of `Deferred`, the `io` module and thread-pool options |
 
-The scripts use the APIs directly. `protoCore.Set`, `protoCore.Multiset` and the other collections are installed on the protoCore-native global by `src/ProtoCoreNativeBindings.cpp`; `tests/integration/collections/protoCore_collections.js` asserts their behaviour.
+The scripts use the APIs directly. `protoCore.Set`, `protoCore.Multiset` and the other collections are installed on the protoCore-native global by `src/ProtoCoreNativeBindings.cpp`; `tests/integration/collections/protoCore_collections.js` asserts their behaviour, and the `pc_set_*.js` and `pc_multiset_equality.js` tests next to it assert the SameValueZero equality of `Set` and `Multiset` (long run-time strings, boxed doubles, `NaN`, `-0`, colliding hashes).
 
 ```bash
 ./build/protojs tests/demos/immutable_arrays.js
