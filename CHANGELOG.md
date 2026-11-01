@@ -4,6 +4,12 @@ All notable changes to protoJS are documented in this file.
 
 ## [Unreleased]
 
+## [0.3.1] - 2026-10-31
+
+**Built and tested against protoCore 3.5.0** (SOVERSION 5, unchanged from 3.4.0); the declared minimum for a build from source stays **protoCore 3.4.0**, and the Windows floor job still builds 3.4.0. The `.deb` is built against the 3.5.0 package, so it depends on `protocore (>= 3.5.0)` through protoCore's shlibs file, besides the declared `protocore (>= 3.4.0), protocore (<< 4.0.0)`. CI pins protoCore tag `v3.5.0` on Linux, macOS and the first Windows job.
+
+protoCore 3.5.0 changed the equality of `ProtoSet` and `ProtoMultiset` to pointer identity. protoJS 0.3.0's `protoCore.Set` and `protoCore.Multiset` relied on it, so **upgrade protoJS together with protoCore**: the protoCore 3.5.0 `.deb` declares `Breaks: protojs (<< 0.3.1)`. This release makes both bindings independent of protoCore's set equality:
+
 ### Fixed — `protoCore.Set` and `protoCore.Multiset` compare by SameValueZero
 
 - `protoCore.Set` stored a protoCore `ProtoSet`, which keyed its elements by

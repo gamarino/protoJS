@@ -2,7 +2,7 @@
 
 protoJS is installed by building it from source. No prebuilt packages or installers are published. The CMake build can produce native packages with CPack (see [Building packages](#building-packages)) for local use or for your own distribution.
 
-protoJS is not production ready. The version configured in `CMakeLists.txt` is 0.3.0.
+protoJS is not production ready. The version configured in `CMakeLists.txt` is 0.3.1.
 
 ---
 
@@ -60,7 +60,7 @@ The first directory that holds the library wins, and CMake stops with the error 
 - The executable is `build/protojs`. Its build-tree RPATH points at the protoCore build directory, so no `LD_LIBRARY_PATH` is needed:
 
 ```bash
-./build/protojs --version        # prints: protoJS v0.3.0
+./build/protojs --version        # prints: protoJS v0.3.1
 ./build/protojs -e "console.log('Hello, protoJS')"
 ```
 
@@ -246,9 +246,9 @@ cpack -G DEB      # or: cpack -G RPM, cpack -G TGZ, or plain cpack for every con
 
 | Platform | CPack generators configured | Output (CPack default naming) |
 |----------|-----------------------------|-------------------------------|
-| Linux    | `TGZ`, plus `DEB` when `dpkg` is found and `RPM` when `rpmbuild` is found | `protojs-0.3.0-Linux.deb`, `protojs-0.3.0-Linux.rpm`, `protojs-0.3.0-Linux.tar.gz` |
-| macOS    | `DragNDrop`                 | `protojs-0.3.0-Darwin.dmg` |
-| Windows  | `ZIP`, plus `NSIS` when `makensis` is found | `protojs-0.3.0-win64.zip` (see [Windows (MSVC)](#windows-msvc)) |
+| Linux    | `TGZ`, plus `DEB` when `dpkg` is found and `RPM` when `rpmbuild` is found | `protojs-0.3.1-Linux.deb`, `protojs-0.3.1-Linux.rpm`, `protojs-0.3.1-Linux.tar.gz` |
+| macOS    | `DragNDrop`                 | `protojs-0.3.1-Darwin.dmg` |
+| Windows  | `ZIP`, plus `NSIS` when `makensis` is found | `protojs-0.3.1-win64.zip` (see [Windows (MSVC)](#windows-msvc)) |
 
 Notes:
 
@@ -259,7 +259,7 @@ Notes:
 Installing and removing a locally built Debian package (install the protoCore package first):
 
 ```bash
-sudo dpkg -i protojs-0.3.0-Linux.deb
+sudo dpkg -i protojs-0.3.1-Linux.deb
 protojs --version
 sudo apt remove protojs
 ```
@@ -267,7 +267,7 @@ sudo apt remove protojs
 Installing and removing a locally built RPM package:
 
 ```bash
-sudo rpm -ivh protojs-0.3.0-Linux.rpm
+sudo rpm -ivh protojs-0.3.1-Linux.rpm
 protojs --version
 sudo rpm -e protojs
 ```
