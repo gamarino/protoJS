@@ -24,17 +24,15 @@ name: Cross-platform
 # directories -- the proof that the ZIP is self-contained.
 #
 # protoCore versions, exactly: macOS and the first Windows job build protoCore
-# 3.4.0 (tag v3.4.0, commit f63adc08), the commit ci.yml pins on Linux; that Windows job
+# 3.5.0 (tag v3.5.0, commit 64ca282e), the commit ci.yml pins on Linux; that Windows job
 # packages the ZIP with its DLL, protoCore-5.dll.  The second Windows job is
-# THE FLOOR JOB, the only one: protoCore 3.4.0 (commit f63adc08), the oldest protoCore
+# THE FLOOR JOB, the only one: protoCore 3.4.0 (tag v3.4.0, commit f63adc08), the oldest protoCore
 # protoJS accepts (PROTOCORE_MIN_VERSION in CMakeLists.txt: 3.4.0 removed
 # ProtoContext::pendingRoot and moved to SOVERSION 5, so no older protoCore
-# loads with a protoJS built against its headers).  The floor and the pin
-# coincide at 3.4.0 for now because of that ABI bump; the floor job stays on
-# 3.4.0 when the pin later moves to a newer 3.4.x/3.5.x, which is what keeps
-# it meaningful.  It builds and tests but does not package.
-# protoCore older than 3.4.0 can no longer build protoJS; 3.4.0 names its DLL
-# protoCore-5.dll (3.0.0 to 3.3.x: protoCore-4.dll; 2.9.0 to 2.14.x:
+# loads with a protoJS built against its headers; 3.5.0 kept SOVERSION 5).
+# It builds and tests but does not package.
+# protoCore older than 3.4.0 can no longer build protoJS; 3.4.0 and 3.5.0 name
+# their DLL protoCore-5.dll (3.0.0 to 3.3.x: protoCore-4.dll; 2.9.0 to 2.14.x:
 # protoCore-3.dll).
 
 on:
@@ -65,13 +63,13 @@ jobs:
       fail-fast: false
       matrix:
         include:
-          - name: macOS (Apple clang, arm64, protoCore 3.4.0)
+          - name: macOS (Apple clang, arm64, protoCore 3.5.0)
             os: macos-15
-            protocore_ref: f63adc0881eb00547cc42c1c1cf18c7c4941b978
+            protocore_ref: 64ca282e2ec7d2de31255dc7c3a16b06b3cc5e00
             package: false
-          - name: Windows (MSVC, x64, protoCore 3.4.0)
+          - name: Windows (MSVC, x64, protoCore 3.5.0)
             os: windows-2022
-            protocore_ref: f63adc0881eb00547cc42c1c1cf18c7c4941b978
+            protocore_ref: 64ca282e2ec7d2de31255dc7c3a16b06b3cc5e00
             package: true
           - name: Windows (MSVC, x64, protoCore 3.4.0 floor)
             os: windows-2022
