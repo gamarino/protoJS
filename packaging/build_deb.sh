@@ -6,7 +6,7 @@
 
 set -e
 cd "$(dirname "$0")/.."
-: "${VERSION:=0.3.1}"
+: "${VERSION:=0.3.2}"
 : "${MAINTAINER:=Gustavo Marino <gamarino@gmail.com>}"
 : "${PROTOJS_BINARY:=build_release/protojs}"
 : "${PROTOCORE_SONAME:=libprotoCore.so.5}"

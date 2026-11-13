@@ -4,6 +4,17 @@ All notable changes to protoJS are documented in this file.
 
 ## [Unreleased]
 
+## [0.3.2] - 2026-11-13
+
+**Built, tested and released against protoCore 3.6.0** (SOVERSION 5, unchanged from 3.4.0). No protoJS source changed: this release moves the CI pin and the `.deb` to protoCore 3.6.0. The declared minimum for a build from source stays **protoCore 3.4.0**, and the Windows floor job still builds 3.4.0. The `.deb` is built against the 3.6.0 package, so it depends on `protocore (>= 3.6.0)` through protoCore's shlibs file, besides the declared `protocore (>= 3.4.0), protocore (<< 4.0.0)`. CI pins protoCore tag `v3.6.0` (commit `799d7615`) on Linux, macOS and the first Windows job.
+
+What protoCore 3.6.0 changes for protoJS: dense JavaScript arrays store their elements in a protoCore `ProtoList` (`src/ArrayElementsStorage.h`), and 3.6.0 replaces the list's AVL tree with a relaxed radix balanced (RRB) tree. protoCore's own measurements at 100,000 elements (protoCore `docs/LIST_RRB_DESIGN.md`, section 9) show:
+
+- Faster: indexed reads (`getAt`, 586 ns to 36 ns), `push` (`appendLast`, 777 ns to 30 ns), indexed writes (`setAt`, 892 ns to 356 ns), `pop` (`removeLast`, 297 ns to 83 ns) and iteration (80 ns to 41 ns per element).
+- Slower: prepend (`appendFirst`, 276 ns to 471 ns), which the `unshift` fast path uses; insertion in the middle (`insertAt`, 256 ns to 584 ns); and `extend` (283 ns to 754 ns at 100,000 elements, up to 4.5x slower at 1,000), which `concat` and `splice` use. protoCore reports prepend, arbitrary insertion and removal, slicing and concatenation as 1.2x to 2.7x slower at 100,000 elements, so `shift` (`removeFirst`), `slice` and `splice` (`getSlice`) are expected to be slower as well.
+
+These are protoCore's list-level figures. protoJS's own benchmarks have not been re-measured against 3.6.0 for this release, so no protoJS-level speedup or regression is claimed here.
+
 ## [0.3.1] - 2026-10-31
 
 **Built and tested against protoCore 3.5.0** (SOVERSION 5, unchanged from 3.4.0); the declared minimum for a build from source stays **protoCore 3.4.0**, and the Windows floor job still builds 3.4.0. The `.deb` is built against the 3.5.0 package, so it depends on `protocore (>= 3.5.0)` through protoCore's shlibs file, besides the declared `protocore (>= 3.4.0), protocore (<< 4.0.0)`. CI pins protoCore tag `v3.5.0` on Linux, macOS and the first Windows job.

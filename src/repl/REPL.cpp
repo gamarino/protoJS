@@ -13,7 +13,7 @@
 namespace protojs {
 
 void REPL::start(JSContext* ctx) {
-    std::cout << "protoJS REPL v0.3.1" << std::endl;
+    std::cout << "protoJS REPL v0.3.2" << std::endl;
     std::cout << "Type .help for commands, .exit to exit" << std::endl;
 
     std::vector<std::string> history;
