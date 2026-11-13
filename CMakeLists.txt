@@ -1,7 +1,7 @@
 # CMakeLists.txt for protoJS
 
 cmake_minimum_required(VERSION 3.16)
-project(protoJS VERSION 0.3.1 LANGUAGES C CXX)
+project(protoJS VERSION 0.3.2 LANGUAGES C CXX)
 
 set(CMAKE_CXX_STANDARD 20)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
@@ -88,6 +88,8 @@ set(QUICKJS_DIR ${CMAKE_CURRENT_SOURCE_DIR}/deps/quickjs)
 # pointer identity; protoJS does not rely on either collection's equality
 # (protoCore.Set and protoCore.Multiset use src/HashedCollection.h), so the
 # floor stays 3.4.0.
+# 3.6.0 keeps SOVERSION 5 and changes only comments in protoCore.h (ProtoList
+# became an RRB tree internally), so the floor stays 3.4.0.
 set(PROTOCORE_MIN_VERSION      "3.4")
 set(PROTOCORE_MIN_VERSION_FULL "3.4.0")
 set(PROTOCORE_NEXT_MAJOR       "4.0.0")

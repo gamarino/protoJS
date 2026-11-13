@@ -91,20 +91,20 @@ concurrency:
 
 env:
   PROTOCORE_REPO: numaes/protoCore
-  # protoCore 3.5.0 (tag v3.5.0, commit 64ca282e: the release users
+  # protoCore 3.6.0 (tag v3.6.0, commit 799d7615: the release users
   # install), SOVERSION 5, except on the nightly
   # schedule, which builds protoCore master.  Bump deliberately.  protoJS's
   # floor is 3.4.0 (PROTOCORE_MIN_VERSION in CMakeLists.txt): 3.4.0 removed
   # ProtoContext::pendingRoot and moved protoCore to SOVERSION 5, so no older
   # protoCore loads with a protoJS built against these headers, and 3.5.0
-  # kept SOVERSION 5.  The floor Windows job in cross-platform.yml builds
+  # and 3.6.0 kept SOVERSION 5.  The floor Windows job in cross-platform.yml builds
   # 3.4.0 (f63adc08), so the floor is tested, not just declared.
-  # cross-platform.yml builds the same 3.5.0 commit on macOS and the first
+  # cross-platform.yml builds the same 3.6.0 commit on macOS and the first
   # Windows job.  The adaptive heap controller runs
   # from a space's first Deferred (src/JSContext.cpp, "Memory policy").
   # protoJS declares PROTOCORE_ABI_SOVERSION 5 in CMakeLists.txt and the ldd
   # step below asserts the library actually loaded is this tree's.
-  PROTOCORE_REF: ${{ github.event_name == 'schedule' && 'master' || '64ca282e2ec7d2de31255dc7c3a16b06b3cc5e00' }}
+  PROTOCORE_REF: ${{ github.event_name == 'schedule' && 'master' || '799d7615d0b4f8c3ab8bb708c282815d7f7cfb8b' }}
   TEST262_REPO: tc39/test262
   # The corpus commit every published protoJS figure was measured against
   # (docs/TEST262_STATUS.md, tests/test262/config/regression_gate_baseline.json).
