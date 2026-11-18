@@ -1,6 +1,7 @@
 #include "../../ProtoCoreTypes.h"
 #include "../../runtime/JSStringBytes.h"
 #include "../../runtime/PropertyDictionary.h"
+#include "../../runtime/JsType.h"
 #include "../../runtime/OwnAttributes.h"
 #include "../../runtime/PinnedBuiltin.h"
 #include "WorkerThreadsModule.h"
@@ -62,8 +63,8 @@ std::atomic<int> g_activeWorkers{0};
 // own thread, at the time of the call, and the receiver gets that clone, as
 // HTML's structured clone algorithm and Node's postMessage specify.  What
 // cannot change is shared instead of copied, because a copy would be
-// indistinguishable from it: numbers, strings, booleans, BigInts, undefined,
-// null and protoCore's own immutable values.  Arrays and objects are copied,
+// indistinguishable from it: the primitives (numbers, strings, booleans,
+// BigInts, undefined, null; runtime/JsType.h).  Arrays and objects are copied,
 // with their own enumerable data properties cloned in turn; a value reached
 // twice is cloned once, so cycles and shared substructure survive.  A
 // function or a Symbol cannot be cloned: postMessage throws DataCloneError.
@@ -92,24 +93,18 @@ struct MessageCloner {
         return nullptr;
     }
 
-    // A value that is not a mutable JavaScript object: shared, not copied.
+    // A primitive (runtime/JsType.h) is shared, not copied. A Symbol is a
+    // primitive too, but it cannot be cloned: clone() throws for it.
     bool isShared(const proto::ProtoObject* v) const {
-        if (!v || v == PROTO_NONE) return true;
-        if (proto::isSmallInt(v)) return true;
-        if (!protojs::isObjectCell(ctx, v)) return true;  // tagged values
-        if (v == getUndefinedSentinel() || v == getNullSentinel()) return true;
-        // A BigInt is an object cell carrying its own value slot.
-        const proto::ProtoString* bigK = JSSymbols::bigIntValue(ctx);
-        if (bigK && v->hasOwnAttribute(ctx, bigK) == PROTO_TRUE) return true;
-        return false;
+        if (!v || v == PROTO_NONE || proto::isSmallInt(v)) return true;
+        const JsType t = jsTypeOf(ctx, v);
+        return t != JsType::Object && t != JsType::Symbol;
     }
 
     const proto::ProtoObject* clone(const proto::ProtoObject* v) {
         if (isShared(v)) return v;
         if (const proto::ProtoObject* c = cloned(v)) return c;
-        const proto::ProtoString* symK = JSSymbols::isSymbol(ctx);
-        if (symK && v->getAttribute(ctx, symK, false) == PROTO_TRUE)
-            throwDataCloneError(ctx, "Symbol()");
+        if (jsTypeOf(ctx, v) == JsType::Symbol) throwDataCloneError(ctx, "Symbol()");
         if (isCallableValue(ctx, v)) throwDataCloneError(ctx, "function");
 
         const proto::ProtoString* arrKey = JSSymbols::isArray(ctx);
