@@ -1,0 +1,281 @@
+typeof smallint number
+typeof negative smallint number
+typeof double number
+typeof large number number
+typeof NaN number
+typeof bigint bigint
+typeof huge bigint bigint
+typeof short string string
+typeof long string string
+typeof empty string string
+typeof symbol symbol
+typeof well-known symbol symbol
+typeof true boolean
+typeof false boolean
+typeof null object
+typeof undefined undefined
+typeof array object
+typeof function function
+typeof arrow function
+typeof class function
+typeof plain object object
+typeof parentless object object
+typeof prototype-chained object object
+typeof object chained to BigInt.prototype object
+typeof object chained to Symbol.prototype object
+typeof BigInt wrapper object
+typeof Symbol wrapper object
+typeof Number wrapper object
+typeof String wrapper object
+typeof Promise object
+typeof thenable object
+typeof object with a __data__ string object
+typeof Map object
+write smallint TypeError
+write negative smallint TypeError
+write double TypeError
+write large number TypeError
+write NaN TypeError
+write bigint TypeError
+write huge bigint TypeError
+write short string TypeError
+write long string TypeError
+write empty string TypeError
+write symbol TypeError
+write well-known symbol TypeError
+write true TypeError
+write false TypeError
+write null TypeError
+write undefined TypeError
+write array wrote, reads back 123
+write function wrote, reads back 123
+write arrow wrote, reads back 123
+write class wrote, reads back 123
+write plain object wrote, reads back 123
+write parentless object wrote, reads back 123
+write prototype-chained object wrote, reads back 123
+write object chained to BigInt.prototype wrote, reads back 123
+write object chained to Symbol.prototype wrote, reads back 123
+write BigInt wrapper wrote, reads back 123
+write Symbol wrapper wrote, reads back 123
+write Number wrapper wrote, reads back 123
+write String wrapper wrote, reads back 123
+write Promise wrote, reads back 123
+write thenable wrote, reads back 123
+write object with a __data__ string wrote, reads back 123
+write Map wrote, reads back 123
+write computed smallint TypeError
+write computed negative smallint TypeError
+write computed double TypeError
+write computed large number TypeError
+write computed NaN TypeError
+write computed bigint TypeError
+write computed huge bigint TypeError
+write computed short string TypeError
+write computed long string TypeError
+write computed empty string TypeError
+write computed symbol TypeError
+write computed well-known symbol TypeError
+write computed true TypeError
+write computed false TypeError
+write computed null TypeError
+write computed undefined TypeError
+write computed array wrote 9
+write computed function wrote 9
+write computed arrow wrote 9
+write computed class wrote 9
+write computed plain object wrote 9
+write computed parentless object wrote 9
+write computed prototype-chained object wrote 9
+write computed object chained to BigInt.prototype wrote 9
+write computed object chained to Symbol.prototype wrote 9
+write computed BigInt wrapper wrote 9
+write computed Symbol wrapper wrote 9
+write computed Number wrapper wrote 9
+write computed String wrapper wrote 9
+write computed Promise wrote 9
+write computed thenable wrote 9
+write computed object with a __data__ string wrote 9
+write computed Map wrote 9
+sloppy write ignored smallint true
+sloppy write ignored negative smallint true
+sloppy write ignored double true
+sloppy write ignored large number true
+sloppy write ignored NaN true
+sloppy write ignored bigint true
+sloppy write ignored huge bigint true
+sloppy write ignored short string true
+sloppy write ignored long string true
+sloppy write ignored empty string true
+sloppy write ignored symbol true
+sloppy write ignored well-known symbol true
+sloppy write ignored true true
+sloppy write ignored false true
+key smallint ["7"] true
+key negative smallint ["-3"] true
+key double ["2.5"] true
+key large number ["1152921504606847000"] true
+key NaN ["NaN"] true
+key bigint ["10"] true
+key huge bigint ["1267650600228229401496703205376"] true
+key short string ["ab"] true
+key long string ["a heap string that is longer than six bytes"] true
+key empty string [""] true
+key symbol ["Symbol(s)"] true
+key true ["true"] true
+key false ["false"] true
+key null ["null"] true
+key undefined ["undefined"] true
+key array ["1,2"] true
+key object toString 1
+bigint op 1n + 2n 3n
+bigint op Object(5n) + 1n 6n
+bigint op Object(6n) & 3n 2n
+bigint op 2n ** Object(3n) 8n
+bigint op 3n * {valueOf: 4n} 12n
+bigint op 1n + 1 TypeError
+bigint op 1n * 2.5 TypeError
+bigint op 1n - "1" TypeError
+bigint op 1n < 2 boolean true
+bigint op Object(1n) < 2.5 boolean true
+bigint op 1n * true TypeError
+bigint op 1n * null TypeError
+bigint op 1n * Symbol() TypeError
+BigInt.prototype.toString.call smallint TypeError
+BigInt.prototype.toString.call negative smallint TypeError
+BigInt.prototype.toString.call double TypeError
+BigInt.prototype.toString.call large number TypeError
+BigInt.prototype.toString.call NaN TypeError
+BigInt.prototype.toString.call bigint 10
+BigInt.prototype.toString.call huge bigint 1267650600228229401496703205376
+BigInt.prototype.toString.call short string TypeError
+BigInt.prototype.toString.call long string TypeError
+BigInt.prototype.toString.call empty string TypeError
+BigInt.prototype.toString.call symbol TypeError
+BigInt.prototype.toString.call well-known symbol TypeError
+BigInt.prototype.toString.call true TypeError
+BigInt.prototype.toString.call false TypeError
+BigInt.prototype.toString.call null TypeError
+BigInt.prototype.toString.call undefined TypeError
+BigInt.prototype.toString.call array TypeError
+BigInt.prototype.toString.call function TypeError
+BigInt.prototype.toString.call arrow TypeError
+BigInt.prototype.toString.call class TypeError
+BigInt.prototype.toString.call plain object TypeError
+BigInt.prototype.toString.call parentless object TypeError
+BigInt.prototype.toString.call prototype-chained object TypeError
+BigInt.prototype.toString.call object chained to BigInt.prototype TypeError
+BigInt.prototype.toString.call object chained to Symbol.prototype TypeError
+BigInt.prototype.toString.call BigInt wrapper 5
+BigInt.prototype.toString.call Symbol wrapper TypeError
+BigInt.prototype.toString.call Number wrapper TypeError
+BigInt.prototype.toString.call String wrapper TypeError
+BigInt.prototype.toString.call Promise TypeError
+BigInt.prototype.toString.call thenable TypeError
+BigInt.prototype.toString.call object with a __data__ string TypeError
+BigInt.prototype.toString.call Map TypeError
+dynamic own sum 982 inherited seen 40 shadowed shadowed holder keeps 24 child own keys 1 absent undefined
+dynamic read smallint undefined
+dynamic read negative smallint undefined
+dynamic read double undefined
+dynamic read large number undefined
+dynamic read NaN undefined
+dynamic read bigint undefined
+dynamic read huge bigint undefined
+dynamic read short string undefined
+dynamic read long string undefined
+dynamic read empty string undefined
+dynamic read symbol undefined
+dynamic read well-known symbol undefined
+dynamic read true undefined
+dynamic read false undefined
+dynamic read array undefined
+dynamic read function undefined
+dynamic read arrow undefined
+dynamic read class undefined
+dynamic read plain object undefined
+dynamic read parentless object undefined
+dynamic read prototype-chained object undefined
+dynamic read object chained to BigInt.prototype undefined
+dynamic read object chained to Symbol.prototype undefined
+dynamic read BigInt wrapper undefined
+dynamic read Symbol wrapper undefined
+dynamic read Number wrapper undefined
+dynamic read String wrapper undefined
+dynamic read Promise undefined
+dynamic read thenable undefined
+dynamic read object with a __data__ string undefined
+dynamic read Map undefined
+close on throw return,RangeError
+close on break return
+close after destructuring 0 1 return
+close on return 5 return
+Promise.prototype.then on a bigint TypeError
+Promise.resolve with this BigInt wrapper TypeError
+Promise.resolve with this Map TypeError
+Promise.resolve with this NaN TypeError
+Promise.resolve with this Number wrapper TypeError
+Promise.resolve with this Promise TypeError
+Promise.resolve with this String wrapper TypeError
+Promise.resolve with this Symbol wrapper TypeError
+Promise.resolve with this array TypeError
+Promise.resolve with this arrow TypeError
+Promise.resolve with this bigint TypeError
+Promise.resolve with this class TypeError
+Promise.resolve with this double TypeError
+Promise.resolve with this empty string TypeError
+Promise.resolve with this false TypeError
+Promise.resolve with this function TypeError
+Promise.resolve with this huge bigint TypeError
+Promise.resolve with this large number TypeError
+Promise.resolve with this long string TypeError
+Promise.resolve with this negative smallint TypeError
+Promise.resolve with this null TypeError
+Promise.resolve with this object chained to BigInt.prototype TypeError
+Promise.resolve with this object chained to Symbol.prototype TypeError
+Promise.resolve with this object with a __data__ string TypeError
+Promise.resolve with this parentless object TypeError
+Promise.resolve with this plain object TypeError
+Promise.resolve with this prototype-chained object TypeError
+Promise.resolve with this short string TypeError
+Promise.resolve with this smallint TypeError
+Promise.resolve with this symbol TypeError
+Promise.resolve with this thenable TypeError
+Promise.resolve with this true TypeError
+Promise.resolve with this undefined TypeError
+Promise.resolve with this well-known symbol TypeError
+catch returns symbol-chained -> number 43
+executor resolve bigint-chained -> number 42
+resolve BigInt wrapper -> itself
+resolve Map -> itself
+resolve NaN -> number NaN
+resolve Number wrapper -> itself
+resolve Promise -> number 1
+resolve String wrapper -> itself
+resolve Symbol wrapper -> itself
+resolve array -> itself
+resolve arrow -> itself
+resolve bigint -> itself
+resolve class -> itself
+resolve double -> itself
+resolve empty string -> itself
+resolve false -> itself
+resolve function -> itself
+resolve huge bigint -> itself
+resolve large number -> itself
+resolve long string -> itself
+resolve negative smallint -> itself
+resolve null -> itself
+resolve object chained to BigInt.prototype -> number 42
+resolve object chained to Symbol.prototype -> number 43
+resolve object with a __data__ string -> number 44
+resolve parentless object -> itself
+resolve plain object -> itself
+resolve prototype-chained object -> itself
+resolve short string -> itself
+resolve smallint -> itself
+resolve symbol -> itself
+resolve thenable -> string thenable resolved
+resolve true -> itself
+resolve undefined -> itself
+resolve well-known symbol -> itself

@@ -120,6 +120,13 @@ add_test(NAME cli/console-values
     COMMAND ${PROTOJS_SH} "${CMAKE_CURRENT_SOURCE_DIR}/cli/console-values.sh"
             "$<TARGET_FILE:protojs>")
 
+# Dispatch on values of every kind by their JavaScript type (typeof, Type(x) is
+# Object in promise resolution, writes to primitives, BigInt operands, property
+# keys, dynamic keys, iterator closing), compared with Node's output.
+add_test(NAME cli/value-dispatch
+    COMMAND ${PROTOJS_SH} "${CMAKE_CURRENT_SOURCE_DIR}/cli/value-dispatch.sh"
+            "$<TARGET_FILE:protojs>")
+
 # protoCore's finalizer contract, asserted against the source because three of the
 # five finalizers cannot be reached at run time at all (each pins the object that
 # carries its own ExternalPointer). Follows calls one whole call graph deep, which is
