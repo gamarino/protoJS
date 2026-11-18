@@ -4,6 +4,33 @@ All notable changes to protoJS are documented in this file.
 
 ## [Unreleased]
 
+### Changed
+
+- **protoCore's public API only: no hand-copied pointer tags.** The runtime tested
+  `(reinterpret_cast<uintptr_t>(v) & 0x3F)` against protoCore's internal tag values to
+  decide "object cell", "double" and "heap string key" (fourteen lines in
+  `BigIntPrototype.cpp`, `WorkerThreadsModule.cpp`, `PropertyDictionary.h/.cpp` and
+  `ProtoInterpreter.cpp`). They now use `src/runtime/ValueKinds.h`, built from
+  `headers/protoCore.h` alone: `isObjectCell` (`getFirstParent`, `isCellPointer`,
+  `getPrototype`, and, because protoCore aliases the ProtoSpace prototypes of
+  LargeIntegers, doubles, methods, byte buffers, threads and external pointers to
+  `objectPrototype`, those kinds' tag-only predicates), `isDoubleValue` (`isDouble`), and
+  a heap-string key test (`isStringTagFast && isCellPointer && !isSymbol`). No behaviour
+  changes: `ctest -E "integration|network"` gives the same three failures before and after
+  (`symbol_key_order` and `object_literal_build`, which depend on protoCore's attribute
+  order, and the `array_from_ctor_scaling` timeout), 229 of 232 then 231 of 234. The smoke
+  test and `phase6_native_global.js` pass. Test262 `built-ins/{Object,Reflect,Proxy}`
+  passes 3749 of 3875 with an identical per-test result. New: the CTest case
+  `source/no-protocore-internals` (`tests/cli/no-protocore-internals.sh`) fails if `src/`
+  includes `proto_internal.h`, names a `POINTER_TAG_*` / `EMBEDDED_TYPE_*` constant or
+  masks a pointer with `0x3F` / `0x3FF`; the unit test `[valuekinds]` pins the helpers.
+  **Measured cost** (`benchmarks/structures` workloads, `MODE=seq N=1 REPS=1`, heap ceiling
+  40M cells; interleaved A/B, `perf stat -r 3` cycles, median of 7 rounds, every checksum
+  verified; shared machine at load average 7-8): `records` +3.7 % cycles (+3.1 %
+  instructions), `graph` +3.8 % (+1.5 %), `join` +0.3 % (+2.0 %), `doctree` +1.4 %,
+  `wordfreq` -0.5 %. The cost is the object-cell test on property-dictionary and
+  interpreter paths, now a few out-of-line calls instead of one mask.
+
 ## [0.3.2] - 2026-11-13
 
 **Built, tested and released against protoCore 3.6.0** (SOVERSION 5, unchanged from 3.4.0). No protoJS source changed: this release moves the CI pin and the `.deb` to protoCore 3.6.0. The declared minimum for a build from source stays **protoCore 3.4.0**, and the Windows floor job still builds 3.4.0. The `.deb` is built against the 3.6.0 package, so it depends on `protocore (>= 3.6.0)` through protoCore's shlibs file, besides the declared `protocore (>= 3.4.0), protocore (<< 4.0.0)`. CI pins protoCore tag `v3.6.0` (commit `799d7615`) on Linux, macOS and the first Windows job.

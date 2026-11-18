@@ -93,6 +93,12 @@ if(WIN32)
         ENVIRONMENT "PROTOJS_PYTHON=${PROTOJS_PYTHON}")
 endif()
 
+# protoJS depends on protoCore's public API only: no proto_internal.h, no
+# hand-copied pointer tags, embedded types or cell layouts under src/.
+add_test(NAME source/no-protocore-internals
+    COMMAND ${PROTOJS_SH} "${CMAKE_CURRENT_SOURCE_DIR}/cli/no-protocore-internals.sh"
+            "${CMAKE_SOURCE_DIR}")
+
 # Asserts that no native method cell is bound to the object that holds it, which
 # would be a permanent reference cycle through a mutable. Needs the real binary,
 # because the cells under test are created while the global object is built and

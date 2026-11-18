@@ -4024,8 +4024,7 @@ static PROTOJS_NOINLINE bool privateBrandCheck(proto::ProtoContext* ctx, const p
 
 // The state-slot base of an iterator record's wrapper, or -1.
 static long long iteratorRecordSlot(proto::ProtoContext* ctx, const proto::ProtoObject* wrapper) {
-    if (!wrapper || wrapper == PROTO_NONE || proto::isSmallInt(wrapper)
-        || (reinterpret_cast<uintptr_t>(wrapper) & 0x3F) != 0) return -1;
+    if (!wrapper || wrapper == PROTO_NONE || !protojs::isObjectCell(ctx, wrapper)) return -1;
     const proto::ProtoString* k = JSSymbols::iterSlot(ctx);
     const proto::ProtoObject* v = k ? wrapper->getOwnAttributeDirect(ctx, k) : nullptr;
     return (v && v != PROTO_NONE && proto::isSmallInt(v)) ? proto::asSmallInt(v) : -1;
@@ -4094,8 +4093,7 @@ static PROTOJS_NOINLINE const proto::ProtoObject* toPropertyKeyValue(proto::Prot
                                                                      const proto::ProtoObject* key) {
     const proto::ProtoString* symK = JSSymbols::isSymbol(ctx);
     auto isSymbolValue = [&](const proto::ProtoObject* v) {
-        return symK && v && v != PROTO_NONE && !proto::isSmallInt(v)
-            && (reinterpret_cast<uintptr_t>(v) & 0x3F) == 0
+        return symK && v && v != PROTO_NONE && protojs::isObjectCell(ctx, v)
             && v->getOwnAttributeDirect(ctx, symK) == PROTO_TRUE;
     };
     if (isSymbolValue(key)) return key;
@@ -4617,7 +4615,7 @@ static const proto::ProtoObject* toString(proto::ProtoContext* context,
         // Cache for small non-negative integers (the common case in
         // `'k' + (i % N)`-style key construction).  The result of
         // fromUTF8String for ≤4-byte ASCII content is an inline
-        // POINTER_TAG_STRING that is pointer-identity canonical by
+        // string that is pointer-identity canonical by
         // construction (same content always packs into the same
         // tagged pointer), so caching by integer index is safe across
         // any context.  object_property's hot loop runs `i % 100`
@@ -5648,12 +5646,12 @@ static void updateSpacePrototypeIfMatching(proto::ProtoContext* pContext,
 // A value no arithmetic or comparison operator runs code on or throws for:
 // a number, a string or a boolean.  undefined and null are not included:
 // they are sentinel objects here, and objects are what the rule excludes.
-static inline bool putFieldGroupInertValue(const proto::ProtoObject* v) {
+static inline bool putFieldGroupInertValue(proto::ProtoContext* ctx, const proto::ProtoObject* v) {
     if (!v) return false;
     if (proto::isSmallInt(v)) return true;
     if (v == PROTO_TRUE || v == PROTO_FALSE) return true;
     if (proto::ProtoObject::isStringTagFast(v)) return true;
-    return (reinterpret_cast<uintptr_t>(v) & 0x3F) == 15;  // POINTER_TAG_DOUBLE
+    return protojs::isDoubleValue(ctx, v);
 }
 
 static const proto::ProtoString* putFieldGroupSidecar(proto::ProtoContext* ctx,
@@ -5735,7 +5733,7 @@ static bool putFieldGroupApplies(proto::ProtoContext* ctx, ProtoBytecodeModule* 
     // Proxy, not a Symbol wrapper, not an array, extensible, with the
     // default behavior (no Map / Set / typed array / other exotic), and no
     // own accessor anywhere on it.
-    if ((reinterpret_cast<uintptr_t>(recv) & 0x3F) != 0) return false;
+    if (!protojs::isObjectCell(ctx, recv)) return false;
     if (recv == globalObj) return false;
     if (protojs::isProxy(ctx, recv)) return false;
     if (protojs::jsIsNonExtensible(ctx, recv)) return false;
@@ -5780,18 +5778,18 @@ static bool putFieldGroupApplies(proto::ProtoContext* ctx, ProtoBytecodeModule* 
         if (recv->hasOwnAttribute(ctx, rk) != PROTO_TRUE) return false;
         const proto::ProtoObject* v = recv->getAttribute(ctx, rk, false);
         if (!v || v == PROTO_NONE || v == t_undefinedSentinel) return false;
-        if (r.operand && !putFieldGroupInertValue(v)) return false;
+        if (r.operand && !putFieldGroupInertValue(ctx, v)) return false;
     }
 
     // Arithmetic operands read from the frame.
     for (uint16_t a : g.operandArgs) {
         const proto::ProtoObject* v = a < argCount ? readCell(ctx, getSlot(ctx, a)) : PROTO_NONE;
-        if (!putFieldGroupInertValue(v)) return false;
+        if (!putFieldGroupInertValue(ctx, v)) return false;
     }
     for (uint16_t l : g.operandLocals) {
         const proto::ProtoObject* v =
             l < varCount ? readCell(ctx, getSlot(ctx, argCount + l)) : PROTO_NONE;
-        if (!putFieldGroupInertValue(v)) return false;
+        if (!putFieldGroupInertValue(ctx, v)) return false;
     }
     return true;
 }
@@ -5849,8 +5847,7 @@ PROTOJS_NOINLINE static void putFieldGroupCommit(proto::ProtoContext* ctx, Proto
 // wrapper object without them, written like any other object.
 static const char* putBasePrimitiveType(proto::ProtoContext* ctx, const proto::ProtoObject* v) {
     if (proto::isSmallInt(v)) return "number";
-    const uintptr_t tag = reinterpret_cast<uintptr_t>(v) & 0x3F;
-    if (tag == 15) return "number";  // POINTER_TAG_DOUBLE
+    if (protojs::isDoubleValue(ctx, v)) return "number";
     if (v == PROTO_TRUE || v == PROTO_FALSE) return "boolean";
     if (proto::ProtoObject::isStringTagFast(v)) {
         // Well-known Symbols are carried as "Symbol.<name>" strings.
@@ -5858,7 +5855,7 @@ static const char* putBasePrimitiveType(proto::ProtoContext* ctx, const proto::P
         v->asString(ctx)->toUTF8String(ctx, sv);
         return (sv.compare(0, 7, "Symbol.") == 0) ? "symbol" : "string";
     }
-    if (tag != 0) return nullptr;  // other tagged protoCore values are not JS primitives
+    if (!protojs::isObjectCell(ctx, v)) return nullptr;  // other tagged protoCore values are not JS primitives
     const proto::ProtoString* symK = JSSymbols::isSymbol(ctx);
     if (symK && v->getAttribute(ctx, symK, false) == PROTO_TRUE) return "symbol";
     const proto::ProtoString* bigK = JSSymbols::bigIntValue(ctx);
@@ -6036,8 +6033,7 @@ static PROTOJS_NOINLINE const proto::ProtoObject* unwrapBigIntWrapperSlow(proto:
                                                                          const proto::ProtoObject* v);
 static inline const proto::ProtoObject* unwrapBigIntWrapper(proto::ProtoContext* ctx,
                                                             const proto::ProtoObject* v) {
-    if (!v || v == PROTO_NONE || proto::isSmallInt(v)
-        || (reinterpret_cast<uintptr_t>(v) & 0x3F) != 0
+    if (!v || v == PROTO_NONE || !protojs::isObjectCell(ctx, v)
         || v == t_nullSentinel || v == t_undefinedSentinel) return v;
     return unwrapBigIntWrapperSlow(ctx, v);
 }
@@ -6072,8 +6068,7 @@ static PROTOJS_NOINLINE int bigIntBinaryOp(proto::ProtoContext* ctx, const proto
     if (!aBig && !bBig) return kBigOpNone;
     if (aBig != bBig) {
         const proto::ProtoObject* other = aBig ? b : a;
-        if (deferObjects && other && other != PROTO_NONE && !proto::isSmallInt(other)
-            && (reinterpret_cast<uintptr_t>(other) & 0x3F) == 0
+        if (deferObjects && other && other != PROTO_NONE && protojs::isObjectCell(ctx, other)
             && other != t_nullSentinel && other != t_undefinedSentinel)
             return kBigOpDeferred;
         out = makeNativeError(ctx, "TypeError",

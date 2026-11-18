@@ -180,10 +180,10 @@ bool isVocabulary(const std::string& utf8) {
 
 namespace {
 
-// An object cell (pointer tag 0): the only kind of value with attributes of its
-// own that a dictionary can live in.
-inline bool isObjectCell(const proto::ProtoObject* o) {
-    return o && o != PROTO_NONE && (reinterpret_cast<std::uintptr_t>(o) & 0x3F) == 0;
+// An object cell: the only kind of value with attributes of its own that a
+// dictionary can live in (ValueKinds.h).
+inline bool isObjectCell(proto::ProtoContext* ctx, const proto::ProtoObject* o) {
+    return o && o != PROTO_NONE && protojs::isObjectCell(ctx, o);
 }
 
 const proto::ProtoString* dictKey(proto::ProtoContext* ctx) {
@@ -193,7 +193,7 @@ const proto::ProtoString* dictKey(proto::ProtoContext* ctx) {
 // The own record, or nullptr.
 const proto::ProtoObject* ownRecord(proto::ProtoContext* ctx, const proto::ProtoObject* obj) {
     if (!obj || obj == PROTO_NONE || proto::isSmallInt(obj)) return nullptr;
-    if (!isObjectCell(obj)) return nullptr;
+    if (!isObjectCell(ctx, obj)) return nullptr;
     const proto::ProtoObject* rec = obj->getOwnAttributeDirect(ctx, dictKey(ctx));
     return (rec && rec != PROTO_NONE) ? rec : nullptr;
 }
@@ -278,7 +278,7 @@ const proto::ProtoObject* findInChain(proto::ProtoContext* ctx, const proto::Pro
     if (!key || !obj || obj == PROTO_NONE || proto::isSmallInt(obj)) return nullptr;
     const proto::ProtoObject* cur = obj;
     for (int depth = 0; cur && depth < 100; ++depth) {
-        if (!isObjectCell(cur)) return nullptr;
+        if (!isObjectCell(ctx, cur)) return nullptr;
         if (cur != obj
             && (cur->hasOwnAttribute(ctx, key) == PROTO_TRUE || isProxy(ctx, cur)))
             return nullptr;
@@ -353,7 +353,7 @@ void keys(proto::ProtoContext* ctx, const proto::ProtoObject* obj, std::vector<s
 // ---- Writes ------------------------------------------------------------------
 
 bool acceptsNewKeys(proto::ProtoContext* ctx, const proto::ProtoObject* obj) {
-    if (!obj || obj == PROTO_NONE || proto::isSmallInt(obj) || !isObjectCell(obj))
+    if (!obj || obj == PROTO_NONE || proto::isSmallInt(obj) || !isObjectCell(ctx, obj))
         return false;
     if (obj == getNullSentinel() || obj == getUndefinedSentinel()) return false;
     if (obj->isMethod(ctx)) return false;
@@ -387,7 +387,7 @@ bool isDynamicFrom(proto::ProtoContext* ctx, const proto::ProtoObject* from,
     // accessor or read-only semantics. hasOwnAttribute looks a heap-string
     // name up without interning it.
     for (const proto::ProtoObject* cur = from; cur; cur = advance(ctx, cur)) {
-        if (!isObjectCell(cur)) break;
+        if (!isObjectCell(ctx, cur)) break;
         if (cur->hasOwnAttribute(ctx, key) == PROTO_TRUE) return false;
     }
     std::string s;

@@ -2,6 +2,7 @@
 #include "BigIntPrototype.h"
 #include "runtime/JSStringBytes.h"
 #include "runtime/ThreadIdentity.h"
+#include "runtime/ValueKinds.h"
 #include "JSContext.h"
 #include "JSSymbols.h"
 #include "ObjectPrototype.h"
@@ -270,8 +271,7 @@ static const proto::ProtoObject* bigIntConstruct(proto::ProtoContext* ctx,
 static const proto::ProtoObject* thisBigIntValue(proto::ProtoContext* ctx,
                                                  const proto::ProtoObject* v) {
     if (isBigInt(ctx, v)) return v;
-    if (!v || v == PROTO_NONE || proto::isSmallInt(v)
-        || (reinterpret_cast<uintptr_t>(v) & 0x3F) != 0) return nullptr;
+    if (!v || v == PROTO_NONE || !protojs::isObjectCell(ctx, v)) return nullptr;
     const proto::ProtoString* pvK = JSSymbols::primitiveValue(ctx);
     if (!pvK || v->hasOwnAttribute(ctx, pvK) != PROTO_TRUE) return nullptr;
     const proto::ProtoObject* pv = v->getAttribute(ctx, pvK, false);

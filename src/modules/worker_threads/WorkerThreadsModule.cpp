@@ -96,7 +96,7 @@ struct MessageCloner {
     bool isShared(const proto::ProtoObject* v) const {
         if (!v || v == PROTO_NONE) return true;
         if (proto::isSmallInt(v)) return true;
-        if ((reinterpret_cast<uintptr_t>(v) & 0x3F) != 0) return true;  // tagged values
+        if (!protojs::isObjectCell(ctx, v)) return true;  // tagged values
         if (v == getUndefinedSentinel() || v == getNullSentinel()) return true;
         // A BigInt is an object cell carrying its own value slot.
         const proto::ProtoString* bigK = JSSymbols::bigIntValue(ctx);
