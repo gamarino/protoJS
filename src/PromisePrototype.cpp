@@ -101,21 +101,6 @@ bool isNullValue(const proto::ProtoObject* v) {
     return v && v == getNullSentinel();
 }
 
-// Type(v) is Object: not undefined, null, a boolean, a number, a string, a
-// Symbol or a BigInt (the last two are carried as tagged objects).
-bool isObjectValue(proto::ProtoContext* ctx, const proto::ProtoObject* v) {
-    if (isUndefinedValue(v) || isNullValue(v)) return false;
-    if (v == PROTO_TRUE || v == PROTO_FALSE) return false;
-    if (v->isInteger(ctx) || v->isDouble(ctx) || v->isFloat(ctx) ||
-        v->isString(ctx) || v->isBoolean(ctx)) return false;
-    if (v->isMethod(ctx)) return true;
-    const proto::ProtoString* symK = JSSymbols::isSymbol(ctx);
-    if (symK && v->getAttribute(ctx, symK, true) == PROTO_TRUE) return false;
-    const proto::ProtoString* bigK = JSSymbols::isBigInt(ctx);
-    if (bigK && v->getAttribute(ctx, bigK, true) == PROTO_TRUE) return false;
-    return true;
-}
-
 bool isCallable(proto::ProtoContext* ctx, const proto::ProtoObject* v) {
     if (isUndefinedValue(v) || isNullValue(v)) return false;
     if (isCallableValue(ctx, v)) return true;
@@ -129,7 +114,7 @@ bool isCallable(proto::ProtoContext* ctx, const proto::ProtoObject* v) {
 
 // IsConstructor (§7.2.4), with the markers protoJS's constructors carry.
 bool isConstructorValue(proto::ProtoContext* ctx, const proto::ProtoObject* t) {
-    if (!isObjectValue(ctx, t)) return false;
+    if (!jsIsObject(ctx, t)) return false;
     if (isProxy(ctx, t)) {
         const proto::ProtoObject* target = proxyTarget(ctx, t);
         return target && isConstructorValue(ctx, target);
@@ -538,7 +523,7 @@ const proto::ProtoObject* speciesConstructor(proto::ProtoContext* ctx,
     const proto::ProtoObject* C = jsGet(ctx, O, JSSymbols::constructor(ctx),
                                         keyConstructorGetter(ctx));
     if (isUndefinedValue(C)) return defaultCtor;
-    if (!isObjectValue(ctx, C)) {
+    if (!jsIsObject(ctx, C)) {
         throwTypeError(ctx, "SpeciesConstructor: constructor is not an Object");
         return nullptr;
     }
@@ -656,7 +641,7 @@ const proto::ProtoObject* promiseFinally(proto::ProtoContext* ctx,
                                          const proto::ParentLink*,
                                          const proto::ProtoArguments* args,
                                          const proto::ProtoKeywordArguments*) {
-    if (!isObjectValue(ctx, self)) {
+    if (!jsIsObject(ctx, self)) {
         throwTypeError(ctx, "Promise.prototype.finally called on a non-object");
         return PROTO_NONE;
     }
@@ -690,7 +675,7 @@ const proto::ProtoObject* promiseConstructor(proto::ProtoContext* ctx,
     // OP_call_constructor (and Reflect.construct) hand over the receiver,
     // already parented at newTarget.prototype, so subclasses keep their
     // prototype.  A direct native call may not.
-    const proto::ProtoObject* p = isObjectValue(ctx, self) ? self : nullptr;
+    const proto::ProtoObject* p = jsIsObject(ctx, self) ? self : nullptr;
     if (!p) {
         const proto::ProtoObject* proto = intrinsicPromiseProto(ctx);
         p = proto ? proto->newChild(ctx, true) : ctx->newObject(true);
@@ -716,7 +701,7 @@ const proto::ProtoObject* promiseConstructor(proto::ProtoContext* ctx,
 
 bool requireObjectReceiver(proto::ProtoContext* ctx, const proto::ProtoObject* self,
                            const char* method) {
-    if (isObjectValue(ctx, self)) return true;
+    if (jsIsObject(ctx, self)) return true;
     std::string msg = std::string(method) + " called on a non-object";
     throwTypeError(ctx, msg.c_str());
     return false;
@@ -815,7 +800,7 @@ bool getIterator(proto::ProtoContext* ctx, const proto::ProtoObject* obj, Iterat
         rec.stringItems = items;
         return true;
     }
-    if (!isObjectValue(ctx, obj)) {
+    if (!jsIsObject(ctx, obj)) {
         throwTypeError(ctx, "object is not iterable (cannot read property Symbol(Symbol.iterator))");
         return false;
     }
@@ -826,7 +811,7 @@ bool getIterator(proto::ProtoContext* ctx, const proto::ProtoObject* obj, Iterat
         return false;
     }
     const proto::ProtoObject* it = callJSFunction(ctx, method, obj, ctx->newList());
-    if (!isObjectValue(ctx, it)) {
+    if (!jsIsObject(ctx, it)) {
         throwTypeError(ctx, "Result of the Symbol.iterator method is not an object");
         return false;
     }
@@ -845,7 +830,7 @@ int iteratorStepValue(proto::ProtoContext* ctx, IteratorRecord& rec,
         return 1;
     }
     const proto::ProtoObject* result = callJSFunction(ctx, rec.next, rec.iterator, ctx->newList());
-    if (!isObjectValue(ctx, result)) {
+    if (!jsIsObject(ctx, result)) {
         rec.done = true;
         throwTypeError(ctx, "Iterator result is not an object");
         return -1;
@@ -1177,9 +1162,6 @@ const proto::ProtoObject* jsGetProperty(proto::ProtoContext* ctx,
     return jsGet(ctx, obj, sym(ctx, name), sym(ctx, getter.c_str()));
 }
 
-bool jsIsObject(proto::ProtoContext* ctx, const proto::ProtoObject* v) {
-    return isObjectValue(ctx, v);
-}
 
 bool jsIsCallable(proto::ProtoContext* ctx, const proto::ProtoObject* v) {
     return isCallable(ctx, v);
@@ -1215,7 +1197,7 @@ void resolvePromise(proto::ProtoContext* ctx, const proto::ProtoObject* promise,
                makeNativeError(ctx, "TypeError", "Chaining cycle detected for promise #<Promise>"));
         return;
     }
-    if (!isObjectValue(ctx, resolution)) {
+    if (!jsIsObject(ctx, resolution)) {
         settle(ctx, promise, kFulfilled, resolution);
         return;
     }
@@ -1262,7 +1244,7 @@ bool performAwait(proto::ProtoContext* ctx, const proto::ProtoObject* value,
     };
     // A primitive: PromiseResolve makes a promise fulfilled with it, and
     // PerformPromiseThen on a fulfilled promise queues the reaction job.
-    if (!isObjectValue(ctx, value)) {
+    if (!jsIsObject(ctx, value)) {
         enqueueReactionJob(ctx, reaction(), value, kFulfilled);
         return true;
     }

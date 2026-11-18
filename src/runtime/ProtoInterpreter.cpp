@@ -4024,8 +4024,7 @@ static PROTOJS_NOINLINE bool privateBrandCheck(proto::ProtoContext* ctx, const p
 
 // The state-slot base of an iterator record's wrapper, or -1.
 static long long iteratorRecordSlot(proto::ProtoContext* ctx, const proto::ProtoObject* wrapper) {
-    if (!wrapper || wrapper == PROTO_NONE || proto::isSmallInt(wrapper)
-        || (reinterpret_cast<uintptr_t>(wrapper) & 0x3F) != 0) return -1;
+    if (!wrapper || wrapper == PROTO_NONE) return -1;
     const proto::ProtoString* k = JSSymbols::iterSlot(ctx);
     const proto::ProtoObject* v = k ? wrapper->getOwnAttributeDirect(ctx, k) : nullptr;
     return (v && v != PROTO_NONE && proto::isSmallInt(v)) ? proto::asSmallInt(v) : -1;
@@ -4094,8 +4093,7 @@ static PROTOJS_NOINLINE const proto::ProtoObject* toPropertyKeyValue(proto::Prot
                                                                      const proto::ProtoObject* key) {
     const proto::ProtoString* symK = JSSymbols::isSymbol(ctx);
     auto isSymbolValue = [&](const proto::ProtoObject* v) {
-        return symK && v && v != PROTO_NONE && !proto::isSmallInt(v)
-            && (reinterpret_cast<uintptr_t>(v) & 0x3F) == 0
+        return symK && v && v != PROTO_NONE
             && v->getOwnAttributeDirect(ctx, symK) == PROTO_TRUE;
     };
     if (isSymbolValue(key)) return key;
@@ -4617,7 +4615,7 @@ static const proto::ProtoObject* toString(proto::ProtoContext* context,
         // Cache for small non-negative integers (the common case in
         // `'k' + (i % N)`-style key construction).  The result of
         // fromUTF8String for ≤4-byte ASCII content is an inline
-        // POINTER_TAG_STRING that is pointer-identity canonical by
+        // string that is pointer-identity canonical by
         // construction (same content always packs into the same
         // tagged pointer), so caching by integer index is safe across
         // any context.  object_property's hot loop runs `i % 100`
@@ -5648,12 +5646,12 @@ static void updateSpacePrototypeIfMatching(proto::ProtoContext* pContext,
 // A value no arithmetic or comparison operator runs code on or throws for:
 // a number, a string or a boolean.  undefined and null are not included:
 // they are sentinel objects here, and objects are what the rule excludes.
-static inline bool putFieldGroupInertValue(const proto::ProtoObject* v) {
+static inline bool putFieldGroupInertValue(proto::ProtoContext* ctx, const proto::ProtoObject* v) {
     if (!v) return false;
     if (proto::isSmallInt(v)) return true;
     if (v == PROTO_TRUE || v == PROTO_FALSE) return true;
     if (proto::ProtoObject::isStringTagFast(v)) return true;
-    return (reinterpret_cast<uintptr_t>(v) & 0x3F) == 15;  // POINTER_TAG_DOUBLE
+    return protojs::isDoubleValue(ctx, v);
 }
 
 static const proto::ProtoString* putFieldGroupSidecar(proto::ProtoContext* ctx,
@@ -5731,11 +5729,12 @@ static bool putFieldGroupApplies(proto::ProtoContext* ctx, ProtoBytecodeModule* 
                                  unsigned argCount, unsigned varCount) {
     if (!recv || recv == PROTO_NONE || recv == t_undefinedSentinel || recv == t_nullSentinel)
         return false;
-    // An ordinary object: an object cell, not the global object, not a
-    // Proxy, not a Symbol wrapper, not an array, extensible, with the
-    // default behavior (no Map / Set / typed array / other exotic), and no
-    // own accessor anywhere on it.
-    if ((reinterpret_cast<uintptr_t>(recv) & 0x3F) != 0) return false;
+    // An ordinary object: Type(recv) is Object (a primitive, Symbols and
+    // BigInts included, takes OP_put_field's primitive path,
+    // putOnNonObjectBase), not the global object, not a Proxy, not an array,
+    // extensible, with the default behavior (no Map / Set / typed array /
+    // other exotic), and no own accessor anywhere on it.
+    if (!protojs::jsIsObject(ctx, recv)) return false;
     if (recv == globalObj) return false;
     if (protojs::isProxy(ctx, recv)) return false;
     if (protojs::jsIsNonExtensible(ctx, recv)) return false;
@@ -5743,12 +5742,6 @@ static bool putFieldGroupApplies(proto::ProtoContext* ctx, ProtoBytecodeModule* 
     if (reg.resolve(ctx, recv) != reg.getDefault()) return false;
     const proto::ProtoString* isArrK = JSSymbols::isArray(ctx);
     if (isArrK && recv->getAttribute(ctx, isArrK, true) == PROTO_TRUE) return false;
-    const proto::ProtoString* isSymK = JSSymbols::isSymbol(ctx);
-    if (isSymK && recv->getAttribute(ctx, isSymK, false) == PROTO_TRUE) return false;
-    // A BigInt is an object cell here but a primitive to JavaScript: its
-    // writes take OP_put_field's primitive path (putOnNonObjectBase).
-    const proto::ProtoString* bigK = JSSymbols::bigIntValue(ctx);
-    if (bigK && recv->hasOwnAttribute(ctx, bigK) == PROTO_TRUE) return false;
     const proto::ProtoString* hapKey = JSSymbols::hasAccessorProps(ctx);
     if (hapKey && recv->hasOwnAttribute(ctx, hapKey) == PROTO_TRUE
         && recv->getAttribute(ctx, hapKey, false) == PROTO_TRUE)
@@ -5780,18 +5773,18 @@ static bool putFieldGroupApplies(proto::ProtoContext* ctx, ProtoBytecodeModule* 
         if (recv->hasOwnAttribute(ctx, rk) != PROTO_TRUE) return false;
         const proto::ProtoObject* v = recv->getAttribute(ctx, rk, false);
         if (!v || v == PROTO_NONE || v == t_undefinedSentinel) return false;
-        if (r.operand && !putFieldGroupInertValue(v)) return false;
+        if (r.operand && !putFieldGroupInertValue(ctx, v)) return false;
     }
 
     // Arithmetic operands read from the frame.
     for (uint16_t a : g.operandArgs) {
         const proto::ProtoObject* v = a < argCount ? readCell(ctx, getSlot(ctx, a)) : PROTO_NONE;
-        if (!putFieldGroupInertValue(v)) return false;
+        if (!putFieldGroupInertValue(ctx, v)) return false;
     }
     for (uint16_t l : g.operandLocals) {
         const proto::ProtoObject* v =
             l < varCount ? readCell(ctx, getSlot(ctx, argCount + l)) : PROTO_NONE;
-        if (!putFieldGroupInertValue(v)) return false;
+        if (!putFieldGroupInertValue(ctx, v)) return false;
     }
     return true;
 }
@@ -5843,27 +5836,15 @@ PROTOJS_NOINLINE static void putFieldGroupCommit(proto::ProtoContext* ctx, Proto
 
 // The type name of a primitive base, for the error message; nullptr when
 // `v` is an object (or undefined / null, which the caller handles first).
-// protoJS carries Symbols and BigInts as object cells: a Symbol carries its
-// own __is_symbol__ marker, a BigInt its own __bigint_value__ slot.  A boxed
-// Symbol (Object(sym)) or BigInt (Object(1n), boxBigInt) is a distinct
-// wrapper object without them, written like any other object.
+// Decided by the JavaScript type (runtime/JsType.h): a Symbol or a BigInt is a
+// primitive, and a boxed Symbol (Object(sym)) or BigInt (Object(1n),
+// boxBigInt) is a wrapper object, written like any other object.
 static const char* putBasePrimitiveType(proto::ProtoContext* ctx, const proto::ProtoObject* v) {
     if (proto::isSmallInt(v)) return "number";
-    const uintptr_t tag = reinterpret_cast<uintptr_t>(v) & 0x3F;
-    if (tag == 15) return "number";  // POINTER_TAG_DOUBLE
-    if (v == PROTO_TRUE || v == PROTO_FALSE) return "boolean";
-    if (proto::ProtoObject::isStringTagFast(v)) {
-        // Well-known Symbols are carried as "Symbol.<name>" strings.
-        std::string sv;
-        v->asString(ctx)->toUTF8String(ctx, sv);
-        return (sv.compare(0, 7, "Symbol.") == 0) ? "symbol" : "string";
-    }
-    if (tag != 0) return nullptr;  // other tagged protoCore values are not JS primitives
-    const proto::ProtoString* symK = JSSymbols::isSymbol(ctx);
-    if (symK && v->getAttribute(ctx, symK, false) == PROTO_TRUE) return "symbol";
-    const proto::ProtoString* bigK = JSSymbols::bigIntValue(ctx);
-    if (bigK && v->hasOwnAttribute(ctx, bigK) == PROTO_TRUE) return "bigint";
-    return nullptr;
+    const protojs::JsType t = protojs::jsTypeOf(ctx, v);
+    if (t == protojs::JsType::Object || t == protojs::JsType::Undefined || t == protojs::JsType::Null)
+        return nullptr;
+    return protojs::jsTypeName(t);
 }
 
 static inline bool putBaseIsNullish(const proto::ProtoObject* v) {
@@ -6030,15 +6011,17 @@ static int compareBigIntWithNumber(proto::ProtoContext* ctx, const proto::ProtoO
 // A BigInt wrapper object (Object(1n), boxBigInt) as the operand of a numeric
 // operator: ToPrimitive answers its BigInt (the wrapper protocol toPrimIfObject
 // also follows), so the operator's BigInt path sees a BigInt, not an object it
-// would take for a Number.  Any other value is returned unchanged; tagged
-// values (numbers, strings, booleans) cost one test.
+// would take for a Number.  Any other value is returned unchanged.  The inline
+// test only skips the out-of-line call for the commonest primitives (numbers,
+// strings, booleans, undefined, null); the own-slot lookup of the slow path
+// answers every value.
 static PROTOJS_NOINLINE const proto::ProtoObject* unwrapBigIntWrapperSlow(proto::ProtoContext* ctx,
                                                                          const proto::ProtoObject* v);
 static inline const proto::ProtoObject* unwrapBigIntWrapper(proto::ProtoContext* ctx,
                                                             const proto::ProtoObject* v) {
-    if (!v || v == PROTO_NONE || proto::isSmallInt(v)
-        || (reinterpret_cast<uintptr_t>(v) & 0x3F) != 0
-        || v == t_nullSentinel || v == t_undefinedSentinel) return v;
+    if (!v || v == PROTO_NONE || proto::isSmallInt(v) || proto::ProtoObject::isStringTagFast(v)
+        || v == PROTO_TRUE || v == PROTO_FALSE || v == t_nullSentinel || v == t_undefinedSentinel)
+        return v;
     return unwrapBigIntWrapperSlow(ctx, v);
 }
 static PROTOJS_NOINLINE const proto::ProtoObject* unwrapBigIntWrapperSlow(proto::ProtoContext* ctx,
@@ -6072,10 +6055,7 @@ static PROTOJS_NOINLINE int bigIntBinaryOp(proto::ProtoContext* ctx, const proto
     if (!aBig && !bBig) return kBigOpNone;
     if (aBig != bBig) {
         const proto::ProtoObject* other = aBig ? b : a;
-        if (deferObjects && other && other != PROTO_NONE && !proto::isSmallInt(other)
-            && (reinterpret_cast<uintptr_t>(other) & 0x3F) == 0
-            && other != t_nullSentinel && other != t_undefinedSentinel)
-            return kBigOpDeferred;
+        if (deferObjects && protojs::jsIsObject(ctx, other)) return kBigOpDeferred;
         out = makeNativeError(ctx, "TypeError",
                               "Cannot mix BigInt and other types, use explicit conversions");
         return kBigOpThrow;
@@ -16401,46 +16381,14 @@ static const proto::ProtoObject* runBytecodeImpl(proto::ProtoContext* pContext,
                 if (stackEmpty(pContext)) MALFORMED_BYTECODE();
                 const proto::ProtoObject* v = stackTop(pContext);
                 stackPop(pContext);
-                const char* typeStr = "undefined";
-                if (v == t_nullSentinel) {
-                    typeStr = "object";  // typeof null === "object" per spec
-                } else if (v && v != PROTO_NONE && !v->isNone(pContext) && v != t_undefinedSentinel) {
-                    if (v->isBoolean(pContext)) typeStr = "boolean";
-                    else if (v->isInteger(pContext) || v->isDouble(pContext) || v->isFloat(pContext)) typeStr = "number";
-                    // Well-known symbols (Symbol.iterator, Symbol.dispose, …)
-                    // are encoded as ProtoStrings in protoJS but typeof must
-                    // surface them as "symbol" per §13.5.3 (test262
-                    // Symbol/{dispose,asyncDispose,hasInstance,iterator,
-                    // …}/prop-desc verifyProperty kickoff).
-                    else if (v->asString(pContext)) {
-                        std::string sv;
-                        v->asString(pContext)->toUTF8String(pContext, sv);
-                        if (sv.compare(0, 7, "Symbol.") == 0
-                            || sv.compare(0, 7, "Symbol(") == 0)
-                            typeStr = "symbol";
-                        else
-                            typeStr = "string";
-                    }
-                    else if ([&]() -> bool {
-                        // §7.1.13.1 typeof: a Symbol value yields "symbol".
-                        // protoJS carries Symbols as objects with the
-                        // __is_symbol__ marker.  Probe the chain (the marker
-                        // is on the prototype for cached symbols).
-                        const proto::ProtoString* symK = JSSymbols::isSymbol(pContext);
-                        return symK && v->getAttribute(pContext, symK, true) == PROTO_TRUE;
-                    }()) {
-                        typeStr = "symbol";
-                    }
-                    else if ([&]() -> bool {
-                        // §13.5.3 typeof on a BigInt yields "bigint".
-                        // protoJS wraps BigInt values as objects whose
-                        // BigInt.prototype carries __is_bigint__ = true.
-                        const proto::ProtoString* bigK = JSSymbols::isBigInt(pContext);
-                        return bigK && v->getAttribute(pContext, bigK, true) == PROTO_TRUE;
-                    }()) {
-                        typeStr = "bigint";
-                    }
-                    else if (v->isMethod(pContext) || getBytecodeId(pContext, v) >= 0) typeStr = "function";
+                // §13.5.3: the primitive types by the JavaScript type model
+                // (runtime/JsType.h; the well-known Symbols carried as
+                // "Symbol.<name>" strings are Symbols, typeof null is
+                // "object"); an Object is "function" when it is callable.
+                const protojs::JsType jsType = protojs::jsTypeOf(pContext, v);
+                const char* typeStr = protojs::jsTypeName(jsType);
+                if (jsType == protojs::JsType::Object) {
+                    if (v->isMethod(pContext) || getBytecodeId(pContext, v) >= 0) typeStr = "function";
                     else {
                         // Check for __native_fn__ wrapper (native function with .length/.name).
                         const proto::ProtoString* nfTypeKey = JSSymbols::nativeFn(pContext);

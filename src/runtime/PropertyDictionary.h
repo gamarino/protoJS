@@ -58,6 +58,7 @@
 // as a named attribute write is).
 
 #include <protoCore.h>
+#include "ValueKinds.h"
 
 #include <atomic>
 #include <cstdint>
@@ -70,9 +71,13 @@ namespace dict {
 
 /** True when `key` is a heap string: neither an interned symbol nor an inline
  *  string. Only such a key costs a perennial SymbolTable entry when it becomes
- *  an attribute name. */
+ *  an attribute name. protoCore's public API: a string that is a cell (an
+ *  inline string is not) and not a symbol (ProtoString::isSymbol). */
 inline bool isHeapStringKey(const proto::ProtoString* key) {
-    return key && (reinterpret_cast<std::uintptr_t>(key) & 0x3F) == 6;
+    if (!key) return false;
+    const auto* o = reinterpret_cast<const proto::ProtoObject*>(key);
+    return proto::ProtoObject::isStringTagFast(o) && proto::ProtoObject::isCellPointer(o) &&
+           !key->isSymbol();
 }
 
 // ---- Program vocabulary ------------------------------------------------------

@@ -93,6 +93,12 @@ if(WIN32)
         ENVIRONMENT "PROTOJS_PYTHON=${PROTOJS_PYTHON}")
 endif()
 
+# protoJS depends on protoCore's public API only: no proto_internal.h, no
+# hand-copied pointer tags, embedded types or cell layouts under src/.
+add_test(NAME source/no-protocore-internals
+    COMMAND ${PROTOJS_SH} "${CMAKE_CURRENT_SOURCE_DIR}/cli/no-protocore-internals.sh"
+            "${CMAKE_SOURCE_DIR}")
+
 # Asserts that no native method cell is bound to the object that holds it, which
 # would be a permanent reference cycle through a mutable. Needs the real binary,
 # because the cells under test are created while the global object is built and
@@ -112,6 +118,13 @@ add_test(NAME cli/attribute-access
 # console.log of BigInts and -0, compared with Node's output.
 add_test(NAME cli/console-values
     COMMAND ${PROTOJS_SH} "${CMAKE_CURRENT_SOURCE_DIR}/cli/console-values.sh"
+            "$<TARGET_FILE:protojs>")
+
+# Dispatch on values of every kind by their JavaScript type (typeof, Type(x) is
+# Object in promise resolution, writes to primitives, BigInt operands, property
+# keys, dynamic keys, iterator closing), compared with Node's output.
+add_test(NAME cli/value-dispatch
+    COMMAND ${PROTOJS_SH} "${CMAKE_CURRENT_SOURCE_DIR}/cli/value-dispatch.sh"
             "$<TARGET_FILE:protojs>")
 
 # protoCore's finalizer contract, asserted against the source because three of the

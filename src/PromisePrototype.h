@@ -2,6 +2,7 @@
 #define PROTOJS_PROMISEPROTOTYPE_H
 
 #include "protoCore.h"
+#include "runtime/JsType.h"  // jsIsObject: Type(v) is Object
 
 // Promise objects, ECMA-262 §27.2.
 //
@@ -148,9 +149,6 @@ const proto::ProtoObject* makeNativeClosure(proto::ProtoContext* ctx,
 const proto::ProtoObject* jsGetProperty(proto::ProtoContext* ctx,
                                         const proto::ProtoObject* obj,
                                         const char* name);
-
-/** Type(v) is Object (not a primitive, Symbol or BigInt). */
-bool jsIsObject(proto::ProtoContext* ctx, const proto::ProtoObject* v);
 
 /** IsCallable(v). */
 bool jsIsCallable(proto::ProtoContext* ctx, const proto::ProtoObject* v);

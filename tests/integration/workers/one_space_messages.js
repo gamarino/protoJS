@@ -19,7 +19,7 @@ sent.self = sent;
 
 const w = new Worker(__dirname + '/one_space_messages_child.js', { workerData: sent });
 let got = null;
-w.on('message', function (m) { got = m; });
+w.on('message', function (m) { if (m && m.echo) got = m; });
 w.on('error', function (e) { fail('worker error: ' + e); });
 w.on('exit', function () {
     if (!got) { fail('no message from the worker'); process.exit(1); }
@@ -35,6 +35,8 @@ w.on('exit', function () {
     if (got.spaces !== 1) fail('the worker saw ' + got.spaces + ' ProtoSpaces, expected 1');
     if (got.isMainThread !== false) fail('isMainThread was ' + got.isMainThread + ' in the worker');
     if (got.cloneError !== 'DataCloneError') fail('posting a function threw ' + got.cloneError);
+    if (got.symbolErrors !== 'DataCloneError,DataCloneError')
+        fail('posting Symbol(s), Symbol.iterator threw ' + got.symbolErrors);
     const spaces = protoCore.gcStats().liveSpaces;
     if (spaces !== 1) fail('the main thread sees ' + spaces + ' ProtoSpaces, expected 1');
     try {
