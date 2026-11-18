@@ -30,6 +30,31 @@ All notable changes to protoJS are documented in this file.
   instructions), `graph` +3.8 % (+1.5 %), `join` +0.3 % (+2.0 %), `doctree` +1.4 %,
   `wordfreq` -0.5 %. The cost is the object-cell test on property-dictionary and
   interpreter paths, now a few out-of-line calls instead of one mask.
+- **No "is this an object cell?" question: lookups dispatch directly, the language's
+  type questions ask the JavaScript type.** `isObjectCell` and its exclusion list
+  (`isAliasedCellKind`) are deleted. protoCore answers `getOwnAttributeDirect`,
+  `hasOwnAttribute` and `getAttribute` on every value, so the guards in front of such
+  lookups are gone (`iteratorRecordSlot`, `toPropertyKeyValue`, the property
+  dictionary's `ownRecord` / `findInChain` / `isDynamicFrom`, `thisBigIntValue`; the
+  inline skip in `unwrapBigIntWrapper` now names only the commonest primitives). The
+  sites that implement a specification question (Type(x) is Object, the type name of a
+  primitive receiver, typeof) use the new `src/runtime/JsType.h`: undefined, null,
+  boolean, number, string, symbol, bigint or object, decided by the JavaScript type
+  model (strings by protoCore's tag-only test, a Symbol by its marker, a BigInt by its
+  own value slot). Behaviour changes, each pinned by the new CTest case
+  `cli/value-dispatch` (output compared with Node's): an object inheriting from
+  `BigInt.prototype` is an object to `typeof` and to promise resolution (it was a
+  "bigint", so `Promise.resolve` did not read its `then`); an object with a `__data__`
+  string property is an object (protoCore's `isString` reads `__data__`, so it was a
+  "string"); a write to a LargeInteger number takes the primitive-receiver path; and a
+  worker `postMessage` of a well-known Symbol throws `DataCloneError`, as in Node
+  (pinned in `workers/one_space_messages`). Test262 `built-ins/{Object,Reflect,Proxy}`
+  3749 of 3875 and `built-ins/Promise` 619 of 732, identical per test. **Measured cost**
+  (same workloads; 3-way interleaved, `perf stat -r 5`, median of 7 rounds, checksums
+  verified, fresh binary and library copies per round; instructions vary up to 1-4 %
+  between rounds): instructions against master `records` +0.0 %, `graph` -1.6 %, `join`
+  +1.1 %, `doctree` +0.6 %, `wordfreq` +0.7 %, at or below the previous entry's cost
+  on four of the five workloads.
 
 ## [0.3.2] - 2026-11-13
 
