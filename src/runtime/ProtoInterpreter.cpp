@@ -16396,46 +16396,14 @@ static const proto::ProtoObject* runBytecodeImpl(proto::ProtoContext* pContext,
                 if (stackEmpty(pContext)) MALFORMED_BYTECODE();
                 const proto::ProtoObject* v = stackTop(pContext);
                 stackPop(pContext);
-                const char* typeStr = "undefined";
-                if (v == t_nullSentinel) {
-                    typeStr = "object";  // typeof null === "object" per spec
-                } else if (v && v != PROTO_NONE && !v->isNone(pContext) && v != t_undefinedSentinel) {
-                    if (v->isBoolean(pContext)) typeStr = "boolean";
-                    else if (v->isInteger(pContext) || v->isDouble(pContext) || v->isFloat(pContext)) typeStr = "number";
-                    // Well-known symbols (Symbol.iterator, Symbol.dispose, …)
-                    // are encoded as ProtoStrings in protoJS but typeof must
-                    // surface them as "symbol" per §13.5.3 (test262
-                    // Symbol/{dispose,asyncDispose,hasInstance,iterator,
-                    // …}/prop-desc verifyProperty kickoff).
-                    else if (v->asString(pContext)) {
-                        std::string sv;
-                        v->asString(pContext)->toUTF8String(pContext, sv);
-                        if (sv.compare(0, 7, "Symbol.") == 0
-                            || sv.compare(0, 7, "Symbol(") == 0)
-                            typeStr = "symbol";
-                        else
-                            typeStr = "string";
-                    }
-                    else if ([&]() -> bool {
-                        // §7.1.13.1 typeof: a Symbol value yields "symbol".
-                        // protoJS carries Symbols as objects with the
-                        // __is_symbol__ marker.  Probe the chain (the marker
-                        // is on the prototype for cached symbols).
-                        const proto::ProtoString* symK = JSSymbols::isSymbol(pContext);
-                        return symK && v->getAttribute(pContext, symK, true) == PROTO_TRUE;
-                    }()) {
-                        typeStr = "symbol";
-                    }
-                    else if ([&]() -> bool {
-                        // §13.5.3 typeof on a BigInt yields "bigint".
-                        // protoJS wraps BigInt values as objects whose
-                        // BigInt.prototype carries __is_bigint__ = true.
-                        const proto::ProtoString* bigK = JSSymbols::isBigInt(pContext);
-                        return bigK && v->getAttribute(pContext, bigK, true) == PROTO_TRUE;
-                    }()) {
-                        typeStr = "bigint";
-                    }
-                    else if (v->isMethod(pContext) || getBytecodeId(pContext, v) >= 0) typeStr = "function";
+                // §13.5.3: the primitive types by the JavaScript type model
+                // (runtime/JsType.h; the well-known Symbols carried as
+                // "Symbol.<name>" strings are Symbols, typeof null is
+                // "object"); an Object is "function" when it is callable.
+                const protojs::JsType jsType = protojs::jsTypeOf(pContext, v);
+                const char* typeStr = protojs::jsTypeName(jsType);
+                if (jsType == protojs::JsType::Object) {
+                    if (v->isMethod(pContext) || getBytecodeId(pContext, v) >= 0) typeStr = "function";
                     else {
                         // Check for __native_fn__ wrapper (native function with .length/.name).
                         const proto::ProtoString* nfTypeKey = JSSymbols::nativeFn(pContext);
