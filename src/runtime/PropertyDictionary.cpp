@@ -2,6 +2,7 @@
 #include "JSStringBytes.h"
 #include "PropertyDictionary.h"
 #include "IndexKeyFlags.h"
+#include "JsType.h"
 
 #include "../HashedCollection.h"
 #include "../JSSymbols.h"
@@ -180,20 +181,14 @@ bool isVocabulary(const std::string& utf8) {
 
 namespace {
 
-// An object cell: the only kind of value with attributes of its own that a
-// dictionary can live in (ValueKinds.h).
-inline bool isObjectCell(proto::ProtoContext* ctx, const proto::ProtoObject* o) {
-    return o && o != PROTO_NONE && protojs::isObjectCell(ctx, o);
-}
-
 const proto::ProtoString* dictKey(proto::ProtoContext* ctx) {
     return JSSymbols::propsDict(ctx);
 }
 
-// The own record, or nullptr.
+// The own record, or nullptr. The own lookup answers every value: one that
+// cannot hold attributes has no record.
 const proto::ProtoObject* ownRecord(proto::ProtoContext* ctx, const proto::ProtoObject* obj) {
     if (!obj || obj == PROTO_NONE || proto::isSmallInt(obj)) return nullptr;
-    if (!isObjectCell(ctx, obj)) return nullptr;
     const proto::ProtoObject* rec = obj->getOwnAttributeDirect(ctx, dictKey(ctx));
     return (rec && rec != PROTO_NONE) ? rec : nullptr;
 }
@@ -278,7 +273,6 @@ const proto::ProtoObject* findInChain(proto::ProtoContext* ctx, const proto::Pro
     if (!key || !obj || obj == PROTO_NONE || proto::isSmallInt(obj)) return nullptr;
     const proto::ProtoObject* cur = obj;
     for (int depth = 0; cur && depth < 100; ++depth) {
-        if (!isObjectCell(ctx, cur)) return nullptr;
         if (cur != obj
             && (cur->hasOwnAttribute(ctx, key) == PROTO_TRUE || isProxy(ctx, cur)))
             return nullptr;
@@ -353,9 +347,9 @@ void keys(proto::ProtoContext* ctx, const proto::ProtoObject* obj, std::vector<s
 // ---- Writes ------------------------------------------------------------------
 
 bool acceptsNewKeys(proto::ProtoContext* ctx, const proto::ProtoObject* obj) {
-    if (!obj || obj == PROTO_NONE || proto::isSmallInt(obj) || !isObjectCell(ctx, obj))
-        return false;
-    if (obj == getNullSentinel() || obj == getUndefinedSentinel()) return false;
+    // Only an Object takes new keys; a primitive (Symbols and BigInts
+    // included) cannot hold own properties.
+    if (!jsIsObject(ctx, obj)) return false;
     if (obj->isMethod(ctx)) return false;
     // Exotic or special objects keep every key as a named attribute: their
     // own paths (array length, typed-array indices, proxy traps, string
@@ -387,7 +381,6 @@ bool isDynamicFrom(proto::ProtoContext* ctx, const proto::ProtoObject* from,
     // accessor or read-only semantics. hasOwnAttribute looks a heap-string
     // name up without interning it.
     for (const proto::ProtoObject* cur = from; cur; cur = advance(ctx, cur)) {
-        if (!isObjectCell(ctx, cur)) break;
         if (cur->hasOwnAttribute(ctx, key) == PROTO_TRUE) return false;
     }
     std::string s;

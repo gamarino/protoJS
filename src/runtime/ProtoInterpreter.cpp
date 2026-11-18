@@ -4024,7 +4024,7 @@ static PROTOJS_NOINLINE bool privateBrandCheck(proto::ProtoContext* ctx, const p
 
 // The state-slot base of an iterator record's wrapper, or -1.
 static long long iteratorRecordSlot(proto::ProtoContext* ctx, const proto::ProtoObject* wrapper) {
-    if (!wrapper || wrapper == PROTO_NONE || !protojs::isObjectCell(ctx, wrapper)) return -1;
+    if (!wrapper || wrapper == PROTO_NONE) return -1;
     const proto::ProtoString* k = JSSymbols::iterSlot(ctx);
     const proto::ProtoObject* v = k ? wrapper->getOwnAttributeDirect(ctx, k) : nullptr;
     return (v && v != PROTO_NONE && proto::isSmallInt(v)) ? proto::asSmallInt(v) : -1;
@@ -4093,7 +4093,7 @@ static PROTOJS_NOINLINE const proto::ProtoObject* toPropertyKeyValue(proto::Prot
                                                                      const proto::ProtoObject* key) {
     const proto::ProtoString* symK = JSSymbols::isSymbol(ctx);
     auto isSymbolValue = [&](const proto::ProtoObject* v) {
-        return symK && v && v != PROTO_NONE && protojs::isObjectCell(ctx, v)
+        return symK && v && v != PROTO_NONE
             && v->getOwnAttributeDirect(ctx, symK) == PROTO_TRUE;
     };
     if (isSymbolValue(key)) return key;
@@ -6011,14 +6011,17 @@ static int compareBigIntWithNumber(proto::ProtoContext* ctx, const proto::ProtoO
 // A BigInt wrapper object (Object(1n), boxBigInt) as the operand of a numeric
 // operator: ToPrimitive answers its BigInt (the wrapper protocol toPrimIfObject
 // also follows), so the operator's BigInt path sees a BigInt, not an object it
-// would take for a Number.  Any other value is returned unchanged; tagged
-// values (numbers, strings, booleans) cost one test.
+// would take for a Number.  Any other value is returned unchanged.  The inline
+// test only skips the out-of-line call for the commonest primitives (numbers,
+// strings, booleans, undefined, null); the own-slot lookup of the slow path
+// answers every value.
 static PROTOJS_NOINLINE const proto::ProtoObject* unwrapBigIntWrapperSlow(proto::ProtoContext* ctx,
                                                                          const proto::ProtoObject* v);
 static inline const proto::ProtoObject* unwrapBigIntWrapper(proto::ProtoContext* ctx,
                                                             const proto::ProtoObject* v) {
-    if (!v || v == PROTO_NONE || !protojs::isObjectCell(ctx, v)
-        || v == t_nullSentinel || v == t_undefinedSentinel) return v;
+    if (!v || v == PROTO_NONE || proto::isSmallInt(v) || proto::ProtoObject::isStringTagFast(v)
+        || v == PROTO_TRUE || v == PROTO_FALSE || v == t_nullSentinel || v == t_undefinedSentinel)
+        return v;
     return unwrapBigIntWrapperSlow(ctx, v);
 }
 static PROTOJS_NOINLINE const proto::ProtoObject* unwrapBigIntWrapperSlow(proto::ProtoContext* ctx,
