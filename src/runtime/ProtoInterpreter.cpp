@@ -5729,11 +5729,12 @@ static bool putFieldGroupApplies(proto::ProtoContext* ctx, ProtoBytecodeModule* 
                                  unsigned argCount, unsigned varCount) {
     if (!recv || recv == PROTO_NONE || recv == t_undefinedSentinel || recv == t_nullSentinel)
         return false;
-    // An ordinary object: an object cell, not the global object, not a
-    // Proxy, not a Symbol wrapper, not an array, extensible, with the
-    // default behavior (no Map / Set / typed array / other exotic), and no
-    // own accessor anywhere on it.
-    if (!protojs::isObjectCell(ctx, recv)) return false;
+    // An ordinary object: Type(recv) is Object (a primitive, Symbols and
+    // BigInts included, takes OP_put_field's primitive path,
+    // putOnNonObjectBase), not the global object, not a Proxy, not an array,
+    // extensible, with the default behavior (no Map / Set / typed array /
+    // other exotic), and no own accessor anywhere on it.
+    if (!protojs::jsIsObject(ctx, recv)) return false;
     if (recv == globalObj) return false;
     if (protojs::isProxy(ctx, recv)) return false;
     if (protojs::jsIsNonExtensible(ctx, recv)) return false;
@@ -5741,12 +5742,6 @@ static bool putFieldGroupApplies(proto::ProtoContext* ctx, ProtoBytecodeModule* 
     if (reg.resolve(ctx, recv) != reg.getDefault()) return false;
     const proto::ProtoString* isArrK = JSSymbols::isArray(ctx);
     if (isArrK && recv->getAttribute(ctx, isArrK, true) == PROTO_TRUE) return false;
-    const proto::ProtoString* isSymK = JSSymbols::isSymbol(ctx);
-    if (isSymK && recv->getAttribute(ctx, isSymK, false) == PROTO_TRUE) return false;
-    // A BigInt is an object cell here but a primitive to JavaScript: its
-    // writes take OP_put_field's primitive path (putOnNonObjectBase).
-    const proto::ProtoString* bigK = JSSymbols::bigIntValue(ctx);
-    if (bigK && recv->hasOwnAttribute(ctx, bigK) == PROTO_TRUE) return false;
     const proto::ProtoString* hapKey = JSSymbols::hasAccessorProps(ctx);
     if (hapKey && recv->hasOwnAttribute(ctx, hapKey) == PROTO_TRUE
         && recv->getAttribute(ctx, hapKey, false) == PROTO_TRUE)
@@ -5841,26 +5836,15 @@ PROTOJS_NOINLINE static void putFieldGroupCommit(proto::ProtoContext* ctx, Proto
 
 // The type name of a primitive base, for the error message; nullptr when
 // `v` is an object (or undefined / null, which the caller handles first).
-// protoJS carries Symbols and BigInts as object cells: a Symbol carries its
-// own __is_symbol__ marker, a BigInt its own __bigint_value__ slot.  A boxed
-// Symbol (Object(sym)) or BigInt (Object(1n), boxBigInt) is a distinct
-// wrapper object without them, written like any other object.
+// Decided by the JavaScript type (runtime/JsType.h): a Symbol or a BigInt is a
+// primitive, and a boxed Symbol (Object(sym)) or BigInt (Object(1n),
+// boxBigInt) is a wrapper object, written like any other object.
 static const char* putBasePrimitiveType(proto::ProtoContext* ctx, const proto::ProtoObject* v) {
     if (proto::isSmallInt(v)) return "number";
-    if (protojs::isDoubleValue(ctx, v)) return "number";
-    if (v == PROTO_TRUE || v == PROTO_FALSE) return "boolean";
-    if (proto::ProtoObject::isStringTagFast(v)) {
-        // Well-known Symbols are carried as "Symbol.<name>" strings.
-        std::string sv;
-        v->asString(ctx)->toUTF8String(ctx, sv);
-        return (sv.compare(0, 7, "Symbol.") == 0) ? "symbol" : "string";
-    }
-    if (!protojs::isObjectCell(ctx, v)) return nullptr;  // other tagged protoCore values are not JS primitives
-    const proto::ProtoString* symK = JSSymbols::isSymbol(ctx);
-    if (symK && v->getAttribute(ctx, symK, false) == PROTO_TRUE) return "symbol";
-    const proto::ProtoString* bigK = JSSymbols::bigIntValue(ctx);
-    if (bigK && v->hasOwnAttribute(ctx, bigK) == PROTO_TRUE) return "bigint";
-    return nullptr;
+    const protojs::JsType t = protojs::jsTypeOf(ctx, v);
+    if (t == protojs::JsType::Object || t == protojs::JsType::Undefined || t == protojs::JsType::Null)
+        return nullptr;
+    return protojs::jsTypeName(t);
 }
 
 static inline bool putBaseIsNullish(const proto::ProtoObject* v) {
@@ -6068,9 +6052,7 @@ static PROTOJS_NOINLINE int bigIntBinaryOp(proto::ProtoContext* ctx, const proto
     if (!aBig && !bBig) return kBigOpNone;
     if (aBig != bBig) {
         const proto::ProtoObject* other = aBig ? b : a;
-        if (deferObjects && other && other != PROTO_NONE && protojs::isObjectCell(ctx, other)
-            && other != t_nullSentinel && other != t_undefinedSentinel)
-            return kBigOpDeferred;
+        if (deferObjects && protojs::jsIsObject(ctx, other)) return kBigOpDeferred;
         out = makeNativeError(ctx, "TypeError",
                               "Cannot mix BigInt and other types, use explicit conversions");
         return kBigOpThrow;
