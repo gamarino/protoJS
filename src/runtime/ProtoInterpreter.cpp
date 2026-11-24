@@ -19681,6 +19681,10 @@ static const proto::ProtoObject* runBytecodeImpl(proto::ProtoContext* pContext,
                         if (fiVisited.count(cursor)) break;
                         fiVisited.insert(cursor);
 
+                        // This level's keys, ordered before they are added:
+                        // integer indices first, ascending (OrdinaryOwnPropertyKeys;
+                        // protoCore's attribute order is unspecified).
+                        std::vector<std::string> fiLevelKeys;
                         // Every check below reads; none runs JavaScript.
                         protojs::forEachOwnAttribute(pContext, cursor,
                             [&](const proto::ProtoString* pk, const proto::ProtoObject*) {
@@ -19720,7 +19724,7 @@ static const proto::ProtoObject* runBytecodeImpl(proto::ProtoContext* pContext,
                                         }
                                     }
                                 }
-                                addFiKey(kstr);
+                                fiLevelKeys.push_back(std::move(kstr));
                             });
                         // The level's property dictionary (runtime/
                         // PropertyDictionary.h): enumerable data keys, in
@@ -19731,9 +19735,11 @@ static const proto::ProtoObject* runBytecodeImpl(proto::ProtoContext* pContext,
                             for (const std::string& dk : fiDictKeys) {
                                 if (fiSeen.count(dk)) continue;
                                 fiSeen.insert(dk);
-                                addFiKey(dk);
+                                fiLevelKeys.push_back(dk);
                             }
                         }
+                        protojs::orderOwnPropertyKeys(fiLevelKeys);
+                        for (const std::string& lk : fiLevelKeys) addFiKey(lk);
                         // Advance to the next prototype level.
                         // Prefer an explicit JS [[Prototype]] override (set via
                         // Object.setPrototypeOf) before falling back to the C++ parent chain.

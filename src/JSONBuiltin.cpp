@@ -558,31 +558,15 @@ void stringifyRecursive(proto::ProtoContext* ctx,
                 }
             });
         // The keys of the property dictionary (runtime/PropertyDictionary.h),
-        // after the named keys; with dictionary keys present, integer
-        // indices go first in ascending order, as Object.keys reports them.
+        // after the named keys. Then integer indices go first in ascending
+        // order, as Object.keys reports them (OrdinaryOwnPropertyKeys;
+        // protoCore's attribute order is unspecified).
         {
             std::vector<std::string> dkeys;
             dict::keys(ctx, obj, dkeys);
-            if (!dkeys.empty()) {
-                for (const std::string& k : dkeys) pushKey(k);
-                auto isIndex = [](const std::string& k, unsigned long long& n) {
-                    if (k.empty() || k.size() > 10 || (k[0] == '0' && k.size() > 1)) return false;
-                    n = 0;
-                    for (char c : k) {
-                        if (c < '0' || c > '9') return false;
-                        n = n * 10 + static_cast<unsigned long long>(c - '0');
-                    }
-                    return n < 0xFFFFFFFFULL;
-                };
-                std::stable_sort(keysSeen.begin(), keysSeen.end(),
-                    [&](const std::string& a, const std::string& b) {
-                        unsigned long long na = 0, nb = 0;
-                        const bool ia = isIndex(a, na), ib = isIndex(b, nb);
-                        if (ia != ib) return ia;
-                        return ia && na < nb;
-                    });
-            }
+            for (const std::string& k : dkeys) pushKey(k);
         }
+        orderOwnPropertyKeys(keysSeen);
         // §25.5.2.5 SerializeJSONObject step 5.a: when a PropertyList
         // is supplied, iteration follows ITS order, not the object's
         // own-key insertion order. Pre-fix the filter was only a
@@ -1190,6 +1174,16 @@ static const proto::ProtoObject* internalizeJSONProperty(
                 std::vector<std::pair<const proto::ProtoString*, const proto::ProtoObject*>> de;
                 dict::entries(ctx, val, de);
                 for (const auto& e : de) keys.push_back(e.first);
+            }
+            // The reviver sees the keys in OrdinaryOwnPropertyKeys order:
+            // integer indices first, ascending (protoCore's attribute order
+            // is unspecified).
+            {
+                std::vector<std::pair<const proto::ProtoString*, const proto::ProtoObject*>> ordered;
+                ordered.reserve(keys.size());
+                for (auto* pk : keys) ordered.emplace_back(pk, nullptr);
+                orderIndexEntriesFirst(ctx, ordered);
+                for (size_t i = 0; i < keys.size(); ++i) keys[i] = ordered[i].first;
             }
             for (auto* pk : keys) {
                 // Spec InternalizeJSONProperty step 2.c.ii.1: [[Get]]

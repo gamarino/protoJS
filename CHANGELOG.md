@@ -4,6 +4,26 @@ All notable changes to protoJS are documented in this file.
 
 ## [Unreleased]
 
+### Fixed
+
+- **Integer keys first in every own-key enumeration, whatever protoCore's attribute
+  order.** `Object.keys` / `values` / `entries`, `for-in`, `JSON.stringify` and the
+  `JSON.parse` reviver listed an ordinary object's integer keys in protoCore's attribute
+  order, so they were first in ascending order only by accident of key addresses. Since
+  protoCore 3.6.1 (`ProtoShape`) `{alpha: 1, 10: 2, 2: 3}` enumerated as
+  `alpha, 10, 2` in `for-in` and `JSON.stringify`. They are now ordered when the keys
+  are enumerated (`orderIndexEntriesFirst`, `ObjectPrototype.h`), as `Reflect.ownKeys`
+  already did, with no cost on property reads or writes. The relative order of named
+  string keys remains protoCore's: the documented deviation
+  ([API_REFERENCE.md](docs/API_REFERENCE.md#property-enumeration-order)).
+- **Tests no longer assume protoCore's attribute order.** `js/basic/symbol_key_order`
+  and `js/basic/object_literal_build` failed against protoCore 3.6.1 and master because
+  they asserted the relative order of named string keys. They now assert only what
+  protoJS guarantees (integer keys ascending first, string keys before symbol keys,
+  symbols by creation) and compare the JSON round trip by structure; the new checks
+  cover `for-in`, `getOwnPropertyNames`, `entries`, `JSON.stringify`, the reviver, and
+  deletion and re-insertion.
+
 ### Changed
 
 - **protoCore's public API only: no hand-copied pointer tags.** The runtime tested
