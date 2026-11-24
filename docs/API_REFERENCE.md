@@ -492,22 +492,24 @@ The January 2026 guides for these components are archived in [archive/PHASE6_MOD
 `Object.getOwnPropertyDescriptors`, `Reflect.ownKeys`, `for-in`,
 `Object.assign`, `Object.defineProperties`, object spread and rest
 (`{...o}`, `const {a, ...r} = o`), `JSON.stringify` and `util.inspect` report
-an object's string-keyed properties in the order protoCore walks the object's
-attributes -- the order of the addresses of the interned key names -- not in
-insertion order as ECMA-262 (OrdinaryOwnPropertyKeys, section 10.1.11.1)
-requires:
+an object's named string-keyed properties in the order protoCore walks the
+object's attributes, which protoCore leaves unspecified, not in insertion order
+as ECMA-262 (OrdinaryOwnPropertyKeys, section 10.1.11.1) requires:
 
 ```js
 const o = {};
 o.zeta = 1; o.alpha = 2; o.mid = 3;
-Object.keys(o);   // Node: ['zeta', 'alpha', 'mid']; protoJS on Linux: ['mid', 'zeta', 'alpha']
+Object.keys(o);   // Node: ['zeta', 'alpha', 'mid']; protoJS with protoCore 3.6.0 on Linux: ['mid', 'zeta', 'alpha']
 ```
 
-The order is unspecified: it follows the addresses of the interned key names,
-so it can differ between platforms and between two runs of the same program
-(observed on Windows and, in October 2026, on macOS). Integer-like keys and
-symbol keys are not affected (array indices first in ascending order; symbols
-after the string keys, by creation).
+The order is unspecified and changes between protoCore releases: up to 3.6.0 it
+followed the addresses of the interned key names, so it could differ between
+platforms and between two runs (observed on Windows and, in October 2026, on
+macOS); from 3.6.1 it follows protoCore's attribute storage (`ProtoShape`).
+Integer-like keys and symbol keys are not affected: protoJS orders them itself
+when the keys are enumerated (array indices first in ascending order; symbols
+after the string keys, by creation, which is insertion order unless a symbol is
+added to an object out of creation order or deleted and re-added).
 
 Keys that are data rather than program vocabulary (see
 [Property keys that are data](#property-keys-that-are-data)) live in the

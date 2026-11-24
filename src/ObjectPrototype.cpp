@@ -417,6 +417,8 @@ static void collectOwnKeys(
     {
         std::vector<std::pair<const proto::ProtoString*, const proto::ProtoObject*>> ownEntries;
         ownAttributeEntries(ctx, obj, ownEntries);
+        // Index keys first, ascending: the getters below run in key order.
+        if (!isArr) orderIndexEntriesFirst(ctx, ownEntries);
         for (const auto& e : ownEntries) {
             if (state.aborted) break;
             cb(ctx, &state, e.first, e.second);
@@ -7185,6 +7187,42 @@ void orderOwnPropertyKeys(std::vector<std::string>& keys) {
         if (ra != rb) return ra < rb;
         return ra != 1 && sa < sb;
     });
+}
+
+void orderIndexEntriesFirst(
+    proto::ProtoContext* ctx,
+    std::vector<std::pair<const proto::ProtoString*, const proto::ProtoObject*>>& entries) {
+    std::vector<unsigned long long> idx(entries.size(), 0);
+    std::vector<char> isIdx(entries.size(), 0);
+    bool any = false;
+    std::string k;
+    for (size_t i = 0; i < entries.size(); ++i) {
+        if (!entries[i].first) continue;
+        k.clear();
+        entries[i].first->toUTF8String(ctx, k);
+        if (k.empty() || k.size() > 10 || (k[0] == '0' && k.size() > 1)) continue;
+        unsigned long long n = 0;
+        bool digits = true;
+        for (char c : k) {
+            if (c < '0' || c > '9') { digits = false; break; }
+            n = n * 10 + static_cast<unsigned long long>(c - '0');
+        }
+        if (!digits || n >= 0xFFFFFFFFULL) continue;
+        idx[i] = n;
+        isIdx[i] = 1;
+        any = true;
+    }
+    if (!any) return;
+    std::vector<size_t> order(entries.size());
+    for (size_t i = 0; i < order.size(); ++i) order[i] = i;
+    std::stable_sort(order.begin(), order.end(), [&](size_t a, size_t b) {
+        if (isIdx[a] != isIdx[b]) return isIdx[a] != 0;
+        return isIdx[a] && idx[a] < idx[b];
+    });
+    std::vector<std::pair<const proto::ProtoString*, const proto::ProtoObject*>> sorted;
+    sorted.reserve(entries.size());
+    for (size_t i : order) sorted.push_back(entries[i]);
+    entries.swap(sorted);
 }
 
 void sortSymbolsByCreation(proto::ProtoContext* ctx, std::vector<const proto::ProtoObject*>& syms) {

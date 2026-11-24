@@ -4,6 +4,12 @@
 // extensible, writable object, and literal forms the pass leaves alone
 // (spread, __proto__, methods, accessors, computed keys) mix correctly with
 // the ones it rewrites. The file passes unchanged under Node.js.
+//
+// Named string keys enumerate in protoCore's attribute order, not insertion
+// order: a documented deviation (docs/API_REFERENCE.md, "Property enumeration
+// order", decided 2026-10-02). The order is unspecified and changed with
+// protoCore 3.6.1, so no check here depends on the relative order of string
+// keys; the JSON round trip is compared by structure.
 
 let failures = 0;
 let checks = 0;
@@ -105,7 +111,18 @@ let asyncOk = false;
 
 // JSON round trip and Object.assign onto a literal.
 const j = { s: "x", n: 1.5, b: false, arr: [1, { k: "v" }], o: { deep: null } };
-check("JSON", JSON.stringify(JSON.parse(JSON.stringify(j))) === JSON.stringify(j));
+// Structural equality, independent of key order: same own keys, same values.
+function sameValue(x, y) {
+    if (x === null || y === null || typeof x !== "object" || typeof y !== "object")
+        return x === y;
+    if (Array.isArray(x) !== Array.isArray(y)) return false;
+    const kx = Object.keys(x).sort(), ky = Object.keys(y).sort();
+    if (kx.join("\u0000") !== ky.join("\u0000")) return false;
+    for (const k of kx) if (!sameValue(x[k], y[k])) return false;
+    return true;
+}
+check("JSON", sameValue(JSON.parse(JSON.stringify(j)), j) &&
+              sameValue(JSON.parse(JSON.stringify(JSON.parse(JSON.stringify(j)))), j));
 const target = { t: 1 };
 Object.assign(target, { u: 2 });
 check("Object.assign target", target.t === 1 && target.u === 2);

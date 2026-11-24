@@ -3,6 +3,7 @@
 
 #include "protoCore.h"
 #include <string>
+#include <utility>
 #include <vector>
 
 namespace protojs {
@@ -102,6 +103,16 @@ unsigned long long symbolSequence(proto::ProtoContext* ctx, const proto::ProtoOb
  * given, then symbol storage keys by creation number.
  */
 void orderOwnPropertyKeys(std::vector<std::string>& keys);
+/**
+ * Moves the entries whose key is a canonical array index ("0", "17", never
+ * "017") to the front, in ascending numeric order, and keeps the relative
+ * order of the others (ECMA-262 §10.1.11.1 OrdinaryOwnPropertyKeys step 2).
+ * protoCore's attribute order is unspecified, so the index keys of an
+ * ordinary object are ordered at enumeration, not taken from the walk.
+ */
+void orderIndexEntriesFirst(
+    proto::ProtoContext* ctx,
+    std::vector<std::pair<const proto::ProtoString*, const proto::ProtoObject*>>& entries);
 /** Stable-sorts Symbol values by creation number. */
 void sortSymbolsByCreation(proto::ProtoContext* ctx, std::vector<const proto::ProtoObject*>& syms);
 
